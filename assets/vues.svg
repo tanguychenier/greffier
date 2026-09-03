@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 330" width="880" height="330"
+     role="img" aria-labelledby="titre desc">
+  <title id="titre">Les cinq vues de la fenêtre de Greffier</title>
+  <desc id="desc">Une seule fenêtre, cinq onglets qui défilent : Réunions,
+    En direct, Voix, Conversation, Réglages. Chacun montre ce qu'il contient.</desc>
+
+  <style>
+    :root {
+      --fond: #ffffff; --encre: #1d1d20; --pale: #6e6e78;
+      --filet: #d2d2da; --accent: #3b4cca; --carte: #f5f5f7;
+      --vert: #1e8a58; --actif: #d64541;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fond: #1a1a1d; --encre: #f2f2f4; --pale: #9a9aa4;
+        --filet: #3d3d46; --accent: #7b8cf0; --carte: #242428;
+        --vert: #3fb47c; --actif: #e05c58;
+      }
+    }
+    .fond { fill: var(--fond); }
+    .carte { fill: var(--carte); stroke: var(--filet); stroke-width: 1; }
+    .barre { fill: var(--filet); }
+    .titre { fill: var(--encre); font: 600 13px -apple-system, "Segoe UI", system-ui, sans-serif; }
+    .note  { fill: var(--pale);  font: 400 11px -apple-system, "Segoe UI", system-ui, sans-serif; }
+    .onglet { fill: var(--pale); font: 500 12px -apple-system, "Segoe UI", system-ui, sans-serif; }
+    .actif  { fill: var(--accent); font: 600 12px -apple-system, "Segoe UI", system-ui, sans-serif; }
+
+    /* Cinq vues, deux secondes chacune : l'onglet choisi et son panneau
+       apparaissent ensemble, puis cèdent la place au suivant. */
+    .vue, .marque { animation: paraitre 10s linear infinite; opacity: 0; }
+    .v1 { animation-delay: 0s } .v2 { animation-delay: 2s } .v3 { animation-delay: 4s }
+    .v4 { animation-delay: 6s } .v5 { animation-delay: 8s }
+    @keyframes paraitre {
+      0%, 1%    { opacity: 0; }
+      3%, 18%   { opacity: 1; }
+      20%, 100% { opacity: 0; }
+    }
+    /* Le point d'enregistrement respire, comme dans la vraie fenêtre. */
+    #point { animation: respirer 2.4s ease-in-out infinite; }
+    @keyframes respirer { 0%,100% { opacity: 1 } 50% { opacity: 0.35 } }
+    @media (prefers-reduced-motion: reduce) {
+      .vue, .marque, #point { animation: none; }
+      .v1, .marque.v1 { opacity: 1; }
+      #point { opacity: 1; }
+    }
+  </style>
+
+  <rect class="fond" x="0" y="0" width="880" height="330" rx="10"/>
+  <text class="titre" x="24" y="30">Une seule fenêtre, cinq vues</text>
+  <text class="note"  x="24" y="48">Tout se fait sans terminal, et à l'identique sur macOS, Linux et Windows.</text>
+
+  <!-- Le cadre de la fenêtre -->
+  <rect class="carte" x="24" y="64" width="832" height="242" rx="10"/>
+
+  <!-- La barre du haut : point, sujet, vumètres, bouton -->
+  <circle id="point" cx="48" cy="92" r="5" fill="var(--actif)"/>
+  <text class="titre" x="62" y="96">réunion du mardi</text>
+  <rect class="barre" x="24" y="112" width="832" height="1"/>
+
+  <!-- Les onglets, avec la marque de celui qui est montré -->
+  <g>
+    <text class="onglet" x="48"  y="136">Réunions</text>
+    <text class="onglet" x="140" y="136">En direct</text>
+    <text class="onglet" x="228" y="136">Voix</text>
+    <text class="onglet" x="284" y="136">Conversation</text>
+    <text class="onglet" x="392" y="136">Réglages</text>
+    <text class="actif marque v1" x="48"  y="136">Réunions</text>
+    <text class="actif marque v2" x="140" y="136">En direct</text>
+    <text class="actif marque v3" x="228" y="136">Voix</text>
+    <text class="actif marque v4" x="284" y="136">Conversation</text>
+    <text class="actif marque v5" x="392" y="136">Réglages</text>
+  </g>
+  <rect class="barre" x="24" y="148" width="832" height="1"/>
+
+  <!-- 1. Réunions : une liste, et ce qu'on en fait -->
+  <g class="vue v1">
+    <text class="titre" x="48" y="176">Les réunions passées</text>
+    <rect class="barre" x="48" y="190" width="420" height="7" rx="3"/>
+    <rect class="barre" x="48" y="206" width="320" height="7" rx="3"/>
+    <rect class="barre" x="48" y="222" width="380" height="7" rx="3"/>
+    <text class="note" x="48" y="256">Rouvrir le compte rendu, relancer le traitement, renvoyer le courriel,</text>
+    <text class="note" x="48" y="274">écouter les passages marquants avec les vraies voix.</text>
+  </g>
+
+  <!-- 2. En direct : le fil de ce qui se dit -->
+  <g class="vue v2">
+    <text class="titre" x="48" y="176">Ce qui se dit, pendant que ça se dit</text>
+    <text class="note" x="48" y="200">Toi — « On garde la signature par cachet serveur ? »</text>
+    <text class="note" x="48" y="222">Voix 2 — « Oui, mais il faut tracer l'étape visa. »</text>
+    <text class="note" x="48" y="244">Toi — « Sandy, tu peux ouvrir le ticket ? »</text>
+    <text class="note" x="48" y="276">Un clic sur un nom corrige l'attribution — et la correction sert aussitôt.</text>
+  </g>
+
+  <!-- 3. Voix : nommer une fois, reconnaître ensuite -->
+  <g class="vue v3">
+    <text class="titre" x="48" y="176">Les voix, à nommer une seule fois</text>
+    <circle cx="60" cy="200" r="9" fill="var(--vert)" opacity="0.9"/>
+    <text class="note" x="80" y="204">Sophie — reconnue, 12 min de parole</text>
+    <circle cx="60" cy="228" r="9" fill="var(--accent)" opacity="0.9"/>
+    <text class="note" x="80" y="232">Voix 2 — écouter 10 s, taper un prénom</text>
+    <text class="note" x="48" y="272">Ensuite la banque la reconnaît seule, d'une réunion à l'autre.</text>
+  </g>
+
+  <!-- 4. Conversation : poser une question sur la réunion -->
+  <g class="vue v4">
+    <text class="titre" x="48" y="176">Poser une question sur la réunion</text>
+    <rect class="carte" x="48" y="192" width="500" height="30" rx="8"/>
+    <text class="note" x="62" y="212">Qu'est-ce qui a été décidé sur les relances ?</text>
+    <text class="note" x="48" y="248">La réponse s'appuie sur la transcription attribuée, pas sur un résumé.</text>
+    <text class="note" x="48" y="266">Ce qui n'a pas été dit est signalé comme tel.</text>
+  </g>
+
+  <!-- 5. Réglages : ce qui se change sans ouvrir un fichier -->
+  <g class="vue v5">
+    <text class="titre" x="48" y="176">Ce qui se règle sans ouvrir un fichier</text>
+    <rect class="carte" x="48" y="192" width="240" height="26" rx="7"/>
+    <text class="note" x="60" y="209">Micro — automatique</text>
+    <rect class="carte" x="304" y="192" width="240" height="26" rx="7"/>
+    <text class="note" x="316" y="209">Modèle — large-v3-turbo</text>
+    <rect class="carte" x="48" y="228" width="240" height="26" rx="7"/>
+    <text class="note" x="60" y="245">Thème — selon le système</text>
+    <rect class="carte" x="304" y="228" width="240" height="26" rx="7"/>
+    <text class="note" x="316" y="245">Rédacteur — second de la gamme</text>
+    <text class="note" x="48" y="282">Aucun bouton à valider : chaque changement s'applique et s'enregistre.</text>
+  </g>
+</svg>

@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 190" width="880" height="190"
+     role="img" aria-labelledby="titre desc">
+  <title id="titre">La chaîne de Greffier, étape par étape</title>
+  <desc id="desc">Six étapes enchaînées : enregistrer la réunion, la transcrire,
+    séparer les voix, leur donner un nom, rédiger le compte rendu, l'envoyer.
+    Seule la rédaction sort du poste.</desc>
+
+  <style>
+    /* Les couleurs suivent le thème du lecteur : GitHub et GitLab rendent ce
+       fichier tel quel, et un schéma clair sur fond sombre est illisible. */
+    :root {
+      --fond: #ffffff;   --encre: #1d1d20;   --pale: #6e6e78;
+      --filet: #d2d2da;  --accent: #3b4cca;  --carte: #f5f5f7;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fond: #1a1a1d; --encre: #f2f2f4; --pale: #9a9aa4;
+        --filet: #3d3d46; --accent: #7b8cf0; --carte: #242428;
+      }
+    }
+    .fond { fill: var(--fond); }
+    .carte { fill: var(--carte); stroke: var(--filet); stroke-width: 1; }
+    .titre { fill: var(--encre); font: 600 13px -apple-system, "Segoe UI", system-ui, sans-serif; }
+    .note  { fill: var(--pale);  font: 400 11px -apple-system, "Segoe UI", system-ui, sans-serif; }
+    .lien  { stroke: var(--filet); stroke-width: 2; fill: none; }
+    .halo  { fill: var(--accent); opacity: 0; }
+    .num   { fill: var(--accent); font: 600 11px -apple-system, "Segoe UI", system-ui, sans-serif; }
+
+    /* Chaque étape s'allume à son tour : six temps égaux sur douze secondes. */
+    .halo { animation: allumer 12s linear infinite; }
+    #h1 { animation-delay: 0s }    #h2 { animation-delay: 2s }
+    #h3 { animation-delay: 4s }    #h4 { animation-delay: 6s }
+    #h5 { animation-delay: 8s }    #h6 { animation-delay: 10s }
+    @keyframes allumer {
+      0%, 1%   { opacity: 0; }
+      3%, 14%  { opacity: 0.14; }
+      16%,100% { opacity: 0; }
+    }
+    /* Le jeton parcourt la chaîne au même rythme. */
+    #jeton { animation: avancer 12s linear infinite; }
+    @keyframes avancer {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(700px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .halo, #jeton { animation: none; }
+      #jeton { opacity: 0; }
+    }
+  </style>
+
+  <rect class="fond" x="0" y="0" width="880" height="190" rx="10"/>
+
+  <!-- Le fil qui relie les étapes, sous les cartes. -->
+  <path class="lien" d="M 110 78 H 770"/>
+  <circle id="jeton" cx="110" cy="78" r="4" fill="var(--accent)"/>
+
+  <g>
+    <!-- 1 -->
+    <rect class="carte" x="20" y="52" width="126" height="52" rx="9"/>
+    <rect id="h1" class="halo" x="20" y="52" width="126" height="52" rx="9"/>
+    <text class="num"   x="34" y="72">1</text>
+    <text class="titre" x="48" y="72">Enregistrer</text>
+    <text class="note"  x="34" y="92">ta voix et celle des autres</text>
+
+    <!-- 2 -->
+    <rect class="carte" x="160" y="52" width="126" height="52" rx="9"/>
+    <rect id="h2" class="halo" x="160" y="52" width="126" height="52" rx="9"/>
+    <text class="num"   x="174" y="72">2</text>
+    <text class="titre" x="188" y="72">Transcrire</text>
+    <text class="note"  x="174" y="92">en local, sur le processeur graphique</text>
+
+    <!-- 3 -->
+    <rect class="carte" x="300" y="52" width="126" height="52" rx="9"/>
+    <rect id="h3" class="halo" x="300" y="52" width="126" height="52" rx="9"/>
+    <text class="num"   x="314" y="72">3</text>
+    <text class="titre" x="328" y="72">Séparer les voix</text>
+    <text class="note"  x="314" y="92">empreintes vocales, recollées</text>
+
+    <!-- 4 -->
+    <rect class="carte" x="440" y="52" width="126" height="52" rx="9"/>
+    <rect id="h4" class="halo" x="440" y="52" width="126" height="52" rx="9"/>
+    <text class="num"   x="454" y="72">4</text>
+    <text class="titre" x="468" y="72">Nommer</text>
+    <text class="note"  x="454" y="92">les prénoms dits en réunion</text>
+
+    <!-- 5 -->
+    <rect class="carte" x="580" y="52" width="126" height="52" rx="9"/>
+    <rect id="h5" class="halo" x="580" y="52" width="126" height="52" rx="9"/>
+    <text class="num"   x="594" y="72">5</text>
+    <text class="titre" x="608" y="72">Rédiger</text>
+    <text class="note"  x="594" y="92">décisions, actions, questions</text>
+
+    <!-- 6 -->
+    <rect class="carte" x="720" y="52" width="126" height="52" rx="9"/>
+    <rect id="h6" class="halo" x="720" y="52" width="126" height="52" rx="9"/>
+    <text class="num"   x="734" y="72">6</text>
+    <text class="titre" x="748" y="72">Envoyer</text>
+    <text class="note"  x="734" y="92">par courriel, ou dans un dossier</text>
+  </g>
+
+  <text class="titre" x="20" y="30">De la parole au compte rendu</text>
+  <text class="note"  x="20" y="140">Tout se passe sur ce Mac, sauf l'étape 5 : la rédaction appelle un assistant en ligne de commande.</text>
+  <text class="note"  x="20" y="158">Elle se remplace par un modèle local, au prix d'une synthèse plus grossière.</text>
+  <text class="note"  x="20" y="176">1 min 16 de traitement pour 11,8 min d'audio, mesuré sur un Mac Apple Silicon.</text>
+</svg>
