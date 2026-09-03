@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Données de réunion : jamais dans le dépôt.
+enregistrements/
+transcripts/
+comptes-rendus/
+banque-de-voix/
+modeles/
+*.wav
+*.srt
+.DS_Store
+
+# Configuration locale : jamais dans le dépôt.
+.env

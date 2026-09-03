@@ -1,0 +1,79 @@
+[project]
+name = "greffier"
+version = "0.1.0"
+description = "Enregistre une réunion, identifie qui parle, en rédige le compte rendu — sans rien envoyer ailleurs."
+requires-python = ">=3.13"
+license = { text = "MIT" }
+dependencies = [
+    "pydantic>=2.9",          # modèles et validation, plutôt qu'un parsing maison
+    "pydantic-settings>=2.6", # configuration TOML + variables d'environnement
+    "typer>=0.15",            # interface en ligne de commande
+    "numpy>=2.0",             # empreintes vocales
+    "soundfile>=0.13",        # lecture des enregistrements
+    "sherpa-onnx>=1.13",      # segmentation et empreintes, en local
+]
+
+[project.optional-dependencies]
+service = ["fastapi>=0.115", "uvicorn>=0.32"]   # démon local pour l'app macOS
+# Transcription portable : whisper.cpp n'est empaqueté que sur macOS, où il est
+# nettement plus rapide (Metal). Ailleurs, faster-whisper fait le même travail
+# depuis Python, sur les trois systèmes.
+transcription = ["faster-whisper>=1.1"]
+# Icône de zone de notification pour Linux et Windows. macOS a son app native :
+dev = ["pytest>=8.3", "pytest-cov>=6.0", "ruff>=0.8", "mypy>=1.13"]
+
+[project.scripts]
+greffier = "greffier.cli:application"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/greffier"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Les tests d'intégration chargent les modèles et transcrivent réellement : ils
+# se comptent en minutes, contre quelques millisecondes pour le reste. Ils sont
+# donc exclus par défaut, et se lancent avec « pytest -m integration ».
+addopts = "-q -m 'not integration'"
+markers = [
+    "integration: chaîne réelle, avec les modèles et un fichier audio synthétisé",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# Typer déclare les options dans les valeurs par défaut : c'est sa signature,
+# pas une négligence.
+"src/greffier/cli.py" = ["B008"]
+# L'installeur doit tourner sur Python 3.9 — celui encore livré par défaut sur
+# beaucoup de postes — alors que le paquet, lui, exige 3.13. Ses gardes de
+# version ne sont donc pas obsolètes.
+"outils/installer.py" = ["UP036"]
+"src/greffier/config.py" = ["UP036"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+files = ["src/greffier"]
+
+# Les adaptateurs enveloppent des bibliothèques sans annotations — sherpa-onnx,
+# faster-whisper, soundfile. Exiger la rigueur là où elle ne peut pas être
+# tenue reviendrait à couvrir le code d'exceptions, ce qui la ferait perdre
+# partout ailleurs. Le cœur, lui, est strict sans concession.
+[[tool.mypy.overrides]]
+module = ["greffier.adaptateurs.*", "greffier.assistant", "greffier.diagnostic"]
+strict = false
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Bibliothèques sans annotations, ou absentes tant que l'extra n'est pas installé.
+module = ["sherpa_onnx.*", "soundfile.*", "faster_whisper.*"]
+ignore_missing_imports = true
