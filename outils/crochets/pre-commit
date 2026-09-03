@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Refuse un commit qui ne passe pas les contrôles.
+#
+# Trois fois de suite, une remarque de qualité est passée dans un commit parce
+# que les contrôles étaient lancés « à côté » plutôt qu'en travers du chemin.
+# Ici ils bloquent : c'est la seule façon fiable.
+#
+# Installation : outils/crochets/installer.sh
+# Contournement délibéré : git commit --no-verify
+set -euo pipefail
+
+DEPOT="$(git rev-parse --show-toplevel)"
+PYTHON="$DEPOT/.venv/bin/python"
+[ -x "$PYTHON" ] || { echo "⚠ environnement absent, contrôles ignorés"; exit 0; }
+
+echec=0
+controler() {
+  local nom="$1"; shift
+  if "$@" >/tmp/greffier-controle.$$ 2>&1; then
+    printf '  ✓ %s\n' "$nom"
+  else
+    printf '  ✗ %s\n' "$nom"
+    tail -12 /tmp/greffier-controle.$$
+    echec=1
+  fi
+  rm -f /tmp/greffier-controle.$$
+}
+
+echo "Contrôles avant commit"
+controler "ruff"   "$PYTHON" -m ruff check src tests outils
+controler "mypy"   "$PYTHON" -m mypy
+# Les tests d'intégration sont exclus : ils chargent 1,7 Go de modèles et se
+# comptent en dizaines de secondes. Ils tournent avant une fusion, pas ici.
+controler "pytest" "$PYTHON" -m pytest -q
+
+if [ $echec -ne 0 ]; then
+  echo
+  echo "Commit refusé. « git commit --no-verify » pour passer outre en connaissance de cause."
+  exit 1
+fi
