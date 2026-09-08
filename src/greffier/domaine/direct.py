@@ -38,7 +38,9 @@ from greffier.domaine.empreintes import (
     similarite,
 )
 from greffier.domaine.generiques import est_un_generique
+from greffier.domaine.langue import ProfilLinguistique
 from greffier.domaine.modeles import Empreinte, Intervalle, Personne, Replique
+from greffier.domaine.profils.neutre import NEUTRE
 
 #: Matière minimale pour **fonder** une voix. En deçà, une bribe rejoint la voix
 #: la plus ressemblante plutôt que d'inventer une personne. Mesuré sur une
@@ -279,6 +281,9 @@ class Fil:
     #: prise de parole qui n'atteint pas 0,75 crée une voix — inévitable sans
     #: cette information, et c'est la seule que la machine ne peut pas déduire.
     personnes: int | None = None
+    #: La langue de la réunion. Neutre par défaut, jamais française : c'est
+    #: l'appelant qui sait dans quelle langue on parle.
+    profil: ProfilLinguistique = NEUTRE
     tours: list[TourDirect] = field(default_factory=list)
     voix: dict[str, VoixDirecte] = field(default_factory=dict)
     #: Fin du dernier tour inscrit : ce qui commence avant a déjà été affiché.
@@ -330,7 +335,7 @@ class Fil:
             # Un générique inventé par le modèle n'a été prononcé par personne :
             # affiché, il occupe une ligne du fil et se retrouve dans le compte
             # rendu comme une prise de parole.
-            if est_un_generique(replique.texte):
+            if est_un_generique(replique.texte, self.profil):
                 continue
             duree = replique.intervalle.duree
             neuf = replique.intervalle.fin - max(replique.intervalle.debut, self.jusqu_a)

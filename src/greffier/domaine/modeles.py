@@ -14,6 +14,19 @@ from enum import StrEnum
 from pathlib import Path
 
 
+class TypeMention(StrEnum):
+    """Qui la mention désigne, relativement à celui qui la prononce.
+
+    Ici plutôt que dans `noms`, parce qu'un profil de langue décrit ses motifs
+    avec ces valeurs : les laisser dans `noms` ferait tourner en rond les deux
+    imports.
+    """
+
+    AUTO_PRESENTATION = "auto_presentation"   # le locuteur courant
+    INTERPELLATION = "interpellation"         # le locuteur suivant
+    RENVOI = "renvoi"                         # le locuteur précédent
+
+
 class Phase(StrEnum):
     """États traversés par une réunion, de l'enregistrement à l'envoi."""
 

@@ -23,7 +23,9 @@ import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from greffier.domaine.langue import ProfilLinguistique
 from greffier.domaine.modeles import Replique
+from greffier.domaine.profils.neutre import NEUTRE
 
 
 class Origine(StrEnum):
@@ -40,17 +42,6 @@ class Genre(StrEnum):
 # Adresses http(s) et chemins de dépôt collés. Volontairement strict : mieux
 # vaut rater un lien exotique que proposer d'ouvrir n'importe quoi.
 _LIEN = re.compile(r"https?://[^\s<>\"'()\[\]]{4,}")
-
-# Formulations qui annoncent une décision ou une suite à donner. Elles servent à
-# faire remonter les points à retenir pendant la réunion, pas à décider.
-_DECISIONS = [
-    re.compile(r"(?i:\bon (?:décide|acte|valide|part sur|retient)\b)"),
-    re.compile(r"(?i:\bil faut (?:qu[e']|absolument)\b)"),
-    re.compile(r"(?i:\bje (?:m'en charge|prends|note)\b)"),
-    re.compile(r"(?i:\b(?:action|à faire|suite à donner)\s*:)"),
-    re.compile(r"(?i:\bd'ici (?:lundi|mardi|mercredi|jeudi|vendredi|la semaine|le)\b)"),
-]
-
 
 @dataclass(frozen=True, slots=True)
 class Proposition:
@@ -98,9 +89,13 @@ def instruction_apres(texte: str, mot_cle: str) -> str | None:
     return suite or None
 
 
-def decisions_dans(texte: str) -> bool:
-    """Le passage annonce-t-il une décision ou une suite à donner ?"""
-    return any(motif.search(texte) for motif in _DECISIONS)
+def decisions_dans(texte: str, profil: ProfilLinguistique) -> bool:
+    """Le passage annonce-t-il une décision ou une suite à donner ?
+
+    Les tournures appartiennent à la langue. Une langue sans tournures relevées
+    n'en trouve aucune : la veille se tait plutôt que de proposer au hasard.
+    """
+    return any(motif.search(texte) for motif in profil.redaction.motifs_de_decision)
 
 
 @dataclass
@@ -108,6 +103,10 @@ class Veille:
     """Accumule les propositions d'une réunion, sans jamais rien répéter."""
 
     mot_cle: str = "greffier"
+    #: La langue de la réunion. Neutre par défaut, jamais française : c'est
+    #: l'appelant qui sait dans quelle langue on parle, et le supposer était
+    #: précisément ce que ce profil est venu retirer.
+    profil: ProfilLinguistique = NEUTRE
     propositions: list[Proposition] = field(default_factory=list)
     _vues: set[str] = field(default_factory=set)
 
@@ -134,7 +133,7 @@ class Veille:
                 # Une instruction explicite suffit : inutile de la reclasser
                 # aussi en décision.
                 continue
-            if decisions_dans(replique.texte):
+            if decisions_dans(replique.texte, self.profil):
                 candidate = Proposition(
                     genre=Genre.DECISION, texte=replique.texte.strip(), instant=instant,
                     origine=Origine.PAROLE, contexte="",

@@ -22,30 +22,7 @@ from __future__ import annotations
 import re
 import unicodedata
 
-#: Les formes rencontrées, à la casse, aux accents et à la ponctuation près.
-#: Ajouter une entrée demande de l'avoir **vue** dans un fil réel : une liste
-#: enflée finirait par retirer de la parole. La comparaison est **exacte** après
-#: normalisation, jamais par préfixe : « Merci d'avoir regardé le ticket, il est
-#: passé en recette » commence comme un générique et n'en est pas un — essayé,
-#: et cette phrase-là disparaissait.
-GENERIQUES: frozenset[str] = frozenset({
-    "sous titrage",
-    "sous titrage realise par",
-    "sous titrage realise par la communaute d amara org",
-    "sous titrage realise par la communaute d amara",
-    "sous titrage societe radio canada",
-    "sous titres realises par la communaute d amara org",
-    "sous titres realises par la communaute",
-    "sous titres realises par",
-    "sous titres par",
-    "traduction et sous titrage",
-    "amara org",
-    "merci d avoir regarde cette video",
-    "merci d avoir regarde",
-    "merci de votre attention",
-    "abonnez vous",
-    "n oubliez pas de vous abonner",
-})
+from greffier.domaine.langue import ProfilLinguistique
 
 _PONCTUATION = re.compile(r"[^\w\s]+", re.UNICODE)
 _ESPACES = re.compile(r"\s+")
@@ -64,6 +41,12 @@ def _nu(texte: str) -> str:
     return _ESPACES.sub(" ", _PONCTUATION.sub(" ", sans_accents)).strip()
 
 
-def est_un_generique(texte: str) -> bool:
-    """Vrai si toute la réplique est un générique inventé par le modèle."""
-    return _nu(texte) in GENERIQUES
+def est_un_generique(texte: str, profil: ProfilLinguistique) -> bool:
+    """Vrai si toute la réplique est un générique inventé par le modèle.
+
+    La liste appartient à la langue : les génériques sont ce que le modèle a
+    réellement écrit sur des silences, dans cette langue-là. Une langue sans
+    liste observée n'en écarte aucun — mieux vaut garder une phrase inventée
+    que retirer de la parole à quelqu'un sur une liste recopiée de mémoire.
+    """
+    return _nu(texte) in profil.redaction.generiques
