@@ -574,7 +574,7 @@ def etape_environnement(ctx, moteur):
     venv = DEPOT / ".venv"
     python = venv / ("Scripts/python.exe" if SYSTEME == "Windows" else "bin/python")
 
-    extras = "dev,service" + (",transcription" if moteur == "faster-whisper" else "")
+    extras = "dev" + (",transcription" if moteur == "faster-whisper" else "")
     if moteur == "faster-whisper" and carte_nvidia():
         # La carte seule ne suffit pas : CTranslate2 réclame cuBLAS et cuDNN,
         # qu'aucune distribution ne livre avec le pilote. Sans elles la

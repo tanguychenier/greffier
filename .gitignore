@@ -20,3 +20,8 @@ modeles/
 
 # Configuration locale : jamais dans le dépôt.
 .env
+
+# Artefacts de mesure, réécrits à chaque exécution.
+.coverage
+coverage.xml
+contexte/
