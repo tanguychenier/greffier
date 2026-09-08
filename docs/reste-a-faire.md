@@ -702,3 +702,50 @@ plutôt que d'inscrire une valeur inventée.
   traitement final) mais rien ne le suggère quand le compte détecté paraît trop
   élevé.
 
+
+## Première exécution sur un vrai poste Linux (2026-09-08)
+
+Ubuntu, PipeWire, GeForce GTX 1660 Ti, aucune bibliothèque CUDA installée.
+`python3 outils/installer.py --oui` va au bout : `uv` pose CPython 3.13.13, les
+modèles de segmentation et d'empreintes se téléchargent, `large-v3` est prêt, la
+configuration est écrite. Ce que la preuve en conteneur ne montrait pas, un
+poste de bureau l'a montré tout de suite.
+
+| Défaut | Ce qu'il coûtait | État |
+|---|---|---|
+| `device="auto"` retient la carte graphique sans vérifier cuBLAS | La chaîne **plantait** après huit minutes, `Library libcublas.so.12 is not found`, la réunion perdue au moment d'être transcrite | corrigé — repli sur le processeur, la panne du processeur restant, elle, visible |
+| L'interface demandait « DejaVu Sans » et « DejaVu Serif » | Le Tk que `uv` distribue est construit **sans fontconfig** : il n'expose que les familles X11 historiques, tout autre nom retombe sur `fixed`, une bitmap qui ne s'échelonne pas | corrigé — « Helvetica » et « Times », que Tk garantit sur les trois systèmes |
+| Les tailles de police étaient données en points | X11 annonce près de cent points par pouce quand macOS en annonce soixante-douze : la même interface grandissait d'un tiers, « Démarrer la réunion » débordait de son bouton, trois libellés dépassaient de leur cadre, dont un de 1341 px dans 787 px | corrigé — tailles négatives, donc en pixels, identiques partout |
+| La capture du son se jugeait sur la présence de `pactl` | Un poste avec PipeWire en marche mais sans `pulseaudio-utils` s'entendait dire que le son des autres ne pourrait pas être capté, alors que `ffmpeg -f pulse` y enregistre très bien — vérifié dans les deux sens, micro et moniteur | corrigé — on juge sur la prise du serveur, ou sur `PULSE_SERVER` |
+
+### Pourquoi la preuve en conteneur ne les avait pas trouvés
+
+`preuve-fenetre-linux.Dockerfile` pose le `python3-tk` de Debian : un Tk 8.6
+construit **avec** fontconfig, qui voit les sept familles DejaVu et les rend
+correctement. L'installeur, lui, pose l'interpréteur de `uv` et son Tk 9.0, qui
+n'en voit aucune. Les deux chemins sont légitimes ; seul le second est celui que
+suit quelqu'un qui installe Greffier. La preuve en conteneur reste utile — elle
+a bien montré que la fenêtre s'ouvre — mais elle ne dit rien du rendu.
+
+### La chaîne, mesurée
+
+Faute de `say`, le dialogue d'essai a été resynthétisé avec deux voix Piper puis
+passé dans la chaîne réelle : **115 mots, deux voix, « Jacques » et « Sandy »
+retrouvés**, ce que macOS obtient déjà. Huit minutes de calcul pour trente-huit
+secondes d'audio, `large-v3` en `int8` sur processeur — treize fois le temps
+réel. C'est le prix du repli, et il vaut mieux qu'un plantage ; installer
+`nvidia-cublas-cu12` et `nvidia-cudnn-cu12` rendrait la carte utilisable, au
+prix de deux gigaoctets de roues.
+
+### Reste ouvert, côté Linux
+
+- **`skills/greffier/SKILL.md` n'est pas dans le dépôt.** Trois tests de
+  `test_installeur.py` échouent sur un clone neuf, quel que soit le système :
+  le fichier existe sur le poste d'origine sans avoir jamais été suivi.
+- **`outils/fabriquer_reunion.py` dépend de `say`**, donc de macOS : dix-huit
+  tests d'intégration sont sautés ailleurs. Ils le sont d'ailleurs deux fois,
+  puisqu'ils exigent aussi `ggml-large-v3-turbo.bin` et `whisper-cli`, deux
+  artefacts de whisper.cpp — la chaîne Linux n'est donc jamais éprouvée par eux,
+  installation complète ou pas.
+- **Le thème suit macOS seulement** : `systeme_en_sombre()` rend `False` hors de
+  Darwin, donc un bureau en thème sombre reçoit quand même l'interface claire.
