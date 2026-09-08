@@ -29,6 +29,22 @@ class TranscripteurFasterWhisper:
         return self._modele
 
     def transcrire(self, audio: Path, langue: str, amorce: str) -> list[Replique]:
+        try:
+            return self._repliques(audio, langue, amorce)
+        except RuntimeError:
+            if self.peripherique == "cpu":
+                raise
+            # « auto » retient la carte graphique dès qu'il en voit une, sans
+            # vérifier que les bibliothèques CUDA l'accompagnent. Sur un poste
+            # doté d'une carte mais sans cuBLAS — le cas ordinaire sous Linux,
+            # où rien ne les installe — le modèle se chargeait sans broncher,
+            # puis la transcription échouait au premier bloc audio. Le
+            # processeur est plus lent, mais il transcrit.
+            self.peripherique = "cpu"
+            self._modele = None
+            return self._repliques(audio, langue, amorce)
+
+    def _repliques(self, audio: Path, langue: str, amorce: str) -> list[Replique]:
         segments, _ = self._charger().transcribe(  # type: ignore[attr-defined]
             str(audio),
             # None, pas la chaîne « auto » : faster-whisper refuse un code de
@@ -39,6 +55,9 @@ class TranscripteurFasterWhisper:
             # les silences — travers classique de whisper sur les longs blancs.
             vad_filter=True,
         )
+        # La liste est construite ici, et non rendue paresseusement : les
+        # segments sont un générateur, et c'est en le parcourant que le calcul a
+        # lieu — donc aussi qu'échoue une carte graphique inutilisable.
         return [
             Replique(intervalle=Intervalle(s.start, s.end), texte=s.text.strip())
             for s in segments
