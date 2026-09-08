@@ -748,6 +748,32 @@ bruit de fond.
 Aucun nom n'est inventé : personne ne se présentant dans ces entretiens, aucune
 voix n'est nommée, et c'est le comportement voulu.
 
+Puis une vraie réunion de travail, la plus dure des trois : **ES2002a du corpus
+AMI** (CC BY 4.0), vingt et une minutes, quatre personnes autour d'une table,
+et un seul canal où tout est mélangé — exactement la configuration que ce
+document signale plus bas comme celle où le canal ne désigne personne. La
+référence n'est pas discutable : le corpus livre quatre pistes de casque, pas
+une de plus.
+
+| | Attendu | Trouvé |
+|---|---|---|
+| Voix | 4 | **6** |
+| Mots | — | 2 499 |
+| Blocs « Indéterminé » | — | **42**, plus que n'importe quelle personne |
+| Temps de parole | — | deux voix en portent 92 % |
+
+La transcription, elle, tient : « I'm Lise and I'm the project manager », « Hi,
+I'm David and I'm supposed to be an industrial designer ». Ce sont précisément
+les phrases que l'attribution des noms cherche — mais les motifs sont français
+(`je m'appelle`, `moi c'est`, `je suis`), et rien ne les reconnaît en anglais.
+Ce n'est pas un défaut : l'outil est écrit pour des réunions en français. Cela
+mérite d'être dit, la langue de transcription étant réglable.
+
+Ce que cette mesure apporte : le point ouvert sur le nombre de participants
+n'est plus une impression. Sur un canal unique, sans nombre annoncé, quatre
+personnes en deviennent six, et deux passages sur cinq ne sont attribués à
+personne.
+
 Ce que la synthèse ne montrait pas : sans nombre de participants annoncé, le
 regroupement sur-découpe une vraie conversation. Le compte affiché reste juste,
 mais le corps de la transcription porte les étiquettes brutes.
