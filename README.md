@@ -1,8 +1,10 @@
 # Greffier
 
-Enregistre une réunion, identifie qui parle, en rédige le compte rendu.
-**Rien ne sort du poste** — la transcription et la reconnaissance des voix
-tournent en local, sur le processeur graphique du Mac.
+Enregistre une réunion, identifie qui parle, en rédige le compte rendu. La
+transcription et la reconnaissance des voix tournent **en local**, sur macOS,
+Linux et Windows — carte graphique là où il y en a une, processeur sinon. Seule
+la rédaction du compte rendu peut sortir du poste, et seulement si tu le veux :
+`ollama` la garde ici aussi.
 
 > Le greffier assiste à la séance, note qui a dit quoi, et produit le compte rendu.
 
@@ -17,7 +19,9 @@ audio de réunion → transcription → qui parle → noms → compte rendu → 
 - **Enregistrement** en deux canaux séparés (ton micro à gauche, les autres à
   droite) : en visio, distinguer ta voix de celle des autres est une certitude
   matérielle, pas une déduction.
-- **Transcription** par whisper.cpp accéléré Metal, modèle `large-v3-turbo`.
+- **Transcription** par le modèle `large-v3` : whisper.cpp accéléré Metal sur
+  macOS, faster-whisper ailleurs — sur la carte NVIDIA si elle est là, sur le
+  processeur sinon.
 - **Identification des voix** par empreinte vocale (pyannote + TitaNet), en local.
 - **Attribution des noms** : les participants se nomment entre eux pendant la
   réunion, l'outil relève ces indices et les recoupe. Personne n'a besoin de se
@@ -90,7 +94,13 @@ Python 3.9 suffit à le lancer.
 | Capter le son des autres | BlackHole (pilote à installer) | moniteur PipeWire/PulseAudio, **rien à installer** | boucle WASAPI, intégrée |
 | Rédaction du compte rendu | Ollama (local) ou un assistant en ligne de commande | idem | idem |
 | Envoi du compte rendu | Outlook déjà authentifié, sinon SMTP | SMTP | SMTP |
-| Interface | **la même fenêtre** (Tkinter) | idem | idem |
+| Interface | **la même fenêtre** (Tkinter) | idem, mais sans lissage des polices | idem |
+
+Sous Linux, la fenêtre s'affiche sans lissage des polices : le Tk que porte
+l'interpréteur posé par `uv` est construit sans Xft (`tk::pkgconfig get
+fontsystem` rend `x11`), et n'expose donc que les familles X11 historiques.
+Celui d'Apt en a un (`xft`), mais Greffier exige Python 3.13, qu'Ubuntu 24.04 ne
+livre pas. Le texte est lisible et à sa place ; il n'est pas net.
 
 Le cœur — transcription, identification des voix, attribution des noms, compte
 rendu — tourne à l'identique partout. Ce qui diffère est **la capture du son
