@@ -290,10 +290,9 @@ four people, one mixed channel, four headset tracks as an unarguable reference �
 four people come out as six. The transcription holds; the clustering
 over-splits. Numbers in [`docs/reste-a-faire.md`](docs/reste-a-faire.md).
 
-**Quality gate** — `ruff`, `mypy` and the tests, all three blocking. The
-pipeline lives in `.gitlab-ci.yml`, from where the project was hosted before,
-and replays the domain tests on every push; the full Linux installation runs on
-a schedule, being more expensive.
+**Quality gate** — `ruff`, `mypy` and the tests, all three blocking, replayed by
+`.github/workflows/ci.yml` on every push and every pull request. The full Linux
+installation proof downloads the models, so it stays on manual dispatch.
 
 ## Use
 
