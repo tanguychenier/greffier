@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 190" width="880" height="190"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 200" width="880" height="200"
      role="img" aria-labelledby="titre desc">
-  <title id="titre">La chaîne de Greffier, étape par étape</title>
-  <desc id="desc">Six étapes enchaînées : enregistrer la réunion, la transcrire,
-    séparer les voix, leur donner un nom, rédiger le compte rendu, l'envoyer.
-    Seule la rédaction sort du poste.</desc>
+  <title id="titre">Greffier's chain, step by step</title>
+  <desc id="desc">Six chained steps: record the meeting, transcribe it, separate
+    the voices, give them a name, write the minutes, send them. Only the writing
+    leaves the machine.</desc>
 
   <style>
     /* Les couleurs suivent le thème du lecteur : GitHub et GitLab rendent ce
@@ -22,6 +22,10 @@
     .carte { fill: var(--carte); stroke: var(--filet); stroke-width: 1; }
     .titre { fill: var(--encre); font: 600 13px -apple-system, "Segoe UI", system-ui, sans-serif; }
     .note  { fill: var(--pale);  font: 400 11px -apple-system, "Segoe UI", system-ui, sans-serif; }
+    /* Les notes des cartes sont sur deux lignes, et plus petites que celles du
+       pied : sur une seule ligne, chacune débordait de sa carte — la plus longue
+       de cent pixels — et se posait sur la suivante. */
+    .dedans { fill: var(--pale); font: 400 10px -apple-system, "Segoe UI", system-ui, sans-serif; }
     .lien  { stroke: var(--filet); stroke-width: 2; fill: none; }
     .halo  { fill: var(--accent); opacity: 0; }
     .num   { fill: var(--accent); font: 600 11px -apple-system, "Segoe UI", system-ui, sans-serif; }
@@ -48,58 +52,64 @@
     }
   </style>
 
-  <rect class="fond" x="0" y="0" width="880" height="190" rx="10"/>
+  <rect class="fond" x="0" y="0" width="880" height="200" rx="10"/>
 
   <!-- Le fil qui relie les étapes, sous les cartes. -->
-  <path class="lien" d="M 110 78 H 770"/>
-  <circle id="jeton" cx="110" cy="78" r="4" fill="var(--accent)"/>
+  <path class="lien" d="M 110 79 H 770"/>
+  <circle id="jeton" cx="110" cy="79" r="4" fill="var(--accent)"/>
 
   <g>
     <!-- 1 -->
-    <rect class="carte" x="20" y="52" width="126" height="52" rx="9"/>
-    <rect id="h1" class="halo" x="20" y="52" width="126" height="52" rx="9"/>
-    <text class="num"   x="34" y="72">1</text>
-    <text class="titre" x="48" y="72">Enregistrer</text>
-    <text class="note"  x="34" y="92">ta voix et celle des autres</text>
+    <rect class="carte" x="20" y="48" width="126" height="62" rx="9"/>
+    <rect id="h1" class="halo" x="20" y="48" width="126" height="62" rx="9"/>
+    <text class="num"    x="34" y="68">1</text>
+    <text class="titre"  x="48" y="68">Record</text>
+    <text class="dedans" x="34" y="87">your voice and</text>
+    <text class="dedans" x="34" y="100">everyone else's</text>
 
     <!-- 2 -->
-    <rect class="carte" x="160" y="52" width="126" height="52" rx="9"/>
-    <rect id="h2" class="halo" x="160" y="52" width="126" height="52" rx="9"/>
-    <text class="num"   x="174" y="72">2</text>
-    <text class="titre" x="188" y="72">Transcrire</text>
-    <text class="note"  x="174" y="92">en local, sur le processeur graphique</text>
+    <rect class="carte" x="160" y="48" width="126" height="62" rx="9"/>
+    <rect id="h2" class="halo" x="160" y="48" width="126" height="62" rx="9"/>
+    <text class="num"    x="174" y="68">2</text>
+    <text class="titre"  x="188" y="68">Transcribe</text>
+    <text class="dedans" x="174" y="87">locally, on the card</text>
+    <text class="dedans" x="174" y="100">or the processor</text>
 
     <!-- 3 -->
-    <rect class="carte" x="300" y="52" width="126" height="52" rx="9"/>
-    <rect id="h3" class="halo" x="300" y="52" width="126" height="52" rx="9"/>
-    <text class="num"   x="314" y="72">3</text>
-    <text class="titre" x="328" y="72">Séparer les voix</text>
-    <text class="note"  x="314" y="92">empreintes vocales, recollées</text>
+    <rect class="carte" x="300" y="48" width="126" height="62" rx="9"/>
+    <rect id="h3" class="halo" x="300" y="48" width="126" height="62" rx="9"/>
+    <text class="num"    x="314" y="68">3</text>
+    <text class="titre"  x="328" y="68">Split voices</text>
+    <text class="dedans" x="314" y="87">voice prints,</text>
+    <text class="dedans" x="314" y="100">re-merged</text>
 
     <!-- 4 -->
-    <rect class="carte" x="440" y="52" width="126" height="52" rx="9"/>
-    <rect id="h4" class="halo" x="440" y="52" width="126" height="52" rx="9"/>
-    <text class="num"   x="454" y="72">4</text>
-    <text class="titre" x="468" y="72">Nommer</text>
-    <text class="note"  x="454" y="92">les prénoms dits en réunion</text>
+    <rect class="carte" x="440" y="48" width="126" height="62" rx="9"/>
+    <rect id="h4" class="halo" x="440" y="48" width="126" height="62" rx="9"/>
+    <text class="num"    x="454" y="68">4</text>
+    <text class="titre"  x="468" y="68">Name</text>
+    <text class="dedans" x="454" y="87">first names spoken</text>
+    <text class="dedans" x="454" y="100">during the meeting</text>
 
     <!-- 5 -->
-    <rect class="carte" x="580" y="52" width="126" height="52" rx="9"/>
-    <rect id="h5" class="halo" x="580" y="52" width="126" height="52" rx="9"/>
-    <text class="num"   x="594" y="72">5</text>
-    <text class="titre" x="608" y="72">Rédiger</text>
-    <text class="note"  x="594" y="92">décisions, actions, questions</text>
+    <rect class="carte" x="580" y="48" width="126" height="62" rx="9"/>
+    <rect id="h5" class="halo" x="580" y="48" width="126" height="62" rx="9"/>
+    <text class="num"    x="594" y="68">5</text>
+    <text class="titre"  x="608" y="68">Write</text>
+    <text class="dedans" x="594" y="87">decisions, actions,</text>
+    <text class="dedans" x="594" y="100">questions</text>
 
     <!-- 6 -->
-    <rect class="carte" x="720" y="52" width="126" height="52" rx="9"/>
-    <rect id="h6" class="halo" x="720" y="52" width="126" height="52" rx="9"/>
-    <text class="num"   x="734" y="72">6</text>
-    <text class="titre" x="748" y="72">Envoyer</text>
-    <text class="note"  x="734" y="92">par courriel, ou dans un dossier</text>
+    <rect class="carte" x="720" y="48" width="126" height="62" rx="9"/>
+    <rect id="h6" class="halo" x="720" y="48" width="126" height="62" rx="9"/>
+    <text class="num"    x="734" y="68">6</text>
+    <text class="titre"  x="748" y="68">Send</text>
+    <text class="dedans" x="734" y="87">by mail, or</text>
+    <text class="dedans" x="734" y="100">into a folder</text>
   </g>
 
-  <text class="titre" x="20" y="30">De la parole au compte rendu</text>
-  <text class="note"  x="20" y="140">Tout se passe sur ce Mac, sauf l'étape 5 : la rédaction appelle un assistant en ligne de commande.</text>
-  <text class="note"  x="20" y="158">Elle se remplace par un modèle local, au prix d'une synthèse plus grossière.</text>
-  <text class="note"  x="20" y="176">1 min 16 de traitement pour 11,8 min d'audio, mesuré sur un Mac Apple Silicon.</text>
+  <text class="titre" x="20" y="30">From speech to minutes</text>
+  <text class="note"  x="20" y="146">Everything happens on this machine except step 5: the writing calls a command-line assistant.</text>
+  <text class="note"  x="20" y="164">A local model replaces it, at the price of a coarser summary.</text>
+  <text class="note"  x="20" y="182">1 min 16 of processing for 11.8 min of audio, measured on an Apple Silicon Mac.</text>
 </svg>

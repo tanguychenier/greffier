@@ -1,8 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 330" width="880" height="330"
      role="img" aria-labelledby="titre desc">
-  <title id="titre">Les cinq vues de la fenêtre de Greffier</title>
-  <desc id="desc">Une seule fenêtre, cinq onglets qui défilent : Réunions,
-    En direct, Voix, Conversation, Réglages. Chacun montre ce qu'il contient.</desc>
+  <title id="titre">The five views of Greffier's window</title>
+  <desc id="desc">One window, five tabs cycling through: Réunions, En direct,
+    Voix, Conversation, Réglages. Each one shows what it holds. The window itself
+    is in French.</desc>
 
   <style>
     :root {
@@ -23,7 +24,12 @@
     .titre { fill: var(--encre); font: 600 13px -apple-system, "Segoe UI", system-ui, sans-serif; }
     .note  { fill: var(--pale);  font: 400 11px -apple-system, "Segoe UI", system-ui, sans-serif; }
     .onglet { fill: var(--pale); font: 500 12px -apple-system, "Segoe UI", system-ui, sans-serif; }
-    .actif  { fill: var(--accent); font: 600 12px -apple-system, "Segoe UI", system-ui, sans-serif; }
+    /* Même graisse que « .onglet », et non plus gras : le libellé actif se
+       superpose au libellé inerte, et en gras il était de quatre à douze
+       pixels plus large — « En direct » se lisait « En direcct ». La sélection
+       se dit par le soulignement, comme dans la vraie fenêtre. */
+    .actif  { fill: var(--accent); font: 500 12px -apple-system, "Segoe UI", system-ui, sans-serif; }
+    .souligne { fill: var(--accent); }
 
     /* Cinq vues, deux secondes chacune : l'onglet choisi et son panneau
        apparaissent ensemble, puis cèdent la place au suivant. */
@@ -46,8 +52,8 @@
   </style>
 
   <rect class="fond" x="0" y="0" width="880" height="330" rx="10"/>
-  <text class="titre" x="24" y="30">Une seule fenêtre, cinq vues</text>
-  <text class="note"  x="24" y="48">Tout se fait sans terminal, et à l'identique sur macOS, Linux et Windows.</text>
+  <text class="titre" x="24" y="30">One window, five views</text>
+  <text class="note"  x="24" y="48">Everything without a terminal, the same on macOS, Linux and Windows. The window is in French.</text>
 
   <!-- Le cadre de la fenêtre -->
   <rect class="carte" x="24" y="64" width="832" height="242" rx="10"/>
@@ -69,50 +75,55 @@
     <text class="actif marque v3" x="228" y="136">Voix</text>
     <text class="actif marque v4" x="284" y="136">Conversation</text>
     <text class="actif marque v5" x="392" y="136">Réglages</text>
+    <rect class="souligne marque v1" x="48"  y="142" width="55" height="2" rx="1"/>
+    <rect class="souligne marque v2" x="140" y="142" width="55" height="2" rx="1"/>
+    <rect class="souligne marque v3" x="228" y="142" width="25" height="2" rx="1"/>
+    <rect class="souligne marque v4" x="284" y="142" width="78" height="2" rx="1"/>
+    <rect class="souligne marque v5" x="392" y="142" width="54" height="2" rx="1"/>
   </g>
   <rect class="barre" x="24" y="148" width="832" height="1"/>
 
   <!-- 1. Réunions : une liste, et ce qu'on en fait -->
   <g class="vue v1">
-    <text class="titre" x="48" y="176">Les réunions passées</text>
+    <text class="titre" x="48" y="176">Past meetings</text>
     <rect class="barre" x="48" y="190" width="420" height="7" rx="3"/>
     <rect class="barre" x="48" y="206" width="320" height="7" rx="3"/>
     <rect class="barre" x="48" y="222" width="380" height="7" rx="3"/>
-    <text class="note" x="48" y="256">Rouvrir le compte rendu, relancer le traitement, renvoyer le courriel,</text>
-    <text class="note" x="48" y="274">écouter les passages marquants avec les vraies voix.</text>
+    <text class="note" x="48" y="256">Reopen the minutes, run the processing again, send the mail again,</text>
+    <text class="note" x="48" y="274">listen to the notable passages in the real voices.</text>
   </g>
 
   <!-- 2. En direct : le fil de ce qui se dit -->
   <g class="vue v2">
-    <text class="titre" x="48" y="176">Ce qui se dit, pendant que ça se dit</text>
+    <text class="titre" x="48" y="176">What is being said, while it is being said</text>
     <text class="note" x="48" y="200">Toi — « On garde la signature par cachet serveur ? »</text>
     <text class="note" x="48" y="222">Voix 2 — « Oui, mais il faut tracer l'étape visa. »</text>
     <text class="note" x="48" y="244">Toi — « Sandy, tu peux ouvrir le ticket ? »</text>
-    <text class="note" x="48" y="276">Un clic sur un nom corrige l'attribution — et la correction sert aussitôt.</text>
+    <text class="note" x="48" y="276">Clicking a name corrects the attribution, and the correction serves at once.</text>
   </g>
 
   <!-- 3. Voix : nommer une fois, reconnaître ensuite -->
   <g class="vue v3">
-    <text class="titre" x="48" y="176">Les voix, à nommer une seule fois</text>
+    <text class="titre" x="48" y="176">The voices, named just once</text>
     <circle cx="60" cy="200" r="9" fill="var(--vert)" opacity="0.9"/>
     <text class="note" x="80" y="204">Sophie — reconnue, 12 min de parole</text>
     <circle cx="60" cy="228" r="9" fill="var(--accent)" opacity="0.9"/>
     <text class="note" x="80" y="232">Voix 2 — écouter 10 s, taper un prénom</text>
-    <text class="note" x="48" y="272">Ensuite la banque la reconnaît seule, d'une réunion à l'autre.</text>
+    <text class="note" x="48" y="272">The bank then recognises them on its own, from one meeting to the next.</text>
   </g>
 
   <!-- 4. Conversation : poser une question sur la réunion -->
   <g class="vue v4">
-    <text class="titre" x="48" y="176">Poser une question sur la réunion</text>
+    <text class="titre" x="48" y="176">Asking a question about the meeting</text>
     <rect class="carte" x="48" y="192" width="500" height="30" rx="8"/>
     <text class="note" x="62" y="212">Qu'est-ce qui a été décidé sur les relances ?</text>
-    <text class="note" x="48" y="248">La réponse s'appuie sur la transcription attribuée, pas sur un résumé.</text>
-    <text class="note" x="48" y="266">Ce qui n'a pas été dit est signalé comme tel.</text>
+    <text class="note" x="48" y="248">The answer leans on the attributed transcription, not on a summary.</text>
+    <text class="note" x="48" y="266">What was not said is flagged as such.</text>
   </g>
 
   <!-- 5. Réglages : ce qui se change sans ouvrir un fichier -->
   <g class="vue v5">
-    <text class="titre" x="48" y="176">Ce qui se règle sans ouvrir un fichier</text>
+    <text class="titre" x="48" y="176">What is set without opening a file</text>
     <rect class="carte" x="48" y="192" width="240" height="26" rx="7"/>
     <text class="note" x="60" y="209">Micro — automatique</text>
     <rect class="carte" x="304" y="192" width="240" height="26" rx="7"/>
@@ -121,6 +132,6 @@
     <text class="note" x="60" y="245">Thème — selon le système</text>
     <rect class="carte" x="304" y="228" width="240" height="26" rx="7"/>
     <text class="note" x="316" y="245">Rédacteur — second de la gamme</text>
-    <text class="note" x="48" y="282">Aucun bouton à valider : chaque changement s'applique et s'enregistre.</text>
+    <text class="note" x="48" y="282">No button to confirm: every change applies and is saved.</text>
   </g>
 </svg>
