@@ -798,3 +798,16 @@ change pas : seule la durée bouge.
   installation complète ou pas.
 - **Le thème suit macOS seulement** : `systeme_en_sombre()` rend `False` hors de
   Darwin, donc un bureau en thème sombre reçoit quand même l'interface claire.
+- **La fenêtre n'a pas de lissage des polices**, et rien dans le code ne peut
+  le lui donner : le Tk de l'interpréteur posé par `uv` est construit sans Xft
+  — `tk::pkgconfig get fontsystem` rend `x11`, et `tkfont.families()` ne
+  compte que 48 familles, aucune DejaVu. Le Tk d'Apt, lui, rend `xft`, voit
+  sept familles DejaVu et lisse. Le texte est donc lisible et à sa place,
+  mais pas net.
+
+  Une piste, qui est une décision et non un correctif : tout le source
+  compile sous Python 3.12 (`python3 -m compileall src outils tests` passe, et
+  rien n'emploie d'API propre à 3.13), or Ubuntu 24.04 — la LTS la plus
+  répandue — ne livre que 3.12. Abaisser `requires-python` à `>=3.12`
+  permettrait d'y employer le Python du système, avec son Tk lissé. À peser
+  contre le paquet macOS, qui repose sur l'interpréteur relogeable de `uv`.
