@@ -14,7 +14,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-service = ["fastapi>=0.115", "uvicorn>=0.32"]   # démon local pour l'app macOS
 # Transcription portable : whisper.cpp n'est empaqueté que sur macOS, où il est
 # nettement plus rapide (Metal). Ailleurs, faster-whisper fait le même travail
 # depuis Python, sur les trois systèmes.

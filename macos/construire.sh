@@ -35,7 +35,18 @@
 set -euo pipefail
 
 DEPOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# L'identifiant du paquet est ce sur quoi repose l'exigence de code de la
+# signature : c'est lui qui fait qu'une autorisation donnée une fois tient. Il
+# revendiquait « com.tansoftware.greffier », c'est-à-dire le domaine d'un
+# employeur, sur un dépôt personnel et public. En changer coûte une chose, une
+# seule fois : macOS voit une nouvelle application et redemande le micro.
 IDENTIFIANT="com.tansoftware.greffier"
+
+# La version du paquet suit celle du projet, lue dans pyproject.toml. Elle était
+# écrite en dur ici, et les deux avaient divergé — 0.3.0 dans l'Info.plist pour
+# 0.1.0 dans le paquet Python.
+VERSION_PRODUIT="$(sed -n 's/^version = "\(.*\)"/\1/p' "$DEPOT/pyproject.toml" | head -1)"
 
 # /Applications et non ~/Applications : ce dernier n'est pas indexé par
 # Spotlight ni parcouru par le Launchpad, donc l'application y est installée
@@ -159,7 +170,7 @@ cat > "$CONTENU/Info.plist" <<PLIST
   <key>CFBundleExecutable</key>        <string>Greffier</string>
   <key>CFBundleIconFile</key>          <string>Greffier</string>
   <key>CFBundlePackageType</key>       <string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.3.0</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION_PRODUIT</string>
   <key>LSMinimumSystemVersion</key>    <string>13.0</string>
   <key>NSHighResolutionCapable</key>   <true/>
   <!-- Jamais de terminaison silencieuse par le système : la fenêtre porte la
