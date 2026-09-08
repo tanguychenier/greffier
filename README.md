@@ -366,18 +366,35 @@ Hexagonal — the domain at the centre, the techniques around it.
 ```
 src/greffier/
 ├── domaine/       business core, no dependency: models, name attribution rules,
-│                  voice print matching. Testable without audio.
+│                  voice print matching, language profiles, what a machine can
+│                  run. Testable without audio, without a disk, without a card.
 ├── ports/         interfaces the domain expects (Protocol)
 ├── application/   use cases: orchestration of the ports
-├── adaptateurs/   ffmpeg, whisper.cpp, sherpa-onnx, AI writer, Outlook, CoreAudio
+├── adaptateurs/   ffmpeg, whisper.cpp, sherpa-onnx, AI writer, Outlook,
+│                  CoreAudio, configuration, system diagnosis, terminal wizard
 ├── interface/     the window (Tkinter): palette, drawn shapes, screens
-└── cli.py         command-line interface (Typer)
+├── cli.py         command-line interface (Typer) — a primary adapter
+├── composition.py the composition root: the only module that knows both the
+│                  concrete adapters and the use cases, so it sits outside the
+│                  layers rather than in one of them
+└── emplacements.py where files live per system. An adapter by nature, kept here
+                   because its path is a published contract: outils/installer.py
+                   loads it literally, under Python 3.9, before anything exists
 macos/             audio device creation (Swift) and the .app bundle
+outils/            the installer and the proof harnesses
+skills/            what a coding assistant needs to repair an installation
 ```
 
 The domain knows nothing of whisper, ffmpeg or Outlook. That is what makes it
 possible to test the name attribution rules on hand-written sentences, in a few
 milliseconds, without a 1.6 GB model.
+
+None of that is held by good intentions. `tests/architecture/test_couches.py`
+reads the imports with `ast` — late imports written inside functions included,
+which is how they came back — and fails on a domain that touches the world, on
+a use case that reaches for an adapter, and on any new module settling at the
+package root. Six had settled there before it existed, and the tree above
+described one of them.
 
 ## Distributing
 
