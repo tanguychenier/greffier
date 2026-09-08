@@ -8,6 +8,7 @@ sous-titrées et comble les silences avec ce qu'il y a le plus vu.
 import pytest
 
 from greffier.domaine.generiques import est_un_generique
+from greffier.domaine.profils.francais import FRANCAIS
 
 
 class TestCeQuiEstEcarte:
@@ -22,7 +23,7 @@ class TestCeQuiEstEcarte:
         "  Sous-titrage.  ",
     ])
     def test_un_generique_entier_part(self, texte):
-        assert est_un_generique(texte)
+        assert est_un_generique(texte, FRANCAIS)
 
 
 class TestCeQuiReste:
@@ -36,7 +37,7 @@ class TestCeQuiReste:
     ])
     def test_la_parole_reelle_reste(self, texte):
         """Mieux vaut laisser passer un générique que perdre une décision."""
-        assert not est_un_generique(texte)
+        assert not est_un_generique(texte, FRANCAIS)
 
     @pytest.mark.parametrize("texte", [
         "Merci d'avoir regardé le ticket, il est passé en recette.",
@@ -47,4 +48,4 @@ class TestCeQuiReste:
     def test_une_phrase_qui_commence_comme_un_generique_mais_continue(self, texte):
         """Le piège de la correspondance par préfixe : cette phrase-là
         disparaissait, alors qu'elle porte une information."""
-        assert not est_un_generique(texte)
+        assert not est_un_generique(texte, FRANCAIS)

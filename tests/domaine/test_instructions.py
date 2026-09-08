@@ -9,6 +9,7 @@ from greffier.domaine.instructions import (
     liens_dans,
 )
 from greffier.domaine.modeles import Intervalle, Replique
+from greffier.domaine.profils.francais import FRANCAIS
 
 
 def replique(debut, texte):
@@ -60,51 +61,51 @@ class TestDecisions:
     def test_les_formulations_de_decision_sont_reperees(self):
         for texte in ["on décide de décaler", "il faut qu'on prévienne",
                       "je m'en charge", "à faire : relancer", "d'ici jeudi"]:
-            assert decisions_dans(texte), texte
+            assert decisions_dans(texte, FRANCAIS), texte
 
     def test_une_phrase_ordinaire_n_est_pas_une_decision(self):
-        assert not decisions_dans("le déploiement s'est bien passé hier")
+        assert not decisions_dans("le déploiement s'est bien passé hier", FRANCAIS)
 
 
 class TestVeille:
     def test_une_instruction_est_relevee_une_seule_fois(self):
         """La transcription au fil de l'eau repasse sur les mêmes passages."""
-        veille = Veille()
+        veille = Veille(profil=FRANCAIS)
         repliques = [replique(10, "Greffier, ouvre le ticket 1234")]
         assert len(veille.ecouter(repliques)) == 1
         assert veille.ecouter(repliques) == []
 
     def test_un_lien_colle_deux_fois_n_est_proposé_qu_une(self):
-        veille = Veille()
+        veille = Veille(profil=FRANCAIS)
         assert len(veille.coller("https://miro.com/x", 5)) == 1
         assert veille.coller("https://miro.com/x", 30) == []
 
     def test_l_origine_est_conservee(self):
         """Le presse-papier est exact, la parole est transcrite : la fiabilité
         n'est pas la même et le lecteur doit pouvoir en juger."""
-        veille = Veille()
+        veille = Veille(profil=FRANCAIS)
         veille.coller("https://a.fr", 1)
         veille.ecouter([replique(2, "Greffier, note le sujet")])
         origines = {p.origine for p in veille.propositions}
         assert origines == {Origine.PRESSE_PAPIER, Origine.PAROLE}
 
     def test_une_instruction_n_est_pas_reclassee_en_decision(self):
-        veille = Veille()
+        veille = Veille(profil=FRANCAIS)
         veille.ecouter([replique(3, "Greffier, note qu'il faut qu'on relance")])
         assert [p.genre for p in veille.propositions] == [Genre.INSTRUCTION]
 
     def test_le_contexte_de_l_instruction_est_gardé(self):
-        veille = Veille()
+        veille = Veille(profil=FRANCAIS)
         veille.ecouter([replique(3, "Bon, Greffier, ouvre le tableau")])
         assert "Bon," in veille.propositions[0].contexte
 
     def test_on_peut_choisir_un_autre_mot_d_activation(self):
-        veille = Veille(mot_cle="assistant")
+        veille = Veille(mot_cle="assistant", profil=FRANCAIS)
         veille.ecouter([replique(1, "Assistant, note ce point")])
         assert veille.propositions[0].texte == "note ce point"
 
     def test_le_tri_par_genre(self):
-        veille = Veille()
+        veille = Veille(profil=FRANCAIS)
         veille.coller("https://a.fr https://b.fr", 1)
         veille.ecouter([replique(2, "on décide de reporter la mise en production")])
         assert len(veille.par_genre(Genre.LIEN)) == 2

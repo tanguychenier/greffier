@@ -14,9 +14,12 @@ from pathlib import Path
 
 from greffier.domaine import empreintes as voix_domaine
 from greffier.domaine import noms as noms_domaine
+from greffier.domaine import profils
 from greffier.domaine.attribution import voix_de
 from greffier.domaine.generiques import est_un_generique
+from greffier.domaine.langue import ProfilLinguistique
 from greffier.domaine.modeles import Intervalle, Phase, Replique, TourDeParole
+from greffier.domaine.profils.neutre import NEUTRE
 from greffier.ports import sortants
 
 # En dessous, tous les canaux sont considérés muets et il n'y a rien à
@@ -62,10 +65,19 @@ class Resultat:
     #: Constats de la veille sur le matériel, pour que régénérer la rédaction
     #: plus tard n'y perde pas ce que la première rédaction savait.
     evenements_materiel: list[str] = field(default_factory=list)
+    #: La langue dans laquelle la réunion s'est tenue, telle que la chaîne l'a
+    #: résolue. Neutre tant que la transcription n'a pas eu lieu.
+    profil: ProfilLinguistique = NEUTRE
 
     @property
     def mots(self) -> int:
-        return sum(len(r.texte.split()) for r in self.repliques)
+        """Le nombre de mots, compté comme la langue les sépare.
+
+        Compter les espaces refusait une transcription chinoise, japonaise ou
+        thaï parfaitement valable : elle tombait sous le seuil et la chaîne
+        s'interrompait sur « Transcription quasi vide », avant de rédiger.
+        """
+        return sum(self.profil.decoupage.compter(r.texte) for r in self.repliques)
 
     def nom_de(self, voix: str | None) -> str:
         if voix is None:
@@ -276,7 +288,9 @@ class Traitement:
         collègue est une certitude. Une seule des deux reste une proposition :
         mieux vaut demander que d'écrire un nom inventé dans un compte rendu.
         """
-        mentions = noms_domaine.reperer_mentions(repliques, self.pas_des_prenoms)
+        mentions = noms_domaine.reperer_mentions(
+            repliques, resultat.profil, self.pas_des_prenoms
+        )
         attribution = noms_domaine.attribuer(mentions, tours)
 
         for voix, nom in depuis_banque.items():
@@ -339,7 +353,9 @@ class Traitement:
         # Les génériques que le modèle invente sur signal faible — « Sous-titrage
         # réalisé par… » — n'ont été prononcés par personne. Les garder revenait
         # à les attribuer à quelqu'un dans le compte rendu.
-        resultat.repliques = [r for r in brutes if not est_un_generique(r.texte)]
+        profil = profils.pour(self.langue)
+        resultat.profil = profil
+        resultat.repliques = [r for r in brutes if not est_un_generique(r.texte, profil)]
         if resultat.mots < MOTS_MINIMUM:
             raise ChaineInterrompue(
                 Phase.ECHEC,
