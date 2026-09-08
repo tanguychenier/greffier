@@ -1,839 +1,835 @@
-# Ce qui reste à faire
+# What remains to be done
 
-État au 2026-09-01, après la correction des trois derniers défauts du
-diagnostic initial (segmentation, proposition perdue, texte du direct).
+State as of 2026-09-01, after the fix of the last three defects of the initial
+diagnosis (segmentation, lost proposal, live text).
 
-Les huit lots de portage sont faits depuis le 25 août. Ce document ne liste plus
-qu'une chose : **ce que l'usage a cassé, ce qui a été corrigé, et ce qui reste
-ouvert.** L'historique des lots est dans `git log` ; le répéter ici ne servait
-plus.
+The eight porting batches have been done since 25 August. This document now
+lists only one thing: **what usage broke, what was fixed, and what remains
+open.** The history of the batches is in `git log`; repeating it here no longer
+served any purpose.
 
-## Ce que la première réunion réelle a appris
+## What the first real meeting taught
 
-Une heure d'échange, quatre personnes. Le compte rendu est sorti, et il était
-faux sur plusieurs points. Chaque défaut ci-dessous a été mesuré sur cet
-enregistrement, pas supposé.
+An hour of discussion, four people. The minutes came out, and they were wrong
+on several counts. Every defect below was measured on that recording, not
+supposed.
 
-| Défaut | Ce qu'il coûtait | État |
+| Defect | What it cost | State |
 |---|---|---|
-| Le mixage des canaux avant la segmentation | **13 min de parole absentes** du compte rendu, et le document affirmait que la personne n'avait pas parlé | corrigé |
-| Le modèle inventait des phrases sur signal faible | « Merci d'avoir regardé cette vidéo ! » là où la personne disait « Test, test de réunion » | corrigé |
-| Un nom appuyé sur des interpellations seules devenait ferme | Le prénom d'un absent attribué à la voix qui tenait 64 % du temps de parole | corrigé |
-| Tout mot capitalisé était candidat prénom | « Ouais » promu prénom, avec 13 min de temps de parole | corrigé |
-| Le courriel partait en MacRoman, en Markdown brut | Tout compte rendu français arrivait en `r√©union` | corrigé |
-| L'envoi sauté sans un mot, et l'icône affichait « Compte rendu envoyé » | Rien n'était parti, l'interface affirmait le contraire | corrigé |
-| Le compte rendu parlait de l'outil | 31 % du document sur la plomberie, 9 % sur les décisions | corrigé |
-| Le matériel changeant en cours de réunion | Un casque branché en route et la voix de qui enregistre est perdue | corrigé |
-| Trois réglages à faire à la main | Sortie système, micro, gain : sans eux les canaux système restaient muets | corrigé |
-| La couverture faible n'alertait personne | 22 % de l'audio sans texte, passé en silence | corrigé |
-| L'icône aveugle pendant un retraitement | Quinze minutes affichant la phase précédente | corrigé |
-| Rien ne s'affichait pendant la réunion | Une attribution fausse ne se voyait qu'au compte rendu, une heure trop tard | corrigé |
-| `greffier assister` visait le fichier recollé, qui n'existe qu'après l'arrêt | Il ne transcrivait **rien**, et personne ne s'en apercevait puisque rien n'affichait son travail | corrigé |
-| Rien ne lançait `assister` | La commande existait, la fenêtre ne lançait que la veille du matériel | corrigé |
+| Mixing the channels before segmentation | **13 min of speech missing** from the minutes, and the document stated that the person had not spoken | fixed |
+| The model invented sentences on weak signal | « Merci d'avoir regardé cette vidéo ! » [thank you for watching this video] where the person was saying « Test, test de réunion » [test, meeting test] | fixed |
+| A name resting only on being addressed by others became firm | The first name of an absent person attributed to the voice holding 64 % of the speaking time | fixed |
+| Every capitalised word was a first-name candidate | « Ouais » [yeah] promoted to a first name, with 13 min of speaking time | fixed |
+| The email went out in MacRoman, as raw Markdown | All French minutes arrived as `r√©union` | fixed |
+| The send skipped without a word, and the icon displayed « Compte rendu envoyé » [minutes sent] | Nothing had gone out, the interface stated the opposite | fixed |
+| The minutes talked about the tool | 31 % of the document on the plumbing, 9 % on the decisions | fixed |
+| Hardware changing during the meeting | A headset plugged in along the way and the voice of whoever is recording is lost | fixed |
+| Three settings to be made by hand | System output, microphone, gain: without them the system channels stayed silent | fixed |
+| Low coverage alerted nobody | 22 % of the audio with no text, passed over in silence | fixed |
+| The icon blind during a reprocessing | Fifteen minutes displaying the previous phase | fixed |
+| Nothing was displayed during the meeting | A wrong attribution only showed up in the minutes, an hour too late | fixed |
+| `greffier assister` targeted the stitched file, which only exists after the stop | It transcribed **nothing**, and nobody noticed since nothing displayed its work | fixed |
+| Nothing started `assister` | The command existed, the window started only the hardware watch | fixed |
 
-Détail et mesures dans les messages de commit, qui portent chacun le chiffre
-qui a motivé le changement.
+Detail and measurements in the commit messages, each of which carries the figure
+that motivated the change.
 
-## Ce que le direct a appris
+## What live taught
 
-Le fil affiché pendant la réunion a été éprouvé sur une visio synthétique de
-30 s, trois canaux, rejouée en temps réel — donc à travers la vraie commande, le
-vrai découpage en tranches et les vrais modèles. Chaque défaut ci-dessous y a
-été **mesuré**, et corrigé.
+The thread shown during the meeting was proven on a synthetic 30 s video call,
+three channels, replayed in real time — so through the real command, the real
+splitting into slices and the real models. Every defect below was **measured**
+there, and fixed.
 
-| Défaut | Ce qu'il coûtait | État |
+| Defect | What it cost | State |
 |---|---|---|
-| La tranche transcrite sans mise à niveau des canaux | **Une question sur six n'était pas transcrite du tout** — celle de la personne au micro, 6 dB sous la boucle. Le même défaut que le mixage d'origine, reproduit dans le direct | corrigé |
-| La dédoublonnage sur le seul début de phrase | Une phrase perdue sur six : la même est datée 13,60 dans une tranche et 12,80 dans la suivante | corrigé |
-| L'empreinte prélevée sur le bloc entier | 0,6 s de voix locale en tête d'un extrait de 1,5 s suffisait à faire de la même personne deux participants, et une correction ne se propageait pas | corrigé |
-| Le verdict visio recalculé à chaque tranche | Sur une tranche où seule la personne au micro parle, aucune boucle ne domine : sa voix devenait un participant distant de plus | corrigé |
-| Le seuil d'apprentissage à 6 s, sans seconde chance | Une correction saisie à la deuxième phrase n'entrait **jamais** en banque : elle s'affichait, puis ne servait ni à la réunion suivante ni au compte rendu | corrigé |
-| La position suivie sur l'horloge de la réunion | Après une pause, l'horloge et l'audio écrit divergent de tout le temps d'arrêt, et ffmpeg lisait au-delà de la fin du fichier | corrigé |
-| Les dernières secondes jamais lues | On finissait sa phrase devant un fil qui s'arrêtait avant elle | corrigé |
+| The slice transcribed without channel levelling | **One question in six was not transcribed at all** — the one from the person at the microphone, 6 dB below the loopback. The same defect as the original mixing, reproduced in the live thread | fixed |
+| De-duplication on the start of the sentence alone | One sentence in six lost: the same one is timestamped 13.60 in one slice and 12.80 in the next | fixed |
+| The voice print taken from the whole block | 0.6 s of local voice at the head of a 1.5 s excerpt was enough to make two participants out of the same person, and a correction did not propagate | fixed |
+| The video-call verdict recomputed on every slice | On a slice where only the person at the microphone speaks, no loopback dominates: their voice became one more remote participant | fixed |
+| The learning threshold at 6 s, with no second chance | A correction entered at the second sentence **never** made it into the bank: it was displayed, then served neither the following meeting nor the minutes | fixed |
+| The position tracked on the meeting clock | After a pause, the clock and the audio written to disk diverge by the whole stopped time, and ffmpeg read past the end of the file | fixed |
+| The last seconds never read | You finished your sentence in front of a thread that stopped before it | fixed |
 
-## Ce que la mesure directe a corrigé (2026-09-01)
+## What direct measurement fixed (2026-09-01)
 
-Les trois derniers défauts du diagnostic initial, mesurés cette fois avec les
-modèles présents et non plus seulement supposés à partir des symptômes.
+The last three defects from the initial diagnosis, this time measured against the
+models actually present rather than merely assumed from the symptoms.
 
-| Défaut | Ce qu'il coûtait | État |
+| Defect | What it cost | State |
 |---|---|---|
-| Le seuil de clustering brut jamais mesuré (`threshold=0.8`) fusionnait deux voix dès la segmentation | Sur un jeu d'essai à trois locuteurs, 2 voix trouvées au lieu de 3, avant même que le recollage du domaine n'intervienne | corrigé — `threshold=0.45`, mesuré et documenté dans `docs/calibrage.md` |
-| `fusionner_voix` fusionnait des agrégats trop peu fournis | Deux petits groupes récents franchissaient `SEUIL_FUSION` par accident statistique | corrigé — garde de matière asymétrique, `MATIERE_MINIMALE_FUSION` |
-| `voix_a_nommer` écartait toute voix de moins de dix secondes, proposition comprise | Un prénom détecté dans une réponse brève ne s'affichait jamais — ni dans l'écran de nommage, ni dans le résumé CLI | corrigé — une voix courte qui porte déjà un nom ou une proposition échappe au filtre |
-| Le texte du direct dupliquait la fin d'une phrase à la frontière de deux tranches | « dernier. » puis « dernier. Sandy, tu peux nous dire… » : le locuteur était juste, le texte non | corrigé — `retirer_repetition`, recouvrement mot à mot entre deux tranches |
+| The raw clustering threshold, never measured (`threshold=0.8`), merged two voices as early as segmentation | On a three-speaker test set, 2 voices found instead of 3, before the domain's re-stitching even came into play | fixed — `threshold=0.45`, measured and documented in `docs/calibrage.md` |
+| `fusionner_voix` merged clusters that held too little material | Two small recent groups crossed `SEUIL_FUSION` by statistical accident | fixed — asymmetric material guard, `MATIERE_MINIMALE_FUSION` |
+| `voix_a_nommer` discarded any voice under ten seconds, suggestion included | A first name detected in a short answer never showed up — neither in the naming screen nor in the CLI summary | fixed — a short voice that already carries a name or a proposal escapes the filter |
+| The live text duplicated the end of a sentence at the boundary between two slices | « dernier. » then « dernier. Sandy, tu peux nous dire… » : the speaker was right, the text was not | fixed — `retirer_repetition`, word-by-word overlap between two slices |
 
-Tests : cas synthétiques `trois-voix` et `proposition-breve` rejoués à travers
-la vraie chaîne (`tests/integration/test_cas_difficiles.py`), et un test
-déterministe du direct à travers `Veilleur → Suivi.accueillir → Fil`
-(`tests/application/test_veiller.py`), doublure uniquement sur le port
-`Transcripteur`.
+Tests: synthetic cases `trois-voix` and `proposition-breve` replayed through
+the real chain (`tests/integration/test_cas_difficiles.py`), and a deterministic
+live test through `Veilleur → Suivi.accueillir → Fil`
+(`tests/application/test_veiller.py`), with a double on the `Transcripteur`
+port only.
 
-## Nommer une voix régénère maintenant le compte rendu (2026-09-01)
+## Naming a voice now regenerates the minutes (2026-09-01)
 
-`voix_a_nommer` et le fichier maître ne perdaient rien, mais rien ne rejouait
-la rédaction : il fallait relancer tout le traitement — segmentation et
-transcription comprises — pour qu'un compte rendu porte les bons noms.
+`voix_a_nommer` and the master file were losing nothing, but nothing replayed
+the writing: the whole processing run had to be started again — segmentation
+and transcription included — for minutes to carry the right names.
 
-`rendre_transcription` est sortie de `Traitement` pour devenir une fonction
-libre dans `application/restituer.py`, aux côtés des fonctions d'en-tête
-qu'elle complète : `ReunionEnregistree` (le fichier maître relu du disque)
-satisfait le même protocole `Transcrite` que `Resultat`, sans conversion.
-`regenerer_compte_rendu(reunion, redacteur)` rejoue uniquement cette étape.
-`evenements_materiel` (ce que la veille du matériel a constaté) est
-maintenant persisté dans le fichier maître, sans quoi la régénération aurait
-rendu le compte rendu moins fiable que l'original.
+`rendre_transcription` left `Traitement` to become a free function in
+`application/restituer.py`, next to the header functions it completes:
+`ReunionEnregistree` (the master file read back from disk) satisfies the same
+`Transcrite` protocol as `Resultat`, with no conversion.
+`regenerer_compte_rendu(reunion, redacteur)` replays that step alone.
+`evenements_materiel` (what the hardware live watch observed) is now
+persisted in the master file, without which regeneration would have made the
+minutes less reliable than the original.
 
-Branchée à trois endroits : `greffier voix --nommer`, `--accepter-propositions`,
-et la relance interactive après `greffier traiter` ; côté fenêtre, dans un fil
-séparé (le rédacteur peut appeler une API distante) sur le modèle déjà en
-place pour « traiter » et « envoyer ».
+Wired in at three places: `greffier voix --nommer`, `--accepter-propositions`,
+and the interactive re-run after `greffier traiter`; on the window side, in a
+separate thread (the writer may call a remote API), on the pattern already in
+place for « traiter » and « envoyer ».
 
-## La fenêtre ne s'annonce plus « python3 » sur macOS (2026-09-01)
+## The window no longer announces itself as "python3" on macOS (2026-09-01)
 
-`Contents/MacOS/Greffier` est maintenant une copie de l'interpréteur du venv,
-pas un script qui l'appelle — c'est l'exécutable réellement lancé qui donne
-son nom au Dock et à la barre de menus, jamais `argv[0]`. Le déplacer hors de
-son venv lui faisait perdre son environnement (`@rpath/libpython3.13.dylib`
-introuvable, `import numpy` en échec) : deux réglages suffisent à le lui
-rendre, tous deux calculés par `macos/construire.sh` à partir de
-l'interpréteur lui-même, jamais devinés :
+`Contents/MacOS/Greffier` is now a copy of the venv interpreter, not a script
+that calls it — the name shown in the Dock and the menu bar comes from the
+executable actually launched, never from `argv[0]`. Moving it out of its venv
+made it lose its environment (`@rpath/libpython3.13.dylib` not found,
+`import numpy` failing): two settings are enough to give it back, both
+computed by `macos/construire.sh` from the interpreter itself, never guessed:
 
-- un lien symbolique `Contents/lib` vers `sys.base_prefix` (là où vivent la
-  bibliothèque standard et le `.dylib`, pas le venv) ;
-- `PYTHONPATH`, posé par `LSEnvironment` dans `Info.plist`, vers les paquets
-  du venv et `src/`.
+- a symlink `Contents/lib` pointing at `sys.base_prefix` (where the standard
+  library and the `.dylib` live, not the venv);
+- `PYTHONPATH`, set by `LSEnvironment` in `Info.plist`, pointing at the venv
+  packages and `src/`.
 
-macOS lance l'exécutable du paquet sans argument : `lanceur_sitecustomize.py`
-(chargé automatiquement par le mécanisme `site` de Python, via `PYTHONPATH`)
-tient lieu du `python -m greffier fenetre` qu'appelait l'ancien script. Piège
-mesuré au passage : un `sys.exit()` qui s'échappe de `sitecustomize` — un
-module chargé par `site`, pas un script — n'est pas traité comme une sortie
-propre par l'interpréteur, qui l'annonce comme une « Fatal Python error » ;
-`os._exit()` évite le problème.
+macOS launches the bundle executable with no argument: `lanceur_sitecustomize.py`
+(loaded automatically by Python's `site` mechanism, through `PYTHONPATH`)
+stands in for the `python -m greffier fenetre` that the old script called.
+Pitfall measured along the way: a `sys.exit()` escaping from `sitecustomize` —
+a module loaded by `site`, not a script — is not treated as a clean exit by
+the interpreter, which reports it as a "Fatal Python error";
+`os._exit()` avoids the problem.
 
-Vérifié en construisant et lançant réellement le paquet sur ce Mac : la barre
-de menus affiche « Greffier », confirmé par une capture d'écran, par
-`osascript` (nom du process, fenêtre présente) et par le journal système
-unifié (chaque ligne porte `Greffier[pid]`, pas `python3[pid]`).
+Verified by actually building and launching the bundle on this Mac: the menu
+bar shows "Greffier", confirmed by a screenshot, by `osascript` (process name,
+window present) and by the unified system log (every line carries
+`Greffier[pid]`, not `python3[pid]`).
 
-## Le paquet macOS ne trouvait ni claude ni ffmpeg (2026-09-01)
+## The macOS bundle found neither claude nor ffmpeg (2026-09-01)
 
-Défaut trouvé en cliquant réellement « Demander » (onglet Conversation) et
-« Écouter » (onglet Voix) dans l'app construite plus haut — pas en se
-contentant d'ouvrir la fenêtre. Deux erreurs : « claude » introuvable dans le
-PATH pour la rédaction, `[Errno 2] No such file or directory: 'ffmpeg'` pour
-l'extrait audio, alors que les deux sont installés et fonctionnent en ligne de
-commande.
+Defect found by actually clicking « Demander » (Conversation tab) and
+« Écouter » (Voix tab) in the app built above — not by settling for opening
+the window. Two errors: « claude » not found in the PATH for the writing step,
+`[Errno 2] No such file or directory: 'ffmpeg'` for the audio excerpt, while
+both are installed and work on the command line.
 
-Cause : macOS lance un paquet `.app` avec un PATH minimal
-(`/usr/bin:/bin:...`), pas celui du shell — ni Homebrew, ni `~/.local/bin` n'y
-figurent. Premier correctif posé, insuffisant : `construire.sh` mettait `PATH`
-dans `LSEnvironment`, à côté de `PYTHONPATH`. Rejoué en vraie condition
-(relancé depuis le Launchpad, pas juste `open` en terminal) : `PYTHONPATH`
-arrive intact sur le process, `PATH` non — retombé sur le minimum
-(`/usr/bin:/bin:/usr/sbin:/sbin`), constaté via `ps eww` sur le process réel.
-`LSEnvironment` n'est donc pas fiable pour `PATH` précisément, pour une raison
-qui reste à comprendre (macOS semble le réimposer après coup).
+Cause: macOS launches a `.app` bundle with a minimal PATH
+(`/usr/bin:/bin:...`), not the shell's — neither Homebrew nor `~/.local/bin`
+appears in it. First fix applied, insufficient: `construire.sh` put `PATH`
+in `LSEnvironment`, next to `PYTHONPATH`. Replayed under real conditions
+(relaunched from Launchpad, not just `open` in a terminal): `PYTHONPATH`
+reaches the process intact, `PATH` does not — back down to the minimum
+(`/usr/bin:/bin:/usr/sbin:/sbin`), observed with `ps eww` on the real process.
+`LSEnvironment` is therefore not reliable for `PATH` specifically, for a reason
+that remains to be understood (macOS seems to reimpose it afterwards).
 
-Correctif retenu : `PATH` n'est plus confié à `LSEnvironment`, mais fixé en
-Python dans `lanceur_sitecustomize.py` (`os.environ["PATH"] = ... +
-os.environ.get("PATH", "")`) — là, rien d'autre ne peut plus l'écraser.
-`construire.sh` génère ce fichier à partir d'un gabarit (`macos/lanceur_sitecustomize.py`
-dans le dépôt, un espace réservé remplacé par le PATH mesuré sur la machine
-qui construit le paquet — toujours mesuré, jamais deviné, ni ffmpeg ni claude
-n'ayant d'emplacement fixe d'une machine à l'autre).
+Fix adopted: `PATH` is no longer entrusted to `LSEnvironment`, but set in
+Python in `lanceur_sitecustomize.py` (`os.environ["PATH"] = ... +
+os.environ.get("PATH", "")`) — there, nothing else can overwrite it any more.
+`construire.sh` generates that file from a template (`macos/lanceur_sitecustomize.py`
+in the repository, a placeholder replaced by the PATH measured on the machine
+that builds the bundle — always measured, never guessed, since neither ffmpeg
+nor claude has a fixed location from one machine to the next).
 
-Spécifique à macOS : Linux et Windows n'ont pas encore d'icône de bureau,
-`greffier fenetre` s'y lance depuis un terminal qui a déjà le vrai PATH — rien
-à corriger côté code multiplateforme.
+Specific to macOS: Linux and Windows have no desktop icon yet,
+`greffier fenetre` is launched there from a terminal that already has the real
+PATH — nothing to fix on the cross-platform code side.
 
-Vérifié en relançant réellement l'app (Launchpad, pas un raccourci de test) et
-en relisant `PATH` du process avec `ps eww` : il porte maintenant Homebrew et
-`~/.local/bin`. Effet secondaire à surveiller : reconstruire l'app plusieurs
-fois de suite pendant les essais a fait ressurgir l'alerte macOS « éditeur
-inconnu » à chaque fois (la signature ad hoc change à chaque reconstruction) —
-gênant pendant un test, sans rapport avec le défaut lui-même.
+Verified by actually relaunching the app (Launchpad, not a test shortcut) and
+by re-reading the process `PATH` with `ps eww`: it now carries Homebrew and
+`~/.local/bin`. Side effect to watch: rebuilding the app several times in a row
+during the trials brought back the macOS « éditeur inconnu » [unidentified
+developer] warning each time (the ad hoc signature changes with every
+rebuild) — a nuisance during a test, unrelated to the defect itself.
 
-## Ce qui reste ouvert
+## What remains open
 
-### Les premières phrases peuvent manquer le « Toi »
+### The first sentences can miss the « Toi »
 
-Le verdict visio se lit sur l'écart entre les canaux : tant que personne d'autre
-n'a parlé, il n'y a rien à comparer, et la première prise de parole peut
-s'afficher comme une voix à nommer plutôt que « Toi ». Une fois le verdict
-établi il tient jusqu'au bout, donc cela ne concerne que le tout début — et un
-clic le corrige. Rejuger les tours déjà inscrits demanderait de garder les
-tranches, ce qui n'a pas paru valoir le coût.
+The video-call verdict is read from the gap between channels: as long as nobody
+else has spoken, there is nothing to compare, and the first speaking turn can be
+shown as a voice to name rather than « Toi ». Once the verdict is settled it
+holds to the end, so this concerns only the very beginning — and one click
+corrects it. Re-judging the turns already written down would mean keeping the
+slices, which did not look worth the cost.
 
-### L'interface reste austère
+### The interface remains austere
 
-Premier passage fait le 2026-09-01 : la fenêtre changeait de taille à chaque
-changement d'onglet (`racine.geometry()` posée une fois pour toutes le
-corrige — `pack` calculait sinon la taille du parent d'après le seul enfant
-affiché) ; deux listes (Réunions, Voix) n'avaient **aucun** ascenseur, sans
-qu'il manque, le contenu au-delà de la première poignée de lignes restait
-simplement inaccessible ; les deux `Text` qui en avaient un utilisaient
-l'ascenseur natif de Tk (gris, à bords carrés), hors de la palette du reste de
-la fenêtre. Un `Defileur` dessiné (`interface/apparence.py`) remplace les deux
-et couvre les deux listes qui n'en avaient pas ; les cartes portent désormais
-une ombre légère (deux cadres dans la même cellule de grille, décalés de
-quelques pixels, plutôt qu'un `Canvas` qui aurait cassé la remontée de taille
-depuis le contenu).
+First pass done on 2026-09-01: the window changed size on every tab switch
+(`racine.geometry()` set once and for all corrects it — otherwise `pack`
+computed the parent's size from the single displayed child); two lists
+(Réunions, Voix) had **no** scrollbar, and with nothing to show one was
+missing, the content beyond the first handful of rows stayed out of reach; the
+two `Text` widgets that had one used Tk's native scrollbar (grey, square-edged),
+outside the palette of the rest of the window. A drawn `Defileur`
+(`interface/apparence.py`) replaces both and covers the two lists that had none;
+the cards now carry a light shadow (two frames in the same grid cell, offset by
+a few pixels, rather than a `Canvas`, which would have broken size propagation
+from the content).
 
-Vérifié en pilotant la vraie fenêtre depuis un script (`Onglets.montrer(...)`
-appelé directement, capture d'écran après chaque onglet) plutôt qu'en
-simulant des clics à l'aveugle sur des coordonnées écran — trop fragile,
-essayé d'abord, abandonné.
+Checked by driving the real window from a script (`Onglets.montrer(...)` called
+directly, a screenshot after each tab) rather than by simulating blind clicks on
+screen coordinates — too fragile, tried first, abandoned.
 
-Ce qui reste : Tkinter a un plafond réel (pas de CSS, pas de vraie
-transparence, un `Canvas` par forme non standard) — un rendu au niveau d'une
-interface web moderne n'est pas atteignable avec cette boîte à outils. Ce qui
-a été fait retire les deux défauts concrets signalés (redimensionnement,
-ascenseurs manquants ou moches) ; l'austérité qui reste au-delà est une
-question de goût, à affiner point par point plutôt que par une itération
-sans fin.
+What remains: Tkinter has a real ceiling (no CSS, no true transparency, one
+`Canvas` per non-standard shape) — a rendering on a par with a modern web
+interface is not reachable with this toolkit. What was done removes the two
+concrete defects reported (resizing, missing or ugly scrollbars); the austerity
+that remains beyond them is a matter of taste, to be refined point by point
+rather than through endless iteration.
 
-## Ce qui n'est pas à faire
+## What is not to be done
 
-- **Le commit `wip` ne sera pas réécrit.** Contrairement à ce que disait la
-  version précédente de ce document, il n'est pas orphelin : c'est un commit
-  ordinaire de l'historique de `main`, entre `d7b65df` et `78c0bf2`, portant
-  595 lignes de l'installeur. Le renommer imposerait de réécrire un historique
-  que plusieurs personnes clonent désormais. Un message pauvre ne vaut pas ça.
-- **Le démon local (FastAPI) reste écarté.** Le fichier d'état suffit, et la
-  fenêtre le lit comme le faisait l'icône.
-- **La visibilité du dépôt reste privée.** Les quatre contributeurs ont un accès
-  nominatif en *Developer* ; passer en *Internal* n'a d'intérêt que pour ouvrir
-  la lecture à toute l'école.
+- **The `wip` commit will not be rewritten.** Contrary to what the previous
+  version of this document said, it is not orphaned: it is an ordinary commit
+  in the history of `main`, between `d7b65df` and `78c0bf2`, carrying
+  595 lines of the installer. Renaming it would mean rewriting a history that
+  several people now clone. A poor message is not worth that.
+- **The local daemon (FastAPI) remains ruled out.** The state file is enough,
+  and the window reads it as the icon did.
+- **Repository visibility stays private.** The four contributors have named
+  access as *Developer*; switching to *Internal* is only useful to open reading
+  to the whole school.
 
-## Ce qui n'a jamais été éprouvé
+## What has never been proven
 
-Ces points fonctionnent en théorie et n'ont pas rencontré le réel.
+These points work in theory and have not met the real world.
 
-- **Un branchement physique en cours de réunion.** L'adaptation au matériel est
-  éprouvée sur 35 scénarios et par deux reprises simulées, jamais en débranchant
-  un vrai casque pendant une vraie réunion.
-- **Le direct en réunion réelle.** Éprouvé sur une visio synthétique rejouée en
-  temps réel, et sur une seule voix distante. Le coût en calcul d'une heure à
-  quatre personnes, et le comportement quand deux personnes se coupent
-  réellement, n'ont pas rencontré le réel.
-- **Le direct en présentiel**, en réunion réelle. La chaîne, elle, est
-  désormais éprouvée sur une réunion de table synthétisée : voir plus bas.
+- **A physical connection made mid-meeting.** Adapting to the hardware is
+  proven over 35 scenarios and by two simulated resumptions, never by
+  unplugging a real headset during a real meeting.
+- **Live in a real meeting.** Proven on a synthetic video call replayed in
+  real time, and on a single remote voice. The compute cost of an hour with
+  four people, and the behaviour when two people actually talk over each
+  other, have not met the real world.
+- **Live in person**, in a real meeting. The chain itself is now proven on a
+  synthesised round-table meeting: see below.
 
-## Le présentiel est éprouvé, et il a trouvé un défaut (2026-09-03)
+## The in-person case is proven, and it found a defect (2026-09-03)
 
-Tout ce qui avait servi jusqu'ici était une visio, où le canal identifie avec
-certitude la personne qui enregistre. Autour d'une table, tout le monde parle
-dans le même micro : la provenance ne désigne plus personne. Le cas est
-maintenant tenu par une preuve rejouable.
+Everything used so far was a video call, where the channel identifies the person
+recording with certainty. Around a table, everyone speaks into the same
+microphone: provenance no longer designates anyone. The case is now held by a
+replayable proof.
 
-Le fichier d'essai (`outils/fabriquer_reunion.py --presentiel`) est **stéréo**,
-comme ce que rend le périphérique : trois voix de synthèse sur le micro, et sur
-la boucle système la fuite mesurée sur la vraie réunion de table, -53 dB au lieu
-du silence attendu. Un second canal muet aurait rendu l'épreuve trop facile :
-c'est précisément cette fuite qui faisait conclure « visio » à tort.
+The test file (`outils/fabriquer_reunion.py --presentiel`) is **stereo**, like
+what the device returns: three synthetic voices on the microphone, and on the
+system loopback the leak measured on the real table meeting, -53 dB instead of
+the expected silence. A silent second channel would have made the trial too
+easy: that leak is exactly what was making the verdict come out wrongly as a video call.
 
-### Ce que la mesure confirme
+### What the measurement confirms
 
-| Vérification | Mesuré |
+| Check | Measured |
 |---|---|
-| Verdict de canal | `en_visio` rend faux ; fuite à -50,5 dB de crête pour un micro à -21,7 dB de médiane |
-| Le micro sert de référence aux deux canaux | `distante` faux, `systeme` identique au micro |
-| Passages déclarés locaux | **aucun** — le canal ne désigne personne, et personne n'est étiqueté « moi » |
-| Participants | plusieurs voix, jamais fondues en une seule |
-| Auto-présentation | « moi c'est Jacques » désigne toujours celui qui parle |
+| Channel verdict | `en_visio` returns false; leak at -50.5 dB peak for a microphone at -21.7 dB median |
+| The microphone serves as the reference for both channels | `distante` false, `systeme` identical to the microphone |
+| Passages declared local | **none** — the channel designates nobody, and nobody is labelled `moi` [me] |
+| Participants | several voices, never merged into a single one |
+| Self-introduction | « moi c'est Jacques » [I'm Jacques] always designates the person speaking |
 
-### Le défaut : une phrase à cheval était donnée au plus bavard
+### The defect: a straddling sentence went to whoever talked most
 
-`_attacher_voix` donnait chaque réplique à la voix qui parlait le plus pendant
-sa durée. La transcription coupe à la phrase, la segmentation au changement de
-locuteur : quand une réplique **enjambe** un changement, le plus bavard
-emportait les mots de l'autre. En visio, `soustraire` rattrapait le cas grâce au
-canal ; en présentiel, rien ne protégeait.
+`_attacher_voix` gave each line to the voice that spoke the most during its
+span. Transcription cuts at the sentence, segmentation at the change of speaker:
+when a line **straddles** a change, whoever talked most carried off the other's
+words. On a video call, `soustraire` caught the case thanks to the channel; in
+person, nothing protected against it.
 
-Mesuré sur la réunion de table : « Merci Pierre. On garde donc jeudi… », dit par
-Jacques, attribué à Pierre — la réplique couvrait 9,6 s du tour de Pierre pour
-6,1 s de celui de Jacques, soit 0,61 pour le meneur.
+Measured on the table meeting: « Merci Pierre. On garde donc jeudi… » [thanks
+Pierre, so we keep Thursday], said by Jacques, attributed to Pierre — the line
+covered 9.6 s of Pierre's speaking turn against 6.1 s of Jacques's, that is 0.61
+for the leading voice.
 
-Corrigé par `domaine/attribution.py` : sous une part de 0,80, la réplique ne
-désigne **personne**. Elle garde son texte et son horodatage, elle n'attribue
-plus à tort — la règle déjà retenue pour une banque de voix qui se contredit.
+Fixed by `domaine/attribution.py`: below a share of 0.80, the line designates
+**nobody**. It keeps its text and its timestamp, and it no longer attributes
+wrongly — the rule already adopted for a voice bank that contradicts itself.
 
-Le seuil est mesuré, pas choisi : sur 29 répliques de cinq réunions
-synthétisées, 26 tiennent 0,98 ou plus (24 à 1,00 exactement) et les 3 qui
-enjambent un changement de locuteur tiennent 0,50, 0,52 et 0,61. Rien entre
-0,62 et 0,97 ; le seuil est posé au milieu de cette bande vide.
+The threshold is measured, not chosen: over 29 lines from five synthesised
+meetings, 26 hold 0.98 or more (24 at exactly 1.00) and the 3 that straddle a
+change of speaker hold 0.50, 0.52 and 0.61. Nothing between 0.62 and 0.97; the
+threshold sits in the middle of that empty band.
 
-### Ce que la preuve ne mesure pas
+### What the proof does not measure
 
-La qualité de la transcription. Les voix de synthèse rendent un texte
-approximatif — la même réplique donne « L.S. Dominé, Depuis, I.S.W.A. » d'une
-voix à l'autre, et la voix « Rocko » est purement et simplement ignorée par le
-détecteur de parole de whisper. Un test qui les comparerait mesurerait `say`, pas
-Greffier. Les assertions ne portent donc que sur ce qui ne dépend pas du timbre.
+The quality of the transcription. Synthetic voices return approximate text — the
+same line comes out as « L.S. Dominé, Depuis, I.S.W.A. » from one voice to the
+next, and the « Rocko » voice is ignored outright by whisper's speech detector.
+A test comparing them would measure `say`, not Greffier. The assertions
+therefore only cover what does not depend on timbre.
 
-## L'envoi SMTP et la fenêtre hors macOS sont éprouvés (2026-09-03)
+## SMTP sending and the window outside macOS are proven (2026-09-03)
 
-Deux promesses tenaient sur de la documentation, pas sur une exécution.
+Two promises rested on documentation, not on a run.
 
-### SMTP, contre de vrais serveurs
+### SMTP, against real servers
 
-Le code disait lui-même n'avoir « pas encore rencontré un vrai serveur ». Un
-serveur d'essai monté dans le processus n'y aurait rien changé : il répond ce
-qu'on lui a appris à répondre. `tests/integration/test_smtp_vrais_serveurs.py`
-**se connecte** — `smtp.gmail.com` en 465 et en 587, `smtp.office365.com` en
-587, les deux fournisseurs que le commentaire du code nommait.
+The code itself said it had "not yet met a real server". A test server stood
+up inside the process would have changed nothing: it answers what it was
+taught to answer. `tests/integration/test_smtp_vrais_serveurs.py`
+**connects** — `smtp.gmail.com` on 465 and on 587, `smtp.office365.com` on
+587, the two providers the code comment named.
 
-Ce qui est éprouvé, sur les trois : la connexion aboutit (`NOOP` à 250), la
-session est chiffrée (`ssl.SSLSocket`, version TLS), et le serveur annonce
-`AUTH` — donc il a bien vu un client chiffré et se tient prêt à recevoir un mot
-de passe. Se tromper de convention n'arrive jamais jusque-là : un `SMTP` nu sur
-465, ou un `SMTP_SSL` sur 587, échoue au premier octet.
+What is proven, on all three: the connection succeeds (`NOOP` at 250), the
+session is encrypted (`ssl.SSLSocket`, TLS version), and the server announces
+`AUTH` — so it did see an encrypted client and stands ready to receive a
+password. Getting the convention wrong never reaches that point: a bare `SMTP`
+on 465, or an `SMTP_SSL` on 587, fails on the first byte.
 
-Aucun mot de passe n'est nécessaire, donc rien n'est authentifié ni expédié :
-envoyer un courriel chez un tiers depuis une suite de tests n'est pas une
-preuve, c'est un courriel de trop.
+No password is needed, so nothing is authenticated and nothing is sent:
+sending mail to a third party from a test suite is not a proof, it is one mail
+too many.
 
-Pour que cela soit possible, `ExpediteurSmtp` expose deux coutures :
-`message()` compose le courriel sans rien ouvrir — ce qu'un destinataire reçoit
-se vérifie donc **sans réseau** (`tests/test_courriel_smtp.py` : sujet accentué
-entier, double version du corps, pièce jointe, texte en UTF-8) — et `session()`
-ouvre la connexion. `envoyer()` n'est plus que l'assemblage des deux.
+For that to be possible, `ExpediteurSmtp` exposes two seams:
+`message()` composes the mail without opening anything — so what a recipient
+receives can be checked **without a network** (`tests/test_courriel_smtp.py`:
+accented subject kept whole, both versions of the body, attachment, UTF-8
+text) — and `session()` opens the connection. `envoyer()` is now no more than
+the assembly of the two.
 
-Un défaut corrigé au passage : la session n'était complète qu'au moment
-d'expédier. RFC 3207 demande de resaluer après STARTTLS, les capacités
-annoncées en clair ne valant plus ; `smtplib` le fait à la demande, `session()`
-le fait maintenant à l'ouverture, `AUTH` compris.
+One defect fixed along the way: the session was only complete at the moment of
+sending. RFC 3207 requires greeting again after STARTTLS, the capabilities
+announced in the clear no longer holding; `smtplib` does it on demand,
+`session()` now does it on opening, `AUTH` included.
 
-### La fenêtre s'ouvre sous Linux
+### The window opens under Linux
 
-`outils/preuve-fenetre-linux.Dockerfile` construit une image Debian trixie nue,
-y pose `python3-tk` — la seule dépendance système de l'interface, exactement la
-ligne du README — et ouvre la vraie fenêtre sous `xvfb`. Mesuré : **Tk 8.6 /
-Tcl 8.6**, fenêtre 880x660, **cinq onglets peints sans exception**.
+`outils/preuve-fenetre-linux.Dockerfile` builds a bare Debian trixie image,
+puts `python3-tk` on it — the interface's only system dependency, exactly the
+README line — and opens the real window under `xvfb`. Measured: **Tk 8.6 /
+Tcl 8.6**, an 880x660 window, **five tabs painted, no exception raised**.
 
-Debian plutôt que l'image `python:3.13-slim` : cette dernière compile son
-interpréteur sans Tk, et le `python3-tk` de Debian s'adresse au python de
-Debian. Aucun modèle n'est téléchargé — ouvrir la fenêtre n'en demande aucun —
-donc l'image se construit en quelques minutes, là où la preuve d'installation en
-prend dix.
+Debian rather than the `python:3.13-slim` image: the latter compiles its
+interpreter without Tk, and Debian's `python3-tk` addresses Debian's python.
+No model is downloaded — opening the window asks for none — so the image
+builds in a few minutes, where the installation proof takes ten.
 
-### Le défaut trouvé au passage : la fenêtre ne s'ouvrait pas depuis le dépôt
+### The defect found along the way: the window would not open from the repository
 
-`.venv/bin/greffier` échouait sur « This probably means that Tcl wasn't
-installed properly ». L'interpréteur distribué par uv porte le chemin de la
-machine qui l'a compilé : Tk cherchait `init.tcl` dans `/tools/deps/lib/tcl9.0`,
-qui n'existe sur aucun poste, alors que Tcl est là, à côté de l'interpréteur.
-Le paquet macOS n'avait jamais rencontré le défaut : il embarque ses propres
-copies.
+`.venv/bin/greffier` failed on "This probably means that Tcl wasn't
+installed properly". The interpreter uv distributes carries the path of the
+machine that compiled it: Tk was looking for `init.tcl` in
+`/tools/deps/lib/tcl9.0`, which exists on no machine, while Tcl is there, next
+to the interpreter. The macOS package had never met the defect: it carries its
+own copies.
 
-`situer_tcl()` — dans `emplacements.py`, avec les autres chemins, parce que
-`fenetre.py` importe Tk et qu'aucun exécuteur d'intégration continue ne le
-démarre — pose `TCL_LIBRARY` et `TK_LIBRARY` depuis `sys.base_prefix` quand
-elles sont vides, et ne touche à rien sinon — un poste dont le Tk vient du
-système garde le sien. La fenêtre s'ouvre désormais des deux façons, et
-`outils/preuve_fenetre.py` sert la preuve sur les deux systèmes.
+`situer_tcl()` — in `emplacements.py`, with the other paths, because
+`fenetre.py` imports Tk and no continuous integration runner starts it — sets
+`TCL_LIBRARY` and `TK_LIBRARY` from `sys.base_prefix` when they are empty, and
+touches nothing otherwise — a machine whose Tk comes from the system keeps its
+own. The window now opens both ways, and `outils/preuve_fenetre.py` serves the
+proof on both systems.
 
-## Second passage sur l'interface, capture en main (2026-09-03)
+## Second pass over the interface, screenshots in hand (2026-09-03)
 
-Le premier passage avait retiré les deux défauts signalés (redimensionnement,
-ascenseurs). Celui-ci part des captures des cinq onglets, prises en pilotant la
-vraie fenêtre, et ne retient que ce qui est vérifiable — pas des questions de
-goût.
+The first pass had removed the two defects reported (resizing,
+scrollbars). This one starts from the screenshots of the five tabs, taken by
+driving the real window, and keeps only what is verifiable — not matters
+of taste.
 
-| Défaut | Ce qu'il coûtait | État |
+| Defect | What it cost | State |
 |---|---|---|
-| Les lignes de continuation du direct repartaient contre la marge | Une réplique longue redescendait sous l'heure et le nom : l'œil perdait la colonne du texte, sur le seul onglet qu'on regarde pendant une réunion | corrigé — `lmargin2` à 90 px, la largeur mesurée de l'heure et du nom |
-| Le champ de nommage des voix n'avait **aucun** intitulé | Un rectangle gris à côté d'un bouton « Nommer » : rien ne disait qu'on y tape un prénom, et non le numéro de la voix | corrigé — intitulé « Prénom » |
-| Les listes gardaient le cadre de « clam » | Un liseré vert-de-gris à angles droits contre des boutons et des listes déroulantes dessinés : la « pièce étrangère » déjà retirée aux menus revenait par les listes. `borderwidth=0` n'y fait rien, le cadre vient des trois couleurs de l'élément `Treeview.field` | corrigé — `bordercolor`, `lightcolor` et `darkcolor` au fond de la carte |
-| Deux formulations pour la même valeur de micro | « automatique (le mieux entendu) » en tête de fenêtre, « Automatique — le mieux entendu au démarrage » dans les Réglages : le même choix paraissait être deux réglages différents | corrigé — une seule formulation |
-| « Micro » comme intitulé de ligne sous un bloc « Micro » | Répétition sans information, quand la ligne devrait nommer ce qu'on choisit | corrigé — « Appareil » |
+| The continuation lines in live restarted against the margin | A long line dropped back below the time and the name: the eye lost the text column, on the one tab you look at during a meeting | fixed — `lmargin2` at 90 px, the measured width of the time and the name |
+| The voice naming field had **no** label | A grey rectangle next to a « Nommer » [name] button: nothing said that a first name goes in it, and not the voice number | fixed — « Prénom » [first name] label |
+| The lists kept the "clam" border | A grey-green square-cornered edging against drawn buttons and drop-down lists: the "foreign part" already removed from the menus came back through the lists. `borderwidth=0` does nothing about it, the border comes from the three colours of the `Treeview.field` element | fixed — `bordercolor`, `lightcolor` and `darkcolor` set to the card background |
+| Two wordings for the same microphone value | « automatique (le mieux entendu) » [automatic (the best heard)] at the top of the window, « Automatique — le mieux entendu au démarrage » [automatic — the best heard at start-up] in Réglages: the same choice looked like two different settings | fixed — a single wording |
+| « Micro » as the row label under a « Micro » block | Repetition with no information, where the row should name what is being chosen | fixed — « Appareil » [device] |
 
-Ce qui reste, et qui ne sera pas poursuivi ici : l'état vide des listes (des
-en-têtes au-dessus de rien, sans un mot) et l'austérité générale, qui tient au
-plafond de Tkinter.
+What remains, and will not be pursued here: the empty state of the lists
+(headers above nothing, without a word) and the general austerity, which comes
+down to Tkinter's ceiling.
 
-## Le paquet macOS est autonome et signé de façon stable (2026-09-02)
+## The macOS bundle is self-contained and signed with a stable identity (2026-09-02)
 
-Constat d'usage : « ça n'arrête pas de demander des droits ». Trois causes,
-chacune vérifiée sur l'application installée, pas supposée.
+Observation from use: « ça n'arrête pas de demander des droits » [it keeps
+asking for permissions]. Three causes, each verified on the installed
+application, not assumed.
 
-| Cause | Ce qu'elle coûtait | État |
+| Cause | What it cost | State |
 |---|---|---|
-| Signature **ad hoc** (`codesign --sign -`) : l'identité de l'application est le hachage de son binaire | Chaque reconstruction en faisait une application inconnue — micro et Outlook redemandés, le garde du poste aussi | corrigé — signée avec une identité stable (`macos/identite-de-signature.sh`) : un certificat Apple du trousseau, sinon un certificat local créé une fois |
-| Paquet **non autonome** : `Contents/lib` liait `~/.local/share/uv/…`, `PYTHONPATH` visait le `.venv` du dépôt | Chaque lancement et chaque processus auxiliaire (veille, direct) lisaient des dossiers cachés que le garde du poste conteste ; le 1er septembre, une écriture refusée (`Operation not permitted`) a arrêté le direct en pleine réunion | corrigé — interpréteur, bibliothèque standard, dépendances et code copiés dans le paquet (mesuré : 56 Mo + 181 Mo), plus rien ne pointe hors de `/Applications` |
-| L'installeur gardait **ses propres chemins XDG** (`~/.local/share/greffier`, `~/.config/greffier`) alors que l'application avait déménagé dans Application Support | Relancé, il aurait cherché les modèles au mauvais endroit et retéléchargé 1,6 Go dans un dossier caché ; la configuration restait dans `~/.config` | corrigé — une seule définition, `greffier/emplacements.py`, sans dépendance, lue par l'installeur comme par l'application ; l'installeur déménage ce qui traîne |
+| **Ad hoc** signature (`codesign --sign -`): the application's identity is the hash of its binary | Every rebuild made it an unknown application — microphone and Outlook asked again, the machine's guard too | fixed — signed with a stable identity (`macos/identite-de-signature.sh`): an Apple certificate from the keychain, otherwise a local certificate created once |
+| **Non self-contained** package: `Contents/lib` linked to `~/.local/share/uv/…`, `PYTHONPATH` pointed at the repository's `.venv` | Every launch and every auxiliary process (watch, live) read hidden folders that the machine's guard challenges; on 1 September a refused write (`Operation not permitted`) stopped live in the middle of a meeting | fixed — interpreter, standard library, dependencies and code copied into the package (measured: 56 MB + 181 MB), nothing points outside `/Applications` any more |
+| The installer kept **its own XDG paths** (`~/.local/share/greffier`, `~/.config/greffier`) while the application had moved to Application Support | Re-run, it would have looked for the models in the wrong place and downloaded 1.6 GB again into a hidden folder; the configuration stayed in `~/.config` | fixed — a single definition, `greffier/emplacements.py`, with no dependency, read by the installer as by the application; the installer moves whatever is left behind |
 
-Mesuré au passage : la signature ad hoc ne prend pas non plus les bibliothèques
-natives en compte, et un certificat auto-signé importé sans confiance explicite
-n'est pas vu par `codesign` (« 0 valid identities ») — d'où le passage par
-`security add-trusted-cert`, qui demande le mot de passe de session une fois.
+Measured along the way: the ad hoc signature does not cover the native
+libraries either, and a self-signed certificate imported without explicit trust
+is not seen by `codesign` (« 0 valid identities ») — hence going through
+`security add-trusted-cert`, which asks for the login password once.
 
-Ce qu'il en coûte : une modification du code ne se voit dans l'application
-qu'après reconstruction. C'est le comportement d'un logiciel installé ;
-`.venv/bin/greffier` suit le code pour développer.
+What it costs: a code change only shows up in the application after a rebuild.
+That is the behaviour of installed software; `.venv/bin/greffier` follows the
+code for development.
 
-Les autorisations que macOS demande **une fois** à la première utilisation
-(micro, automatisation d'Outlook) restent : aucune application n'y échappe. Ce
-qui disparaît, c'est leur retour à chaque reconstruction.
+The permissions macOS asks for **once** on first use (microphone, Outlook
+automation) remain: no application escapes them. What disappears is their
+return at every rebuild.
 
-### Mesuré dans le fichier de règles du garde, pas déduit
+### Measured in the guard's rules file, not inferred
 
-Le fichier de règles du garde garde une ligne par
-autorisation accordée : chemin protégé, programme, identité du programme,
-horodatage. Il porte donc l'historique exact des dialogues subis.
+The guard's rules file keeps one line per granted
+permission: protected path, program, program identity,
+timestamp. So it carries the exact history of the dialogs endured.
 
-| | Avant | Après |
+| | Before | After |
 |---|---|---|
-| Règles écrites pour Greffier pendant une seule réunion (2026-09-01) | **174** | — |
-| Identités différentes du même binaire ce jour-là | **10** | — |
-| Règles écrites après une reconstruction et une relance | — | **0** |
-| Règles écrites par une chaîne complète, réunion traitée de bout en bout | — | **2** |
+| Rules written for Greffier during a single meeting (2026-09-01) | **174** | — |
+| Different identities of the same binary that day | **10** | — |
+| Rules written after a rebuild and a relaunch | — | **0** |
+| Rules written by a complete chain, a meeting processed end to end | — | **2** |
 
-Dix identités pour un seul programme en une journée : c'est la signature ad hoc,
-refaite à chaque reconstruction. Le garde voyait dix programmes inconnus et
-redemandait pour chacun. Les 171 règles portant sur `~/.local/` disent l'autre
-moitié du problème.
+Ten identities for a single program in one day: that is the ad hoc signature,
+redone at every rebuild. The guard saw ten unknown programs and asked again for
+each. The 171 rules bearing on `~/.local/` tell the other half of the problem.
 
-Après correction, le binaire est identifié par l'**équipe du certificat**
-(`QULSPZ72V4`), plus par un condensat : une seule règle, sur `~/Library/`. Les
-deux règles restantes ne concernent pas les données de Greffier mais le fichier
-de configuration de Claude Code (`~/.claude.json`), accédé par le rédacteur.
+After the fix, the binary is identified by the **certificate team**
+(`QULSPZ72V4`), no longer by a digest: a single rule, on `~/Library/`. The two
+remaining rules do not concern Greffier's data but Claude Code's configuration
+file (`~/.claude.json`), accessed by the writer.
 
-### Ce qui a été éprouvé, et ne demande plus rien
+### What has been proven, and asks for nothing any more
 
-Une réunion de synthèse de 45 s, deux voix, passée **par l'exécutable du
-paquet** — donc avec la même filiation de processus qu'un double-clic, ce que
-le garde prend en compte. Segmentation, transcription, identification des voix,
-rédaction, envoi : aboutis. Puis, séparément, les deux auxiliaires qui tournent
-en boucle pendant une réunion : le listeur de périphériques du paquet, trois
-découpes `ffmpeg` et une transcription `whisper-cli`, tous lisant et écrivant
-dans Application Support. **Aucune règle nouvelle, donc aucun dialogue.**
+A 45 s synthesised meeting, two voices, run **through the package's
+executable** — therefore with the same process lineage as a double-click, which
+the guard takes into account. Segmentation, transcription, voice
+identification, writing, sending: completed. Then, separately, the two
+auxiliaries that run in a loop during a meeting: the package's device lister,
+three `ffmpeg` slices and one `whisper-cli` transcription, all reading and
+writing in Application Support. **No new rule, therefore no dialog.**
 
-### Le chemin du rédacteur doit être stable, pas seulement présent
+### The writer's path must be stable, not merely present
 
-Le garde retient le chemin du programme tel qu'il le voit, sans résoudre les
-liens symboliques. Un outil installé par Homebrew vit sous
-`/opt/homebrew/Caskroom/<outil>/<version>/` : le chemin change à chaque mise à
-jour, la règle accordée meurt avec l'ancienne version, et le dialogue revient —
-en pleine réunion pour `claude`, qui rédige le compte rendu. Le même outil sous
-`~/.local/bin` est un lien de nom fixe, que les mises à jour ne déplacent pas.
+The guard records the program's path as it sees it, without resolving symbolic
+links. A tool installed by Homebrew lives under
+`/opt/homebrew/Caskroom/<outil>/<version>/`: the path changes at every update,
+the granted rule dies with the old version, and the dialog comes back — in the
+middle of a meeting for `claude`, which writes the minutes. The same tool under
+`~/.local/bin` is a link with a fixed name, which updates do not move.
 
-`macos/construire.sh` place donc `~/.local/bin` **en tête** du PATH gravé dans
-le paquet. Mesuré : le paquet rédigeait avec le Claude Code 2.1.195 du Caskroom
-alors que le 2.1.258 était installé sous `~/.local/bin` ; après correction il
-prend le second, et la régénération d'un compte rendu n'écrit aucune règle.
+`macos/construire.sh` therefore puts `~/.local/bin` **first** in the PATH baked
+into the package. Measured: the package was writing with the Caskroom's Claude
+Code 2.1.195 while 2.1.258 was installed under `~/.local/bin`; after the fix it
+takes the second, and regenerating minutes writes no rule.
 
-## On règle depuis la fenêtre, et le modèle du rédacteur est un choix (2026-09-02)
+## Settings are made from the window, and the writer's model is a choice (2026-09-02)
 
-La configuration était **lue** de trois sources et modifiable seulement à la
-main ou par l'assistant, qui écrivait un `.env`. Régler son micro demandait
-d'ouvrir un fichier — pour un outil dont la promesse est « on installe et ça
-marche », c'était le dernier accroc.
+The configuration was **read** from three sources and could be changed only by
+hand or by the assistant, which wrote a `.env`. Setting your microphone meant
+opening a file — for a tool whose promise is "install it and it works", that
+was the last snag.
 
-`greffier/reglages.py` sait désormais **écrire** `config.toml`, au même endroit
-que celui d'où le reste de la chaîne lit : deux fichiers qui se contredisent
-valent moins que pas de fichier du tout. Le fichier est régénéré, commentaires
-compris, donc ceux-ci ne mentent jamais sur le réglage voisin ; la version
-précédente est conservée en `config.toml.precedent`. Écriture atomique, parce
-qu'on enregistre pendant qu'une réunion peut tourner et qu'un processus
-auxiliaire lisant un fichier à moitié écrit s'arrêterait sur une erreur de
-syntaxe.
+`greffier/reglages.py` can now **write** `config.toml`, in the same place the
+rest of the chain reads from: two files that contradict each other are worth
+less than no file at all. The file is regenerated, comments included, so those
+never lie about the setting next to them; the previous version is kept as
+`config.toml.precedent`. The write is atomic, because saving happens while a
+meeting may be running, and a helper process reading a half-written file would
+stop on a syntax error.
 
-L'onglet **Réglages** propose micro, modèle de transcription et langue,
-rédacteur et son modèle, destinataire, direct, apparence. Ce qui est une liste —
-vocabulaire, mots qui ne sont jamais des prénoms — reste au fichier : un
-formulaire les tronquerait. `chemins` n'est délibérément jamais écrit : les
-figer est précisément ce qui faisait lire l'ancien dossier à un poste déménagé.
+The **Réglages** tab offers microphone, transcription model and language,
+writer and its model, recipient, live, appearance. What is a list —
+vocabulary, words that are never first names — stays in the file: a form would
+truncate them. `chemins` is deliberately never written: freezing those paths is
+exactly what made a machine that had moved read the old folder.
 
-| Défaut | Ce qu'il coûtait | État |
+| Defect | What it cost | State |
 |---|---|---|
-| Le formulaire dépassait la fenêtre, sans ascenseur | Rédaction et apparence **hors d'atteinte**, sans rien qui l'indique — constaté en capture d'écran | corrigé — `Canvas` défilant, molette liée à tous les enfants sauf les listes déroulantes, qui la gardent pour changer de valeur |
-| Le thème n'était pas un réglage | La fenêtre suivait le système, sans recours | corrigé — `apparence.theme` : `systeme`, `clair` ou `sombre` |
-| Le modèle du rédacteur n'était jamais demandé | Claude Code suivait le réglage personnel de qui l'a installé : le compte rendu changeait de rédacteur sans décision, et pouvait consommer le haut de gamme | corrigé — `--model` explicite, **`opus` par défaut** |
+| The form ran past the window, with no scrollbar | Writing and appearance **out of reach**, with nothing to say so — seen on a screenshot | fixed — scrolling `Canvas`, the wheel bound to every child except the drop-down lists, which keep it for changing value |
+| The theme was not a setting | The window followed the system, with no recourse | fixed — `apparence.theme`: `systeme`, `clair` or `sombre` |
+| The writer's model was never asked for | Claude Code followed the personal setting of whoever installed it: the minutes changed writer with nobody deciding, and could draw on the top of the range | fixed — explicit `--model`, **`opus` by default** |
 
-**Pourquoi le second de la gamme.** Rédiger depuis une transcription déjà
-découpée et attribuée est de la synthèse, pas du raisonnement long. Le premier
-rend le même document en entamant un quota bien plus vite : une réunion par jour
-suffit à le sentir. Le réglage reste offert dans les deux sens, et l'assistant
-d'installation pose la question, abonnement Claude vérifié d'abord.
+**Why the second of the range.** Writing from a transcription already cut up
+and attributed is synthesis, not long reasoning. The first one produces the
+same document while eating into a quota much faster: one meeting a day is
+enough to feel it. The setting stays open both ways, and the installation
+assistant asks the question, Claude subscription checked first.
 
-Mesuré : formulaire de 676 px dans une zone de 170 px à la taille minimale de
-fenêtre, entièrement atteignable au défilement ; aller-retour d'écriture et de
-relecture fidèle sur les sept sections, accents et guillemets compris ; une
-écriture qui échoue laisse le fichier en place intact.
+Measured: a 676 px form in a 170 px area at the minimum window size, fully
+reachable by scrolling; a faithful write-and-read-back round trip over the
+seven sections, accents and quotation marks included; a write that fails leaves
+the file in place intact.
 
-## Un skill pour réparer, puisque le rédacteur est Claude Code (2026-09-02)
+## A skill for repairs, since the writer is Claude Code (2026-09-02)
 
-Greffier dépend d'une instance Claude Code authentifiée. C'est donc vers elle
-qu'on se tourne quand un maillon lâche — et sans rien à lire, elle tâtonne :
-elle ne peut pas deviner que les données vivent dans Application Support et non
-dans un dossier caché, que la signature du paquet doit rester stable, ni que le
-modèle par défaut est le second de la gamme à dessein.
+Greffier depends on an authenticated Claude Code instance. So that is what one
+turns to when a link gives way — and with nothing to read, it gropes about: it
+cannot guess that the data lives in Application Support and not in a hidden
+folder, that the bundle signature must stay stable, or that the default model
+is the second of the range by design.
 
-`skills/greffier/SKILL.md` porte ce savoir : commencer par `greffier
-diagnostic`, où sont les journaux et l'état, symptôme par symptôme ce qu'il
-signifie, les deux pièges du garde du poste avec la commande qui les mesure, et
-les trois contrôles à passer avant de proposer un correctif. L'installeur le
-copie dans `~/.claude/skills/greffier/` — une copie et non un lien, le dépôt
-pouvant être déplacé — et ne le pose pas si Claude Code est absent.
+`skills/greffier/SKILL.md` carries that knowledge: start with `greffier
+diagnostic`, where the logs and the state are, symptom by symptom what each
+means, the two traps of the machine's guard with the command that measures
+them, and the three checks to run before proposing a fix. The installer copies
+it into `~/.claude/skills/greffier/` — a copy and not a link, since the
+repository can be moved — and does not put it there if Claude Code is absent.
 
-## Les réglages s'appliquent seuls, et le compte Claude se voit (2026-09-02)
+## Settings apply on their own, and the Claude account is visible (2026-09-02)
 
-Trois défauts signalés à l'usage dans l'heure qui a suivi la livraison de
-l'onglet, tous les trois réels.
+Three defects reported in use within the hour that followed the delivery of the
+tab, all three real.
 
-| Défaut | Ce qu'il coûtait | État |
+| Defect | What it cost | State |
 |---|---|---|
-| Le bouton « Enregistrer » vivait **dans** la zone défilante | Il descendait sous le bord de la fenêtre : on changeait le thème, aucun bouton n'était visible, **rien n'était écrit** — vérifié, `config.toml` n'avait pas bougé depuis la veille | corrigé — plus de bouton du tout |
-| Un bouton d'enregistrement en pied de formulaire | Mauvais motif : un panneau de réglages s'applique en direct, comme celui du système | corrigé — chaque liste, case et champ enregistre de lui-même ; les deux champs de saisie au moment de les quitter ou de valider, jamais à la frappe, sinon une adresse courriel produirait vingt fichiers et autant de sauvegardes |
-| Le thème n'était appliqué qu'« au prochain lancement » | Le réglage paraissait ne rien faire | corrigé — la fenêtre est repeinte sur le champ |
-| Rien ne montrait ni ne gérait le compte Claude | C'est lui qui rédige : sans session, tout marche sauf le compte rendu, et l'échec n'arrive qu'après la transcription | corrigé — bloc **Compte Claude** : version, adresse, organisation, formule, et trois actions |
+| The « Enregistrer » button lived **inside** the scrolling area | It went below the window edge: you changed the theme, no button was visible, **nothing was written** — checked, `config.toml` had not moved since the day before | fixed — no button at all any more |
+| A save button at the foot of the form | Wrong pattern: a settings panel applies live, like the system one | fixed — every list, checkbox and field saves on its own; the two text fields when leaving them or on validation, never on keystroke, otherwise an email address would produce twenty files and as many backups |
+| The theme was only applied "at the next launch" | The setting appeared to do nothing | fixed — the window is repainted on the spot |
+| Nothing showed or managed the Claude account | It is the one that writes: without a session, everything works except the minutes, and the failure only comes after the transcription | fixed — **Compte Claude** block: version, address, organisation, plan, and three actions |
 
-**Repeindre sans relancer.** Les couleurs sont lues à la construction de chaque
-composant, plusieurs les dessinant eux-mêmes sur un canevas : changer de thème
-demande donc de reconstruire l'intérieur de la fenêtre. Ce qui porte l'état ne
-bouge pas — la capture vit dans un processus séparé, la veille et le direct
-aussi, le fil affiché se relit du journal. Deux pièges mesurés au passage : le
-repeint est différé après le retour de l'événement, sans quoi la liste
-déroulante qui vient d'être choisie serait détruite au milieu du traitement de
-son propre événement ; et `Vumetre._pas`, réarmé toutes les 30 ms, vérifie
-désormais que son canevas existe encore, sinon chaque pas restant lèverait une
-`TclError` dans la boucle de Tk. Éprouvé sur la vraie fenêtre, dans les deux
-sens : `#f5f5f7` → `#1a1a1d` → `#f5f5f7`, onglet conservé, confirmation
-d'enregistrement reportée sur la ligne d'état neuve.
+**Repainting without relaunching.** Colours are read when each component is
+built, several of them drawing themselves on a canvas: changing theme therefore
+requires rebuilding the inside of the window. What carries the state does not
+move — capture lives in a separate process, so do the live watch and the live
+view, the displayed thread is re-read from the log. Two traps measured along the
+way: the repaint is deferred until after the event returns, without which the
+drop-down list just chosen would be destroyed in the middle of handling its own
+event; and `Vumetre._pas`, re-armed every 30 ms, now checks that its canvas
+still exists, otherwise each remaining step would raise a `TclError` in Tk's
+loop. Proven on the real window, both ways: `#f5f5f7` → `#1a1a1d` → `#f5f5f7`,
+tab kept, save confirmation moved to the new status line.
 
-**Se connecter ouvre un terminal.** La connexion est interactive : navigateur,
-puis code à coller. Rien de cela ne se pilote depuis une fenêtre Tk, et il ne
-faut pas essayer. Un fichier `.command` ouvert par `open`, plutôt qu'un
-`osascript` qui pilote Terminal : le second réclamerait l'autorisation
-« Automatisation », soit un dialogue système de plus pour le même résultat.
+**Signing in opens a terminal.** Sign-in is interactive: browser, then a code to
+paste. None of that is driven from a Tk window, and it should not be attempted.
+A `.command` file opened by `open`, rather than an `osascript` driving Terminal:
+the latter would require the « Automatisation » [Automation] permission, one
+more system dialog for the same result.
 
-`diagnostic.compte_claude()` lit le fichier de session, jamais le réseau :
-l'onglet l'affiche à chaque ouverture, et un appel distant y ferait attendre
-pour rien. Aucun jeton n'est lu, seulement de quoi reconnaître le compte —
-un test le vérifie.
+`diagnostic.compte_claude()` reads the session file, never the network: the tab
+displays it every time it opens, and a remote call would make it wait for
+nothing. No token is read, only enough to recognise the account —
+a test checks it.
 
-## L'interface passe une revue, et la langue n'est plus un champ libre (2026-09-02)
+## The interface goes through a review, and the language is no longer a free-text field (2026-09-02)
 
-Quatre remarques d'usage, dont trois se mesurent plutôt qu'elles ne se jugent.
+Four observations from use, three of which are measured rather than judged.
 
-| Défaut | Ce qu'il coûtait | État |
+| Defect | What it cost | State |
 |---|---|---|
-| La palette n'avait **aucun accent** : `accent` valait le noir de l'encre | La fenêtre était uniformément grise et rien ne guidait l'œil | corrigé — un indigo, 6,83:1 sur la carte en clair, 5,67:1 en sombre, choisi loin du rouge d'enregistrement et des vumètres |
-| Les filets à **1,28:1** de la carte | Bordures et séparateurs invisibles : l'interface paraissait plate quoi qu'on fasse | corrigé — 1,50 et 1,44, avec un test qui les garde perceptibles |
-| `ttk.Combobox`, avec la flèche carrée grise du thème « clam » | À côté des boutons et ascenseurs dessinés, elle se lisait comme une pièce étrangère | corrigé — `Liste`, dessinée : même arrondi, même liseré, même survol, chevron en deux segments, menu qui prolonge le champ |
-| « Se connecter » proposé à qui l'est déjà | Laisse croire que la session n'est pas vue | corrigé — une seule action, dont l'intitulé suit l'état ; plus de bouton « Actualiser », l'état se relit à l'affichage de l'onglet |
-| La **langue** était un champ de saisie libre | « fr » ne se devine pas, et une faute de code faisait transcrire dans la mauvaise langue, en silence, une heure durant | corrigé — une liste de seize langues, détection automatique comprise |
-| La ligne du bas gardait « … en cours… » | Après une mise à jour de Claude Code, elle laissait croire qu'elle tournait encore | corrigé — la dernière tâche qui s'achève l'efface |
+| The palette had **no accent**: `accent` was the ink black | The window was uniformly grey and nothing guided the eye | fixed — an indigo, 6.83:1 on the card in light, 5.67:1 in dark, chosen far from the recording red and the level meters |
+| The card's hairlines at **1.28:1** | Borders and separators invisible: the interface looked flat whatever you did | fixed — 1.50 and 1.44, with a test that keeps them perceptible |
+| `ttk.Combobox`, with the grey square arrow of the "clam" theme | Next to the drawn buttons and scrollbars, it read as a part from somewhere else | fixed — `Liste`, drawn: same rounding, same edging, same hover, chevron in two segments, menu that extends the field |
+| « Se connecter » [sign in] offered to someone already signed in | Suggests the session is not seen | fixed — a single action whose label follows the state; no more « Actualiser » [refresh] button, the state is read again when the tab is shown |
+| The **language** was a free-text input field | « fr » cannot be guessed, and a mistyped code transcribed in the wrong language, silently, for an hour | fixed — a list of sixteen languages, automatic detection included |
+| The bottom line kept « … en cours… » [in progress] | After a Claude Code update, it suggested the task was still running | fixed — the last task to finish clears it |
 
-**La langue vide veut dire « reconnais-la toi-même »**, comme le micro vide
-laisse l'écoute décider. Les deux moteurs ne l'expriment pas pareil, et se
-tromper est silencieux : `whisper-cli` reçoit `-l auto`, faster-whisper reçoit
-`language=None` — la chaîne « auto » y serait refusée. Deux tests tiennent cette
-correspondance.
+**An empty language means "recognise it yourself"**, the way an empty microphone
+lets the listening decide. The two engines do not express it the same way, and
+getting it wrong is silent: `whisper-cli` receives `-l auto`, faster-whisper
+receives `language=None` — the string "auto" would be rejected there. Two tests
+hold this correspondence.
 
-`Liste` porte elle-même ses couples (clef, libellé) : l'appelant règle et lit
-des **clefs**, jamais le texte affiché. La version précédente devait retrouver
-la clef en comparant des libellés, ce qui cassait au premier renommage.
+`Liste` carries its own (key, label) pairs: the caller sets and reads **keys**,
+never the displayed text. The previous version had to recover the key by
+comparing labels, which broke at the first rename.
 
-Le README porte enfin deux schémas **SVG animés** — la chaîne étape par étape,
-et les cinq vues de la fenêtre qui défilent. Ils suivent le thème clair ou
-sombre du lecteur par `prefers-color-scheme`, et s'immobilisent pour qui a
-demandé moins d'animations (`prefers-reduced-motion`). Rien de rasterisé : le
-texte reste sélectionnable et le fichier pèse quelques kilooctets.
+The README finally carries two **animated SVG** diagrams — the chain step by
+step, and the five window views cycling past. They follow the reader's light or
+dark theme through `prefers-color-scheme`, and stand still for anyone who asked
+for less animation (`prefers-reduced-motion`). Nothing rasterised: the text
+stays selectable and the file weighs a few kilobytes.
 
-## Une banque de voix qui se contredit ne doit plus affirmer (2026-09-02)
+## A voice bank that contradicts itself must stop asserting (2026-09-02)
 
-Constat en réunion réelle : quatre voix pour deux personnes, et un prénom
-attribué à quelqu'un alors que personne ne l'avait prononcé. Mesuré sur
-l'enregistrement, pas déduit du symptôme.
+Observation in a real meeting: four voices for two people, and a first name
+attributed to someone although nobody had spoken it. Measured on the recording,
+not inferred from the symptom.
 
-Les empreintes vocales identifient des personnes : ce document les désigne par
-**« A »** et **« B »**, et n'en nomme aucune. Les chiffres suffisent au
-raisonnement, et un dépôt n'a pas à porter la signature vocale de qui que ce
-soit sous son nom.
+Voice prints identify people: this document designates them by **« A »** and
+**« B »**, and names neither. The numbers are enough for the reasoning, and a
+repository has no business carrying anyone's voice signature under their own
+name.
 
-### Le prénom venait de la banque, pas de la parole
+### The first name came from the bank, not from the speech
 
-| Voix du direct | Parole | contre « A » | contre « B » | Verdict de la banque |
+| Live voice | Speaking time | against « A » | against « B » | Bank's verdict |
 |---|---|---|---|---|
-| v4 | 57,0 s | **0,78** | 0,94 | « A », marge 0,24 — affirmé |
-| v3 | 56,9 s | 0,46 | 0,55 | une troisième entrée, marge 0,44 |
+| v4 | 57.0 s | **0.78** | 0.94 | « A », margin 0.24 — asserted |
+| v3 | 56.9 s | 0.46 | 0.55 | a third entry, margin 0.44 |
 
-Les deux contrôles étaient satisfaits, seuil et marge : l'outil n'a pas eu tort
-d'affirmer, il a eu tort de croire sa banque. Car dans celle-ci :
+Both checks were satisfied, threshold and margin: the tool was not wrong to
+assert, it was wrong to trust its bank. Because inside that bank:
 
-| Paire de la banque | Ressemblance |
+| Bank pair | Similarity |
 |---|---|
-| « A » et « B » | **0,77** |
-| les huit autres paires | 0,22 à 0,53 |
+| « A » and « B » | **0.77** |
+| the eight other pairs | 0.22 to 0.53 |
 
-Deux personnes différentes se mesurent à 0,41 d'après `docs/calibrage.md`. Une
-paire à 0,77 dit qu'un des deux noms porte la voix de l'autre. L'empreinte « A »
-avait été versée huit jours plus tôt depuis un groupe de 85 s, dans une réunion
-de 992 tours où aucun canal n'avait identifié le locuteur local — le terrain
-d'une confusion.
+Two different people measure at 0.41 according to `docs/calibrage.md`. A pair at
+0.77 says that one of the two names carries the other's voice. The « A » voice
+print had been paid in eight days earlier from an 85 s cluster, in a meeting of
+992 speaking turns where no channel had identified the local speaker — the
+ground for a mix-up.
 
-### Ce qui a été corrigé, et ce qui a été écarté
+### What was fixed, and what was ruled out
 
-**Écarté : relever le seuil.** Il faudrait connaître la ressemblance d'une même
-personne entre deux séances, et la seule paire élevée de la banque est
-justement celle dont on doute. Choisir un nombre ici serait le deviner, ce que
-ce projet refuse ailleurs.
+**Ruled out: raising the threshold.** It would take knowing the similarity of
+one person between two sessions, and the only high pair in the bank is precisely
+the one under doubt. Choosing a number here would be guessing it, which this
+project refuses to do elsewhere.
 
-**Retenu : refuser d'affirmer quand la banque se contredit.**
-`noms_en_conflit()` compare les personnes connues deux à deux ; toute paire au
-seuil de reconnaissance signifie qu'un nom est faux sans qu'on sache lequel, et
-`reconnaitre()` ne rend alors plus ce nom. La voix s'affiche à nommer, ce qui
-appelle la correction humaine — la seule source que rien ne discute. Les noms
-hors conflit continuent d'être reconnus : une entrée douteuse ne rend pas toute
-la banque muette. Le défaut devient visible au lieu de se confirmer seul.
+**Adopted: refuse to assert when the bank contradicts itself.**
+`noms_en_conflit()` compares known people pairwise; any pair at the recognition
+threshold means one name is wrong without saying which, and `reconnaitre()` then
+no longer returns that name. The voice shows as a voice to name, which calls for
+the human correction — the one source nothing argues with. Names outside a
+conflict go on being recognised: one doubtful entry does not silence the whole
+bank. The defect becomes visible instead of confirming itself on its own.
 
-### Réunir des voix existait déjà, mais rien ne le disait
+### Merging voices already existed, but nothing said so
 
-Nommer une voix du nom d'une autre les **réunit** : les tours passent à la voix
-survivante, les empreintes se cumulent — ce qui enrichit l'entrée versée en
-banque — et cela vaut pour autant de voix que la segmentation en a créées. Le
-menu de correction se contentait d'afficher le nom. Il annonce désormais
-« ⟵ réunir les deux voix » sur les noms déjà portés ailleurs dans la réunion.
+Naming a voice with another one's name **merges** them: the speaking turns move
+to the surviving voice, the voice prints add up — which enriches the entry paid
+into the bank — and this holds for as many voices as segmentation created. The
+correction menu did no more than display the name. It now announces
+« ⟵ réunir les deux voix » [merge the two voices] on names already carried
+elsewhere in the meeting.
 
-### Le direct a enfin la seconde chance du recollage
+### Live finally gets the second chance of re-stitching
 
-Symptôme rapporté : « il me détecte à chaque fois une voix différente ». Mesuré
-sur la même réunion, 27 phrases, empreintes prélevées phrase à phrase.
+Reported symptom: « il me détecte à chaque fois une voix différente » [it
+detects a different voice for me every time]. Measured on the same meeting,
+27 sentences, voice prints taken sentence by sentence.
 
-| | Même personne | Personnes différentes |
+| | Same person | Different people |
 |---|---|---|
-| Médiane | **0,69** | 0,35 |
-| 1er quartile | 0,57 | 0,26 |
-| Au-dessus du seuil de 0,75 | **28 %** | 2 % |
+| Median | **0.69** | 0.35 |
+| 1st quartile | 0.57 | 0.26 |
+| Above the 0.75 threshold | **28 %** | 2 % |
 
-Le seuil était donc **au-dessus de la médiane d'une même personne** : trois
-reprises de parole sur quatre créaient une voix. La durée explique tout — les
-phrases de cette réunion durent 2 à 4 s en médiane :
+The threshold was therefore **above the median for one and the same person**:
+three times out of four, taking the floor again created a voice. Duration
+explains all of it — the sentences in this meeting last 2 to 4 s at the median:
 
-| Durée des phrases | Médiane « même personne » | Au-dessus du seuil |
+| Sentence duration | Median « same person » | Above the threshold |
 |---|---|---|
-| ≥ 1 s | 0,69 | 28 % |
-| ≥ 3 s | 0,77 | 64 % |
-| ≥ 5 s | 0,79 | 89 % |
+| ≥ 1 s | 0.69 | 28 % |
+| ≥ 3 s | 0.77 | 64 % |
+| ≥ 5 s | 0.79 | 89 % |
 
-**Le seuil n'était pourtant pas en cause, et rien n'a été recalibré.** Sur les
-agrégats accumulés, les deux voix de la même personne montent à **0,79** et les
-deux personnes différentes restent à **0,63** : à 0,75, la séparation est nette.
-Le rattachement d'un bloc compare une empreinte courte à l'agrégat d'une voix,
-une fois, et ne refait jamais la comparaison quand la matière s'accumule.
+**The threshold was not at fault, though, and nothing was recalibrated.** On the
+accumulated aggregates, the two voices of the same person rise to **0.79** and
+the two different people stay at **0.63**: at 0.75 the separation is clear.
+Attaching a block compares one short voice print to a voice's aggregate, once,
+and never redoes the comparison as the material accumulates.
 
-`Fil.recoller()` la refait, à chaque tranche, en appelant `fusionner_voix` —
-celle du traitement final, même seuil, même garde de matière minimale. Deux voix
-nommées par un humain sous des noms différents ne sont jamais réunies : une
-correction humaine ne se défait pas sur une mesure. La réunion voyage par le
-journal (`genre: "reunion"`), la fenêtre reconstruisant le fil sans jamais
-calculer d'empreinte.
+`Fil.recoller()` redoes it, on every slice, by calling `fusionner_voix` — the one
+from the final processing, same threshold, same minimum-material guard. Two
+voices named by a human under different names are never merged: a human
+correction is not undone on a measurement. The merge travels through the log
+(`genre: "reunion"`), the window rebuilding the thread without ever computing a
+voice print.
 
-Vérifié en rejouant le fil réel de la réunion : les quatre voix deviennent
-trois, la voix de 8 s rejoint celle de 56 s de la même personne — 13 tours au
-lieu de 10 — et l'autre personne reste séparée. La voix restante, une seule
-phrase de 5,3 s à 0,60 et 0,52 des deux autres, est réellement ambiguë : un clic
-la réunit, et le menu le dit maintenant.
+Checked by replaying the meeting's real thread: the four voices become three,
+the 8 s voice joins the 56 s one of the same person — 13 speaking turns instead
+of 10 — and the other person stays separate. The remaining voice, a single
+5.3 s sentence at 0.60 and 0.52 from the other two, is genuinely ambiguous: one
+click merges it, and the menu now says so.
 
-## Une réunion terminée depuis la fenêtre ne laissait rien (2026-09-02)
+## A meeting ended from the window left nothing behind (2026-09-02)
 
-Le plus grave de la journée, et il expliquait plusieurs symptômes d'un coup :
-« ces réunions ne s'affichent pas dans la liste », « le compte rendu ne dit pas
-qui était présent ».
+The most serious one of the day, and it explained several symptoms at once:
+« ces réunions ne s'affichent pas dans la liste » [these meetings do not show
+in the list], « le compte rendu ne dit pas qui était présent » [the minutes do
+not say who was there].
 
-**L'écriture n'existait que dans la commande en ligne.** `greffier traiter`
-déposait le fichier maître, la transcription et le compte rendu ; la fenêtre,
-elle, appelait la même chaîne puis n'écrivait rien. Une réunion terminée par le
-bouton était donc transcrite, rédigée, envoyée par courriel — et perdue :
-absente de la liste des réunions, impossible à relire, impossible à renommer
-une voix après coup, donc rien n'entrait en banque.
+**Saving to disk existed only in the command line.** `greffier traiter` deposited the
+master file, the transcription and the minutes; the window called the same
+chain and then wrote nothing. A meeting ended with the button was therefore
+transcribed, written up, sent by mail — and lost: absent from the meeting list,
+impossible to re-read, impossible to rename a voice afterwards, so nothing
+entered the bank.
 
-`Traitement` garde désormais la réunion lui-même, derrière un port
-`DepotReunions` et deux dossiers de sortie facultatifs. Tous ses appelants en
-profitent, et la commande en ligne ne fait plus que dire où. **Gardé avant
-l'envoi** : un serveur de courriel injoignable ne doit pas faire perdre une
-heure de transcription et sa rédaction — un test le vérifie.
+`Traitement` now keeps the meeting itself, behind a `DepotReunions` port and
+two optional output folders. All its callers benefit from it, and the command
+line does no more than say where. **Kept before the sending**: an unreachable
+mail server must not lose an hour of transcription and its writing — a test
+checks it.
 
-### La ligne de contexte est composée, plus rédigée
+### The context line is composed, no longer written
 
-Deux comptes rendus du même jour, tous deux corrects selon les consignes :
+Two sets of minutes from the same day, both correct by the instructions:
 « 2 septembre 2026, 15 h 50, durée 2 minutes. Participants : Tanguy, Pascal. »
-et « 2 septembre 2026, 3 min. » — sans heure, sans participants. Une date et une
-heure ne sont pas matière à style.
+and « 2 septembre 2026, 3 min. » — no time, no participants. A date and a time
+are not matter for style.
 
-`entete_contexte` compose maintenant la ligne et demande de la reproduire mot
-pour mot : date, **horaires de début et de fin** (la fin se déduit de la durée),
-durée, participants. Et quand aucune voix n'a été nommée, elle dit **combien**
-de personnes ont parlé — « 3 personnes ont parlé, aucune nommée » — au lieu de
-taire la question. Un compte rendu qui ne dit pas qui était là laisse son
-lecteur sans réponse, et l'absence de nom se corrige d'un clic.
+`entete_contexte` now composes the line and asks for it to be reproduced word
+for word: date, **start and end times** (the end is deduced from the duration),
+duration, participants. And when no voice has been named, it says **how many**
+people spoke — « 3 personnes ont parlé, aucune nommée » [3 people spoke, none
+named] — instead of leaving the question unsaid. Minutes that do not say who
+was there leave their reader without an answer, and a missing name is corrected
+with one click.
 
-### Un traitement ne se lance plus pendant une réunion
+### A processing run no longer starts during a meeting
 
-Le fichier d'état est unique : c'est par lui que la fenêtre suit la réunion en
-cours. Un traitement lancé en parallèle y publie ses propres phases, jusqu'à
-« terminé », et la fenêtre en conclut que la réunion est finie — le fil du
-direct s'arrête et les processus d'écoute se retirent, alors que la capture
-continue. Provoqué pour de vrai ce jour-là, en réunion réelle, par un
-traitement lancé à côté. `greffier traiter` refuse désormais tant qu'une réunion
-s'enregistre, et `--quand-meme` reste pour qui sait ce qu'il fait.
+The state file is unique: it is through it that the window follows the meeting
+in progress. A processing run started alongside publishes its own phases there,
+up to « terminé » [finished], and the window concludes that the meeting is over
+— the live thread stops and the listening processes withdraw, while the capture
+goes on. Actually triggered that day, in a real meeting, by a processing run
+started on the side. `greffier traiter` now refuses as long as a meeting is
+recording, and `--quand-meme` remains for whoever knows what they are doing.
 
-### Mots déformés : ce que le rédacteur doit en faire
+### Distorted words: what the writer is to do with them
 
-La transcription rend parfois un mot par un autre qui sonne pareil sans exister
-(« diemandie » pour « demander »). Trois règles, dans cet ordre : rétablir le
-mot quand la phrase ne laisse aucun doute et sans signaler la correction ; ne
-jamais citer entre guillemets une forme devinée ; ne jamais deviner ce qui porte
-l'information — un nom, un chiffre, une échéance — mais le signaler en annexe
-plutôt que d'inscrire une valeur inventée.
+The transcription sometimes renders one word as another that sounds the same
+without existing (« diemandie » for « demander » [to ask]). Three rules, in
+this order: restore the word when the sentence leaves no doubt, and without
+flagging the correction; never quote a guessed form between quotation marks;
+never guess what carries the information — a name, a figure, a deadline — but
+flag it in an appendix rather than writing down an invented value.
 
-### Reste ouvert
+### Still open
 
-- **Aucun moyen de supprimer une réunion** depuis l'onglet Réunions.
-- **En présentiel, le canal ne désigne personne** : mesuré sur une réunion
-  réelle, deux des trois canaux enregistrés sont du silence numérique, la boucle
-  système n'ayant rien à capter. Tout repose alors sur les empreintes, et rien
-  ne prévient l'utilisateur que c'est le cas.
-- **Le nombre de participants** est réglable (il force autant de groupes dans le
-  traitement final) mais rien ne le suggère quand le compte détecté paraît trop
-  élevé.
+- **No way to delete a meeting** from the Réunions tab.
+- **In person, the channel designates nobody**: measured on a real meeting, two
+  of the three recorded channels are digital silence, the system loopback
+  having nothing to pick up. Everything then rests on the voice prints, and
+  nothing warns the user that this is the case.
+- **The number of participants** is adjustable (it forces that many groups in
+  the final processing run) but nothing suggests it when the detected count
+  looks too high.
 
+## First run on a real Linux machine (2026-09-08)
 
-## Première exécution sur un vrai poste Linux (2026-09-08)
+Ubuntu, PipeWire, GeForce GTX 1660 Ti, no CUDA library installed.
+`python3 outils/installer.py --oui` runs to the end: `uv` installs CPython
+3.13.13, the segmentation and voice print models download, `large-v3` is ready,
+the configuration is written. What the container proof did not show, a desktop
+machine showed straight away.
 
-Ubuntu, PipeWire, GeForce GTX 1660 Ti, aucune bibliothèque CUDA installée.
-`python3 outils/installer.py --oui` va au bout : `uv` pose CPython 3.13.13, les
-modèles de segmentation et d'empreintes se téléchargent, `large-v3` est prêt, la
-configuration est écrite. Ce que la preuve en conteneur ne montrait pas, un
-poste de bureau l'a montré tout de suite.
-
-| Défaut | Ce qu'il coûtait | État |
+| Defect | What it cost | State |
 |---|---|---|
-| `device="auto"` retient la carte graphique sans vérifier cuBLAS | La chaîne **plantait** après huit minutes, `Library libcublas.so.12 is not found`, la réunion perdue au moment d'être transcrite | corrigé — repli sur le processeur, la panne du processeur restant, elle, visible |
-| L'interface demandait « DejaVu Sans » et « DejaVu Serif » | Le Tk que `uv` distribue est construit **sans fontconfig** : il n'expose que les familles X11 historiques, tout autre nom retombe sur `fixed`, une bitmap qui ne s'échelonne pas | corrigé — « Helvetica » et « Times », que Tk garantit sur les trois systèmes |
-| Les tailles de police étaient données en points | X11 annonce près de cent points par pouce quand macOS en annonce soixante-douze : la même interface grandissait d'un tiers, « Démarrer la réunion » débordait de son bouton, trois libellés dépassaient de leur cadre, dont un de 1341 px dans 787 px | corrigé — tailles négatives, donc en pixels, identiques partout |
-| La capture du son se jugeait sur la présence de `pactl` | Un poste avec PipeWire en marche mais sans `pulseaudio-utils` s'entendait dire que le son des autres ne pourrait pas être capté, alors que `ffmpeg -f pulse` y enregistre très bien — vérifié dans les deux sens, micro et moniteur | corrigé — on juge sur la prise du serveur, ou sur `PULSE_SERVER` |
+| `device="auto"` picks the graphics card without checking cuBLAS | The chain **crashed** after eight minutes, `Library libcublas.so.12 is not found`, the meeting lost at the moment of being transcribed | fixed — fall back to the processor, a processor failure itself staying visible |
+| The interface asked for "DejaVu Sans" and "DejaVu Serif" | The Tk that `uv` ships is built **without fontconfig**: it only exposes the historical X11 families, any other name falls back to `fixed`, a bitmap that does not scale | fixed — "Helvetica" and "Times", which Tk guarantees on all three systems |
+| Font sizes were given in points | X11 reports close to a hundred dots per inch where macOS reports seventy-two: the same interface grew by a third, « Démarrer la réunion » overflowed its button, three labels ran past their frame, one of them 1341 px inside 787 px | fixed — negative sizes, hence in pixels, identical everywhere |
+| Sound capture was judged on the presence of `pactl` | A machine with PipeWire running but without `pulseaudio-utils` was told that everyone else's sound could not be captured, when `ffmpeg -f pulse` records there perfectly well — checked both ways, microphone and monitor | fixed — the judgement is made on the server socket, or on `PULSE_SERVER` |
 
-### Pourquoi la preuve en conteneur ne les avait pas trouvés
+### Why the container proof had not found them
 
-`preuve-fenetre-linux.Dockerfile` pose le `python3-tk` de Debian : un Tk 8.6
-construit **avec** fontconfig, qui voit les sept familles DejaVu et les rend
-correctement. L'installeur, lui, pose l'interpréteur de `uv` et son Tk 9.0, qui
-n'en voit aucune. Les deux chemins sont légitimes ; seul le second est celui que
-suit quelqu'un qui installe Greffier. La preuve en conteneur reste utile — elle
-a bien montré que la fenêtre s'ouvre — mais elle ne dit rien du rendu.
+`preuve-fenetre-linux.Dockerfile` installs Debian's `python3-tk`: a Tk 8.6
+built **with** fontconfig, which sees the seven DejaVu families and renders
+them correctly. The installer installs `uv`'s interpreter and its Tk 9.0, which
+sees none of them. Both paths are legitimate; only the second is the one
+somebody installing Greffier follows. The container proof stays useful — it did
+show that the window opens — but it says nothing about the rendering.
 
-### La chaîne, mesurée
+### The chain, measured
 
-Faute de `say`, le dialogue d'essai a été resynthétisé avec deux voix Piper puis
-passé dans la chaîne réelle : **115 mots, deux voix, « Jacques » et « Sandy »
-retrouvés**, ce que macOS obtient déjà.
+For want of `say`, the test dialogue was resynthesised with two Piper voices
+then put through the real chain: **115 words, two voices, "Jacques" and "Sandy"
+found**, which macOS already achieves.
 
-### Puis sur de vraies voix, pas sur de la synthèse
+### Then on real voices, not on synthesis
 
-Deux entretiens réels en français, tirés de Wikimedia Commons, et une vraie
-réunion de travail à quatre. Les voix synthétiques sont une épreuve facile :
-elles ne se coupent pas la parole, ne bougent pas du micro et n'ont pas de
-bruit de fond.
+Two real interviews in French, taken from Wikimedia Commons, and a real work
+meeting with four people. Synthetic voices are an easy test: they do not talk
+over each other, do not move away from the microphone and have no background
+noise.
 
-| Enregistrement | Durée | Attendu | Trouvé |
+| Recording | Length | Expected | Found |
 |---|---|---|---|
-| [Entretien Jean-Pierre Jaussaud](https://commons.wikimedia.org/wiki/File:Interview_Jean-Pierre_Jaussaud.ogg) (CC BY-SA 4.0) | 1 min 45 | 2 voix | **2 voix**, 323 mots, couverture 95 % |
-| [Entretien Alexandre Hocquet](https://commons.wikimedia.org/wiki/File:Interview_Alexandre_Hocquet_The_Conversation.ogg) (CC BY-SA 4.0) | 5 min 16 | 2 voix | **2 voix**, 802 mots |
+| [Jean-Pierre Jaussaud interview](https://commons.wikimedia.org/wiki/File:Interview_Jean-Pierre_Jaussaud.ogg) (CC BY-SA 4.0) | 1 min 45 | 2 voices | **2 voices**, 323 words, 95 % coverage |
+| [Alexandre Hocquet interview](https://commons.wikimedia.org/wiki/File:Interview_Alexandre_Hocquet_The_Conversation.ogg) (CC BY-SA 4.0) | 5 min 16 | 2 voices | **2 voices**, 802 words |
 
-Aucun nom n'est inventé : personne ne se présentant dans ces entretiens, aucune
-voix n'est nommée, et c'est le comportement voulu.
+No name is invented: since nobody introduces themselves in these interviews, no
+voice is named, and that is the intended behaviour.
 
-Puis une vraie réunion de travail, la plus dure des trois : **ES2002a du corpus
-AMI** (CC BY 4.0), vingt et une minutes, quatre personnes autour d'une table,
-et un seul canal où tout est mélangé — exactement la configuration que ce
-document signale plus bas comme celle où le canal ne désigne personne. La
-référence n'est pas discutable : le corpus livre quatre pistes de casque, pas
-une de plus.
+Then a real work meeting, the hardest of the three: **ES2002a from the AMI
+corpus** (CC BY 4.0), twenty-one minutes, four people around a table, and a
+single channel where everything is mixed — exactly the configuration this
+document flags further down as the one where the channel designates nobody. The
+reference is not open to argument: the corpus ships four headset tracks, not
+one more.
 
-| | Attendu | Trouvé |
+| | Expected | Found |
 |---|---|---|
-| Voix | 4 | **6** |
-| Mots | — | 2 499 |
-| Blocs « Indéterminé » | — | **42**, plus que n'importe quelle personne |
-| Temps de parole | — | deux voix en portent 92 % |
+| Voices | 4 | **6** |
+| Words | — | 2,499 |
+| "Indéterminé" blocks | — | **42**, more than any single person |
+| Speaking time | — | two voices carry 92 % of it |
 
-La transcription, elle, tient : « I'm Lise and I'm the project manager », « Hi,
-I'm David and I'm supposed to be an industrial designer ». Ce sont précisément
-les phrases que l'attribution des noms cherche — mais les motifs sont français
-(`je m'appelle`, `moi c'est`, `je suis`), et rien ne les reconnaît en anglais.
-Ce n'est pas un défaut : l'outil est écrit pour des réunions en français. Cela
-mérite d'être dit, la langue de transcription étant réglable.
+The transcription itself holds: "I'm Lise and I'm the project manager", "Hi,
+I'm David and I'm supposed to be an industrial designer". These are precisely
+the sentences that name attribution looks for — but the patterns are French
+(`je m'appelle`, `moi c'est`, `je suis`), and nothing recognises them in
+English. This is not a defect: the tool is written for meetings in French. It
+is worth saying, the transcription language being a setting.
 
-Ce que cette mesure apporte : le point ouvert sur le nombre de participants
-n'est plus une impression. Sur un canal unique, sans nombre annoncé, quatre
-personnes en deviennent six, et deux passages sur cinq ne sont attribués à
-personne.
+What this measurement brings: the open point about the number of participants
+is no longer an impression. On a single channel, with no announced count, four
+people become six, and two passages in five are attributed to nobody.
 
-Ce que la synthèse ne montrait pas : sans nombre de participants annoncé, le
-regroupement sur-découpe une vraie conversation. Le compte affiché reste juste,
-mais le corps de la transcription porte les étiquettes brutes.
+What synthesis did not show: with no announced participant count, the grouping
+over-splits a real conversation. The displayed count stays correct, but the
+body of the transcription carries the raw labels.
 
 ```
 sans « personnes »   [Personne 0] [Personne 1] [Personne 10] [Personne 13] [Indéterminé]
 avec personnes = 2   [Personne 0] [Personne 1]
 ```
 
-C'est le point déjà ouvert plus bas sur le nombre de participants ; il a
-maintenant des chiffres, et sur de la vraie parole.
+This is the point already open further down about the number of participants;
+it now has figures, and on real speech.
 
-### Ce que coûtait le calcul, et ce qu'il coûte
+### What the computation cost, and what it costs
 
-Le repli sur le processeur garde la chaîne en vie, pas utilisable : `large-v3`
-en `int8` demandait **huit minutes pour trente-huit secondes** d'audio, treize
-fois le temps réel — treize heures pour une réunion d'une heure. Deux choses
-l'expliquaient, et aucune n'était visible.
+Falling back to the processor keeps the chain alive, not usable: `large-v3` in
+`int8` needed **eight minutes for thirty-eight seconds** of audio, thirteen
+times real time — thirteen hours for a one-hour meeting. Two things explained
+it, and neither was visible.
 
-La carte était là et inutilisable. Aucune distribution ne livre cuBLAS et cuDNN
-avec le pilote, et les roues `nvidia-*` posent leurs bibliothèques hors du
-chemin du chargeur : CTranslate2 ne les trouvait pas. Réglé en les chargeant à
-la main au montage du modèle, `LD_LIBRARY_PATH` n'étant pas une réponse pour un
-raccourci de bureau. Le même fichier passe en douze secondes.
+The card was there and unusable. No distribution ships cuBLAS and cuDNN with
+the driver, and the `nvidia-*` wheels place their libraries outside the
+loader's path: CTranslate2 did not find them. Settled by loading them by hand
+when the model is mounted, `LD_LIBRARY_PATH` being no answer for a desktop
+shortcut. The same file goes through in twelve seconds.
 
-Le goulot est alors devenu la segmentation et les empreintes, que sherpa-onnx
-exécutait sur **un seul fil**. Mesuré sur l'entretien de cent cinq secondes :
+The bottleneck then became segmentation and the voice prints, which sherpa-onnx
+ran on **a single thread**. Measured on the hundred-and-five-second interview:
 
-| Fils | Durée | Sortie |
+| Threads | Time | Output |
 |---|---|---|
-| 1 | 287 s | 14 segments, 8 groupes |
-| 2 | 206 s | identique |
-| 4 | **167 s** | identique |
-| 8 | 193 s | identique |
+| 1 | 287 s | 14 segments, 8 groups |
+| 2 | 206 s | identical |
+| 4 | **167 s** | identical |
+| 8 | 193 s | identical |
 
-Tout prendre est moins bon que la moitié, d'où la règle retenue. Le résultat ne
-change pas : seule la durée bouge.
+Taking everything is worse than taking half, hence the rule kept. The result
+does not change: only the time moves.
 
-### Reste ouvert, côté Linux
+### Still open, on the Linux side
 
-- **`skills/greffier/SKILL.md` n'est pas dans le dépôt.** Trois tests de
-  `test_installeur.py` échouent sur un clone neuf, quel que soit le système :
-  le fichier existe sur le poste d'origine sans avoir jamais été suivi.
-- **`outils/fabriquer_reunion.py` dépend de `say`**, donc de macOS : dix-huit
-  tests d'intégration sont sautés ailleurs. Ils le sont d'ailleurs deux fois,
-  puisqu'ils exigent aussi `ggml-large-v3-turbo.bin` et `whisper-cli`, deux
-  artefacts de whisper.cpp — la chaîne Linux n'est donc jamais éprouvée par eux,
-  installation complète ou pas.
-- **Le thème suit macOS seulement** : `systeme_en_sombre()` rend `False` hors de
-  Darwin, donc un bureau en thème sombre reçoit quand même l'interface claire.
-- **La fenêtre n'a pas de lissage des polices**, et rien dans le code ne peut
-  le lui donner : le Tk de l'interpréteur posé par `uv` est construit sans Xft
-  — `tk::pkgconfig get fontsystem` rend `x11`, et `tkfont.families()` ne
-  compte que 48 familles, aucune DejaVu. Le Tk d'Apt, lui, rend `xft`, voit
-  sept familles DejaVu et lisse. Le texte est donc lisible et à sa place,
-  mais pas net.
+- **`skills/greffier/SKILL.md` is not in the repository.** Three
+  `test_installeur.py` tests fail on a fresh clone, whatever the system: the
+  file exists on the original machine without ever having been tracked.
+- **`outils/fabriquer_reunion.py` depends on `say`**, hence on macOS: eighteen
+  integration tests are skipped elsewhere. They are skipped twice over, since
+  they also require `ggml-large-v3-turbo.bin` and `whisper-cli`, two
+  whisper.cpp artefacts — so the Linux chain is never proven by them, full
+  installation or not.
+- **The theme follows macOS only**: `systeme_en_sombre()` returns `False`
+  outside Darwin, so a desktop in a dark theme still gets the light interface.
+- **The window has no font antialiasing**, and nothing in the code can give it
+  any: the Tk of the interpreter installed by `uv` is built without Xft —
+  `tk::pkgconfig get fontsystem` returns `x11`, and `tkfont.families()` counts
+  only 48 families, no DejaVu. Apt's Tk returns `xft`, sees seven DejaVu
+  families and antialiases. The text is therefore legible and in its place, but
+  not crisp.
 
-  Une piste, qui est une décision et non un correctif : tout le source
-  compile sous Python 3.12 (`python3 -m compileall src outils tests` passe, et
-  rien n'emploie d'API propre à 3.13), or Ubuntu 24.04 — la LTS la plus
-  répandue — ne livre que 3.12. Abaisser `requires-python` à `>=3.12`
-  permettrait d'y employer le Python du système, avec son Tk lissé. À peser
-  contre le paquet macOS, qui repose sur l'interpréteur relogeable de `uv`.
+  One lead, which is a decision and not a fix: the whole source compiles under
+  Python 3.12 (`python3 -m compileall src outils tests` passes, and nothing
+  uses an API specific to 3.13), while Ubuntu 24.04 — the most widespread LTS —
+  ships only 3.12. Lowering `requires-python` to `>=3.12` would allow using the
+  system Python there, with its antialiased Tk. To be weighed against the macOS
+  package, which rests on `uv`'s relocatable interpreter.
