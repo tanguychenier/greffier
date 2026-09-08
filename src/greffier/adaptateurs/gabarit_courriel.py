@@ -19,6 +19,8 @@ import html
 import re
 import unicodedata
 
+from greffier.domaine.textes import empreinte_courte
+
 # Palette sobre : un compte rendu se lit, il ne se contemple pas.
 _ENCRE = "#24242b"
 _ENCRE_PALE = "#5b5b66"
@@ -94,9 +96,17 @@ def _en_ligne(texte: str) -> str:
 
 
 def _ancre(titre: str) -> str:
-    """Identifiant stable pour une section, sans accent ni espace."""
+    """Identifiant stable pour une section, sans accent ni espace.
+
+    Un titre sans lettre ASCII se réduisait au seul préfixe : toutes les
+    sections partageaient alors l'ancre « s- », le document portait des
+    identifiants en double et le sommaire renvoyait toujours à la première.
+    La fonction est appelée depuis le sommaire et depuis les titres : elle doit
+    rendre la même valeur des deux côtés, donc dépendre du seul titre.
+    """
     sans_accent = unicodedata.normalize("NFKD", titre).encode("ascii", "ignore").decode()
-    return "s-" + re.sub(r"[^a-z0-9]+", "-", sans_accent.lower()).strip("-")
+    reduit = re.sub(r"[^a-z0-9]+", "-", sans_accent.lower()).strip("-")
+    return "s-" + (reduit or empreinte_courte(titre))
 
 
 def sections(compte_rendu: str) -> list[str]:

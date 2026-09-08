@@ -19,6 +19,7 @@ from pathlib import Path
 
 from greffier.domaine.empreintes import EMPREINTES_PAR_PERSONNE, enrichir
 from greffier.domaine.modeles import Empreinte, Personne
+from greffier.domaine.textes import empreinte_courte
 
 FORMAT = 1
 
@@ -29,11 +30,16 @@ def _fichier_sur(nom: str) -> str:
     Sans accents ni espaces : les systèmes de fichiers ne les normalisent pas
     tous de la même façon, et « Josiane » retrouvée sous deux orthographes
     créerait deux personnes.
+
+    Quand la réduction ne laisse rien — un nom cyrillique, grec, arabe ou
+    idéographique n'a aucune lettre ASCII — c'est l'écueil inverse qui guettait :
+    « sans-nom » pour tout le monde faisait de deux personnes une seule, dans le
+    fichier même qui doit les tenir séparées.
     """
     depouille = unicodedata.normalize("NFD", nom)
     sans_accent = "".join(c for c in depouille if unicodedata.category(c) != "Mn")
     reduit = re.sub(r"[^a-zA-Z0-9]+", "-", sans_accent).strip("-").lower()
-    return reduit or "sans-nom"
+    return reduit or empreinte_courte(nom)
 
 
 class BanqueFichiers:
