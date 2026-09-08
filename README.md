@@ -1,404 +1,430 @@
 # Greffier
 
-Enregistre une réunion, identifie qui parle, en rédige le compte rendu. La
-transcription et la reconnaissance des voix tournent **en local**, sur macOS,
-Linux et Windows — carte graphique là où il y en a une, processeur sinon. Seule
-la rédaction du compte rendu peut sortir du poste, et seulement si tu le veux :
-`ollama` la garde ici aussi.
+Records a meeting, works out who is speaking, and writes the minutes.
+Transcription and voice recognition run **locally**, on macOS, Linux and
+Windows — on the graphics card where there is one, on the processor otherwise.
+Only the writing of the minutes can leave the machine, and only if you want it
+to: `ollama` keeps that here as well.
 
-> Le greffier assiste à la séance, note qui a dit quoi, et produit le compte rendu.
+> A *greffier* is a court clerk: he attends the session, notes who said what,
+> and produces the record.
 
-![La chaîne de Greffier : enregistrer, transcrire, séparer les voix, les nommer, rédiger, envoyer](assets/chaine.svg)
+**Greffier speaks French.** The window, the command names and the minutes are
+in French, and the name attribution recognises French turns of phrase — `moi
+c'est Sandy`, `merci Jacques`, `Jacques, tu peux…`. The transcription language
+is a setting and whisper handles a hundred of them, but nothing will pick names
+out of an English meeting.
 
-## Ce que ça fait
+![Greffier's chain: record, transcribe, separate the voices, name them, write, send](assets/chaine.svg)
+
+## What it does
 
 ```
-audio de réunion → transcription → qui parle → noms → compte rendu → mail
+meeting audio → transcription → who speaks → names → minutes → mail
 ```
 
-- **Enregistrement** en deux canaux séparés (ton micro à gauche, les autres à
-  droite) : en visio, distinguer ta voix de celle des autres est une certitude
-  matérielle, pas une déduction.
-- **Transcription** par le modèle `large-v3` : whisper.cpp accéléré Metal sur
-  macOS, faster-whisper ailleurs — sur la carte NVIDIA si elle est là, sur le
-  processeur sinon.
-- **Identification des voix** par empreinte vocale (pyannote + TitaNet), en local.
-- **Attribution des noms** : les participants se nomment entre eux pendant la
-  réunion, l'outil relève ces indices et les recoupe. Personne n'a besoin de se
-  présenter. Ce qui reste incertain est proposé, jamais affirmé.
-- **Transcription en direct, corrigeable** : ce qui se dit s'affiche dans la
-  fenêtre pendant la réunion, avec qui parle. Un clic sur un nom le corrige — et
-  cette correction vaut pour tous les passages de cette voix, entre en banque, et
-  s'impose au compte rendu final. Une attribution fausse se rattrapait jusqu'ici
-  en relisant le compte rendu, une heure trop tard.
-- **Banque de voix** : une fois qu'une voix porte un nom, la personne est
-  reconnue aux réunions suivantes.
-- **Compte rendu** horodaté, avec le temps de parole et les décisions.
+- **Recording** on two separate channels (your microphone on the left, everyone
+  else on the right): in a video call, telling your voice from the others' is a
+  hardware certainty, not a deduction.
+- **Transcription** by the `large-v3` model: whisper.cpp with Metal
+  acceleration on macOS, faster-whisper elsewhere — on the NVIDIA card if it is
+  there, on the processor otherwise.
+- **Voice identification** by voice print (pyannote + TitaNet), locally.
+- **Name attribution**: participants name each other during the meeting, and
+  the tool collects those clues and cross-checks them. Nobody has to introduce
+  themselves. What stays uncertain is proposed, never asserted.
+- **Live transcription, correctable**: what is being said appears in the window
+  during the meeting, with who is speaking. Clicking a name corrects it — and
+  that correction covers every passage of that voice, goes into the voice bank,
+  and carries into the final minutes. Until then, a wrong attribution was only
+  caught by re-reading the minutes, an hour too late.
+- **Voice bank**: once a voice carries a name, the person is recognised at
+  later meetings.
+- **Minutes** with timestamps, speaking time and decisions.
 
 ## Installation
 
-Une seule commande, sur les trois systèmes :
+One command, on all three systems:
 
 ```sh
 git clone https://github.com/tanguychenier/greffier.git
 cd greffier
-python3 outils/installer.py          # Windows : python outils\installer.py
+python3 outils/installer.py          # Windows: python outils\installer.py
 ```
 
-L'installeur **détecte ce qui manque et l'installe**, plutôt que d'afficher une
-liste de commandes à recopier. Il demande confirmation avant chaque installation,
-il est **relançable sans risque**, et il reprend les modèles déjà présents sur le
-poste au lieu de les retélécharger.
+The installer **finds what is missing and installs it**, rather than printing a
+list of commands to copy out. It asks before each installation, it is **safe to
+re-run**, and it picks up models already on the machine instead of downloading
+them again.
 
-Sur macOS, il fabrique aussi **`/Applications/Greffier.app`**, une application
-autonome : interpréteur, bibliothèques et code sont copiés dedans, rien ne
-pointe vers le dépôt ni vers un dossier caché du compte. Elle est signée avec
-une identité **stable** — un certificat Apple déjà dans le trousseau s'il y en a
-un, sinon un certificat local créé une fois pour toutes, macOS demandant alors
-le mot de passe de session une seule fois — de sorte que les autorisations
-accordées survivent aux réinstallations. Une modification du code ne s'y voit
-qu'en relançant l'installeur ; la ligne de commande du dépôt, elle, suit le code.
+On macOS it also builds **`/Applications/Greffier.app`**, a self-contained
+application: interpreter, libraries and code are copied inside, and nothing
+points back at the clone or at a hidden folder in the account. It is signed
+with a **stable** identity — an Apple certificate already in the keychain if
+there is one, otherwise a local certificate created once and for all, macOS
+then asking for the login password a single time — so that granted permissions
+survive reinstallation. A code change only shows up there by re-running the
+installer; the command line in the clone follows the code.
 
-Il enchaîne ensuite sur l'**assistant de configuration**, qui pose les questions
-qu'il faut et écrit un `.env` valide :
+It then moves on to the **configuration assistant**, which asks the questions
+that matter and writes a valid `.env`:
 
-- ce que la machine sait faire — mémoire, calcul, micro, capture du son système —
-  et **quel modèle elle fait tourner sans souffrir** ;
-- qui rédige : l'assistant en ligne de commande est-il installé, et **la session est-elle ouverte** ?
-  Sans cela, l'échec n'apparaîtrait qu'après une heure de transcription ;
-- où arrive le compte rendu : par courriel — Outlook déjà authentifié, sinon SMTP,
-  le mot de passe restant hors du fichier — ou simplement dans un dossier ;
-- le vocabulaire de tes réunions, qui sert aussi de liste de mots à ne jamais
-  prendre pour des prénoms.
+- what the machine can do — memory, compute, microphone, system sound capture —
+  and **which model it can run without suffering**;
+- who writes: is the command-line assistant installed, and **is the session
+  open**? Without that, the failure would only surface after an hour of
+  transcription;
+- where the minutes arrive: by mail — Outlook already authenticated, otherwise
+  SMTP, with the password kept out of the file — or simply in a folder;
+- the vocabulary of your meetings, which also serves as a list of words never
+  to mistake for first names.
 
 ```sh
-greffier configurer      # relançable quand la machine ou l'adresse changent
-greffier diagnostic      # constater sans rien modifier
+greffier configurer      # re-runnable when the machine or the address changes
+greffier diagnostic      # report without changing anything
 ```
 
 ```
-python3 outils/installer.py --verifier   # constate sans rien installer
-python3 outils/installer.py --oui        # sans poser de question
+python3 outils/installer.py --verifier   # report without installing anything
+python3 outils/installer.py --oui        # without asking
 ```
 
-Il n'utilise que la bibliothèque standard de Python : il doit tourner *avant*
-que quoi que ce soit ne soit installé, donc il ne peut dépendre de rien.
-Python 3.9 suffit à le lancer.
+It uses nothing but the Python standard library: it has to run *before*
+anything is installed, so it cannot depend on anything. Python 3.9 is enough to
+start it.
 
-### Ce qu'il fait, et ce qui diffère selon le système
+### What it does, and what differs per system
 
 | | macOS | Linux | Windows |
 |---|---|---|---|
-| Transcription | whisper.cpp, accéléré Metal | faster-whisper | faster-whisper |
-| Empreintes vocales | sherpa-onnx | sherpa-onnx | sherpa-onnx |
-| Capter le son des autres | BlackHole (pilote à installer) | moniteur PipeWire/PulseAudio, **rien à installer** | boucle WASAPI, intégrée |
-| Rédaction du compte rendu | Ollama (local) ou un assistant en ligne de commande | idem | idem |
-| Envoi du compte rendu | Outlook déjà authentifié, sinon SMTP | SMTP | SMTP |
-| Interface | **la même fenêtre** (Tkinter) | idem, mais sans lissage des polices | idem |
+| Transcription | whisper.cpp, Metal-accelerated | faster-whisper | faster-whisper |
+| Voice prints | sherpa-onnx | sherpa-onnx | sherpa-onnx |
+| Capturing everyone else's sound | BlackHole (driver to install) | PipeWire/PulseAudio monitor, **nothing to install** | WASAPI loopback, built in |
+| Writing the minutes | Ollama (local) or a command-line assistant | same | same |
+| Sending the minutes | Outlook already authenticated, otherwise SMTP | SMTP | SMTP |
+| Interface | **the same window** (Tkinter) | same, but without font antialiasing | same |
 
-Sous Linux, la fenêtre s'affiche sans lissage des polices : le Tk que porte
-l'interpréteur posé par `uv` est construit sans Xft (`tk::pkgconfig get
-fontsystem` rend `x11`), et n'expose donc que les familles X11 historiques.
-Celui d'Apt en a un (`xft`), mais Greffier exige Python 3.13, qu'Ubuntu 24.04 ne
-livre pas. Le texte est lisible et à sa place ; il n'est pas net.
+On Linux the window renders without font antialiasing: the Tk carried by the
+interpreter `uv` installs is built without Xft (`tk::pkgconfig get fontsystem`
+returns `x11`), so it only exposes the historical X11 families. Apt's has one
+(`xft`), but Greffier requires Python 3.13, which Ubuntu 24.04 does not ship.
+The text is legible and in the right place; it is not crisp.
 
-Le cœur — transcription, identification des voix, attribution des noms, compte
-rendu — tourne à l'identique partout. Ce qui diffère est **la capture du son
-système** et **l'interface**, précisément les deux endroits que l'architecture
-isole derrière des ports.
+The core — transcription, voice identification, name attribution, minutes —
+runs identically everywhere. What differs is **system sound capture** and **the
+interface**, precisely the two places the architecture isolates behind ports.
 
-Sur macOS, deux périphériques audio doivent être créés une fois : `Reunion
-Entree` (agrégé : micro + BlackHole) et `Reunion Sortie` (multiple : casque +
-BlackHole). Sur Linux et Windows, rien de tel — le système expose déjà de quoi
-réenregistrer sa propre sortie.
+On macOS two audio devices have to be created once: `Reunion Entree`
+(aggregate: microphone + BlackHole) and `Reunion Sortie` (multi-output:
+headphones + BlackHole). On Linux and Windows there is nothing of the sort — the
+system already exposes a way to re-record its own output.
 
-> Un périphérique agrégé macOS référence un **matériel précis**. Casque
-> débranché = micro absent de l'agrégé = enregistrement muet. Il faut le
-> reconstruire quand le matériel change.
+> A macOS aggregate device references **specific hardware**. Headphones
+> unplugged means the microphone is missing from the aggregate, which means a
+> silent recording. It has to be rebuilt when the hardware changes.
 
-### Les modèles
+### The models
 
-Téléchargés une fois, plus aucun appel réseau ensuite.
+Downloaded once, no network call afterwards.
 
-| Modèle | Rôle | Taille | Quand |
+| Model | Role | Size | When |
 |---|---|---|---|
-| `ggml-large-v3-turbo` | transcription | 1,5 Go | macOS seulement |
-| `ggml-small` | transcription en direct | 0,5 Go | macOS, facultatif |
-| `ggml-silero-v5.1.2` | détection de la parole | 0,9 Mo | macOS seulement |
-| `faster-whisper large-v3` | transcription | 1,5 Go | Linux et Windows |
-| `nemo_en_titanet_large` | empreintes vocales | 98 Mo | partout |
-| `pyannote-segmentation-3.0` | découpage en tours de parole | 6 Mo | partout |
+| `ggml-large-v3-turbo` | transcription | 1.5 GB | macOS only |
+| `ggml-small` | live transcription | 0.5 GB | macOS, optional |
+| `ggml-silero-v5.1.2` | speech detection | 0.9 MB | macOS only |
+| `faster-whisper large-v3` | transcription | 1.5 GB | Linux and Windows |
+| `nemo_en_titanet_large` | voice prints | 98 MB | everywhere |
+| `pyannote-segmentation-3.0` | splitting into speaking turns | 6 MB | everywhere |
 
-### Rédaction du compte rendu
+On Linux, an NVIDIA card is not enough on its own: CTranslate2 wants cuBLAS and
+cuDNN, which no distribution ships with the driver. The installer offers the
+`cuda` extra where it can serve. It is worth taking — `large-v3` in `int8`
+needs eight minutes for thirty-eight seconds of audio on the processor, and
+twelve seconds on the card.
 
-**Un assistant en ligne de commande par défaut.** Distinguer une décision d'une hypothèse, rattacher
-une position à une personne, signaler ce que la transcription a perdu plutôt que
-de le combler : c'est hors de portée des modèles qui tournent sur un portable.
-C'est le **seul maillon de la chaîne qui sort du poste** — la transcription part
-vers une API distante — et c'est un choix assumé.
+### Writing the minutes
 
-Pour ne rien laisser sortir du tout, **Ollama** le remplace sans rien changer
-d'autre, au prix d'une synthèse plus grossière :
+**A command-line assistant by default.** Telling a decision from a hypothesis,
+attaching a position to a person, flagging what the transcription lost rather
+than filling it in: that is out of reach of models that run on a laptop. It is
+the **only link in the chain that leaves the machine** — the transcription goes
+to a remote API — and it is a deliberate choice.
+
+To let nothing out at all, **Ollama** replaces it without changing anything
+else, at the price of a coarser summary:
 
 ```sh
 GREFFIER_COMPTE_RENDU__MOTEUR=ollama greffier traiter reunion.wav
 ```
 
-L'assistant rédige avec le **second modèle de la gamme**, pas le premier. C'est
-un choix, pas un défaut subi : rédiger à partir d'une transcription déjà
-découpée et attribuée est un travail de synthèse, pas de raisonnement long. Le
-haut de la gamme rend le même document en entamant un quota bien plus vite —
-une réunion par jour suffit à le sentir. Le modèle est demandé **explicitement**
-à l'appel, pour que le compte rendu ne change pas de rédacteur au gré du
-réglage personnel du poste. Il se change dans l'onglet Réglages, ou par
+The assistant writes with the **second model in the range**, not the first. That
+is a choice, not a limitation put up with: writing from a transcription that is
+already split and attributed is summarising work, not long reasoning. The top of
+the range produces the same document while eating through a quota far faster —
+one meeting a day is enough to feel it. The model is requested **explicitly** at
+call time, so that the minutes do not change author according to the machine's
+personal setting. It can be changed in the Settings tab, or through
 `GREFFIER_COMPTE_RENDU__MODELE`.
 
-Sans l'un ni l'autre, la transcription et l'identification des voix fonctionnent
-quand même ; seul le compte rendu manque.
+With neither one nor the other, transcription and voice identification still
+work; only the minutes are missing.
 
 ### Configuration
 
-Par variables d'environnement, un fichier `.env`, ou un `config.toml`. Dans cet
-ordre de priorité : on doit pouvoir forcer un réglage le temps d'une commande
-sans modifier de fichier.
+Through environment variables, a `.env` file, or a `config.toml`. In that order
+of precedence: it must be possible to force a setting for the length of one
+command without editing a file.
 
 ```sh
-cp .env.exemple .env        # à la racine, ou dans le dossier de configuration
+cp .env.exemple .env        # at the root, or in the configuration folder
 ```
 
-| Système | Configuration et données |
+| System | Configuration and data |
 |---|---|
-| macOS | `~/Library/Application Support/Greffier` — l'emplacement natif, pas un dossier caché : les gardes du poste contestaient chaque accès à `~/.config` et `~/.local`, jusqu'à refuser une écriture en pleine réunion |
-| Linux | `~/.config/greffier` et `~/.local/share/greffier` |
-| Windows | `%APPDATA%\greffier` et `%LOCALAPPDATA%\greffier` |
+| macOS | `~/Library/Application Support/Greffier` — the native location, not a hidden folder: the machine's guards challenged every access to `~/.config` and `~/.local`, to the point of refusing a write in the middle of a meeting |
+| Linux | `~/.config/greffier` and `~/.local/share/greffier` |
+| Windows | `%APPDATA%\greffier` and `%LOCALAPPDATA%\greffier` |
 
-`XDG_CONFIG_HOME` et `XDG_DATA_HOME`, s'ils sont posés, l'emportent partout. Un
-poste installé avant ce changement est déménagé par l'installeur, sans rien perdre.
+`XDG_CONFIG_HOME` and `XDG_DATA_HOME`, when set, win everywhere. A machine
+installed before that change is moved by the installer, losing nothing.
 
-Le plus courant se règle **dans la fenêtre**, onglet Réglages : micro, compte
-du rédacteur, modèle de transcription et langue, rédacteur et son modèle,
-destinataire, transcription en direct, apparence claire ou sombre. **Aucun
-bouton à valider** : chaque changement s'applique et s'écrit dans `config.toml`
-aussitôt, la version précédente restant en `config.toml.precedent`. Le thème
-repeint la fenêtre sur le champ, sans relancer.
+The common settings live **in the window**, Settings tab: microphone, writer's
+account, transcription model and language, writer and its model, recipient, live
+transcription, light or dark appearance. **No button to confirm**: every change
+applies and is written to `config.toml` at once, the previous version staying in
+`config.toml.precedent`. The theme repaints the window on the spot, without a
+restart.
 
-Un bloc dit ce qui rédige : version installée, adresse et organisation du compte
-connecté, formule. Trois actions à côté — se connecter, qui ouvre un terminal là
-où la connexion se fait vraiment ; mettre à jour ; actualiser. Sans session, tout
-fonctionne sauf le compte rendu, et l'échec n'apparaîtrait qu'après la
-transcription. Le vocabulaire métier et les mots
-qui ne sont jamais des prénoms restent au fichier : ce sont des listes, qu'un
-formulaire tronquerait.
+One block says what writes: installed version, address and organisation of the
+connected account, plan. Three actions beside it — sign in, which opens a
+terminal where signing in actually happens; update; refresh. Without a session
+everything works except the minutes, and the failure would only surface after
+the transcription. Domain vocabulary and the words that are never first names
+stay in the file: they are lists, and a form would truncate them.
 
-| Variable | Rôle |
+| Variable | Role |
 |---|---|
-| `GREFFIER_COMPTE_RENDU__MOTEUR` | `claude`, `ollama` ou `aucun` |
-| `GREFFIER_COMPTE_RENDU__MODELE` | le modèle du rédacteur — le second de la gamme par défaut |
-| `GREFFIER_COMPTE_RENDU__DESTINATAIRE` | à qui envoyer le compte rendu |
-| `GREFFIER_TRANSCRIPTION__LANGUE` | code à deux lettres ; **vide, le modèle la reconnaît lui-même** |
-| `GREFFIER_TRANSCRIPTION__VOCABULAIRE` | noms propres du contexte — le réglage qui améliore le plus la transcription des termes rares |
-| `GREFFIER_LOCUTEURS__PAS_DES_PRENOMS` | mots à ne jamais prendre pour des prénoms |
-| `GREFFIER_DIRECT__ACTIF` | `false` coupe la transcription en direct, et son coût en calcul |
-| `GREFFIER_DIRECT__PERIODE` | secondes entre deux tranches transcrites (10 par défaut) |
-| `GREFFIER_APPARENCE__THEME` | `systeme`, `clair` ou `sombre` |
+| `GREFFIER_COMPTE_RENDU__MOTEUR` | `claude`, `ollama` or `aucun` |
+| `GREFFIER_COMPTE_RENDU__MODELE` | the writer's model — the second of the range by default |
+| `GREFFIER_COMPTE_RENDU__DESTINATAIRE` | who to send the minutes to |
+| `GREFFIER_TRANSCRIPTION__LANGUE` | two-letter code; **left empty, the model works it out itself** |
+| `GREFFIER_TRANSCRIPTION__VOCABULAIRE` | proper nouns from the context — the setting that most improves the transcription of rare terms |
+| `GREFFIER_LOCUTEURS__PAS_DES_PRENOMS` | words never to mistake for first names |
+| `GREFFIER_LOCUTEURS__PERSONNES` | how many people are in the room, when you know — without it the clustering over-splits |
+| `GREFFIER_DIRECT__ACTIF` | `false` turns off live transcription, and its compute cost |
+| `GREFFIER_DIRECT__PERIODE` | seconds between two transcribed slices (10 by default) |
+| `GREFFIER_APPARENCE__THEME` | `systeme`, `clair` or `sombre` |
 
-Le double tiret bas sépare la section du champ. Rien de tout cela ne vit dans le
-dépôt : adresse mail, vocabulaire métier et noms de projets sont propres à chacun.
+The double underscore separates the section from the field. None of this lives
+in the repository: mail address, domain vocabulary and project names belong to
+each person.
 
-### Autorisations macOS
+### macOS permissions
 
-Demandées **une fois**, à la première utilisation, comme pour toute application.
-La signature du paquet étant stable, ni une mise à jour ni une réinstallation ne
-les redemandent.
+Asked **once**, on first use, as for any application. The package signature
+being stable, neither an update nor a reinstallation asks again.
 
-- **Micro** — sans elle, l'enregistrement est muet.
-- **Automatisation ▸ Microsoft Outlook** — seulement pour l'envoi par mail. La
-  boîte de dialogue système n'apparaît pas toujours, le traitement tournant
-  détaché : `Réglages Système ▸ Confidentialité et sécurité ▸ Automatisation`.
+- **Microphone** — without it, the recording is silent.
+- **Automation ▸ Microsoft Outlook** — only for sending mail. The system dialog
+  does not always appear, the processing running detached:
+  `System Settings ▸ Privacy & Security ▸ Automation`.
 
-## Est-ce que ça marche vraiment ?
+## Does it actually work?
 
-Ce ne sont pas des affirmations : chaque ligne ci-dessous a été exécutée.
+These are not claims: every line below has been run.
 
-**Installation en salle blanche, macOS** — clone neuf depuis GitLab, aucun modèle
-présent, reprise désactivée. Les 1,5 Go ont bien été téléchargés (aucun lien
-symbolique dans le dossier de modèles), 44 tests passés, modèle d'empreintes
-chargé.
+**Clean-room installation, macOS** — fresh clone, no model present, resumption
+disabled. The 1.5 GB were really downloaded (no symbolic link in the model
+folder), the tests passed, voice print model loaded.
 
-**Installation sur Linux, image nue** — reproductible par toi :
+**Installation on Linux, bare image** — reproducible by you:
 
 ```sh
 mkdir contexte && cp -r . contexte/greffier
 docker build -f outils/preuve-linux.Dockerfile -t greffier-preuve contexte
 ```
 
-Depuis une `python:3.13-slim` sans rien d'autre que git, l'installeur pose
-ffmpeg par apt, bascule sur faster-whisper faute de whisper.cpp, télécharge les
-modèles, se rabat sur `venv + pip` faute de `uv`, prépare le modèle de
-transcription, écrit la configuration — puis les 44 tests passent et une
-empreinte vocale de 192 dimensions est réellement extraite sous Linux.
+From a `python:3.13-slim` with nothing but git, the installer puts ffmpeg in
+place through apt, falls back to faster-whisper for want of whisper.cpp,
+downloads the models, falls back to `venv + pip` for want of `uv`, prepares the
+transcription model, writes the configuration — then the tests pass and a
+192-dimension voice print is really extracted under Linux.
 
-**Le fil en direct, rejoué en temps réel** — une visio synthétique à trois
-canaux est réécrite par ffmpeg à la vitesse du son, ce qui reproduit exactement
-la capture, en-tête à taille indéterminée compris. La vraie commande tourne
-dessus. Résultat : la personne au micro affichée « Toi » par le canal, les trois
-prises de parole distantes regroupées en une seule voix, une correction saisie en
-cours de réunion propagée aux phrases suivantes **et versée en banque de voix**,
-d'où le compte rendu final la reprend.
+**Then on a real Linux desktop**, which the container could not show: the
+installer goes all the way through, the window opens, and the chain runs on real
+recordings. Four defects came out of it, all fixed, and they are written up in
+[`docs/reste-a-faire.md`](docs/reste-a-faire.md).
 
-Coût mesuré d'une tranche de dix secondes, bout en bout, sur un Mac Apple
-Silicon : **1,50 s** — découpe 0,04, mise à niveau des canaux 0,53,
-transcription 0,89, empreinte 0,04. Avec le *grand* modèle, faute du petit :
-la période de dix secondes tient avec six fois la marge nécessaire.
+**The live thread, replayed in real time** — a synthetic three-channel video
+call is rewritten by ffmpeg at the speed of sound, which reproduces capture
+exactly, indeterminate-size header included. The real command runs on it.
+Result: the person at the microphone shown as "Toi" by the channel, the three
+remote turns grouped into a single voice, a correction entered during the
+meeting propagated to the following sentences **and paid into the voice bank**,
+from which the final minutes pick it up.
 
-**Chaîne réelle, de bout en bout** — un test d'intégration **synthétise une
-fausse réunion à deux voix** (une vraie réunion contient des échanges de travail
-et des voix identifiables, elle ne peut pas servir de jeu d'essai), la passe dans
-whisper et la diarisation, et vérifie que les deux prénoms — prononcés en
-auto-présentation, en interpellation et en remerciement — sont retrouvés :
+Measured cost of a ten-second slice, end to end, on an Apple Silicon Mac:
+**1.50 s** — splitting 0.04, channel levelling 0.53, transcription 0.89, voice
+print 0.04. With the *large* model, for want of the small one: the ten-second
+period holds with six times the margin needed.
+
+**Real chain, end to end** — an integration test **synthesises a fake
+two-voice meeting** (a real meeting contains working exchanges and identifiable
+voices, so it cannot serve as a test fixture), runs it through whisper and
+diarisation, and checks that both first names — spoken as self-introduction, as
+address and as thanks — are found:
 
 ```sh
 pytest -m integration
 ```
 
-C'est lui qui a trouvé un défaut invisible aux tests unitaires : whisper fait
-commencer sa première réplique à `00:00,00` alors que la segmentation ne détecte
-la parole qu'à `00:00,30`, si bien qu'une auto-présentation tombait entre deux
-tours de parole et ne désignait personne.
+It is what found a defect invisible to the unit tests: whisper starts its first
+line at `00:00,00` while the segmentation only detects speech at `00:00,30`, so
+a self-introduction fell between two speaking turns and designated nobody.
 
-**À chaque poussée** — `.gitlab-ci.yml` rejoue les tests du domaine. L'installation
-Linux complète tourne sur planification, étant plus coûteuse.
+**On real voices** — two public French interviews and a real four-person
+meeting, since synthetic voices never talk over each other and never move away
+from the microphone. Both interviews come out with the right two voices. On
+[ES2002a of the AMI corpus](https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/) —
+four people, one mixed channel, four headset tracks as an unarguable reference —
+four people come out as six. The transcription holds; the clustering
+over-splits. Numbers in [`docs/reste-a-faire.md`](docs/reste-a-faire.md).
 
-## Utilisation
+**Quality gate** — `ruff`, `mypy` and the tests, all three blocking. The
+pipeline lives in `.gitlab-ci.yml`, from where the project was hosted before,
+and replays the domain tests on every push; the full Linux installation runs on
+a schedule, being more expensive.
 
-```sh
-greffier enregistrer "point recette"   # démarre
-greffier statut                        # où en est-on
-greffier arreter                       # arrête, transcrit, identifie, rédige
-
-greffier reunions                      # ce qui a déjà été traité
-greffier voix                          # les voix de la dernière réunion
-greffier voix --ecouter 3              # en extraire dix secondes
-greffier voix --nommer 3 --nom Josiane # la nommer : reconnue les fois suivantes
-greffier connus                        # les voix déjà en banque
-
-greffier assister                      # affiche ce qui se dit, relève les propositions
-greffier propositions                  # liens, instructions et décisions relevés
-
-greffier montage                       # les passages marquants, vraies voix
-greffier lire                          # le compte rendu lu à voix haute
-greffier tickets                       # les actions décidées, prêtes à ouvrir
-greffier archiver                      # compresse les enregistrements traités
-```
-
-### La fenêtre
-
-![Les cinq vues de la fenêtre : Réunions, En direct, Voix, Conversation, Réglages](assets/vues.svg)
+## Use
 
 ```sh
-greffier fenetre        # ou double-clic sur Greffier dans le Launchpad
+greffier enregistrer "point recette"   # starts
+greffier statut                        # where we are
+greffier arreter                       # stops, transcribes, identifies, writes
+
+greffier reunions                      # what has already been processed
+greffier voix                          # the voices of the last meeting
+greffier voix --ecouter 3              # pull ten seconds out of it
+greffier voix --nommer 3 --nom Josiane # name it: recognised from then on
+greffier connus                        # the voices already in the bank
+
+greffier assister                      # shows what is said, collects proposals
+greffier propositions                  # links, instructions and decisions collected
+
+greffier montage                       # the notable passages, real voices
+greffier lire                          # the minutes read aloud
+greffier tickets                       # the decided actions, ready to open
+greffier archiver                      # compresses processed recordings
 ```
 
-Tout s'y fait sans terminal, et **la même sur les trois systèmes** : Tkinter vient
-avec Python, il n'y a rien à installer.
+### The window
 
-![La fenêtre de Greffier : un point d'enregistrement qui respire et deux vumètres en direct](assets/demo.gif)
+![The five views of the window: Meetings, Live, Voices, Conversation, Settings](assets/vues.svg)
 
-- **Démarrer, mettre en pause, terminer.** La pause sert : une interruption ne
-  doit pas obliger à clore la séance, sinon le traitement part et il faut
-  recommencer une seconde réunion, avec deux comptes rendus à la fin.
-- **Vumètres `Toi` / `Les autres`**, pour vérifier que le micro capte *avant* la
-  réunion et non une heure trop tard, et qui parle en ce moment. La provenance
-  suffit à le dire : le micro d'un côté, la boucle système de l'autre.
-- **Onglet `En direct`** : ce qui se dit, au fil de l'eau, avec qui parle.
-  L'onglet s'ouvre de lui-même quand la réunion démarre.
-  - `Toi` vient du **canal** : le micro désigne la personne qui enregistre, sans
-    consulter le moindre modèle, et sans jamais se tromper.
-  - Un nom suivi d'un **`?`** vient de l'empreinte vocale : c'est une
-    proposition, pas une affirmation.
-  - **Un clic sur le nom le corrige.** Par défaut la correction porte sur toute
-    la voix — quand l'outil se trompe de personne, il se trompe pour tous ses
-    passages ; « Seulement cette phrase » sert aux chevauchements. La correction
-    s'affiche aussitôt, s'applique aux phrases suivantes, entre en banque de
-    voix, et c'est ainsi que le compte rendu final retrouve la personne seul.
-- **Le poste se règle seul** : micro réellement branché, sortie système basculée
-  vers la boucle de capture, gain relevé s'il est trop bas. Ces trois réglages
-  ont dû être faits à la main lors d'une réunion réelle, et leur absence a coûté
-  la voix de la personne qui enregistrait.
-- **Nommer les voix**, en écoutant dix secondes. Une voix nommée entre en banque
-  et se reconnaît seule ensuite.
-- **Poser une question** sur un compte rendu, et l'envoyer par courriel.
+```sh
+greffier fenetre        # or double-click Greffier in the Launchpad
+```
 
-Il n'y a **pas de sujet à saisir** : le compte rendu donne son titre à la
-réunion, écrit après l'avoir écoutée. Demander à l'avance supposerait de savoir
-de quoi une réunion va parler.
+Everything can be done there without a terminal, and **the same on all three
+systems**: Tkinter comes with Python, there is nothing to install.
+
+![Greffier's window: a breathing recording dot and two live level meters](assets/demo.gif)
+
+- **Start, pause, finish.** The pause earns its keep: an interruption must not
+  force the session closed, or the processing starts and a second meeting has to
+  be held, with two sets of minutes at the end.
+- **`Toi` / `Les autres` level meters**, to check that the microphone is picking
+  up *before* the meeting rather than an hour too late, and who is speaking
+  right now. Provenance is enough to say: the microphone on one side, the system
+  loopback on the other.
+- **`En direct` tab**: what is being said, as it comes, with who is speaking.
+  The tab opens by itself when the meeting starts.
+  - `Toi` comes from the **channel**: the microphone designates the person
+    recording, without consulting any model, and without ever being wrong.
+  - A name followed by a **`?`** comes from the voice print: it is a proposal,
+    not an assertion.
+  - **Clicking the name corrects it.** By default the correction covers the
+    whole voice — when the tool gets the person wrong, it gets them wrong for
+    every passage; "only this sentence" is there for overlaps. The correction
+    shows at once, applies to the following sentences, goes into the voice bank,
+    and that is how the final minutes find the person on their own.
+- **The machine sets itself up**: microphone actually plugged in, system output
+  switched to the capture loopback, gain raised if it is too low. Those three
+  settings had to be done by hand during a real meeting, and their absence cost
+  the voice of the person recording.
+- **Naming voices**, by listening to ten seconds. A named voice goes into the
+  bank and recognises itself afterwards.
+- **Asking a question** about a set of minutes, and sending it by mail.
+
+There is **no subject to type in**: the minutes give the meeting its title,
+written after listening to it. Asking beforehand would assume you know what a
+meeting is going to be about.
 
 ## Architecture
 
-Hexagonale — le métier au centre, les techniques autour.
+Hexagonal — the domain at the centre, the techniques around it.
 
 ```
 src/greffier/
-├── domaine/       cœur métier, aucune dépendance : modèles, règles d'attribution
-│                  des noms, rapprochement des empreintes. Testable sans audio.
-├── ports/         interfaces attendues par le domaine (Protocol)
-├── application/   cas d'usage : orchestration des ports
-├── adaptateurs/   ffmpeg, whisper.cpp, sherpa-onnx, rédacteur IA, Outlook, CoreAudio
-├── interface/     la fenêtre (Tkinter) : palette, formes dessinées, écrans
-└── cli.py         interface en ligne de commande (Typer)
-macos/             création des périphériques audio (Swift) et le paquet .app
+├── domaine/       business core, no dependency: models, name attribution rules,
+│                  voice print matching. Testable without audio.
+├── ports/         interfaces the domain expects (Protocol)
+├── application/   use cases: orchestration of the ports
+├── adaptateurs/   ffmpeg, whisper.cpp, sherpa-onnx, AI writer, Outlook, CoreAudio
+├── interface/     the window (Tkinter): palette, drawn shapes, screens
+└── cli.py         command-line interface (Typer)
+macos/             audio device creation (Swift) and the .app bundle
 ```
 
-Le domaine ne connaît ni whisper, ni ffmpeg, ni Outlook. C'est ce qui permet de
-tester les règles d'attribution des noms sur des phrases écrites à la main, en
-quelques millisecondes, sans modèle de 1,6 Go.
+The domain knows nothing of whisper, ffmpeg or Outlook. That is what makes it
+possible to test the name attribution rules on hand-written sentences, in a few
+milliseconds, without a 1.6 GB model.
 
-## Distribuer
+## Distributing
 
 ```sh
-uv build --wheel                     # produit dist/greffier-0.1.0-py3-none-any.whl
-pipx install dist/greffier-*.whl     # ou pip install, dans un environnement dédié
+uv build --wheel                     # produces dist/greffier-0.1.0-py3-none-any.whl
+pipx install dist/greffier-*.whl     # or pip install, in a dedicated environment
 ```
 
-La roue ne contient que le code : les modèles se récupèrent à la première
-exécution de `outils/installer.py`.
+The wheel holds the code only: the models are fetched on the first run of
+`outils/installer.py`.
 
-## Développement
+## Development
 
-L'installeur fait déjà tout le nécessaire. Pour recalibrer les seuils de
-reconnaissance des voix sur un enregistrement à toi :
+The installer already does everything needed. To recalibrate the voice
+recognition thresholds on a recording of your own:
 
 ```sh
-.venv/bin/python outils/calibrer_seuils.py <enregistrement.wav>
-.venv/bin/python outils/verifier_fusion.py <enregistrement.wav>
+.venv/bin/python outils/calibrer_seuils.py <recording.wav>
+.venv/bin/python outils/verifier_fusion.py <recording.wav>
 ```
 
-La méthode et les mesures en vigueur sont dans [`docs/calibrage.md`](docs/calibrage.md).
+The method and the thresholds in force are in
+[`docs/calibrage.md`](docs/calibrage.md).
 
-Pose les crochets git une fois pour toutes :
+Install the git hooks once and for all:
 
 ```sh
 ./outils/crochets/installer.sh
 ```
 
-Un commit qui ne passe pas `ruff`, `mypy` et les tests est alors **refusé**.
-Lancer les contrôles « à côté » ne suffit pas — trois remarques de qualité sont
-passées dans des commits avant que ce garde-fou n'existe. `--no-verify` reste
-possible, en connaissance de cause.
+A commit that does not pass `ruff`, `mypy` and the tests is then **refused**.
+Running the checks "on the side" is not enough — three quality remarks made it
+into commits before that guard existed. `--no-verify` remains possible,
+knowingly.
 
-L'intégration continue rejoue les trois et **échoue** sur la moindre remarque.
+## State
 
-## État
-
-Le portage depuis la chaîne de scripts d'origine (`~/reunions/`, abandonnée
-le 2026-08-24) est terminé : les huit lots sont faits, la chaîne complète
-tourne de bout en bout, éprouvée sur des réunions réelles et un jeu d'essai
-synthétique. Ce qui reste ouvert — deux défauts mineurs, et ce qui n'a jamais
-rencontré le réel (Windows, le direct en présentiel) — est détaillé dans
+The port from the original chain of scripts (`~/reunions/`, abandoned on
+2026-08-24) is finished: the eight batches are done and the whole chain runs end
+to end, tried on real meetings, on a synthetic fixture, and on public
+recordings. What is still open — a few minor defects, and what has never met
+reality (Windows, live in-person) — is detailed in
 [`docs/reste-a-faire.md`](docs/reste-a-faire.md).
 
-## Cadre
+## Frame
 
-Les empreintes vocales nominatives sont des données biométriques au sens de
-l'article 9 du RGPD. Elles ne quittent pas le poste, mais les participants
-doivent être informés que la réunion est enregistrée et les voix reconnues.
+Named voice prints are biometric data within the meaning of Article 9 of the
+GDPR. They do not leave the machine, but participants must be told that the
+meeting is being recorded and the voices recognised.
