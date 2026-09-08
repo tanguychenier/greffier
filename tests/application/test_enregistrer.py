@@ -67,7 +67,20 @@ class TestIdentifiant:
         assert _identifiant("Réunion #4 (été)", quand) == "2026-08-24_09h05_reunion-4-ete"
 
     def test_un_nom_vide_reste_utilisable(self):
-        assert _identifiant("???", datetime(2026, 1, 1, 0, 0)).endswith("_reunion")
+        """Et deux noms différents restent deux réunions.
+
+        Ce test attendait le suffixe « _reunion », qui était le défaut même :
+        tout sujet sans lettre ASCII rendait cette valeur, donc deux réunions
+        tenues dans la même minute portaient le même identifiant et l'une
+        écrasait l'autre. L'intention tenait, l'assertion la trahissait.
+        """
+        minuit = datetime(2026, 1, 1, 0, 0)
+        assert _identifiant("???", minuit).startswith("2026-01-01_00h00_")
+        assert _identifiant("???", minuit) != _identifiant("!!!", minuit)
+
+    def test_deux_sujets_non_latins_ne_s_ecrasent_pas(self):
+        minuit = datetime(2026, 1, 1, 0, 0)
+        assert _identifiant("点検会議", minuit) != _identifiant("Совещание", minuit)
 
 
 class TestCycle:
