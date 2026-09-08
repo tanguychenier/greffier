@@ -7,7 +7,7 @@ réduit à un nom de fichier horodaté.
 
 from __future__ import annotations
 
-from greffier.adaptateurs.gabarit_courriel import courriel, en_html, sujet
+from greffier.adaptateurs.gabarit_courriel import _ancre, courriel, en_html, sujet
 
 
 class TestTitres:
@@ -218,3 +218,26 @@ class TestEnteteDuCourriel:
         html = courriel(self.SOURCE)
         for attendu in ("Point Casa", "25 août 2026", "Une décision", "Une action", "Un point"):
             assert attendu in html
+
+
+class TestAncresNonLatines:
+    """Deux sections doivent avoir deux ancres.
+
+    Un titre sans lettre ASCII se réduisait au seul préfixe : toutes les
+    sections portaient « s- », le document HTML avait des identifiants en
+    double, et chaque lien du sommaire menait à la première section.
+    """
+
+    def test_deux_titres_non_latins_rendent_deux_ancres(self):
+        assert _ancre("決定事項") != _ancre("Действия")
+
+    def test_une_ancre_reste_un_identifiant_valide(self):
+        ancre = _ancre("決定事項")
+        assert ancre.startswith("s-") and len(ancre) > 2
+
+    def test_les_titres_latins_ne_bougent_pas(self):
+        assert _ancre("Décisions") == "s-decisions"
+
+    def test_le_sommaire_et_le_titre_visent_la_meme_ancre(self):
+        """La fonction est appelée des deux côtés : elles doivent coïncider."""
+        assert _ancre("決定事項") == _ancre("決定事項")
