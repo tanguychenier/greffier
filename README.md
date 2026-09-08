@@ -89,7 +89,7 @@ Python 3.9 suffit à le lancer.
 | Empreintes vocales | sherpa-onnx | sherpa-onnx | sherpa-onnx |
 | Capter le son des autres | BlackHole (pilote à installer) | moniteur PipeWire/PulseAudio, **rien à installer** | boucle WASAPI, intégrée |
 | Rédaction du compte rendu | Ollama (local) ou un assistant en ligne de commande | idem | idem |
-| Envoi du compte rendu | Outlook déjà authentifié | à porter (SMTP) | à porter |
+| Envoi du compte rendu | Outlook déjà authentifié, sinon SMTP | SMTP | SMTP |
 | Interface | **la même fenêtre** (Tkinter) | idem | idem |
 
 Le cœur — transcription, identification des voix, attribution des noms, compte
@@ -384,8 +384,8 @@ Le portage depuis la chaîne de scripts d'origine (`~/reunions/`, abandonnée
 le 2026-08-24) est terminé : les huit lots sont faits, la chaîne complète
 tourne de bout en bout, éprouvée sur des réunions réelles et un jeu d'essai
 synthétique. Ce qui reste ouvert — deux défauts mineurs, et ce qui n'a jamais
-rencontré le réel (SMTP, Linux, Windows, le direct en présentiel) — est
-détaillé dans [`docs/reste-a-faire.md`](docs/reste-a-faire.md).
+rencontré le réel (Windows, le direct en présentiel) — est détaillé dans
+[`docs/reste-a-faire.md`](docs/reste-a-faire.md).
 
 ## Cadre
 
