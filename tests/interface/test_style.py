@@ -80,8 +80,17 @@ class TestPalettes:
 
 
 class TestPolice:
-    def test_la_taille_est_respectee(self) -> None:
-        assert police(13)[1] == 13
+    def test_la_taille_est_donnee_en_pixels(self) -> None:
+        # Négative, donc lue en pixels : en points, X11 rend un tiers plus grand
+        # que macOS et les libellés débordent de leurs boutons.
+        assert police(13)[1] == -13
+
+    def test_la_famille_de_repli_est_garantie_par_tk(self) -> None:
+        # Tk n'assure « Helvetica » — comme « Courier » et « Times » — que
+        # parce qu'il la fait pointer vers la police de la plateforme. Toute
+        # autre famille dépend de fontconfig, que le Tk de l'interpréteur posé
+        # par l'installeur n'embarque pas : elle y retomberait sur une bitmap.
+        assert police(12)[0] in {"SF Pro Text", "Segoe UI", "Helvetica"}
 
     def test_le_gras_se_demande(self) -> None:
         assert police(12, gras=True)[2] == "bold"
