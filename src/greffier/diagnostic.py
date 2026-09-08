@@ -11,6 +11,7 @@ qu'un poste sans micro reçoit le bon conseil sans avoir à débrancher un micro
 from __future__ import annotations
 
 import json
+import os
 import platform
 import shutil
 import subprocess
@@ -79,6 +80,20 @@ def memoire_go() -> float:
     except (OSError, ValueError, subprocess.SubprocessError):
         pass
     return 0.0
+
+
+def serveur_de_son_present() -> bool:
+    """Si la session a un serveur de son auquel se brancher.
+
+    « pactl » n'enregistre rien : il interroge le serveur, là où ffmpeg s'y
+    branche directement par sa prise. Juger la capture sur cet outil déclarait
+    donc perdue une machine parfaitement capable d'enregistrer — PipeWire en
+    marche, mais « pulseaudio-utils » jamais installé.
+    """
+    if os.environ.get("PULSE_SERVER"):
+        return True
+    execution = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+    return (Path(execution) / "pulse" / "native").exists()
 
 
 def acceleration() -> str:
@@ -208,12 +223,12 @@ def capture_systeme() -> Constat:
             remede="brew install --cask blackhole-2ch && sudo killall coreaudiod",
         )
     if SYSTEME == "Linux":
-        present = shutil.which("pactl") is not None
+        present = serveur_de_son_present()
         return Constat(
             nom="Capture du son des autres participants",
             present=present,
-            detail="moniteur PipeWire/PulseAudio" if present else "pactl absent",
-            remede="installe « pipewire-pulse » ou « pulseaudio-utils »",
+            detail="moniteur PipeWire/PulseAudio" if present else "aucun serveur de son",
+            remede="installe « pipewire-pulse » ou « pulseaudio »",
         )
     return Constat(
         nom="Capture du son des autres participants",
@@ -231,7 +246,7 @@ def micro_present() -> Constat:
         present = "Input" in sortie or "Micro" in sortie
         detail = "au moins une entrée audio détectée" if present else "aucune entrée audio"
     elif SYSTEME == "Linux":
-        present = Path("/proc/asound/cards").exists() or shutil.which("pactl") is not None
+        present = Path("/proc/asound/cards").exists() or serveur_de_son_present()
         detail = "carte son détectée" if present else "aucune carte son"
     else:
         present = True
