@@ -11,6 +11,8 @@ import subprocess
 import urllib.error
 import urllib.request
 
+from greffier.domaine.langues import nom_de
+
 CONSIGNES = """Tu rédiges le compte rendu d'une réunion de travail, à partir d'une
 transcription automatique locale dont les locuteurs ont été identifiés. Les
 personnes non reconnues portent une étiquette « Personne N ».
@@ -35,6 +37,36 @@ combler. Pas de préambule : produis directement le document.
 Transcription :
 """
 
+_MENTION_DE_LANGUE = "Attendu, en français,"
+_MENTION_NUE = "Attendu, en"
+
+
+def consignes(langue: str = "") -> str:
+    """Les consignes, dictées dans la langue voulue.
+
+    Le français rend la constante **caractère pour caractère** : cent lignes
+    d'ajustements gagnés sur de vraies réunions, qu'on ne retraduit pas et qu'on
+    ne réécrit pas. Pour une autre langue, la même constante, avec la seule
+    mention de langue remplacée et une directive posée en tête puis rappelée
+    juste avant la transcription — un modèle qui lit cent lignes de français
+    retombe volontiers dans le français à la fin d'un long document.
+
+    Ce que les tests prouvent : que l'instruction PART. Qu'un modèle y obéisse
+    sur toute la longueur d'un compte rendu, aucun test ne le dira.
+    """
+    if not langue or langue == "fr":
+        return CONSIGNES
+    nom = nom_de(langue)
+    entete = (
+        f"Rédige entièrement en {nom}. Tout le document : le titre, les intitulés\n"
+        f"de section, les phrases. La transcription qui suit peut être dans une\n"
+        f"autre langue — cela ne change rien à la langue du compte rendu.\n\n"
+    )
+    return entete + CONSIGNES.replace(_MENTION_DE_LANGUE, f"{_MENTION_NUE} {nom}") + (
+        f"\n\nRappel : le compte rendu s'écrit en {nom}.\n"
+    )
+
+
 
 def modeles_disponibles() -> list[str]:
     """Les modèles qu'Ollama a déjà sur ce poste.
@@ -55,14 +87,16 @@ def modeles_disponibles() -> list[str]:
 
 
 class RedacteurOllama:
-    def __init__(self, modele: str, hote: str = "http://127.0.0.1:11434") -> None:
+    def __init__(self, modele: str, hote: str = "http://127.0.0.1:11434",
+                 langue: str = "") -> None:
         self.modele = modele
         self.hote = hote.rstrip("/")
+        self.langue = langue
 
     def rediger(self, transcription: str) -> str:
         corps = json.dumps({
             "model": self.modele,
-            "prompt": CONSIGNES + transcription,
+            "prompt": consignes(self.langue) + transcription,
             "stream": False,
             # Température basse : un compte rendu doit coller à ce qui a été dit,
             # pas explorer des tournures.

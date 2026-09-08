@@ -4,6 +4,7 @@ C'est le rédacteur par défaut : la qualité de synthèse d'un compte rendu de
 réunion — distinguer une décision d'une hypothèse, rattacher une position à une
 personne — reste hors de portée des modèles qu'on fait tourner sur un portable.
 
+
 Choix assumé et documenté : **la transcription sort du poste** vers l'API
 Anthropic. Tout le reste de la chaîne — enregistrement, transcription,
 identification des voix — demeure local. Pour ne rien laisser sortir du tout,
@@ -15,6 +16,8 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+
+from greffier.domaine.langues import nom_de
 
 CONSIGNES = """Tu rédiges le compte rendu d'une réunion de travail, à partir d'une
 transcription automatique locale dont les locuteurs ont été identifiés.
@@ -119,6 +122,36 @@ qu'on ne lit pas ne sert à rien.
 Transcription :
 """
 
+_MENTION_DE_LANGUE = "Structure attendue, en français,"
+_MENTION_NUE = "Structure attendue, en"
+
+
+def consignes(langue: str = "") -> str:
+    """Les consignes, dictées dans la langue voulue.
+
+    Le français rend la constante **caractère pour caractère** : cent lignes
+    d'ajustements gagnés sur de vraies réunions, qu'on ne retraduit pas et qu'on
+    ne réécrit pas. Pour une autre langue, la même constante, avec la seule
+    mention de langue remplacée et une directive posée en tête puis rappelée
+    juste avant la transcription — un modèle qui lit cent lignes de français
+    retombe volontiers dans le français à la fin d'un long document.
+
+    Ce que les tests prouvent : que l'instruction PART. Qu'un modèle y obéisse
+    sur toute la longueur d'un compte rendu, aucun test ne le dira.
+    """
+    if not langue or langue == "fr":
+        return CONSIGNES
+    nom = nom_de(langue)
+    entete = (
+        f"Rédige entièrement en {nom}. Tout le document : le titre, les intitulés\n"
+        f"de section, les phrases. La transcription qui suit peut être dans une\n"
+        f"autre langue — cela ne change rien à la langue du compte rendu.\n\n"
+    )
+    return entete + CONSIGNES.replace(_MENTION_DE_LANGUE, f"{_MENTION_NUE} {nom}") + (
+        f"\n\nRappel : le compte rendu s'écrit en {nom}.\n"
+    )
+
+
 
 class RedacteurClaude:
     """Rédige le compte rendu en appelant Claude Code en ligne de commande.
@@ -131,10 +164,11 @@ class RedacteurClaude:
     """
 
     def __init__(self, modele: str = "", commande: str = "claude",
-                 delai: int = 900) -> None:
+                 delai: int = 900, langue: str = "") -> None:
         self.modele = modele
         self.commande = commande
         self.delai = delai
+        self.langue = langue
 
     def rediger(self, transcription: str) -> str:
         if shutil.which(self.commande) is None:
@@ -149,7 +183,7 @@ class RedacteurClaude:
             commande += ["--model", self.modele]
         resultat = subprocess.run(
             commande,
-            input=CONSIGNES + transcription,
+            input=consignes(self.langue) + transcription,
             capture_output=True, text=True, timeout=self.delai, check=False,
         )
         texte = resultat.stdout.strip()
