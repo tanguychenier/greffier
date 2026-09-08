@@ -21,6 +21,7 @@ import sherpa_onnx
 import soundfile as sf
 
 from greffier.adaptateurs.canaux_fichier import TRAME_S, niveaux_par_trame, separer_canaux
+from greffier.domaine.calcul import fils_de_calcul
 from greffier.domaine.canaux import VOIX_LOCALE, retirer, tours_locaux
 from greffier.domaine.modeles import Intervalle, Source, TourDeParole
 
@@ -35,13 +36,16 @@ class DiariseurSherpa:
         self.seuil = seuil
 
     def decouper(self, audio: Path, personnes: int | None) -> list[TourDeParole]:
+        fils = fils_de_calcul()
         config = sherpa_onnx.OfflineSpeakerDiarizationConfig(
             segmentation=sherpa_onnx.OfflineSpeakerSegmentationModelConfig(
                 pyannote=sherpa_onnx.OfflineSpeakerSegmentationPyannoteModelConfig(
                     model=str(self.segmentation)
                 ),
+                num_threads=fils,
             ),
-            embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(model=str(self.empreintes)),
+            embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(
+                model=str(self.empreintes), num_threads=fils),
             # Sans nombre imposé, le regroupement se fait au seuil : il sur-découpe,
             # et c'est le recollage du domaine qui remet les voix ensemble.
             clustering=sherpa_onnx.FastClusteringConfig(

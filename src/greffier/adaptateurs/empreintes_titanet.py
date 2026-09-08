@@ -13,6 +13,7 @@ import numpy as np
 import sherpa_onnx
 import soundfile as sf
 
+from greffier.domaine.calcul import fils_de_calcul
 from greffier.domaine.empreintes import normaliser
 from greffier.domaine.modeles import Empreinte, Intervalle
 
@@ -38,7 +39,8 @@ class ExtracteurTitaNet:
         if not modele.exists():
             raise FileNotFoundError(f"modèle d'empreintes introuvable : {modele}")
         self._extracteur = sherpa_onnx.SpeakerEmbeddingExtractor(
-            sherpa_onnx.SpeakerEmbeddingExtractorConfig(model=str(modele))
+            sherpa_onnx.SpeakerEmbeddingExtractorConfig(
+                model=str(modele), num_threads=fils_de_calcul())
         )
 
     def extraire(self, echantillons: np.ndarray, frequence: int) -> Empreinte:
