@@ -19,6 +19,7 @@ from pathlib import Path
 import typer
 
 from greffier.adaptateurs.banque_fichiers import BanqueFichiers
+from greffier.adaptateurs.configuration import Config
 from greffier.adaptateurs.notifications import NotificateurSysteme
 from greffier.application.nommer import VoixANommer, extraire_audio, voix_a_nommer
 from greffier.application.restituer import regenerer_compte_rendu
@@ -33,7 +34,7 @@ from greffier.composition import (
     suivi,
     transcripteur_leger,
 )
-from greffier.config import Config
+from greffier.domaine.compte_rendu import titre
 from greffier.emplacements import dossier_config
 
 application = typer.Typer(
@@ -329,7 +330,8 @@ def configurer(
     À lancer au premier usage, et à relancer quand quelque chose change — de
     machine, de casque, d'adresse mail.
     """
-    from greffier import assistant, diagnostic
+    from greffier.adaptateurs import assistant_terminal as assistant
+    from greffier.adaptateurs import diagnostic_systeme as diagnostic
 
     def choisir(question: str, options: list[tuple[str, str]], defaut: int) -> str:
         typer.echo(f"\n{question} :")
@@ -369,7 +371,7 @@ def diagnostic_(
     config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
 ) -> None:
     """Constate ce qui est en place et ce qui manque, sans rien modifier."""
-    from greffier import diagnostic as verificateur
+    from greffier.adaptateurs import diagnostic_systeme as verificateur
 
     etat = verificateur.examiner()
     machine = etat.machine
@@ -1102,7 +1104,6 @@ def envoyer(
     au mauvais destinataire ne se rattrape pas, et un envoi silencieux au fil du
     traitement ne laisse aucune occasion de relire.
     """
-    from greffier.adaptateurs import gabarit_courriel
     from greffier.composition import _expediteur
 
     config = Config.charger(config_fichier)
@@ -1127,7 +1128,7 @@ def envoyer(
                     fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
 
-    objet = gabarit_courriel.sujet(compte_rendu, f"Compte rendu de réunion — {identifiant}")
+    objet = titre(compte_rendu, f"Compte rendu de réunion — {identifiant}")
     # Le corps du message est déjà le compte rendu : rien à joindre par défaut.
     # La transcription intégrale fait circuler les propos de chacun mot à mot,
     # ce qui ne se décide pas à la place du lecteur.

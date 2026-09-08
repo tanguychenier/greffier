@@ -33,7 +33,7 @@ def sujet_lisible(identifiant: str, compte_rendu: Path) -> str:
     """
     if compte_rendu.exists():
         with contextlib.suppress(OSError):
-            from greffier.adaptateurs.gabarit_courriel import sujet
+            from greffier.domaine.compte_rendu import titre as sujet
 
             titre = sujet(compte_rendu.read_text(encoding="utf-8"), "")
             if titre:

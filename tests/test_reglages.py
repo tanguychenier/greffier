@@ -11,8 +11,8 @@ import tomllib
 
 import pytest
 
-from greffier import reglages
-from greffier.config import Config
+from greffier.adaptateurs import configuration as reglages
+from greffier.adaptateurs.configuration import Config
 
 
 @pytest.fixture(autouse=True)

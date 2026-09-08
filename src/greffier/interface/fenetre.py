@@ -42,6 +42,7 @@ from pathlib import Path
 from tkinter import messagebox, ttk
 from typing import Any
 
+from greffier.adaptateurs.configuration import Config
 from greffier.adaptateurs.niveaux_direct import Releve, relever
 from greffier.application.suivre import (
     GENRE_CORRECTION,
@@ -52,14 +53,14 @@ from greffier.application.suivre import (
     lire_depuis,
     rejouer,
 )
-from greffier.config import Config
 from greffier.domaine.canaux import QuiParle
+from greffier.domaine.compte_rendu import titre
 from greffier.domaine.direct import Fil, TourDirect
 from greffier.domaine.modeles import Phase
 from greffier.emplacements import situer_tcl
 from greffier.interface.apparence import Bouton, Defileur, Liste, Onglets, Vumetre
 from greffier.interface.lisible import etat_du_direct, horloge, sujet_lisible
-from greffier.interface.style import palette, police
+from greffier.interface.style import degrade, palette, police, police_titre
 
 #: Cadence de rafraîchissement. Quatre fois par seconde suffit à suivre la
 #: parole, et laisse la machine tranquille pendant une heure de réunion.
@@ -76,24 +77,6 @@ PULSATION_MS = 50
 #: Durée d'un cycle de respiration, en secondes.
 PULSATION_S = 1.6
 
-
-def _degrade(depuis: str, vers: str, part: float) -> str:
-    """Une couleur entre deux autres, en hexadécimal — le fondu du point rouge."""
-    a = tuple(int(depuis[i : i + 2], 16) for i in (1, 3, 5))
-    b = tuple(int(vers[i : i + 2], 16) for i in (1, 3, 5))
-    return "#" + "".join(f"{round(x + (y - x) * part):02x}" for x, y in zip(a, b, strict=True))
-
-
-def _police_titre(taille: int) -> tuple[str, int, str]:
-    """Une empreinte plus éditoriale pour le nom de la réunion.
-
-    Le seul texte de la fenêtre qui n'a pas besoin de ressembler à un bouton.
-    Georgia est du système sur macOS et Windows ; ailleurs « Times », que Tk
-    garantit et fait pointer vers la sérif de la plateforme, comme le repli de
-    `police`. La taille suit la même règle : négative, donc en pixels.
-    """
-    famille = {"Darwin": "Georgia", "Windows": "Georgia"}.get(platform.system(), "Times")
-    return (famille, -taille, "bold")
 
 #: Largeur réservée aux libellés des vumètres. Fixée plutôt que laissée à la
 #: grille, qui rejetait les barres à l'autre bout de la carte.
@@ -298,7 +281,7 @@ class Fenetre:
         self.pastille.grid(row=0, column=0, sticky="w", pady=(8, 0))
         self._point = self.pastille.create_oval(1, 1, 11, 11, fill=c.calme, outline="")
         self.titre = self._texte(ligne, "Prêt", taille=21, gras=True)
-        self.titre.configure(font=_police_titre(21))
+        self.titre.configure(font=police_titre(21))
         self.titre.grid(row=0, column=1, sticky="w", padx=(11, 0))
         self.chrono = self._texte(ligne, "", taille=27)
         self.chrono.grid(row=0, column=2, sticky="e")
@@ -1005,7 +988,7 @@ class Fenetre:
 
     def _garnir_les_reglages(self) -> None:
         """Remplit le formulaire depuis la configuration en vigueur."""
-        from greffier.assistant import MODELES_CLAUDE
+        from greffier.adaptateurs.configuration import MODELES_CLAUDE
 
         self.reglage_micro.garnir(list(self._micros_reglables()), self.config.audio.micro)
         self.reglage_modele.garnir(list(self._modeles_presents()),
@@ -1074,9 +1057,9 @@ class Fenetre:
         if moteur == "claude":
             choix = self._modeles_claude
         elif moteur == "ollama":
-            from greffier.assistant import _modeles_ollama
+            from greffier.adaptateurs.redaction_ollama import modeles_disponibles
 
-            presents = _modeles_ollama()
+            presents = modeles_disponibles()
             choix = tuple((m, m) for m in presents) or (("qwen3:8b", "qwen3:8b — à télécharger"),)
         else:
             choix = (("", "Sans objet : aucun rédacteur"),)
@@ -1086,7 +1069,7 @@ class Fenetre:
 
     def _dire_le_compte(self) -> None:
         """Affiche l'état du compte, et accorde les boutons à cet état."""
-        from greffier import diagnostic
+        from greffier.adaptateurs import diagnostic_systeme as diagnostic
 
         if not diagnostic.claude_installe():
             self.mot_compte.configure(
@@ -1125,7 +1108,7 @@ class Fenetre:
         """
         import tempfile
 
-        from greffier import diagnostic
+        from greffier.adaptateurs import diagnostic_systeme as diagnostic
 
         if not diagnostic.claude_installe():
             commande = diagnostic.COMMANDE_INSTALLER_CLAUDE.get(platform.system(), "")
@@ -1158,7 +1141,7 @@ class Fenetre:
 
     def _mettre_a_jour_claude(self) -> None:
         """Lance « claude update », dans un fil : il télécharge."""
-        from greffier import diagnostic
+        from greffier.adaptateurs import diagnostic_systeme as diagnostic
 
         if not diagnostic.claude_installe():
             self._dire_le_compte()
@@ -1222,7 +1205,7 @@ class Fenetre:
 
     def _enregistrer_reglages(self) -> None:
         """Écrit `config.toml`, puis applique ce qui peut l'être sans relancer."""
-        from greffier import reglages
+        from greffier.adaptateurs import configuration as reglages
 
         moteur = self.reglage_redacteur.valeur()
         theme_avant = self.config.apparence.theme
@@ -1331,7 +1314,7 @@ class Fenetre:
         if self._phase_peinte is Phase.ENREGISTREMENT:
             c = self.couleurs
             part = (math.sin(2 * math.pi * time.time() / PULSATION_S) + 1) / 2
-            self.pastille.itemconfigure(self._point, fill=_degrade(c.actif, c.carte, part * 0.65))
+            self.pastille.itemconfigure(self._point, fill=degrade(c.actif, c.carte, part * 0.65))
         self.racine.after(PULSATION_MS, self._respirer)
 
     def _peindre(self, etat: Any) -> None:
@@ -1659,7 +1642,6 @@ class Fenetre:
         subprocess.run([ouvreur, str(chemin)], check=False)
 
     def _envoyer_selection(self) -> None:
-        from greffier.adaptateurs import gabarit_courriel
         from greffier.composition import _expediteur
 
         identifiant = self._selection()
@@ -1671,7 +1653,7 @@ class Fenetre:
             messagebox.showinfo("Greffier", "Traite d'abord la réunion.")
             return
         compte_rendu = chemin.read_text(encoding="utf-8")
-        objet = gabarit_courriel.sujet(compte_rendu, f"Compte rendu : {identifiant}")
+        objet = titre(compte_rendu, f"Compte rendu : {identifiant}")
         cible = self.config.compte_rendu.destinataire
         if not cible:
             messagebox.showinfo(

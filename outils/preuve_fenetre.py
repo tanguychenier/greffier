@@ -28,7 +28,7 @@ sys.path.insert(0, str(RACINE / "src"))
 def main() -> int:
     import tkinter as tk
 
-    from greffier.config import Config
+    from greffier.adaptateurs.configuration import Config
     from greffier.interface.fenetre import Fenetre
 
     print("tkinter", tk.TkVersion, "— Tcl", tk.TclVersion)

@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from greffier import diagnostic
+from greffier.adaptateurs import diagnostic_systeme as diagnostic
 
 
 @pytest.fixture

@@ -19,8 +19,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol
 
-from greffier.adaptateurs.depot_fichiers import ReunionEnregistree
 from greffier.domaine.modeles import Intervalle, Replique, TourDeParole
+from greffier.domaine.reunion import ReunionEnregistree
 from greffier.ports import sortants
 
 

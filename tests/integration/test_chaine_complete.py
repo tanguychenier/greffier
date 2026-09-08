@@ -26,8 +26,8 @@ from pathlib import Path
 
 import pytest
 
+from greffier.adaptateurs.configuration import Config
 from greffier.application.traiter import Traitement
-from greffier.config import Config
 
 RACINE = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(RACINE / "outils"))
