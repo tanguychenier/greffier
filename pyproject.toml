@@ -19,6 +19,12 @@ service = ["fastapi>=0.115", "uvicorn>=0.32"]   # démon local pour l'app macOS
 # nettement plus rapide (Metal). Ailleurs, faster-whisper fait le même travail
 # depuis Python, sur les trois systèmes.
 transcription = ["faster-whisper>=1.1"]
+# Accélération par carte NVIDIA. CTranslate2 réclame cuBLAS et cuDNN, qu'aucune
+# distribution n'installe avec le pilote : sans elles la carte est là et reste
+# inutilisable, et la transcription se traîne sur le processeur — treize fois le
+# temps réel, mesuré, soit treize heures pour une réunion d'une heure. Deux
+# gigaoctets de roues, d'où l'extra plutôt que la dépendance.
+cuda = ["nvidia-cublas-cu12>=12.4", "nvidia-cudnn-cu12>=9.1"]
 # Icône de zone de notification pour Linux et Windows. macOS a son app native :
 dev = ["pytest>=8.3", "pytest-cov>=6.0", "ruff>=0.8", "mypy>=1.13"]
 
