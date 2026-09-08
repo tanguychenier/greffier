@@ -62,7 +62,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 # beaucoup de postes — alors que le paquet, lui, exige 3.13. Ses gardes de
 # version ne sont donc pas obsolètes.
 "outils/installer.py" = ["UP036"]
-"src/greffier/config.py" = ["UP036"]
+"src/greffier/adaptateurs/configuration.py" = ["UP036"]
 
 [tool.mypy]
 python_version = "3.13"
@@ -73,8 +73,11 @@ files = ["src/greffier"]
 # faster-whisper, soundfile. Exiger la rigueur là où elle ne peut pas être
 # tenue reviendrait à couvrir le code d'exceptions, ce qui la ferait perdre
 # partout ailleurs. Le cœur, lui, est strict sans concession.
+#
+# Une seule ligne suffit désormais : l'assistant et le diagnostic étaient nommés
+# à part parce qu'ils vivaient à la racine du paquet, hors de toute couche.
 [[tool.mypy.overrides]]
-module = ["greffier.adaptateurs.*", "greffier.assistant", "greffier.diagnostic"]
+module = ["greffier.adaptateurs.*"]
 strict = false
 ignore_missing_imports = true
 

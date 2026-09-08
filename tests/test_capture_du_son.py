@@ -8,7 +8,7 @@ machine parfaitement capable d'enregistrer — PipeWire en marche, mais
 
 import pytest
 
-from greffier import diagnostic
+from greffier.adaptateurs import diagnostic_systeme as diagnostic
 
 
 @pytest.fixture
