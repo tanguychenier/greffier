@@ -230,3 +230,36 @@ class TestConsole:
         monkeypatch.setattr(installeur.sys, "stdout", ConsoleLimitee())
         assert installeur._ecrivable("✓") is False
         assert installeur._ecrivable("ok") is True
+
+
+class TestCaptureDuSonSousLinux:
+    """Ce sur quoi l'installeur juge la capture du son des autres.
+
+    « pactl » n'enregistre rien : il interroge le serveur de son, quand ffmpeg
+    s'y branche directement par sa prise. Le juger absent annonçait une capture
+    impossible sur une machine qui en était capable, et envoyait chercher un
+    paquet inutile.
+    """
+
+    def test_la_prise_du_serveur_suffit(self, sous, monkeypatch, tmp_path):
+        module = sous("Linux", XDG_RUNTIME_DIR=str(tmp_path))
+        monkeypatch.delenv("PULSE_SERVER", raising=False)
+        monkeypatch.setattr(module.shutil, "which", lambda _outil: None)
+        (tmp_path / "pulse").mkdir()
+        (tmp_path / "pulse" / "native").touch()
+
+        assert module.serveur_de_son_present()
+
+    def test_sans_serveur_il_n_y_a_rien_a_capter(self, sous, monkeypatch, tmp_path):
+        module = sous("Linux", XDG_RUNTIME_DIR=str(tmp_path))
+        monkeypatch.delenv("PULSE_SERVER", raising=False)
+
+        assert not module.serveur_de_son_present()
+
+    def test_un_serveur_declare_est_cru(self, sous, monkeypatch, tmp_path):
+        """Un serveur distant ne pose aucune prise dans cette session."""
+        module = sous("Linux", XDG_RUNTIME_DIR=str(tmp_path),
+                      PULSE_SERVER="tcp:192.168.1.10:4713")
+        monkeypatch.setattr(module.shutil, "which", lambda _outil: None)
+
+        assert module.serveur_de_son_present()

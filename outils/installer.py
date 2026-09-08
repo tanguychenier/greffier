@@ -166,6 +166,20 @@ def lancer(commande, **kwargs):
 
 # ------------------------------------------------- gestionnaires de paquets
 
+def serveur_de_son_present():
+    """Si la session a un serveur de son auquel se brancher.
+
+    « pactl » n'enregistre rien : il interroge le serveur, là où ffmpeg s'y
+    branche directement par sa prise. Juger la capture sur cet outil déclarait
+    donc perdue une machine parfaitement capable d'enregistrer — PipeWire en
+    marche, mais « pulseaudio-utils » jamais installé.
+    """
+    if os.environ.get("PULSE_SERVER"):
+        return True
+    execution = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+    return (Path(execution) / "pulse" / "native").exists()
+
+
 def gestionnaire():
     """Le gestionnaire de paquets du poste, ou None si aucun n'est reconnu."""
     if SYSTEME == "Darwin":
@@ -290,12 +304,13 @@ def etape_audio(ctx):
     if SYSTEME == "Linux":
         # PipeWire et PulseAudio exposent déjà un « monitor » de la sortie :
         # rien à installer, contrairement à macOS.
-        if shutil.which("pactl"):
+        if serveur_de_son_present():
             ok("PulseAudio/PipeWire — le moniteur de sortie sert de capture")
             info("Aucun pilote supplémentaire n'est nécessaire sur Linux.")
         else:
-            alerte("pactl absent : le son des autres participants ne pourra pas être capté")
-            info("Sur un poste de bureau, installe « pipewire-pulse » ou « pulseaudio-utils ».")
+            alerte("aucun serveur de son : le son des autres participants ne pourra pas"
+                   " être capté")
+            info("Sur un poste de bureau, installe « pipewire-pulse » ou « pulseaudio ».")
             info("En conteneur ou sur un serveur, c'est normal : seule l'analyse de")
             info("fichiers déjà enregistrés est possible.")
         return
