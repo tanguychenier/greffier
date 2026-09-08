@@ -294,3 +294,45 @@ class TestAccelerationParLaCarte:
         monkeypatch.setattr(module.shutil, "which", lambda _outil: "/usr/bin/nvidia-smi")
 
         assert not module.carte_nvidia()
+
+
+class TestLaLangueDuPoste:
+    """L'installeur gravait « fr » dans le gabarit, quel que soit le poste.
+
+    La langue que le système annonce est un renseignement gratuit que rien ne
+    lisait : un poste allemand ressortait réglé sur le français, et personne ne
+    s'en apercevait avant la première transcription.
+    """
+
+    def test_la_langue_annoncee_est_retenue(self, sous, monkeypatch):
+        module = sous("Linux", LANG="de_DE.UTF-8")
+        monkeypatch.delenv("LC_ALL", raising=False)
+        monkeypatch.delenv("LC_MESSAGES", raising=False)
+
+        assert module.langue_du_poste() == "de"
+
+    def test_une_langue_inconnue_retombe_sur_le_francais(self, sous, monkeypatch):
+        module = sous("Linux", LANG="xx_XX.UTF-8")
+        monkeypatch.delenv("LC_ALL", raising=False)
+        monkeypatch.delenv("LC_MESSAGES", raising=False)
+
+        assert module.langue_du_poste() == "fr"
+
+    def test_sans_variable_le_francais(self, sous, monkeypatch):
+        module = sous("Linux")
+        for variable in ("LC_ALL", "LC_MESSAGES", "LANG"):
+            monkeypatch.delenv(variable, raising=False)
+
+        assert module.langue_du_poste() == "fr"
+
+    def test_le_gabarit_ne_porte_plus_de_langue_en_dur(self, installeur):
+        """Première couverture du gabarit : la ligne pouvait changer en silence."""
+        assert 'langue = "fr"' not in installeur.GABARIT
+        assert "langue = {langue!r}" in installeur.GABARIT
+
+    def test_le_catalogue_des_langues_se_charge_sans_le_paquet(self, installeur):
+        """L'installeur tourne avant que quoi que ce soit ne soit installé."""
+        langues = installeur._charger_langues()
+
+        assert langues is not None
+        assert ("fr", "Français") in langues.LANGUES

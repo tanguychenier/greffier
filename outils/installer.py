@@ -188,6 +188,42 @@ def serveur_de_son_present():
     return (Path(execution) / "pulse" / "native").exists()
 
 
+#: Les langues que Greffier propose, chargées depuis le paquet plutôt que
+#: recopiées : trois copies d'une même liste, c'est trois occasions qu'elles se
+#: contredisent. Chargement par chemin, comme les emplacements, parce que
+#: l'installeur tourne avant que quoi que ce soit ne soit installé.
+def _charger_langues():
+    specification = importlib.util.spec_from_file_location(
+        "greffier_langues", DEPOT / "src/greffier/domaine/langues.py"
+    )
+    module = importlib.util.module_from_spec(specification)
+    try:
+        specification.loader.exec_module(module)
+    except Exception:
+        # Le module importe le registre des profils, qui n'existe pas encore sur
+        # un dépôt à moitié installé. Le repli est le français, comme avant.
+        return None
+    return module
+
+
+def langue_du_poste():
+    """La langue que le système annonce, si Greffier sait la servir.
+
+    Renseignement gratuit que rien ne lisait : un poste allemand ressortait
+    réglé sur le français, et personne ne s'en apercevait avant la première
+    transcription.
+    """
+    langues = _charger_langues()
+    connues = {code for code, _ in langues.LANGUES} if langues else {"fr"}
+    for variable in ("LC_ALL", "LC_MESSAGES", "LANG"):
+        valeur = os.environ.get(variable, "")
+        if valeur:
+            code = valeur.split(".")[0].split("_")[0].lower()
+            if code in connues:
+                return code
+    return "fr"
+
+
 def gestionnaire():
     """Le gestionnaire de paquets du poste, ou None si aucun n'est reconnu."""
     if SYSTEME == "Darwin":
@@ -627,7 +663,7 @@ duree_maximale = 14400        # 4 h : garde-fou contre une réunion oubliée
 
 [transcription]
 moteur = {moteur!r}           # whisper.cpp (macOS, accéléré) ou faster-whisper
-langue = "fr"
+langue = {langue!r}
 # Noms propres du contexte : c'est ce qui améliore le plus la transcription
 # des termes rares.
 vocabulaire = ["Jira", "GitLab", "sprint", "merge request", "recette", "backlog"]
@@ -663,6 +699,7 @@ def etape_configuration(ctx, moteur, redaction):
             entree="Reunion Entree" if SYSTEME == "Darwin" else "default",
             sortie="Reunion Sortie" if SYSTEME == "Darwin" else "default.monitor",
             moteur=moteur,
+            langue=langue_du_poste(),
             redacteur=redaction["moteur"],
             modele=redaction["modele"],
         ),
