@@ -1,52 +1,52 @@
-# Calibrage des seuils de reconnaissance des voix
+# Calibrating the voice recognition thresholds
 
-Les seuils de `domaine/empreintes.py` ne sont pas des intuitions : ils viennent
-d'une mesure. Ce document dit laquelle, pour qu'elle puisse être refaite quand
-le matériel, l'acoustique ou le modèle changent.
+The thresholds in `domaine/empreintes.py` are not intuitions: they come from a
+measurement. This document states which one, so that it can be redone when the
+hardware, the acoustics or the model change.
 
-## Méthode
+## Method
 
 ```sh
 .venv/bin/python outils/calibrer_seuils.py <enregistrement.wav>
 .venv/bin/python outils/verifier_fusion.py <enregistrement.wav>
 ```
 
-Le premier segmente l'enregistrement, extrait une empreinte par prise de parole
-d'au moins 3 s, puis compare :
+The first segments the recording, extracts one voice print per speaking turn of
+at least 3 s, then compares:
 
-- **intra** — deux extraits d'une même voix : doit être élevé ;
-- **inter** — deux voix différentes, empreintes agrégées : doit être nettement
-  plus bas.
+- **intra** — two samples of the same voice: must be high;
+- **inter** — two different voices, aggregated voice prints: must be clearly
+  lower.
 
-L'écart entre les deux distributions dicte le seuil. Une première tentative
-reconstruisait les tours de parole depuis le fichier texte des locuteurs : les
-extraits contenaient alors des silences, les empreintes étaient bruitées et les
-deux distributions se chevauchaient presque entièrement. **Il faut partir des
-bornes exactes de la segmentation.**
+The gap between the two distributions dictates the threshold. A first attempt
+rebuilt the speaking turns from the speaker text file: the samples then
+contained silences, the voice prints were noisy and the two distributions
+overlapped almost entirely. **The exact segmentation boundaries must be the
+starting point.**
 
-## Mesure du 2026-08-24
+## Measurement of 2026-08-24
 
-Réunion du 2026-08-20, 11,8 min, environ 6 participants, en salle, micro de
-portable, un seul canal actif (aucun son système capté).
+Meeting of 2026-08-20, 11.8 min, about 6 participants, in a room, laptop
+microphone, a single active channel (no system sound captured).
 
-| | Médiane | Étendue |
+| | Median | Range |
 |---|---|---|
-| Deux extraits d'une **même** voix | 0,74 | 0,62 – 0,79 sur les voix bien fournies |
-| Deux voix **différentes** | 0,41 | jusqu'à 0,66 |
+| Two samples of the **same** voice | 0.74 | 0.62 – 0.79 on voices with ample material |
+| Two **different** voices | 0.41 | up to 0.66 |
 
-D'où `SEUIL_RECONNAISSANCE = 0.70` : au-dessus du pire cas de voix distinctes,
-au niveau du cas courant d'une même voix. La valeur de 0,55 retenue au jugé
-avant cette mesure laissait passer des confusions.
+Hence `SEUIL_RECONNAISSANCE = 0.70`: above the worst case for distinct voices,
+at the level of the common case for a single voice. The value of 0.55 chosen by
+judgement before this measurement let confusions through.
 
-## Sur-découpage et recollage
+## Over-splitting and re-joining
 
-La segmentation automatique a produit **27 voix pour 6 participants**. C'est le
-défaut connu de l'approche : une personne qui change de posture ou s'éloigne du
-micro devient un nouveau groupe.
+Automatic segmentation produced **27 voices for 6 participants**. This is the
+known defect of the approach: a person who shifts posture or moves away from the
+microphone becomes a new group.
 
-`fusionner_voix` recolle les groupes dont les empreintes agrégées dépassent
-`SEUIL_FUSION = 0.75`, de la paire la plus évidente à la moins évidente, en
-recalculant l'agrégat après chaque réunion. Sur le même enregistrement :
+`fusionner_voix` re-joins the groups whose aggregated voice prints exceed
+`SEUIL_FUSION = 0.75`, from the most obvious pair to the least obvious,
+recomputing the aggregate after each merge. On the same recording:
 
 ```
 AVANT : 27 voix distinctes sur 172 segments
@@ -61,65 +61,64 @@ APRÈS : 22 voix, dont 5 avec au moins 10 s de parole
 plus fort rapprochement restant : 0.645 (v17 ↔ v4)
 ```
 
-Cinq voix porteuses, une répartition du temps de parole crédible, et le
-rapprochement le plus fort restant tombe sous le seuil : le recollage s'arrête
-au bon endroit. Cela supprime le besoin d'indiquer le nombre de participants à
-la main, qui était jusqu'ici le réglage dont dépendait toute la qualité de
-l'identification en présentiel.
+Five voices carrying the bulk, a credible split of speaking time, and the
+strongest remaining match falls below the threshold: the re-joining stops at the
+right place. This removes the need to state the number of participants by hand,
+which until now was the setting the whole quality of in-person identification
+depended on.
 
-## Seuil de clustering brut mesuré (2026-09-01)
+## Raw clustering threshold measured (2026-09-01)
 
-Le seuil `threshold = 0.8` de `DiariseurSherpa` (passé à
-`FastClusteringConfig`) n'avait jamais été mesuré comme le sont
-`SEUIL_RECONNAISSANCE`/`SEUIL_FUSION` ci-dessus — il datait des exemples de
-sherpa-onnx. Sur un jeu d'essai synthétique à trois locuteurs
-(`outils/fabriquer_cas_difficiles.py --cas trois-voix`, deux timbres
-proches), il fusionnait dès le clustering brut deux locuteurs distincts en un
-seul, **avant même que `fusionner_voix` n'intervienne** : la segmentation ne
-rendait que 2 voix pour 3 personnes, et `fusionner_voix` ne peut pas séparer
-ce qui a déjà été fondu en amont.
+The `threshold = 0.8` of `DiariseurSherpa` (passed to `FastClusteringConfig`)
+had never been measured the way `SEUIL_RECONNAISSANCE`/`SEUIL_FUSION` above
+are — it came from the sherpa-onnx examples. On a synthetic test set with three
+speakers (`outils/fabriquer_cas_difficiles.py --cas trois-voix`, two close
+timbres), it merged two distinct speakers into one at the raw clustering stage,
+**before `fusionner_voix` even came into play**: segmentation returned only 2
+voices for 3 people, and `fusionner_voix` cannot separate what has already been
+fused upstream.
 
-Mesure directe (`DiariseurSherpa.decouper` isolé, hors chaîne complète), sur
-deux fixtures — `deux-voix` (`outils/fabriquer_reunion.py`, référence
-existante) et `trois-voix` — en balayant `threshold` :
+Direct measurement (`DiariseurSherpa.decouper` in isolation, outside the full
+chain), on two fixtures — `deux-voix` (`outils/fabriquer_reunion.py`, existing
+reference) and `trois-voix` — sweeping `threshold`:
 
 | `threshold` | `deux-voix` | `trois-voix` |
 |---|---|---|
-| 0,30 | 3 voix (sur-découpe) | 3 voix (correct) |
-| 0,40 – 0,50 | **2 voix (correct)** | **3 voix (correct)** |
-| 0,55 – 0,88 | 2 voix (correct) | 2 voix (fusion à tort) |
-| ≥ 0,90 | 1 voix (fusion à tort) | 1 voix (fusion à tort) |
+| 0.30 | 3 voices (over-split) | 3 voices (correct) |
+| 0.40 – 0.50 | **2 voices (correct)** | **3 voices (correct)** |
+| 0.55 – 0.88 | 2 voices (correct) | 2 voices (wrongly merged) |
+| ≥ 0.90 | 1 voice (wrongly merged) | 1 voice (wrongly merged) |
 
-Le sens du paramètre est contre-intuitif : plus il est **bas**, plus le
-clustering est sensible et distingue de voix, jusqu'à sur-découper à 0,30. La
-plage `[0,40 ; 0,50]` est correcte sur les deux fixtures. `threshold = 0.45`
-retenu (milieu de plage). À revalider sur un enregistrement réel via
-`outils/calibrer_seuils.py`/`outils/verifier_fusion.py` — cette mesure n'a
-porté que sur de la synthèse vocale.
+The meaning of the parameter is counter-intuitive: the **lower** it is, the more
+sensitive the clustering and the more voices it tells apart, up to over-splitting
+at 0.30. The range `[0.40 ; 0.50]` is correct on both fixtures.
+`threshold = 0.45` chosen (middle of the range). To be revalidated on a real
+recording via `outils/calibrer_seuils.py`/`outils/verifier_fusion.py` — this
+measurement covered only speech synthesis.
 
-## Garde de matière avant fusion
+## Material guard before merging
 
-Complément au réglage ci-dessus, pas son remplacement : `fusionner_voix`
-(`domaine/empreintes.py`) fusionne deux groupes dès que leurs empreintes
-agrégées dépassent `SEUIL_FUSION`, sans regarder combien de matière porte
-chaque agrégat — un agrégat tiré de deux ou trois secondes est bruité, et sa
-similarité avec un autre petit groupe n'est plus un signal fiable. La fonction
-exige désormais, en plus du score, que le **plus grand** des deux groupes
-candidats porte au moins `MATIERE_MINIMALE_FUSION = 6.0` s (deux fois
-`DUREE_UTILE`) avant d'accepter la fusion. L'asymétrie est volontaire : une
-voix déjà établie (`v0`, 6,1 min dans la mesure ci-dessus) continue d'absorber
-des fragments minces sans contrainte nouvelle ; seuls deux petits groupes
-encore fragiles ne peuvent plus se fondre entre eux sur un hasard statistique.
-Valeur de départ, à revalider par la même méthode que ci-dessus.
+A complement to the setting above, not its replacement: `fusionner_voix`
+(`domaine/empreintes.py`) merges two groups as soon as their aggregated voice
+prints exceed `SEUIL_FUSION`, without looking at how much material backs each
+aggregate — an aggregate drawn from two or three seconds is noisy, and its
+similarity with another small group is no longer a reliable signal. The function
+now requires, on top of the score, that the **larger** of the two candidate
+groups carry at least `MATIERE_MINIMALE_FUSION = 6.0` s (twice `DUREE_UTILE`)
+before accepting the merge. The asymmetry is deliberate: a voice already
+established (`v0`, 6.1 min in the measurement above) keeps absorbing thin
+fragments with no new constraint; only two small groups still fragile can no
+longer merge with each other on a statistical accident. Starting value, to be
+revalidated by the same method as above.
 
-## Limites connues
+## Known limits
 
-- Le modèle d'empreintes est `nemo_en_titanet_large`, entraîné sur de l'anglais.
-  Il fonctionne sur des voix françaises — le timbre dépend peu de la langue —
-  mais un modèle multilingue serait préférable.
-- Une seule réunion mesurée, en salle. Les seuils doivent être revérifiés sur
-  de la visio, où le signal est bien plus propre et où les valeurs intra
-  devraient monter.
-- Les voix totalisant moins de 10 s de parole restent éclatées : trop peu de
-  matière pour une empreinte stable. Elles doivent être présentées comme
-  indéterminées plutôt que comme des participants.
+- The voice print model is `nemo_en_titanet_large`, trained on English. It works
+  on French voices — timbre depends little on the language — but a multilingual
+  model would be preferable.
+- A single meeting measured, in a room. The thresholds must be rechecked on
+  video calls, where the signal is much cleaner and where the intra values
+  should rise.
+- Voices totalling less than 10 s of speech stay fragmented: too little material
+  for a stable voice print. They must be presented as undetermined rather than
+  as participants.
