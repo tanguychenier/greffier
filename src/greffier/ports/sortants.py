@@ -12,9 +12,10 @@ Windows, ou le jour où l'on changera de modèle de transcription.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from greffier.domaine.modeles import Empreinte, Intervalle, Personne, Replique, TourDeParole
+from greffier.domaine.reunion import ReunionEnregistree
 
 
 @runtime_checkable
@@ -149,8 +150,17 @@ class DepotReunions(Protocol):
     rien — ni dans la liste des réunions, ni de quoi nommer une voix après coup.
     """
 
-    def enregistrer(self, reunion: Any) -> Path:
+    def enregistrer(self, reunion: ReunionEnregistree) -> Path:
         """Écrit le fichier maître et rend son chemin."""
+        ...
+
+    def lire(self, identifiant: str) -> ReunionEnregistree:
+        """Relit une réunion déjà traitée, pour la nommer ou la reprendre.
+
+        Déclaré ici parce que « nommer » en a besoin : sans lui, le cas d'usage
+        se typait sur l'adaptateur concret, et la dépendance repartait à
+        l'envers sans que rien ne le dise.
+        """
         ...
 
 

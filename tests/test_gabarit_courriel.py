@@ -7,7 +7,8 @@ réduit à un nom de fichier horodaté.
 
 from __future__ import annotations
 
-from greffier.adaptateurs.gabarit_courriel import _ancre, courriel, en_html, sujet
+from greffier.adaptateurs.gabarit_courriel import _ancre, courriel, en_html
+from greffier.domaine.compte_rendu import titre as sujet
 
 
 class TestTitres:

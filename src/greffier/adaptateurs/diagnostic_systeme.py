@@ -15,50 +15,20 @@ import os
 import platform
 import shutil
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
+
+from greffier.domaine.machine import (
+    DISQUE_NECESSAIRE_GO,
+    Constat,
+    Diagnostic,
+    Machine,
+)
 
 SYSTEME = platform.system()
 
-# En dessous, faire tourner le grand modèle de transcription revient à faire
-# ramer la machine pendant toute la réunion.
-MEMOIRE_GRAND_MODELE_GO = 8.0
-# Modèles, VAD, empreintes, segmentation : 1,7 Go, plus la marge d'extraction.
-DISQUE_NECESSAIRE_GO = 3.0
-
-
-@dataclass
-class Constat:
-    """Un point vérifié, et quoi faire s'il manque."""
-
-    nom: str
-    present: bool
-    detail: str = ""
-    remede: str = ""
-    bloquant: bool = False
-
-
-@dataclass
-class Machine:
-    systeme: str = SYSTEME
-    architecture: str = platform.machine()
-    memoire_go: float = 0.0
-    disque_libre_go: float = 0.0
-    acceleration: str = "processeur"   # metal | cuda | processeur
-
-    @property
-    def supporte_grand_modele(self) -> bool:
-        return self.memoire_go >= MEMOIRE_GRAND_MODELE_GO
-
-    @property
-    def modele_conseille(self) -> str:
-        """Le meilleur modèle que cette machine fasse tourner sans souffrir."""
-        if self.supporte_grand_modele:
-            return "large-v3-turbo" if self.systeme == "Darwin" else "large-v3"
-        if self.memoire_go >= 4:
-            return "medium"
-        return "small"
-
+#: Le constat et la décision sont séparés : les seuils, la machine et le
+#: verdict vivent dans le domaine, où ils s'éprouvent sans débrancher un micro.
 
 def memoire_go() -> float:
     try:
@@ -115,6 +85,8 @@ def machine(dossier_donnees: Path | None = None) -> Machine:
     except OSError:
         libre = 0.0
     return Machine(
+        systeme=SYSTEME,
+        architecture=platform.machine(),
         memoire_go=round(memoire_go(), 1),
         disque_libre_go=round(libre, 1),
         acceleration=acceleration(),
@@ -253,26 +225,6 @@ def micro_present() -> Constat:
         detail = "supposé présent"
     return Constat(nom="Micro", present=present, detail=detail,
                    remede="branche un micro ou un casque", bloquant=True)
-
-
-# ------------------------------------------------------------------ synthèse
-
-@dataclass
-class Diagnostic:
-    machine: Machine
-    constats: list[Constat] = field(default_factory=list)
-
-    @property
-    def bloquants(self) -> list[Constat]:
-        return [c for c in self.constats if c.bloquant and not c.present]
-
-    @property
-    def manquants(self) -> list[Constat]:
-        return [c for c in self.constats if not c.present]
-
-    @property
-    def pret(self) -> bool:
-        return not self.bloquants
 
 
 def examiner(dossier_donnees: Path | None = None) -> Diagnostic:

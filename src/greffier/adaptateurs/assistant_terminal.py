@@ -23,7 +23,10 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from greffier import diagnostic
+from greffier.adaptateurs import diagnostic_systeme as diagnostic
+from greffier.adaptateurs.configuration import MODELES_CLAUDE
+from greffier.adaptateurs.redaction_ollama import modeles_disponibles
+from greffier.domaine.machine import Diagnostic
 from greffier.emplacements import dossier_config, dossier_donnees
 
 SYSTEME = platform.system()
@@ -63,7 +66,7 @@ class Dialogue:
 
 # --------------------------------------------------------------- les étapes
 
-def etape_materiel(dialogue: Dialogue, etat: diagnostic.Diagnostic, reponses: Reponses) -> None:
+def etape_materiel(dialogue: Dialogue, etat: Diagnostic, reponses: Reponses) -> None:
     """Constate la machine et annonce ce qui en découle."""
     machine = etat.machine
     dialogue.afficher(
@@ -89,7 +92,7 @@ def etape_materiel(dialogue: Dialogue, etat: diagnostic.Diagnostic, reponses: Re
     )
 
 
-def etape_redacteur(dialogue: Dialogue, etat: diagnostic.Diagnostic, reponses: Reponses) -> None:
+def etape_redacteur(dialogue: Dialogue, etat: Diagnostic, reponses: Reponses) -> None:
     """Claude Code : installé ? authentifié ? sinon rien ne pourra être rédigé."""
     dialogue.afficher("\n— Qui rédige le compte rendu —")
 
@@ -132,17 +135,6 @@ def etape_redacteur(dialogue: Dialogue, etat: diagnostic.Diagnostic, reponses: R
         reponses.poser("GREFFIER_COMPTE_RENDU__MODELE", _modele_claude(dialogue))
 
 
-#: Les modèles que Claude Code accepte comme alias, du plus puissant au plus
-#: léger. Le libellé dit à quoi sert chacun ici, pas ce que vaut le modèle en
-#: général : c'est le choix « pour rédiger un compte rendu » qu'on présente.
-MODELES_CLAUDE: list[tuple[str, str]] = [
-    ("opus", "Opus — recommandé : la synthèse est excellente et le quota tient"),
-    ("fable", "Fable — le haut de la gamme, plus coûteux pour un compte rendu identique"),
-    ("sonnet", "Sonnet — plus léger et plus rapide, synthèse un peu moins fine"),
-    ("haiku", "Haiku — le plus économique, à réserver aux réunions courtes"),
-]
-
-
 def _modele_claude(dialogue: Dialogue) -> str:
     """Quel modèle Claude Code doit rédiger. Le second de la gamme par défaut.
 
@@ -165,17 +157,8 @@ def _ollama_utilisable() -> bool:
     return shutil.which("ollama") is not None
 
 
-def _modeles_ollama() -> list[str]:
-    try:
-        sortie = subprocess.run(["ollama", "list"], capture_output=True, text=True,
-                                check=False, timeout=20).stdout
-    except (OSError, subprocess.SubprocessError):
-        return []
-    return [ligne.split()[0] for ligne in sortie.splitlines()[1:] if ligne.strip()]
-
-
 def _modele_ollama(dialogue: Dialogue, reponses: Reponses) -> str:
-    presents = _modeles_ollama()
+    presents = modeles_disponibles()
     if presents:
         dialogue.afficher(f"Modèles déjà présents : {', '.join(presents[:5])}")
         return dialogue.demander("Lequel utiliser", presents[0])
@@ -183,7 +166,7 @@ def _modele_ollama(dialogue: Dialogue, reponses: Reponses) -> str:
     return "qwen3:8b"
 
 
-def etape_livraison(dialogue: Dialogue, etat: diagnostic.Diagnostic, reponses: Reponses) -> None:
+def etape_livraison(dialogue: Dialogue, etat: Diagnostic, reponses: Reponses) -> None:
     """Par courriel, ou dans un dossier ?"""
     dialogue.afficher("\n— Où arrive le compte rendu —")
 
@@ -237,7 +220,7 @@ def etape_livraison(dialogue: Dialogue, etat: diagnostic.Diagnostic, reponses: R
     reponses.a_faire.append("export GREFFIER_SMTP_MOT_DE_PASSE='…'")
 
 
-def etape_vocabulaire(dialogue: Dialogue, etat: diagnostic.Diagnostic, reponses: Reponses) -> None:
+def etape_vocabulaire(dialogue: Dialogue, etat: Diagnostic, reponses: Reponses) -> None:
     """Le réglage qui change le plus la qualité de la transcription."""
     dialogue.afficher("\n— Vocabulaire de tes réunions —")
     dialogue.afficher(
@@ -257,7 +240,7 @@ def etape_vocabulaire(dialogue: Dialogue, etat: diagnostic.Diagnostic, reponses:
 ETAPES = [etape_materiel, etape_redacteur, etape_livraison, etape_vocabulaire]
 
 
-def executer(dialogue: Dialogue, etat: diagnostic.Diagnostic | None = None) -> Reponses:
+def executer(dialogue: Dialogue, etat: Diagnostic | None = None) -> Reponses:
     """Déroule l'assistant et rend ce qu'il a retenu."""
     etat = etat or diagnostic.examiner(dossier_donnees())
     reponses = Reponses()

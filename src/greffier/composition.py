@@ -14,6 +14,7 @@ from pathlib import Path
 from greffier.adaptateurs.audio_ffmpeg import EnregistreurFfmpeg
 from greffier.adaptateurs.banque_fichiers import BanqueFichiers
 from greffier.adaptateurs.canaux_fichier import LecteurCanauxFichier
+from greffier.adaptateurs.configuration import Config
 from greffier.adaptateurs.courriel import (
     ExpediteurFichier,
     ExpediteurOutlook,
@@ -29,7 +30,6 @@ from greffier.application.enregistrer import Enregistrement
 from greffier.application.nommer import Nommage
 from greffier.application.suivre import Suivi, fichiers, personnes_connues
 from greffier.application.traiter import Traitement
-from greffier.config import Config
 from greffier.domaine.direct import Fil
 from greffier.ports import sortants
 
@@ -59,7 +59,7 @@ def _modele_du_direct(config: Config) -> str:
     secondes. Le grand modèle tient avec sept fois la marge, et rend une phrase
     là où le petit rendait trois fragments faux.
     """
-    from greffier import diagnostic
+    from greffier.adaptateurs import diagnostic_systeme as diagnostic
 
     return diagnostic.machine(config.chemins.donnees).modele_conseille
 

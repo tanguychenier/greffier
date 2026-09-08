@@ -16,9 +16,10 @@ from pathlib import Path
 import pytest
 
 from greffier.adaptateurs.banque_fichiers import BanqueFichiers
-from greffier.adaptateurs.depot_fichiers import DepotFichiers, depuis_resultat
+from greffier.adaptateurs.configuration import Config
+from greffier.adaptateurs.depot_fichiers import DepotFichiers
 from greffier.application.nommer import Nommage, voix_a_nommer
-from greffier.config import Config
+from greffier.application.traiter import _en_reunion_enregistree as depuis_resultat
 
 RACINE = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(RACINE / "outils"))

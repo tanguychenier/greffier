@@ -297,17 +297,3 @@ def courriel(compte_rendu: str, pied: str = "") -> str:
     )
 
 
-def sujet(compte_rendu: str, defaut: str) -> str:
-    """Sujet du courriel : le titre du compte rendu, pas le nom du fichier.
-
-    « Compte rendu de réunion — 2026-08-25_14h33_reunion-essai-reel » n'aide
-    personne à retrouver un message six mois plus tard.
-    """
-    for ligne in compte_rendu.splitlines():
-        nue = ligne.strip()
-        if nue.startswith("# "):
-            titre = _GRAS.sub(r"\1", nue[2:].strip())
-            return titre or defaut
-        if nue:
-            break
-    return defaut
