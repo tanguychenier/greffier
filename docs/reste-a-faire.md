@@ -731,11 +731,60 @@ a bien montré que la fenêtre s'ouvre — mais elle ne dit rien du rendu.
 
 Faute de `say`, le dialogue d'essai a été resynthétisé avec deux voix Piper puis
 passé dans la chaîne réelle : **115 mots, deux voix, « Jacques » et « Sandy »
-retrouvés**, ce que macOS obtient déjà. Huit minutes de calcul pour trente-huit
-secondes d'audio, `large-v3` en `int8` sur processeur — treize fois le temps
-réel. C'est le prix du repli, et il vaut mieux qu'un plantage ; installer
-`nvidia-cublas-cu12` et `nvidia-cudnn-cu12` rendrait la carte utilisable, au
-prix de deux gigaoctets de roues.
+retrouvés**, ce que macOS obtient déjà.
+
+### Puis sur de vraies voix, pas sur de la synthèse
+
+Deux entretiens réels en français, tirés de Wikimedia Commons, et une vraie
+réunion de travail à quatre. Les voix synthétiques sont une épreuve facile :
+elles ne se coupent pas la parole, ne bougent pas du micro et n'ont pas de
+bruit de fond.
+
+| Enregistrement | Durée | Attendu | Trouvé |
+|---|---|---|---|
+| [Entretien Jean-Pierre Jaussaud](https://commons.wikimedia.org/wiki/File:Interview_Jean-Pierre_Jaussaud.ogg) (CC BY-SA 4.0) | 1 min 45 | 2 voix | **2 voix**, 323 mots, couverture 95 % |
+| [Entretien Alexandre Hocquet](https://commons.wikimedia.org/wiki/File:Interview_Alexandre_Hocquet_The_Conversation.ogg) (CC BY-SA 4.0) | 5 min 16 | 2 voix | **2 voix**, 802 mots |
+
+Aucun nom n'est inventé : personne ne se présentant dans ces entretiens, aucune
+voix n'est nommée, et c'est le comportement voulu.
+
+Ce que la synthèse ne montrait pas : sans nombre de participants annoncé, le
+regroupement sur-découpe une vraie conversation. Le compte affiché reste juste,
+mais le corps de la transcription porte les étiquettes brutes.
+
+```
+sans « personnes »   [Personne 0] [Personne 1] [Personne 10] [Personne 13] [Indéterminé]
+avec personnes = 2   [Personne 0] [Personne 1]
+```
+
+C'est le point déjà ouvert plus bas sur le nombre de participants ; il a
+maintenant des chiffres, et sur de la vraie parole.
+
+### Ce que coûtait le calcul, et ce qu'il coûte
+
+Le repli sur le processeur garde la chaîne en vie, pas utilisable : `large-v3`
+en `int8` demandait **huit minutes pour trente-huit secondes** d'audio, treize
+fois le temps réel — treize heures pour une réunion d'une heure. Deux choses
+l'expliquaient, et aucune n'était visible.
+
+La carte était là et inutilisable. Aucune distribution ne livre cuBLAS et cuDNN
+avec le pilote, et les roues `nvidia-*` posent leurs bibliothèques hors du
+chemin du chargeur : CTranslate2 ne les trouvait pas. Réglé en les chargeant à
+la main au montage du modèle, `LD_LIBRARY_PATH` n'étant pas une réponse pour un
+raccourci de bureau. Le même fichier passe en douze secondes.
+
+Le goulot est alors devenu la segmentation et les empreintes, que sherpa-onnx
+exécutait sur **un seul fil**. Mesuré sur l'entretien de cent cinq secondes :
+
+| Fils | Durée | Sortie |
+|---|---|---|
+| 1 | 287 s | 14 segments, 8 groupes |
+| 2 | 206 s | identique |
+| 4 | **167 s** | identique |
+| 8 | 193 s | identique |
+
+Tout prendre est moins bon que la moitié, d'où la règle retenue. Le résultat ne
+change pas : seule la durée bouge.
 
 ### Reste ouvert, côté Linux
 
