@@ -164,6 +164,12 @@ class CompteRendu(BaseModel):
     """
 
     moteur: str = "claude"       # claude | ollama | aucun
+    #: La langue du DOCUMENT. Vide : celle de la réunion.
+    #:
+    #: Distincte de `transcription.langue`, dont le vide veut dire « reconnais-la
+    #: toi-même » et ne dit rien de la langue dans laquelle écrire. On peut tenir
+    #: une réunion en anglais et vouloir son compte rendu en français.
+    langue: str = ""
     #: Le modèle du moteur choisi. Vide : celui que `modele_effectif` désigne,
     #: qui dépend du moteur — un nom de modèle Ollama n'a aucun sens pour Claude
     #: Code, et l'inverse non plus.
@@ -325,7 +331,7 @@ SECTIONS: dict[str, tuple[str, ...]] = {
     "transcription": ("moteur", "modele", "langue", "vocabulaire"),
     "direct": ("actif", "periode", "modele"),
     "locuteurs": ("pas_des_prenoms", "personnes"),
-    "compte_rendu": ("moteur", "modele", "destinataire"),
+    "compte_rendu": ("moteur", "modele", "langue", "destinataire"),
     "courriel": ("serveur", "port", "utilisateur", "expediteur"),
     "apparence": ("theme",),
 }

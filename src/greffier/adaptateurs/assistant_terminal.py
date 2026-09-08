@@ -17,6 +17,7 @@ qui permet de les tester une par une, en simulant les réponses.
 from __future__ import annotations
 
 import json
+import os
 import platform
 import subprocess
 from collections.abc import Callable
@@ -24,8 +25,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from greffier.adaptateurs import diagnostic_systeme as diagnostic
-from greffier.adaptateurs.configuration import MODELES_CLAUDE
+from greffier.adaptateurs.configuration import MODELES_CLAUDE, Config, sauver
 from greffier.adaptateurs.redaction_ollama import modeles_disponibles
+from greffier.domaine.langues import LANGUES, eprouvee, libelle, nom_de
 from greffier.domaine.machine import Diagnostic
 from greffier.emplacements import dossier_config, dossier_donnees
 
@@ -37,11 +39,22 @@ class Reponses:
     """Ce que l'assistant a retenu, prêt à devenir un `.env`."""
 
     valeurs: dict[str, str] = field(default_factory=dict)
+    #: Ce qui va dans `config.toml`, et surtout PAS dans le `.env`.
+    #:
+    #: L'ordre de priorité est environnement, puis `.env`, puis `config.toml`.
+    #: Une valeur écrite ici dans le `.env` primerait donc pour toujours, et la
+    #: liste déroulante de l'onglet Réglages — qui écrit le TOML — deviendrait
+    #: inerte sans que rien ne le dise. Un test l'interdit.
+    reglages: dict[str, dict[str, str]] = field(default_factory=dict)
     a_faire: list[str] = field(default_factory=list)
     installations: list[str] = field(default_factory=list)
 
     def poser(self, clef: str, valeur: str) -> None:
         self.valeurs[clef] = valeur
+
+    def regler(self, section: str, champ: str, valeur: str) -> None:
+        """Un réglage que la fenêtre doit pouvoir changer ensuite."""
+        self.reglages.setdefault(section, {})[champ] = valeur
 
     def rendre_env(self) -> str:
         lignes = [
@@ -65,6 +78,56 @@ class Dialogue:
 
 
 # --------------------------------------------------------------- les étapes
+
+def etape_langue(dialogue: Dialogue, etat: Diagnostic, reponses: Reponses) -> None:
+    """Dans quelle langue se tiennent les réunions, et s'écrivent les comptes rendus.
+
+    Première question, parce qu'elle change ce que tout le reste sait faire : la
+    transcription, la reconnaissance des prénoms, et la langue du document.
+
+    La langue du poste est proposée par défaut plutôt que le français : un
+    renseignement gratuit, que rien ne lisait, et sans lequel un poste allemand
+    ressortait réglé sur le français.
+
+    Les réponses vont dans les réglages, jamais dans le `.env` : celui-ci prime
+    sur `config.toml`, et la liste déroulante des Réglages ne pourrait plus rien
+    changer.
+    """
+    titre = "\n— Dans quelle langue ? —"
+    dialogue.afficher(titre)
+    defaut = _langue_du_poste()
+    choix = [(code, libelle(code)) for code, _ in LANGUES]
+    rang = next((i for i, (code, _) in enumerate(choix) if code == defaut), 0)
+    langue = dialogue.choisir("Langue des réunions", choix, rang)
+    reponses.regler("transcription", "langue", langue)
+
+    if langue and not eprouvee(langue):
+        dialogue.afficher(
+            f"\n{nom_de(langue)} se transcrit et son compte rendu s'écrit, mais la\n"
+            "reconnaissance des prénoms n'y est pas éprouvée : elle reste éteinte,\n"
+            "et les voix se nomment une fois dans l'onglet Voix. Les motifs\n"
+            "français, laissés actifs, n'échoueraient pas — ils inventeraient des\n"
+            "participants."
+        )
+
+    document = dialogue.choisir(
+        "Langue du compte rendu",
+        [("", "La même que la réunion")] + [(code, nom_de(code)) for code, _ in LANGUES if code],
+        0,
+    )
+    reponses.regler("compte_rendu", "langue", document)
+
+
+def _langue_du_poste() -> str:
+    """Le code à deux lettres que le système annonce, s'il est au catalogue."""
+    for variable in ("LC_ALL", "LC_MESSAGES", "LANG"):
+        valeur = os.environ.get(variable, "")
+        if valeur:
+            code = valeur.split(".")[0].split("_")[0].lower()
+            if code in dict(LANGUES):
+                return code
+    return "fr"
+
 
 def etape_materiel(dialogue: Dialogue, etat: Diagnostic, reponses: Reponses) -> None:
     """Constate la machine et annonce ce qui en découle."""
@@ -237,7 +300,7 @@ def etape_vocabulaire(dialogue: Dialogue, etat: Diagnostic, reponses: Reponses) 
                        json.dumps(mots, ensure_ascii=False))
 
 
-ETAPES = [etape_materiel, etape_redacteur, etape_livraison, etape_vocabulaire]
+ETAPES = [etape_langue, etape_materiel, etape_redacteur, etape_livraison, etape_vocabulaire]
 
 
 def executer(dialogue: Dialogue, etat: Diagnostic | None = None) -> Reponses:
@@ -259,4 +322,25 @@ def ecrire(reponses: Reponses, fichier: Path | None = None) -> Path:
         # n'a pas de suffixe, et la sauvegarde serait partie sous un autre nom.
         cible.replace(cible.with_name(cible.name + ".precedent"))
     cible.write_text(reponses.rendre_env(), encoding="utf-8")
+    appliquer_les_reglages(reponses)
     return cible
+
+
+def appliquer_les_reglages(reponses: Reponses) -> None:
+    """Écrit dans `config.toml` ce que la fenêtre doit pouvoir rechanger.
+
+    Séparé du `.env` à dessein : l'ordre de priorité est environnement, puis
+    `.env`, puis `config.toml`. Une langue écrite dans le `.env` primerait pour
+    toujours, et la liste déroulante de l'onglet Réglages n'y pourrait rien.
+    """
+    if not reponses.reglages:
+        return
+    config = Config.charger()
+    for section, champs in reponses.reglages.items():
+        objet = getattr(config, section, None)
+        if objet is None:
+            continue
+        for champ, valeur in champs.items():
+            if hasattr(objet, champ):
+                setattr(objet, champ, valeur)
+    sauver(config)

@@ -124,12 +124,15 @@ def suivi(config: Config, identifiant: str) -> Suivi:
 def redacteur(config: Config) -> sortants.Redacteur | None:
     """Le rédacteur seul, pour régénérer un compte rendu sans tout réassembler."""
     moteur = config.compte_rendu.moteur
+    # La langue du document : celle qu'on a demandée, sinon celle de la réunion.
+    # Vide des deux côtés, le rédacteur garde ses consignes françaises.
+    langue = config.compte_rendu.langue or config.transcription.langue
     if moteur == "ollama":
-        return RedacteurOllama(config.compte_rendu.modele_effectif)
+        return RedacteurOllama(config.compte_rendu.modele_effectif, langue=langue)
     if moteur == "claude":
         from greffier.adaptateurs.redaction_claude import RedacteurClaude
 
-        return RedacteurClaude(config.compte_rendu.modele_effectif)
+        return RedacteurClaude(config.compte_rendu.modele_effectif, langue=langue)
     return None
 
 
