@@ -166,6 +166,14 @@ def lancer(commande, **kwargs):
 
 # ------------------------------------------------- gestionnaires de paquets
 
+def carte_nvidia():
+    """Si le poste a une carte NVIDIA que la transcription pourrait employer.
+
+    macOS n'en a pas, et sa puce est déjà servie par Metal.
+    """
+    return SYSTEME != "Darwin" and shutil.which("nvidia-smi") is not None
+
+
 def serveur_de_son_present():
     """Si la session a un serveur de son auquel se brancher.
 
@@ -567,6 +575,16 @@ def etape_environnement(ctx, moteur):
     python = venv / ("Scripts/python.exe" if SYSTEME == "Windows" else "bin/python")
 
     extras = "dev,service" + (",transcription" if moteur == "faster-whisper" else "")
+    if moteur == "faster-whisper" and carte_nvidia():
+        # La carte seule ne suffit pas : CTranslate2 réclame cuBLAS et cuDNN,
+        # qu'aucune distribution ne livre avec le pilote. Sans elles la
+        # transcription tombe sur le processeur, treize fois plus lent —
+        # treize heures pour une réunion d'une heure.
+        if ctx.demander("Installer l'accélération CUDA ? (2,2 Go, la transcription"
+                        " passe de treize fois le temps réel à un tiers)"):
+            extras += ",cuda"
+        else:
+            ctx.a_faire.append("uv pip install -e '.[cuda]'")
 
     if ctx.verifier_seulement:
         ok("environnement présent") if python.exists() else alerte("environnement absent")
