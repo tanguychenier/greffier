@@ -88,11 +88,12 @@ def _police_titre(taille: int) -> tuple[str, int, str]:
     """Une empreinte plus éditoriale pour le nom de la réunion.
 
     Le seul texte de la fenêtre qui n'a pas besoin de ressembler à un bouton.
-    Georgia est du système sur macOS et Windows ; DejaVu Serif ailleurs, comme
-    le repli de `police`.
+    Georgia est du système sur macOS et Windows ; ailleurs « Times », que Tk
+    garantit et fait pointer vers la sérif de la plateforme, comme le repli de
+    `police`. La taille suit la même règle : négative, donc en pixels.
     """
-    famille = {"Darwin": "Georgia", "Windows": "Georgia"}.get(platform.system(), "DejaVu Serif")
-    return (famille, taille, "bold")
+    famille = {"Darwin": "Georgia", "Windows": "Georgia"}.get(platform.system(), "Times")
+    return (famille, -taille, "bold")
 
 #: Largeur réservée aux libellés des vumètres. Fixée plutôt que laissée à la
 #: grille, qui rejetait les barres à l'autre bout de la carte.
