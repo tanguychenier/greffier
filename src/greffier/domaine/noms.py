@@ -20,18 +20,9 @@ import re
 import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass, field
-from enum import StrEnum
 
-from greffier.domaine.modeles import Intervalle, Replique, TourDeParole
-
-
-class TypeMention(StrEnum):
-    """Qui la mention désigne, relativement à celui qui la prononce."""
-
-    AUTO_PRESENTATION = "auto_presentation"   # le locuteur courant
-    INTERPELLATION = "interpellation"         # le locuteur suivant
-    RENVOI = "renvoi"                         # le locuteur précédent
-
+from greffier.domaine.langue import ProfilLinguistique
+from greffier.domaine.modeles import Intervalle, Replique, TourDeParole, TypeMention
 
 # Une auto-présentation est presque toujours juste : c'est l'intéressé qui
 # parle. Une interpellation l'est souvent. Un renvoi (« merci Marc ») est le
@@ -46,105 +37,6 @@ POIDS: dict[TypeMention, int] = {
 # la mention et le tour de parole devient trop lâche pour compter.
 FENETRE_SUIVANT = 30.0
 FENETRE_PRECEDENT = 60.0
-
-# Un nom propre commence par une majuscule — whisper les restitue ainsi. Les
-# mots déclencheurs, eux, sont insensibles à la casse : « Merci » en début de
-# phrase et « merci » au fil de l'eau désignent la même chose. D'où les
-# drapeaux locaux « (?i:…) », qui laissent la contrainte de majuscule intacte
-# sur le nom lui-même.
-_NOM = r"(?P<nom>[A-ZÉÈÊÀÂÎÔÛÇ][\w'’-]{1,19})"
-
-# Troisième membre : « confirmation seule ». Un tel motif est trop large pour
-# désigner un prénom à lui seul — il ne compte que si le nom a déjà été repéré
-# par un motif franc ailleurs dans la réunion.
-_MOTIFS: list[tuple[TypeMention, re.Pattern[str], bool]] = [
-    # --- le locuteur se nomme lui-même ---
-    (TypeMention.AUTO_PRESENTATION, re.compile(
-        r"(?i:\bje m['’]appelle|\bmoi,? c['’]est)\s+" + _NOM
-    ), False),
-    # « c'est Marc » tout court désignerait n'importe qui : on exige la formule
-    # complète, sans quoi une phrase à propos d'un absent le ferait participant.
-    (TypeMention.AUTO_PRESENTATION, re.compile(
-        r"(?i:\bc['’]est)\s+" + _NOM + r"\s+(?i:qui\s+(?:vous\s+)?parle)"
-    ), False),
-    (TypeMention.AUTO_PRESENTATION, re.compile(
-        r"(?i:\bje suis)\s+" + _NOM + r"\b"
-    ), False),
-    (TypeMention.AUTO_PRESENTATION, re.compile(
-        _NOM + r"\s*,?\s*(?i:à l['’]appareil)"
-    ), False),
-    # --- le locuteur passe la parole à quelqu'un ---
-    # « tu vois », « tu sais », « vous voyez » sont des tics de langage, pas des
-    # adresses : sans cette exception, « un macro Kanban, tu vois » ferait de
-    # Kanban un participant. Constaté sur une vraie réunion.
-    (TypeMention.INTERPELLATION, re.compile(
-        _NOM + r"\s*,\s*(?:(?i:tu|vous)\s+(?!(?i:vois|voyez|sais|savez)\b)"
-        r"|(?i:est-ce que\b|peux-tu\b|pouvez-vous\b|qu['’]en penses|qu['’]en pensez))"
-    ), False),
-    (TypeMention.INTERPELLATION, re.compile(
-        r"(?i:\bvas-y|\ballez-y|\bà toi|\bje te laisse|\bje vous laisse"
-        r"|\bje passe la parole à|\bla parole (?:est )?à)\s+" + _NOM + r"\b"
-    ), False),
-    # --- le locuteur renvoie à celui qui vient de parler ---
-    (TypeMention.RENVOI, re.compile(
-        r"(?i:\bmerci)\s+" + _NOM + r"\b"
-    ), False),
-    (TypeMention.RENVOI, re.compile(
-        r"(?i:\bcomme (?:le |l['’])?(?:disait|dit|a dit)|\bd['’]accord avec"
-        r"|\bje rejoins|\bje suis d['’]accord avec)\s+" + _NOM + r"\b"
-    ), False),
-    (TypeMention.RENVOI, re.compile(
-        _NOM + r"\s+(?i:a raison|vient de (?:le )?dire|l['’]a dit)\b"
-    ), False),
-    # --- formulations relevées sur de vraies réunions ---
-    # « Mais pour ça, toi, Josiane, c'est pas besoin ? »
-    (TypeMention.INTERPELLATION, re.compile(
-        r"(?i:\btoi)\s*,\s*" + _NOM + r"\b"
-    ), False),
-    # « Josiane, on a lu ensemble et tu nous diras » : un nom en tête de phrase
-    # n'est un appel que si une adresse suit. L'anticipation évite de prendre
-    # pour un prénom le premier mot capitalisé venu.
-    (TypeMention.INTERPELLATION, re.compile(
-        r"(?:^|(?<=[.?!]\s))" + _NOM + r"\s*,\s*(?=[^.?!]{0,60}?\b(?i:tu|vous|on)\b)"
-    ), False),
-    # Un segment réduit au seul mot : « Josiane. » appelle quelqu'un, mais
-    # « Ouais. » et « Exact. » aussi passeraient. D'où la confirmation seule —
-    # relevé sur la réunion du 2026-08-20, où ce motif ramassait tous les
-    # acquiescements.
-    (TypeMention.INTERPELLATION, re.compile(
-        r"^" + _NOM + r"\s*[,.?!]?\s*$"
-    ), True),
-    # « pour ce que présentait Josiane »
-    (TypeMention.RENVOI, re.compile(
-        r"(?i:\bqu[e\u2019']\s*(?:présentait|présente|disait|expliquait|proposait"
-        r"|évoquait|montrait|a présenté|a dit))\s+" + _NOM + r"\b"
-    ), False),
-]
-
-# Mots qui passent les motifs sans être des noms de personne. Le vocabulaire
-# métier du projet s'y ajoute par configuration : sans quoi « merci Copernic »
-# créerait un participant.
-EXCLUS_PAR_DEFAUT: frozenset[str] = frozenset({
-    # Ouvertures de phrase : un mot capitalisé en tête n'est pas un prénom.
-    "mais", "bon", "bref", "ensuite", "enfin", "ecoute", "ecoutez", "attends",
-    "ok", "ah", "eh", "euh", "apres", "avant", "sinon", "sur", "dans", "les",
-    "est", "peut", "parce", "pourquoi", "comment", "quand", "moi", "toi", "lui",
-    "elle", "nous", "vous", "ils", "elles", "ca", "cela", "ceci", "celui",
-    "effectivement", "exactement", "super", "parfait", "tres", "plus", "moins",
-    # Interjections et impératifs d'attention : « Tiens, tu as vu ? » a été pris
-    # pour un prénom sur une vraie réunion.
-    "tiens", "tenez", "regarde", "regardez", "voyons", "allez", "vas",
-    "dis", "dites", "figure", "imagine", "franchement", "honnetement",
-    "petit", "grand", "aujourd'hui", "hier", "demain", "pareil", "pardon", "desole",
-    "bonjour", "bonsoir", "merci", "oui", "non", "voila", "donc", "alors",
-    "monsieur", "madame", "tout", "tous", "toute", "toutes", "beaucoup",
-    "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche",
-    "janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout",
-    "septembre", "octobre", "novembre", "decembre",
-    "teams", "zoom", "jira", "gitlab", "outlook", "claude", "mac", "windows",
-    "france", "paris", "universite",
-})
-
 
 def _sans_accent(mot: str) -> str:
     depouille = unicodedata.normalize("NFD", mot.replace("’", "'"))
@@ -251,6 +143,7 @@ def _mots_communs(repliques: list[Replique]) -> frozenset[str]:
 
 def reperer_mentions(
     repliques: list[Replique],
+    profil: ProfilLinguistique,
     exclus: frozenset[str] | None = None,
 ) -> list[Mention]:
     """Relève tous les noms prononcés et ce qu'ils désignent.
@@ -258,16 +151,23 @@ def reperer_mentions(
     Les motifs se recouvrent volontiers (« Marc, tu peux » attrape aussi
     « c'est Marc ») : une même position dans le texte ne produit qu'une mention,
     celle du motif le plus fort.
+
+    Le profil est exigé, sans valeur par défaut : supposer le français a un coût
+    mesuré. Ses motifs appliqués à de l'anglais ne restent pas muets, ils
+    rendent « Budget » et « Anyway » sur des phrases ordinaires. Une langue sans
+    profil éprouvé n'a donc aucune détection, et ne rend rien.
     """
-    interdits = EXCLUS_PAR_DEFAUT | (exclus or frozenset()) | _mots_communs(repliques)
-    francs = [(t, m) for t, m, confirmation in _MOTIFS if not confirmation]
-    larges = [(t, m) for t, m, confirmation in _MOTIFS if confirmation]
+    if not profil.detection.active:
+        return []
+    interdits = profil.detection.exclus | (exclus or frozenset()) | _mots_communs(repliques)
+    francs = [(t, m) for t, m, confirmation in profil.detection.motifs if not confirmation]
+    larges = [(t, m) for t, m, confirmation in profil.detection.motifs if confirmation]
 
     # Première passe : les motifs francs établissent qui existe. Seconde passe :
     # les motifs larges n'ajoutent des indices que sur ces noms-là.
-    mentions = _passe(repliques, francs, interdits, None)
+    mentions = _passe(repliques, francs, interdits, None, profil)
     connus = {m.clef for m in mentions}
-    mentions += _passe(repliques, larges, interdits, connus)
+    mentions += _passe(repliques, larges, interdits, connus, profil)
     return sorted(mentions, key=lambda m: m.instant)
 
 
@@ -276,6 +176,7 @@ def _passe(
     motifs: list[tuple[TypeMention, re.Pattern[str]]],
     interdits: frozenset[str],
     connus: set[str] | None,
+    profil: ProfilLinguistique,
 ) -> list[Mention]:
     mentions: list[Mention] = []
     for replique in repliques:
@@ -283,14 +184,19 @@ def _passe(
         for type_mention, motif in motifs:
             for trouve in motif.finditer(replique.texte):
                 nom = trouve.group("nom")
-                if _sans_accent(nom) in interdits or len(nom) < 3:
+                if _sans_accent(nom) in interdits or len(nom) < profil.detection.longueur_minimale:
                     continue
-                # Les adverbes en « -ment » ouvrent d'innombrables phrases —
-                # « Effectivement, tu as raison », « Normalement, on livre jeudi » —
-                # et aucun n'a moins de huit lettres. Le seuil épargne « Clément »,
-                # à peu près le seul prénom français de cette forme.
+                # Le suffixe adverbial que la langue déclare, s'il en a un : en
+                # français, les adverbes en « -ment » ouvrent d'innombrables
+                # phrases et aucun n'a moins de huit lettres, ce qui épargne
+                # « Clément ». Une langue qui n'en déclare pas ne filtre rien.
                 depouille = _sans_accent(nom)
-                if len(depouille) >= 8 and depouille.endswith("ment"):
+                suffixe = profil.detection.suffixe_adverbial
+                if (
+                    suffixe
+                    and len(depouille) >= profil.detection.longueur_du_suffixe
+                    and depouille.endswith(suffixe)
+                ):
                     continue
                 if connus is not None and _sans_accent(nom) not in connus:
                     continue
