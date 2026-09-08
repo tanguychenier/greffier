@@ -21,15 +21,21 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from greffier.domaine.modeles import Phase
+from greffier.domaine.textes import empreinte_courte
 from greffier.ports import sortants
 
 
 def _identifiant(nom: str, horodatage: datetime) -> str:
-    """Nom de fichier lisible et triable : la date d'abord, puis le sujet."""
+    """Nom de fichier lisible et triable : la date d'abord, puis le sujet.
+
+    Un sujet sans lettre ASCII ne laisse rien après réduction. Se rabattre sur
+    « reunion » donnait le même identifiant à deux réunions tenues dans la même
+    minute, l'une écrasant l'autre.
+    """
     depouille = unicodedata.normalize("NFD", nom)
     sans_accent = "".join(c for c in depouille if unicodedata.category(c) != "Mn")
-    reduit = re.sub(r"[^a-zA-Z0-9]+", "-", sans_accent).strip("-").lower() or "reunion"
-    return f"{horodatage:%Y-%m-%d_%Hh%M}_{reduit}"
+    reduit = re.sub(r"[^a-zA-Z0-9]+", "-", sans_accent).strip("-").lower()
+    return f"{horodatage:%Y-%m-%d_%Hh%M}_{reduit or empreinte_courte(nom)}"
 
 
 def _tuer_arbre(pid: int) -> None:

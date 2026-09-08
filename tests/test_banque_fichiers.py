@@ -50,7 +50,15 @@ class TestBanqueDeVoix:
         assert _fichier_sur("Rémi Kaës") == _fichier_sur("Remi Kaes")
 
     def test_un_nom_exotique_donne_quand_meme_un_fichier(self):
-        assert _fichier_sur("???") == "sans-nom"
+        """Et un fichier qui n'appartient qu'à lui.
+
+        Ce test attendait « sans-nom », qui était le défaut même : tous les noms
+        sans lettre ASCII rendaient cette valeur, donc le même fichier, donc une
+        seule personne pour plusieurs. L'intention tenait, l'assertion la
+        trahissait.
+        """
+        assert _fichier_sur("???")
+        assert _fichier_sur("???") != _fichier_sur("!!!")
 
     def test_renommer_conserve_les_empreintes(self, banque):
         banque.enregistrer("Josianne", voix(1.0, 0.0))
@@ -164,3 +172,39 @@ class TestFichierMaitre:
         del contenu["evenements_materiel"]
         chemin.write_text(json.dumps(contenu))
         assert magasin.lire("2026-08-24_reunion").evenements_materiel == []
+
+
+class TestNomsNonLatins:
+    """Deux personnes doivent rester deux personnes.
+
+    La réduction en ASCII n'a aucune lettre à garder d'un nom cyrillique, grec,
+    arabe ou idéographique. Le repli sur « sans-nom » les rangeait toutes dans
+    le même fichier d'empreintes : ce n'est pas de l'affichage, c'est une fusion
+    de données, dans le fichier même qui doit les tenir séparées. Atteignable
+    dès aujourd'hui par un nom saisi à la main dans l'onglet Voix.
+    """
+
+    def test_deux_noms_non_latins_restent_deux_fichiers(self, banque):
+        banque.enregistrer("Дмитрий", voix(1.0, 0.0))
+        banque.enregistrer("Ольга", voix(0.0, 1.0))
+
+        assert len(list(banque.dossier.glob("*.json"))) == 2
+
+    def test_chacun_se_relit_sous_son_propre_nom(self, banque):
+        banque.enregistrer("田中", voix(1.0, 0.0))
+        banque.enregistrer("佐藤", voix(0.0, 1.0))
+
+        assert {p.nom for p in banque.personnes()} == {"田中", "佐藤"}
+
+    def test_leurs_empreintes_ne_se_melangent_pas(self, banque):
+        """La fusion était silencieuse : deux voix dans un seul dossier."""
+        banque.enregistrer("Δημήτρης", voix(1.0, 0.0))
+        banque.enregistrer("محمد", voix(0.0, 1.0))
+
+        assert all(len(p.empreintes) == 1 for p in banque.personnes())
+
+    def test_un_nom_latin_garde_son_fichier_lisible(self, banque):
+        """La correction ne doit pas rendre illisibles les noms qui allaient bien."""
+        banque.enregistrer("Josiane", voix(1.0, 0.0))
+
+        assert (banque.dossier / "josiane.json").is_file()
