@@ -16,8 +16,6 @@ les motifs français n'échouent pas, ils inventent des participants.
 
 from __future__ import annotations
 
-from greffier.domaine import profils
-
 #: Code ISO, nom en français. Le vide vaut « reconnais-la toi-même », ce que
 #: whisper fait très bien et qui sert aux réunions qui changent de langue.
 LANGUES: tuple[tuple[str, str], ...] = (
@@ -37,7 +35,15 @@ def nom_de(code: str) -> str:
 
 
 def eprouvee(code: str) -> bool:
-    """Si la reconnaissance des prénoms est réellement servie dans cette langue."""
+    """Si la reconnaissance des prénoms est réellement servie dans cette langue.
+
+    Import tardif du registre, et c'est délibéré : l'installeur charge ce module
+    par chemin, avant que le paquet n'existe, pour proposer la langue du poste.
+    Il n'a besoin que des codes et des noms — la liste, elle, doit rester
+    lisible toute seule.
+    """
+    from greffier.domaine import profils
+
     return profils.pour(code).eprouve
 
 
