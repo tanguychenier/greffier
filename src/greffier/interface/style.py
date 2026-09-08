@@ -95,10 +95,23 @@ def palette(theme: str = "systeme") -> Palette:
 
 
 def police(taille: int, gras: bool = False) -> tuple[str, int, str]:
-    """La police de l'interface du système, avec un repli sûr."""
+    """La police de l'interface du système, avec un repli sûr.
+
+    La taille part en négatif, ce que Tk lit comme des pixels. Un nombre positif
+    serait des points, qu'il convertit selon la résolution annoncée par l'écran :
+    macOS en annonce soixante-douze par pouce, où points et pixels se confondent,
+    contre près de cent sous X11. À taille égale, la même interface y grandissait
+    donc d'un tiers, et les libellés débordaient de leurs boutons.
+    """
     familles = {
         "Darwin": "SF Pro Text",
         "Windows": "Segoe UI",
     }
-    famille = familles.get(platform.system(), "DejaVu Sans")
-    return (famille, taille, "bold" if gras else "normal")
+    # Tk ne garantit que « Courier », « Helvetica » et « Times » sur les trois
+    # systèmes, et les fait pointer vers les polices de la plateforme. Nommer
+    # « DejaVu Sans » semblait plus juste sous Linux, mais l'interpréteur que
+    # pose l'installeur embarque un Tk construit sans fontconfig : il n'expose
+    # que les familles X11 historiques, et tout nom qu'il ignore retombe sur
+    # « fixed » — une bitmap qui ne s'échelonne pas.
+    famille = familles.get(platform.system(), "Helvetica")
+    return (famille, -taille, "bold" if gras else "normal")
