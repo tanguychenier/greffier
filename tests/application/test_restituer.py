@@ -3,9 +3,9 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
-from greffier.adaptateurs.depot_fichiers import ReunionEnregistree
 from greffier.application.restituer import regenerer_compte_rendu, rendre_transcription
 from greffier.domaine.modeles import Intervalle, Replique, TourDeParole
+from greffier.domaine.reunion import ReunionEnregistree
 
 
 def reunion_type(**remplacements) -> ReunionEnregistree:

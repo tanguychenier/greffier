@@ -15,9 +15,9 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from greffier.adaptateurs.depot_fichiers import DepotFichiers, ReunionEnregistree
 from greffier.domaine.empreintes import agreger
 from greffier.domaine.modeles import Intervalle
+from greffier.domaine.reunion import ReunionEnregistree
 from greffier.ports import sortants
 
 # Assez pour reconnaître une voix à l'oreille, assez court pour ne pas lasser
@@ -106,7 +106,7 @@ def extraire_audio(audio: Path, intervalle: Intervalle, destination: Path) -> Pa
 class Nommage:
     """Associe une voix à un nom, et fait entrer l'empreinte en banque."""
 
-    depot: DepotFichiers
+    depot: sortants.DepotReunions
     banque: sortants.BanqueDeVoix
     extracteur: sortants.ExtracteurEmpreintes
 

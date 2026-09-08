@@ -7,6 +7,7 @@ local » jusqu'au bout de la chaîne.
 from __future__ import annotations
 
 import json
+import subprocess
 import urllib.error
 import urllib.request
 
@@ -33,6 +34,24 @@ combler. Pas de préambule : produis directement le document.
 
 Transcription :
 """
+
+
+def modeles_disponibles() -> list[str]:
+    """Les modèles qu'Ollama a déjà sur ce poste.
+
+    Ici plutôt que dans l'assistant de première configuration : c'est
+    l'adaptateur d'Ollama qui sait parler à Ollama, et la fenêtre allait
+    chercher cette liste dans un assistant en terminal, par une fonction
+    privée. Rendre la liste vide plutôt que d'échouer : ne pas savoir ce qui
+    est installé n'empêche pas de choisir.
+    """
+    try:
+        sortie = subprocess.run(
+            ["ollama", "list"], capture_output=True, text=True, check=False, timeout=20
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return [ligne.split()[0] for ligne in sortie.splitlines()[1:] if ligne.strip()]
 
 
 class RedacteurOllama:

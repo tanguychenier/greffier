@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from greffier.config import Config
+from greffier.adaptateurs.configuration import Config
 
 
 @pytest.fixture(autouse=True)

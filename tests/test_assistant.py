@@ -2,7 +2,8 @@
 
 import json
 
-from greffier import assistant, diagnostic
+from greffier.adaptateurs import assistant_terminal as assistant
+from greffier.adaptateurs import diagnostic_systeme as diagnostic
 
 
 class DialogueSimule:
@@ -191,7 +192,7 @@ class TestVocabulaire:
 class TestEcriture:
     def test_le_fichier_produit_est_relisible_par_la_configuration(self, tmp_path, monkeypatch):
         """La boucle complète : l'assistant écrit, la configuration relit."""
-        from greffier.config import Config
+        from greffier.adaptateurs.configuration import Config
 
         reponses = assistant.Reponses()
         reponses.poser("GREFFIER_COMPTE_RENDU__MOTEUR", "ollama")

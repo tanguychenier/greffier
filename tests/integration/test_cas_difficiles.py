@@ -21,10 +21,10 @@ from pathlib import Path
 
 import pytest
 
-from greffier.adaptateurs.depot_fichiers import depuis_resultat
+from greffier.adaptateurs.configuration import Config
 from greffier.application.nommer import voix_a_nommer
 from greffier.application.traiter import Traitement
-from greffier.config import Config
+from greffier.application.traiter import _en_reunion_enregistree as depuis_resultat
 
 RACINE = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(RACINE / "outils"))

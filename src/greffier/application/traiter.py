@@ -10,16 +10,19 @@ from __future__ import annotations
 
 import tempfile
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 from greffier.domaine import empreintes as voix_domaine
 from greffier.domaine import noms as noms_domaine
 from greffier.domaine import profils
 from greffier.domaine.attribution import voix_de
+from greffier.domaine.compte_rendu import titre
 from greffier.domaine.generiques import est_un_generique
 from greffier.domaine.langue import ProfilLinguistique
 from greffier.domaine.modeles import Intervalle, Phase, Replique, TourDeParole
 from greffier.domaine.profils.neutre import NEUTRE
+from greffier.domaine.reunion import ReunionEnregistree
 from greffier.ports import sortants
 
 # En dessous, tous les canaux sont considérés muets et il n'y a rien à
@@ -444,10 +447,8 @@ class Traitement:
 
         duree = resultat.tours[-1].intervalle.fin if resultat.tours else 0.0
         if self.depot is not None:
-            from greffier.adaptateurs.depot_fichiers import depuis_resultat
-
             resultat.fichier_maitre = self.depot.enregistrer(
-                depuis_resultat(resultat, duree))
+                _en_reunion_enregistree(resultat, duree))
         if self.dossier_transcriptions is None:
             return
         transcription = self.dossier_transcriptions / f"{audio.stem}.txt"
@@ -468,14 +469,34 @@ class Traitement:
         circuler par courriel les propos de chacun mot à mot. « greffier envoyer
         --avec-transcription » la joint quand elle est vraiment demandée.
         """
-        from greffier.adaptateurs import gabarit_courriel
-
         assert self.expediteur is not None
         self.expediteur.envoyer(
             self.destinataire,
-            gabarit_courriel.sujet(
+            titre(
                 resultat.compte_rendu, f"Compte rendu de réunion — {audio.stem}"
             ),
             resultat.compte_rendu,
             [],
         )
+
+
+def _en_reunion_enregistree(resultat: Resultat, duree: float) -> ReunionEnregistree:
+    """Le fichier maître, depuis ce que la chaîne a produit.
+
+    Ici et non dans l'adaptateur de dépôt : la conversion appartient au cas
+    d'usage qui produit le résultat. Elle y vivait derrière un `Protocol` écrit
+    pour éviter que l'adaptateur importe le cas d'usage — un contournement qui
+    n'avait plus lieu d'être une fois la dépendance remise à l'endroit.
+    """
+    return ReunionEnregistree(
+        identifiant=resultat.audio.stem,
+        audio=resultat.audio,
+        traitee_le=datetime.now(UTC),
+        duree=duree,
+        repliques=resultat.repliques,
+        tours=resultat.tours,
+        noms=dict(resultat.noms),
+        propositions=dict(resultat.propositions),
+        avertissements=list(resultat.avertissements),
+        evenements_materiel=list(resultat.evenements_materiel),
+    )

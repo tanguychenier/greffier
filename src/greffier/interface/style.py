@@ -115,3 +115,25 @@ def police(taille: int, gras: bool = False) -> tuple[str, int, str]:
     # « fixed » — une bitmap qui ne s'échelonne pas.
     famille = familles.get(platform.system(), "Helvetica")
     return (famille, -taille, "bold" if gras else "normal")
+
+
+# Descendues de `fenetre`, où elles étaient privées et donc jamais éprouvées.
+# `degrade` tomberait aujourd'hui sur une couleur mal formée sans qu'aucun test
+# ne le dise, et c'est de la couleur, pas du Tk : sa place est ici.
+def degrade(depuis: str, vers: str, part: float) -> str:
+    """Une couleur entre deux autres, en hexadécimal — le fondu du point rouge."""
+    a = tuple(int(depuis[i : i + 2], 16) for i in (1, 3, 5))
+    b = tuple(int(vers[i : i + 2], 16) for i in (1, 3, 5))
+    return "#" + "".join(f"{round(x + (y - x) * part):02x}" for x, y in zip(a, b, strict=True))
+
+
+def police_titre(taille: int) -> tuple[str, int, str]:
+    """Une empreinte plus éditoriale pour le nom de la réunion.
+
+    Le seul texte de la fenêtre qui n'a pas besoin de ressembler à un bouton.
+    Georgia est du système sur macOS et Windows ; ailleurs « Times », que Tk
+    garantit et fait pointer vers la sérif de la plateforme, comme le repli de
+    `police`. La taille suit la même règle : négative, donc en pixels.
+    """
+    famille = {"Darwin": "Georgia", "Windows": "Georgia"}.get(platform.system(), "Times")
+    return (famille, -taille, "bold")
