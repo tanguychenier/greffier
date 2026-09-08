@@ -356,6 +356,13 @@ class Traitement:
         self._avertir_couverture(resultat)
 
         if self.redacteur is None:
+            # Gardée quand même. Sans cette écriture, la transcription et son
+            # attribution des voix étaient perdues à la seconde où elles
+            # étaient prêtes : « greffier reunions » n'en voyait aucune, et
+            # « greffier voix », que la ligne suivante propose pourtant, ne
+            # trouvait rien à nommer. C'est le cas de qui prend « Aucun »
+            # comme rédacteur pour que rien ne sorte du poste.
+            self._garder(audio, resultat)
             self._phase(Phase.TERMINE, "Transcription prête, aucun rédacteur configuré.")
             return resultat
 

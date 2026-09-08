@@ -528,4 +528,42 @@ class TestLaChaineGardeLaReunion:
         resultat = chaine().executer(AUDIO)
         assert resultat.transcription_ecrite is None
         assert resultat.compte_rendu_ecrit is None
+
+    def test_sans_redacteur_la_reunion_est_gardee(self, tmp_path):
+        """Le cas de qui ne veut rien laisser sortir du poste.
+
+        « Aucun — s'arrêter à la transcription attribuée » est un choix offert
+        par l'assistant, et « --sans-compte-rendu » le prend pour un traitement.
+        Le retour anticipé passait alors avant l'écriture : la transcription et
+        l'attribution des voix étaient perdues à la seconde où elles étaient
+        prêtes, alors que la commande proposait dans la foulée de nommer les
+        voix d'une réunion qu'aucun dépôt ne connaissait.
+        """
+        deposees = []
+
+        class DepotEspion:
+            def enregistrer(self, reunion):
+                deposees.append(reunion)
+                return tmp_path / "reunions/essai.json"
+
+        resultat = chaine(
+            redacteur=None,
+            depot=DepotEspion(),
+            dossier_transcriptions=tmp_path / "transcriptions",
+        ).executer(AUDIO)
+
+        assert deposees, "la réunion doit être déposée même sans compte rendu"
+        assert resultat.transcription_ecrite is not None
+        assert resultat.transcription_ecrite.exists()
+
+    def test_sans_redacteur_aucun_compte_rendu_n_est_ecrit(self, tmp_path):
+        """Garder la réunion ne doit pas fabriquer un compte rendu vide."""
+        resultat = chaine(
+            redacteur=None,
+            dossier_transcriptions=tmp_path / "transcriptions",
+            dossier_comptes_rendus=tmp_path / "comptes-rendus",
+        ).executer(AUDIO)
+
+        assert resultat.compte_rendu_ecrit is None
+        assert not (tmp_path / "comptes-rendus").exists()
         assert resultat.fichier_maitre is None
