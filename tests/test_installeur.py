@@ -263,3 +263,34 @@ class TestCaptureDuSonSousLinux:
         monkeypatch.setattr(module.shutil, "which", lambda _outil: None)
 
         assert module.serveur_de_son_present()
+
+
+class TestAccelerationParLaCarte:
+    """Une carte NVIDIA ne suffit pas à accélérer la transcription.
+
+    CTranslate2 réclame cuBLAS et cuDNN, qu'aucune distribution ne livre avec
+    le pilote. Sans elles la transcription tombe sur le processeur — treize
+    fois le temps réel, mesuré, soit treize heures pour une réunion d'une
+    heure. L'installeur doit donc les proposer, et seulement là où elles
+    servent.
+    """
+
+    def test_une_carte_est_reconnue(self, sous, monkeypatch):
+        module = sous("Linux")
+        monkeypatch.setattr(module.shutil, "which",
+                            lambda outil: "/usr/bin/nvidia-smi" if outil == "nvidia-smi" else None)
+
+        assert module.carte_nvidia()
+
+    def test_sans_carte_rien_n_est_propose(self, sous, monkeypatch):
+        module = sous("Linux")
+        monkeypatch.setattr(module.shutil, "which", lambda _outil: None)
+
+        assert not module.carte_nvidia()
+
+    def test_macos_est_servi_par_metal(self, sous, monkeypatch):
+        """Aucune carte NVIDIA n'y est utilisable, et la puce a déjà Metal."""
+        module = sous("Darwin")
+        monkeypatch.setattr(module.shutil, "which", lambda _outil: "/usr/bin/nvidia-smi")
+
+        assert not module.carte_nvidia()
