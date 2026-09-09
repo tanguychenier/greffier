@@ -7,6 +7,7 @@
     greffier contexte            ce que l'outil sait des sigles et des personnes
     greffier ranger              applique la rétention aux enregistrements
     greffier sauvegarder         copie les données, sans l'audio
+    greffier recuperer           reconstruit une réunion depuis le fil du direct
     greffier carte               construit la carte d'un sujet depuis une réunion
     greffier verifier            dit ce qui est prêt et ce qui manque
 
@@ -102,14 +103,17 @@ def _refuser_pendant_une_reunion(config: Config, quand_meme: bool) -> None:
     """Refuse de traiter tant qu'une réunion s'enregistre.
 
     Le fichier d'état est **unique** : c'est par lui que la fenêtre suit la
-    réunion en cours. Un traitement lancé en parallèle y publie ses propres
-    phases, jusqu'à « terminé », et la fenêtre en conclut que la réunion est
-    finie — le fil du direct s'arrête, les processus d'écoute se retirent, alors
-    que la capture continue. Constaté en réunion réelle, provoqué par un
-    traitement lancé à côté : la réunion a paru s'arrêter d'elle-même.
+    réunion en cours. Un traitement lancé en parallèle y publiait ses propres
+    phases, jusqu'à « terminé », et la fenêtre en concluait que la réunion était
+    finie — le fil du direct s'arrêtait, les processus d'écoute se retiraient,
+    alors que la capture continuait. Constaté deux fois en réunion réelle, dont
+    le 2026-09-09 où une réunion entière a été perdue sans laisser un octet.
 
-    Traiter un enregistrement pendant qu'un autre se capte reste possible avec
-    « --quand-meme », pour qui sait ce qu'il fait.
+    **Le danger est désarmé depuis** : le journal de la chaîne n'écrit plus que
+    si l'état porte la réunion qu'il traite (`Enregistrement.pour`). Ce refus
+    reste, parce qu'il y a une seconde raison de ne pas traiter pendant une
+    réunion — transcrire mobilise le processeur que la capture et le direct se
+    partagent déjà — mais « --quand-meme » ne détruit plus rien.
     """
     if quand_meme:
         return
@@ -127,7 +131,9 @@ def _refuser_pendant_une_reunion(config: Config, quand_meme: bool) -> None:
         "arrêterait son affichage en direct.",
         fg=typer.colors.YELLOW,
     )
-    typer.echo("Termine-la d'abord, ou relance avec « --quand-meme ».")
+    typer.echo("Termine-la d'abord, ou relance avec « --quand-meme » : le "
+               "traitement n'arrêtera plus la capture, mais il lui prendra du "
+               "processeur.")
     raise typer.Exit(1)
 
 
@@ -152,6 +158,10 @@ def traiter(
     config = Config.charger(config_fichier)
     _refuser_pendant_une_reunion(config, quand_meme)
     chaine = assembler(config)
+    # Le journal ne publie que si l'état porte **cette** réunion : sans cela,
+    # un traitement lancé pendant qu'une autre s'enregistre y publiait
+    # « terminé » et arrêtait la capture.
+    chaine.journal = enregistrement(config).pour(audio.stem)
     if sans_cr:
         chaine.redacteur = None
 
@@ -1249,6 +1259,72 @@ def _publier_la_carte(
             f"  ⚠ {ecrit.liens_manques} lien(s) n'ont pas pu être tracés",
             fg=typer.colors.YELLOW,
         )
+
+
+@application.command()
+def recuperer(
+    reunion: str = typer.Argument(None, help="Réunion (défaut : celle du dernier fil)"),
+    config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
+) -> None:
+    """Reconstruit une réunion depuis le fil du direct, faute de traitement.
+
+    À employer quand une réunion n'apparaît nulle part alors qu'elle a bien eu
+    lieu : le fil du direct existe, mais rien ne l'a jamais converti en réunion.
+    Le résultat est moins bon qu'un traitement — modèle rapide, voix non
+    recollées — et c'est la différence entre approximatif et perdu.
+    """
+    from greffier.application.recuperer import depuis_le_fil
+    from greffier.application.suivre import lire_depuis
+
+    config = Config.charger(config_fichier)
+    dossier = config.chemins.direct
+    if reunion:
+        journal = dossier / f"{reunion}.jsonl"
+        identifiant = reunion
+    else:
+        fils = sorted(dossier.glob("*.jsonl"), key=lambda c: c.stat().st_mtime)
+        if not fils:
+            typer.secho(f"Aucun fil de direct dans {dossier}.",
+                        fg=typer.colors.RED, err=True)
+            raise typer.Exit(1)
+        journal = fils[-1]
+        identifiant = journal.stem
+    if not journal.exists():
+        typer.secho(f"Aucun fil pour « {identifiant} ».", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    magasin = depot(config)
+    if identifiant in magasin.lister():
+        typer.secho(
+            f"« {identifiant} » est déjà une réunion : « greffier rediger » "
+            "reprend son compte rendu.",
+            fg=typer.colors.YELLOW,
+        )
+        raise typer.Exit(1)
+
+    lignes, _ = lire_depuis(journal, 0)
+    audio = config.chemins.enregistrements / f"{identifiant}.wav"
+    reconstruite = depuis_le_fil(
+        identifiant, lignes, audio if audio.exists() else None
+    )
+    if not reconstruite.repliques:
+        typer.secho("Le fil ne contient aucune parole transcrite.",
+                    fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    chemin = magasin.enregistrer(reconstruite)
+    mots = sum(len(r.texte.split()) for r in reconstruite.repliques)
+    typer.secho(f"✓ {identifiant} reconstruite : {mots} mots, "
+                f"{len(reconstruite.tours)} tours", fg=typer.colors.GREEN)
+    typer.echo(f"  fichier  {chemin}")
+    if reconstruite.noms:
+        typer.echo(f"  voix nommées  {', '.join(sorted(reconstruite.noms.values()))}")
+    typer.secho(f"\n⚠ {reconstruite.avertissements[0]}", fg=typer.colors.YELLOW)
+    if audio.exists():
+        typer.echo(f"\nL'enregistrement existe : « greffier traiter {audio} » "
+                   "donnera un bien meilleur résultat.")
+    else:
+        typer.echo("\n« greffier rediger » écrit le compte rendu.")
 
 
 @application.command()

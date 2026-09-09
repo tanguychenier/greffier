@@ -1,5 +1,6 @@
 """La machine à états de l'enregistrement, sans carte son."""
 
+import os
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -304,3 +305,70 @@ class TestPause:
         # L'interface relit le fichier : la pause doit y être.
         assert machine.lire().phase is Phase.PAUSE
         assert machine.lire().suspendu_le is not None
+
+
+class TestJournalParReunion:
+    """Le fichier d'état est unique, et c'est ce qui rendait --quand-meme
+    dangereux : un traitement lancé pendant qu'une réunion s'enregistrait y
+    publiait « terminé », la fenêtre en concluait que la réunion était finie, et
+    la capture s'arrêtait. Une réunion entière a été perdue ainsi le 2026-09-09.
+    """
+
+    def machine(self, tmp_path, identifiant: str = ""):
+        from greffier.application.enregistrer import Enregistrement, Etat
+        from greffier.domaine.modeles import Phase
+
+        class EnregistreurMuet:
+            def demarrer(self, destination):
+                return 1
+
+            def arreter(self, processus):
+                pass
+
+            def preparer_transcription(self, audio, destination):
+                return audio
+
+            def assembler(self, morceaux, destination):
+                return destination
+
+            def niveaux(self, audio):
+                return []
+
+        machine = Enregistrement(
+            EnregistreurMuet(), tmp_path / "audio", tmp_path / "etat.json"
+        )
+        if identifiant:
+            # Un processus vivant, sans quoi `lire` déclare l'enregistrement
+            # interrompu — règle légitime, mais qui rendrait ce test faux.
+            machine.ecrire(Etat(
+                phase=Phase.ENREGISTREMENT, identifiant=identifiant,
+                nom=identifiant, pid=os.getpid(),
+                message="Enregistrement en cours.",
+            ))
+        return machine
+
+    def test_une_autre_reunion_ne_publie_rien(self, tmp_path):
+        machine = self.machine(tmp_path, "2026-09-09_11h00_en-cours")
+        machine.pour("2026-09-09_10h05_autre").publier("termine", "fini")
+        relu = machine.lire()
+        assert relu.identifiant == "2026-09-09_11h00_en-cours"
+        assert relu.phase.value == "enregistrement", (
+            "la capture ne doit pas être déclarée finie"
+        )
+        assert relu.message == "Enregistrement en cours.", "rien n'a été publié"
+
+    def test_la_reunion_concernee_publie(self, tmp_path):
+        machine = self.machine(tmp_path, "2026-09-09_10h05_reunion")
+        machine.pour("2026-09-09_10h05_reunion").publier("transcription", "en cours")
+        assert machine.lire().message == "en cours"
+
+    def test_un_etat_au_repos_accepte_toute_publication(self, tmp_path):
+        """Le cas ordinaire d'un traitement lancé après coup."""
+        machine = self.machine(tmp_path)
+        machine.pour("2026-09-02_17h37_reunion").publier("transcription", "en cours")
+        assert machine.lire().message == "en cours"
+
+    def test_un_etat_illisible_ne_fait_pas_echouer(self, tmp_path):
+        machine = self.machine(tmp_path)
+        (tmp_path / "etat.json").write_text("pas du JSON", encoding="utf-8")
+        machine.pour("x").publier("transcription", "en cours")
