@@ -21,9 +21,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from greffier.application.participer import Participant
 from greffier.application.suivre import TRANCHE_MINIMALE_S, Position, Suivi
 from greffier.domaine.instructions import Proposition, Veille
 from greffier.domaine.modeles import Intervalle, Replique
+from greffier.domaine.participation import Occasion, Raison
 from greffier.ports import sortants
 
 SYSTEME = platform.system()
@@ -160,6 +162,19 @@ class Veilleur:
     #: suivante : le processus du direct avait figé son amorce au démarrage, et
     #: c'est justement en réunion qu'on découvre les mots qui manquent.
     relire_l_amorce: Callable[[], str] | None = None
+    #: L'assistant, quand il participe à la réunion. Absent, la veille est ce
+    #: qu'elle a toujours été : elle écoute et n'ouvre pas la bouche.
+    participant: Participant | None = None
+    #: Relit si l'assistant participe toujours. La fenêtre et la veille sont
+    #: deux processus : le bouton écrit dans la configuration, et c'est ici
+    #: qu'on s'en aperçoit. Même mécanisme que pour l'amorce, et pour la même
+    #: raison — on doit pouvoir le faire taire en pleine réunion, pas à la
+    #: suivante.
+    relire_la_participation: Callable[[], bool] | None = None
+    #: Matière au-delà de laquelle une voix sans nom mérite qu'on demande à qui
+    #: elle est. Trente secondes : en deçà, c'est un « oui, d'accord » dont le
+    #: compte rendu se passera, et interrompre pour cela serait ridicule.
+    matiere_pour_demander: float = 30.0
     periode_tranche: float = PERIODE_TRANCHE
     #: Jusqu'où la transcription au fil de l'eau est allée, en secondes de
     #: réunion. Ce qui précède a déjà été lu — et affiché.
@@ -280,7 +295,60 @@ class Veilleur:
             # Le fil affiché reçoit la tranche elle-même : l'empreinte vocale se
             # prélève dedans, aux temps de la tranche.
             self.suivi.accueillir(tranche, repliques, decalage)
+        self.tour_assistant(recalees, self.traite)
         return nouvelles
+
+    def tour_assistant(self, repliques: list[Replique], maintenant: float) -> None:
+        """Laisse l'assistant décider s'il a quelque chose à dire, et le dire.
+
+        Après l'affichage, jamais avant : ce qui se dit doit être visible même
+        quand l'assistant se tait, ce qui est le cas la plupart du temps.
+        """
+        if self.participant is None:
+            return
+        if self.relire_la_participation is not None:
+            with contextlib.suppress(OSError):
+                voulu = self.relire_la_participation()
+                if voulu != self.participant.politique.actif:
+                    self.participant.politique.actif = voulu
+                    if not voulu and self.participant.voix is not None:
+                        # On se tait tout de suite, phrase en cours comprise :
+                        # appuyer sur le bouton pendant qu'il parle doit
+                        # l'interrompre, pas attendre la fin de sa tirade.
+                        self.participant.voix.se_taire()
+        retenue = self.participant.tour(
+            repliques, maintenant,
+            tours=self._bornes_des_tours(),
+            occasions=self._voix_a_demander(maintenant),
+        )
+        if retenue is None:
+            return
+        if retenue.raison is Raison.VOIX_INDISTINCTE:
+            # On retient la question posée : c'est ce qui permet à la réponse
+            # d'être comprise comme une réponse, et pas comme une phrase de plus.
+            self.participant.attente = retenue
+        self.participant.repondre_a_part(retenue, maintenant)
+
+    def _bornes_des_tours(self) -> list[tuple[float, float]]:
+        """Les tours de parole affichés, pour mesurer la densité de la discussion."""
+        if self.suivi is None:
+            return []
+        return [(t.intervalle.debut, t.intervalle.fin) for t in self.suivi.fil.tours]
+
+    def _voix_a_demander(self, maintenant: float) -> list[Occasion]:
+        """Une voix qui a parlé longtemps sans qu'on sache de qui elle est.
+
+        C'est le défaut le plus coûteux de l'outil : elle deviendra
+        « Personne 12 » dans le compte rendu, et plus personne ne saura la
+        reconnaître. La demander sur le moment coûte une phrase et vaut un nom.
+        """
+        if self.suivi is None or self.participant is None:
+            return []
+        for voix in self.suivi.fil.voix.values():
+            if (voix.nom is None and voix.nommable
+                    and voix.secondes >= self.matiere_pour_demander):
+                return [self.participant.demander_qui_parle(voix.identifiant, maintenant)]
+        return []
 
     def boucler(
         self,
