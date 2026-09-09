@@ -38,7 +38,7 @@ class TestTolerance:
         assert tolerance("sprint") == 1
 
     def test_un_terme_long_en_accepte_deux(self):
-        assert tolerance("Paris-Saclay") == 2
+        assert tolerance("infrastructure") == 2
 
 
 class TestCeQuiDeclencheUneQuestion:

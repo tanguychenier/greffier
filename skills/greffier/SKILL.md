@@ -14,6 +14,7 @@ se tourne. Ce document dit où regarder, et surtout ce qui ne se devine pas.
 ```sh
 greffier diagnostic      # constate sans rien modifier
 greffier verifier        # dit si la chaîne s'assemble
+greffier contexte        # ce que l'outil sait des sigles et des personnes
 python3 outils/installer.py --verifier   # constate sans rien installer
 ```
 
@@ -35,7 +36,7 @@ c'est ce qui isole les tests.
 
 **Sur macOS, ce n'est pas la convention XDG, et c'est délibéré.** Les dossiers
 cachés du compte (`~/.config`, `~/.local`) sont surveillés par la garde du poste,
-WithSecure XFENCE, dont l'agent tourne sous `local.xfence.rc`. Elle redemandait
+un logiciel de sécurité du poste. Il redemandait
 une autorisation pour chaque accès de chaque programme de la chaîne, à chaque
 réunion ; une écriture y a même été refusée en pleine réunion, et le direct s'est
 arrêté net. `Application Support` est l'endroit où toutes les applications
@@ -59,11 +60,18 @@ laisse une trace. Depuis le dépôt, `greffier fenetre` écrit dans le terminal
 comme n'importe quelle commande — les deux chemins ne racontent pas la même
 chose, et une panne qui n'apparaît que par l'application se lit là.
 
+Chaque session s'ouvre sur `=== démarré le AAAA-MM-JJ HH:MM:SS ===`. **Une
+session sans ligne d'arrêt s'est terminée brutalement**, ce qui est en soi une
+information. Si le journal ne contient rien alors que l'application tourne,
+vérifie que le flux est ouvert en `buffering=1` dans le lanceur : `os._exit` ne
+vide aucun tampon, et le journal est resté vide huit jours pour cette raison
+(mesuré : 0 octet par session).
+
 ## Ce qui ne se devine pas
 
 **La signature du paquet est stable, à dessein.** Une signature ad hoc n'est que
 le hachage du binaire : chaque reconstruction change l'identité, et macOS
-redemande toutes les autorisations — micro, Outlook, XFENCE. Le paquet est donc
+redemande toutes les autorisations — micro, Outlook, garde du poste. Le paquet est donc
 signé avec un certificat, Apple s'il y en a un dans le trousseau, sinon un
 certificat local créé une fois pour toutes. **Ne signe jamais ad hoc pour
 « aller plus vite »** : les autorisations de l'utilisateur seraient à redonner.
@@ -80,9 +88,28 @@ embarque ses propres copies de l'interpréteur, des bibliothèques et du code.
 Après une modification, relance `python3 outils/installer.py` pour le
 reconstruire. La ligne de commande du dépôt, elle, suit le code immédiatement.
 
-**Le compte rendu est le seul maillon qui sort du poste.** Si la demande est que
-rien ne sorte, la réponse est `compte_rendu.moteur = "ollama"`, pas de couper le
-réseau.
+**Le compte rendu est le seul maillon qui sort du poste**, avec la recherche de
+l'assistant de conversation. Si la demande est que rien ne sorte, la réponse est
+`compte_rendu.moteur = "ollama"` et `conversation.recherche_web = false`, pas de
+couper le réseau.
+
+**Le rédacteur du compte rendu n'a aucun outil, et ce n'est pas un oubli.** Un
+document composé de ce qui a été dit ne doit pas pouvoir compléter une décision
+par ce qu'un moteur de recherche a rendu. C'est l'assistant de la conversation
+qui cherche, et seulement lui (`composition.assistant`). Ne « répare » pas cette
+asymétrie.
+
+**`greffier traiter --quand-meme` pendant qu'une réunion peut tourner détruit
+cette réunion.** Le fichier d'état est unique : un traitement lancé à côté y
+publie ses propres phases jusqu'à « terminé », la fenêtre en conclut que la
+réunion est finie, et la capture s'arrête. Constaté deux fois, dont le
+2026-09-09 où une réunion entière a été perdue sans laisser un octet. Attends la
+fin, ou n'emploie pas ce drapeau.
+
+**La réunion est gardée avant la rédaction.** L'ordre est : transcription,
+voix, **écriture du fichier maître**, puis rédaction, puis envoi. Ne remonte
+jamais la rédaction avant l'écriture pour « économiser une écriture » : c'est ce
+qui faisait perdre une réunion entière quand le rédacteur échouait.
 
 ## Pannes fréquentes, et ce qu'elles sont vraiment
 
@@ -94,6 +121,11 @@ réseau.
 | La fenêtre ne s'ouvre pas depuis le dépôt | Tcl introuvable : `situer_tcl()` pose `TCL_LIBRARY`/`TK_LIBRARY` — vérifier qu'il s'exécute |
 | La transcription échoue après plusieurs minutes | Linux : carte graphique sans cuBLAS. Le repli sur le processeur existe, il est lent |
 | Un réglage a disparu | la version précédente est en `config.toml.precedent`, à côté |
+| Aucun compte rendu, mais la réunion est transcrite | la rédaction a échoué. `greffier rediger` la rejoue sans retranscrire, ou le bouton « Rédiger » |
+| La rédaction expire | `compte_rendu.delai`, 1800 s par défaut. Rien n'est perdu : la réunion est gardée **avant** la rédaction |
+| Des sigles ou des prénoms mal transcrits | ils manquent au contexte. `greffier contexte` dit ce qui est transmis et ce que l'amorce a écarté |
+| La réunion n'a rien enregistré | la veille le signale désormais pendant la réunion. Si rien n'a été dit, chercher un traitement lancé en parallèle (voir ci-dessous) |
+| « La dernière réunion » n'est pas la bonne | l'ordre suit l'horodatage de l'identifiant. Un identifiant sans date passe en fin de liste, à dessein |
 
 ## Avant de conclure
 

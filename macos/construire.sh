@@ -6,8 +6,8 @@
 # vers le dépôt ni vers un dossier caché du compte. Les versions précédentes —
 # un lien `Contents/lib` vers `~/.local/share/uv/…` et un PYTHONPATH vers le
 # `.venv` du dépôt — faisaient lire ces dossiers à chaque lancement et par
-# chaque processus auxiliaire (veille, direct) ; le garde du poste (WithSecure
-# XFENCE) contestait chacun de ces accès, jusqu'à refuser une écriture en pleine
+# chaque processus auxiliaire (veille, direct) ; le garde du poste contestait
+# chacun de ces accès, jusqu'à refuser une écriture en pleine
 # réunion. Un logiciel installé n'a pas à dépendre de l'endroit d'où on l'a
 # construit.
 #
@@ -23,7 +23,7 @@
 # Le paquet est signé avec une identité **stable** (`identite-de-signature.sh`),
 # pas ad hoc. Une signature ad hoc n'est que le hachage du binaire : chaque
 # reconstruction en faisait une application inconnue pour macOS — micro et
-# Outlook redemandés — comme pour XFENCE. Avec un certificat, l'identité tient
+# Outlook redemandés — comme pour le garde du poste. Avec un certificat, l'identité tient
 # au certificat : les autorisations données une fois survivent.
 #
 # Conséquence assumée : une modification du code ne se voit dans l'application
@@ -93,7 +93,7 @@ CHEMIN="$("${SHELL:-/bin/zsh}" -lic 'printf "GREFFIER_PATH=%s\n" "$PATH"' 2>/dev
 [ -n "$CHEMIN" ] || CHEMIN="$PATH"
 
 # ~/.local/bin d'abord, avant Homebrew. Ce n'est pas une préférence : c'est la
-# stabilité du chemin. Le garde du poste (WithSecure XFENCE) retient le chemin
+# stabilité du chemin. Le garde du poste retient le chemin
 # du programme tel qu'il le voit, sans résoudre les liens symboliques — mesuré
 # dans son fichier de règles. Un outil installé par Homebrew vit sous
 # /opt/homebrew/Caskroom/<outil>/<version>/, chemin qui change à chaque mise à
@@ -150,7 +150,7 @@ echo "→ précompilation"
 
 # Le relevé du matériel exécute un petit binaire Swift toutes les quelques
 # secondes. Compilé dans le paquet — donc signé et couvert avec lui — plutôt
-# que dans ~/.local : XFENCE contestait chaque exécution depuis ~/.local, une
+# que dans ~/.local : le garde du poste contestait chaque exécution depuis ~/.local, une
 # demande toutes les cinq secondes en réunion.
 if command -v swiftc >/dev/null 2>&1; then
   echo "→ listeur de périphériques"
