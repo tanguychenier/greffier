@@ -2,6 +2,8 @@
 
     greffier traiter <audio>     transcrit, identifie les voix, rédige
     greffier rediger             reprend la rédaction d'une réunion transcrite
+    greffier renommer <sujet>    donne un sujet lisible à une réunion
+    greffier oublier             efface une réunion et tout ce qui va avec
     greffier verifier            dit ce qui est prêt et ce qui manque
 
 Volontairement mince : elle lit la configuration, demande à la composition
@@ -23,6 +25,7 @@ import typer
 from greffier.adaptateurs.banque_fichiers import BanqueFichiers
 from greffier.adaptateurs.configuration import Config
 from greffier.adaptateurs.notifications import NotificateurSysteme
+from greffier.application import ranger as ranger_module
 from greffier.application.nommer import VoixANommer, extraire_audio, voix_a_nommer
 from greffier.application.restituer import regenerer_compte_rendu
 from greffier.application.traiter import ChaineInterrompue
@@ -75,6 +78,18 @@ def _heures_de(config: Config, audio: Path) -> tuple[datetime | None, datetime |
     if etat.identifiant != audio.stem:
         return (None, None)
     return (etat.debut, etat.terminee_le)
+
+
+def _emplacements(config: Config) -> ranger_module.Emplacements:
+    """Où vivent les morceaux d'une réunion, d'après la configuration."""
+    return ranger_module.Emplacements(
+        reunions=config.chemins.donnees / "reunions",
+        enregistrements=config.chemins.enregistrements,
+        transcriptions=config.chemins.transcriptions,
+        comptes_rendus=config.chemins.comptes_rendus,
+        direct=config.chemins.direct,
+        propositions=config.chemins.propositions,
+    )
 
 
 def _refuser_pendant_une_reunion(config: Config, quand_meme: bool) -> None:
@@ -758,7 +773,7 @@ def assister(
                     fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
 
-    journal = config.chemins.donnees / "propositions" / f"{etat.identifiant}.jsonl"
+    journal = config.chemins.propositions / f"{etat.identifiant}.jsonl"
     transcripteur = None if sans_transcription else transcripteur_leger(config)
     le_suivi = suivi(config, etat.identifiant) if config.direct.actif else None
     veilleur = Veilleur(
@@ -815,7 +830,7 @@ def propositions(
 
     config = Config.charger(config_fichier)
     identifiant = _reunion_visee(config, reunion)
-    journal = config.chemins.donnees / "propositions" / f"{identifiant}.jsonl"
+    journal = config.chemins.propositions / f"{identifiant}.jsonl"
     if not journal.exists():
         typer.echo("Aucune proposition pour cette réunion.")
         return
@@ -1014,6 +1029,75 @@ def montage(
     total = sum(p.duree for p in passages)
     typer.secho(f"✓ {len(passages)} passages, {total / 60:.1f} min : {sortie}",
                 fg=typer.colors.GREEN)
+
+
+@application.command()
+def renommer(
+    sujet: str = typer.Argument(..., help="Le sujet de la réunion, en clair"),
+    reunion: str = typer.Argument(None, help="Réunion (défaut : la dernière)"),
+    config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
+) -> None:
+    """Donne un sujet à une réunion, celui qui s'affichera dans la liste.
+
+    Un libellé, pas un renommage de fichiers : l'identifiant porte la date, qui
+    ordonne les réunions, date le compte rendu et sert de clé à l'audio comme à
+    la transcription. Le remplacer par « point du lundi » perdrait tout cela.
+    """
+    config = Config.charger(config_fichier)
+    identifiant = _reunion_visee(config, reunion)
+    magasin = depot(config)
+    try:
+        gardee = magasin.lire(identifiant)
+    except (OSError, ValueError) as souci:
+        typer.secho(f"✗ {souci}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1) from souci
+    gardee.sujet = sujet.strip()
+    magasin.enregistrer(gardee)
+    typer.secho(f"✓ {identifiant} → « {gardee.intitule} »", fg=typer.colors.GREEN)
+
+
+@application.command()
+def oublier(
+    reunion: str = typer.Argument(None, help="Réunion (défaut : la dernière)"),
+    oui: bool = typer.Option(False, "--oui", help="Effacer sans confirmation"),
+    config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
+) -> None:
+    """Efface une réunion et tout ce qui va avec, après confirmation.
+
+    L'audio est le seul morceau qu'on ne puisse pas refaire : la transcription
+    et le compte rendu se reconstituent depuis lui, l'inverse est faux. La liste
+    de ce qui part s'affiche donc avant, avec son poids.
+    """
+    from greffier.application import ranger
+
+    config = Config.charger(config_fichier)
+    identifiant = _reunion_visee(config, reunion)
+    ou = _emplacements(config)
+    pieces = ranger.pieces_de(ou, identifiant)
+    if not pieces:
+        typer.secho(f"Rien à effacer pour {identifiant}.", fg=typer.colors.YELLOW)
+        raise typer.Exit(1)
+
+    typer.echo(f"\nÀ effacer pour « {identifiant} » :")
+    for piece in pieces:
+        typer.echo(f"  {ranger.lisible(piece.octets):>8}  {piece.quoi}")
+    total = sum(p.octets for p in pieces)
+    typer.echo(f"  {'─' * 8}")
+    typer.echo(f"  {ranger.lisible(total):>8}  au total\n")
+
+    if not oui and not typer.confirm("Effacer définitivement ?", default=False):
+        typer.echo("Rien n'a été effacé.")
+        raise typer.Exit(1)
+
+    effacees = ranger.oublier(ou, identifiant)
+    typer.secho(
+        f"✓ {len(effacees)} fichier(s) effacé(s), "
+        f"{ranger.lisible(sum(p.octets for p in effacees))} libérés",
+        fg=typer.colors.GREEN,
+    )
+    reste = ranger.pieces_de(ou, identifiant)
+    for piece in reste:
+        typer.secho(f"⚠ {piece.chemin} n'a pas pu être effacé", fg=typer.colors.YELLOW)
 
 
 @application.command()

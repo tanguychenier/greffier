@@ -66,6 +66,16 @@ class Chemins(BaseModel):
         """
         return self.donnees / "direct"
 
+    @property
+    def propositions(self) -> Path:
+        """Ce que la veille a proposé pendant la réunion, réunion par réunion.
+
+        Défini ici et non à l'endroit qui l'ouvre : le chemin était écrit en
+        dur à deux endroits de la ligne de commande, donc invisible pour qui
+        veut ranger ou effacer une réunion.
+        """
+        return self.donnees / "propositions"
+
 
 class Audio(BaseModel):
     # Sur macOS, deux périphériques à créer une fois. Ailleurs, le système

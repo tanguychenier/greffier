@@ -24,18 +24,23 @@ def horloge(secondes: float) -> str:
     return f"{minutes}:{restantes:02d}"
 
 
-def sujet_lisible(identifiant: str, compte_rendu: Path) -> str:
-    """Le sujet de la réunion, tiré de son compte rendu.
+def sujet_lisible(identifiant: str, compte_rendu: Path, sujet: str = "") -> str:
+    """Le sujet de la réunion : celui qu'on a choisi, sinon celui du compte rendu.
 
     « 2026-08-25_14h33_reunion » ne dit rien de ce qui s'est passé. Le titre du
     compte rendu, lui, a été écrit après avoir écouté : c'est lui qu'on montre,
     l'horodatage restant en réserve tant qu'aucun compte rendu n'existe.
+
+    Un sujet saisi à la main passe devant les deux : c'est une correction, et
+    une correction qu'un retraitement écraserait ne servirait à rien.
     """
+    if sujet.strip():
+        return sujet.strip()
     if compte_rendu.exists():
         with contextlib.suppress(OSError):
-            from greffier.domaine.compte_rendu import titre as sujet
+            from greffier.domaine.compte_rendu import titre as extraire_titre
 
-            titre = sujet(compte_rendu.read_text(encoding="utf-8"), "")
+            titre = extraire_titre(compte_rendu.read_text(encoding="utf-8"), "")
             if titre:
                 # Le titre commence par « Compte rendu : » : inutile de le
                 # répéter sur chaque ligne d'une liste de comptes rendus.
