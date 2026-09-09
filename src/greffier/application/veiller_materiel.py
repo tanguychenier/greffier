@@ -20,6 +20,7 @@ from typing import Any, Protocol
 
 from greffier.domaine.capture import SurveillanceDeCapture
 from greffier.domaine.modeles import Phase
+from greffier.domaine.niveau import SurveillanceDeNiveau
 from greffier.domaine.peripheriques import Action, Materiel, Veille
 
 #: Quatre secondes : assez court pour qu'un branchement ne coûte qu'un mot ou
@@ -62,11 +63,15 @@ class VeilleMateriel:
     #: pas la lire. Facultatif : sans elle la veille garde son ancien office,
     #: ce dont les tests du matériel profitent.
     taille_captee: Callable[[], int | None] | None = None
+    #: Niveau du micro sur les dernières fractions de seconde écrites, ou None
+    #: si on ne sait pas le lire. Facultatif au même titre que la taille.
+    niveau_capte: Callable[[], float | None] | None = None
     intervalle: float = INTERVALLE
 
     def __post_init__(self) -> None:
         self._precedent: Materiel | None = None
         self._capture = SurveillanceDeCapture()
+        self._niveau = SurveillanceDeNiveau()
 
     def enregistre(self) -> bool:
         """Faux dès que l'enregistrement s'arrête : la veille n'a plus d'objet."""
@@ -76,8 +81,9 @@ class VeilleMateriel:
             return False
 
     def tour(self) -> None:
-        """Un tour : voir si la capture avance, lire le matériel, décider, agir."""
+        """Un tour : voir si la capture avance et porte du son, puis le matériel."""
         self._verifier_la_capture()
+        self._verifier_le_niveau()
         courant = self.listeur.lire()
         if not courant.peripheriques:
             # Lecture impossible : on ne conclut rien. Décider sur un matériel
@@ -126,6 +132,27 @@ class VeilleMateriel:
             return
         self.machine.signaler(raison)
         self.prevenir("L'enregistrement n'avance plus.")
+
+    def _verifier_le_niveau(self) -> None:
+        """Dit, une fois, que le son capté est trop faible pour transcrire.
+
+        Distinct de la capture qui n'avance plus : ici le fichier grossit, mais
+        il ne contient presque rien. Mesuré sur ce projet : à -43 dB, le modèle
+        n'écrit pas moins bien, il **invente** — « Merci d'avoir regardé cette
+        vidéo ! » pour « Test, test de réunion ». Le dire pendant la réunion
+        laisse une chance de rapprocher le micro ; le découvrir au compte rendu
+        n'en laisse aucune.
+        """
+        if self.niveau_capte is None:
+            return
+        db = self.niveau_capte()
+        if db is None:
+            return
+        raison = self._niveau.constater(db)
+        if not raison:
+            return
+        self.machine.signaler(raison)
+        self.prevenir("Le son capté est trop faible.")
 
     def boucler(self, dormir: Callable[[float], None] = time.sleep) -> int:
         """Veille jusqu'à l'arrêt de l'enregistrement. Rend le nombre de tours."""

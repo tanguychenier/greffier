@@ -190,6 +190,39 @@ class TestLaCaptureQuiSArrete:
         assert machine.signalements == []
 
 
+class TestLeSonTropFaible:
+    """Le fichier grossit, mais il ne porte presque rien."""
+
+    def test_un_niveau_durablement_faible_est_signale(self):
+        from greffier.domaine.niveau import RELEVES_AVANT_ALERTE
+
+        machine = MachineFactice()
+        v, dits, _ = veilleuse([SANS], machine=machine)
+        v.niveau_capte = lambda: -55.0
+        for _ in range(RELEVES_AVANT_ALERTE + 1):
+            v.tour()
+        assert any("trop faible" in s for s in machine.signalements)
+        assert dits
+
+    def test_un_bon_niveau_ne_signale_rien(self):
+        from greffier.domaine.niveau import RELEVES_AVANT_ALERTE
+
+        machine = MachineFactice()
+        v, _, _ = veilleuse([SANS], machine=machine)
+        v.niveau_capte = lambda: -20.0
+        for _ in range(RELEVES_AVANT_ALERTE + 2):
+            v.tour()
+        assert machine.signalements == []
+
+    def test_sans_moyen_de_mesurer_rien_n_est_dit(self):
+        machine = MachineFactice()
+        v, _, _ = veilleuse([SANS], machine=machine)
+        v.niveau_capte = lambda: None
+        for _ in range(12):
+            v.tour()
+        assert machine.signalements == []
+
+
 class TestBoucle:
     def test_la_veille_s_arrete_avec_l_enregistrement(self) -> None:
         machine = MachineFactice(tours_avant_arret=3)
