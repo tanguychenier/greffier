@@ -6,6 +6,7 @@
     greffier oublier             efface une réunion et tout ce qui va avec
     greffier contexte            ce que l'outil sait des sigles et des personnes
     greffier ranger              applique la rétention aux enregistrements
+    greffier carte               construit la carte d'un sujet depuis une réunion
     greffier verifier            dit ce qui est prêt et ce qui manque
 
 Volontairement mince : elle lit la configuration, demande à la composition
@@ -33,6 +34,7 @@ from greffier.application.restituer import regenerer_compte_rendu
 from greffier.application.traiter import ChaineInterrompue
 from greffier.composition import (
     assembler,
+    cartographe,
     contexte,
     depot,
     enregistrement,
@@ -1132,6 +1134,93 @@ def renommer(
     gardee.sujet = sujet.strip()
     magasin.enregistrer(gardee)
     typer.secho(f"✓ {identifiant} → « {gardee.intitule} »", fg=typer.colors.GREEN)
+
+
+@application.command()
+def carte(
+    sujet: str = typer.Argument(None, help="Sujet à cartographier (défaut : ceux détectés)"),
+    reunion: str = typer.Argument(None, help="Réunion (défaut : la dernière)"),
+    publier: bool = typer.Option(False, "--publier", help="Écrire sur Miro"),
+    config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
+) -> None:
+    """Construit la carte d'un sujet depuis une réunion. Constate d'abord.
+
+    Sans « --publier », rien ne sort du poste : la commande dit ce qu'elle
+    ajouterait. Une carte se partage largement, la voir avant coûte peu.
+    """
+    from greffier.adaptateurs import sujets_fichier
+    from greffier.application.cartographier import RenduIllisible, extraire
+    from greffier.application.restituer import rendre_transcription
+    from greffier.domaine.carte import Carte, fusionner
+
+    config = Config.charger(config_fichier)
+    identifiant = _reunion_visee(config, reunion)
+    sujets_fichier.poser_le_gabarit(config.chemins.sujets)
+    registre = sujets_fichier.lire(config.chemins.sujets)
+
+    try:
+        gardee = depot(config).lire(identifiant)
+    except (OSError, ValueError) as souci:
+        typer.secho(f"✗ {souci}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1) from souci
+    matiere = rendre_transcription(gardee)
+
+    vises = [sujet] if sujet else registre.sujets_de(matiere)
+    if not vises:
+        typer.echo("Aucun sujet suivi n'est assez présent dans cette réunion.")
+        typer.echo(f"Les sujets se déclarent dans {config.chemins.sujets}.")
+        raise typer.Exit(1)
+
+    moteur = cartographe(config)
+    if moteur is None:
+        typer.secho("Aucun rédacteur configuré.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    for nom in vises:
+        typer.secho(f"\n— {nom} —", fg=typer.colors.BRIGHT_WHITE, bold=True)
+        try:
+            apports = extraire(moteur, nom, matiere)
+        except RenduIllisible as souci:
+            # Distinct de « rien à ajouter » : une panne ne doit pas se lire
+            # comme un résultat.
+            typer.secho(f"  ✗ extraction illisible : {souci}", fg=typer.colors.RED)
+            continue
+        if not apports:
+            typer.echo("  rien à ajouter")
+            continue
+        la_carte = Carte(nom)
+        bilan = fusionner(la_carte, apports, reunion=identifiant)
+        for apport in apports:
+            marque = "✓" if str(apport.etat) == "acté" else "·"
+            sous = f"  ← {apport.sous}" if apport.sous else ""
+            typer.echo(f"  {marque} [{apport.genre}] {apport.texte}{sous}")
+        if not publier:
+            typer.echo(f"  ({len(bilan.ajoutes)} point(s), « --publier » pour l'écrire)")
+            continue
+        _publier_la_carte(config, registre, nom, la_carte, identifiant)
+
+
+def _publier_la_carte(
+    config: Config, registre: object, nom: str, la_carte: object, identifiant: str
+) -> None:
+    """Écrit la carte sur Miro, en créant le tableau à la première fois."""
+    from greffier.adaptateurs import carte_miro, sujets_fichier
+
+    connu = registre.par_nom(nom)  # type: ignore[attr-defined]
+    tableau = connu.carte if connu and connu.carte else ""
+    try:
+        if not tableau:
+            tableau, adresse = carte_miro.creer_le_tableau(nom)
+            sujets_fichier.noter_la_carte(config.chemins.sujets, nom, tableau)
+            typer.secho(f"  tableau créé : {adresse or tableau}", fg=typer.colors.GREEN)
+        ecrit = carte_miro.publier(la_carte, tableau, reunion=identifiant)  # type: ignore[arg-type]
+    except carte_miro.MiroRefuse as souci:
+        typer.secho(f"  ✗ {souci}", fg=typer.colors.RED, err=True)
+        return
+    typer.secho(
+        f"  ✓ {len(ecrit.poses)} posé(s), {len(ecrit.deja)} déjà présent(s)",
+        fg=typer.colors.GREEN,
+    )
 
 
 @application.command()

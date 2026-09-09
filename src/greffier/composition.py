@@ -176,6 +176,37 @@ def assistant(config: Config) -> sortants.Redacteur | None:
     )
 
 
+def cartographe(config: Config) -> sortants.Redacteur | None:
+    """Qui extrait les points d'une carte. Ni le rédacteur, ni l'assistant.
+
+    Une troisième instance, et pour une raison mesurée : `RedacteurClaude`
+    préfixe les consignes du compte rendu à tout ce qu'on lui passe. Une demande
+    d'extraction JSON arrivait donc **après** cent lignes de « tu rédiges le
+    compte rendu d'une réunion », et le modèle suivait les premières — il a
+    rendu de la prose, en demandant si c'était bien le tableau attendu.
+    L'extraction échouait alors en silence, sur « rien à ajouter ».
+
+    Aucun outil : extraire ce qui a été dit ne demande pas d'aller chercher
+    ailleurs, et pourrait au contraire faire entrer dans la carte des points
+    qui n'ont pas été prononcés.
+    """
+    moteur = config.compte_rendu.moteur
+    if moteur == "ollama":
+        return RedacteurOllama(config.compte_rendu.modele_effectif,
+                               langue=config.compte_rendu.langue)
+    if moteur != "claude":
+        return None
+    from greffier.adaptateurs.redaction_claude import RedacteurClaude
+    from greffier.application.cartographier import CONSIGNES
+
+    return RedacteurClaude(
+        config.compte_rendu.modele_effectif,
+        delai=config.compte_rendu.delai,
+        langue=config.compte_rendu.langue,
+        consignes_propres=CONSIGNES,
+    )
+
+
 def depot(config: Config) -> DepotFichiers:
     """Les fichiers maîtres, source de vérité d'une réunion traitée."""
     return DepotFichiers(config.chemins.donnees / "reunions")
