@@ -721,9 +721,10 @@ class Fenetre:
         self.question.bind("<Return>", lambda _e: self._demander())
         Bouton(saisie, "Demander", self._demander, self.couleurs, principal=True,
                largeur=124, hauteur=36).grid(row=0, column=1, padx=(11, 0))
-        self._dire("note", "Pose une question sur la réunion choisie dans l'onglet "
-                           "Réunions : ce qui a été décidé, ce qui reste ouvert, à qui "
-                           "envoyer le compte rendu.")
+        self._dire("note", "Pose une question sur la réunion en cours, ou sur celle "
+                           "choisie dans l'onglet Réunions : ce qui a été décidé, ce "
+                           "qui reste ouvert, à qui envoyer le compte rendu. Pendant "
+                           "une réunion, la réponse vient du fil du direct.")
 
     # ---------------------------------------------------------------- réglages
 
@@ -1894,32 +1895,45 @@ class Fenetre:
         question = self.question.get().strip()
         if not question:
             return
-        identifiant = self._selection()
-        if identifiant is None:
-            self._dire("note", "Choisis d'abord une réunion dans l'onglet Réunions.")
-            return
-        source = self.config.chemins.comptes_rendus / f"{identifiant}.md"
-        if not source.exists():
-            self._dire("note", f"« {identifiant} » n'a pas encore de compte rendu. "
-                               "Onglet Réunions, « Traiter ».")
-            return
         moteur = redacteur(self.config)
         if moteur is None:
             self._dire("note", "Aucun rédacteur configuré : « greffier configurer ».")
             return
 
+        # Le fil de la réunion en cours d'abord : demander « qu'a-t-on décidé
+        # sur Oasis ? » pendant qu'on en parle était impossible, la conversation
+        # exigeant un compte rendu, donc une réunion terminée. Le fil, lui, est
+        # déjà là.
+        en_cours = self._fil.rendu() if self._fil_reunion else ""
+        if en_cours:
+            matiere, quoi, sur = en_cours, "la transcription en direct", self._fil_reunion
+        else:
+            identifiant = self._selection()
+            if identifiant is None:
+                self._dire("note", "Choisis une réunion dans l'onglet Réunions, "
+                                   "ou démarre une réunion pour interroger le direct.")
+                return
+            source = self.config.chemins.comptes_rendus / f"{identifiant}.md"
+            if not source.exists():
+                self._dire("note", f"« {identifiant} » n'a pas encore de compte rendu. "
+                                   "Onglet Réunions, « Traiter ».")
+                return
+            matiere, quoi, sur = source.read_text(encoding="utf-8"), "le compte rendu", identifiant
+
         self.question.delete(0, "end")
         self._dire("moi", question)
-        compte_rendu = source.read_text(encoding="utf-8")
 
         def faire(dire: Callable[[str], None]) -> Any:
             dire("réflexion…")
             return moteur.rediger(
-                "Tu réponds à une question sur le compte rendu ci-dessous. Réponds "
-                "brièvement, en français, en t'appuyant uniquement sur ce document. "
-                "Si la réponse n'y est pas, dis-le plutôt que de la deviner. "
+                f"Tu réponds à une question sur {quoi} ci-dessous, de la réunion "
+                f"« {sur} ». Réponds brièvement, en français, en t'appuyant "
+                "uniquement sur ce document. Si la réponse n'y est pas, dis-le "
+                "plutôt que de la deviner. Une transcription en direct est "
+                "partielle et comporte des erreurs de mots : ne présente pas "
+                "comme décidé ce qui est en train d'être discuté. "
                 "N'emploie ni tiret cadratin ni demi-cadratin.\n\n"
-                f"Question : {question}\n\nCompte rendu :\n{compte_rendu}"
+                f"Question : {question}\n\n{quoi.capitalize()} :\n{matiere}"
             )
 
         self._lancer(Travail(
