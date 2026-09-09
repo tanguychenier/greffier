@@ -91,10 +91,11 @@ class TestPublicationSansReseau:
         assert methodes <= {"GET", "POST"}, "ni DELETE ni PATCH"
 
     def test_l_etat_se_lit_a_la_couleur(self, monkeypatch):
-        from greffier.domaine.carte import Apport, Carte, Etat, fusionner
+        from greffier.domaine.carte import Apport, Carte, Etat, Genre, fusionner
 
         carte = Carte("Oasis")
-        fusionner(carte, [Apport("Décidé", etat=Etat.ACTE)])
+        # Une piste : seuls une piste et une action peuvent être actées.
+        fusionner(carte, [Apport("Décidé", genre=Genre.PISTE, etat=Etat.ACTE)])
         appels = self.marquer(monkeypatch)
         carte_miro.publier(carte, "uXjVtest=")
         couleurs = [
