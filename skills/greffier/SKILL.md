@@ -15,6 +15,7 @@ se tourne. Ce document dit où regarder, et surtout ce qui ne se devine pas.
 greffier diagnostic      # constate sans rien modifier
 greffier verifier        # dit si la chaîne s'assemble
 greffier contexte        # ce que l'outil sait des sigles et des personnes
+greffier niveau          # dit si le micro suffit à transcrire — parle pendant
 python3 outils/installer.py --verifier   # constate sans rien installer
 ```
 
@@ -134,6 +135,8 @@ qui faisait perdre une réunion entière quand le rédacteur échouait.
 | Aucun compte rendu, mais la réunion est transcrite | la rédaction a échoué. `greffier rediger` la rejoue sans retranscrire, ou le bouton « Rédiger » |
 | La rédaction expire | `compte_rendu.delai`, 1800 s par défaut. Rien n'est perdu : la réunion est gardée **avant** la rédaction |
 | Des sigles ou des prénoms mal transcrits | ils manquent au contexte. `greffier contexte` dit ce qui est transmis et ce que l'amorce a écarté |
+| Des mots courants déformés (« exploitement » pour « déploiement ») | ce n'est **pas** le vocabulaire : c'est le niveau. `greffier niveau` le mesure. Sous -43 dB le modèle invente au lieu d'écrire moins bien |
+| Le casque est ignoré au profit du micro intégré | depuis le 2026-09-09, un casque qui capte l'emporte même plus faible. S'il est écarté, il rend moins que -68 dB : bouton de sourdine, ou débranché |
 | La réunion n'a rien enregistré | la veille le signale désormais pendant la réunion. Si rien n'a été dit, chercher un traitement lancé en parallèle (voir ci-dessous) |
 | « La dernière réunion » n'est pas la bonne | l'ordre suit l'horodatage de l'identifiant. Un identifiant sans date passe en fin de liste, à dessein |
 
