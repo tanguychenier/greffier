@@ -132,6 +132,10 @@ class Fenetre:
         #: la file se relit à chaque tour, l'affichage ne doit pas se répéter.
         self._questions_vues: set[int] = set()
         self._questions_attente: list[Any] = []
+        #: Ce qu'une phrase a demandé de retenir, en attente de confirmation.
+        #: Rien n'est écrit dans le contexte avant un « oui » : un motif se
+        #: trompe parfois, et une entrée fausse fait écrire faux au direct.
+        self._apprentissage_attente: Any = None
         #: Réunion dont la conversation est à l'écran, pour ne pas la repeindre
         #: à chaque tour de la boucle du direct.
         self._conversation_affichee = ""
@@ -792,6 +796,11 @@ class Fenetre:
         self.question.bind("<Return>", lambda _e: self._demander())
         Bouton(saisie, "Demander", self._demander, self.couleurs, principal=True,
                largeur=124, hauteur=36).grid(row=0, column=1, padx=(11, 0))
+        # Ici et pas dans « Réunions » : un document se fournit pendant qu'on
+        # en parle, et c'est la conversation qui répondra dessus.
+        Bouton(saisie, "Fournir un document", self._fournir_un_document,
+               self.couleurs, largeur=176, hauteur=36).grid(
+                   row=0, column=2, padx=(8, 0))
         # L'accueil est peint et non « dit » : le garder reviendrait à écrire une
         # ligne d'invite dans le journal de chaque réunion.
         self._peindre_le_tour(
@@ -799,6 +808,12 @@ class Fenetre:
             "Pose une question sur la réunion en cours, ou sur celle choisie dans "
             "l'onglet Réunions. Pendant une réunion, la réponse vient du fil du "
             "direct, et je peux chercher en ligne si la question sort de la réunion.",
+        )
+        self._peindre_le_tour(
+            "note",
+            "Tu peux aussi m'apprendre quelque chose en une phrase — « retiens "
+            "que FAST veut dire formulaire d'attestation » — ou me fournir un "
+            "document : je réponds dessus et j'en propose le vocabulaire.",
         )
 
     # ---------------------------------------------------------------- réglages
@@ -2071,8 +2086,6 @@ class Fenetre:
 
     def _rendre_compte_du_depot(self, faits: list) -> None:  # type: ignore[type-arg]
         """Dit ce que le dépôt a produit, et propose ce qu'il a appris."""
-        from greffier.adaptateurs import contexte_fichier
-
         a_transcrire: list[str] = []
         appris: list[tuple[str, str, str]] = []
         for fait in faits:
@@ -2091,6 +2104,17 @@ class Fenetre:
                 + ("…" if len(a_transcrire) > 3 else "")
                 + ". Onglet Réunions, « Traiter »."
             ))
+        self._proposer_au_contexte(appris)
+
+    def _proposer_au_contexte(self, appris: list) -> None:  # type: ignore[type-arg]
+        """Montre ce qu'un document a appris, et l'écrit si on l'accepte.
+
+        La même confirmation que pour une phrase tapée : un document apporte
+        vingt entrées d'un coup, donc la liste est montrée en entier avant
+        d'écrire — c'est ce qui la rend relisable.
+        """
+        from greffier.adaptateurs import contexte_fichier
+
         if not appris:
             return
         detail = "\n".join(
@@ -2116,6 +2140,8 @@ class Fenetre:
         self._dire("greffier", (
             f"{poses} entrée(s) ajoutée(s) au contexte, "
             f"{len(appris) - poses} déjà connue(s)."
+            + (" Le direct les écrira juste dès la prochaine tranche."
+               if self._fil_reunion and poses else "")
         ))
 
     def _renommer_selection(self) -> None:
@@ -2209,6 +2235,9 @@ class Fenetre:
             comptes_rendus=chemins.comptes_rendus,
             direct=chemins.direct,
             propositions=chemins.propositions,
+            questions=chemins.questions,
+            conversations=chemins.conversations,
+            pieces=chemins.pieces,
         )
 
     def _ouvrir_compte_rendu(self) -> None:
@@ -2394,10 +2423,6 @@ class Fenetre:
         self.fil.see("end")
         self.fil.configure(state="disabled")
 
-    #: Ce qui vaut « oui » quand l'outil demande s'il a bien compris.
-    ACCORDS = frozenset({"oui", "o", "yes", "y", "exact", "c'est ça", "voilà", "oui."})
-    REFUS = frozenset({"non", "n", "no", "pas du tout", "non."})
-
     def _repondre_a_la_question(self, reponse: str) -> bool:
         """Traite la saisie comme une réponse à la question en attente.
 
@@ -2406,12 +2431,13 @@ class Fenetre:
         la confondre ferait perdre les deux.
         """
         from greffier.adaptateurs import contexte_fichier, questions_fichier
+        from greffier.domaine.intentions import accord
 
         en_attente = self._questions_attente[0]
-        nu = reponse.strip().casefold()
-        if nu in self.ACCORDS:
+        dit = accord(reponse)
+        if dit is True:
             retenu = en_attente.question.attendu
-        elif nu in self.REFUS:
+        elif dit is False:
             retenu = ""
         elif len(reponse.split()) <= 3:
             # Une orthographe donnée à la main l'emporte : c'est le cas où
@@ -2443,6 +2469,165 @@ class Fenetre:
         self.onglets.marquer("Conversation", len(self._questions_attente))
         return True
 
+    def _entendre_une_intention(self, phrase: str) -> bool:
+        """Reconnaît « retiens que… » et demande confirmation avant d'écrire.
+
+        Reconnu par motifs et non en interrogeant le rédacteur : faire analyser
+        chaque phrase tapée coûterait un appel distant, y compris pour une
+        question ordinaire. Un motif se trompe, d'où la confirmation — un faux
+        positif coûte une question, pas une entrée fausse dans le contexte.
+        """
+        from greffier.domaine.intentions import comprendre
+
+        appris = comprendre(phrase)
+        if appris is None:
+            return False
+        self._apprentissage_attente = appris
+        self.question.delete(0, "end")
+        self._dire("moi", phrase)
+        self._dire("note", appris.dire())
+        return True
+
+    def _confirmer_l_apprentissage(self, reponse: str) -> bool:
+        """Écrit dans le contexte si la réponse confirme. Faux si ce n'en est pas une.
+
+        Une phrase qui n'est ni oui ni non est une nouvelle demande : la
+        prendre pour un refus la perdrait. L'apprentissage est alors abandonné,
+        parce qu'un accord donné trois messages plus tard ne porterait plus sur
+        ce qu'on a sous les yeux.
+        """
+        from greffier.adaptateurs import contexte_fichier
+        from greffier.domaine.intentions import Quoi, accord
+
+        dit = accord(reponse)
+        if dit is None:
+            self._apprentissage_attente = None
+            return False
+        appris = self._apprentissage_attente
+        self._apprentissage_attente = None
+        self.question.delete(0, "end")
+        self._dire("moi", reponse)
+        if not dit:
+            self._dire("note", "Rien n'a été écrit.")
+            return True
+
+        ajout = (
+            contexte_fichier.ajouter_une_personne if appris.quoi is Quoi.PERSONNE
+            else contexte_fichier.ajouter_un_terme
+        )
+        pose = False
+        with contextlib.suppress(OSError):
+            pose = ajout(self.config.chemins.contexte, appris.sujet, appris.precision)
+        if not pose:
+            self._dire("note", f"« {appris.sujet} » était déjà dans le contexte.")
+            return True
+        # Le direct relit le contexte à chaque tranche : ce qui est appris
+        # maintenant sert à la phrase suivante, pas à la réunion d'après.
+        self._dire("greffier", (
+            f"« {appris.sujet} » ajouté au contexte. La transcription en cours "
+            "l'écrira juste dès la prochaine tranche."
+            if self._fil_reunion else
+            f"« {appris.sujet} » ajouté au contexte."
+        ))
+        return True
+
+    def _avec_les_documents(self, matiere: str, identifiant: str) -> str:
+        """Ajoute à la matière le texte des documents fournis pour cette réunion."""
+        from greffier.adaptateurs import pieces_fichier
+
+        documents = pieces_fichier.matiere(self.config.chemins.pieces, identifiant)
+        if not documents:
+            return matiere
+        return (
+            f"{matiere}\n\n--- Documents fournis pour cette réunion ---\n{documents}"
+        )
+
+    def _fournir_un_document(self) -> None:
+        """Donne un document à l'outil pendant la réunion, en un geste, deux effets.
+
+        Le texte reste attaché à la réunion, donc l'assistant répond dessus ;
+        et le vocabulaire qu'il porte est proposé au contexte, donc les
+        tranches suivantes du direct l'écrivent juste. Les deux comptent : un
+        ordre du jour fourni en début de réunion nomme la moitié des sigles
+        qu'on va entendre.
+        """
+        from tkinter import filedialog
+
+        from greffier.adaptateurs import pieces_fichier
+        from greffier.application import deposer as travail
+        from greffier.domaine.depot import Destin, proposer
+
+        choisis = filedialog.askopenfilenames(
+            parent=self.racine,
+            title="Fournir des documents pour cette réunion",
+        )
+        if not choisis:
+            return
+        outils = travail.outils_presents()
+        propositions = [
+            proposer(Path(chemin), Path(chemin).stat().st_size, outils)
+            for chemin in choisis
+        ]
+        documents = [p for p in propositions if p.destin is Destin.CONTEXTE]
+        autres = [p for p in propositions if p.destin is not Destin.CONTEXTE]
+        if autres:
+            self._dire("note", (
+                f"{len(autres)} fichier(s) sont des sons ou des vidéos : ils "
+                "deviennent des réunions à transcrire, pas du contexte. "
+                "Onglet Réunions, « Déposer des fichiers »."
+            ))
+        if not documents:
+            return
+
+        identifiant = self._fil_reunion or self._selection() or ""
+        if not identifiant:
+            self._dire("note", (
+                "Aucune réunion en cours ni choisie : je lis quand même les "
+                "documents pour en tirer du vocabulaire, mais leur texte ne "
+                "sera rangé sous aucune réunion."
+            ))
+        redacteur = self._redacteur_de_documents(documents)
+
+        def faire(dire: Callable[[str], None]) -> Any:
+            gardees: list[Any] = []
+            appris: list[tuple[str, str, str]] = []
+            soucis: list[str] = []
+            for numero, proposition in enumerate(documents, start=1):
+                dire(f"{proposition.fichier.name} ({numero}/{len(documents)})…")
+                lu = travail.lire_le_texte(proposition.fichier)
+                if not lu.strip():
+                    soucis.append(proposition.fichier.name)
+                    continue
+                if identifiant:
+                    piece = pieces_fichier.ecrire(
+                        self.config.chemins.pieces, identifiant,
+                        proposition.fichier.name, lu,
+                    )
+                    if piece is not None:
+                        gardees.append(piece)
+                if redacteur is not None:
+                    appris.extend(travail.apprendre_du_texte(lu, redacteur))
+            return (gardees, appris, soucis)
+
+        def fini(rendu: Any, souci: Exception | None) -> None:
+            if souci is not None:
+                self._dire("note", f"Lecture interrompue : {souci}")
+                return
+            gardees, appris, soucis = rendu
+            for nom in soucis:
+                self._dire("note", (
+                    f"{nom} : rien de lisible. Un PDF scanné demande "
+                    "« pdftotext », et une image n'est pas du texte."
+                ))
+            for piece in gardees:
+                self._dire("greffier", (
+                    f"« {piece.nom} » lu, {piece.caracteres} caractères gardés. "
+                    "Tu peux me poser des questions dessus."
+                ))
+            self._proposer_au_contexte(appris)
+
+        self._lancer(Travail(intitule="lecture", faire=faire, fini=fini))
+
     def _demander(self) -> None:
         from greffier.composition import assistant
 
@@ -2453,6 +2638,12 @@ class Fenetre:
         # tape répond à ce qui vient d'être demandé, comme dans un dialogue.
         # Autrement, il faudrait un second champ de saisie pour la même chose.
         if self._questions_attente and self._repondre_a_la_question(question):
+            return
+        if self._apprentissage_attente is not None and self._confirmer_l_apprentissage(
+            question
+        ):
+            return
+        if self._entendre_une_intention(question):
             return
 
         moteur = assistant(self.config)
@@ -2480,6 +2671,7 @@ class Fenetre:
                 return
             matiere, quoi, sur = source.read_text(encoding="utf-8"), "le compte rendu", identifiant
 
+        matiere = self._avec_les_documents(matiere, sur)
         self.question.delete(0, "end")
         self._dire("moi", question)
 
