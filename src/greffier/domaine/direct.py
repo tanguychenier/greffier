@@ -309,6 +309,31 @@ class Fil:
         connue = self.voix.get(voix)
         return connue.etiquette if connue else f"Voix {voix}"
 
+    def rendu(self, depuis: float = 0.0) -> str:
+        """Le fil en texte suivi, attribué, pour qu'on puisse l'interroger.
+
+        La conversation exigeait un compte rendu, donc une réunion **terminée** :
+        impossible de demander « qu'a-t-on décidé sur Oasis ? » pendant qu'on en
+        parle, alors que le fil, lui, est déjà là. Les tours consécutifs d'une
+        même voix sont regroupés, comme dans la transcription définitive : une
+        étiquette par phrase rend le texte illisible pour qui doit le résumer.
+
+        `depuis` coupe les premières secondes, pour n'interroger que la fin
+        d'une longue réunion sans tout renvoyer.
+        """
+        lignes: list[str] = []
+        courant: str | None = None
+        for tour in self.tours:
+            if tour.intervalle.fin < depuis or not tour.texte.strip():
+                continue
+            qui = self.etiquette(tour.voix)
+            if qui != courant:
+                lignes.append(f"\n[{qui}]")
+                courant = qui
+            minutes, secondes = divmod(int(tour.intervalle.debut), 60)
+            lignes.append(f"{minutes:02d}:{secondes:02d}  {tour.texte.strip()}")
+        return "\n".join(lignes).strip()
+
     def noms_proposables(self) -> list[str]:
         """Les noms qu'un menu de correction peut offrir sans rien inventer.
 
