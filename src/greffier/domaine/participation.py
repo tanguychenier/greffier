@@ -266,4 +266,10 @@ def question_posee(texte: str, nom: str) -> str:
         if not (mot.strip() and _distance(_sans_accents(mot), cherche, plafond) <= plafond)
     ]
     reste = re.sub(r"\s+", " ", "".join(gardes))
+    # « Du coup Lucie, tu peux » laisse « Du coup , tu peux » : la ponctuation
+    # qui suivait le nom se retrouve détachée du mot qui la précède. Seuls la
+    # virgule et le point se recollent : en français, le point-virgule, les
+    # deux-points et les points d'exclamation et d'interrogation prennent une
+    # espace avant, et la leur retirer serait une faute de plus, pas de moins.
+    reste = re.sub(r"\s+([,.])", r"\1", reste)
     return re.sub(r"^[\s,.:;!?]+", "", reste).strip()
