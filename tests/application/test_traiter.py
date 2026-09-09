@@ -246,8 +246,13 @@ class ExtracteurFactice:
         from greffier.domaine.empreintes import normaliser
 
         self.appels.append(list(intervalles))
-        cle = (intervalles[0].debut, intervalles[0].fin)
-        return [normaliser(self.vecteurs[cle], duree_source=i.duree) for i in intervalles]
+        # Un vecteur par intervalle, et non celui du premier appliqué à tous :
+        # le vrai extracteur lit chaque extrait. Les rendre solidaires faisait
+        # passer un appel groupé pour une seule et même voix.
+        return [
+            normaliser(self.vecteurs[(i.debut, i.fin)], duree_source=i.duree)
+            for i in intervalles
+        ]
 
 
 class BanqueFactice:
