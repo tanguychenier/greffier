@@ -79,11 +79,33 @@ The clouds now overlap, so **no threshold separates them**. What each one costs:
 | 0.45 | 3 of 7 | 3 of 84 |
 | 0.40 | 1 of 7 | 3 of 84 |
 
-0.70 is the only value that confuses nobody. Lowering it to 0.40 would
-recognise three more people at the cost of three confusions -- and this tool
-writes names into a report sent to other people, where the standing rule is
-already that staying silent beats asserting. **The threshold stays at 0.70**,
-and the earlier reading was drawn from too few pairs.
+0.70 confuses nobody, but that table asks the wrong question -- and so did the
+one before it. **Neither reproduces what the tool actually does.** Recognition
+never compares two prints in isolation: it asks which of the known people a
+voice resembles most, and whether it resembles them *distinctly* more than
+anyone else. Threshold **and** margin, which `Correspondance.sure` has always
+required and which had never been measured together.
+
+Measured that way -- querying sitting b against a bank built from sitting a,
+across all four series:
+
+| Threshold | Recognised | Confused |
+|---|---|---|
+| 0.70 | 3 of 7 | 0 |
+| **0.45** | **4 of 7** | **0** |
+| 0.30 | 5 of 7 | 1 |
+
+**The threshold moves to 0.45.** It recognises one more person and still
+confuses nobody: of the two wrong matches in the corpus, one is rejected by the
+threshold (0.338) and the other by the margin (0.041 of separation). The margin
+is what makes a lower threshold safe, and it is why the pairwise tables above
+looked worse than reality.
+
+Declaring that a bank entry carries someone else's voice is a different
+question and keeps the old value, as `SEUIL_CONFLIT = 0.70`. A conflict
+silences a name, so declaring one lightly amounts to recognising nobody -- and
+different people reach 0.652 in this corpus, which a 0.45 conflict threshold
+would have treated as the same person.
 
 One methodological caveat, and it matters: AMI does not guarantee that
 participant N keeps the same headset from one sitting to the next. Some of the
