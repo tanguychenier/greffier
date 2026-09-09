@@ -125,6 +125,9 @@ class Fenetre:
         #: la file se relit à chaque tour, l'affichage ne doit pas se répéter.
         self._questions_vues: set[int] = set()
         self._questions_attente: list[Any] = []
+        #: Réunion dont la conversation est à l'écran, pour ne pas la repeindre
+        #: à chaque tour de la boucle du direct.
+        self._conversation_affichee = ""
         self._fil_reunion = ""
         self._fil_position = 0
         self._fil_annonce = ""
@@ -545,6 +548,10 @@ class Fenetre:
         self._questions_vues = set()
         self._questions_attente = []
         self.onglets.marquer("Conversation", 0)
+        # Une autre réunion, une autre conversation : celle qui est à l'écran
+        # n'est plus la bonne.
+        self._conversation_affichee = ""
+        self._charger_la_conversation()
         self._vider(self.fil_texte)
         self._dire_l_etat_du_direct()
 
@@ -758,10 +765,14 @@ class Fenetre:
         self.question.bind("<Return>", lambda _e: self._demander())
         Bouton(saisie, "Demander", self._demander, self.couleurs, principal=True,
                largeur=124, hauteur=36).grid(row=0, column=1, padx=(11, 0))
-        self._dire("note", "Pose une question sur la réunion en cours, ou sur celle "
-                           "choisie dans l'onglet Réunions : ce qui a été décidé, ce "
-                           "qui reste ouvert, à qui envoyer le compte rendu. Pendant "
-                           "une réunion, la réponse vient du fil du direct.")
+        # L'accueil est peint et non « dit » : le garder reviendrait à écrire une
+        # ligne d'invite dans le journal de chaque réunion.
+        self._peindre_le_tour(
+            "note",
+            "Pose une question sur la réunion en cours, ou sur celle choisie dans "
+            "l'onglet Réunions. Pendant une réunion, la réponse vient du fil du "
+            "direct, et je peux chercher en ligne si la question sort de la réunion.",
+        )
 
     # ---------------------------------------------------------------- réglages
 
@@ -1752,9 +1763,41 @@ class Fenetre:
         if garde:
             self._choisir(garde)
 
+    def _charger_la_conversation(self) -> None:
+        """Réaffiche ce qui a déjà été dit sur la réunion choisie.
+
+        Relu du disque plutôt que gardé en mémoire : c'est ce qui fait qu'une
+        conversation survit à une fermeture de la fenêtre, à une mise à jour, et
+        à un plantage.
+        """
+        from greffier.adaptateurs import conversations_fichier
+
+        identifiant = self._fil_reunion or self._selection()
+        if not identifiant or identifiant == self._conversation_affichee:
+            return
+        self._conversation_affichee = identifiant
+        tours = conversations_fichier.lire(
+            conversations_fichier.fichier_de(self.config.chemins.conversations,
+                                             identifiant)
+        )
+        self._vider(self.fil)
+        if not tours:
+            self._peindre_le_tour(
+                "note",
+                "Pose une question sur la réunion en cours, ou sur celle choisie "
+                "dans l'onglet Réunions. Pendant une réunion, la réponse vient du "
+                "fil du direct, et je peux chercher en ligne si la question sort "
+                "de la réunion.",
+            )
+            return
+        self._peindre_le_tour("note", f"— conversation de « {identifiant} » —")
+        for tour in tours:
+            self._peindre_le_tour(tour.qui, tour.texte)
+
     def _charger_voix(self) -> None:
         from greffier.application.nommer import voix_a_nommer
 
+        self._charger_la_conversation()
         for ligne in self.voix.get_children():
             self.voix.delete(ligne)
         identifiant = self._selection()
@@ -2043,6 +2086,27 @@ class Fenetre:
     # ---------------------------------------------------------- conversation
 
     def _dire(self, qui: str, texte: str) -> None:
+        self._garder_le_tour(qui, texte)
+        self._peindre_le_tour(qui, texte)
+
+    def _garder_le_tour(self, qui: str, texte: str) -> None:
+        """Écrit le tour sous la réunion dont il parle, s'il y en a une.
+
+        Sans réunion identifiable, on ne garde rien : ranger un échange sous
+        une réunion au hasard rendrait le fichier trompeur.
+        """
+        from greffier.adaptateurs import conversations_fichier
+
+        identifiant = self._fil_reunion or self._selection()
+        if not identifiant:
+            return
+        conversations_fichier.ajouter(
+            conversations_fichier.fichier_de(self.config.chemins.conversations,
+                                             identifiant),
+            qui, texte,
+        )
+
+    def _peindre_le_tour(self, qui: str, texte: str) -> None:
         self.fil.configure(state="normal")
         if qui in ("moi", "greffier"):
             self.fil.insert("end", "TOI\n" if qui == "moi" else "GREFFIER\n", "qui")

@@ -95,6 +95,15 @@ class Chemins(BaseModel):
         """
         return self.donnees / "questions"
 
+    @property
+    def conversations(self) -> Path:
+        """Ce qu'on s'est dit avec l'assistant, réunion par réunion.
+
+        Gardé comme le reste : une conversation qui disparaît au redémarrage
+        n'est pas une conversation, c'est un brouillon.
+        """
+        return self.donnees / "conversations"
+
 
 class Audio(BaseModel):
     # Sur macOS, deux périphériques à créer une fois. Ailleurs, le système
