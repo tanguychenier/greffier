@@ -178,6 +178,24 @@ def _duree_lisible(secondes: float) -> str:
     return f"{restantes} s"
 
 
+def entete_information(information: str) -> str:
+    """La mention sur l'enregistrement, dictée au rédacteur mot pour mot.
+
+    Comme la ligne de contexte : composée ici et non laissée au rédacteur. Une
+    mention légale n'est pas matière à style, et un modèle qui la reformule à
+    chaque fois la rend inexploitable — on ne peut plus la chercher dans
+    d'anciens comptes rendus.
+    """
+    from greffier.domaine.consentement import lire, mention
+
+    return (
+        "[Mention sur l'enregistrement]\n"
+        "Reproduis cette phrase telle quelle en fin de document, sous un titre "
+        "« ## Mention », sans rien y ajouter ni en retirer :\n"
+        f"{mention(lire(information))}\n\n"
+    )
+
+
 def entete_materiel(evenements: list[str]) -> str:
     """Ce que la veille a constaté du matériel, dit au rédacteur.
 
@@ -255,7 +273,11 @@ def rendre_transcription(reunion: Transcrite, entete: str = "") -> str:
     return entete + "\n".join(lignes).strip() + "\n"
 
 
-def regenerer_compte_rendu(reunion: ReunionEnregistree, redacteur: sortants.Redacteur) -> str:
+def regenerer_compte_rendu(
+    reunion: ReunionEnregistree,
+    redacteur: sortants.Redacteur,
+    information: str = "rien",
+) -> str:
     """Rejoue uniquement la rédaction, depuis ce qui est déjà transcrit.
 
     Nommer une voix ne change ni la segmentation ni la transcription : rejouer
@@ -279,6 +301,7 @@ def regenerer_compte_rendu(reunion: ReunionEnregistree, redacteur: sortants.Reda
         )
         + entete_materiel(reunion.evenements_materiel)
         + entete_fiabilite(reunion)
+        + entete_information(information)
     )
     return redacteur.rediger(rendre_transcription(reunion, entete))
 

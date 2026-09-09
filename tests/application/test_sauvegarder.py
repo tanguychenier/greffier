@@ -143,3 +143,12 @@ class TestOuEstEcriteLArchive:
         donnees = poser_des_donnees(tmp_path / "donnees")
         faite = faire(donnees, None, tmp_path / "disque-externe")
         assert faite.sur_le_meme_disque is False
+
+    def test_un_dossier_qui_porte_le_nom_de_l_outil_n_est_pas_le_meme_disque(
+        self, tmp_path
+    ):
+        """« Greffier-sauvegardes » dans un espace synchronisé contient le mot
+        « Greffier » : chercher le mot prévenait qui avait fait ce qu'il faut."""
+        donnees = poser_des_donnees(tmp_path / "Greffier")
+        faite = faire(donnees, None, tmp_path / "nuage" / "Greffier-sauvegardes")
+        assert faite.sur_le_meme_disque is False

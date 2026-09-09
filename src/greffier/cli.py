@@ -347,7 +347,10 @@ def _regenerer(config: Config, identifiant: str) -> bool:
     if moteur is None:
         return False
     reunion = depot(config).lire(identifiant)
-    chemin.write_text(regenerer_compte_rendu(reunion, moteur), encoding="utf-8")
+    chemin.write_text(
+        regenerer_compte_rendu(reunion, moteur, config.conversation.information),
+        encoding="utf-8",
+    )
     typer.secho(f"Compte rendu régénéré : {chemin}", fg=typer.colors.GREEN)
     return True
 
@@ -1654,7 +1657,9 @@ def rediger(
 
     typer.secho(f"  rédaction      {identifiant}…", fg=typer.colors.BLUE)
     try:
-        texte = regenerer_compte_rendu(gardee, moteur)
+        texte = regenerer_compte_rendu(
+            gardee, moteur, config.conversation.information
+        )
     except (RuntimeError, subprocess.SubprocessError) as souci:
         typer.secho(f"✗ {souci}", fg=typer.colors.RED, err=True)
         typer.echo(
