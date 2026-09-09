@@ -121,6 +121,10 @@ class Fenetre:
         # processus d'écoute publie. La fenêtre y applique les corrections tout
         # de suite, sans attendre la tranche suivante.
         self._fil = Fil()
+        #: Numéros de questions déjà écrites dans le fil de la conversation :
+        #: la file se relit à chaque tour, l'affichage ne doit pas se répéter.
+        self._questions_vues: set[int] = set()
+        self._questions_attente: list[Any] = []
         self._fil_reunion = ""
         self._fil_position = 0
         self._fil_annonce = ""
@@ -501,6 +505,32 @@ class Fenetre:
         else:
             self._ajouter_au_direct(self._fil.tours[deja:])
         self._dire_l_etat_du_direct()
+        self._suivre_les_questions()
+
+    def _suivre_les_questions(self) -> None:
+        """Affiche ce que l'outil demande, et pose le compte sur l'onglet.
+
+        Rien ne surgit : une boîte de dialogue au milieu d'une réunion coûte
+        plus qu'elle n'apporte. La pastille signale qu'il y a quelque chose à
+        voir, on y va quand on veut.
+        """
+        from greffier.adaptateurs import questions_fichier
+
+        if not self._fil_reunion:
+            return
+        fichier = questions_fichier.fichier_des_questions(
+            self.config.chemins.questions, self._fil_reunion
+        )
+        attente, _ = questions_fichier.lire(fichier)
+        for en_attente in attente:
+            if en_attente.numero in self._questions_vues:
+                continue
+            self._questions_vues.add(en_attente.numero)
+            self._dire("note", f"❓ {en_attente.question.texte}")
+            self._dire("note", "   Réponds « oui » ou « non » ci-dessous, ou "
+                               "écris l'orthographe juste.")
+        self._questions_attente = attente
+        self.onglets.marquer("Conversation", len(attente))
 
     def _oublier_le_direct(self, identifiant: str) -> None:
         """Repart de zéro : une autre réunion, un autre fil."""
@@ -508,6 +538,9 @@ class Fenetre:
         self._fil_reunion = identifiant
         self._fil_position = 0
         self._fil_annonce = ""
+        self._questions_vues = set()
+        self._questions_attente = []
+        self.onglets.marquer("Conversation", 0)
         self._vider(self.fil_texte)
         self._dire_l_etat_du_direct()
 
@@ -1889,12 +1922,67 @@ class Fenetre:
         self.fil.see("end")
         self.fil.configure(state="disabled")
 
+    #: Ce qui vaut « oui » quand l'outil demande s'il a bien compris.
+    ACCORDS = frozenset({"oui", "o", "yes", "y", "exact", "c'est ça", "voilà", "oui."})
+    REFUS = frozenset({"non", "n", "no", "pas du tout", "non."})
+
+    def _repondre_a_la_question(self, reponse: str) -> bool:
+        """Traite la saisie comme une réponse à la question en attente.
+
+        Rend Faux si la saisie n'en est manifestement pas une : une phrase
+        longue est une nouvelle question, pas une correction d'orthographe, et
+        la confondre ferait perdre les deux.
+        """
+        from greffier.adaptateurs import contexte_fichier, questions_fichier
+
+        en_attente = self._questions_attente[0]
+        nu = reponse.strip().casefold()
+        if nu in self.ACCORDS:
+            retenu = en_attente.question.attendu
+        elif nu in self.REFUS:
+            retenu = ""
+        elif len(reponse.split()) <= 3:
+            # Une orthographe donnée à la main l'emporte : c'est le cas où
+            # l'outil s'est trompé de terme, pas seulement d'orthographe.
+            retenu = reponse.strip()
+        else:
+            return False
+
+        self.question.delete(0, "end")
+        self._dire("moi", reponse)
+        fichier = questions_fichier.fichier_des_questions(
+            self.config.chemins.questions, self._fil_reunion
+        )
+        with contextlib.suppress(OSError):
+            questions_fichier.repondre(fichier, en_attente.numero, retenu or "non")
+        if retenu:
+            with contextlib.suppress(OSError):
+                pose = contexte_fichier.ajouter_un_terme(
+                    self.config.chemins.contexte, retenu
+                )
+            self._dire("note", (
+                f"« {retenu} » ajouté au contexte : les prochaines réunions "
+                "l'écriront juste." if pose
+                else f"« {retenu} » était déjà connu."
+            ))
+        else:
+            self._dire("note", "Noté, je ne redemanderai pas.")
+        self._questions_attente = self._questions_attente[1:]
+        self.onglets.marquer("Conversation", len(self._questions_attente))
+        return True
+
     def _demander(self) -> None:
         from greffier.composition import redacteur
 
         question = self.question.get().strip()
         if not question:
             return
+        # Une question en attente prend la main sur la conversation : ce qu'on
+        # tape répond à ce qui vient d'être demandé, comme dans un dialogue.
+        # Autrement, il faudrait un second champ de saisie pour la même chose.
+        if self._questions_attente and self._repondre_a_la_question(question):
+            return
+
         moteur = redacteur(self.config)
         if moteur is None:
             self._dire("note", "Aucun rédacteur configuré : « greffier configurer ».")

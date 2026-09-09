@@ -16,6 +16,7 @@ import functools
 import tkinter as tk
 from collections.abc import Callable
 
+from greffier.interface.lisible import marque_de_pastille
 from greffier.interface.style import Palette, police
 
 
@@ -375,24 +376,63 @@ def _points_arrondis(
 
 
 class _Segment(tk.Canvas):
-    """Un onglet dessiné, qui sait se peindre choisi ou non."""
+    """Un onglet dessiné, qui sait se peindre choisi ou non — et porter un compte.
+
+    Le compte est une pastille, comme le panier d'un site marchand : on doit
+    savoir qu'il y a quelque chose à voir **sans** être sur l'onglet, et sans
+    qu'une fenêtre surgisse au milieu d'une réunion. Elle n'apparaît qu'à partir
+    de un, et le segment s'élargit pour lui faire place plutôt que de réserver
+    un vide permanent.
+    """
+
+    #: Place prise par la pastille, marge comprise.
+    PLACE_PASTILLE = 26
 
     def __init__(self, parent: tk.Misc, intitule: str, couleurs: Palette,
                  action: Callable[[str], None]) -> None:
-        largeur = len(intitule) * 9 + 34
-        super().__init__(parent, width=largeur, height=32,
+        self.largeur_nue = len(intitule) * 9 + 34
+        super().__init__(parent, width=self.largeur_nue, height=32,
                          highlightthickness=0, bg=couleurs.fond)
         self.intitule = intitule
         self.couleurs = couleurs
-        self.forme = rectangle_arrondi(self, 1, 1, largeur - 1, 31, 8,
-                                       fill=couleurs.fond)
-        self.texte = self.create_text(largeur / 2, 16, text=intitule,
-                                      fill=couleurs.encre_pale, font=police(12))
+        self._compte = 0
+        self._choisi = False
+        self.forme = -1
+        self.texte = -1
+        self._dessiner()
         self.bind("<Button-1>", lambda _e: action(self.intitule))
         self.bind("<Enter>", lambda _e: self.configure(cursor="pointinghand"))
         self.bind("<Leave>", lambda _e: self.configure(cursor=""))
 
+    def _dessiner(self) -> None:
+        """Redessine tout : la largeur change avec la pastille.
+
+        Redessiner plutôt que déplacer, parce que la forme arrondie est faite
+        de segments dont on ne peut pas changer la largeur sans les refaire.
+        """
+        self.delete("all")
+        largeur = self.largeur_nue + (self.PLACE_PASTILLE if self._compte else 0)
+        self.configure(width=largeur)
+        self.forme = rectangle_arrondi(
+            self, 1, 1, largeur - 1, 31, 8,
+            fill=self.couleurs.carte if self._choisi else self.couleurs.fond,
+        )
+        self.texte = self.create_text(
+            self.largeur_nue / 2, 16, text=self.intitule,
+            fill=self.couleurs.accent if self._choisi else self.couleurs.encre_pale,
+            font=police(12),
+        )
+        if not self._compte:
+            return
+        marque = marque_de_pastille(self._compte)
+        centre = self.largeur_nue + self.PLACE_PASTILLE / 2 - 5
+        self.create_oval(centre - 9, 7, centre + 9, 25,
+                         fill=self.couleurs.accent, outline="")
+        self.create_text(centre, 16, text=marque, fill=self.couleurs.carte,
+                         font=police(9, gras=True))
+
     def peindre(self, choisi: bool) -> None:
+        self._choisi = choisi
         self.itemconfigure(
             self.forme, fill=self.couleurs.carte if choisi else self.couleurs.fond
         )
@@ -400,6 +440,14 @@ class _Segment(tk.Canvas):
             self.texte,
             fill=self.couleurs.accent if choisi else self.couleurs.encre_pale,
         )
+
+    def marquer(self, compte: int) -> None:
+        """Pose ou retire la pastille. Ne redessine que si le compte a changé."""
+        compte = max(0, compte)
+        if compte == self._compte:
+            return
+        self._compte = compte
+        self._dessiner()
 
 
 class Onglets(tk.Frame):
@@ -435,7 +483,21 @@ class Onglets(tk.Frame):
         for nom, segment in self._segments.items():
             segment.peindre(nom == intitule)
         self._courant = intitule
+        # Vue, la pastille n'a plus rien à signaler.
+        segment_courant = self._segments.get(intitule)
+        if segment_courant is not None:
+            segment_courant.marquer(0)
 
     @property
     def courant(self) -> str | None:
         return self._courant
+
+    def marquer(self, intitule: str, compte: int) -> None:
+        """Pose un compte sur un onglet, pour le signaler sans l'ouvrir.
+
+        Le compte s'efface de lui-même quand l'onglet est celui qu'on regarde :
+        une pastille sur l'onglet où l'on se trouve ne signale plus rien.
+        """
+        segment = self._segments.get(intitule)
+        if segment is not None:
+            segment.marquer(0 if self._courant == intitule else compte)

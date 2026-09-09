@@ -86,6 +86,15 @@ class Chemins(BaseModel):
         """
         return dossier_config() / "contexte.toml"
 
+    @property
+    def questions(self) -> Path:
+        """Ce que l'outil a demandé pendant la réunion, et ce qu'on a répondu.
+
+        Dans les données et non dans la configuration : c'est la trace d'une
+        réunion, elle vit et meurt avec elle.
+        """
+        return self.donnees / "questions"
+
 
 class Audio(BaseModel):
     # Sur macOS, deux périphériques à créer une fois. Ailleurs, le système

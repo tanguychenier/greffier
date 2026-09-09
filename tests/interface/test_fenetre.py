@@ -11,6 +11,7 @@ from pathlib import Path
 
 from greffier.interface.lisible import etat_du_direct as _etat_du_direct
 from greffier.interface.lisible import horloge as _horloge
+from greffier.interface.lisible import marque_de_pastille as _marque
 from greffier.interface.lisible import sujet_lisible as _sujet_lisible
 
 
@@ -88,3 +89,25 @@ class TestEtatDuDirect:
         dit = _etat_du_direct(en_reunion=True, annonce="", phrases=14)
         assert "14 phrase(s)" in dit
         assert "corriger" in dit
+
+
+class TestPastilleDOnglet:
+    """Le compte posé sur un onglet qu'on ne regarde pas.
+
+    Demandé à l'usage, sur le modèle du panier d'un site marchand : on doit
+    savoir qu'il y a quelque chose à voir sans être sur l'onglet, et sans
+    qu'une fenêtre surgisse au milieu d'une réunion.
+    """
+
+    def test_rien_a_signaler_ne_dessine_rien(self) -> None:
+        assert _marque(0) == ""
+        assert _marque(-1) == ""
+
+    def test_le_compte_s_affiche_tel_quel(self) -> None:
+        assert _marque(1) == "1"
+        assert _marque(9) == "9"
+
+    def test_au_dela_de_neuf_le_nombre_exact_n_aide_plus(self) -> None:
+        """Deux chiffres déborderaient du disque, et « beaucoup » suffit."""
+        assert _marque(10) == "9+"
+        assert _marque(42) == "9+"
