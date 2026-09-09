@@ -372,3 +372,46 @@ class TestJournalParReunion:
         machine = self.machine(tmp_path)
         (tmp_path / "etat.json").write_text("pas du JSON", encoding="utf-8")
         machine.pour("x").publier("transcription", "en cours")
+
+
+class TestEtatFigeParUnProcessusMort:
+    """Le fichier d'état survit à tout ; le processus, non.
+
+    Le contrôle ne valait que pour l'enregistrement. Une rédaction interrompue
+    laissait donc l'état figé sur « Rédaction… » avec un processus mort, et la
+    fenêtre l'affichait encore le lendemain matin — mesuré le 2026-09-09,
+    annonçant une réunion en cours qui n'existait plus.
+    """
+
+    def _etat(self, tmp_path, phase, pid):
+        machine = Enregistrement(
+            enregistreur=EnregistreurFactice(),
+            dossier_audio=tmp_path / "audio",
+            fichier_etat=tmp_path / "etat.json",
+        )
+        depart = machine.lire()
+        depart.phase = Phase(phase)
+        depart.message = "en cours…"
+        depart.pid = pid
+        machine.ecrire(depart)
+        return machine.lire()
+
+    def test_une_redaction_dont_le_processus_est_mort_ne_tient_plus(self, tmp_path):
+        etat = self._etat(tmp_path, "redaction", 999_999)
+        assert etat.phase is Phase.ECHEC
+        assert "Rédiger" in etat.message
+
+    def test_un_enregistrement_mort_le_dit_autrement(self, tmp_path):
+        """Les deux se réparent différemment : autant ne pas les confondre."""
+        etat = self._etat(tmp_path, "enregistrement", 999_999)
+        assert etat.phase is Phase.ECHEC
+        assert "audio est conservé" in etat.message
+
+    def test_un_processus_vivant_est_laisse_tranquille(self, tmp_path):
+        etat = self._etat(tmp_path, "redaction", os.getpid())
+        assert etat.phase is Phase.REDACTION
+
+    def test_une_phase_terminee_n_est_pas_touchee(self, tmp_path):
+        """« Terminé » n'attend aucun processus : il n'y a rien à vérifier."""
+        etat = self._etat(tmp_path, "termine", 999_999)
+        assert etat.phase is Phase.TERMINE
