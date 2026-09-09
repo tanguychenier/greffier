@@ -743,3 +743,57 @@ class TestLaChaineGardeLaReunion:
         assert resultat.compte_rendu_ecrit is None
         assert not (tmp_path / "comptes-rendus").exists()
         assert resultat.fichier_maitre is None
+
+
+class TestCanauxEnPresentiel:
+    """Le silence de la boucle système ne veut pas dire la même chose partout."""
+
+    def test_une_reunion_en_salle_ne_declenche_aucune_alarme(self):
+        """Le micro de table entend tout le monde : il n'y a rien à signaler.
+
+        Annoncer « seule ta voix est transcrite » y était faux, et le rédacteur
+        lit ces avertissements — lui laisser croire qu'il manque du monde lui
+        fait écrire un compte rendu prudent sur une transcription complète.
+        """
+        from greffier.application.traiter import AVERTISSEMENT_SANS_BOUCLE, Resultat
+
+        resultat = Resultat(audio=AUDIO)
+        resultat.avertissements.append(AVERTISSEMENT_SANS_BOUCLE)
+        resultat.tours = [
+            TourDeParole(Intervalle(0, 40), "0"),
+            TourDeParole(Intervalle(40, 90), "1"),
+        ]
+        chaine()._preciser_les_canaux(resultat)
+        assert resultat.avertissements == []
+
+    def test_une_seule_voix_sans_boucle_est_signalee(self):
+        """Là, une visio mal branchée a bien pu perdre tout le monde."""
+        from greffier.application.traiter import AVERTISSEMENT_SANS_BOUCLE, Resultat
+
+        resultat = Resultat(audio=AUDIO)
+        resultat.avertissements.append(AVERTISSEMENT_SANS_BOUCLE)
+        resultat.tours = [TourDeParole(Intervalle(0, 90), "0")]
+        chaine()._preciser_les_canaux(resultat)
+        assert len(resultat.avertissements) == 1
+        assert "visio" in resultat.avertissements[0]
+
+    def test_le_message_provisoire_ne_survit_jamais(self):
+        """Il n'est pas fait pour être lu : c'est une marque, pas une phrase."""
+        from greffier.application.traiter import AVERTISSEMENT_SANS_BOUCLE, Resultat
+
+        for tours in ([TourDeParole(Intervalle(0, 90), "0")],
+                      [TourDeParole(Intervalle(0, 40), "0"),
+                       TourDeParole(Intervalle(40, 90), "1")]):
+            resultat = Resultat(audio=AUDIO)
+            resultat.avertissements.append(AVERTISSEMENT_SANS_BOUCLE)
+            resultat.tours = tours
+            chaine()._preciser_les_canaux(resultat)
+            assert AVERTISSEMENT_SANS_BOUCLE not in resultat.avertissements
+
+    def test_sans_marque_rien_n_est_ajoute(self):
+        from greffier.application.traiter import Resultat
+
+        resultat = Resultat(audio=AUDIO)
+        resultat.tours = [TourDeParole(Intervalle(0, 90), "0")]
+        chaine()._preciser_les_canaux(resultat)
+        assert resultat.avertissements == []
