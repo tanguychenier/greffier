@@ -49,6 +49,21 @@ def sujet_lisible(identifiant: str, compte_rendu: Path, sujet: str = "") -> str:
     return identifiant
 
 
+def marque_de_pastille(compte: int) -> str:
+    """Ce qu'une pastille d'onglet affiche pour ce compte. Vide pour rien.
+
+    Ici plutôt que dans le segment dessiné : ce qui touche à Tk n'est pas
+    éprouvé par les tests, faute de serveur d'affichage en intégration
+    continue, et c'est le nombre qui porte la règle.
+
+    Au-delà de neuf, le nombre exact n'aide plus : ce qui compte est qu'il y en
+    a beaucoup, et deux chiffres déborderaient du disque.
+    """
+    if compte <= 0:
+        return ""
+    return str(compte) if compte < 10 else "9+"
+
+
 def etat_du_direct(en_reunion: bool, annonce: str, phrases: int) -> str:
     """La ligne qui dit ce que le fil est en train de faire, ou pourquoi rien.
 

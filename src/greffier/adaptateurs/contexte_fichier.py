@@ -98,6 +98,30 @@ def depuis_la_banque(noms: list[str]) -> Contexte:
                                        for nom in noms if nom.strip()))
 
 
+def ajouter_un_terme(fichier: Path, ecriture: str, sens: str = "") -> bool:
+    """Ajoute un terme au fichier, en ajout seul. Faux s'il y était déjà.
+
+    Ajout et non réécriture : le fichier est édité à la main, il porte des
+    commentaires et un ordre voulus, et le régénérer les effacerait. C'est ce
+    qui permet de répondre à une question pendant une réunion sans perdre ce
+    que quelqu'un y avait écrit.
+    """
+    nu = ecriture.strip()
+    if not nu:
+        return False
+    if any(t.ecriture.casefold() == nu.casefold() for t in lire(fichier).termes):
+        return False
+    fichier.parent.mkdir(parents=True, exist_ok=True)
+    if not fichier.exists():
+        poser_le_gabarit(fichier)
+    lignes = [f'\n[[termes]]\necriture = "{nu}"\n']
+    if sens.strip():
+        lignes.append(f'sens = "{sens.strip()}"\n')
+    with fichier.open("a", encoding="utf-8") as flux:
+        flux.write("".join(lignes))
+    return True
+
+
 def poser_le_gabarit(fichier: Path) -> bool:
     """Écrit le fichier d'exemple s'il n'existe pas. Vrai s'il a été créé.
 
