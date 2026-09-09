@@ -45,6 +45,11 @@ COUVERTURE_BASSE = 0.80
 # de toutes pièces, expédié par mail (constaté le 2026-08-20).
 MOTS_MINIMUM = 20
 
+#: Posé quand la boucle système est muette, retiré ou précisé une fois qu'on
+#: sait combien de voix le micro portait. Une constante parce que deux endroits
+#: doivent désigner exactement le même message.
+AVERTISSEMENT_SANS_BOUCLE = "· boucle système muette, à préciser"
+
 
 class ChaineInterrompue(Exception):
     """Arrêt volontaire de la chaîne, avec une raison présentable."""
@@ -224,9 +229,35 @@ class Traitement:
                     "Ton micro est resté muet : seuls les autres participants sont transcrits."
                 )
             elif max(niveaux[1:]) < SEUIL_MUET_DB:
-                resultat.avertissements.append(
-                    "Aucun son système capté : seule ta voix est transcrite."
-                )
+                # Deux situations donnent le même silence, et on ne peut pas les
+                # distinguer ici : une réunion en salle, où tout passe par le
+                # micro et où ce silence est normal ; une visio dont la boucle
+                # système n'a pas été branchée, où les autres participants sont
+                # perdus. La première est de loin la plus fréquente, et annoncer
+                # « seule ta voix est transcrite » y était simplement faux — le
+                # micro de table entend tout le monde. `_preciser_les_canaux`
+                # tranche après le découpage, quand on sait combien de personnes
+                # ce micro portait.
+                resultat.avertissements.append(AVERTISSEMENT_SANS_BOUCLE)
+
+    def _preciser_les_canaux(self, resultat: Resultat) -> None:
+        """Dit ce que le silence de la boucle système voulait dire.
+
+        Une seule voix sur le micro : la boucle manquait vraiment, et les autres
+        participants sont perdus. Plusieurs voix : c'est une réunion en salle, le
+        micro a tout entendu, et il n'y a rien à signaler. Le rédacteur lit ces
+        avertissements ; lui laisser croire qu'il manque du monde lui fait écrire
+        un compte rendu prudent sur une transcription complète.
+        """
+        if AVERTISSEMENT_SANS_BOUCLE not in resultat.avertissements:
+            return
+        resultat.avertissements.remove(AVERTISSEMENT_SANS_BOUCLE)
+        if len(resultat.voix_significatives()) > 1:
+            return
+        resultat.avertissements.append(
+            "Aucun son système capté et une seule voix entendue : si la réunion "
+            "était en visio, les autres participants n'ont pas été enregistrés."
+        )
 
     def _avertir_couverture(self, resultat: Resultat) -> None:
         """Dit à l'utilisateur ce que la transcription a perdu.
@@ -439,6 +470,9 @@ class Traitement:
         resultat.tours = tours
         self._attacher_voix(resultat.repliques, tours)
         self._attribuer_noms(resultat.repliques, tours, self._reconnaitre(audio, tours), resultat)
+        # Après le découpage : c'est le nombre de voix entendues qui dit si le
+        # silence de la boucle système était normal ou coûteux.
+        self._preciser_les_canaux(resultat)
         self._avertir_couverture(resultat)
         self._avertir_participants(resultat)
 
