@@ -16,7 +16,7 @@ import functools
 import tkinter as tk
 from collections.abc import Callable
 
-from greffier.interface.lisible import marque_de_pastille
+from greffier.interface.lisible import boutons_par_rang, marque_de_pastille
 from greffier.interface.style import Palette, police
 
 
@@ -448,6 +448,55 @@ class _Segment(tk.Canvas):
             return
         self._compte = compte
         self._dessiner()
+
+
+class BarreDeBoutons(tk.Frame):
+    """Des boutons qui passent à la ligne quand la largeur manque.
+
+    `pack(side="left")` ne revient jamais à la ligne : le septième bouton de
+    l'onglet Réunions sortait de la fenêtre, invisible et inatteignable —
+    exactement le défaut que le module met en garde contre, en haut de ce
+    fichier, à propos d'un bouton poussé hors du cadre.
+
+    Le nombre de colonnes est recalculé à chaque redimensionnement, d'après la
+    largeur réellement offerte. Une grille et non un `pack` : c'est ce qui
+    permet de placer les boutons sur plusieurs rangs sans les mesurer un à un.
+    """
+
+    #: Espace entre deux boutons, horizontalement et verticalement.
+    ECART = 9
+
+    def __init__(self, parent: tk.Misc, couleurs: Palette) -> None:
+        super().__init__(parent, bg=couleurs.carte)
+        self.couleurs = couleurs
+        self._boutons: list[tuple[tk.Widget, int]] = []
+        self._colonnes = 0
+        self.bind("<Configure>", self._replacer)
+
+    def ajouter(self, bouton: tk.Widget, largeur: int) -> None:
+        self._boutons.append((bouton, largeur))
+        self._colonnes = 0  # forcer un replacement au prochain <Configure>
+
+    def _replacer(self, _evenement: object = None) -> None:
+        offerte = self.winfo_width()
+        if offerte <= 1 or not self._boutons:
+            return
+        par_rang = boutons_par_rang(
+            [largeur for _, largeur in self._boutons], offerte, self.ECART
+        )
+        if par_rang == self._colonnes:
+            return
+        self._colonnes = par_rang
+        dernier_rang = (len(self._boutons) - 1) // par_rang
+        for index, (bouton, _) in enumerate(self._boutons):
+            rang = index // par_rang
+            bouton.grid(
+                row=rang,
+                column=index % par_rang,
+                sticky="w",
+                padx=(0, self.ECART),
+                pady=(0, self.ECART) if rang < dernier_rang else 0,
+            )
 
 
 class Onglets(tk.Frame):

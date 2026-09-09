@@ -58,7 +58,14 @@ from greffier.domaine.compte_rendu import titre
 from greffier.domaine.direct import Fil, TourDirect
 from greffier.domaine.modeles import Phase
 from greffier.emplacements import situer_tcl
-from greffier.interface.apparence import Bouton, Defileur, Liste, Onglets, Vumetre
+from greffier.interface.apparence import (
+    BarreDeBoutons,
+    Bouton,
+    Defileur,
+    Liste,
+    Onglets,
+    Vumetre,
+)
 from greffier.interface.lisible import etat_du_direct, horloge, sujet_lisible
 from greffier.interface.style import degrade, palette, police, police_titre
 
@@ -416,7 +423,7 @@ class Fenetre:
             ("date", "Réunion", 320), ("voix", "Personnes", 90),
             ("mots", "Mots", 80), ("compte_rendu", "Compte rendu", 120),
         ))
-        actions = tk.Frame(dedans, bg=self.couleurs.carte)
+        actions = BarreDeBoutons(dedans, self.couleurs)
         actions.grid(row=1, column=0, sticky="ew", pady=(16, 0))
         for intitule, action, largeur in (
             ("Traiter", self._traiter_selection, 100),
@@ -430,8 +437,11 @@ class Fenetre:
             ("Supprimer", self._oublier_selection, 110),
             ("Rafraîchir", self._charger_reunions, 116),
         ):
-            Bouton(actions, intitule, action, self.couleurs,
-                   largeur=largeur, hauteur=34).pack(side="left", padx=(0, 9))
+            actions.ajouter(
+                Bouton(actions, intitule, action, self.couleurs,
+                       largeur=largeur, hauteur=34),
+                largeur,
+            )
         self.liste.bind("<<TreeviewSelect>>", lambda _e: self._charger_voix())
         self._charger_reunions()
 
