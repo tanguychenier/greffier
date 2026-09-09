@@ -15,6 +15,7 @@ import platform
 import shutil
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import typer
@@ -58,6 +59,22 @@ def _reunion_visee(config: Config, demandee: str | None) -> str:
                     fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
     return connues[0]
+
+
+def _heures_de(config: Config, audio: Path) -> tuple[datetime | None, datetime | None]:
+    """Les heures d'horloge de cette réunion, si l'état les a retenues.
+
+    Vérifie que l'état parle bien de **cet** enregistrement : traiter un vieux
+    fichier audio ne doit pas lui coller les heures de la dernière réunion. Sans
+    correspondance, le rédacteur retombe sur l'horodatage de l'identifiant.
+    """
+    try:
+        etat = enregistrement(config).lire()
+    except (OSError, ValueError):
+        return (None, None)
+    if etat.identifiant != audio.stem:
+        return (None, None)
+    return (etat.debut, etat.terminee_le)
 
 
 def _refuser_pendant_une_reunion(config: Config, quand_meme: bool) -> None:
@@ -135,10 +152,13 @@ def traiter(
     try:
         # Un destinataire renseigné vaut demande d'envoi : c'est la raison
         # d'être de l'outil, et le redemander à chaque réunion n'apporte rien.
+        commencee_le, terminee_le = _heures_de(config, audio)
         resultat = chaine.executer(
             audio,
             envoyer=not sans_envoi and bool(config.compte_rendu.destinataire),
             evenements_materiel=evenements,
+            commencee_le=commencee_le,
+            terminee_le=terminee_le,
         )
     except ChaineInterrompue as arret:
         typer.secho(f"✗ {arret.raison}", fg=typer.colors.RED, err=True)
