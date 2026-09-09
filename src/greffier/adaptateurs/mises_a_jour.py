@@ -72,8 +72,33 @@ def version_installee() -> str:
     justement ce qu'on cherche à comparer.
     """
     try:
-        return version_du_paquet("greffier")
+        installee = version_du_paquet("greffier")
     except PackageNotFoundError:
+        installee = ""
+    # Les métadonnées d'une installation modifiable sont figées à la date du
+    # `pip install`, pas à celle du code : un dépôt passé en 0.3.0 continuait
+    # d'annoncer 0.1.0 et se croyait en retard de deux versions. Le paquet
+    # construit, lui, est réinstallé et dit vrai — c'est donc uniquement au
+    # développement que la source doit primer.
+    depuis_les_sources = _version_du_projet()
+    return depuis_les_sources or installee
+
+
+def _version_du_projet() -> str:
+    """La version écrite dans `pyproject.toml`, si on tourne depuis les sources.
+
+    Vide dès que le fichier n'est pas là, ce qui est le cas dans le paquet
+    construit : la question ne se pose alors pas.
+    """
+    projet = Path(__file__).resolve().parents[3] / "pyproject.toml"
+    if not projet.exists():
+        return ""
+    try:
+        import tomllib
+
+        with projet.open("rb") as flux:
+            return str(tomllib.load(flux).get("project", {}).get("version", ""))
+    except (OSError, ValueError):
         return ""
 
 
