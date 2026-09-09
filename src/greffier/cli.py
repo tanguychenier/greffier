@@ -5,6 +5,7 @@
     greffier renommer <sujet>    donne un sujet lisible à une réunion
     greffier oublier             efface une réunion et tout ce qui va avec
     greffier contexte            ce que l'outil sait des sigles et des personnes
+    greffier ranger              applique la rétention aux enregistrements
     greffier verifier            dit ce qui est prêt et ce qui manque
 
 Volontairement mince : elle lit la configuration, demande à la composition
@@ -1131,6 +1132,69 @@ def renommer(
     gardee.sujet = sujet.strip()
     magasin.enregistrer(gardee)
     typer.secho(f"✓ {identifiant} → « {gardee.intitule} »", fg=typer.colors.GREEN)
+
+
+@application.command()
+def ranger(
+    pour_de_vrai: bool = typer.Option(
+        False, "--faire", help="Appliquer, au lieu de seulement dire ce qui se passerait"
+    ),
+    config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
+) -> None:
+    """Applique la règle de rétention aux enregistrements. Constate d'abord.
+
+    Sans « --faire », rien n'est modifié : la commande dit ce qu'elle
+    emporterait. Effacer un enregistrement ne se rattrape pas, et le voir avant
+    coûte trois secondes.
+    """
+    from datetime import UTC, datetime
+
+    from greffier.application import ranger as rangement
+    from greffier.application.restituer import archiver as compresser
+    from greffier.domaine.retention import Regle
+
+    config = Config.charger(config_fichier)
+    magasin = depot(config)
+    try:
+        regle = Regle(
+            compresser_apres=config.retention.compresser_apres_jours,
+            effacer_apres=config.retention.effacer_apres_jours,
+        )
+    except ValueError as souci:
+        typer.secho(f"✗ règle de rétention invalide : {souci}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1) from souci
+
+    maintenant = datetime.now(UTC)
+    reunions: list[tuple[str, float, bool]] = []
+    for identifiant in magasin.lister():
+        try:
+            detail = magasin.lire(identifiant)
+        except (OSError, ValueError):
+            continue
+        # L'âge se compte depuis la tenue de la réunion quand on la connaît :
+        # retraiter une vieille réunion ne doit pas la rajeunir.
+        reference = detail.commencee_le or detail.traitee_le
+        jours = (maintenant - reference).total_seconds() / 86400
+        reunions.append((identifiant, jours, bool(detail.repliques)))
+
+    faits = rangement.ranger(
+        _emplacements(config), regle, reunions, compresser, pour_de_vrai=pour_de_vrai
+    )
+    if not faits:
+        typer.echo("Rien à ranger : tout est déjà dans l'état voulu.")
+        return
+
+    for fait in faits:
+        if fait.souci:
+            typer.secho(f"  ⚠ {fait.identifiant} : {fait.souci}", fg=typer.colors.YELLOW)
+            continue
+        typer.echo(f"  {fait.geste:<12} {fait.identifiant}  "
+                   f"{rangement.lisible(fait.gagne)}")
+    total = rangement.lisible(sum(f.gagne for f in faits))
+    if pour_de_vrai:
+        typer.secho(f"✓ {total} libérés", fg=typer.colors.GREEN)
+    else:
+        typer.echo(f"\n{total} seraient libérés. « greffier ranger --faire » pour le faire.")
 
 
 @application.command()

@@ -88,3 +88,95 @@ class TestPoidsLisible:
         assert lisible(2048) == "2 Ko"
         assert lisible(158137446) == "151 Mo"
         assert lisible(3 * 1024**3) == "3.0 Go"
+
+
+class TestRangementSelonLaRetention:
+    """Constater d'abord : effacer un enregistrement ne se rattrape pas."""
+
+    def regle_courante(self):
+        from greffier.domaine.retention import Regle
+
+        return Regle(compresser_apres=7, effacer_apres=0)
+
+    def test_constater_ne_touche_a_rien(self, tmp_path):
+        from greffier.application.ranger import ranger
+
+        ou = emplacements(tmp_path)
+        poser_une_reunion(ou, "2026-08-01_09h00_vieille")
+        audio = ou.enregistrements / "2026-08-01_09h00_vieille.wav"
+        faits = ranger(ou, self.regle_courante(),
+                       [("2026-08-01_09h00_vieille", 40.0, True)],
+                       compresser=lambda chemin: chemin)
+        assert [f.geste for f in faits] == ["compresser"]
+        assert audio.exists(), "rien ne doit bouger sans --faire"
+
+    def test_appliquer_compresse(self, tmp_path):
+        from greffier.application.ranger import ranger
+
+        ou = emplacements(tmp_path)
+        poser_une_reunion(ou, "2026-08-01_09h00_vieille")
+        compresses = []
+
+        def compresser(chemin):
+            compresses.append(chemin)
+            produit = chemin.with_suffix(".opus")
+            produit.write_bytes(b"x" * 100)
+            chemin.unlink()
+            return produit
+
+        faits = ranger(ou, self.regle_courante(),
+                       [("2026-08-01_09h00_vieille", 40.0, True)],
+                       compresser=compresser, pour_de_vrai=True)
+        assert compresses, "la compression doit être appelée"
+        assert faits[0].gagne > 0
+
+    def test_une_reunion_recente_est_laissee(self, tmp_path):
+        from greffier.application.ranger import ranger
+
+        ou = emplacements(tmp_path)
+        poser_une_reunion(ou, "2026-09-09_10h05_reunion")
+        assert ranger(ou, self.regle_courante(),
+                      [("2026-09-09_10h05_reunion", 1.0, True)],
+                      compresser=lambda c: c) == []
+
+    def test_une_reunion_non_transcrite_est_intouchable(self, tmp_path):
+        """Son audio est tout ce qui existe d'elle."""
+        from greffier.application.ranger import ranger
+
+        ou = emplacements(tmp_path)
+        poser_une_reunion(ou, "2026-08-01_09h00_jamais-traitee")
+        assert ranger(ou, self.regle_courante(),
+                      [("2026-08-01_09h00_jamais-traitee", 365.0, False)],
+                      compresser=lambda c: c) == []
+
+    def test_une_compression_qui_echoue_est_rapportee(self, tmp_path):
+        """Un ffmpeg absent ne doit pas interrompre le rangement des autres."""
+        from greffier.application.ranger import ranger
+
+        ou = emplacements(tmp_path)
+        poser_une_reunion(ou, "2026-08-01_09h00_vieille")
+
+        def tomber(_chemin):
+            raise OSError("ffmpeg introuvable")
+
+        faits = ranger(ou, self.regle_courante(),
+                       [("2026-08-01_09h00_vieille", 40.0, True)],
+                       compresser=tomber, pour_de_vrai=True)
+        assert faits[0].souci
+        assert (ou.enregistrements / "2026-08-01_09h00_vieille.wav").exists()
+
+    def test_l_effacement_libere_tout_l_audio(self, tmp_path):
+        from greffier.application.ranger import ranger
+        from greffier.domaine.retention import Regle
+
+        ou = emplacements(tmp_path)
+        poser_une_reunion(ou, "2026-01-01_09h00_ancienne")
+        audio = ou.enregistrements / "2026-01-01_09h00_ancienne.wav"
+        faits = ranger(ou, Regle(compresser_apres=7, effacer_apres=90),
+                       [("2026-01-01_09h00_ancienne", 200.0, True)],
+                       compresser=lambda c: c, pour_de_vrai=True)
+        assert faits[0].geste == "effacer"
+        assert not audio.exists()
+        assert (ou.transcriptions / "2026-01-01_09h00_ancienne.txt").exists(), (
+            "la transcription porte le travail : elle reste"
+        )
