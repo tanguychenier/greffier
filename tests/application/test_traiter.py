@@ -594,6 +594,57 @@ class TestLaChaineGardeLaReunion:
         assert transcription.exists(), "la transcription lisible survit"
         assert not (tmp_path / "comptes-rendus").exists(), "aucun compte rendu tronqué"
 
+    def test_la_reunion_se_nomme_depuis_le_compte_rendu(self, tmp_path):
+        """Demandé à l'usage : « 2026-09-09_10h05_reunion » ne dit rien.
+
+        Le rédacteur a écrit son titre après avoir lu toute la transcription :
+        personne n'est mieux placé pour nommer la réunion.
+        """
+        class RedacteurQuiTitre:
+            def rediger(self, transcription):
+                return "# Compte rendu : point d'avancement des projets\n\nTexte."
+
+        deposees = []
+
+        class DepotEspion:
+            def enregistrer(self, reunion):
+                deposees.append(reunion)
+                return tmp_path / "reunions/essai.json"
+
+            def lire(self, identifiant):
+                raise FileNotFoundError(identifiant)
+
+        chaine(redacteur=RedacteurQuiTitre(), depot=DepotEspion()).executer(AUDIO)
+        assert deposees[-1].sujet == "point d'avancement des projets"
+
+    def test_un_sujet_saisi_a_la_main_survit_au_retraitement(self, tmp_path):
+        """Une correction que la chaîne écraserait ne servirait à rien."""
+        from datetime import UTC, datetime
+
+        from greffier.domaine.reunion import ReunionEnregistree
+
+        class RedacteurQuiTitre:
+            def rediger(self, transcription):
+                return "# Compte rendu : titre automatique\n\nTexte."
+
+        deposees = []
+
+        class DepotAvecSujet:
+            def enregistrer(self, reunion):
+                deposees.append(reunion)
+                return tmp_path / "reunions/essai.json"
+
+            def lire(self, identifiant):
+                return ReunionEnregistree(
+                    identifiant=identifiant, audio=AUDIO,
+                    traitee_le=datetime.now(UTC), duree=1.0,
+                    repliques=[], tours=[], noms={}, propositions={},
+                    avertissements=[], sujet="Point Oasis",
+                )
+
+        chaine(redacteur=RedacteurQuiTitre(), depot=DepotAvecSujet()).executer(AUDIO)
+        assert deposees[-1].sujet == "Point Oasis"
+
     def test_sans_dossier_la_chaine_reste_utilisable(self):
         """Les tests d'intégration s'en servent en mémoire, sans rien écrire."""
         resultat = chaine().executer(AUDIO)

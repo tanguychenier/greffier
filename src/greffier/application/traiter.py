@@ -8,6 +8,7 @@ et de savoir que la logique est juste indépendamment de whisper ou d'Ollama.
 
 from __future__ import annotations
 
+import contextlib
 import tempfile
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -75,6 +76,9 @@ class Resultat:
     #: retenues. `duree` ne les remplace pas : elle s'arrête au dernier mot.
     commencee_le: datetime | None = None
     terminee_le: datetime | None = None
+    #: Le sujet de la réunion, tiré du titre du compte rendu. Le rédacteur l'a
+    #: écrit après avoir lu toute la transcription : personne n'est mieux placé.
+    sujet: str = ""
 
     @property
     def mots(self) -> int:
@@ -431,6 +435,15 @@ class Traitement:
         resultat.compte_rendu = self.redacteur.rediger(
             rendre_transcription(resultat, entete)
         )
+        # La réunion se nomme d'elle-même : le titre du compte rendu a été écrit
+        # après lecture de toute la transcription, et « 2026-09-09_10h05_reunion »
+        # ne dit rien de ce qui s'y est passé. Le préfixe « Compte rendu : » est
+        # retiré — dans une liste de réunions, il ne distingue rien.
+        titre_ecrit = titre(resultat.compte_rendu, "")
+        if titre_ecrit:
+            resultat.sujet = (
+                titre_ecrit.split(":", 1)[-1].strip() if ":" in titre_ecrit else titre_ecrit
+            )
 
         # Le compte rendu rejoint ce qui était déjà gardé, **avant** l'envoi :
         # un serveur de courriel indisponible ne doit pas faire perdre une
@@ -469,6 +482,13 @@ class Traitement:
 
         duree = resultat.tours[-1].intervalle.fin if resultat.tours else 0.0
         if self.depot is not None:
+            # Un sujet saisi à la main l'emporte, et survit donc à un
+            # retraitement : c'est une correction, et une correction que la
+            # chaîne écraserait ne servirait à rien.
+            with contextlib.suppress(Exception):
+                garde = self.depot.lire(resultat.audio.stem).sujet
+                if garde:
+                    resultat.sujet = garde
             resultat.fichier_maitre = self.depot.enregistrer(
                 _en_reunion_enregistree(resultat, duree))
         if self.dossier_transcriptions is None:
@@ -521,6 +541,7 @@ def _en_reunion_enregistree(resultat: Resultat, duree: float) -> ReunionEnregist
         propositions=dict(resultat.propositions),
         avertissements=list(resultat.avertissements),
         evenements_materiel=list(resultat.evenements_materiel),
+        sujet=resultat.sujet,
         commencee_le=resultat.commencee_le,
         terminee_le=resultat.terminee_le,
     )
