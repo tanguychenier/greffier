@@ -44,6 +44,11 @@ class Etat(StrEnum):
 
 
 class Genre(StrEnum):
+    #: La racine : le sujet lui-même. Ni décidé ni en discussion — il **est**.
+    #: Sans ce genre, la règle qui interdit d'acter un problème dégradait la
+    #: racine en « en discussion », si bien que la carte d'Oasis annonçait
+    #: qu'Oasis était en discussion.
+    SUJET = "sujet"
     PROBLEME = "problème"
     PISTE = "piste"
     ACTION = "action"
@@ -101,6 +106,9 @@ _VIDES = frozenset({
 #: rédacteur ayant lu « acté » comme « établi ».
 GENRES_DECIDABLES = frozenset({Genre.PISTE, Genre.ACTION})
 
+#: Les genres qui ne portent pas d'état lisible. La racine en est.
+SANS_ETAT = frozenset({Genre.SUJET})
+
 
 def etat_possible(genre: Genre, etat: Etat) -> Etat:
     """L'état que ce genre peut porter. Ramène à « en discussion » sinon.
@@ -108,6 +116,8 @@ def etat_possible(genre: Genre, etat: Etat) -> Etat:
     « Dépassé » reste possible pour tout genre : un problème peut avoir cessé
     d'en être un.
     """
+    if genre in SANS_ETAT:
+        return etat
     if etat is Etat.ACTE and genre not in GENRES_DECIDABLES:
         return Etat.EN_DISCUSSION
     return etat
@@ -150,7 +160,7 @@ class Carte:
 
     def __post_init__(self) -> None:
         if self.racine is None:
-            self.racine = Noeud(self.sujet, genre=Genre.CONSTAT, etat=Etat.ACTE)
+            self.racine = Noeud(self.sujet, genre=Genre.SUJET, etat=Etat.ACTE)
 
     @property
     def compte(self) -> int:
