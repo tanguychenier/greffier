@@ -57,6 +57,9 @@ COULEURS = {
     Etat.DEPASSE: "gray",
 }
 
+#: La racine se distingue de ses branches : c'est le sujet, pas un point.
+COULEUR_SUJET = "light_blue"
+
 
 class MiroRefuse(RuntimeError):
     """L'appel n'a pas eu lieu, et pour une raison présentable."""
@@ -70,6 +73,11 @@ class Ecrit:
     poses: tuple[str, ...] = ()
     deja: tuple[str, ...] = ()
     adresse: str = ""
+    #: Liens tracés, et liens qui ont échoué. Les compter plutôt que d'avaler
+    #: l'échec : une carte sans un seul trait a été publiée ainsi, et rien ne
+    #: l'a dit — l'API attendait des identifiants numériques, pas des chaînes.
+    liens: int = 0
+    liens_manques: int = 0
 
 
 def jeton() -> str:
@@ -142,17 +150,17 @@ def creer_le_tableau(sujet: str) -> tuple[str, str]:
     return (identifiant, str(reponse.get("viewLink", "")))
 
 
-def textes_presents(tableau: str) -> set[str]:
-    """Les libellés déjà sur le tableau, quelle que soit leur origine.
+def objets_presents(tableau: str) -> dict[str, str]:
+    """Les points déjà sur le tableau : libellé en clair → identifiant d'objet.
 
-    Sert à n'écrire que ce qui manque. Inclut ce qu'un humain a posé à la main :
-    c'est voulu — un point déjà écrit par quelqu'un ne doit pas se voir doublé
-    par l'outil.
+    L'identifiant sert à **rattacher** un point ajouté plus tard à un parent qui
+    existait déjà. Sans lui, les branches des publications suivantes flottaient
+    sans lien : la première passe traçait douze traits, la seconde aucun, et la
+    carte se dégradait à mesure qu'on la complétait — exactement ce qu'elle est
+    censée éviter.
     """
-    from greffier.domaine.carte import clef
-
     _garder(tableau)
-    vus: set[str] = set()
+    trouves: dict[str, str] = {}
     curseur = ""
     while True:
         parametres = {"limit": "50"}
@@ -164,11 +172,43 @@ def textes_presents(tableau: str) -> set[str]:
         )
         for objet in reponse.get("data", []):
             contenu = (objet.get("data") or {}).get("content", "")
-            if contenu:
-                vus.add(clef(_sans_balises(contenu)))
+            if not contenu:
+                continue
+            # La première ligne porte le point ; les suivantes son état et sa
+            # provenance, qui ne font pas partie du libellé.
+            premiere = _sans_balises(contenu.split("</p>")[0])
+            if premiere:
+                trouves.setdefault(premiere, str(objet.get("id", "")))
         curseur = str(reponse.get("cursor", ""))
         if not curseur:
-            return vus
+            return trouves
+
+
+def libelles_presents(tableau: str) -> list[str]:
+    """Les libellés déjà sur le tableau, dans leur forme d'origine.
+
+    Donnés au rédacteur pour qu'il les reprenne mot pour mot au lieu de
+    reformuler — une reformulation ouvre une branche de plus.
+    """
+    return list(objets_presents(tableau))
+
+
+def textes_presents(tableau: str) -> set[str]:
+    """Les clefs de comparaison des points déjà sur le tableau.
+
+    Calculées sur le **seul libellé**, comme celles de la carte. La version
+    précédente les calculait sur tout le contenu de l'objet — libellé, état et
+    réunion d'origine — de sorte qu'elles portaient « discussion » et
+    « 2026-09-09_10h05_reunion » et ne pouvaient jamais correspondre. Résultat :
+    chaque publication reposait les treize mêmes points, la carte doublait à
+    chaque passage, et le compte annonçait « 0 déjà présent ».
+
+    Inclut ce qu'un humain a posé à la main : c'est voulu — un point déjà écrit
+    par quelqu'un ne doit pas se voir doublé par l'outil.
+    """
+    from greffier.domaine.carte import clef
+
+    return {clef(libelle) for libelle in libelles_presents(tableau)}
 
 
 def _sans_balises(html: str) -> str:
@@ -186,22 +226,33 @@ def publier(carte: Carte, tableau: str, reunion: str = "") -> Ecrit:
     humain a peut-être déplacé ou réécrit demanderait de savoir qui l'a touché,
     ce que l'API ne dit pas.
     """
+    from greffier.domaine.carte import clef
+
     _garder(tableau)
-    deja = textes_presents(tableau)
+    # Les objets déjà là, avec leur identifiant : ils servent à comparer **et**
+    # à rattacher les points nouveaux à un parent qui existait avant.
+    presents = objets_presents(tableau)
+    deja = {clef(libelle) for libelle in presents}
+    identifiants: dict[str, str] = {
+        libelle: identifiant for libelle, identifiant in presents.items() if identifiant
+    }
     poses: list[str] = []
     connus: list[str] = []
-    identifiants: dict[str, str] = {}
 
     for place in disposer(carte):
-        from greffier.domaine.carte import clef
-
         if clef(place.noeud.texte) in deja:
             connus.append(place.noeud.texte)
             continue
+        from greffier.domaine.carte import SANS_ETAT
+
+        couleur = (
+            COULEUR_SUJET if place.noeud.genre in SANS_ETAT
+            else COULEURS.get(place.noeud.etat, "light_yellow")
+        )
         corps = {
             "data": {"content": _en_html(place.noeud, reunion),
                      "shape": "square"},
-            "style": {"fillColor": COULEURS.get(place.noeud.etat, "light_yellow")},
+            "style": {"fillColor": couleur},
             "position": {"x": place.x, "y": place.y, "origin": "center"},
         }
         reponse = _appeler(
@@ -213,8 +264,8 @@ def publier(carte: Carte, tableau: str, reunion: str = "") -> Ecrit:
             identifiants[place.noeud.texte] = identifiant
             poses.append(place.noeud.texte)
 
-    _relier(tableau, carte, identifiants)
-    return Ecrit(tableau, tuple(poses), tuple(connus))
+    liens, manques = _relier(tableau, carte, identifiants)
+    return Ecrit(tableau, tuple(poses), tuple(connus), liens=liens, liens_manques=manques)
 
 
 def _en_html(noeud: Noeud, reunion: str) -> str:
@@ -224,40 +275,85 @@ def _en_html(noeud: Noeud, reunion: str) -> str:
     première question de qui découvre une carte, et y répondre dans l'objet
     évite d'avoir à ouvrir un compte rendu pour le savoir.
     """
+    from greffier.domaine.carte import SANS_ETAT
+
     lignes = [f"<p>{_echapper(noeud.texte)}</p>"]
-    marque = str(noeud.etat)
-    if noeud.etat is not Etat.ACTE:
-        lignes.append(f"<p><i>{marque}</i></p>")
+    # La racine ne porte pas d'état : « Oasis — en discussion » ferait dire à la
+    # carte que le sujet lui-même est en débat.
+    if noeud.genre not in SANS_ETAT and noeud.etat is not Etat.ACTE:
+        lignes.append(f"<p><i>{noeud.etat}</i></p>")
     origine = reunion or (noeud.reunions[-1] if noeud.reunions else "")
     if origine:
         lignes.append(f"<p><i>{_echapper(origine)}</i></p>")
     return "".join(lignes)
 
 
+def _liens_existants(tableau: str) -> set[tuple[str, str]]:
+    """Les couples déjà reliés, pour ne pas superposer les traits."""
+    couples: set[tuple[str, str]] = set()
+    curseur = ""
+    while True:
+        parametres = {"limit": "50"}
+        if curseur:
+            parametres["cursor"] = curseur
+        try:
+            reponse = _appeler(
+                f"/boards/{urllib.parse.quote(tableau, safe='')}/connectors"
+                f"?{urllib.parse.urlencode(parametres)}"
+            )
+        except MiroRefuse:
+            return couples
+        for lien in reponse.get("data", []):
+            depart = str((lien.get("startItem") or {}).get("id", ""))
+            arrivee = str((lien.get("endItem") or {}).get("id", ""))
+            if depart and arrivee:
+                couples.add((depart, arrivee))
+        curseur = str(reponse.get("cursor", ""))
+        if not curseur:
+            return couples
+
+
 def _echapper(texte: str) -> str:
     return (texte.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
 
-def _relier(tableau: str, carte: Carte, identifiants: dict[str, str]) -> None:
-    """Trace les liens entre les nœuds qu'on vient de poser.
+def _relier(
+    tableau: str, carte: Carte, identifiants: dict[str, str]
+) -> tuple[int, int]:
+    """Trace les liens entre les nœuds qu'on vient de poser. Rend (tracés, échoués).
 
     Seulement ceux dont **les deux** extrémités viennent d'être créées : relier
     à un objet qu'on n'a pas posé supposerait de l'avoir retrouvé, et un lien
     tracé vers le mauvais objet est plus trompeur qu'un lien absent.
+
+    Les identifiants partent en **nombres** et non en chaînes : l'API les refuse
+    autrement (« expected of type [Number] »). Une première carte a été publiée
+    sans un seul trait pour cette raison, et l'échec était avalé — d'où le
+    compte rendu ici plutôt qu'un « continue » muet.
     """
+    traces = 0
+    manques = 0
+    deja_reliees = _liens_existants(tableau)
     for place in disposer(carte):
         depart = identifiants.get(place.parent)
         arrivee = identifiants.get(place.noeud.texte)
         if not place.parent or depart is None or arrivee is None:
             continue
+        # Un lien déjà tracé ne se retrace pas : republier une carte y
+        # empilerait des traits superposés à chaque passage.
+        if (depart, arrivee) in deja_reliees:
+            continue
         try:
             _appeler(
                 f"/boards/{urllib.parse.quote(tableau, safe='')}/connectors",
                 "POST",
-                {"startItem": {"id": depart}, "endItem": {"id": arrivee},
+                {"startItem": {"id": int(depart)}, "endItem": {"id": int(arrivee)},
                  "style": {"strokeStyle": "normal", "strokeWidth": "2"}},
             )
-        except MiroRefuse:
+            traces += 1
+        except (MiroRefuse, ValueError):
             # Un lien manquant laisse la carte lisible ; interrompre la
-            # publication à cause d'un trait la laisserait à moitié faite.
-            continue
+            # publication à cause d'un trait la laisserait à moitié faite. Mais
+            # on le compte, pour que l'appelant puisse le dire.
+            manques += 1
+    return (traces, manques)
