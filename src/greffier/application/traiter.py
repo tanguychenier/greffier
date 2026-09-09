@@ -486,8 +486,12 @@ class Traitement:
         duree = resultat.tours[-1].intervalle.fin if resultat.tours else 0.0
         # Les voix qui ont réellement porté la réunion, nommées ou non : sans ce
         # compte, un compte rendu dont aucune voix n'est nommée ne disait rien
-        # de qui était présent — constaté à l'usage.
-        entendues = {t.voix for t in resultat.tours if t.voix}
+        # de qui était présent — constaté à l'usage. Les fragments en sont
+        # exclus, sans quoi la ligne annonce « et 295 voix non nommées » là où
+        # trois personnes étaient présentes.
+        entendues = [
+            v for v in resultat.voix_significatives() if v
+        ] + [v for v in resultat.noms if v not in resultat.voix_significatives()]
         entete = (
             entete_contexte(audio.stem, duree,
                             noms=[resultat.noms[v] for v in entendues if v in resultat.noms],

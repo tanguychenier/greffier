@@ -457,6 +457,7 @@ class Fenetre:
             )
         self.liste.bind("<<TreeviewSelect>>", lambda _e: self._charger_voix())
         self._charger_reunions()
+        self._signaler_les_reprises()
 
     def _onglet_direct(self) -> None:
         """Ce qui se dit, pendant que ça se dit — et corrigeable d'un clic.
@@ -2395,6 +2396,37 @@ class Fenetre:
             self._dire("greffier", acte.doute)
             messagebox.showwarning("Greffier", acte.doute)
         self._regenerer_apres_nommage(identifiant)
+
+    def _signaler_les_reprises(self) -> None:
+        """Dit s'il reste une réunion transcrite dont le compte rendu manque.
+
+        Une rédaction interrompue — l'application fermée, la machine endormie,
+        le rédacteur qui échoue — ne laissait aucune trace : la transcription
+        était sur le disque, le compte rendu n'existait pas, et rien ne le
+        remarquait. Une réunion d'une heure quarante a été perdue ainsi.
+
+        On le dit, on ne le fait pas : relancer une rédaction sans qu'on l'ait
+        demandé consommerait le quota du rédacteur à l'ouverture de la fenêtre.
+        """
+        from greffier.application.restituer import a_reprendre
+
+        try:
+            restants = a_reprendre(self.depot, self.config.chemins.comptes_rendus)
+        except OSError:
+            return
+        if not restants:
+            return
+        combien = len(restants)
+        pluriel = "s" if combien > 1 else ""
+        self._dire(
+            "greffier",
+            f"{combien} réunion{pluriel} transcrite{pluriel} sans compte rendu : "
+            f"{', '.join(restants[:3])}"
+            + (f" et {combien - 3} autre{'s' if combien > 4 else ''}"
+               if combien > 3 else "")
+            + ". Sélectionne-la dans Réunions et clique « Rédiger » : la "
+            "transcription est gardée, seule la rédaction reste à refaire.",
+        )
 
     def _oublier_le_nom(self) -> None:
         """Retire le nom d'une voix, après confirmation.
