@@ -833,3 +833,56 @@ does not change: only the time moves.
   ships only 3.12. Lowering `requires-python` to `>=3.12` would allow using the
   system Python there, with its antialiased Tk. To be weighed against the macOS
   package, which rests on `uv`'s relocatable interpreter.
+
+## The night before the national demonstration (2026-09-10)
+
+A real meeting the previous evening — ninety-two minutes, three people around a
+table — went wrong on every axis at once, and the report of it is what this
+section answers. Every figure below was measured on that recording, not
+supposed.
+
+| Defect | What it cost | State |
+|---|---|---|
+| The segmentation produced **298 voices for three people** | thirty-six voices named by hand, and minutes announcing a crowd | fixed — three stitching passes, 298 become 21, of which 3 carry over ten seconds |
+| Naming two voices the same name did not join them | each kept its identifier; the minutes announced two people of the same name | fixed — naming joins, the fuller voice keeping its identifier |
+| A wrong name could not be taken back | overwriting adds a false print to the bank instead of removing one | fixed — a name can be removed |
+| The bank held a person called **"A nommer"** | at 0.997 to Pascal: the interface label had become a first name. Three pairs in conflict, and a conflict silences a name — Pascal and Kilian were no longer recognised at all | fixed — first names are checked, and a print that resembles somebody else is flagged before it enters |
+| Nothing said **which print** to remove | erasing a person over one bad print loses every good one | fixed — `empreintes_intruses`, and prints now carry the meeting they came from |
+| No documents could be given mid-meeting | the assistant answered on the transcription alone | the button existed since 16:42; the installed package dated from 16:16. Rebuilt |
+| The minutes never arrived | they had never been written: the writing was interrupted and nothing ever noticed | fixed — the window says which meetings are transcribed without minutes |
+| The context line counted every fragment | "Participants: Florent, Tanguy, Marcel, and 295 unnamed voices" | fixed — only the voices that carried the meeting |
+| The update button could not work | `construire.sh` never wrote `GREFFIER_DEPOT_SOURCE` into the bundle | fixed |
+| **Linux: nothing worked** | without `uv`, the installer announced its fallback, skipped creating the environment, and called an interpreter that did not exist | fixed — the check is on the interpreter, not the directory. Proof rebuilt: 1351 tests pass in a bare container |
+
+### What the tool gained
+
+**It takes part.** Called by its first name it answers aloud, in 3.9 seconds
+measured end to end, on the meeting's own content. Left alone it asks for a
+voice it cannot place, and names that voice when somebody answers — the answer
+stops being small talk and becomes a name in the minutes.
+
+The hard half is the silence. Measured against the real writer: an ordinary
+exchange gets none, a decision with no owner gets "Qui prend en charge la
+migration en Symfony 7 ?", a question left hanging gets asked again before the
+room moves on. Four refusals hold it back — never cut in, rest between
+spontaneous turns, never repeat a question, never serve a remark about a subject
+the room has left — and being called by name escapes all four.
+
+The voice is Kokoro through the sherpa-onnx already loaded for segmentation:
+no new dependency, no network, 4.9x real time. The system voice remains as a
+fallback and everyone can hear that it is one.
+
+### Still open
+
+- **Windows has not been run on a real machine.** The code paths are there and
+  the tests cover the decisions, but nobody has double-clicked the thing.
+- **The live stitching is not the final one.** `Fil.recoller` runs on partial
+  material during the meeting; the three passes added here run afterwards. A
+  meeting still shows more voices while it happens than in its minutes.
+- **No way to delete a meeting** from the Réunions tab.
+- **In person, the channel designates nobody**: two of the three recorded
+  channels are digital silence, everything rests on the voice prints, and
+  nothing warns that this is the case.
+- **The assistant cannot yet read the connected sources** (GitLab, Jira, Trello)
+  when it decides whether to speak. It has them for a written question, not for
+  a spoken one.
