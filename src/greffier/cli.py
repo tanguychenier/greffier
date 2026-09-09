@@ -8,6 +8,7 @@
     greffier ranger              applique la rétention aux enregistrements
     greffier sauvegarder         copie les données, sans l'audio
     greffier recuperer           reconstruit une réunion depuis le fil du direct
+    greffier niveau              dit si le micro suffit à transcrire
     greffier carte               construit la carte d'un sujet depuis une réunion
     greffier verifier            dit ce qui est prêt et ce qui manque
 
@@ -1279,6 +1280,43 @@ def _publier_la_carte(
         )
 
 
+@application.command(name="niveau")
+def niveau_(
+    secondes: float = typer.Option(4.0, "--secondes", help="Durée d'écoute"),
+    config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
+) -> None:
+    """Écoute, et dit si le niveau suffit à transcrire. **Parle pendant l'écoute.**
+
+    Le contrôle existant mesure le silence, ce qui repère un micro coupé mais ne
+    dit rien de la parole. Or c'est la parole qui décide : à -43 dB, mesuré, le
+    modèle n'écrit pas moins bien, il invente.
+    """
+    from greffier.composition import _enregistreur
+    from greffier.domaine.niveau import Verdict, dire, juger
+
+    config = Config.charger(config_fichier)
+    lecteur = listeur(config)
+    materiel = lecteur.lire()
+    micro = config.audio.micro or _micro_par_ecoute(config, materiel)
+    if not micro:
+        typer.secho("Aucun micro utilisable.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    typer.secho(f"\nParle maintenant, {secondes:.0f} secondes — micro « {micro} »",
+                fg=typer.colors.BRIGHT_WHITE, bold=True)
+    db = _enregistreur(config).essayer(micro, secondes)
+    verdict = juger(db)
+    couleur = {
+        Verdict.BON: typer.colors.GREEN,
+        Verdict.FAIBLE: typer.colors.YELLOW,
+        Verdict.INSUFFISANT: typer.colors.RED,
+        Verdict.MUET: typer.colors.RED,
+    }[verdict]
+    typer.secho(f"\n{dire(db)}", fg=couleur)
+    if verdict in (Verdict.INSUFFISANT, Verdict.MUET):
+        raise typer.Exit(1)
+
+
 @application.command()
 def recuperer(
     reunion: str = typer.Argument(None, help="Réunion (défaut : celle du dernier fil)"),
@@ -1809,6 +1847,27 @@ def veiller(
         except OSError:
             return None
 
+    def niveau_capte() -> float | None:
+        """Le niveau du micro sur ce qui vient d'être écrit.
+
+        Lu dans le fichier plutôt qu'en ouvrant le micro : celui-ci est déjà
+        pris par la capture, et l'ouvrir une seconde fois pour le mesurer est
+        le meilleur moyen de perdre les deux.
+        """
+        from greffier.adaptateurs.niveaux_direct import relever
+
+        try:
+            etat_courant = machine.lire()
+        except (OSError, ValueError):
+            return None
+        morceaux = etat_courant.morceaux or (
+            [etat_courant.audio] if etat_courant.audio else []
+        )
+        if not morceaux:
+            return None
+        releve = relever(morceaux[-1])
+        return None if releve is None else releve.micro_db
+
     veilleuse = VeilleMateriel(
         machine=machine,
         listeur=lecteur,
@@ -1816,6 +1875,7 @@ def veiller(
         reconstruire=reconstruire,
         prevenir=prevenir,
         taille_captee=taille_captee,
+        niveau_capte=niveau_capte,
     )
     tours = veilleuse.boucler()
     typer.echo(f"Veille terminée après {tours} tours.")
