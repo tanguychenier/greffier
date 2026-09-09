@@ -57,6 +57,12 @@ class ReunionEnregistree:
     #: Constats de la veille sur le matériel, pour que régénérer la rédaction
     #: plus tard n'y perde pas ce que la première rédaction savait.
     evenements_materiel: list[str] = field(default_factory=list)
+    #: Quand la réunion a commencé et quand elle a été arrêtée, à l'horloge.
+    #: Absentes d'une réunion traitée depuis un fichier audio seul : on retombe
+    #: alors sur l'horodatage de l'identifiant. `duree` ne suffit pas à déduire
+    #: la fin — elle s'arrête au dernier mot prononcé, pas à l'arrêt.
+    commencee_le: datetime | None = None
+    terminee_le: datetime | None = None
 
     @property
     def couverture(self) -> float:

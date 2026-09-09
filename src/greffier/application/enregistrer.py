@@ -91,6 +91,12 @@ class Etat:
     suspendu_le: datetime | None = None
     #: Temps passé en pause, retiré de la durée affichée.
     pause_totale: float = 0.0
+    #: Quand l'enregistrement a été arrêté. Retenu ici parce que c'est le seul
+    #: endroit qui le sache : la durée du dernier tour de parole s'arrête au
+    #: dernier mot prononcé, ce qui plaçait la fin d'une réunion cinq minutes
+    #: trop tôt dans le compte rendu (mesuré le 2026-09-09 : 10 h 32 annoncé
+    #: pour un arrêt à 10 h 37).
+    terminee_le: datetime | None = None
     #: Sortie système d'avant la réunion, à rendre une fois celle-ci finie.
     sortie_precedente: str = ""
 
@@ -146,6 +152,10 @@ class Enregistrement:
                 if contenu.get("suspendu_le") else None
             ),
             pause_totale=float(contenu.get("pause_totale", 0.0)),
+            terminee_le=(
+                datetime.fromisoformat(contenu["terminee_le"])
+                if contenu.get("terminee_le") else None
+            ),
             sortie_precedente=contenu.get("sortie_precedente", ""),
         )
         # Le fichier survit à un redémarrage : c'est la présence du processus
@@ -169,6 +179,7 @@ class Enregistrement:
             "evenements": etat.evenements,
             "suspendu_le": etat.suspendu_le.isoformat() if etat.suspendu_le else "",
             "pause_totale": etat.pause_totale,
+            "terminee_le": etat.terminee_le.isoformat() if etat.terminee_le else "",
             "sortie_precedente": etat.sortie_precedente,
         }
         provisoire = self.fichier_etat.with_suffix(".json.partiel")
@@ -308,6 +319,7 @@ class Enregistrement:
         etat.phase = Phase.FINALISATION
         etat.message = "Enregistrement arrêté."
         etat.pid = None
+        etat.terminee_le = datetime.now(UTC)
         self.ecrire(etat)
         # Le garde-fou passe avant le recollage : sinon le fichier recollé
         # remplace celui qu'on vient de trouver vide, et plus rien ne signale
