@@ -18,7 +18,7 @@ import tempfile
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from greffier.domaine.modeles import Intervalle, Replique, TourDeParole
 from greffier.domaine.reunion import HORODATAGE, ReunionEnregistree
@@ -273,6 +273,30 @@ def rendre_transcription(reunion: Transcrite, entete: str = "") -> str:
     return entete + "\n".join(lignes).strip() + "\n"
 
 
+def a_reprendre(depot: Any, comptes_rendus: Path, combien: int = 20) -> list[str]:
+    """Les réunions transcrites dont le compte rendu manque encore.
+
+    Une rédaction interrompue ne laissait aucune trace exploitable : la
+    transcription était bien sur le disque, le compte rendu n'existait pas, et
+    rien ne le remarquait jamais. Mesuré sur ce poste — une réunion d'une heure
+    quarante transcrite à 18 h 47, son fichier d'état figé sur « Rédaction… »
+    avec un processus mort, et personne ne s'en est aperçu avant le lendemain.
+
+    Le contrôle est trivial et c'est justement pour cela qu'il manquait : la
+    liste des réunions existe, le dossier des comptes rendus aussi, il suffit
+    de les comparer. Rien n'est relancé ici — on constate, l'appelant propose.
+    """
+    manquants = []
+    for identifiant in depot.lister()[:combien]:
+        # Seules les réunions datées : les jeux d'essai portent un nom libre et
+        # n'ont pas vocation à être rédigés.
+        if not re.match(r"^\d{4}-\d{2}-\d{2}_", identifiant):
+            continue
+        if not (comptes_rendus / f"{identifiant}.md").exists():
+            manquants.append(identifiant)
+    return manquants
+
+
 def regenerer_compte_rendu(
     reunion: ReunionEnregistree,
     redacteur: sortants.Redacteur,
@@ -290,7 +314,9 @@ def regenerer_compte_rendu(
     # n'annonçait plus personne — la ligne de contexte perdait les noms déjà
     # attribués, alors que nommer une voix est justement ce qui déclenche une
     # régénération.
-    entendues = {t.voix for t in reunion.tours if t.voix}
+    # Les participants, pas toutes les voix : la traîne de fragments faisait
+    # annoncer « et 295 voix non nommées » sur une réunion de trois personnes.
+    entendues = reunion.participants()
     entete = (
         entete_contexte(
             reunion.identifiant, duree,
