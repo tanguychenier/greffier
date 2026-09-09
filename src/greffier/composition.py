@@ -122,6 +122,7 @@ def suivi(config: Config, identifiant: str) -> Suivi:
         canaux=LecteurCanauxFichier(),
         extracteur=extracteur,
         banque=banque,
+        identifiant=identifiant,
     )
 
 

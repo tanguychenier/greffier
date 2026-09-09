@@ -1074,6 +1074,14 @@ def connus(
     oublier: str = typer.Option(None, "--oublier", help="Effacer une personne de la banque"),
     renommer: str = typer.Option(None, "--renommer", help="Personne à renommer"),
     en: str = typer.Option(None, "--en", help="Nouveau nom"),
+    nettoyer: str = typer.Option(
+        None, "--nettoyer",
+        help="Retirer les empreintes de cette personne qui sont d'une autre",
+    ),
+    oublier_reunion: str = typer.Option(
+        None, "--oublier-reunion",
+        help="Retirer de toute la banque ce qu'une réunion y a versé",
+    ),
     config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
 ) -> None:
     """Les voix déjà connues, et de quoi les corriger.
@@ -1098,6 +1106,26 @@ def connus(
         typer.secho(f"✓ {renommer} → {en}", fg=typer.colors.GREEN)
         return
 
+    if nettoyer:
+        _nettoyer_une_entree(banque, nettoyer)
+        return
+
+    if oublier_reunion:
+        retires = banque.oublier_une_reunion(oublier_reunion)
+        if not retires:
+            typer.echo(
+                f"Aucune empreinte ne vient de « {oublier_reunion} ». Les "
+                "empreintes déposées avant que cette trace n'existe ne portent "
+                "pas leur origine : « greffier connus » dit lesquelles sont "
+                "suspectes."
+            )
+            return
+        for nom, combien in sorted(retires.items()):
+            typer.secho(f"✓ {combien} empreinte(s) retirée(s) de {nom}",
+                        fg=typer.colors.GREEN)
+        _dire_la_sante_de_la_banque(banque.personnes())
+        return
+
     personnes = banque.personnes()
     if not personnes:
         typer.echo("Banque de voix vide. « greffier voix » pour nommer une première voix.")
@@ -1110,6 +1138,42 @@ def connus(
         )
 
     _dire_la_sante_de_la_banque(personnes)
+
+
+def _nettoyer_une_entree(banque: BanqueFichiers, nom: str) -> None:
+    """Retire d'une personne les empreintes qui désignent quelqu'un d'autre.
+
+    Effacer la personne entière pour une empreinte fautive perdait tout le
+    reste. Le grain qui décide de la reconnaissance est l'empreinte : c'est
+    donc à ce grain qu'on corrige.
+    """
+    from greffier.domaine.empreintes import empreintes_intruses
+
+    personnes = banque.personnes()
+    cette = next((p for p in personnes if p.nom.casefold() == nom.casefold()), None)
+    if cette is None:
+        typer.secho(f"« {nom} » n'est pas dans la banque.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+    suspectes = empreintes_intruses(cette, personnes)
+    if not suspectes:
+        typer.echo(f"Rien à retirer : les empreintes de {cette.nom} se ressemblent "
+                   "entre elles plus qu'à quiconque.")
+        return
+    for intruse in suspectes:
+        typer.echo(
+            f"  empreinte {intruse.rang} ({intruse.duree:.0f} s) : "
+            f"ressemble à {intruse.qui} ({intruse.ailleurs:.2f}) plus qu'à "
+            f"{cette.nom} ({intruse.chez_elle:.2f})"
+        )
+    if not typer.confirm(
+        f"Retirer ces {len(suspectes)} empreinte(s) de {cette.nom} ?", default=False
+    ):
+        typer.echo("Rien n'a été touché.")
+        return
+    combien = banque.retirer_empreintes(cette.nom, [i.rang for i in suspectes])
+    typer.secho(f"✓ {combien} empreinte(s) retirée(s) de {cette.nom}",
+                fg=typer.colors.GREEN)
+    _dire_la_sante_de_la_banque(banque.personnes())
 
 
 def _dire_la_sante_de_la_banque(personnes: list) -> None:  # type: ignore[type-arg]
@@ -1158,6 +1222,7 @@ def _dire_la_sante_de_la_banque(personnes: list) -> None:  # type: ignore[type-a
             "Réécoute\n  un extrait de chacune, puis « greffier connus "
             "--oublier <nom> » et renomme\n  la voix à la prochaine réunion."
         )
+    _dire_les_intruses(personnes)
     if proches:
         typer.secho(
             f"\n· {len(proches)} paire(s) proche(s), au-dessus du seuil de "
@@ -1178,6 +1243,40 @@ def _dire_la_sante_de_la_banque(personnes: list) -> None:  # type: ignore[type-a
             f"\n  {len(maigres)} entrée(s) d'une seule empreinte : "
             f"{', '.join(maigres)}"
         )
+
+
+def _dire_les_intruses(personnes: list) -> None:  # type: ignore[type-arg]
+    """Nomme les empreintes fautives, une par une.
+
+    Savoir que deux entrées sont en conflit ne dit pas laquelle réparer, et
+    effacer une personne entière pour une empreinte perd tout le reste. La
+    question se pose empreinte par empreinte, et elle a une réponse.
+    """
+    from greffier.domaine.empreintes import empreintes_intruses
+
+    trouvees = [
+        (personne.nom, intruse)
+        for personne in personnes
+        for intruse in empreintes_intruses(personne, personnes)
+    ]
+    if not trouvees:
+        return
+    typer.secho(
+        f"\n  {len(trouvees)} empreinte(s) désignent quelqu'un d'autre que "
+        "la personne sous laquelle elles sont rangées :",
+        fg=typer.colors.YELLOW,
+    )
+    for nom, intruse in sorted(trouvees, key=lambda x: -x[1].ecart):
+        typer.echo(
+            f"    {nom} n° {intruse.rang} ({intruse.duree:.0f} s) : "
+            f"{intruse.qui} {intruse.ailleurs:.2f} contre {nom} "
+            f"{intruse.chez_elle:.2f}"
+        )
+    noms = sorted({nom for nom, _ in trouvees})
+    typer.echo(
+        f"  « greffier connus --nettoyer {noms[0]} » les retire sans effacer "
+        "le reste."
+    )
 
 
 @application.command()
