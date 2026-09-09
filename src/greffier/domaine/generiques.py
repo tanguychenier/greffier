@@ -50,3 +50,37 @@ def est_un_generique(texte: str, profil: ProfilLinguistique) -> bool:
     que retirer de la parole à quelqu'un sur une liste recopiée de mémoire.
     """
     return _nu(texte) in profil.redaction.generiques
+
+
+#: Ce qu'une annotation porte comme bornes. Whisper les écrit quand il entend
+#: du son sans parole : « *Belouge* », « (musique) », « [Applaudissements] ».
+#: Relevé dans le fil d'une réunion réelle du 2026-09-09, où « *Belouge* » a
+#: été inscrit comme une prise de parole avec sa propre empreinte de voix.
+_BORNES_ANNOTATION = (("*", "*"), ("(", ")"), ("[", "]"), ("♪", "♪"), ("{", "}"))
+
+
+def est_une_annotation(texte: str) -> bool:
+    """Vrai si toute la réplique est une annotation, pas de la parole.
+
+    Même prudence que pour les génériques : la réplique doit être entièrement
+    entre les bornes. « (rires) » part, « il a dit (à tort) que » reste — une
+    parenthèse au milieu d'une phrase est de la parole, et la couper perdrait
+    la phrase.
+    """
+    nu = texte.strip()
+    if len(nu) < 3:
+        return False
+    for ouvre, ferme in _BORNES_ANNOTATION:
+        if not (nu.startswith(ouvre) and nu.endswith(ferme)):
+            continue
+        if ouvre != ferme:
+            # Une seule paire : « (a) et (b) » n'est pas une annotation, c'est
+            # une phrase qui en contient deux.
+            return ferme not in nu[len(ouvre):-len(ferme)]
+        # Bornes identiques : deux marques encadrent bien une annotation, et
+        # une ligne qui n'est que des marques en est une aussi — le modèle
+        # écrit « ♪ ♪ ♪ » sur de la musique. Au-delà, « *a* et *b* » est une
+        # phrase.
+        return nu.count(ouvre) == 2 or not nu.replace(ouvre, "").strip()
+    return False
+

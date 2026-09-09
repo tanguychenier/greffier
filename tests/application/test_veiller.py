@@ -82,7 +82,11 @@ class TestTranscriptionAuFilDeLEau:
         """Une réplique datée dans sa tranche renverrait au mauvais moment."""
         monkeypatch.setattr(veiller, "extraire_tranche",
                             lambda audio, debut, fin, dest: dest)
-        transcripteur = TranscripteurDeTranche([[replique(3, "Greffier, ouvre le tableau")]])
+        # La fenêtre transcrite précède la tranche de CONTEXTE_S : une réplique
+        # dite 3 s après le début de la tranche y est datée d'autant plus tard.
+        transcripteur = TranscripteurDeTranche(
+            [[replique(veiller.CONTEXTE_S + 3, "Greffier, ouvre le tableau")]]
+        )
         instance = veilleur(tmp_path, transcripteur=transcripteur, traite=120.0)
         nouvelles = instance.tour_transcription(ou(tmp_path, ecrit=150.0), tmp_path)
         # 120 s déjà lues, 5 s de recouvrement : la tranche part de 115 s.
@@ -99,6 +103,8 @@ class TestTranscriptionAuFilDeLEau:
         transcripteur = TranscripteurDeTranche(
             [[replique(2, "Greffier, ouvre le ticket")]]
         )
+        # Le morceau ne porte que 20 s : la fenêtre ne peut pas remonter plus
+        # haut que son début, donc les temps sont ceux de la tranche.
         instance = veilleur(tmp_path, transcripteur=transcripteur, traite=1800.0)
         nouvelles = instance.tour_transcription(
             ou(tmp_path, ecrit=20.0, decalage=1800.0), tmp_path
@@ -126,10 +132,10 @@ class TestTranscriptionAuFilDeLEau:
         transcripteur = TranscripteurDeTranche([
             # Tranche 1 (0-10 s de réunion) : une phrase se termine à 8 s.
             [Replique(Intervalle(0, 8), "c'est notre dernier.")],
-            # Tranche 2 (5-20 s, recouvrement de 5 s) : la même fin retranscrite,
-            # suivie de la phrase suivante. Relatif à la tranche, qui démarre à
-            # 5 s de réunion : (3, 9) devient (8, 14) une fois recalé.
-            [Replique(Intervalle(3, 9), "dernier. Sandy, tu peux nous dire où on en est ?")],
+            # Tranche 2 : la fenêtre repart de 0 s — le morceau ne porte pas
+            # plus — et la phrase à cheval y est datée de 8 à 14 s, comme le
+            # modèle la datera. Elle déborde la tranche, qui démarre à 5 s.
+            [Replique(Intervalle(8, 14), "dernier. Sandy, tu peux nous dire où on en est ?")],
         ])
         suivi = Suivi(fil=Fil(), journal=tmp_path / "direct.jsonl",
                        demandes=tmp_path / "demandes.jsonl")
@@ -370,3 +376,72 @@ class TestAmorceRelueEnCoursDeReunion:
 
         veilleur = self.veilleur_avec("Vocabulaire : CASA.", relire=tomber)
         assert veilleur._amorce_courante() == "Vocabulaire : CASA."
+
+
+class TestLaFenetreDeContexte:
+    """Le modèle reçoit ce qui précède, et n'en réaffiche rien.
+
+    Mesuré le 2026-09-09 sur une réunion réelle : le même passage donne « sur
+    la ZIS » avec 15 s de fenêtre, « sur Asis » avec 30 s, « sur Oasis » avec
+    60 s. Le contexte fait le mot juste, mais il ne doit rien redire.
+    """
+
+    def test_le_modele_recoit_plus_d_audio_que_la_tranche(self, tmp_path, monkeypatch):
+        demandees = []
+
+        def extraire(audio, debut, fin, dest):
+            demandees.append((debut, fin))
+            return dest
+
+        monkeypatch.setattr(veiller, "extraire_tranche", extraire)
+        transcripteur = TranscripteurDeTranche([[]])
+        instance = veilleur(tmp_path, transcripteur=transcripteur, traite=120.0)
+        instance.tour_transcription(ou(tmp_path, ecrit=150.0), tmp_path)
+        tranche, fenetre = demandees
+        assert tranche == (115.0, 150.0)
+        assert fenetre == (115.0 - veiller.CONTEXTE_S, 150.0)
+
+    def test_ce_qui_est_dans_le_contexte_n_est_pas_reaffiche(self, tmp_path, monkeypatch):
+        """Sinon chaque phrase s'afficherait six fois."""
+        monkeypatch.setattr(veiller, "extraire_tranche",
+                            lambda audio, debut, fin, dest: dest)
+        transcripteur = TranscripteurDeTranche([[
+            replique(2, "phrase déjà affichée, dans le contexte"),
+            replique(veiller.CONTEXTE_S + 1, "phrase neuve, dans la tranche"),
+        ]])
+        instance = veilleur(tmp_path, transcripteur=transcripteur, traite=120.0)
+        nouvelles = instance.tour_transcription(ou(tmp_path, ecrit=150.0), tmp_path)
+        instance_veille = [p.texte for p in nouvelles]
+        assert not any("déjà affichée" in t for t in instance_veille)
+
+    def test_au_debut_de_la_reunion_la_fenetre_ne_remonte_pas_avant_zero(
+        self, tmp_path, monkeypatch
+    ):
+        demandees = []
+        monkeypatch.setattr(
+            veiller, "extraire_tranche",
+            lambda audio, debut, fin, dest: demandees.append(debut) or dest,
+        )
+        transcripteur = TranscripteurDeTranche([[]])
+        instance = veilleur(tmp_path, transcripteur=transcripteur)
+        instance.tour_transcription(ou(tmp_path, ecrit=12.0), tmp_path)
+        assert all(debut >= 0.0 for debut in demandees)
+
+    def test_une_replique_a_cheval_est_gardee_entiere(self):
+        """Couper une phrase au milieu vaut moins que retirer son début affiché."""
+        gardees = veiller._dans_la_tranche(
+            [Replique(Intervalle(8, 14), "dernier. Sandy, tu peux nous dire…")], 10.0
+        )
+        assert len(gardees) == 1
+        assert gardees[0].intervalle.debut == 0.0
+        assert gardees[0].intervalle.fin == 4.0
+
+    def test_une_replique_entierement_dans_le_contexte_part(self):
+        assert veiller._dans_la_tranche(
+            [Replique(Intervalle(2, 6), "déjà dit")], 10.0
+        ) == []
+
+    def test_sans_contexte_rien_n_est_touche(self):
+        repliques = [Replique(Intervalle(2, 6), "du texte")]
+        assert veiller._dans_la_tranche(repliques, 0.0) == repliques
+
