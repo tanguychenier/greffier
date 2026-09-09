@@ -16,7 +16,7 @@ import functools
 import tkinter as tk
 from collections.abc import Callable
 
-from greffier.interface.lisible import boutons_par_rang, marque_de_pastille
+from greffier.interface.lisible import grille_de_boutons, marque_de_pastille
 from greffier.interface.style import Palette, police
 
 
@@ -66,9 +66,33 @@ class Bouton(tk.Canvas):
             largeur / 2, hauteur / 2, text=texte,
             fill=self._encre(), font=police(12, principal),
         )
+        self._hauteur = hauteur
+        self._rayon = 9
         self.bind("<Enter>", lambda _e: self._peindre(survol=True))
         self.bind("<Leave>", lambda _e: self._peindre(survol=False))
         self.bind("<Button-1>", lambda _e: self.action() if self._actif else None)
+
+    def redimensionner(self, largeur: int) -> None:
+        """Reprend la largeur du bouton, forme et texte recentré compris.
+
+        Nécessaire pour qu'une barre d'actions soit une vraie grille : des
+        boutons de largeurs différentes ne s'alignent pas d'un rang à l'autre,
+        et une barre dont les bords ne tombent pas ensemble se lit comme
+        bâclée.
+        """
+        largeur = max(48, int(largeur))
+        if largeur == int(self.cget("width")):
+            return
+        self.configure(width=largeur)
+        self.delete(self._forme)
+        self._forme = rectangle_arrondi(
+            self, 1, 1, largeur - 1, self._hauteur - 1, self._rayon,
+            fill=self._fond_normal(),
+            outline=self.couleurs.filet if not self.principal else "",
+        )
+        # La forme est créée après le texte : sans ce rappel, elle le recouvre.
+        self.tag_lower(self._forme, self._texte)
+        self.coords(self._texte, largeur / 2, self._hauteur / 2)
 
     def _fond_normal(self) -> str:
         return self.couleurs.accent if self.principal else self.couleurs.carte
@@ -469,32 +493,33 @@ class BarreDeBoutons(tk.Frame):
     def __init__(self, parent: tk.Misc, couleurs: Palette) -> None:
         super().__init__(parent, bg=couleurs.carte)
         self.couleurs = couleurs
-        self._boutons: list[tuple[tk.Widget, int]] = []
-        self._colonnes = 0
+        self._boutons: list[tuple[Bouton, int]] = []
+        self._grille = (0, 0)
         self.bind("<Configure>", self._replacer)
 
-    def ajouter(self, bouton: tk.Widget, largeur: int) -> None:
+    def ajouter(self, bouton: Bouton, largeur: int) -> None:
         self._boutons.append((bouton, largeur))
-        self._colonnes = 0  # forcer un replacement au prochain <Configure>
+        self._grille = (0, 0)  # forcer un replacement au prochain <Configure>
 
     def _replacer(self, _evenement: object = None) -> None:
         offerte = self.winfo_width()
         if offerte <= 1 or not self._boutons:
             return
-        par_rang = boutons_par_rang(
+        par_rang, colonne = grille_de_boutons(
             [largeur for _, largeur in self._boutons], offerte, self.ECART
         )
-        if par_rang == self._colonnes:
+        if (par_rang, colonne) == self._grille:
             return
-        self._colonnes = par_rang
+        self._grille = (par_rang, colonne)
         dernier_rang = (len(self._boutons) - 1) // par_rang
         for index, (bouton, _) in enumerate(self._boutons):
             rang = index // par_rang
+            bouton.redimensionner(colonne)
             bouton.grid(
                 row=rang,
                 column=index % par_rang,
-                sticky="w",
-                padx=(0, self.ECART),
+                sticky="ew",
+                padx=(0, self.ECART) if index % par_rang < par_rang - 1 else 0,
                 pady=(0, self.ECART) if rang < dernier_rang else 0,
             )
 

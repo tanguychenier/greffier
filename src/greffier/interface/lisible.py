@@ -49,36 +49,54 @@ def sujet_lisible(identifiant: str, compte_rendu: Path, sujet: str = "") -> str:
     return identifiant
 
 
-def boutons_par_rang(largeurs: list[int], offerte: int, ecart: int = 9) -> int:
-    """Combien de boutons tiennent sur un rang de `offerte` pixels.
+#: Jusqu'où une colonne s'étire au-delà de ce que son libellé demande. Un quart
+#: suffit à remplir une barre sans que « Ouvrir » ne devienne une bannière.
+ETIREMENT_MAXIMUM = 1.25
+
+
+def grille_de_boutons(
+    largeurs: list[int], offerte: int, ecart: int = 9
+) -> tuple[int, int]:
+    """La grille d'une barre d'actions : (boutons par rang, largeur de colonne).
 
     Ici et non dans le composant dessiné : ce qui touche à Tk n'est pas éprouvé
     par les tests, faute de serveur d'affichage en intégration continue, et
     c'est ce calcul qui portait le défaut — le septième bouton de l'onglet
     Réunions sortait de la fenêtre, invisible et inatteignable.
 
-    Les largeurs sont **cumulées** et non multipliées par la plus grande : les
-    sept boutons totalisent 866 px, mais un pas uniforme réglé sur le plus
-    large (180) en annonçait 1 323 et en renvoyait un à la ligne pour rien.
+    Trois règles, et elles vont ensemble :
 
-    Un dernier rang qui n'aurait qu'un seul bouton est rééquilibré : un élément
-    seul sur un rang se lit comme une erreur de mise en page.
+    **Des colonnes de largeur égale.** Des boutons de largeurs différentes ne
+    tombent pas ensemble d'un rang à l'autre, et une barre dont les bords ne
+    s'alignent pas se lit comme bâclée. La largeur de colonne est donc unique,
+    et c'est le plus large qui la fixe au minimum.
+
+    **Les rangs sont équilibrés.** On cherche le nombre minimal de rangs, puis
+    on répartit à égalité — sept boutons sur deux rangs donnent 4 et 3, jamais
+    5 et 2. Un premier rang plein contre un second presque vide est le défaut
+    le plus visible d'une barre qui passe à la ligne.
+
+    **L'étirement est plafonné.** Les colonnes prennent l'espace disponible,
+    mais pas plus d'un quart au-delà de ce que le libellé demande : à 1 280 px
+    de fenêtre, remplir sans limite donnait des boutons de 290 px pour un
+    « Ouvrir » de 96, étirés sur du vide. Un bouton disproportionné est aussi
+    mal réparti qu'un bouton qui déborde.
     """
-    if not largeurs:
-        return 1
-    cumul = 0
-    tiennent = 0
-    for largeur in largeurs:
-        besoin = largeur + (ecart if tiennent else 0)
-        if tiennent and cumul + besoin > offerte:
-            break
-        cumul += besoin
-        tiennent += 1
-    tiennent = max(1, tiennent)
     total = len(largeurs)
-    if tiennent < total and total % tiennent == 1 and tiennent >= 3:
-        return tiennent - 1
-    return tiennent
+    if not total:
+        return (1, 0)
+    demandee = max(largeurs)
+    plafond = int(demandee * ETIREMENT_MAXIMUM)
+    # Le nombre minimal de rangs tel que la répartition égale tienne encore.
+    for rangs in range(1, total + 1):
+        par_rang = -(-total // rangs)  # division entière par excès
+        if par_rang * demandee + (par_rang - 1) * ecart <= offerte:
+            break
+    else:
+        par_rang = 1
+    disponible = (offerte - (par_rang - 1) * ecart) // par_rang
+    colonne = max(demandee, min(plafond, disponible))
+    return (par_rang, colonne)
 
 
 def marque_de_pastille(compte: int) -> str:
