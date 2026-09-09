@@ -71,6 +71,10 @@ class Resultat:
     #: La langue dans laquelle la réunion s'est tenue, telle que la chaîne l'a
     #: résolue. Neutre tant que la transcription n'a pas eu lieu.
     profil: ProfilLinguistique = NEUTRE
+    #: Les heures d'horloge de la réunion, quand l'enregistrement les a
+    #: retenues. `duree` ne les remplace pas : elle s'arrête au dernier mot.
+    commencee_le: datetime | None = None
+    terminee_le: datetime | None = None
 
     @property
     def mots(self) -> int:
@@ -331,11 +335,18 @@ class Traitement:
         audio: Path,
         envoyer: bool = True,
         evenements_materiel: list[str] | None = None,
+        commencee_le: datetime | None = None,
+        terminee_le: datetime | None = None,
     ) -> Resultat:
         # Ce que la veille a constaté du matériel : le rédacteur doit le savoir
         # avant d'écrire, pas après.
         self.evenements_materiel = list(evenements_materiel or [])
-        resultat = Resultat(audio=audio, evenements_materiel=self.evenements_materiel)
+        resultat = Resultat(
+            audio=audio,
+            evenements_materiel=self.evenements_materiel,
+            commencee_le=commencee_le,
+            terminee_le=terminee_le,
+        )
 
         self._phase(Phase.TRANSCRIPTION, "Vérification de l'enregistrement…")
         self._verifier_audio(audio, resultat)
@@ -405,7 +416,9 @@ class Traitement:
         entete = (
             entete_contexte(audio.stem, duree,
                             noms=[resultat.noms[v] for v in entendues if v in resultat.noms],
-                            voix_entendues=len(entendues))
+                            voix_entendues=len(entendues),
+                            commencee_le=resultat.commencee_le,
+                            terminee_le=resultat.terminee_le)
             + entete_materiel(self.evenements_materiel)
             + entete_fiabilite(resultat)
         )
@@ -502,4 +515,6 @@ def _en_reunion_enregistree(resultat: Resultat, duree: float) -> ReunionEnregist
         propositions=dict(resultat.propositions),
         avertissements=list(resultat.avertissements),
         evenements_materiel=list(resultat.evenements_materiel),
+        commencee_le=resultat.commencee_le,
+        terminee_le=resultat.terminee_le,
     )

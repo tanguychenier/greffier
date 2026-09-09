@@ -1441,12 +1441,16 @@ class Fenetre:
             return
         self._lancer(Travail(
             intitule="traitement",
-            faire=self._chaine(audio, etat.evenements),
+            faire=self._chaine(audio, etat.evenements, etat.debut, etat.terminee_le),
             fini=lambda resultat, souci: self._traitement_fini(audio, resultat, souci),
         ))
 
     def _chaine(
-        self, audio: Path, evenements: list[str] | None = None
+        self,
+        audio: Path,
+        evenements: list[str] | None = None,
+        commencee_le: datetime | None = None,
+        terminee_le: datetime | None = None,
     ) -> Callable[[Callable[[str], None]], Any]:
         """Prépare l'exécution de la chaîne, l'avancement remonté à l'écran."""
 
@@ -1470,6 +1474,8 @@ class Fenetre:
                 audio,
                 envoyer=bool(self.config.compte_rendu.destinataire),
                 evenements_materiel=evenements,
+                commencee_le=commencee_le,
+                terminee_le=terminee_le,
             )
 
         return faire
