@@ -250,6 +250,31 @@ class Traitement:
                 "Un silence, ou du texte perdu : le compte rendu ne tranche pas."
             )
 
+    def _avertir_participants(self, resultat: Resultat) -> None:
+        """Dit quand le nombre annoncé contredit ce que l'audio contient.
+
+        Annoncer un nombre force **exactement** autant de groupes : une voix de
+        plus est fondue dans une autre, en silence. Sur une réunion réelle du
+        2026-09-09, « 4 participants » avait été laissé dans la configuration et
+        la réunion en comptait davantage — deux personnes se sont retrouvées
+        confondues sans que rien ne le signale, et le compte rendu leur a prêté
+        les propos l'une de l'autre.
+
+        On ne peut pas savoir laquelle des deux valeurs est juste : le nombre
+        vient d'un humain, le recollage d'une mesure. On dit l'écart.
+        """
+        if self.personnes is None:
+            return
+        entendues = len(resultat.voix_significatives())
+        if entendues == 0 or entendues == self.personnes:
+            return
+        resultat.avertissements.append(
+            f"{self.personnes} participants sont annoncés dans la configuration, "
+            f"mais {entendues} voix distinctes ont été entendues. Le nombre "
+            "annoncé l'emporte, donc des personnes ont pu être confondues. "
+            "Laisse « participants » vide pour que le nombre soit déduit."
+        )
+
     def _identifier_voix(self, audio: Path, tours: list[TourDeParole]) -> list[TourDeParole]:
         """Recolle les voix sur-découpées par la segmentation.
 
@@ -393,6 +418,7 @@ class Traitement:
         self._attacher_voix(resultat.repliques, tours)
         self._attribuer_noms(resultat.repliques, tours, self._reconnaitre(audio, tours), resultat)
         self._avertir_couverture(resultat)
+        self._avertir_participants(resultat)
 
         # Gardée **avant** de rédiger, et non seulement quand aucun rédacteur
         # n'est branché. Rédiger est la seule étape qui dépende d'un outil hors

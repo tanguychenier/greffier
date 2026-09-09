@@ -241,6 +241,25 @@ class CompteRendu(BaseModel):
         return ""
 
 
+class Retention(BaseModel):
+    """Combien de temps les enregistrements restent, et sous quelle forme.
+
+    Ne concerne que l'audio : mesuré sur un poste après deux semaines, 1,1 Go
+    d'enregistrements contre 3 Mo pour les transcriptions, les comptes rendus et
+    la banque de voix réunis.
+    """
+
+    #: Jours avant de compresser un enregistrement transcrit. Ne perd rien
+    #: d'utile : 115 Mo par heure en WAV, une dizaine en Opus, et l'audio ne
+    #: sert plus qu'à réécouter un passage. Zéro désactive.
+    compresser_apres_jours: int = 7
+    #: Jours avant d'effacer l'audio. **Zéro, donc désactivé** : c'est la seule
+    #: pièce qu'on ne peut pas refaire. À régler par qui veut pouvoir dire « les
+    #: enregistrements sont effacés au bout de N jours » — une voix est une
+    #: donnée biométrique, et l'énoncé n'a de valeur que s'il est vrai.
+    effacer_apres_jours: int = 0
+
+
 class Conversation(BaseModel):
     """Ce que l'assistant a le droit de faire quand on lui parle.
 
@@ -297,6 +316,7 @@ class Config(BaseSettings):
     locuteurs: Locuteurs = Field(default_factory=Locuteurs)
     compte_rendu: CompteRendu = Field(default_factory=CompteRendu)
     courriel: Courriel = Field(default_factory=Courriel)
+    retention: Retention = Field(default_factory=Retention)
     conversation: Conversation = Field(default_factory=Conversation)
     apparence: Apparence = Field(default_factory=Apparence)
 
@@ -394,6 +414,7 @@ SECTIONS: dict[str, tuple[str, ...]] = {
     "locuteurs": ("pas_des_prenoms", "personnes"),
     "compte_rendu": ("moteur", "modele", "langue", "destinataire", "delai"),
     "courriel": ("serveur", "port", "utilisateur", "expediteur"),
+    "retention": ("compresser_apres_jours", "effacer_apres_jours"),
     "conversation": ("recherche_web",),
     "apparence": ("theme",),
 }
@@ -409,6 +430,9 @@ _COMMENTAIRES = {
                      "# « delai » : secondes accordées au rédacteur. Le dépasser ne perd rien,\n"
                      "# la transcription est gardée avant ; « greffier rediger » reprend."),
     "courriel": "Envoi SMTP, pour les postes sans Outlook. Le mot de passe n'est jamais ici.",
+    "retention": ("Combien de temps les enregistrements restent. Compresser ne perd\n"
+                  "# rien d'utile ; effacer perd la seule pièce qu'on ne peut pas refaire,\n"
+                  "# donc « effacer_apres_jours = 0 » désactive. « greffier ranger »."),
     "conversation": ("Ce que l'assistant peut faire quand on lui parle pendant la\n"
                      "# réunion. « recherche_web » ne concerne jamais le compte rendu,\n"
                      "# qui n'a aucun outil. Ce qui sort du poste est le terme cherché."),
