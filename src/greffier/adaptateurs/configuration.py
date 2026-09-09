@@ -232,6 +232,21 @@ class CompteRendu(BaseModel):
         return ""
 
 
+class Conversation(BaseModel):
+    """Ce que l'assistant a le droit de faire quand on lui parle.
+
+    Distinct du compte rendu : celui-ci n'a jamais d'outil, quoi qu'on règle
+    ici. Chercher pour répondre à une question et chercher pour rédiger un
+    document ne sont pas la même chose.
+    """
+
+    #: Autorise la recherche en ligne pour répondre. Ce qui sort du poste est le
+    #: **terme cherché**, jamais la transcription : les consignes l'interdisent
+    #: explicitement. Réglable parce qu'il y a des réunions où même cela ne se
+    #: fait pas.
+    recherche_web: bool = True
+
+
 class Apparence(BaseModel):
     """Ce que la fenêtre montre, indépendamment de ce qu'elle fait.
 
@@ -273,6 +288,7 @@ class Config(BaseSettings):
     locuteurs: Locuteurs = Field(default_factory=Locuteurs)
     compte_rendu: CompteRendu = Field(default_factory=CompteRendu)
     courriel: Courriel = Field(default_factory=Courriel)
+    conversation: Conversation = Field(default_factory=Conversation)
     apparence: Apparence = Field(default_factory=Apparence)
 
     @classmethod
@@ -369,6 +385,7 @@ SECTIONS: dict[str, tuple[str, ...]] = {
     "locuteurs": ("pas_des_prenoms", "personnes"),
     "compte_rendu": ("moteur", "modele", "langue", "destinataire", "delai"),
     "courriel": ("serveur", "port", "utilisateur", "expediteur"),
+    "conversation": ("recherche_web",),
     "apparence": ("theme",),
 }
 
@@ -383,6 +400,9 @@ _COMMENTAIRES = {
                      "# « delai » : secondes accordées au rédacteur. Le dépasser ne perd rien,\n"
                      "# la transcription est gardée avant ; « greffier rediger » reprend."),
     "courriel": "Envoi SMTP, pour les postes sans Outlook. Le mot de passe n'est jamais ici.",
+    "conversation": ("Ce que l'assistant peut faire quand on lui parle pendant la\n"
+                     "# réunion. « recherche_web » ne concerne jamais le compte rendu,\n"
+                     "# qui n'a aucun outil. Ce qui sort du poste est le terme cherché."),
     "apparence": "systeme suit le réglage clair/sombre du poste.",
 }
 

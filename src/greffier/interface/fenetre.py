@@ -2102,7 +2102,7 @@ class Fenetre:
         return True
 
     def _demander(self) -> None:
-        from greffier.composition import redacteur
+        from greffier.composition import assistant
 
         question = self.question.get().strip()
         if not question:
@@ -2113,7 +2113,7 @@ class Fenetre:
         if self._questions_attente and self._repondre_a_la_question(question):
             return
 
-        moteur = redacteur(self.config)
+        moteur = assistant(self.config)
         if moteur is None:
             self._dire("note", "Aucun rédacteur configuré : « greffier configurer ».")
             return
@@ -2143,15 +2143,11 @@ class Fenetre:
 
         def faire(dire: Callable[[str], None]) -> Any:
             dire("réflexion…")
+            # Les consignes viennent de l'assistant : les écrire ici les
+            # dupliquerait, et c'est lui qui sait s'il a le droit de chercher.
             return moteur.rediger(
-                f"Tu réponds à une question sur {quoi} ci-dessous, de la réunion "
-                f"« {sur} ». Réponds brièvement, en français, en t'appuyant "
-                "uniquement sur ce document. Si la réponse n'y est pas, dis-le "
-                "plutôt que de la deviner. Une transcription en direct est "
-                "partielle et comporte des erreurs de mots : ne présente pas "
-                "comme décidé ce qui est en train d'être discuté. "
-                "N'emploie ni tiret cadratin ni demi-cadratin.\n\n"
-                f"Question : {question}\n\n{quoi.capitalize()} :\n{matiere}"
+                f"Question : {question}\n\n"
+                f"Ce qui a été dit — {quoi} de la réunion « {sur} » :\n{matiere}"
             )
 
         self._lancer(Travail(
