@@ -8,6 +8,7 @@
     greffier ranger              applique la rétention aux enregistrements
     greffier sauvegarder         copie les données, sans l'audio
     greffier recuperer           reconstruit une réunion depuis le fil du direct
+    greffier deposer <fichiers>  classe des audios, vidéos et documents
     greffier niveau              dit si le micro suffit à transcrire
     greffier carte               construit la carte d'un sujet depuis une réunion
     greffier verifier            dit ce qui est prêt et ce qui manque
@@ -1440,6 +1441,118 @@ def niveau_(
     typer.secho(f"\n{dire(db)}", fg=couleur)
     if verdict in (Verdict.INSUFFISANT, Verdict.MUET):
         raise typer.Exit(1)
+
+
+@application.command()
+def deposer(
+    fichiers: list[Path] = typer.Argument(..., help="Fichiers à déposer"),
+    faire: bool = typer.Option(
+        False, "--faire", help="Exécuter, au lieu de seulement proposer"
+    ),
+    config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
+) -> None:
+    """Classe des fichiers déposés : réunions, vidéos, contexte.
+
+    Sans « --faire », rien n'est touché : la commande dit ce qu'elle ferait de
+    chaque fichier et pourquoi. Une vidéo de deux heures mal classée coûte une
+    transcription pour rien, et un document classé en réunion produit un compte
+    rendu d'un texte que personne n'a prononcé.
+    """
+    from greffier.application import deposer as travail
+    from greffier.domaine.depot import Destin, proposer, resumer
+
+    config = Config.charger(config_fichier)
+    outils = travail.outils_presents()
+    propositions = []
+    for fichier in fichiers:
+        if not fichier.exists():
+            typer.secho(f"  ✗ introuvable : {fichier}", fg=typer.colors.RED)
+            continue
+        taille = fichier.stat().st_size if fichier.is_file() else None
+        propositions.append(proposer(fichier, taille, outils))
+
+    if not propositions:
+        raise typer.Exit(1)
+
+    typer.echo("")
+    for proposition in propositions:
+        couleur = (
+            typer.colors.GREEN if proposition.faisable
+            else (typer.colors.YELLOW if proposition.bloque_par else typer.colors.BRIGHT_BLACK)
+        )
+        typer.secho(
+            f"  {str(proposition.destin):9} {proposition.fichier.name}",
+            fg=couleur,
+        )
+        typer.echo(f"            {proposition.parce_que}")
+        if proposition.bloque_par:
+            typer.secho(f"            ⚠ {proposition.bloque_par}", fg=typer.colors.YELLOW)
+    typer.echo(f"\n  {resumer(propositions)}")
+
+    if not faire:
+        typer.echo("\n« greffier deposer --faire » pour le faire.")
+        return
+
+    redacteur_document = cartographe(config)
+    if any(p.destin is Destin.CONTEXTE and p.faisable for p in propositions):
+        from greffier.adaptateurs.redaction_claude import RedacteurClaude
+        from greffier.application.deposer import CONSIGNES_DOCUMENT
+
+        if isinstance(redacteur_document, RedacteurClaude):
+            redacteur_document.consignes_propres = CONSIGNES_DOCUMENT
+
+    typer.echo("")
+    a_traiter: list[Path] = []
+    for proposition in propositions:
+        fait = travail.executer(
+            proposition, config.chemins.enregistrements, redacteur_document
+        )
+        if fait.souci:
+            typer.secho(f"  ✗ {proposition.fichier.name} : {fait.souci}",
+                        fg=typer.colors.RED)
+            continue
+        if fait.produit is not None:
+            typer.secho(f"  ✓ {fait.produit.name}", fg=typer.colors.GREEN)
+            a_traiter.append(fait.produit)
+        for ecriture, sens, genre in fait.appris:
+            typer.echo(f"    · {genre:8} {ecriture}"
+                       + (f" — {sens}" if sens else ""))
+        if fait.appris:
+            typer.secho(
+                f"  {len(fait.appris)} entrée(s) proposée(s) depuis "
+                f"{proposition.fichier.name}", fg=typer.colors.GREEN,
+            )
+            _proposer_au_contexte(config, fait.appris)
+
+    if a_traiter:
+        typer.echo("\nÀ transcrire :")
+        for chemin in a_traiter:
+            typer.echo(f"  greffier traiter {chemin}")
+
+
+def _proposer_au_contexte(
+    config: Config, appris: tuple[tuple[str, str, str], ...]
+) -> None:
+    """Demande avant d'écrire dans le contexte, comme partout ailleurs.
+
+    Un document apporte vingt entrées d'un coup : les valider en bloc est le
+    seul geste raisonnable, mais il doit rester un geste.
+    """
+    from greffier.adaptateurs import contexte_fichier
+
+    if not typer.confirm("\n  Ajouter ces entrées au contexte ?", default=True):
+        typer.echo("  Rien n'a été ajouté.")
+        return
+    poses = 0
+    for ecriture, sens, genre in appris:
+        ajout = (
+            contexte_fichier.ajouter_une_personne
+            if genre == "personne" else contexte_fichier.ajouter_un_terme
+        )
+        if ajout(config.chemins.contexte, ecriture, sens):
+            poses += 1
+    typer.secho(f"  ✓ {poses} ajoutée(s), {len(appris) - poses} déjà connue(s)",
+                fg=typer.colors.GREEN)
 
 
 @application.command()
