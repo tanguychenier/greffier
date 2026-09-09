@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from typing import ClassVar
 
 from greffier.domaine.langues import nom_de
 
@@ -153,6 +154,44 @@ def consignes(langue: str = "") -> str:
 
 
 
+CONSIGNES_CONVERSATION = """Tu assistes quelqu'un pendant ou après une réunion de
+travail. On te donne ce qui s'est dit, puis une question.
+
+Réponds brièvement, en français, sans plan ni titres : c'est une conversation,
+pas un document.
+
+Ce sur quoi tu t'appuies, dans cet ordre :
+
+1. Ce qui a été dit. C'est la source qui fait autorité sur cette réunion.
+2. Ce que tu peux chercher en ligne, quand la question porte sur un fait
+   extérieur à la réunion : une définition, une norme, une version, l'état d'un
+   service, une documentation. Cherche de ton propre chef quand cela répond
+   mieux, sans attendre qu'on te le demande.
+
+Quand tu as cherché, **donne l'adresse**. Une réponse sans sa source ne se
+vérifie pas, et c'est en réunion qu'on a besoin de pouvoir ouvrir le lien tout
+de suite. Une ligne par source, l'URL complète, pas « selon la documentation ».
+
+Termine par ce que tu proposes, quand tu as quelque chose à proposer : une
+piste à vérifier, une question à poser à quelqu'un, un point qui manque pour
+trancher. Une seule ligne, précédée de « À faire : ». N'invente rien pour
+remplir cette ligne : s'il n'y a rien à proposer, n'en mets pas.
+
+Ce que tu ne fais jamais :
+
+- présenter comme décidé ce qui est en train d'être discuté. Une transcription
+  en direct est partielle et comporte des erreurs de mots.
+- combler un trou de la transcription par ce que tu as trouvé ailleurs. Si la
+  réponse n'est pas dans ce qui a été dit et que tu ne l'as pas cherchée,
+  dis-le.
+- envoyer vers un moteur de recherche des noms de personnes, des extraits de
+  propos, ou quoi que ce soit d'interne. Tu cherches le terme général, jamais
+  la phrase de la réunion.
+
+N'emploie ni tiret cadratin ni demi-cadratin.
+"""
+
+
 class RedacteurClaude:
     """Rédige le compte rendu en appelant Claude Code en ligne de commande.
 
@@ -163,12 +202,27 @@ class RedacteurClaude:
     (voir `CompteRendu.CLAUDE_PAR_DEFAUT`).
     """
 
+    #: Les outils accordés pour **chercher**, jamais pour rédiger. Le compte
+    #: rendu se compose de ce qui a été dit et de rien d'autre : lui ouvrir un
+    #: navigateur reviendrait à lui permettre de compléter une décision par ce
+    #: qu'il a trouvé ailleurs, ce qu'un compte rendu ne doit jamais faire.
+    #: La conversation, elle, sert précisément à aller chercher.
+    OUTILS_DE_RECHERCHE: ClassVar[tuple[str, ...]] = ("WebSearch", "WebFetch")
+
     def __init__(self, modele: str = "", commande: str = "claude",
-                 delai: int = 900, langue: str = "") -> None:
+                 delai: int = 900, langue: str = "",
+                 outils: tuple[str, ...] = (), consignes_propres: str = "") -> None:
         self.modele = modele
         self.commande = commande
         self.delai = delai
         self.langue = langue
+        #: Vide par défaut : le rédacteur du compte rendu n'a aucun outil, et ce
+        #: défaut est ce qui garantit qu'on ne le lui ouvre pas par distraction.
+        self.outils = outils
+        #: Remplace les consignes de rédaction. La conversation ne rédige pas un
+        #: compte rendu : lui imposer le plan « Décisions / Actions / Points
+        #: ouverts » pour répondre à « qui est Maud ? » n'a aucun sens.
+        self.consignes_propres = consignes_propres
 
     def rediger(self, transcription: str) -> str:
         if shutil.which(self.commande) is None:
@@ -178,12 +232,14 @@ class RedacteurClaude:
             )
         # Le texte passe par l'entrée standard : une transcription d'une heure
         # dépasse largement la taille admise pour un argument de commande.
-        commande = [self.commande, "-p", "--output-format", "text", "--allowed-tools", ""]
+        commande = [self.commande, "-p", "--output-format", "text",
+                    "--allowed-tools", ",".join(self.outils)]
         if self.modele:
             commande += ["--model", self.modele]
+        entete = self.consignes_propres or consignes(self.langue)
         resultat = subprocess.run(
             commande,
-            input=consignes(self.langue) + transcription,
+            input=entete + transcription,
             capture_output=True, text=True, timeout=self.delai, check=False,
         )
         texte = resultat.stdout.strip()

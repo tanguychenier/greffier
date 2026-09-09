@@ -141,6 +141,41 @@ def redacteur(config: Config) -> sortants.Redacteur | None:
     return None
 
 
+def assistant(config: Config) -> sortants.Redacteur | None:
+    """Qui répond dans la conversation — pas qui rédige le compte rendu.
+
+    Deux instances, deux réglages, et c'est volontaire. Le rédacteur du compte
+    rendu n'a **aucun** outil : le document se compose de ce qui a été dit et de
+    rien d'autre, sans quoi une décision pourrait se voir complétée par ce qu'il
+    a trouvé ailleurs. La conversation, elle, sert précisément à aller chercher
+    — une définition, une norme, l'état d'un service — et refuser de le faire
+    obligeait à quitter la réunion pour ouvrir un navigateur.
+
+    La recherche s'éteint depuis les réglages : elle fait sortir du poste le
+    terme cherché, et il y a des réunions où cela ne se fait pas.
+    """
+    moteur = config.compte_rendu.moteur
+    if moteur == "ollama":
+        # Un modèle local ne cherche rien : il répond sur ce qu'il a lu.
+        return RedacteurOllama(config.compte_rendu.modele_effectif,
+                               langue=config.compte_rendu.langue)
+    if moteur != "claude":
+        return None
+    from greffier.adaptateurs.redaction_claude import (
+        CONSIGNES_CONVERSATION,
+        RedacteurClaude,
+    )
+
+    return RedacteurClaude(
+        config.compte_rendu.modele_effectif,
+        delai=config.compte_rendu.delai,
+        langue=config.compte_rendu.langue,
+        outils=(RedacteurClaude.OUTILS_DE_RECHERCHE
+                if config.conversation.recherche_web else ()),
+        consignes_propres=CONSIGNES_CONVERSATION,
+    )
+
+
 def depot(config: Config) -> DepotFichiers:
     """Les fichiers maîtres, source de vérité d'une réunion traitée."""
     return DepotFichiers(config.chemins.donnees / "reunions")
