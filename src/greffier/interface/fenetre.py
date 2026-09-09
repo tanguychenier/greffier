@@ -284,6 +284,9 @@ class Fenetre:
         self._onglet_reglages()
         self.etat_bas = self._texte(corps, "", taille=11, pale=True)
         self.etat_bas.grid(row=2, column=0, sticky="ew", pady=(14, 0))
+        # Après tous les onglets : l'annonce s'écrit dans la Conversation, qui
+        # n'existe pas encore quand l'onglet Réunions se construit.
+        self._signaler_les_reprises()
 
     def _construire_etat(self, parent: tk.Frame) -> None:
         c = self.couleurs
@@ -457,7 +460,6 @@ class Fenetre:
             )
         self.liste.bind("<<TreeviewSelect>>", lambda _e: self._charger_voix())
         self._charger_reunions()
-        self._signaler_les_reprises()
 
     def _onglet_direct(self) -> None:
         """Ce qui se dit, pendant que ça se dit — et corrigeable d'un clic.
