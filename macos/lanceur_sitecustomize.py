@@ -57,6 +57,16 @@ if len(sys.orig_argv) == 1:
     flux = journal.open("a", encoding="utf-8", buffering=1)
     sys.stdout = sys.stderr = flux
 
+    # Borner la session, horodatée. Sans ces deux lignes le journal restait
+    # vide de toute façon : rien n'était imprimé au démarrage, et le seul
+    # contenu venait des événements audio d'une réunion. On ne pouvait donc pas
+    # répondre à « l'application tournait-elle à 11 h 05 ? », qui est la
+    # première question quand une réunion n'a rien enregistré.
+    from datetime import datetime
+
+    debut = datetime.now().astimezone()
+    print(f"\n=== démarré le {debut:%Y-%m-%d %H:%M:%S %z} ===")
+
     sys.argv = ["greffier", "fenetre"]
     from greffier.cli import application
 
@@ -75,6 +85,17 @@ if len(sys.orig_argv) == 1:
     finally:
         # Vidé explicitement : `os._exit` ne le fait pas, et une trace écrite
         # juste avant la sortie est justement celle qu'on vient chercher.
+        # La borne de fin n'arrive que si le processus se termine de lui-même.
+        # Mesuré : quitter l'application depuis le système ne l'écrit pas — macOS
+        # ne laisse pas toujours le processus finir. C'est la borne de **début**
+        # qui porte la valeur : elle répond à « l'application tournait-elle à
+        # 11 h 05 ? », première question quand une réunion n'a rien enregistré.
+        # Une session sans borne de fin se lit comme un arrêt non propre, ce qui
+        # est en soi une information.
+        with contextlib.suppress(Exception):
+            fin = datetime.now().astimezone()
+            duree = fin - debut
+            print(f"=== arrêté le {fin:%H:%M:%S} après {duree} ===")
         with contextlib.suppress(Exception):
             flux.flush()
             os.fsync(flux.fileno())
