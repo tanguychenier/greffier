@@ -697,14 +697,34 @@ def etape_environnement(ctx, moteur):
         # Sans lui, la ligne de commande fonctionne mais pas le paquet .app.
         installer_paquet(ctx, "uv", "interpréteur relogeable, embarqué dans l'application")
 
+    # Le contrôle porte sur l'**interpréteur**, jamais sur le dossier. Un
+    # « .venv » venu d'une autre machine — un dossier de projet copié, une
+    # sauvegarde restaurée, une image construite depuis un dépôt de travail —
+    # existe sans que son interpréteur existe : les liens qu'il contient
+    # pointent vers un chemin d'ailleurs. L'installation annonçait alors
+    # « repli sur venv + pip », sautait la création, et tombait sur
+    # « No such file or directory: .venv/bin/python ». Mesuré : c'est ce qui
+    # arrêtait net l'installation sous Linux.
+    if venv.exists() and not python.exists():
+        alerte("environnement Python inutilisable (venu d'une autre machine ?), "
+               "il est refait")
+        shutil.rmtree(venv, ignore_errors=True)
+
     if shutil.which("uv"):
-        if not venv.exists():
+        if not python.exists():
             lancer(["uv", "venv", "--python", "3.13"], cwd=DEPOT)
         lancer(["uv", "pip", "install", "-q", "-e", f".[{extras}]"], cwd=DEPOT)
     else:
         alerte("uv absent — repli sur venv + pip, plus lent")
-        if not venv.exists():
+        if not python.exists():
             lancer([sys.executable, "-m", "venv", str(venv)])
+        if not python.exists():
+            # S'arrêter ici et le dire : la suite échouerait de toute façon,
+            # trois lignes plus bas, sur une trace Python que personne ne relie
+            # au paquet manquant.
+            erreur("l'environnement Python n'a pas pu être créé. Sous Debian et "
+                   "Ubuntu, « apt install python3-venv » le fournit.")
+            raise SystemExit(1)
         lancer([str(python), "-m", "pip", "install", "-q", "-e", f".[{extras}]"], cwd=DEPOT)
     ok(f"dépendances installées ({extras})")
     return python

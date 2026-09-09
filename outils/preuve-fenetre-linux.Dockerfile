@@ -22,7 +22,7 @@ RUN apt-get update -qq \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /travail/greffier
-COPY greffier /travail/greffier
+COPY . /travail/greffier
 
 # `--system-site-packages` pour que le `tkinter` du système reste visible : il
 # est livré par apt, pas par pip, et un environnement fermé le cacherait.

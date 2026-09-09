@@ -9,6 +9,7 @@ incomplète laisse un texte illisible sur son fond.
 from __future__ import annotations
 
 import re
+from types import SimpleNamespace
 
 import pytest
 
@@ -141,3 +142,80 @@ class TestChoixDuTheme:
         monkeypatch.setattr(style, "systeme_en_sombre", lambda: False)
         assert style.palette("fluo") is CLAIR
 
+
+
+class TestThemeDuSysteme:
+    """Les trois systèmes disent leur préférence, chacun à sa façon.
+
+    Ne demander qu'à macOS laissait un bureau réglé en sombre recevoir une
+    interface claire, ce qui saute aux yeux à côté des autres fenêtres.
+    """
+
+    def _repondre(self, monkeypatch, reponses):
+        from greffier.interface import style
+
+        def faux(commande, **_):
+            for motif, sortie in reponses.items():
+                if motif in " ".join(commande):
+                    return SimpleNamespace(returncode=0, stdout=sortie)
+            return SimpleNamespace(returncode=1, stdout="")
+
+        monkeypatch.setattr(style.subprocess, "run", faux)
+
+    def test_macos_repond_dark(self, monkeypatch):
+        from greffier.interface import style
+
+        monkeypatch.setattr(style.platform, "system", lambda: "Darwin")
+        self._repondre(monkeypatch, {"AppleInterfaceStyle": "Dark\n"})
+        assert style.systeme_en_sombre()
+
+    def test_windows_lit_la_cle_a_l_envers(self, monkeypatch):
+        """La clé dit si les applications sont en thème **clair** : 0 est sombre."""
+        from greffier.interface import style
+
+        monkeypatch.setattr(style.platform, "system", lambda: "Windows")
+        self._repondre(monkeypatch, {
+            "AppsUseLightTheme": "    AppsUseLightTheme    REG_DWORD    0x0\n"})
+        assert style.systeme_en_sombre()
+
+    def test_windows_en_clair(self, monkeypatch):
+        from greffier.interface import style
+
+        monkeypatch.setattr(style.platform, "system", lambda: "Windows")
+        self._repondre(monkeypatch, {
+            "AppsUseLightTheme": "    AppsUseLightTheme    REG_DWORD    0x1\n"})
+        assert not style.systeme_en_sombre()
+
+    def test_linux_par_le_portail_freedesktop(self, monkeypatch):
+        """La clé portable, que GNOME comme KDE renseignent."""
+        from greffier.interface import style
+
+        monkeypatch.setattr(style.platform, "system", lambda: "Linux")
+        self._repondre(monkeypatch, {"freedesktop.portal": "(<<uint32 1>>,)\n"})
+        assert style.systeme_en_sombre()
+
+    def test_linux_sans_portail_retombe_sur_gnome(self, monkeypatch):
+        from greffier.interface import style
+
+        monkeypatch.setattr(style.platform, "system", lambda: "Linux")
+        self._repondre(monkeypatch, {"gsettings": "'prefer-dark'\n"})
+        assert style.systeme_en_sombre()
+
+    def test_un_systeme_muet_donne_le_theme_clair(self, monkeypatch):
+        """Un repli clair est acceptable ; une fenêtre qui n'ouvre pas ne l'est pas."""
+        from greffier.interface import style
+
+        monkeypatch.setattr(style.platform, "system", lambda: "Linux")
+        self._repondre(monkeypatch, {})
+        assert not style.systeme_en_sombre()
+
+    def test_une_commande_absente_ne_leve_pas(self, monkeypatch):
+        from greffier.interface import style
+
+        monkeypatch.setattr(style.platform, "system", lambda: "Linux")
+
+        def absente(*_a, **_k):
+            raise FileNotFoundError("gdbus")
+
+        monkeypatch.setattr(style.subprocess, "run", absente)
+        assert not style.systeme_en_sombre()

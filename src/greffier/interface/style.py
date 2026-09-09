@@ -75,14 +75,59 @@ SOMBRE = Palette(
 
 
 def systeme_en_sombre() -> bool:
-    """Suit le réglage du système, plutôt que d'imposer un goût."""
-    if platform.system() != "Darwin":
-        return False
-    fait = subprocess.run(
-        ["defaults", "read", "-g", "AppleInterfaceStyle"],
-        capture_output=True, text=True, check=False,
-    )
-    return fait.stdout.strip() == "Dark"
+    """Suit le réglage du système, plutôt que d'imposer un goût.
+
+    Les trois systèmes le disent, chacun à sa façon, et aucun ne coûte plus de
+    quelques millisecondes. Ne demander qu'à macOS laissait un bureau réglé en
+    sombre recevoir une interface claire, ce qui saute aux yeux à côté de toutes
+    les autres fenêtres.
+    """
+    systeme = platform.system()
+    if systeme == "Darwin":
+        return _sortie(["defaults", "read", "-g", "AppleInterfaceStyle"]) == "Dark"
+    if systeme == "Windows":
+        # 0 veut dire sombre : la clé dit si les applications utilisent le
+        # thème **clair**, ce qui se lit à l'envers de ce qu'on cherche.
+        lu = _sortie([
+            "reg", "query",
+            r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+            "/v", "AppsUseLightTheme",
+        ])
+        return "0x0" in lu
+    # Linux et les autres : la clé portable de freedesktop d'abord, que GNOME,
+    # KDE et les bureaux récents renseignent tous ; le réglage GNOME ensuite,
+    # pour les versions qui ne l'exposent pas encore.
+    portail = _sortie([
+        "gdbus", "call", "--session", "--dest", "org.freedesktop.portal.Desktop",
+        "--object-path", "/org/freedesktop/portal/desktop",
+        "--method", "org.freedesktop.portal.Settings.Read",
+        "org.freedesktop.appearance", "color-scheme",
+    ])
+    if portail:
+        # La réponse est un variant imbriqué, « (<<uint32 1>>,) » : 1 est
+        # sombre, 2 est clair, 0 est « sans préférence ».
+        return "uint32 1" in portail
+    reglage = _sortie(["gsettings", "get", "org.gnome.desktop.interface",
+                       "color-scheme"])
+    if reglage:
+        return "dark" in reglage.lower()
+    theme = _sortie(["gsettings", "get", "org.gnome.desktop.interface", "gtk-theme"])
+    return "dark" in theme.lower()
+
+
+def _sortie(commande: list[str]) -> str:
+    """Ce qu'une commande écrit, ou rien si elle manque ou échoue.
+
+    Rien est le cas courant : `gdbus` n'existe pas sur un poste sans D-Bus,
+    `reg` pas hors de Windows. Un thème clair est un repli acceptable, une
+    fenêtre qui ne s'ouvre pas ne l'est pas.
+    """
+    try:
+        fait = subprocess.run(commande, capture_output=True, text=True,
+                              check=False, timeout=2)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return fait.stdout.strip() if fait.returncode == 0 else ""
 
 
 def palette(theme: str = "systeme") -> Palette:

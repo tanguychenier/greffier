@@ -3,6 +3,13 @@
 # Rien n'est préinstallé au-delà de Python et de git : c'est l'installeur qui
 # doit détecter et poser ffmpeg, les modèles et l'environnement. Si cette image
 # se construit, c'est qu'un collègue sous Linux peut installer Greffier.
+#
+#     docker build -f outils/preuve-linux.Dockerfile -t greffier-preuve-linux .
+#
+# Le contexte est le dépôt lui-même, et non son dossier parent : c'est ce qui
+# fait que le « .dockerignore » du dépôt s'applique. Sans lui, le « .venv » du
+# poste de travail entrait dans l'image, où ses liens ne mènent nulle part, et
+# l'installeur le prenait pour un environnement valide.
 FROM python:3.13-slim
 
 # git uniquement pour cloner le dépôt, comme le ferait un collègue.
@@ -10,7 +17,7 @@ RUN apt-get update -qq && apt-get install -y -qq git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /travail
-COPY greffier /travail/greffier
+COPY . /travail/greffier
 WORKDIR /travail/greffier
 
 # Modèle de transcription réduit : le « large-v3 » pèse 1,5 Go et n'ajoute rien
