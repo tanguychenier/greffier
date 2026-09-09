@@ -441,6 +441,7 @@ class Fenetre:
             # d'« Ouvrir » et de « Supprimer », le moyen d'envoi ne fait aucun
             # doute.
             ("Envoyer", self._envoyer_selection, 116),
+            ("Déposer…", self._deposer_des_fichiers, 116),
             ("Renommer", self._renommer_selection, 110),
             ("Supprimer", self._oublier_selection, 110),
             ("Rafraîchir", self._charger_reunions, 116),
@@ -1994,6 +1995,128 @@ class Fenetre:
             self.etat_bas.configure(text="Choisis une réunion dans la liste.")
             return
         self._rediger_seulement(identifiant)
+
+    def _deposer_des_fichiers(self) -> None:
+        """Choisit des fichiers, montre ce qu'il en ferait, puis demande.
+
+        Le classement s'affiche avant d'agir : une vidéo de deux heures mal
+        classée coûte une transcription pour rien, et un document classé en
+        réunion produirait le compte rendu d'un texte que personne n'a
+        prononcé.
+        """
+        from tkinter import filedialog
+
+        from greffier.application import deposer as travail
+        from greffier.domaine.depot import proposer, resumer
+
+        choisis = filedialog.askopenfilenames(
+            parent=self.racine,
+            title="Déposer des enregistrements, des vidéos ou des documents",
+        )
+        if not choisis:
+            return
+        outils = travail.outils_presents()
+        propositions = [
+            proposer(Path(chemin), Path(chemin).stat().st_size, outils)
+            for chemin in choisis
+        ]
+        detail = "\n".join(
+            f"  {p.destin:9} {p.fichier.name}"
+            + (f"\n             ⚠ {p.bloque_par}" if p.bloque_par else "")
+            for p in propositions
+        )
+        if not messagebox.askyesno(
+            "Greffier",
+            f"{resumer(propositions)}\n\n{detail}\n\n"
+            "Les sons et les vidéos deviennent des réunions à transcrire ; les "
+            "documents servent à enrichir le contexte. Continuer ?",
+        ):
+            return
+
+        redacteur_document = self._redacteur_de_documents(propositions)
+
+        def faire(dire: Callable[[str], None]) -> list:  # type: ignore[type-arg]
+            faits = []
+            for numero, proposition in enumerate(propositions, start=1):
+                dire(f"{proposition.fichier.name} ({numero}/{len(propositions)})…")
+                faits.append(travail.executer(
+                    proposition, self.config.chemins.enregistrements,
+                    redacteur_document,
+                ))
+            return faits
+
+        def fini(faits: Any, souci: Exception | None) -> None:
+            self._charger_reunions()
+            if souci is not None:
+                self._dire("note", f"Dépôt interrompu : {souci}")
+                return
+            self._rendre_compte_du_depot(faits or [])
+
+        self._lancer(Travail(intitule="dépôt", faire=faire, fini=fini))
+
+    def _redacteur_de_documents(self, propositions: list) -> Any:  # type: ignore[type-arg]
+        """Le rédacteur chargé de lire les documents, s'il y en a."""
+        from greffier.composition import cartographe
+        from greffier.domaine.depot import Destin
+
+        if not any(p.destin is Destin.CONTEXTE and p.faisable for p in propositions):
+            return None
+        from greffier.adaptateurs.redaction_claude import RedacteurClaude
+        from greffier.application.deposer import CONSIGNES_DOCUMENT
+
+        moteur = cartographe(self.config)
+        if isinstance(moteur, RedacteurClaude):
+            moteur.consignes_propres = CONSIGNES_DOCUMENT
+        return moteur
+
+    def _rendre_compte_du_depot(self, faits: list) -> None:  # type: ignore[type-arg]
+        """Dit ce que le dépôt a produit, et propose ce qu'il a appris."""
+        from greffier.adaptateurs import contexte_fichier
+
+        a_transcrire: list[str] = []
+        appris: list[tuple[str, str, str]] = []
+        for fait in faits:
+            if fait.souci:
+                self._dire("note",
+                           f"{fait.proposition.fichier.name} : {fait.souci}")
+                continue
+            if fait.produit is not None:
+                a_transcrire.append(fait.produit.stem)
+            appris.extend(fait.appris)
+
+        if a_transcrire:
+            self._dire("greffier", (
+                f"{len(a_transcrire)} enregistrement(s) prêt(s) : "
+                f"{', '.join(a_transcrire[:3])}"
+                + ("…" if len(a_transcrire) > 3 else "")
+                + ". Onglet Réunions, « Traiter »."
+            ))
+        if not appris:
+            return
+        detail = "\n".join(
+            f"  {genre:8} {ecriture}" + (f" — {sens}" if sens else "")
+            for ecriture, sens, genre in appris
+        )
+        if not messagebox.askyesno(
+            "Greffier",
+            f"{len(appris)} entrée(s) trouvée(s) dans les documents :\n\n"
+            f"{detail}\n\nLes ajouter au contexte ?",
+        ):
+            self._dire("note", "Rien n'a été ajouté au contexte.")
+            return
+        poses = 0
+        for ecriture, sens, genre in appris:
+            ajout = (
+                contexte_fichier.ajouter_une_personne if genre == "personne"
+                else contexte_fichier.ajouter_un_terme
+            )
+            with contextlib.suppress(OSError):
+                if ajout(self.config.chemins.contexte, ecriture, sens):
+                    poses += 1
+        self._dire("greffier", (
+            f"{poses} entrée(s) ajoutée(s) au contexte, "
+            f"{len(appris) - poses} déjà connue(s)."
+        ))
 
     def _renommer_selection(self) -> None:
         """Donne un sujet lisible à la réunion choisie.
