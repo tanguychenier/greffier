@@ -6,7 +6,7 @@
 # Pourquoi une identité, et pas la signature ad hoc (`codesign --sign -`) :
 # une signature ad hoc n'est que le hachage du binaire. À chaque reconstruction
 # du paquet, macOS voyait donc une application inconnue et redemandait le micro
-# et l'automatisation d'Outlook ; le garde du poste (XFENCE) aussi. Avec un
+# et l'automatisation d'Outlook ; le garde du poste aussi. Avec un
 # certificat, l'exigence de code (« designated requirement ») repose sur le
 # certificat et l'identifiant du paquet : les autorisations données une fois
 # survivent aux reconstructions, et même au renouvellement du certificat, qui
