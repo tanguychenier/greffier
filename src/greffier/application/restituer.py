@@ -547,7 +547,30 @@ def revoir_les_voix(
     }
     if banque is not None:
         _reconnaitre_a_nouveau(reunion, empreintes, appartenance, banque)
+    _reunir_les_homonymes(reunion)
     return len(avant), len({t.voix for t in reunion.tours if t.voix})
+
+
+def _reunir_les_homonymes(reunion: Any) -> None:
+    """Deux voix portant le même nom sont la même personne.
+
+    Le nommage le fait déjà quand on nomme ; ici, ce sont des noms posés avant
+    le recollage qui se retrouvent côte à côte. Sans cela, une réunion dont
+    quinze voix avaient été nommées à la main à l'identique en annonçait quinze.
+    """
+    temps = reunion.temps_de_parole()
+    for nom in {n.casefold() for n in reunion.noms.values()}:
+        portantes = sorted(
+            (v for v, porte in reunion.noms.items() if porte.casefold() == nom),
+            key=lambda v: -temps.get(v, 0.0),
+        )
+        gardee = portantes[0]
+        for absorbee in portantes[1:]:
+            reunion.reunir(absorbee, gardee)
+        if portantes[1:]:
+            reunion.noms[gardee] = next(
+                n for n in reunion.noms.values() if n.casefold() == nom
+            ) if gardee in reunion.noms else reunion.noms.get(gardee, "")
 
 
 def _reconnaitre_a_nouveau(reunion, empreintes, appartenance, banque) -> None:

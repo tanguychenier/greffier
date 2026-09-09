@@ -76,7 +76,20 @@ DIALOGUE_PRESENTIEL = [
 #: Trois voix pour le présentiel. Sandy ne se présente pas et n'est jamais
 #: interpellée : elle doit rester une voix à nommer, sinon c'est que la chaîne
 #: invente.
-VOIX_PRESENTIEL = {"A": "Jacques", "B": "Sandy", "C": "Rocko"}
+#: Les voix qui prêtent leur timbre au dialogue. **Pas celles qui portent les
+#: prénoms du dialogue** : « Jacques », « Sandy » et « Rocko » sont des voix
+#: « eloquence », le synthétiseur par formants que macOS traîne depuis les
+#: années 1980. Mesuré : whisper n'en tire **rien du tout** — sur une réunion
+#: d'essai de quarante-cinq secondes, les deux répliques de la voix « Sandy »
+#: étaient absentes de la transcription, avec ou sans détection de parole, à
+#: niveau sonore pourtant identique aux autres. Le jeu d'essai prouvait donc que
+#: la chaîne ne retrouvait pas un prénom, quand elle n'avait jamais reçu la
+#: phrase qui le porte.
+#:
+#: « Thomas » et « Amélie » sont des voix par concaténation : elles s'entendent,
+#: mais un modèle de transcription les comprend, ce qui est tout ce qu'on leur
+#: demande ici.
+VOIX_PRESENTIEL = {"A": "Thomas", "B": "Amélie", "C": "Rocko"}
 
 #: Fuite mesurée dans la boucle système d'une réunion tenue autour d'une table :
 #: -53 dB au lieu du silence attendu, du son y ayant fui à un moment. C'est
@@ -88,7 +101,7 @@ FUITE_DB = -40.0
 
 # Deux voix aussi éloignées que possible : la segmentation doit pouvoir les
 # distinguer, sinon le test mesurerait la synthèse vocale et non la chaîne.
-VOIX = {"A": "Jacques", "B": "Sandy"}
+VOIX = {"A": "Thomas", "B": "Amélie"}
 SILENCE = 0.4  # secondes entre deux répliques, comme dans une vraie discussion
 
 
