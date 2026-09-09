@@ -132,6 +132,28 @@ class TestGardeFous:
             traitement.executer(AUDIO)
         assert redacteur.recu is None, "le rédacteur ne doit pas être appelé"
 
+    def test_un_nombre_de_participants_qui_contredit_l_audio_est_signale(self):
+        """Annoncer un nombre force exactement autant de groupes, en silence.
+
+        Le 2026-09-09, « 4 participants » traînait dans la configuration d'un
+        poste et la réunion en comptait davantage : deux personnes ont été
+        confondues sans que rien ne le dise.
+        """
+        traitement = chaine()
+        traitement.personnes = 9
+        resultat = traitement.executer(AUDIO)
+        assert any("9 participants sont annoncés" in a for a in resultat.avertissements)
+
+    def test_un_nombre_juste_ne_dit_rien(self):
+        traitement = chaine()
+        traitement.personnes = len(chaine().executer(AUDIO).voix_significatives())
+        resultat = traitement.executer(AUDIO)
+        assert not any("annoncés" in a for a in resultat.avertissements)
+
+    def test_sans_nombre_annonce_il_n_y_a_rien_a_contredire(self):
+        resultat = chaine().executer(AUDIO)
+        assert not any("annoncés" in a for a in resultat.avertissements)
+
     def test_le_seuil_de_mots_reste_bas_mais_non_nul(self):
         assert 0 < MOTS_MINIMUM <= 50
 
