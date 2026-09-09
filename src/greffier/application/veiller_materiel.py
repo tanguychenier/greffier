@@ -18,6 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from greffier.domaine.capture import SurveillanceDeCapture
 from greffier.domaine.modeles import Phase
 from greffier.domaine.peripheriques import Action, Materiel, Veille
 
@@ -57,10 +58,15 @@ class VeilleMateriel:
     reconstruire: Callable[[str], bool]
     #: Prévient l'utilisateur, quand le système sait afficher quelque chose.
     prevenir: Callable[[str], None] = lambda _: None
+    #: Taille du morceau en cours d'écriture, en octets, ou None si on ne sait
+    #: pas la lire. Facultatif : sans elle la veille garde son ancien office,
+    #: ce dont les tests du matériel profitent.
+    taille_captee: Callable[[], int | None] | None = None
     intervalle: float = INTERVALLE
 
     def __post_init__(self) -> None:
         self._precedent: Materiel | None = None
+        self._capture = SurveillanceDeCapture()
 
     def enregistre(self) -> bool:
         """Faux dès que l'enregistrement s'arrête : la veille n'a plus d'objet."""
@@ -70,7 +76,8 @@ class VeilleMateriel:
             return False
 
     def tour(self) -> None:
-        """Un tour : lire le matériel, décider, agir."""
+        """Un tour : voir si la capture avance, lire le matériel, décider, agir."""
+        self._verifier_la_capture()
         courant = self.listeur.lire()
         if not courant.peripheriques:
             # Lecture impossible : on ne conclut rien. Décider sur un matériel
@@ -101,6 +108,24 @@ class VeilleMateriel:
             return
         self.machine.reprendre(decision.raison)
         self.prevenir(decision.raison)
+
+    def _verifier_la_capture(self) -> None:
+        """Dit tout de suite si plus rien ne s'écrit.
+
+        Avant, une capture morte ne se voyait qu'au traitement, une fois la
+        réunion finie : le contrôle de silence de la chaîne arrive trop tard
+        pour qu'on puisse la refaire.
+        """
+        if self.taille_captee is None:
+            return
+        octets = self.taille_captee()
+        if octets is None:
+            return
+        raison = self._capture.constater(octets)
+        if not raison:
+            return
+        self.machine.signaler(raison)
+        self.prevenir("L'enregistrement n'avance plus.")
 
     def boucler(self, dormir: Callable[[float], None] = time.sleep) -> int:
         """Veille jusqu'à l'arrêt de l'enregistrement. Rend le nombre de tours."""

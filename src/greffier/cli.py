@@ -1357,12 +1357,31 @@ def veiller(
 
     depart = lecteur.lire()
     voulu = config.audio.micro or micro_conseille(depart, config.audio.micro or "")
+    def taille_captee() -> int | None:
+        """Les octets écrits dans le morceau en cours, pour savoir si ça avance.
+
+        Le dernier morceau et non le premier : un changement de matériel en
+        rouvre un, et c'est celui-là que ffmpeg alimente.
+        """
+        try:
+            etat_courant = machine.lire()
+        except (OSError, ValueError):
+            return None
+        morceaux = etat_courant.morceaux or ([etat_courant.audio] if etat_courant.audio else [])
+        if not morceaux:
+            return None
+        try:
+            return morceaux[-1].stat().st_size
+        except OSError:
+            return None
+
     veilleuse = VeilleMateriel(
         machine=machine,
         listeur=lecteur,
         veille=Veille(micro_voulu=voulu, agrege=config.audio.entree),
         reconstruire=reconstruire,
         prevenir=prevenir,
+        taille_captee=taille_captee,
     )
     tours = veilleuse.boucler()
     typer.echo(f"Veille terminée après {tours} tours.")
