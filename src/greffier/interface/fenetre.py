@@ -432,7 +432,13 @@ class Fenetre:
             # plusieurs minutes, et c'est le cas courant après un échec.
             ("Rédiger", self._rediger_selection, 100),
             ("Ouvrir", self._ouvrir_compte_rendu, 96),
-            ("Envoyer par courriel", self._envoyer_selection, 180),
+            # « Envoyer » et non « Envoyer par courriel » : le libellé le plus
+            # long impose sa largeur à toutes les colonnes de la barre, et
+            # 180 px contre 96 pour « Ouvrir » faisaient passer les sept
+            # boutons sur deux rangs là où ils tenaient sur un seul. À côté
+            # d'« Ouvrir » et de « Supprimer », le moyen d'envoi ne fait aucun
+            # doute.
+            ("Envoyer", self._envoyer_selection, 116),
             ("Renommer", self._renommer_selection, 110),
             ("Supprimer", self._oublier_selection, 110),
             ("Rafraîchir", self._charger_reunions, 116),
@@ -880,11 +886,14 @@ class Fenetre:
         # « Se connecter » à qui l'est déjà laisse croire que la session n'est
         # pas vue. Aucun bouton « Actualiser » : l'état se relit tout seul
         # chaque fois que l'onglet s'affiche.
+        # Deux boutons de même largeur, comme la barre de l'onglet Réunions :
+        # dans une même fenêtre, deux barres d'actions qui ne se ressemblent pas
+        # se remarquent.
         self.bouton_session = Bouton(boutons, "Se connecter", self._session_claude,
                                      self.couleurs, largeur=150, hauteur=32)
-        self.bouton_session.pack(side="left", padx=(0, 8))
+        self.bouton_session.pack(side="left", padx=(0, 9))
         self.bouton_maj = Bouton(boutons, "Mettre à jour", self._mettre_a_jour_claude,
-                                 self.couleurs, largeur=132, hauteur=32)
+                                 self.couleurs, largeur=150, hauteur=32)
         self.bouton_maj.pack(side="left")
         rang += 1
 
@@ -931,11 +940,14 @@ class Fenetre:
         boutons_version = tk.Frame(dedans, bg=self.couleurs.carte)
         boutons_version.grid(row=rang, column=0, columnspan=2, sticky="w",
                              pady=(0, 2))
+        # « Chercher une mise à jour » et non un libellé plus court : c'est le
+        # seul bouton de sa ligne, donc il n'impose sa largeur à personne, et
+        # l'action mérite d'être dite en entier — elle interroge le réseau.
         self.bouton_maj_greffier = Bouton(
             boutons_version, "Chercher une mise à jour",
             self._chercher_une_mise_a_jour, self.couleurs, largeur=210, hauteur=32,
         )
-        self.bouton_maj_greffier.pack(side="left", padx=(0, 8))
+        self.bouton_maj_greffier.pack(side="left", padx=(0, 9))
         rang += 1
 
         self._brancher_les_reglages()
