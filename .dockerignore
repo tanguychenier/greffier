@@ -1,0 +1,11 @@
+# Le contexte de construction ne doit porter que les sources. Un « .venv »
+# copié depuis le poste de travail contient des liens vers un interpréteur
+# qui n'existe pas dans l'image : l'installeur le prenait pour un
+# environnement valide et échouait à l'utiliser.
+.venv/
+.git/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+**/__pycache__/
+*.pyc

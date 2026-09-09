@@ -19,22 +19,22 @@ from greffier.composition import participant
 
 pytestmark = pytest.mark.lent
 
-ORDINAIRE = """Florent : le déploiement en préproduction s'est bien passé vendredi.
-Tanguy : j'ai relu la documentation, elle est à jour.
-Florent : très bien. On enchaîne sur le point suivant.
-Tanguy : d'accord.
+ORDINAIRE = """Camille : le déploiement en préproduction s'est bien passé vendredi.
+Dominique : j'ai relu la documentation, elle est à jour.
+Camille : très bien. On enchaîne sur le point suivant.
+Dominique : d'accord.
 """
 
-SANS_RESPONSABLE = """Florent : donc on est d'accord, on migre la base en Symfony 7
+SANS_RESPONSABLE = """Camille : donc on est d'accord, on migre la base en Symfony 7
 avant la recette.
-Tanguy : oui, c'est acté.
-Florent : parfait. Sujet suivant, les congés d'août.
+Dominique : oui, c'est acté.
+Camille : parfait. Sujet suivant, les congés d'été.
 """
 
-QUESTION_EN_L_AIR = """Tanguy : est-ce que quelqu'un sait si les flux sont ouverts
-vers la pré-prod de Saclay ?
-Florent : bon, sinon, il faut qu'on parle du budget du trimestre.
-Tanguy : oui, on a un dépassement de douze pour cent.
+QUESTION_EN_L_AIR = """Dominique : est-ce que quelqu'un sait si les flux sont ouverts
+vers la préproduction du client ?
+Camille : bon, sinon, il faut qu'on parle du budget du trimestre.
+Dominique : oui, on a un dépassement de douze pour cent.
 """
 
 

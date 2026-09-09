@@ -354,3 +354,62 @@ class TestLaLangueDuPoste:
 
         assert langues is not None
         assert ("fr", "Français") in langues.LANGUES
+
+
+class TestEnvironnementHerite:
+    """Un « .venv » venu d'une autre machine ne doit pas passer pour valide.
+
+    Le cas mesuré : une image Linux construite depuis un dépôt de travail
+    macOS. Le dossier `.venv` était copié, ses liens ne menaient nulle part,
+    et l'installeur — qui ne regardait que l'existence du dossier — sautait la
+    création puis tombait sur « No such file or directory: .venv/bin/python ».
+    L'installation s'arrêtait là, ce qui donne « rien ne marche sous Linux ».
+    """
+
+    def _preparer(self, installeur, tmp_path, monkeypatch, avec_uv):
+        lancees = []
+        monkeypatch.setattr(installeur, "DEPOT", tmp_path)
+        monkeypatch.setattr(installeur, "SYSTEME", "Linux")
+        monkeypatch.setattr(installeur.shutil, "which",
+                            lambda nom: "/usr/bin/uv" if (nom == "uv" and avec_uv) else None)
+        monkeypatch.setattr(installeur, "lancer",
+                            lambda commande, **_: lancees.append(list(commande)))
+        monkeypatch.setattr(installeur, "carte_nvidia", lambda: False)
+        return lancees
+
+    def test_un_venv_sans_interprete_est_refait(self, installeur, tmp_path, monkeypatch):
+        lancees = self._preparer(installeur, tmp_path, monkeypatch, avec_uv=True)
+        # Le dossier existe, l'interpréteur non : exactement l'état d'un venv
+        # copié d'une machine à l'autre.
+        (tmp_path / ".venv" / "bin").mkdir(parents=True)
+
+        contexte = type("Ctx", (), {"verifier_seulement": False, "a_faire": [],
+                                    "demander": lambda self, _q: False})()
+        installeur.etape_environnement(contexte, "whisper.cpp")
+
+        assert not (tmp_path / ".venv").exists() or lancees, "rien n'a été refait"
+        assert any("venv" in " ".join(c) for c in lancees), lancees
+
+    def test_un_venv_complet_n_est_pas_refait(self, installeur, tmp_path, monkeypatch):
+        """Réinstaller à chaque lancement coûterait des minutes pour rien."""
+        lancees = self._preparer(installeur, tmp_path, monkeypatch, avec_uv=True)
+        interprete = tmp_path / ".venv" / "bin" / "python"
+        interprete.parent.mkdir(parents=True)
+        interprete.write_text("")
+
+        contexte = type("Ctx", (), {"verifier_seulement": False, "a_faire": [],
+                                    "demander": lambda self, _q: False})()
+        installeur.etape_environnement(contexte, "whisper.cpp")
+
+        assert not any(c[:2] == ["uv", "venv"] for c in lancees), lancees
+        assert any("install" in " ".join(c) for c in lancees), lancees
+
+    def test_sans_uv_ni_venv_l_installeur_s_arrete_en_le_disant(
+        self, installeur, tmp_path, monkeypatch
+    ):
+        """Trois lignes plus bas, la trace Python n'aurait nommé aucun paquet."""
+        self._preparer(installeur, tmp_path, monkeypatch, avec_uv=False)
+        contexte = type("Ctx", (), {"verifier_seulement": False, "a_faire": [],
+                                    "demander": lambda self, _q: False})()
+        with pytest.raises(SystemExit):
+            installeur.etape_environnement(contexte, "whisper.cpp")
