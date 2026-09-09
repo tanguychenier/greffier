@@ -1,0 +1,97 @@
+"""Ce qu'une sauvegarde emporte, et combien on en garde.
+
+Mesuré sur ce poste : 1,1 Go d'enregistrements contre 3 Mo pour tout le reste
+— réunions transcrites, comptes rendus, banque de voix, contexte appris,
+conversations. Le rapport est de 350 pour 1, et c'est ce qui rend une sauvegarde
+possible : **on ne sauvegarde pas l'audio**.
+
+Ce n'est pas un renoncement. Une transcription se refait depuis l'audio, mais
+l'audio ne se refait pas du tout — sauf qu'une réunion transcrite dont l'audio
+manque reste une réunion utilisable, tandis qu'un audio dont on a perdu la
+transcription, l'attribution des voix et le compte rendu est un fichier de
+115 Mo par heure que personne ne réécoutera. Ce qui porte le travail, c'est le
+texte.
+
+La banque de voix compte autant que les réunions : c'est elle qui a été
+constituée un nom à la fois, par un humain, et elle ne se reconstitue pas depuis
+autre chose.
+
+Ce module ne touche à aucun fichier : il dit quoi prendre et quoi jeter.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+
+#: Ce qui entre dans une sauvegarde, du plus irremplaçable au moins.
+#: L'ordre est celui de la restauration : la banque de voix d'abord, parce
+#: qu'elle a été construite à la main et qu'aucun traitement ne la refera.
+CONTENU = (
+    "banque-de-voix",
+    "reunions",
+    "comptes-rendus",
+    "transcriptions",
+    "conversations",
+    "questions",
+    "direct",
+    "propositions",
+)
+
+#: Ce qu'on laisse dehors, et pourquoi. Écrit ici plutôt que déduit : une
+#: sauvegarde qui grossit sans qu'on sache pourquoi finit par ne plus se faire.
+ECARTES = {
+    "enregistrements": "l'audio, 115 Mo par heure — c'est lui qui rend une "
+                       "sauvegarde impossible, et une réunion transcrite reste "
+                       "utilisable sans lui",
+    "modeles": "2 Go de modèles, retéléchargeables par l'installeur",
+    "corpus": "un corpus public, retéléchargeable",
+    "extraits": "des extraits recalculables depuis l'audio",
+    "sauvegardes": "les sauvegardes elles-mêmes",
+    "lectures": "des lectures à voix haute, refabricables",
+}
+
+#: Combien de sauvegardes on garde. Sept jours de travail : assez pour
+#: rattraper une erreur qu'on n'a pas vue le jour même, assez peu pour que
+#: l'ensemble reste léger — sept fois 3 Mo.
+GARDEES = 7
+
+
+@dataclass(frozen=True, slots=True)
+class Nom:
+    """Le nom d'une sauvegarde : sa date, jusqu'à la minute.
+
+    À la minute et non au jour : on sauvegarde avant une opération risquée, et
+    deux sauvegardes du même jour doivent pouvoir coexister.
+    """
+
+    quand: datetime
+
+    def __str__(self) -> str:
+        return f"greffier-{self.quand:%Y-%m-%d_%Hh%M}"
+
+    @staticmethod
+    def lire(nom: str) -> datetime | None:
+        """La date d'une sauvegarde d'après son nom, ou None si ce n'en est pas une."""
+        if not nom.startswith("greffier-"):
+            return None
+        try:
+            return datetime.strptime(nom[len("greffier-"):], "%Y-%m-%d_%Hh%M")
+        except ValueError:
+            return None
+
+
+def a_effacer(noms: list[str], gardees: int = GARDEES) -> list[str]:
+    """Les sauvegardes en trop, les plus anciennes d'abord.
+
+    Ne rend jamais la plus récente, quel que soit le compte demandé : une
+    rotation qui peut tout effacer n'est pas une rotation, c'est une purge.
+    """
+    datees = [(Nom.lire(nom), nom) for nom in noms]
+    connues = sorted(
+        ((quand, nom) for quand, nom in datees if quand is not None),
+        reverse=True,
+    )
+    if len(connues) <= max(1, gardees):
+        return []
+    return [nom for _, nom in connues[max(1, gardees):]]
