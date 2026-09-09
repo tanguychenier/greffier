@@ -461,6 +461,62 @@ def entree_douteuse(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class Intruse:
+    """Une empreinte qui ressemble davantage à quelqu'un d'autre qu'aux siennes."""
+
+    rang: int
+    chez_elle: float
+    ailleurs: float
+    qui: str
+    duree: float
+
+    @property
+    def ecart(self) -> float:
+        return self.ailleurs - self.chez_elle
+
+
+def empreintes_intruses(
+    personne: Personne,
+    banque: Iterable[Personne],
+    ecart_minimal: float = 0.05,
+) -> list[Intruse]:
+    """Les empreintes de cette personne qui sont probablement d'une autre.
+
+    Savoir que deux entrées sont en conflit ne dit pas laquelle réparer, et
+    effacer une personne entière pour une empreinte fautive perd tout le reste.
+    La question se pose empreinte par empreinte, et elle a une réponse : une
+    empreinte de Kilian qui ressemble à 0,78 à Pascal et à 0,55 au reste de Kilian
+    n'est pas de Kilian.
+
+    Mesuré sur la banque de ce poste : deux des trois empreintes de « Kilian »
+    et deux des quatre de « Pascal » désignaient quelqu'un d'autre, ce que le
+    contrôle de conflit signalait sans jamais dire quoi enlever.
+
+    Une personne d'une seule empreinte n'est jamais mise en cause : il n'y a
+    rien à quoi la comparer chez elle, et se tromper coûterait la personne
+    entière.
+    """
+    if len(personne.empreintes) < 2:
+        return []
+    autres = [p for p in banque if p.nom != personne.nom and p.empreintes]
+    if not autres:
+        return []
+    suspectes = []
+    for rang, empreinte in enumerate(personne.empreintes):
+        siennes = [e for i, e in enumerate(personne.empreintes) if i != rang]
+        chez_elle = max(similarite(empreinte, e) for e in siennes)
+        ailleurs, qui = max((_score(empreinte, p), p.nom) for p in autres)
+        if ailleurs - chez_elle >= ecart_minimal:
+            suspectes.append(Intruse(
+                rang=rang, chez_elle=chez_elle, ailleurs=ailleurs, qui=qui,
+                duree=empreinte.duree_source,
+            ))
+    # De la plus flagrante à la moins : c'est l'ordre dans lequel on veut les
+    # traiter, et souvent la première suffit à lever le conflit.
+    return sorted(suspectes, key=lambda x: -x.ecart)
+
+
 def enrichir(
     personne: Personne,
     nouvelle: Empreinte,

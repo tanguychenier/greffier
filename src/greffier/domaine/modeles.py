@@ -119,6 +119,14 @@ class Empreinte:
 
     vecteur: tuple[float, ...]
     duree_source: float = 0.0
+    #: La réunion d'où elle vient. Vide pour les empreintes déposées avant que
+    #: cette trace n'existe, ce qui est un état normal et non une anomalie.
+    #:
+    #: Sans elle, réparer une banque abîmée par une seule réunion revient à
+    #: deviner : sur ce poste, il a fallu lire les durées — treize et trente et
+    #: une minutes — pour comprendre que deux empreintes de « Pascal » venaient
+    #: d'une réunion où il n'était pas. Avec elle, c'est une commande.
+    origine: str = ""
 
     def __post_init__(self) -> None:
         if not self.vecteur:

@@ -21,7 +21,7 @@ from __future__ import annotations
 import contextlib
 import json
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -305,6 +305,10 @@ class Suivi:
     canaux: sortants.LecteurDeCanaux | None = None
     extracteur: sortants.ExtracteurEmpreintes | None = None
     banque: sortants.BanqueDeVoix | None = None
+    #: La réunion suivie. Voyage avec chaque empreinte versée en banque : sans
+    #: elle, défaire ce qu'une réunion mal attribuée a déposé demande de deviner
+    #: à la durée des extraits.
+    identifiant: str = ""
     #: Position déjà lue dans le fichier des demandes.
     _lues: int = field(default=0, repr=False)
     #: Voix déjà versées en banque, et sous quel nom. Une correction est souvent
@@ -446,7 +450,8 @@ class Suivi:
             if empreinte is None:
                 continue
             with contextlib.suppress(OSError):
-                self.banque.enregistrer(voix.nom, empreinte)
+                self.banque.enregistrer(
+                    voix.nom, replace(empreinte, origine=self.identifiant))
                 self._appris[voix.identifiant] = voix.nom
                 appris.append(voix.nom)
         return appris
