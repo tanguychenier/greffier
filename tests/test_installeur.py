@@ -175,6 +175,24 @@ class TestSkillDeDepannage:
                        "Library/Logs/Greffier.log", "greffier rediger", "opus"):
             assert indice in texte, indice
 
+    def test_tous_les_skills_du_depot_ont_un_en_tete(self):
+        """Un skill sans en-tête n'est pas chargé, et rien ne le signale."""
+        trouves = sorted((RACINE / "skills").glob("*/SKILL.md"))
+        assert len(trouves) >= 2, "le dépôt porte le dépannage et l'assistance"
+        for chemin in trouves:
+            texte = chemin.read_text(encoding="utf-8")
+            assert texte.startswith(f"---\nname: {chemin.parent.name}\n"), chemin
+            assert "description:" in texte.split("---")[1], chemin
+
+    def test_le_skill_d_assistance_dit_ce_qui_ne_se_fait_pas(self):
+        """La proactivité sans garde-fou est une nuisance en réunion."""
+        texte = (RACINE / "skills/assister-une-reunion/SKILL.md").read_text(
+            encoding="utf-8")
+        aplati = " ".join(texte.split())
+        assert "Rien ne surgit" in aplati
+        assert "jamais la phrase de la réunion" in aplati
+        assert "Ne jamais effacer ce qu'un humain a posé" in aplati
+
     def test_il_est_pose_la_ou_claude_code_le_cherche(self, sous, monkeypatch, tmp_path):
         module = sous("Darwin")
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
