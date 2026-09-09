@@ -1,6 +1,7 @@
 """Ligne de commande de Greffier.
 
     greffier traiter <audio>     transcrit, identifie les voix, rédige
+    greffier rediger             reprend la rédaction d'une réunion transcrite
     greffier verifier            dit ce qui est prêt et ce qui manque
 
 Volontairement mince : elle lit la configuration, demande à la composition
@@ -993,6 +994,52 @@ def montage(
     total = sum(p.duree for p in passages)
     typer.secho(f"✓ {len(passages)} passages, {total / 60:.1f} min : {sortie}",
                 fg=typer.colors.GREEN)
+
+
+@application.command()
+def rediger(
+    reunion: str = typer.Argument(None, help="Réunion (défaut : la dernière)"),
+    config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
+) -> None:
+    """Rédige le compte rendu d'une réunion déjà transcrite.
+
+    La reprise quand le rédacteur a échoué — expiration, quota, réseau coupé.
+    Rien n'est réécouté ni retranscrit : le fichier maître porte déjà le texte
+    et les voix, seule la rédaction est rejouée. « _regenerer » ne pouvait pas
+    servir ici, elle exige un compte rendu déjà écrit ; l'échec est justement
+    le cas où il n'y en a pas.
+    """
+    config = Config.charger(config_fichier)
+    identifiant = _reunion_visee(config, reunion)
+    moteur = redacteur(config)
+    if moteur is None:
+        typer.secho(
+            "Aucun rédacteur configuré : « compte_rendu.moteur » vaut « aucun ».",
+            fg=typer.colors.RED, err=True,
+        )
+        raise typer.Exit(1)
+    try:
+        gardee = depot(config).lire(identifiant)
+    except (OSError, ValueError) as souci:
+        typer.secho(f"✗ {souci}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1) from souci
+
+    typer.secho(f"  rédaction      {identifiant}…", fg=typer.colors.BLUE)
+    try:
+        texte = regenerer_compte_rendu(gardee, moteur)
+    except (RuntimeError, subprocess.SubprocessError) as souci:
+        typer.secho(f"✗ {souci}", fg=typer.colors.RED, err=True)
+        typer.echo(
+            "La transcription reste gardée : relance « greffier rediger » "
+            "quand la cause est levée."
+        )
+        raise typer.Exit(1) from souci
+
+    chemin = config.chemins.comptes_rendus / f"{identifiant}.md"
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    chemin.write_text(texte, encoding="utf-8")
+    typer.secho(f"✓ {chemin}", fg=typer.colors.GREEN)
+    typer.echo("« greffier envoyer » pour l'expédier.")
 
 
 @application.command(name="lire")

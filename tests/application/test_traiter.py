@@ -5,6 +5,7 @@ garde-fous, pas whisper. Les doublures tiennent en quelques lignes parce que les
 ports sont des `Protocol` — rien à hériter.
 """
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -522,6 +523,43 @@ class TestLaChaineGardeLaReunion:
         with pytest.raises(Exception, match="injoignable"):
             traitement.executer(AUDIO)
         assert (tmp_path / "comptes-rendus").exists(), "le compte rendu survit à l'envoi"
+
+    def test_garde_avant_de_rediger(self, tmp_path):
+        """Un rédacteur qui expire ne doit pas faire perdre la transcription.
+
+        Le 2026-09-09, le rédacteur a dépassé son délai sur une réunion de
+        32 minutes : la transcription et l'attribution des voix, déjà faites et
+        justes, ont disparu avec l'exception, et rien ne permettait de
+        reprendre. Le cas « aucun rédacteur » était protégé, le cas « le
+        rédacteur échoue » ne l'était pas.
+        """
+
+        class RedacteurQuiExpire:
+            def rediger(self, transcription):
+                raise subprocess.TimeoutExpired(cmd="redacteur", timeout=900)
+
+        deposees = []
+
+        class DepotEspion:
+            def enregistrer(self, reunion):
+                deposees.append(reunion)
+                return tmp_path / "reunions/essai.json"
+
+        traitement = chaine(
+            redacteur=RedacteurQuiExpire(),
+            depot=DepotEspion(),
+            dossier_transcriptions=tmp_path / "transcriptions",
+            dossier_comptes_rendus=tmp_path / "comptes-rendus",
+        )
+        with pytest.raises(subprocess.TimeoutExpired):
+            traitement.executer(AUDIO)
+
+        assert deposees, "la réunion doit être déposée avant la rédaction"
+        assert deposees[0].repliques, "la transcription doit y être"
+        assert deposees[0].tours, "l'attribution des voix doit y être"
+        transcription = tmp_path / "transcriptions" / f"{AUDIO.stem}.txt"
+        assert transcription.exists(), "la transcription lisible survit"
+        assert not (tmp_path / "comptes-rendus").exists(), "aucun compte rendu tronqué"
 
     def test_sans_dossier_la_chaine_reste_utilisable(self):
         """Les tests d'intégration s'en servent en mémoire, sans rien écrire."""
