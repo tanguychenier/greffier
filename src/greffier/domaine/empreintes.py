@@ -417,6 +417,50 @@ def recoller(
     return consolider(par_voix, appartenance, seuil=seuil_consolidation)
 
 
+def entree_douteuse(
+    nouvelle: Empreinte,
+    vise: str,
+    banque: Iterable[Personne],
+    marge: float = MARGE_MINIMALE,
+) -> str:
+    """Cette empreinte a-t-elle l'air d'être de quelqu'un d'autre ?
+
+    Une entrée fausse en banque est le défaut le plus coûteux de l'outil : elle
+    ne se voit pas, elle est reconnue à chaque réunion suivante, et deux entrées
+    trop ressemblantes finissent par se mettre mutuellement en conflit — après
+    quoi plus personne n'est reconnu. C'est ce qui est arrivé sur ce poste :
+    trois paires en conflit, et « Paul » portant une empreinte de trente et une
+    minutes prise à une réunion où il n'était pas.
+
+    Le contrôle est celui du bon sens, et il ne coûte rien : si l'empreinte
+    ressemble **nettement plus** à quelqu'un d'autre qu'à la personne qu'on
+    nomme, on le dit. On ne refuse pas — l'utilisateur a le droit d'avoir
+    raison contre la machine, deux collègues peuvent avoir des voix proches, et
+    une personne peut n'avoir aucune empreinte en banque. Mais on ne le laisse
+    plus se produire en silence.
+    """
+    connues = {p.nom: p for p in banque if p.empreintes}
+    ailleurs = [(_score(nouvelle, p), nom) for nom, p in connues.items() if nom != vise]
+    if not ailleurs:
+        return ""
+    meilleur, qui = max(ailleurs)
+    chez_soi = _score(nouvelle, connues[vise]) if vise in connues else -1.0
+    if meilleur < SEUIL_RECONNAISSANCE or meilleur - chez_soi < marge:
+        return ""
+    if chez_soi < 0:
+        return (
+            f"Cette voix ressemble à {qui} ({meilleur:.2f}), déjà en banque. "
+            f"Si c'est bien {qui}, nomme-la ainsi : deux entrées pour la même "
+            "personne finissent par se mettre en conflit, et alors ni l'une ni "
+            "l'autre n'est reconnue."
+        )
+    return (
+        f"Cette voix ressemble davantage à {qui} ({meilleur:.2f}) qu'à {vise} "
+        f"({chez_soi:.2f}). Si c'est une erreur, retire le nom : une empreinte "
+        "fausse est reconnue à chaque réunion suivante."
+    )
+
+
 def enrichir(
     personne: Personne,
     nouvelle: Empreinte,

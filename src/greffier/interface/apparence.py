@@ -116,6 +116,21 @@ class Bouton(tk.Canvas):
     def intituler(self, texte: str) -> None:
         self.itemconfigure(self._texte, text=texte)
 
+    def mettre_en_avant(self, principal: bool) -> None:
+        """Bascule entre l'allure d'action principale et l'allure ordinaire.
+
+        Un bouton qui change d'état doit le montrer : « Lucie participe » en
+        creux et « Faire taire Lucie » en plein ne se confondent pas d'un coup
+        d'œil, ce qu'un intitulé seul ne garantit pas quand on est en réunion.
+        """
+        if principal == self.principal:
+            return
+        self.principal = principal
+        self.itemconfigure(self._forme, fill=self._fond_normal(),
+                           outline="" if principal else self.couleurs.filet)
+        self.itemconfigure(self._texte, fill=self._encre(),
+                           font=police(12, principal))
+
     def activer(self, oui: bool) -> None:
         self._actif = oui
         self.itemconfigure(self._texte, fill=self._encre())
