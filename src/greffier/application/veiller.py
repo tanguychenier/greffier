@@ -322,6 +322,11 @@ class Veilleur:
             occasions=self._voix_a_demander(maintenant),
         )
         if retenue is None:
+            # Rien à dire maintenant : on en profite pour chercher s'il y aura
+            # quelque chose à dire tout à l'heure. La recherche coûte un appel
+            # au modèle, donc elle se fait à côté et son résultat sert à la
+            # tranche suivante.
+            self.participant.chercher_un_apport_a_part(maintenant)
             return
         if retenue.raison is Raison.VOIX_INDISTINCTE:
             # On retient la question posée : c'est ce qui permet à la réponse
