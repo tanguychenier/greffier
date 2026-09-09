@@ -898,6 +898,25 @@ class Fenetre:
         self.reglage_theme = self._liste_deroulante(dedans, rang, "Thème")
         rang += 1
 
+        rang = self._bloc(dedans, rang, "Version",
+                          "Greffier lui-même, et ce qui est publié.")
+        self.etat_version = tk.Label(
+            dedans, text="", bg=self.couleurs.carte, fg=self.couleurs.encre_pale,
+            font=police(11), anchor="w", justify="left",
+        )
+        self.etat_version.grid(row=rang, column=0, columnspan=2, sticky="w",
+                               pady=(0, 6))
+        rang += 1
+        boutons_version = tk.Frame(dedans, bg=self.couleurs.carte)
+        boutons_version.grid(row=rang, column=0, columnspan=2, sticky="w",
+                             pady=(0, 2))
+        self.bouton_maj_greffier = Bouton(
+            boutons_version, "Chercher une mise à jour",
+            self._chercher_une_mise_a_jour, self.couleurs, largeur=210, hauteur=32,
+        )
+        self.bouton_maj_greffier.pack(side="left", padx=(0, 8))
+        rang += 1
+
         self._brancher_les_reglages()
         # Relire à l'affichage plutôt que d'offrir un bouton : la session peut
         # avoir été ouverte dans le terminal entre-temps, et l'événement <Map>
@@ -908,6 +927,48 @@ class Fenetre:
         self._ecouter_la_molette(dedans)
         self._garnir_les_reglages()
         self._dire_le_compte()
+        self._dire_la_version()
+
+    def _dire_la_version(self) -> None:
+        """Affiche la version installée, sans rien demander au réseau.
+
+        Sans ce repère, personne ne pouvait dire quelle version tournait : le
+        numéro n'existait que dans le paquet macOS, et l'application, elle, ne
+        le lisait pas.
+        """
+        from greffier.adaptateurs.mises_a_jour import version_installee
+
+        installee = version_installee()
+        self.etat_version.configure(
+            text=f"Version {installee}." if installee
+            else "Version inconnue : paquet installé sans métadonnées."
+        )
+
+    def _chercher_une_mise_a_jour(self) -> None:
+        """Demande à GitHub s'il existe mieux. N'installe rien.
+
+        Remplacer l'application pendant qu'elle tourne est un problème distinct :
+        le faire en effet de bord d'une vérification serait le pire moment.
+        """
+        from greffier.adaptateurs.mises_a_jour import verifier
+
+        self.bouton_maj_greffier.activer(False)
+        self.etat_version.configure(text="Vérification…")
+
+        def fini(verdict: Any, souci: Exception | None) -> None:
+            self.bouton_maj_greffier.activer(True)
+            if souci is not None:
+                self.etat_version.configure(text=f"Vérification impossible : {souci}")
+                return
+            self.etat_version.configure(text=verdict.dire())
+            if verdict.mise_a_jour and verdict.adresse:
+                self._dire("greffier", f"{verdict.dire()} {verdict.adresse}")
+
+        self._lancer(Travail(
+            intitule="mise à jour",
+            faire=lambda _dire: verifier(),
+            fini=fini,
+        ))
 
     def _brancher_les_reglages(self) -> None:
         """Fait de chaque changement un enregistrement.
