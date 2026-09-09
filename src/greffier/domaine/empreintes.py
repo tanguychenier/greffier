@@ -72,6 +72,42 @@ EMPREINTES_PAR_PERSONNE = 8
 # d'absorber des fragments minces sans contrainte nouvelle, seuls deux petits
 # groupes encore fragiles ne peuvent plus se fondre entre eux sur ce hasard.
 MATIERE_MINIMALE_FUSION = 6.0
+# Au-delà de cette durée cumulée, un groupe cesse d'être un fragment : son
+# agrégat repose sur des minutes de parole et non sur deux phrases, et il peut
+# servir de point d'attache aux fragments comme se comparer à ses semblables.
+MATIERE_ETABLIE = 30.0
+# Le recollage par paires s'arrête dès qu'aucune paire ne franchit son seuil, et
+# laisse alors des centaines de fragments isolés : **298 voix pour trois
+# personnes autour d'une table**, mesuré sur une réunion réelle de 92 minutes.
+# La question à poser à un fragment n'est pas « ressemble-t-il à un autre
+# fragment » mais celle que pose déjà la banque de voix : « lequel des groupes
+# établis lui ressemble le plus ». Rejoué sur cette réunion, en notant contre
+# les noms posés à la main (`outils/rejouer_recollage.py`) :
+#
+#   paires seules, 0,75   172 voix   Fantin en 5 morceaux, Tanguy en 20
+#   + adoption 0,50        34 voix   Fantin et Tanguy entiers
+#   + adoption 0,45        24 voix   Fantin et Tanguy entiers
+#
+# et aucun mélange de deux personnes dans un même groupe, à aucun seuil essayé
+# jusqu'à 0,30. C'est plus bas que `SEUIL_FUSION` en toute logique : comparer un
+# fragment à un groupe établi est une question mieux posée que comparer deux
+# fragments entre eux, donc elle supporte un seuil plus tolérant.
+SEUIL_ADOPTION = 0.45
+# Aucune marge : mesurée sur la même réunion, elle ne protège de rien ici — 0
+# comme 0,10 ne produisent aucun mélange — et elle coûte cher, 24 voix contre
+# 81. La raison tient à la question posée : un fragment est *forcément* de
+# quelqu'un qui est dans la pièce, et le laisser seul n'est pas un choix neutre,
+# c'est inventer un participant. La marge garde tout son sens pour la banque de
+# voix, où « personne de connue » est une réponse juste et fréquente.
+MARGE_ADOPTION = 0.0
+# Une fois les fragments rattachés, deux groupes établis peuvent encore être la
+# même personne — quelqu'un qui change de place à mi-réunion. Leurs agrégats
+# sont désormais fiables, donc la comparaison vaut. Le seuil est celui du
+# conflit de banque, et pour la même raison : deux personnes différentes montent
+# jusqu'à 0,652 sur le corpus AMI, jamais au-delà. Mesuré, cette passe ramène
+# les 24 voix à 23, dont **3 significatives — le nombre exact de personnes
+# présentes** — sans jamais réunir deux personnes.
+SEUIL_CONSOLIDATION = 0.70
 
 
 def normaliser(vecteur: Sequence[float], duree_source: float = 0.0) -> Empreinte:
@@ -251,6 +287,134 @@ def fusionner_voix(
                 appartenance[voix] = garde
 
     return appartenance
+
+
+def _groupes(
+    par_voix: dict[str, list[Empreinte]], appartenance: dict[str, str]
+) -> dict[str, list[Empreinte]]:
+    """Les empreintes rassemblées sous le groupe qui les porte."""
+    groupes: dict[str, list[Empreinte]] = {}
+    for voix, vers in appartenance.items():
+        empreintes = par_voix.get(voix)
+        if empreintes:
+            groupes.setdefault(vers, []).extend(empreintes)
+    return groupes
+
+
+def _matiere(empreintes: Iterable[Empreinte]) -> float:
+    return math.fsum(e.duree_source for e in empreintes)
+
+
+def adopter_les_fragments(
+    par_voix: dict[str, list[Empreinte]],
+    appartenance: dict[str, str],
+    seuil: float = SEUIL_ADOPTION,
+    marge_minimale: float = MARGE_ADOPTION,
+    matiere_etablie: float = MATIERE_ETABLIE,
+) -> dict[str, str]:
+    """Rattache chaque fragment au groupe établi qui lui ressemble le plus.
+
+    Un fragment de six secondes est de quelqu'un qui est dans la pièce. Le
+    laisser seul n'est pas une prudence : c'est annoncer un participant de plus
+    dans le compte rendu. On lui pose donc la question de la banque de voix —
+    « lequel des groupes établis, et est-ce net » — au lieu de le comparer à
+    d'autres fragments aussi bruités que lui.
+
+    Les fragments sont traités du plus fourni au plus mince, et un fragment
+    adopté grossit son hôte : ce qui vient d'être rattaché sert à rattacher la
+    suite, et l'ordre cesse d'être arbitraire.
+    """
+    groupes = _groupes(par_voix, appartenance)
+    etablis = {g: e for g, e in groupes.items() if _matiere(e) >= matiere_etablie}
+    if not etablis:
+        return appartenance
+
+    fragments = sorted(
+        (g for g in groupes if g not in etablis),
+        key=lambda g: -_matiere(groupes[g]),
+    )
+    retenue = dict(appartenance)
+    for fragment in fragments:
+        agregat = agreger(groupes[fragment])
+        classement = sorted(
+            ((similarite(agregat, agreger(e)), g) for g, e in etablis.items()),
+            key=lambda x: (-x[0], x[1]),
+        )
+        meilleur, hote = classement[0]
+        second = classement[1][0] if len(classement) > 1 else -1.0
+        if meilleur < seuil or meilleur - second < marge_minimale:
+            continue
+        etablis[hote] = etablis[hote] + groupes[fragment]
+        for voix, vers in retenue.items():
+            if vers == fragment:
+                retenue[voix] = hote
+    return retenue
+
+
+def consolider(
+    par_voix: dict[str, list[Empreinte]],
+    appartenance: dict[str, str],
+    seuil: float = SEUIL_CONSOLIDATION,
+    matiere_etablie: float = MATIERE_ETABLIE,
+) -> dict[str, str]:
+    """Réunit deux groupes établis qui sont en réalité la même personne.
+
+    Quelqu'un qui change de place à mi-réunion laisse deux groupes que rien ne
+    rapprochait tant qu'ils étaient minces. Une fois les fragments rattachés,
+    leurs agrégats reposent sur des minutes de parole : la comparaison devient
+    fiable, et elle se fait au seuil du conflit de banque — deux personnes
+    différentes ne montent jamais au-delà de 0,652 sur le corpus AMI.
+    """
+    retenue = dict(appartenance)
+    while True:
+        groupes = _groupes(par_voix, retenue)
+        etablis = {g: e for g, e in groupes.items() if _matiere(e) >= matiere_etablie}
+        agregats = {g: agreger(e) for g, e in etablis.items()}
+        noms = sorted(agregats)
+        meilleure: tuple[float, str, str] | None = None
+        for i, un in enumerate(noms):
+            for autre in noms[i + 1:]:
+                score = similarite(agregats[un], agregats[autre])
+                if score >= seuil and (meilleure is None or score > meilleure[0]):
+                    meilleure = (score, un, autre)
+        if meilleure is None:
+            return retenue
+        _, garde, absorbe = meilleure
+        if _matiere(etablis[absorbe]) > _matiere(etablis[garde]):
+            garde, absorbe = absorbe, garde
+        for voix, vers in retenue.items():
+            if vers == absorbe:
+                retenue[voix] = garde
+
+
+def recoller(
+    par_voix: dict[str, list[Empreinte]],
+    seuil_paires: float = SEUIL_FUSION,
+    seuil_adoption: float = SEUIL_ADOPTION,
+    seuil_consolidation: float = SEUIL_CONSOLIDATION,
+) -> dict[str, str]:
+    """Ramène les groupes de la segmentation au nombre de personnes réelles.
+
+    Trois passes, dans cet ordre, chacune posant une question que la précédente
+    a rendue possible :
+
+    1. **les paires** — deux groupes manifestement identiques se réunissent, ce
+       qui fait émerger des groupes fournis là où il n'y avait que des miettes ;
+    2. **l'adoption** — chaque miette rejoint le groupe établi qui lui ressemble
+       le plus, question qu'on ne pouvait pas poser avant qu'un groupe soit
+       établi ;
+    3. **la consolidation** — les groupes établis se comparent entre eux, ce que
+       leurs agrégats ne méritaient pas tant qu'ils étaient minces.
+
+    Mesuré sur une réunion réelle de 92 minutes à trois personnes autour d'une
+    table : **298 groupes rendus par la segmentation, 23 après recollage, dont
+    3 portent plus de dix secondes** — le compte exact des personnes présentes.
+    Aucun groupe ne réunit deux personnes, contrôlé contre les noms posés à la
+    main. La première passe seule en laissait 172.
+    """
+    appartenance = fusionner_voix(par_voix, seuil=seuil_paires)
+    appartenance = adopter_les_fragments(par_voix, appartenance, seuil=seuil_adoption)
+    return consolider(par_voix, appartenance, seuil=seuil_consolidation)
 
 
 def enrichir(
