@@ -45,6 +45,7 @@ from greffier.composition import (
     enregistrement,
     listeur,
     nommage,
+    participant,
     redacteur,
     suivi,
     transcripteur_leger,
@@ -55,6 +56,32 @@ from greffier.emplacements import dossier_config
 application = typer.Typer(
     add_completion=False, help="Enregistre, transcrit et résume tes réunions."
 )
+
+
+def _nommeur(le_suivi, config: Config, identifiant: str):
+    """Donne à l'assistant le pouvoir de poser un nom sur une voix du fil.
+
+    Sans lui, demander « qui vient de parler » n'est qu'une politesse : la
+    réponse s'affiche et se perd. Avec lui, elle nomme la voix, entre en banque
+    et sert le compte rendu — c'est ce qui justifie d'avoir interrompu.
+    """
+    from greffier.application.suivre import demander, fichiers
+
+    _, demandes = fichiers(config.chemins.direct, identifiant)
+
+    def nommer(voix: str, prenom: str) -> bool:
+        tour = next(
+            (t for t in reversed(le_suivi.fil.tours) if t.voix == voix), None)
+        if tour is None:
+            return False
+        try:
+            le_suivi.fil.corriger(tour.numero, prenom, toute_la_voix=True)
+            demander(demandes, tour.numero, prenom, toute_la_voix=True)
+        except (KeyError, ValueError, OSError):
+            return False
+        return True
+
+    return nommer
 
 
 def _reunion_visee(config: Config, demandee: str | None) -> str:
@@ -839,6 +866,12 @@ def assister(
         for question in interrogateur.examiner(texte):
             questions_fichier.deposer(fichier_questions, question)
     le_suivi = suivi(config, etat.identifiant) if config.direct.actif else None
+    lui = participant(config, etat.identifiant)
+    if lui is not None and le_suivi is not None:
+        lui.nommer = _nommeur(le_suivi, config, etat.identifiant)
+        # Ce qui s'est dit jusqu'ici, pour que sa réponse porte sur la réunion
+        # en cours et non sur des généralités.
+        lui.contexte = le_suivi.fil.rendu
     veilleur = Veilleur(
         veille=Veille(mot_cle=mot_cle),
         journal=journal,
@@ -858,6 +891,8 @@ def assister(
         # servir à la phrase suivante, pas à la réunion d'après.
         relire_l_amorce=lambda: contexte(config).amorce(),
         interroger=interroger,
+        participant=lui,
+        relire_la_participation=lambda: Config().assistant.actif,
         periode_tranche=config.direct.periode,
     )
     if le_suivi is not None:
@@ -868,6 +903,9 @@ def assister(
         )
     typer.secho(f"Veille sur « {etat.nom} ». Ctrl+C pour arrêter.", fg=typer.colors.BLUE)
     typer.echo(f"  mot d'activation : « {mot_cle} »")
+    if lui is not None:
+        comment = "à voix haute" if lui.voix is not None else "par écrit"
+        typer.echo(f"  assistant        : « {lui.nom} », {comment}")
     typer.echo(f"  propositions     : {journal}")
     if le_suivi is not None:
         typer.echo(f"  fil du direct    : {le_suivi.journal}")

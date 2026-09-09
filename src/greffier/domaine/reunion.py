@@ -14,7 +14,7 @@ maintenant à la première tentative.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 
@@ -69,6 +69,38 @@ class ReunionEnregistree:
     #: la fin — elle s'arrête au dernier mot prononcé, pas à l'arrêt.
     commencee_le: datetime | None = None
     terminee_le: datetime | None = None
+
+    def voix_portant(self, nom: str) -> list[str]:
+        """Les voix déjà nommées ainsi, dans cette réunion."""
+        replie = nom.casefold()
+        return [v for v, porte in self.noms.items() if porte.casefold() == replie]
+
+    def reunir(self, absorbee: str, gardee: str) -> int:
+        """Verse tous les tours et répliques d'une voix dans une autre.
+
+        Nommer deux voix du même prénom ne les rapprochait pas : chacune gardait
+        son identifiant, et le compte rendu annonçait deux participants du même
+        nom. Sur une réunion réelle, trente-six voix ont dû être nommées à la
+        main pour trois personnes, sans jamais les réunir.
+
+        Rend le nombre de tours déplacés, pour que l'appelant puisse le dire.
+        """
+        if absorbee == gardee:
+            return 0
+        deplaces = sum(1 for t in self.tours if t.voix == absorbee)
+        # `TourDeParole` est gelé : on reconstruit la liste plutôt que de la
+        # muter. Le gel n'est pas un obstacle, c'est ce qui garantit qu'aucun
+        # autre endroit du code ne déplace un tour sans passer par ici.
+        self.tours = [
+            replace(tour, voix=gardee) if tour.voix == absorbee else tour
+            for tour in self.tours
+        ]
+        for replique in self.repliques:
+            if replique.voix == absorbee:
+                replique.voix = gardee
+        self.noms.pop(absorbee, None)
+        self.propositions.pop(absorbee, None)
+        return deplaces
 
     @property
     def intitule(self) -> str:
