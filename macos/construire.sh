@@ -131,10 +131,16 @@ uv pip install --quiet --python "$EXECUTABLE" "$DEPOT"
 
 # Le lanceur du double-clic, avec le PATH mesuré, parmi les paquets : `site`
 # l'importe de lui-même au démarrage de l'interpréteur.
-CHEMIN="$CHEMIN" "$EXECUTABLE" -c "
+# Le dépôt d'où ce paquet sort est gravé lui aussi. Non pas pour en dépendre —
+# l'application tourne sans lui, c'est tout l'intérêt d'être autonome — mais
+# pour savoir où aller chercher une mise à jour. Sans cette trace, un bouton
+# « installer » devrait demander le chemin du dépôt à l'utilisateur, qui n'a
+# aucune raison de le connaître.
+CHEMIN="$CHEMIN" DEPOT_SOURCE="$DEPOT" "$EXECUTABLE" -c "
 import json, os
 gabarit = open('$DEPOT/macos/lanceur_sitecustomize.py', encoding='utf-8').read()
 gabarit = gabarit.replace('__CHEMIN__', json.dumps(os.environ['CHEMIN']))
+gabarit = gabarit.replace('__DEPOT__', json.dumps(os.environ['DEPOT_SOURCE']))
 open('$SITE/sitecustomize.py', 'w', encoding='utf-8').write(gabarit)
 "
 
