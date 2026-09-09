@@ -71,7 +71,8 @@ class BanqueFichiers:
         return Personne(
             nom=contenu["nom"],
             empreintes=[
-                Empreinte(vecteur=tuple(e["vecteur"]), duree_source=e.get("duree", 0.0))
+                Empreinte(vecteur=tuple(e["vecteur"]), duree_source=e.get("duree", 0.0),
+                          origine=e.get("origine", ""))
                 for e in contenu.get("empreintes", [])
             ],
             vu_le=(
@@ -85,6 +86,24 @@ class BanqueFichiers:
         return self._lire(fichier) if fichier.exists() else None
 
     # ------------------------------------------------------------ écriture
+
+    def oublier_une_reunion(self, identifiant: str) -> dict[str, int]:
+        """Retire de toute la banque les empreintes venues d'une réunion.
+
+        Le geste qui manquait. Une réunion mal attribuée verse des empreintes
+        fausses sous plusieurs noms d'un coup, et il fallait ensuite les
+        retrouver une par une, à la durée, en devinant. Ici on nomme la réunion
+        fautive et la banque revient à ce qu'elle était avant.
+        """
+        retires: dict[str, int] = {}
+        for personne in self.personnes():
+            rangs = [
+                rang for rang, empreinte in enumerate(personne.empreintes)
+                if empreinte.origine == identifiant
+            ]
+            if rangs:
+                retires[personne.nom] = self.retirer_empreintes(personne.nom, rangs)
+        return retires
 
     def enregistrer(self, nom: str, empreinte: Empreinte) -> Personne:
         """Ajoute une empreinte à quelqu'un, en le créant au besoin."""
@@ -103,7 +122,8 @@ class BanqueFichiers:
             "vu_le": personne.vu_le.isoformat() if personne.vu_le else None,
             "reunions": personne.reunions,
             "empreintes": [
-                {"vecteur": list(e.vecteur), "duree": e.duree_source}
+                {"vecteur": list(e.vecteur), "duree": e.duree_source,
+                 "origine": e.origine}
                 for e in personne.empreintes
             ],
         }
@@ -134,6 +154,32 @@ class BanqueFichiers:
         (self.dossier / f"{_fichier_sur(absorbe)}.json").unlink()
         self._ecrire(principal)
         return principal
+
+    def retirer_empreintes(self, nom: str, rangs: list[int]) -> int:
+        """Enlève des empreintes précises, sans effacer la personne.
+
+        Effacer quelqu'un pour une seule empreinte fautive perd tout le reste,
+        y compris les empreintes justes accumulées sur plusieurs réunions. Ce
+        qui décide de la reconnaissance, c'est l'empreinte, pas la personne :
+        c'est donc à ce grain qu'on doit pouvoir corriger.
+
+        La personne disparaît si l'on retire tout : une entrée sans empreinte
+        ne reconnaîtrait plus rien et resterait à traîner dans la liste.
+        """
+        personne = self.trouver(nom)
+        if personne is None:
+            return 0
+        a_retirer = {r for r in rangs if 0 <= r < len(personne.empreintes)}
+        if not a_retirer:
+            return 0
+        personne.empreintes = [
+            e for i, e in enumerate(personne.empreintes) if i not in a_retirer
+        ]
+        if not personne.empreintes:
+            self.oublier(nom)
+            return len(a_retirer)
+        self._ecrire(personne)
+        return len(a_retirer)
 
     def oublier(self, nom: str) -> bool:
         """Efface une personne. Une empreinte vocale est une donnée biométrique :
