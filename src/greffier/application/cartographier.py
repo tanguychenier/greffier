@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Sequence
 
 from greffier.domaine.carte import Apport, Etat, Genre
 from greffier.ports import sortants
@@ -56,10 +57,11 @@ Règles :
   largement, et un intitulé de branche n'a pas à désigner quelqu'un.
 - Douze éléments au maximum, les plus structurants. Une carte illisible ne
   sert à rien.
-
-Sujet à cartographier : {sujet}
-
-Ce qui a été dit :
+- **Si un point figure déjà dans « Déjà sur la carte », reprends son libellé
+  mot pour mot.** Une reformulation crée une branche de plus au lieu de
+  compléter celle qui existe, et la carte se remplit de doublons — c'est
+  arrivé, treize points sont devenus vingt-six. Ne le reprends que s'il s'agit
+  vraiment du même point ; sinon, formule le tien.
 """
 
 _GENRES = {str(genre): genre for genre in Genre}
@@ -71,21 +73,34 @@ _BLOC = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
 
 
 def extraire(
-    redacteur: sortants.Redacteur, sujet: str, matiere: str, maximum: int = 12
+    redacteur: sortants.Redacteur,
+    sujet: str,
+    matiere: str,
+    maximum: int = 12,
+    deja: Sequence[str] = (),
 ) -> list[Apport]:
     """Les apports que cette réunion fournit sur ce sujet.
 
-    Rend une liste vide plutôt que de lever : une carte qu'on n'a pas pu
-    alimenter n'est pas une panne, et une réunion ne doit pas échouer parce
-    qu'une extraction a mal tourné.
+    `deja` porte les libellés qui sont **déjà** sur la carte. Les donner est ce
+    qui permet de compléter au lieu de dupliquer : sans eux, le rédacteur
+    reformule d'une extraction à l'autre — « Pré-production du client en retard
+    de deux versions » puis « Pré-prod cliente en retard de deux versions » —
+    et chaque reformulation ouvre une branche de plus. Mesuré : treize points
+    devenus vingt-six à la seconde publication.
     """
     if not matiere.strip():
         return []
     # Le sujet et la matière seulement : les consignes sont portées par le
     # rédacteur (`composition.cartographe`). Les répéter ici les faisait arriver
     # après celles du compte rendu, et le modèle suivait les premières.
-    rendu = redacteur.rediger(f"Sujet à cartographier : {sujet}\n\n{matiere}")
-    return analyser(rendu, maximum=maximum)
+    invite = [f"Sujet à cartographier : {sujet}"]
+    if deja:
+        invite.append(
+            "\nDéjà sur la carte, à reprendre mot pour mot s'il s'agit du même point :\n"
+            + "\n".join(f"- {libelle}" for libelle in deja)
+        )
+    invite.append(f"\nCe qui a été dit :\n{matiere}")
+    return analyser(redacteur.rediger("\n".join(invite)), maximum=maximum)
 
 
 class RenduIllisible(ValueError):

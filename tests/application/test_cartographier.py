@@ -125,3 +125,35 @@ class TestExtraction:
 
         aplati = " ".join(CONSIGNES.split())
         assert "En cas de doute, « en discussion »" in aplati
+
+
+class TestCompleterSansDupliquer:
+    """Le défaut central : la carte se remplissait de doublons.
+
+    Mesuré à la seconde publication : treize points devenus vingt-six, le
+    rédacteur ayant reformulé « Pré-production du client en retard de deux
+    versions » en « Pré-prod cliente en retard de deux versions ».
+    """
+
+    def test_les_libelles_existants_sont_donnes_au_redacteur(self):
+        redacteur = RedacteurFactice('[{"texte": "Un point"}]')
+        extraire(redacteur, "Oasis", "matière",
+                 deja=("Pré-production du client en retard de deux versions",))
+        assert "Pré-production du client en retard" in redacteur.recu
+
+    def test_il_lui_est_demande_de_les_reprendre_mot_pour_mot(self):
+        redacteur = RedacteurFactice("[]")
+        extraire(redacteur, "Oasis", "matière", deja=("Un point existant",))
+        assert "mot pour mot" in redacteur.recu
+
+    def test_sans_carte_existante_rien_n_est_ajoute_a_l_invite(self):
+        redacteur = RedacteurFactice("[]")
+        extraire(redacteur, "Oasis", "matière")
+        assert "Déjà sur la carte" not in redacteur.recu
+
+    def test_la_consigne_dit_de_ne_pas_reprendre_a_tort(self):
+        """Reprendre un libellé pour un point différent serait pire."""
+        from greffier.application.cartographier import CONSIGNES
+
+        aplati = " ".join(CONSIGNES.split())
+        assert "Ne le reprends que s'il s'agit vraiment du même point" in aplati

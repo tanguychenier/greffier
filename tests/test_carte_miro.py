@@ -119,3 +119,94 @@ class TestPublicationSansReseau:
             if methode == "POST" and "sticky_notes" in chemin and corps
         ]
         assert any("&lt;" in contenu and "&amp;" in contenu for contenu in contenus)
+
+
+class TestConnecteurs:
+    """Une carte sans un seul trait a été publiée sans que rien ne le dise."""
+
+    def marquer(self, monkeypatch):
+        appels = []
+
+        def faux(chemin, methode="GET", corps=None):
+            appels.append((methode, chemin, corps))
+            if "/items" in chemin:
+                return {"data": []}
+            return {"id": "3458764683144805305"}
+
+        monkeypatch.setattr(carte_miro, "_appeler", faux)
+        monkeypatch.setenv("GREFFIER_MIRO_JETON", "essai")
+        return appels
+
+    def test_les_identifiants_partent_en_nombres(self):
+        """L'API les refuse en chaînes : « expected of type [Number] »."""
+        from greffier.domaine.carte import Apport, Carte, fusionner
+
+        carte = Carte("Oasis")
+        fusionner(carte, [Apport("Un point")])
+        appels = []
+
+        def faux(chemin, methode="GET", corps=None):
+            appels.append((methode, chemin, corps))
+            if "/items" in chemin:
+                return {"data": []}
+            return {"id": "3458764683144805305"}
+
+        import pytest as _pytest
+        monkeypatch = _pytest.MonkeyPatch()
+        monkeypatch.setattr(carte_miro, "_appeler", faux)
+        monkeypatch.setenv("GREFFIER_MIRO_JETON", "essai")
+        try:
+            carte_miro.publier(carte, "uXjVtest=")
+        finally:
+            monkeypatch.undo()
+        liens = [corps for methode, chemin, corps in appels
+                 if "connectors" in chemin and corps]
+        assert liens, "un lien doit être tracé"
+        assert isinstance(liens[0]["startItem"]["id"], int)
+
+    def test_les_liens_traces_sont_comptes(self, monkeypatch):
+        from greffier.domaine.carte import Apport, Carte, fusionner
+
+        carte = Carte("Oasis")
+        fusionner(carte, [Apport("A"), Apport("B")])
+        self.marquer(monkeypatch)
+        ecrit = carte_miro.publier(carte, "uXjVtest=")
+        assert ecrit.liens == 2
+        assert ecrit.liens_manques == 0
+
+    def test_les_liens_echoues_sont_comptes_et_non_avales(self, monkeypatch):
+        from greffier.domaine.carte import Apport, Carte, fusionner
+
+        carte = Carte("Oasis")
+        fusionner(carte, [Apport("A")])
+
+        def faux(chemin, methode="GET", corps=None):
+            if "/items" in chemin:
+                return {"data": []}
+            if "connectors" in chemin:
+                raise carte_miro.MiroRefuse("refusé")
+            return {"id": "3458764683144805305"}
+
+        monkeypatch.setattr(carte_miro, "_appeler", faux)
+        monkeypatch.setenv("GREFFIER_MIRO_JETON", "essai")
+        ecrit = carte_miro.publier(carte, "uXjVtest=")
+        assert ecrit.liens == 0
+        assert ecrit.liens_manques == 1, "l'échec doit se compter"
+
+
+class TestLaRacine:
+    def test_le_sujet_ne_porte_pas_d_etat(self):
+        """« Oasis — en discussion » ferait dire que le sujet est en débat."""
+        from greffier.domaine.carte import Carte
+
+        carte = Carte("Oasis")
+        assert carte.racine is not None
+        html = carte_miro._en_html(carte.racine, "")
+        assert "en discussion" not in html
+
+    def test_le_sujet_a_sa_propre_couleur(self):
+        from greffier.domaine.carte import Genre
+
+        assert Genre.SUJET in __import__(
+            "greffier.domaine.carte", fromlist=["SANS_ETAT"]
+        ).SANS_ETAT
