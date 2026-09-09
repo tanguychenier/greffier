@@ -38,6 +38,47 @@ Hence `SEUIL_RECONNAISSANCE = 0.70`: above the worst case for distinct voices,
 at the level of the common case for a single voice. The value of 0.55 chosen by
 judgement before this measurement let confusions through.
 
+## Measurement of 2026-09-09: the same person across two sittings
+
+The measurement above compares two samples taken from **one** meeting. That is
+the easier case, and it is not the one recognition depends on: what decides
+whether a colleague is recognised at all is whether their voice print from last
+week still matches this week's. That measurement was missing, and it is why
+the threshold had never been questioned downwards.
+
+The AMI Meeting Corpus supplies it. Its meetings come in series with the **same
+participants**, each wearing their own headset microphone, so two "Headset-N"
+files from two sittings of one series are the same person twice over, with no
+annotation to interpret. `outils/calibrer_sur_corpus.py` runs it.
+
+Series ES2002, sittings a and b, two participants, 240 s read from the middle
+of each recording:
+
+| | Range |
+|---|---|
+| Same person, **two sittings** | 0.444 – 0.730 |
+| Different people | 0.072 – 0.184 |
+
+The two clouds are cleanly separated: any threshold between 0.184 and 0.444
+would classify all six pairs correctly. **`SEUIL_RECONNAISSANCE = 0.70` sits
+above one of the two same-person pairs**, so that person would not be
+recognised from one meeting to the next.
+
+Nothing has been changed on the strength of two pairs. What this says is that
+the threshold is calibrated on within-meeting pairs and has never been checked
+across meetings, and that the check now exists. More series, and voices
+recorded on this machine rather than in an Edinburgh meeting room, are needed
+before moving it.
+
+**Method matters more than the numbers here.** A first run took the extract as
+it came and produced 0.149 for the same person against 0.280 for two different
+ones -- overlapping clouds, which said the method was wrong, not the threshold.
+An AMI headset also picks up the people across the table, and its wearer speaks
+only a fraction of the time, so the extract mixed several voices with silence
+and breathing. Keeping only the loudest quarter of one-second windows -- on
+their own microphone the wearer is by far the closest -- separated the clouds.
+Any voice-print measurement that skips this step measures nothing.
+
 ## Over-splitting and re-joining
 
 Automatic segmentation produced **27 voices for 6 participants**. This is the
