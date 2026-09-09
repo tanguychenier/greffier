@@ -173,6 +173,26 @@ def main() -> int:
     if memes and autres and max(autres) < min(memes):
         print(f"\n  Les deux nuages sont séparés : tout seuil entre {max(autres):.3f} "
               f"et {min(memes):.3f} sépare correctement.")
+    elif memes and autres:
+        # Le cas ordinaire dès qu'on mesure assez de paires. Ce qui compte
+        # alors n'est plus « quel seuil sépare » mais « que coûte chaque
+        # seuil » : c'est ce tableau qui permet de décider, et une première
+        # mesure sur six paires avait laissé croire à une séparation nette.
+        print("\n  Les nuages se chevauchent : aucun seuil ne sépare. Ce que "
+              "chacun coûte :\n")
+        print(f"    {'seuil':>6}  {'non reconnu(s)':>15}  {'confusion(s)':>13}")
+        for seuil in (0.70, 0.60, 0.50, 0.45, 0.40, 0.30):
+            manques = sum(1 for valeur in memes if valeur < seuil)
+            confusions = sum(1 for valeur in autres if valeur >= seuil)
+            print(f"    {seuil:>6.2f}  {manques:>7}/{len(memes):<7}  "
+                  f"{confusions:>6}/{len(autres):<6}")
+        print("\n  Une confusion écrit le nom de quelqu'un d'autre dans un "
+              "compte rendu ;\n  un défaut de reconnaissance laisse une voix "
+              "à nommer d'un clic. Les deux\n  ne se valent pas.")
+
+    print("\n  Réserve : AMI ne garantit pas que le participant N garde le même"
+          "\n  micro d'une séance à l'autre. Une part du chevauchement peut donc"
+          "\n  être un artefact d'étiquetage plutôt que de timbre.")
     return 0
 
 
