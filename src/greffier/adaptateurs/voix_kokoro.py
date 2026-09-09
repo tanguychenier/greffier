@@ -33,6 +33,7 @@ import tempfile
 import threading
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 SYSTEME = platform.system()
 
@@ -159,7 +160,7 @@ class VoixKokoro:
     def disponible(self) -> bool:
         return self.installee and _lecteur() is not None
 
-    def _charger(self):
+    def _charger(self) -> Any:
         if self._moteur is not None:
             return self._moteur
         import sherpa_onnx

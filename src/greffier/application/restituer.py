@@ -468,7 +468,9 @@ def archiver(audio: Path, garder_original: bool = False) -> Path:
     return destination
 
 
-def empreintes_par_voix(extracteur: Any, audio: Path, par_voix: dict) -> dict:
+def empreintes_par_voix(
+    extracteur: Any, audio: Path, par_voix: dict[str, list[Any]]
+) -> dict[str, list[Any]]:
     """Les empreintes de chaque voix, en ne lisant l'enregistrement qu'une fois.
 
     `extraire_intervalles` rouvre et relit le fichier entier à chaque appel. Une
@@ -488,7 +490,7 @@ def empreintes_par_voix(extracteur: Any, audio: Path, par_voix: dict) -> dict:
             voix: extracteur.extraire_intervalles(audio, intervalles)
             for voix, intervalles in par_voix.items()
         }
-    groupees: dict[str, list] = {voix: [] for voix in par_voix}
+    groupees: dict[str, list[Any]] = {voix: [] for voix in par_voix}
     for (voix, _), empreinte in zip(tous, empreintes, strict=True):
         groupees[voix].append(empreinte)
     return groupees
@@ -516,7 +518,7 @@ def revoir_les_voix(
     from greffier.domaine import empreintes as voix_domaine
 
     avant = {t.voix for t in reunion.tours if t.voix}
-    par_voix: dict[str, list] = {}
+    par_voix: dict[str, list[Any]] = {}
     for tour in reunion.tours:
         par_voix.setdefault(tour.voix, []).append(tour.intervalle)
     empreintes = empreintes_par_voix(extracteur, reunion.audio, par_voix)
@@ -573,7 +575,12 @@ def _reunir_les_homonymes(reunion: Any) -> None:
             ) if gardee in reunion.noms else reunion.noms.get(gardee, "")
 
 
-def _reconnaitre_a_nouveau(reunion, empreintes, appartenance, banque) -> None:
+def _reconnaitre_a_nouveau(
+    reunion: Any,
+    empreintes: dict[str, list[Any]],
+    appartenance: dict[str, str],
+    banque: Any,
+) -> None:
     """Redemande à la banque qui sont les voix, une fois recollées.
 
     C'est le moment où cela vaut le plus : une voix recollée porte des minutes
@@ -585,7 +592,7 @@ def _reconnaitre_a_nouveau(reunion, empreintes, appartenance, banque) -> None:
     connues = banque.personnes()
     if not connues:
         return
-    groupes: dict[str, list] = {}
+    groupes: dict[str, list[Any]] = {}
     for voix, liste in empreintes.items():
         groupes.setdefault(appartenance.get(voix, voix), []).extend(liste)
     for voix, liste in groupes.items():
