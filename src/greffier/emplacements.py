@@ -5,7 +5,7 @@ soit installé, avec le Python 3.9 que certains postes livrent encore.
 
 Sur macOS, l'emplacement natif — ``~/Library/Application Support/Greffier`` —
 et non la convention XDG. Les dossiers cachés du compte (``~/.config``,
-``~/.local``) sont surveillés par les gardes du poste (WithSecure XFENCE), qui
+``~/.local``) sont surveillés par les gardes du poste, qui
 redemandaient une autorisation pour chaque accès de chaque programme de la
 chaîne, à chaque réunion ; une écriture y a même été refusée en pleine réunion,
 et le direct s'est arrêté net. Application Support est l'endroit où toutes les

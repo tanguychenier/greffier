@@ -51,7 +51,7 @@ class TestChemins:
 
     def test_macos_utilise_application_support(self, sous, monkeypatch, tmp_path):
         """Pas XDG : les dossiers cachés du compte sont surveillés par les gardes
-        du poste (XFENCE), qui redemandaient une autorisation à chaque accès."""
+        du poste, qui redemandaient une autorisation à chaque accès."""
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
         monkeypatch.delenv("XDG_DATA_HOME", raising=False)
@@ -172,7 +172,7 @@ class TestSkillDeDepannage:
         """Un skill qui n'indique ni les journaux ni le diagnostic ferait tâtonner."""
         texte = (RACINE / "skills/greffier/SKILL.md").read_text(encoding="utf-8")
         for indice in ("greffier diagnostic", "Application Support",
-                       "Library/Logs/Greffier.log", "local.xfence.rc", "opus"):
+                       "Library/Logs/Greffier.log", "greffier rediger", "opus"):
             assert indice in texte, indice
 
     def test_il_est_pose_la_ou_claude_code_le_cherche(self, sous, monkeypatch, tmp_path):
