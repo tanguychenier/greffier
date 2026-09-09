@@ -1660,6 +1660,40 @@ class Fenetre:
         self._choisir(audio.stem)
         self.onglets.montrer("Conversation")
         self._proposer_la_suite(audio.stem, resultat)
+        self._sauvegarder_sans_bruit()
+
+    def _sauvegarder_sans_bruit(self) -> None:
+        """Copie les données après une réunion traitée, sans rien demander.
+
+        Le moment est le bon : le travail vient d'être produit, et personne n'y
+        pense après. Sans bruit parce qu'une sauvegarde réussie n'a rien à dire
+        — seul un échec mérite un mot, et il ne doit pas non plus interrompre.
+        """
+        if not self.config.sauvegarde.apres_chaque_reunion:
+            return
+        from greffier.application import sauvegarder
+        from greffier.emplacements import dossier_config
+
+        destination = (
+            Path(self.config.sauvegarde.dossier).expanduser()
+            if self.config.sauvegarde.dossier else self.config.chemins.sauvegardes
+        )
+        try:
+            faite = sauvegarder.faire(
+                self.config.chemins.donnees, dossier_config(), destination,
+                gardees=self.config.sauvegarde.gardees,
+            )
+        except (OSError, ValueError) as souci:
+            self._dire("note", f"Sauvegarde impossible : {souci}")
+            return
+        if faite.sur_le_meme_disque:
+            # Dit une fois, dans la conversation, plutôt qu'en fenêtre : c'est
+            # une information, pas une alerte, mais elle ne doit pas se perdre.
+            self._dire("note", (
+                f"Données sauvegardées ({faite.octets / 1024**2:.1f} Mo), mais sur "
+                "le même disque : règle « sauvegarde.dossier » vers un disque "
+                "externe ou un espace synchronisé pour être vraiment à l'abri."
+            ))
 
     def _echec_de_traitement(self, audio: Path, souci: Exception) -> None:
         """Dit ce qui reste, et propose de reprendre là où ça s'est arrêté.
