@@ -129,7 +129,9 @@ Ne conclus jamais sur une lecture. Ce qui prouve :
 Et si tu as touché à la chaîne, repasse un enregistrement réel :
 `greffier traiter --sans-compte-rendu <fichier.wav>`.
 
-**Jamais `--quand-meme` pendant qu'une réunion peut tourner** : le fichier
-d'état est unique, un traitement lancé à côté y publie « terminé », la fenêtre
-en conclut que la réunion est finie et la capture s'arrête. Une réunion entière
-a été perdue ainsi.
+**Évite `--quand-meme` pendant une réunion** : il ne détruit plus la capture
+depuis le 2026-09-09 — le journal ne publie que pour la réunion qu'il traite —
+mais transcrire prend le processeur que la capture et le direct se partagent.
+
+Et si une réunion n'apparaît nulle part alors qu'elle a eu lieu :
+`greffier recuperer` la reconstruit depuis le fil du direct.

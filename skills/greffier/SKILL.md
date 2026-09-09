@@ -99,12 +99,22 @@ par ce qu'un moteur de recherche a rendu. C'est l'assistant de la conversation
 qui cherche, et seulement lui (`composition.assistant`). Ne « répare » pas cette
 asymétrie.
 
-**`greffier traiter --quand-meme` pendant qu'une réunion peut tourner détruit
-cette réunion.** Le fichier d'état est unique : un traitement lancé à côté y
-publie ses propres phases jusqu'à « terminé », la fenêtre en conclut que la
-réunion est finie, et la capture s'arrête. Constaté deux fois, dont le
-2026-09-09 où une réunion entière a été perdue sans laisser un octet. Attends la
-fin, ou n'emploie pas ce drapeau.
+**`greffier traiter --quand-meme` ne détruit plus la réunion en cours**, mais il
+l'a fait deux fois avant le 2026-09-09. Le fichier d'état est unique : un
+traitement lancé à côté y publiait ses phases jusqu'à « terminé », la fenêtre en
+concluait que la réunion était finie, et la capture s'arrêtait — une réunion
+entière perdue sans laisser un octet. Le journal de la chaîne ne publie
+désormais que si l'état porte la réunion qu'il traite
+(`Enregistrement.pour`). **Ne défais pas cette précaution** : c'est elle qui
+rend le drapeau inoffensif. Il reste déconseillé pendant une réunion, pour une
+autre raison : transcrire prend le processeur que la capture et le direct se
+partagent.
+
+**Une réunion qui n'apparaît nulle part alors qu'elle a eu lieu** se
+reconstruit : `greffier recuperer <identifiant>` repart du fil du direct. La
+transcription est moins bonne — modèle rapide, voix non recollées — et la
+réunion porte un avertissement qui le dit. Si l'enregistrement existe encore,
+`greffier traiter` vaut mieux.
 
 **La réunion est gardée avant la rédaction.** L'ordre est : transcription,
 voix, **écriture du fichier maître**, puis rédaction, puis envoi. Ne remonte
