@@ -475,13 +475,30 @@ class Fenetre:
             "pas encore confirmé.",
             taille=11, pale=True, wraplength=740, justify="left",
         )
-        self.direct_etat.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+        self.direct_etat.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+
+        # La participation se décide ici et non dans les Réglages : c'est
+        # pendant la réunion qu'on veut le faire taire, et personne n'ouvre un
+        # onglet de configuration au milieu d'une phrase.
+        barre = tk.Frame(dedans, bg=c.carte)
+        barre.grid(row=1, column=0, sticky="ew", pady=(0, 14))
+        barre.columnconfigure(1, weight=1)
+        self.bouton_participation = Bouton(
+            barre, self._intitule_participation(), self._basculer_la_participation,
+            self.couleurs, largeur=210, hauteur=34,
+            principal=self.config.assistant.actif,
+        )
+        self.bouton_participation.grid(row=0, column=0, sticky="w")
+        self.mot_participation = self._texte(
+            barre, "", taille=11, pale=True, wraplength=520, justify="left")
+        self.mot_participation.grid(row=0, column=1, sticky="w", padx=(14, 0))
+        self._dire_la_participation()
 
         cadre = tk.Frame(dedans, bg=c.carte)
-        cadre.grid(row=1, column=0, sticky="nsew")
+        cadre.grid(row=2, column=0, sticky="nsew")
         cadre.columnconfigure(0, weight=1)
         cadre.rowconfigure(0, weight=1)
-        dedans.rowconfigure(1, weight=1)
+        dedans.rowconfigure(2, weight=1)
 
         self.fil_texte = tk.Text(
             cadre, wrap="word", relief="flat", bg=c.carte, fg=c.encre,
@@ -502,6 +519,46 @@ class Fenetre:
         # et l'œil ne retrouve plus la colonne du texte. Mesuré à la capture :
         # l'heure et le nom tiennent 90 px aux tailles de police d'ici.
         self.fil_texte.tag_configure("dit", foreground=c.encre, lmargin2=90)
+
+    def _intitule_participation(self) -> str:
+        nom = self.config.assistant.nom
+        return f"Faire taire {nom}" if self.config.assistant.actif else f"{nom} participe"
+
+    def _dire_la_participation(self) -> None:
+        """Ce que le bouton vient de changer, en clair.
+
+        Un bouton qui bascule sans rien dire laisse deviner dans quel état on
+        est, et ici l'état s'entend dans la pièce : autant l'écrire.
+        """
+        nom = self.config.assistant.nom
+        if not self.config.assistant.actif:
+            mot = f"{nom} écoute et prend des notes, sans jamais parler."
+        elif self.config.assistant.voix == "aucun":
+            mot = f"{nom} intervient dans l'onglet Conversation, sans voix."
+        else:
+            mot = (f"{nom} peut prendre la parole. Appelez-la par son nom pour "
+                   "lui poser une question.")
+        self.mot_participation.configure(text=mot)
+
+    def _basculer_la_participation(self) -> None:
+        """Active ou fait taire l'assistant, et l'écrit pour la veille.
+
+        Le processus qui écoute la réunion est un autre processus : il relit ce
+        réglage à chaque tranche, donc le changement prend effet dans les
+        secondes qui suivent, sans rien redémarrer.
+        """
+        from greffier.adaptateurs import configuration as reglages
+
+        self.config.assistant.actif = not self.config.assistant.actif
+        try:
+            reglages.sauver(self.config)
+        except OSError as souci:
+            self.config.assistant.actif = not self.config.assistant.actif
+            messagebox.showerror("Greffier", f"Réglage non enregistré : {souci}")
+            return
+        self.bouton_participation.intituler(self._intitule_participation())
+        self.bouton_participation.mettre_en_avant(self.config.assistant.actif)
+        self._dire_la_participation()
 
     # -------------------------------------------------------------- le direct
 
@@ -763,6 +820,11 @@ class Fenetre:
                largeur=110, hauteur=34).pack(side="left", padx=(11, 9))
         Bouton(saisie, "Écouter 10 s", self._ecouter, self.couleurs,
                largeur=140, hauteur=34).pack(side="left")
+        # Se tromper de nom était sans retour : on ne pouvait que renommer
+        # par-dessus, ce qui ajoutait une empreinte fausse à la banque au lieu
+        # d'en retirer une.
+        Bouton(saisie, "Retirer le nom", self._oublier_le_nom, self.couleurs,
+               largeur=150, hauteur=34).pack(side="left", padx=(9, 0))
 
     def _onglet_conversation(self) -> None:
         c = self.couleurs
@@ -2316,9 +2378,10 @@ class Fenetre:
         if not nom:
             messagebox.showinfo("Greffier", "Saisis un nom.")
             return
+        acte = nommage(self.config)
         try:
-            nommage(self.config).nommer(identifiant, voix, nom)
-        except (RuntimeError, ValueError, OSError) as souci:
+            acte.nommer(identifiant, voix, nom)
+        except (KeyError, RuntimeError, ValueError, OSError) as souci:
             messagebox.showerror("Greffier", str(souci))
             return
         self.champ_nom.delete(0, "end")
@@ -2326,7 +2389,40 @@ class Fenetre:
         self.etat_bas.configure(text=f"{nom} est en banque.")
         self._dire("greffier", f"{nom} est en banque, et sera reconnue seule aux "
                                "prochaines réunions.")
+        # Le seul moment où l'on peut encore se raviser sans effort : après, une
+        # empreinte fausse se confirme d'elle-même à chaque réunion.
+        if acte.doute:
+            self._dire("greffier", acte.doute)
+            messagebox.showwarning("Greffier", acte.doute)
         self._regenerer_apres_nommage(identifiant)
+
+    def _oublier_le_nom(self) -> None:
+        """Retire le nom d'une voix, après confirmation.
+
+        La confirmation parce que le geste défait un travail : sur une réunion
+        où l'on vient de nommer cinq personnes, un clic de trop au mauvais
+        endroit se répare mal de mémoire.
+        """
+        from greffier.composition import nommage
+
+        identifiant, voix = self._selection(), self._voix_selectionnee()
+        if not (identifiant and voix):
+            messagebox.showinfo("Greffier", "Choisis une réunion, puis une voix.")
+            return
+        if not messagebox.askyesno(
+            "Greffier",
+            f"Retirer le nom de la voix {voix} ?\n\n"
+            "La réunion l'oublie. L'empreinte déjà versée en banque, elle, "
+            "reste : « greffier connus » montre les entrées douteuses.",
+        ):
+            return
+        try:
+            nommage(self.config).oublier(identifiant, voix)
+        except (KeyError, RuntimeError, ValueError, OSError) as souci:
+            messagebox.showerror("Greffier", str(souci))
+            return
+        self._charger_voix()
+        self.etat_bas.configure(text=f"La voix {voix} n'a plus de nom.")
 
     def _regenerer_apres_nommage(self, identifiant: str) -> None:
         """Rejoue la rédaction, dans un fil séparé : le rédacteur peut appeler
