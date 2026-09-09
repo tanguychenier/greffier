@@ -406,6 +406,27 @@ SEGMENTATION = (
     "speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2"
 )
 
+# La voix de l'assistant, quand il participe à la réunion. Kokoro, quatre-vingt
+# deux millions de paramètres, tenu par le sherpa-onnx déjà installé pour la
+# segmentation : aucune dépendance nouvelle. Trois cent vingt-cinq mégaoctets,
+# et la seule voix française du modèle multilingue.
+#
+# Facultatif. Sans lui, l'assistant se replie sur la voix du système, qui est
+# livrée partout et s'entend tout de suite : c'est jouable, mais on ne montre
+# pas cela à quelqu'un. C'est donc le seul modèle qu'on télécharge pour une
+# question de qualité perçue, et il est le premier qu'on retire d'une
+# installation à l'étroit.
+VOIX = (
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/"
+    "tts-models/kokoro-multi-lang-v1_0.tar.bz2"
+)
+
+#: Ce que l'archive de la voix contient et qui ne sert pas au français : les
+#: lexiques anglais et chinois, et les grammaires de nombres chinoises. Quatorze
+#: mégaoctets qu'on ne garde pas.
+VOIX_INUTILES = ("lexicon-gb-en.txt", "lexicon-us-en.txt", "lexicon-zh.txt",
+                 "date-zh.fst", "number-zh.fst", "phone-zh.fst")
+
 
 def relier_ou_copier(source, cible, dossier=False):
     """Relie la source à la cible, ou la copie si le système s'y refuse.
@@ -474,6 +495,12 @@ def etape_modeles(ctx, moteur):
         telecharger(modele["url"], cible)
         ok(cible.name)
 
+    _installer_la_segmentation(ctx)
+    _installer_la_voix(ctx)
+
+
+def _installer_la_segmentation(ctx):
+    """Le modèle qui repère quand quelqu'un parle. Requis, lui."""
     dossier = ctx.modeles / "diarisation/sherpa-onnx-pyannote-segmentation-3-0"
     if (dossier / "model.onnx").exists():
         ok("modèle de segmentation")
@@ -499,6 +526,44 @@ def etape_modeles(ctx, moteur):
             paquet.extractall(ctx.modeles / "diarisation")  # noqa: S202
     archive.unlink()
     ok("modèle de segmentation")
+
+
+def _installer_la_voix(ctx):
+    """La voix de l'assistant. Facultative : son absence n'arrête rien.
+
+    Un échec ici ne doit pas faire échouer une installation par ailleurs
+    complète : l'outil enregistre, transcrit et rédige sans jamais ouvrir la
+    bouche, et c'est même son mode par défaut.
+    """
+    dossier = ctx.modeles / "voix"
+    if (dossier / "model.onnx").exists():
+        ok("voix de l'assistant")
+        return
+    if ctx.verifier_seulement:
+        alerte("voix de l'assistant manquante (il se repliera sur celle du système)")
+        return
+    archive = ctx.modeles / "voix.tar.bz2"
+    info("téléchargement de la voix de l'assistant (325 Mo)…")
+    try:
+        telecharger(VOIX, archive)
+        with tarfile.open(archive, "r:bz2") as paquet:
+            if sys.version_info >= (3, 12):
+                paquet.extractall(ctx.modeles, filter="data")
+            else:
+                paquet.extractall(ctx.modeles)  # noqa: S202
+        extrait = ctx.modeles / "kokoro-multi-lang-v1_0"
+        if extrait.exists():
+            if dossier.exists():
+                shutil.rmtree(dossier)
+            extrait.rename(dossier)
+        for inutile in VOIX_INUTILES:
+            (dossier / inutile).unlink(missing_ok=True)
+        ok("voix de l'assistant")
+    except (OSError, tarfile.TarError) as souci:
+        alerte(f"voix de l'assistant non installée ({souci}) : "
+               "l'assistant parlera avec la voix du système.")
+    finally:
+        archive.unlink(missing_ok=True)
 
 
 # ------------------------------------------------------- 4. rédaction du CR
