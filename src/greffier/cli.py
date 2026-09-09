@@ -1211,6 +1211,16 @@ def carte(
         # Ce qui est déjà sur la carte, donné au rédacteur : sans cela il
         # reformule et chaque reformulation crée une branche de plus.
         deja = _libelles_de_la_carte(registre, nom) if publier else ()
+        # Ce que des humains ont ajouté sur la carte depuis la dernière fois :
+        # c'est tout l'intérêt d'une carte partagée, et cela n'était jamais relu.
+        des_autres = _apports_des_autres(registre, nom) if publier else ()
+        if des_autres:
+            typer.secho(
+                f"  {len(des_autres)} point(s) ajouté(s) à la main sur la carte :",
+                fg=typer.colors.BLUE,
+            )
+            for libelle in des_autres[:5]:
+                typer.echo(f"    · {libelle}")
         try:
             apports = extraire(moteur, nom, matiere, deja=deja)
         except RenduIllisible as souci:
@@ -1249,6 +1259,40 @@ def _libelles_de_la_carte(registre: object, nom: str) -> tuple[str, ...]:
         return ()
 
 
+def _textes_actes(carte: object) -> list[str]:
+    """Les libellés des points que le groupe a tranchés.
+
+    La racine est écartée : le sujet n'est ni acté ni en discussion, il est.
+    """
+    from greffier.domaine.carte import Etat, Genre, Noeud
+
+    trouves: list[str] = []
+
+    def parcourir(noeud: Noeud) -> None:
+        if noeud.etat is Etat.ACTE and noeud.genre is not Genre.SUJET:
+            trouves.append(noeud.texte)
+        for enfant in noeud.enfants:
+            parcourir(enfant)
+
+    racine = getattr(carte, "racine", None)
+    if racine is not None:
+        parcourir(racine)
+    return trouves
+
+
+def _apports_des_autres(registre: object, nom: str) -> tuple[str, ...]:
+    """Ce que des humains ont écrit sur la carte, et que l'outil n'a pas posé."""
+    from greffier.adaptateurs import carte_miro
+
+    connu = registre.par_nom(nom)  # type: ignore[attr-defined]
+    if connu is None or not connu.carte:
+        return ()
+    try:
+        return tuple(carte_miro.apports_des_autres(connu.carte))
+    except carte_miro.MiroRefuse:
+        return ()
+
+
 def _publier_la_carte(
     config: Config, registre: object, nom: str, la_carte: object, identifiant: str
 ) -> None:
@@ -1271,6 +1315,14 @@ def _publier_la_carte(
         f"{ecrit.liens} lien(s)",
         fg=typer.colors.GREEN,
     )
+    # Les points tranchés reçoivent une pastille à côté d'eux : sans elle, une
+    # piste retenue restait jaune indéfiniment.
+    actes = _textes_actes(la_carte)
+    if actes:
+        marques = carte_miro.marquer_actes(tableau, actes, reunion=identifiant)
+        if marques:
+            typer.secho(f"  ✓ {len(marques)} point(s) marqué(s) « acté »",
+                        fg=typer.colors.GREEN)
     if ecrit.liens_manques:
         # Dit, et non avalé : une carte a été publiée sans un seul trait sans
         # que rien ne le signale.
