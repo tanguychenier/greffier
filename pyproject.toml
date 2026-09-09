@@ -39,12 +39,19 @@ packages = ["src/greffier"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# Les tests d'intégration chargent les modèles et transcrivent réellement : ils
-# se comptent en minutes, contre quelques millisecondes pour le reste. Ils sont
-# donc exclus par défaut, et se lancent avec « pytest -m integration ».
-addopts = "-q -m 'not integration'"
+# Deux familles exclues par défaut, pour deux raisons différentes.
+#
+# « integration » charge les modèles et transcrit réellement : des minutes,
+# contre quelques millisecondes pour le reste. « pytest -m integration ».
+#
+# « lent » appelle le vrai rédacteur, donc le réseau et le quota du compte.
+# Ces cas-là mesurent ce qu'aucune doublure ne peut mesurer — qu'un modèle se
+# taise quand il n'a rien à dire — et se passent à la main avant une
+# démonstration. « pytest -m lent ».
+addopts = "-q -m 'not integration and not lent'"
 markers = [
     "integration: chaîne réelle, avec les modèles et un fichier audio synthétisé",
+    "lent: appelle le rédacteur, donc le réseau et le quota",
 ]
 
 [tool.ruff]

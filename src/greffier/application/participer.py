@@ -60,6 +60,44 @@ N'emploie ni tiret cadratin ni demi-cadratin.
 #: parle, pas au point de faire un appel long au milieu d'une réunion.
 CONTEXTE_MAXIMAL = 6000
 
+#: Le mot par lequel il déclare n'avoir rien à dire. Un mot convenu plutôt
+#: qu'une phrase à interpréter : « je n'ai rien de particulier à ajouter »
+#: serait prononcé à voix haute, ce qui est exactement ce qu'on veut éviter.
+RIEN = "RIEN"
+
+#: Ce qu'on lui demande quand personne ne lui a rien demandé. La consigne
+#: insiste sur le silence parce que c'est la réponse juste presque à chaque
+#: fois, et qu'un modèle à qui l'on demande « as-tu quelque chose à dire »
+#: trouve toujours quelque chose à dire.
+CONSIGNES_APPORT = """Tu t'appelles {nom} et tu assistes à une réunion de travail
+sans y avoir été invitée à parler. On te donne ce qui vient de se dire.
+
+Ta réponse par défaut est le mot {rien}, seul, sans rien d'autre. C'est la
+réponse juste dans la très grande majorité des cas : une réunion se tient très
+bien sans commentaire, et une remarque de trop coûte plus cher que dix
+remarques manquées.
+
+Tu ne sors de ce silence que si l'une de ces trois choses est vraie, et
+manifestement vraie :
+
+- une décision a été prise sans que personne ne soit désigné pour la porter,
+  ou sans échéance alors qu'elle en appelle une ;
+- une question a été posée à la cantonade et la conversation est passée à
+  autre chose sans y répondre ;
+- ce qui vient d'être dit contredit un document qu'on t'a fourni, ou une
+  décision prise plus tôt dans cette même réunion.
+
+Tu ne dis rien pour : reformuler ce qui vient d'être dit, résumer, approuver,
+signaler qu'un sujet est intéressant, proposer une méthode qu'on ne t'a pas
+demandée, ou rappeler une bonne pratique générale.
+
+Si tu parles, c'est **une phrase**, à l'oral, sans liste ni titre ni adresse
+web : elle sera prononcée telle quelle dans la pièce. Pose la question, ne
+fais pas la leçon. N'emploie ni tiret cadratin ni demi-cadratin.
+
+Ce qui vient de se dire :
+"""
+
 
 class Parleur(Protocol):
     """Ce qui prononce. `VoixKokoro` et `VoixSysteme` s'y conforment."""
@@ -109,11 +147,17 @@ class Participant:
     #: Appelé quand la réponse à « qui parle ? » donne un prénom. C'est ce qui
     #: transforme une question polie en un nom porté au compte rendu.
     nommer: Callable[[str, str], bool] | None = None
+    #: L'apport trouvé au tour précédent, en attente d'un moment pour être dit.
+    #: Chercher coûte un appel au modèle, donc plusieurs secondes : on ne le
+    #: fait pas dans la boucle qui transcrit, on le fait à côté et on relit le
+    #: résultat à la tranche suivante.
+    en_reserve: Occasion | None = None
     #: Les instants où l'assistant a parlé, pour ne pas se transcrire lui-même.
     #: Sa voix sort par le haut-parleur et rentre par le micro : sans cela, il
     #: deviendrait un participant de plus, avec une empreinte vocale à la clé.
     ses_prises: list[tuple[float, float]] = field(default_factory=list)
     _travail: threading.Thread | None = None
+    _recherche: threading.Thread | None = None
 
     # --------------------------------------------------------------- écoute
 
@@ -144,9 +188,32 @@ class Participant:
                     propos=question_posee(texte, self.nom) or texte,
                     ne_le=replique.intervalle.fin,
                 ))
+        if self.en_reserve is not None:
+            proposees.append(self.en_reserve)
         creux = self._creux(repliques, maintenant)
         densite = densite_de_parole(tours or [], maintenant) if tours else 0.0
-        return self.politique.choisir(proposees, maintenant, creux, densite)
+        retenue = self.politique.choisir(proposees, maintenant, creux, densite)
+        if retenue is not None and retenue is self.en_reserve:
+            self.en_reserve = None
+        return retenue
+
+    def chercher_un_apport_a_part(self, maintenant: float) -> None:
+        """Cherche, dans un fil séparé, s'il y a lieu de dire quelque chose.
+
+        À côté de la boucle qui transcrit : l'appel au modèle prend plusieurs
+        secondes, et les passer à attendre coûterait autant d'audio non
+        transcrit. Le résultat attend en réserve et sert à la tranche suivante.
+        """
+        if self.en_reserve is not None or not self.politique.actif:
+            return
+        if self._recherche is not None and self._recherche.is_alive():
+            return
+
+        def chercher() -> None:
+            self.en_reserve = self.apport(maintenant)
+
+        self._recherche = threading.Thread(target=chercher, daemon=True)
+        self._recherche.start()
 
     def _est_de_lui(self, replique: Replique) -> bool:
         """La réplique tombe-t-elle sur un moment où l'assistant parlait ?
@@ -242,6 +309,65 @@ class Participant:
         except (RuntimeError, OSError):
             return ""
 
+    def apport(self, maintenant: float) -> Occasion | None:
+        """Ce que l'assistant aurait à ajouter de lui-même, ou rien.
+
+        Rien est le cas courant, et la consigne le dit crûment : un modèle à
+        qui l'on demande « as-tu quelque chose à dire » trouve toujours quelque
+        chose à dire, et c'est exactement le défaut qu'on cherche à éviter.
+        La politique décidera ensuite si le moment s'y prête ; ici on décide
+        seulement s'il y a matière.
+
+        L'appel n'a lieu que quand le repos est écoulé : le demander à chaque
+        tranche coûterait un appel toutes les dix secondes pour un silence.
+        """
+        if self.cerveau is None or self.contexte is None:
+            return None
+        if self.politique.parle_le is not None and (
+                maintenant - self.politique.parle_le < self.politique.repos):
+            return None
+        try:
+            matiere = self.contexte()[-CONTEXTE_MAXIMAL:]
+        except OSError:
+            return None
+        if not matiere.strip():
+            return None
+        consignes = CONSIGNES_APPORT.format(nom=self.nom, rien=RIEN)
+        try:
+            propos = self._interroger(consignes, matiere)
+        except (RuntimeError, OSError):
+            return None
+        if not propos or propos.strip().upper().startswith(RIEN):
+            return None
+        return Occasion(
+            raison=Raison.APPORT,
+            propos=propos,
+            ne_le=maintenant,
+            # Le sujet est le propos lui-même : deux remarques identiques ne se
+            # disent pas deux fois, et une remarque déjà faite ne revient pas.
+            sujet=f"apport:{_empreinte_du_propos(propos)}",
+        )
+
+    def _interroger(self, consignes: str, matiere: str) -> str:
+        """Un appel au cerveau, avec des consignes qui ne sont pas les siennes.
+
+        Le rédacteur porte les consignes de l'oral ; celles de l'apport sont
+        différentes, et il ne faut pas que les poser laisse le rédacteur changé
+        pour l'appel suivant.
+        """
+        cerveau = self.cerveau
+        if cerveau is None:
+            return ""
+        avant = getattr(cerveau, "consignes_propres", None)
+        try:
+            if avant is not None:
+                cerveau.consignes_propres = consignes
+                return cerveau.rediger(matiere).strip()
+            return cerveau.rediger(consignes + matiere).strip()
+        finally:
+            if avant is not None:
+                cerveau.consignes_propres = avant
+
     def demander_qui_parle(self, voix: str, maintenant: float) -> Occasion:
         """La question qui règle le problème le plus coûteux de l'outil.
 
@@ -259,6 +385,15 @@ class Participant:
 
     def consignes(self) -> str:
         return CONSIGNES_ORALES.format(nom=self.nom)
+
+
+def _empreinte_du_propos(propos: str) -> str:
+    """De quoi reconnaître une remarque déjà faite, aux mots près."""
+    import hashlib
+    import re
+
+    mots = " ".join(sorted(set(re.findall(r"\w{4,}", propos.lower()))))
+    return hashlib.sha256(mots.encode("utf-8")).hexdigest()[:12]
 
 
 def _prenom_dans(texte: str) -> str:
