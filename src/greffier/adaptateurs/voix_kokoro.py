@@ -23,12 +23,15 @@ Deux détails décident du résultat :
 
 from __future__ import annotations
 
+import contextlib
+import os
 import platform
 import re
 import shutil
 import subprocess
 import tempfile
 import threading
+from collections.abc import Iterator
 from pathlib import Path
 
 SYSTEME = platform.system()
@@ -103,6 +106,30 @@ def _lecteur() -> list[str] | None:
     return None
 
 
+@contextlib.contextmanager
+def _sans_bavardage() -> Iterator[None]:
+    """Étouffe ce que la bibliothèque native écrit sur la sortie d'erreur.
+
+    sherpa-onnx signale chaque caractère qu'il ne sait pas prononcer — un tiret,
+    une apostrophe typographique — par une ligne en anglais mentionnant un point
+    de code Unicode. Sept lignes pour une phrase, sans conséquence sur le son.
+    C'est du C++ : `warnings` et `logging` n'y peuvent rien, seul le descripteur
+    de fichier compte.
+    """
+    try:
+        copie = os.dup(2)
+    except OSError:
+        yield
+        return
+    try:
+        with open(os.devnull, "w") as puits:
+            os.dup2(puits.fileno(), 2)
+        yield
+    finally:
+        os.dup2(copie, 2)
+        os.close(copie)
+
+
 class VoixKokoro:
     """Prononce un texte avec une voix neuronale, en local.
 
@@ -165,7 +192,8 @@ class VoixKokoro:
         propos = nettoyer(texte)
         if not propos:
             return None
-        rendu = self._charger().generate(propos, sid=self.voix, speed=self.vitesse)
+        with _sans_bavardage():
+            rendu = self._charger().generate(propos, sid=self.voix, speed=self.vitesse)
         if len(rendu.samples) == 0:
             return None
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -194,8 +222,9 @@ class VoixKokoro:
                 if self._interrompu.is_set():
                     return
                 try:
-                    rendu = self._charger().generate(
-                        morceau, sid=self.voix, speed=self.vitesse)
+                    with _sans_bavardage():
+                        rendu = self._charger().generate(
+                            morceau, sid=self.voix, speed=self.vitesse)
                 except (RuntimeError, OSError):
                     return
                 if len(rendu.samples) == 0:
