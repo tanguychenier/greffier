@@ -132,7 +132,11 @@ def redacteur(config: Config) -> sortants.Redacteur | None:
     if moteur == "claude":
         from greffier.adaptateurs.redaction_claude import RedacteurClaude
 
-        return RedacteurClaude(config.compte_rendu.modele_effectif, langue=langue)
+        return RedacteurClaude(
+            config.compte_rendu.modele_effectif,
+            delai=config.compte_rendu.delai,
+            langue=langue,
+        )
     return None
 
 
