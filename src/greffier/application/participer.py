@@ -299,13 +299,13 @@ class Participant:
         matiere = ""
         if self.contexte is not None:
             with contextlib.suppress(OSError):
-                matiere = self.contexte()[-CONTEXTE_MAXIMAL:]
+                matiere = str(self.contexte())[-CONTEXTE_MAXIMAL:]
         demande = (
             f"Voici ce qui s'est dit jusqu'ici dans la réunion :\n\n{matiere}\n\n"
             f"On vient de te dire : « {occasion.propos} »\n\nRéponds."
         )
         try:
-            return self.cerveau.rediger(demande).strip()
+            return str(self.cerveau.rediger(demande)).strip()
         except (RuntimeError, OSError):
             return ""
 
@@ -327,7 +327,7 @@ class Participant:
                 maintenant - self.politique.parle_le < self.politique.repos):
             return None
         try:
-            matiere = self.contexte()[-CONTEXTE_MAXIMAL:]
+            matiere = str(self.contexte())[-CONTEXTE_MAXIMAL:]
         except OSError:
             return None
         if not matiere.strip():
@@ -362,8 +362,8 @@ class Participant:
         try:
             if avant is not None:
                 cerveau.consignes_propres = consignes
-                return cerveau.rediger(matiere).strip()
-            return cerveau.rediger(consignes + matiere).strip()
+                return str(cerveau.rediger(matiere)).strip()
+            return str(cerveau.rediger(consignes + matiere)).strip()
         finally:
             if avant is not None:
                 cerveau.consignes_propres = avant
@@ -415,4 +415,4 @@ def _prenom_dans(texte: str) -> str:
     candidats = [m for m in mots if m.lower().strip("'") not in outils and len(m) > 2]
     if len(candidats) != 1:
         return ""
-    return candidats[0].strip("'").capitalize()
+    return str(candidats[0]).strip("'").capitalize()
