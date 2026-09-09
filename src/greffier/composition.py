@@ -10,6 +10,7 @@ from __future__ import annotations
 import platform
 import sys
 from pathlib import Path
+from typing import Any
 
 from greffier.adaptateurs.audio_ffmpeg import EnregistreurFfmpeg
 from greffier.adaptateurs.banque_fichiers import BanqueFichiers
@@ -28,10 +29,12 @@ from greffier.adaptateurs.peripheriques_coreaudio import ListeurCoreAudio
 from greffier.adaptateurs.redaction_ollama import RedacteurOllama
 from greffier.application.enregistrer import Enregistrement
 from greffier.application.nommer import Nommage
+from greffier.application.participer import Participant
 from greffier.application.suivre import Suivi, fichiers, personnes_connues
 from greffier.application.traiter import Traitement
 from greffier.domaine.contexte import Contexte as ContexteDeTravail
 from greffier.domaine.direct import Fil
+from greffier.domaine.participation import Politique
 from greffier.ports import sortants
 
 
@@ -328,3 +331,70 @@ def assembler(config: Config) -> Traitement:
         destinataire=config.compte_rendu.destinataire,
         information=config.conversation.information,
     )
+
+
+def voix_de_l_assistant(config: Config) -> Any | None:
+    """Ce qui prononce, ou rien si l'assistant participe par écrit.
+
+    L'ordre est celui de la qualité : la voix neuronale d'abord, celle du
+    système ensuite, rien enfin. Un modèle absent ne fait pas taire l'assistant,
+    il le fait parler moins bien — et le diagnostic dit comment y remédier.
+    """
+    voulu = config.assistant.voix
+    if voulu == "aucun":
+        return None
+    if voulu == "kokoro":
+        from greffier.adaptateurs.voix_kokoro import VoixKokoro
+
+        neuronale = VoixKokoro(
+            config.chemins.voix_de_synthese,
+            langue=config.transcription.langue or "fr",
+            vitesse=config.assistant.vitesse,
+        )
+        if neuronale.disponible:
+            return neuronale
+    from greffier.adaptateurs.voix_systeme import VoixSysteme
+
+    systeme = VoixSysteme()
+    return systeme if systeme.disponible else None
+
+
+def participant(config: Config, identifiant: str) -> Participant | None:
+    """L'assistant en tant que participant à la réunion.
+
+    Rend `None` quand il n'a pas été activé : la fabrique ne décide pas de sa
+    présence, elle la construit quand elle est demandée. Une voix qui sort du
+    haut-parleur sans qu'on l'ait voulu serait la pire des surprises.
+    """
+    if not config.assistant.actif:
+        return None
+    from greffier.adaptateurs import conversations_fichier
+
+    fichier = conversations_fichier.fichier_de(
+        config.chemins.conversations, identifiant)
+
+    def tracer(qui: str, quoi: str) -> None:
+        conversations_fichier.ajouter(fichier, qui, quoi)
+
+    lui = Participant(
+        nom=config.assistant.nom,
+        politique=Politique(
+            actif=True,
+            repos=config.assistant.repos,
+            creux_minimal=config.assistant.creux_minimal,
+        ),
+        voix=voix_de_l_assistant(config),
+        tracer=tracer,
+    )
+    # Le même moteur que la conversation, mais avec les consignes de l'oral :
+    # ce qui sort du haut-parleur n'a ni titre, ni tableau, ni adresse web. Un
+    # rédacteur configuré pour écrire répondrait en Markdown, et la synthèse
+    # prononcerait les dièses.
+    cerveau = assistant(config)
+    if cerveau is not None and hasattr(cerveau, "consignes_propres"):
+        cerveau.consignes_propres = lui.consignes()
+        # Rien à chercher en ligne quand on répond à voix haute : la réponse
+        # doit venir en deux secondes, et une adresse ne se prononce pas.
+        cerveau.outils = ()
+    lui.cerveau = cerveau
+    return lui

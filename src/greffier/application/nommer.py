@@ -15,6 +15,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from greffier.domaine import empreintes as empreintes_domaine
+from greffier.domaine import prenoms
 from greffier.domaine.empreintes import agreger
 from greffier.domaine.modeles import Intervalle
 from greffier.domaine.reunion import ReunionEnregistree
@@ -109,8 +111,24 @@ class Nommage:
     depot: sortants.DepotReunions
     banque: sortants.BanqueDeVoix
     extracteur: sortants.ExtracteurEmpreintes
+    #: Ce que le dernier nommage a de suspect, en clair. Vide quand tout va
+    #: bien. L'appelant l'affiche : c'est le seul moment où l'utilisateur peut
+    #: encore se raviser sans effort.
+    doute: str = ""
 
     def nommer(self, identifiant: str, voix: str, nom: str) -> ReunionEnregistree:
+        """Pose un nom sur une voix, et réunit celles qui portent déjà ce nom.
+
+        Réunir, parce que c'est le geste qu'on fait sans le savoir : nommer
+        « Michel » une deuxième voix, c'est dire qu'elle est de Michel, donc de
+        la même personne. Sans cela, chaque voix gardait son identifiant et le
+        compte rendu annonçait deux Michel — sur une réunion réelle, trente-six
+        voix ont été nommées à la main pour trois personnes présentes.
+        """
+        refuse = prenoms.refus(nom)
+        if refuse:
+            raise ValueError(refuse)
+        nom = prenoms.normaliser(nom)
         reunion = self.depot.lire(identifiant)
         intervalles = reunion.intervalles_de(voix)
         if not intervalles:
@@ -126,9 +144,46 @@ class Nommage:
             )
         # Une empreinte agrégée sur toute la réunion, et non un extrait unique :
         # elle résiste mieux aux variations de posture et de distance au micro.
-        self.banque.enregistrer(nom, agreger(empreintes))
+        # Avant de verser : cette voix ressemble-t-elle à quelqu'un d'autre ?
+        # On ne refuse pas — deux collègues peuvent avoir des voix proches, et
+        # l'utilisateur a le droit d'avoir raison contre la machine — mais on
+        # ne laisse plus une entrée fausse entrer en silence.
+        agregat = agreger(empreintes)
+        self.doute = empreintes_domaine.entree_douteuse(
+            agregat, nom, self.banque.personnes())
+        self.banque.enregistrer(nom, agregat)
 
         reunion.noms[voix] = nom
+        reunion.propositions.pop(voix, None)
+        # Les voix qui portaient déjà ce nom rejoignent celle-ci. La plus
+        # fournie garde son identifiant : c'est celle dont l'extrait est le plus
+        # représentatif si quelqu'un veut réécouter.
+        temps = reunion.temps_de_parole()
+        homonymes = [v for v in reunion.voix_portant(nom) if v != voix]
+        for autre in homonymes:
+            gardee, absorbee = (
+                (voix, autre) if temps.get(voix, 0.0) >= temps.get(autre, 0.0)
+                else (autre, voix)
+            )
+            reunion.reunir(absorbee, gardee)
+            reunion.noms[gardee] = nom
+            voix = gardee
+        self.depot.enregistrer(reunion)
+        return reunion
+
+    def oublier(self, identifiant: str, voix: str) -> ReunionEnregistree:
+        """Retire le nom d'une voix, dans la réunion.
+
+        Une erreur de nommage est le geste le plus coûteux de l'outil, et il
+        n'était pas défaisable : on ne pouvait que renommer par-dessus, ce qui
+        ajoutait une empreinte fausse à la banque au lieu d'en retirer une.
+        Ici, la réunion oublie ; la banque se corrige avec `greffier connus`,
+        qui montre déjà les entrées douteuses.
+        """
+        reunion = self.depot.lire(identifiant)
+        if voix not in reunion.noms and voix not in reunion.propositions:
+            raise KeyError(f"La voix « {voix} » ne porte aucun nom.")
+        reunion.noms.pop(voix, None)
         reunion.propositions.pop(voix, None)
         self.depot.enregistrer(reunion)
         return reunion
