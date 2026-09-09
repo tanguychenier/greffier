@@ -641,6 +641,14 @@ class Fenetre:
                 label=f"Toute la voix « {self._fil.etiquette(tour.voix)} » est :",
                 state="disabled",
             )
+            # Pourquoi ce nom est proposé, à l'endroit où l'on décide de le
+            # garder ou non. « Sophie ? » ne dit pas s'il s'agit d'une quasi
+            # certitude ou d'une hypothèse fragile, et c'est exactement ce
+            # qu'il faut savoir avant de corriger — surtout dans le cas le plus
+            # trompeur, où le nom est peut-être celui du voisin.
+            if voix.confiance:
+                menu.add_command(label=f"   {voix.confiance}", state="disabled")
+                menu.add_separator()
             self._garnir(menu, noms, numero, toute_la_voix=True)
             menu.add_separator()
             phrase = tk.Menu(menu, tearoff=0, font=police(12))
@@ -890,10 +898,15 @@ class Fenetre:
         # dans une même fenêtre, deux barres d'actions qui ne se ressemblent pas
         # se remarquent.
         self.bouton_session = Bouton(boutons, "Se connecter", self._session_claude,
-                                     self.couleurs, largeur=150, hauteur=32)
+                                     self.couleurs, largeur=228, hauteur=32)
         self.bouton_session.pack(side="left", padx=(0, 9))
-        self.bouton_maj = Bouton(boutons, "Mettre à jour", self._mettre_a_jour_claude,
-                                 self.couleurs, largeur=150, hauteur=32)
+        # « Mettre à jour Claude Code » et non « Mettre à jour » : sous un bloc
+        # intitulé « Compte Claude », le libellé court se lit « mettre à jour le
+        # compte », ce qui n'est pas du tout ce qu'il fait. Un bouton doit dire
+        # ce qui se passe quand on le presse.
+        self.bouton_maj = Bouton(boutons, "Mettre à jour Claude Code",
+                                 self._mettre_a_jour_claude,
+                                 self.couleurs, largeur=228, hauteur=32)
         self.bouton_maj.pack(side="left")
         rang += 1
 
@@ -955,12 +968,28 @@ class Fenetre:
         # avoir été ouverte dans le terminal entre-temps, et l'événement <Map>
         # est justement émis quand la page revient au premier plan.
         page.bind("<Map>", lambda _e: self._dire_le_compte())
+        # Et au retour du navigateur : se connecter ouvre un terminal puis une
+        # page web, et l'on revient à Greffier **sans changer d'onglet** — aucun
+        # « Map » n'est alors émis, donc rien ne se relisait alors que le message
+        # promettait le contraire.
+        self.racine.bind("<FocusIn>", self._au_retour, add="+")
         # Les enfants interceptent la molette avant leur parent : sans cette
         # passe, la roue ne fait rien dès que le curseur est sur une étiquette.
         self._ecouter_la_molette(dedans)
         self._garnir_les_reglages()
         self._dire_le_compte()
         self._dire_la_version()
+
+    def _au_retour(self, _evenement: object = None) -> None:
+        """Relit ce qui a pu changer pendant qu'on était ailleurs.
+
+        Le compte se lit dans un fichier, sans appel réseau : le relire à chaque
+        retour de focus ne coûte rien, et c'est le seul moment où l'on peut
+        attraper une session ouverte dans un terminal.
+        """
+        if self.onglets.courant == "Réglages":
+            with contextlib.suppress(Exception):
+                self._dire_le_compte()
 
     def _dire_la_version(self) -> None:
         """Affiche la version installée, sans rien demander au réseau.
@@ -1307,6 +1336,33 @@ class Fenetre:
         self.mot_compte.configure(
             text="Un terminal s'ouvre. Reviens ensuite ici : l'état se relit tout seul.",
             fg=self.couleurs.encre_pale)
+        # Le retour de focus suffit dans le cas courant, mais la connexion se
+        # termine parfois pendant qu'on regarde le navigateur, Greffier n'ayant
+        # jamais reperdu le focus. On surveille donc quelques minutes.
+        self._guetter_la_session(tours=60)
+
+    def _guetter_la_session(self, tours: int) -> None:
+        """Relit le compte toutes les trois secondes, le temps qu'il change."""
+        from greffier.adaptateurs import diagnostic_systeme as diagnostic
+
+        def signature() -> tuple[str, str, str] | None:
+            """De quoi voir qu'on a changé de compte, sans lire aucun jeton."""
+            compte = diagnostic.compte_claude()
+            if compte is None:
+                return None
+            return (compte.adresse, compte.organisation, compte.formule)
+
+        avant = signature()
+
+        def regarder(restants: int) -> None:
+            if restants <= 0:
+                return
+            if signature() != avant:
+                self._dire_le_compte()
+                return
+            self.racine.after(3000, lambda: regarder(restants - 1))
+
+        self.racine.after(3000, lambda: regarder(tours))
 
     def _mettre_a_jour_claude(self) -> None:
         """Lance « claude update », dans un fil : il télécharge."""

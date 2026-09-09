@@ -559,3 +559,66 @@ class TestPlancherDeMatiere:
         from greffier.domaine.direct import MATIERE_MINIMALE_VOIX
 
         assert 1.5 < MATIERE_MINIMALE_VOIX < 3.0
+
+
+class TestConfianceDite:
+    """« Sophie ? » ne dit pas si l'hypothèse est fragile ou quasi certaine.
+
+    C'est pourtant ce qu'il faut savoir avant de corriger, et le cas le plus
+    trompeur est celui où le nom est peut-être celui du voisin.
+    """
+
+    def voix_nommee(self, ressemblance: float, ecart: float, certitude):
+        from greffier.domaine.direct import VoixDirecte
+
+        return VoixDirecte(
+            identifiant="v1", nom="Sophie", certitude=certitude,
+            ressemblance=ressemblance, ecart=ecart,
+        )
+
+    def test_une_voix_anonyme_ne_dit_rien(self):
+        from greffier.domaine.direct import VoixDirecte
+
+        assert VoixDirecte(identifiant="v1").confiance == ""
+
+    def test_une_reconnaissance_nette_est_dite_comme_telle(self):
+        from greffier.domaine.direct import Certitude
+
+        phrase = self.voix_nommee(0.89, 0.40, Certitude.RECONNUE).confiance
+        assert "nettement" in phrase
+        assert "0.89" in phrase
+
+    def test_un_ecart_mince_est_signale_comme_le_plus_trompeur(self):
+        """Le nom est peut-être celui du voisin : le dire change le geste."""
+        from greffier.domaine.direct import Certitude
+
+        phrase = self.voix_nommee(0.52, 0.02, Certitude.PROBABLE).confiance
+        assert "proche d'une autre voix" in phrase
+
+    def test_peu_de_matiere_est_distingue(self):
+        from greffier.domaine.direct import Certitude
+
+        phrase = self.voix_nommee(0.46, 0.30, Certitude.PROBABLE).confiance
+        assert "peu de matière" in phrase
+
+    def test_un_nom_saisi_a_la_main_ne_parle_pas_de_ressemblance(self):
+        from greffier.domaine.direct import Certitude
+
+        assert self.voix_nommee(0.5, 0.1, Certitude.HUMAINE).confiance == (
+            "nommée à la main"
+        )
+
+    def test_le_canal_est_dit_pour_ce_qu_il_est(self):
+        from greffier.domaine.direct import Certitude
+
+        assert "ton micro" in self.voix_nommee(0.5, 0.1, Certitude.CANAL).confiance
+
+    def test_la_reconnaissance_conserve_ses_chiffres(self):
+        """Sans eux, on ne peut rien expliquer après coup."""
+        from greffier.domaine.empreintes import similarite
+
+        julie = Personne(nom="Julie", empreintes=[empreinte(1, 0, duree=30)])
+        fil = Fil(connues=[julie])
+        voix = fil.rattacher(empreinte(0.65, 0.76), locale=False)
+        assert fil.voix[voix].ressemblance > 0
+        assert similarite is not None
