@@ -2239,17 +2239,27 @@ class Fenetre:
         liste le montre colonne « Compte rendu », mais rien ne le portait à
         l'attention.
         """
+        from greffier.domaine.reunion import tenue_le
+
         with contextlib.suppress(OSError, ValueError):
             manquantes = [
                 identifiant
                 for identifiant in self.depot.lister()[:20]
-                if not (self.config.chemins.comptes_rendus / f"{identifiant}.md").exists()
+                # Seules les réunions **datées** : les enregistrements d'essai
+                # fabriqués par « outils/fabriquer_reunion.py » n'ont pas de
+                # compte rendu et n'en attendent pas. Les signaler noyait le
+                # message sous cinq faux positifs, constaté à l'usage.
+                if tenue_le(identifiant) is not None
+                and not (self.config.chemins.comptes_rendus / f"{identifiant}.md").exists()
                 and bool(self.depot.lire(identifiant).repliques)
             ]
             if not manquantes:
                 return
             pluriel = "s" if len(manquantes) > 1 else ""
-            self._dire("greffier", (
+            # Peint et non « dit » : un état général de l'outil n'appartient à
+            # la conversation d'aucune réunion, et s'y inscrire salissait le
+            # journal de celle qui se trouvait sélectionnée.
+            self._peindre_le_tour("greffier", (
                 f"{len(manquantes)} réunion{pluriel} transcrite{pluriel} sans compte "
                 f"rendu : {', '.join(manquantes[:3])}"
                 + ("…" if len(manquantes) > 3 else "")
