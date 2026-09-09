@@ -311,6 +311,11 @@ class Conversation(BaseModel):
     #: explicitement. Réglable parce qu'il y a des réunions où même cela ne se
     #: fait pas.
     recherche_web: bool = True
+    #: Ce qui a été fait vis-à-vis des participants : « rien », « annoncé » ou
+    #: « accord ». Une voix est une donnée biométrique, et la mention portée au
+    #: compte rendu suit ce réglage. « rien » est le défaut, et il est dit tel
+    #: quel : prétendre le contraire serait pire que de l'avouer.
+    information: str = "rien"
 
 
 class Apparence(BaseModel):
@@ -455,7 +460,7 @@ SECTIONS: dict[str, tuple[str, ...]] = {
     "courriel": ("serveur", "port", "utilisateur", "expediteur"),
     "sauvegarde": ("dossier", "apres_chaque_reunion", "gardees"),
     "retention": ("compresser_apres_jours", "effacer_apres_jours"),
-    "conversation": ("recherche_web",),
+    "conversation": ("recherche_web", "information"),
     "apparence": ("theme",),
 }
 
@@ -478,7 +483,10 @@ _COMMENTAIRES = {
                   "# donc « effacer_apres_jours = 0 » désactive. « greffier ranger »."),
     "conversation": ("Ce que l'assistant peut faire quand on lui parle pendant la\n"
                      "# réunion. « recherche_web » ne concerne jamais le compte rendu,\n"
-                     "# qui n'a aucun outil. Ce qui sort du poste est le terme cherché."),
+                     "# qui n'a aucun outil. Ce qui sort du poste est le terme cherché.\n"
+                     "# « information » : ce qui a été fait vis-à-vis des participants,\n"
+                     "# « rien », « annoncé » ou « accord ». Une voix est une donnée\n"
+                     "# biométrique ; le compte rendu porte la mention correspondante."),
     "apparence": "systeme suit le réglage clair/sombre du poste.",
 }
 

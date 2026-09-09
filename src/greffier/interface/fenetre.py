@@ -1737,7 +1737,9 @@ class Fenetre:
         def faire(dire: Callable[[str], None]) -> Any:
             dire("rédaction…")
             gardee = self.depot.lire(identifiant)
-            texte = regenerer_compte_rendu(gardee, moteur)
+            texte = regenerer_compte_rendu(
+                gardee, moteur, self.config.conversation.information
+            )
             cible = self.config.chemins.comptes_rendus / f"{identifiant}.md"
             cible.parent.mkdir(parents=True, exist_ok=True)
             cible.write_text(texte, encoding="utf-8")
@@ -2132,7 +2134,9 @@ class Fenetre:
         def faire(dire: Callable[[str], None]) -> Any:
             dire("rédaction…")
             reunion = depot(self.config).lire(identifiant)
-            return regenerer_compte_rendu(reunion, moteur)
+            return regenerer_compte_rendu(
+                reunion, moteur, self.config.conversation.information
+            )
 
         self._lancer(Travail(
             intitule="régénération", faire=faire,
@@ -2321,7 +2325,21 @@ class Fenetre:
         # Après le premier tour de boucle : signaler avant que la fenêtre ne
         # soit peinte n'afficherait rien.
         self.racine.after(600, self._signaler_les_redactions_manquantes)
+        self.racine.after(900, self._rappeler_l_information)
         self.racine.mainloop()
+
+    def _rappeler_l_information(self) -> None:
+        """Rappelle une fois par session que les participants doivent savoir.
+
+        Une fois, et dans la conversation : une mention qu'on lit avant chaque
+        réunion devient un bouton qu'on clique sans lire. Le compte rendu
+        portera de toute façon la phrase qui dit ce qui a été fait, y compris
+        « rien n'a été tracé ».
+        """
+        from greffier.domaine.consentement import RAPPEL, a_tracer, lire
+
+        if a_tracer(lire(self.config.conversation.information)):
+            self._peindre_le_tour("greffier", RAPPEL)
 
     def _signaler_les_redactions_manquantes(self) -> None:
         """Dit quelles réunions attendent encore leur compte rendu.

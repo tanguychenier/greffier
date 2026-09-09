@@ -176,6 +176,10 @@ class Traitement:
     personnes: int | None = None
     pas_des_prenoms: frozenset[str] = frozenset()
     destinataire: str = ""
+    #: Ce qui a été fait vis-à-vis des participants. Porté au compte rendu :
+    #: une voix est une donnée biométrique, et ce qui n'est pas écrit n'a pas eu
+    #: lieu — une mention orale ne se retrouve pas six mois plus tard.
+    information: str = "rien"
     #: Constats de la veille sur le matériel, remplis par « executer ».
     evenements_materiel: list[str] = field(default_factory=list)
 
@@ -439,6 +443,7 @@ class Traitement:
         from greffier.application.restituer import (
             entete_contexte,
             entete_fiabilite,
+            entete_information,
             entete_materiel,
             rendre_transcription,
         )
@@ -456,6 +461,7 @@ class Traitement:
                             terminee_le=resultat.terminee_le)
             + entete_materiel(self.evenements_materiel)
             + entete_fiabilite(resultat)
+            + entete_information(self.information)
             + self.entete_contexte
         )
         resultat.compte_rendu = self.redacteur.rediger(
