@@ -41,6 +41,43 @@ RECOUVREMENT = 5.0
 # borne, un échec durable — modèle absent, fichier illisible — la ferait grandir
 # jusqu'à demander plusieurs minutes de calcul à chaque tour.
 TRANCHE_MAXIMALE = 90.0
+# Secondes d'audio **déjà transcrit** données en plus au modèle, avant la
+# tranche. Rien n'en est réaffiché : c'est du contexte, et il change tout.
+#
+# Mesuré le 2026-09-09 sur une réunion en présentiel, même passage, même modèle,
+# seule la longueur de la fenêtre changeant : à 15 s « sur la ZIS », à 30 s
+# « sur Asis », à 60 s « sur Oasis » — le mot juste, et la phrase entière avec.
+# Whisper décode par fenêtres de 30 s en reportant le texte de la précédente en
+# contexte : ne lui donner que la tranche, c'est le priver de ce sur quoi il
+# s'appuie, et il comble avec ce qui ressemble.
+#
+# Le coût tient dans le budget : 0,9 s pour 15 s d'audio, 1,4 s pour 60 s avec
+# huit fils, pour une tranche qui en dure dix.
+CONTEXTE_S = 50.0
+
+
+def _dans_la_tranche(repliques: list[Replique], frontiere: float) -> list[Replique]:
+    """Ne garde que ce qui déborde dans la tranche, remis à l'heure de celle-ci.
+
+    Une réplique entièrement dans le contexte a déjà été affichée : la
+    réafficher doublerait chaque phrase. Une réplique à cheval est gardée
+    entière — le texte déjà montré en sera retiré à l'affichage, ce qui vaut
+    mieux que de couper une phrase au milieu.
+    """
+    if frontiere <= 0:
+        return repliques
+    gardees = []
+    for replique in repliques:
+        if replique.intervalle.fin <= frontiere:
+            continue
+        gardees.append(Replique(
+            intervalle=Intervalle(
+                max(0.0, replique.intervalle.debut - frontiere),
+                replique.intervalle.fin - frontiere,
+            ),
+            texte=replique.texte, voix=replique.voix, source=replique.source,
+        ))
+    return gardees
 
 
 def lire_presse_papier() -> str:
@@ -190,15 +227,23 @@ class Veilleur:
         tranche = extraire_tranche(ou.morceau, debut, ou.ecrit, travail / "tranche.wav")
         if tranche is None:
             return []
+        # Le modèle reçoit la tranche **précédée** de ce qui a déjà été
+        # transcrit ; seules les répliques qui débordent dans la tranche sont
+        # gardées. Le reste n'est là que pour qu'il sache de quoi on parle.
+        depart = max(0.0, debut - CONTEXTE_S)
+        avec_contexte = tranche if depart >= debut else (
+            extraire_tranche(ou.morceau, depart, ou.ecrit, travail / "fenetre.wav")
+            or tranche
+        )
         # Deux versions de la même tranche, et c'est nécessaire : la
         # transcription veut un mélange équilibré, l'attribution veut les
         # niveaux **relatifs** intacts, puisque c'est l'écart entre le micro et
         # la boucle qui dit qui parle. Normaliser avant d'attribuer ferait
         # passer tout le monde pour la personne qui enregistre.
-        a_transcrire = tranche
+        a_transcrire = avec_contexte
         if self.preparateur is not None:
             a_transcrire = self.preparateur.preparer_transcription(
-                tranche, travail / "tranche-niveau.wav"
+                avec_contexte, travail / "tranche-niveau.wav"
             )
         try:
             repliques = self.transcripteur.transcrire(
@@ -208,6 +253,7 @@ class Veilleur:
             # Une tranche ratée ne doit pas interrompre la veille : la réunion
             # continue, et la transcription définitive se fera à la fin.
             return []
+        repliques = _dans_la_tranche(repliques, debut - depart)
         self.traite = ou.decalage + ou.ecrit
         # Pendant la réunion, sur ce qui vient d'être dit : après coup, une
         # question sur un terme mal entendu arrive trop tard pour que le compte

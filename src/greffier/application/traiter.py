@@ -19,7 +19,7 @@ from greffier.domaine import noms as noms_domaine
 from greffier.domaine import profils
 from greffier.domaine.attribution import voix_de
 from greffier.domaine.compte_rendu import titre as titre_du_compte_rendu
-from greffier.domaine.generiques import est_un_generique
+from greffier.domaine.generiques import est_un_generique, est_une_annotation
 from greffier.domaine.langue import ProfilLinguistique
 from greffier.domaine.modeles import Intervalle, Phase, Replique, TourDeParole
 from greffier.domaine.profils.neutre import NEUTRE
@@ -407,7 +407,10 @@ class Traitement:
         # à les attribuer à quelqu'un dans le compte rendu.
         profil = profils.pour(self.langue)
         resultat.profil = profil
-        resultat.repliques = [r for r in brutes if not est_un_generique(r.texte, profil)]
+        resultat.repliques = [
+            r for r in brutes
+            if not est_un_generique(r.texte, profil) and not est_une_annotation(r.texte)
+        ]
         if resultat.mots < MOTS_MINIMUM:
             raise ChaineInterrompue(
                 Phase.ECHEC,
