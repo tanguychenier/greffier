@@ -103,19 +103,50 @@ class TestEtats:
 
     def test_une_decision_releve_l_etat(self):
         carte = Carte("Oasis")
-        fusionner(carte, [Apport("Monter la recette en interne")])
-        bilan = fusionner(carte, [Apport("Monter la recette en interne", etat=Etat.ACTE)])
+        fusionner(carte, [Apport("Monter la recette en interne", genre=Genre.PISTE)])
+        bilan = fusionner(carte, [Apport("Monter la recette en interne",
+                                         genre=Genre.PISTE, etat=Etat.ACTE)])
         assert bilan.actes == ("Monter la recette en interne",)
         assert carte.racine is not None
         noeud = carte.racine.enfant("Monter la recette en interne")
         assert noeud is not None
         assert noeud.etat is Etat.ACTE
 
+    def test_un_probleme_ne_peut_pas_etre_acte(self):
+        """« Acté » se lirait « le groupe a décidé ce problème ».
+
+        Mesuré sur une extraction réelle : sept problèmes sur douze revenaient
+        marqués « acté », le rédacteur ayant lu « acté » comme « établi ».
+        """
+        carte = Carte("Oasis")
+        fusionner(carte, [Apport("Le PDF ne se régénère pas",
+                                 genre=Genre.PROBLEME, etat=Etat.ACTE)])
+        assert carte.racine is not None
+        noeud = carte.racine.enfant("Le PDF ne se régénère pas")
+        assert noeud is not None
+        assert noeud.etat is Etat.EN_DISCUSSION
+
+    def test_une_piste_et_une_action_peuvent_etre_actees(self):
+        carte = Carte("Oasis")
+        fusionner(carte, [Apport("Monter la recette", genre=Genre.PISTE, etat=Etat.ACTE),
+                          Apport("Chiffrer le coût", genre=Genre.ACTION, etat=Etat.ACTE)])
+        assert carte.racine is not None
+        for texte in ("Monter la recette", "Chiffrer le coût"):
+            noeud = carte.racine.enfant(texte)
+            assert noeud is not None and noeud.etat is Etat.ACTE
+
+    def test_un_probleme_peut_etre_depasse(self):
+        """Un problème peut avoir cessé d'en être un."""
+        carte = Carte("Oasis")
+        fusionner(carte, [Apport("Un souci", genre=Genre.PROBLEME)])
+        assert marquer_depasse(carte, "Un souci") is True
+
     def test_une_decision_ne_redevient_pas_une_discussion(self):
         """« Acté » qui redeviendrait « en discussion » ferait douter de tout."""
         carte = Carte("Oasis")
-        fusionner(carte, [Apport("Monter la recette", etat=Etat.ACTE)])
-        fusionner(carte, [Apport("Monter la recette", etat=Etat.EN_DISCUSSION)])
+        fusionner(carte, [Apport("Monter la recette", genre=Genre.PISTE, etat=Etat.ACTE)])
+        fusionner(carte, [Apport("Monter la recette", genre=Genre.PISTE,
+                                 etat=Etat.EN_DISCUSSION)])
         assert carte.racine is not None
         noeud = carte.racine.enfant("Monter la recette")
         assert noeud is not None
