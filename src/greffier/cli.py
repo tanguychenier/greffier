@@ -2022,6 +2022,68 @@ def oublier(
 
 
 @application.command()
+def revoir(
+    reunion: str = typer.Argument(None, help="Réunion (défaut : la dernière)"),
+    rediger_aussi: bool = typer.Option(
+        True, "--rediger/--sans-rediger",
+        help="Réécrire le compte rendu avec les voix revues",
+    ),
+    config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
+) -> None:
+    """Rejoue le recollage des voix sur une réunion déjà traitée.
+
+    Le recollage décide combien de personnes le compte rendu annonce, et ses
+    seuils bougent quand on les mesure. En profiter demandait jusqu'ici de tout
+    retranscrire : une heure quarante d'audio pour un calcul qui en prend trois
+    minutes, et un compte rendu refait alors que la transcription était bonne.
+
+    Rien n'est réécouté ni retranscrit. Les noms déjà posés suivent les voix
+    qu'ils désignaient, et la banque est réinterrogée sur les voix recollées —
+    c'est là qu'elle a le plus de matière pour reconnaître.
+    """
+    from greffier.adaptateurs.empreintes_titanet import ExtracteurTitaNet
+    from greffier.application.restituer import revoir_les_voix
+
+    config = Config.charger(config_fichier)
+    identifiant = _reunion_visee(config, reunion)
+    le_depot = depot(config)
+    try:
+        gardee = le_depot.lire(identifiant)
+    except (OSError, ValueError) as souci:
+        typer.secho(f"✗ {souci}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1) from souci
+    if not gardee.audio.exists():
+        typer.secho(f"✗ l'enregistrement {gardee.audio} n'est plus là : le "
+                    "recollage a besoin du son.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    typer.secho(f"  empreintes     {identifiant}…", fg=typer.colors.BLUE)
+    extracteur = ExtracteurTitaNet(
+        config.chemins.modeles / "diarisation/nemo_en_titanet_large.onnx")
+    avant, apres = revoir_les_voix(
+        gardee, extracteur, BanqueFichiers(config.chemins.banque_de_voix))
+    le_depot.enregistrer(gardee)
+    portantes = len(gardee.participants())
+    typer.secho(f"✓ {avant} voix ramenées à {apres}, dont {portantes} au-dessus "
+                "de dix secondes", fg=typer.colors.GREEN)
+    if gardee.noms:
+        typer.echo("  " + ", ".join(f"{v} → {n}" for v, n in sorted(gardee.noms.items())))
+
+    if not rediger_aussi:
+        return
+    moteur = redacteur(config)
+    if moteur is None:
+        typer.echo("  Aucun rédacteur : le compte rendu n'est pas réécrit.")
+        return
+    typer.secho(f"  rédaction      {identifiant}…", fg=typer.colors.BLUE)
+    texte = regenerer_compte_rendu(gardee, moteur, config.conversation.information)
+    chemin = config.chemins.comptes_rendus / f"{identifiant}.md"
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    chemin.write_text(texte, encoding="utf-8")
+    typer.secho(f"✓ {chemin}", fg=typer.colors.GREEN)
+
+
+@application.command()
 def rediger(
     reunion: str = typer.Argument(None, help="Réunion (défaut : la dernière)"),
     config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),

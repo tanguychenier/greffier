@@ -466,3 +466,109 @@ def archiver(audio: Path, garder_original: bool = False) -> Path:
     if not garder_original:
         audio.unlink()
     return destination
+
+
+def empreintes_par_voix(extracteur: Any, audio: Path, par_voix: dict) -> dict:
+    """Les empreintes de chaque voix, en ne lisant l'enregistrement qu'une fois.
+
+    `extraire_intervalles` rouvre et relit le fichier entier à chaque appel. Une
+    voix par appel, sur une réunion de quatre-vingt-douze minutes qui en produit
+    deux cent quatre-vingt-dix-huit et pèse cinq cent trente et un mégaoctets,
+    demandait cent cinquante-huit gigaoctets de lecture pour un travail qui en
+    vaut un.
+    """
+    tous = [(voix, i) for voix, intervalles in par_voix.items() for i in intervalles]
+    empreintes = extracteur.extraire_intervalles(audio, [i for _, i in tous])
+    # `extraire_intervalles` écarte les extraits trop courts sans le dire : la
+    # liste rendue est plus courte que celle demandée, et l'associer par rang
+    # attribuerait les empreintes à la mauvaise voix. On redemande donc voix par
+    # voix dès que le compte ne tombe pas juste.
+    if len(empreintes) != len(tous):
+        return {
+            voix: extracteur.extraire_intervalles(audio, intervalles)
+            for voix, intervalles in par_voix.items()
+        }
+    groupees: dict[str, list] = {voix: [] for voix in par_voix}
+    for (voix, _), empreinte in zip(tous, empreintes, strict=True):
+        groupees[voix].append(empreinte)
+    return groupees
+
+
+def revoir_les_voix(
+    reunion: Any,
+    extracteur: Any,
+    banque: Any = None,
+) -> tuple[int, int]:
+    """Rejoue le recollage des voix sur une réunion déjà traitée.
+
+    Le recollage décide combien de personnes le compte rendu annonce, et ses
+    seuils bougent quand on les mesure. Sans cette reprise, en profiter demandait
+    de retranscrire toute la réunion — une heure quarante d'audio pour un calcul
+    qui en prend trois minutes, et un compte rendu qui repart de zéro alors que
+    la transcription était bonne.
+
+    Rend le nombre de voix avant et après. Le fichier maître est modifié sur
+    place : les répliques suivent leurs tours, et les noms déjà posés suivent
+    les voix qu'ils désignaient.
+    """
+    from dataclasses import replace as _remplacer
+
+    from greffier.domaine import empreintes as voix_domaine
+
+    avant = {t.voix for t in reunion.tours if t.voix}
+    par_voix: dict[str, list] = {}
+    for tour in reunion.tours:
+        par_voix.setdefault(tour.voix, []).append(tour.intervalle)
+    empreintes = empreintes_par_voix(extracteur, reunion.audio, par_voix)
+    appartenance = voix_domaine.recoller(empreintes)
+
+    reunion.tours = [
+        _remplacer(t, voix=appartenance.get(t.voix, t.voix)) for t in reunion.tours
+    ]
+    for replique in reunion.repliques:
+        if replique.voix is not None:
+            replique.voix = appartenance.get(replique.voix, replique.voix)
+    # Les noms suivent les voix. Deux voix nommées pareil qui se retrouvent
+    # réunies ne posent pas de question ; deux noms différents sur une même voix
+    # sont un désaccord qu'on ne tranche pas en silence — on garde le nom de la
+    # voix qui a le plus parlé, et l'autre redevient une proposition.
+    temps = reunion.temps_de_parole()
+    noms: dict[str, str] = {}
+    for voix, nom in sorted(reunion.noms.items(), key=lambda x: -temps.get(x[0], 0.0)):
+        vers = appartenance.get(voix, voix)
+        if vers in noms and noms[vers].casefold() != nom.casefold():
+            reunion.propositions.setdefault(vers, nom)
+            continue
+        noms[vers] = nom
+    reunion.noms = noms
+    reunion.propositions = {
+        appartenance.get(v, v): n for v, n in reunion.propositions.items()
+        if appartenance.get(v, v) not in noms
+    }
+    if banque is not None:
+        _reconnaitre_a_nouveau(reunion, empreintes, appartenance, banque)
+    return len(avant), len({t.voix for t in reunion.tours if t.voix})
+
+
+def _reconnaitre_a_nouveau(reunion, empreintes, appartenance, banque) -> None:
+    """Redemande à la banque qui sont les voix, une fois recollées.
+
+    C'est le moment où cela vaut le plus : une voix recollée porte des minutes
+    de parole là où ses morceaux n'en portaient que des secondes, et la banque
+    reconnaît sur la matière. Une voix déjà nommée à la main n'est pas touchée.
+    """
+    from greffier.domaine import empreintes as voix_domaine
+
+    connues = banque.personnes()
+    if not connues:
+        return
+    groupes: dict[str, list] = {}
+    for voix, liste in empreintes.items():
+        groupes.setdefault(appartenance.get(voix, voix), []).extend(liste)
+    for voix, liste in groupes.items():
+        if voix in reunion.noms or not liste:
+            continue
+        correspondance = voix_domaine.reconnaitre(voix_domaine.agreger(liste), connues)
+        if correspondance and correspondance.sure:
+            reunion.noms[voix] = correspondance.nom
+            reunion.propositions.pop(voix, None)
