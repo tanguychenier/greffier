@@ -183,10 +183,20 @@ class Enregistrement:
             sortie_precedente=contenu.get("sortie_precedente", ""),
         )
         # Le fichier survit à un redémarrage : c'est la présence du processus
-        # qui décide si un enregistrement est vraiment en cours.
-        if etat.phase is Phase.ENREGISTREMENT and not _vivant(etat.pid):
+        # qui décide si quoi que ce soit est vraiment en cours. Le contrôle ne
+        # valait que pour l'enregistrement, si bien qu'une rédaction interrompue
+        # laissait l'état figé sur « Rédaction… » avec un processus mort —
+        # mesuré le 2026-09-09, et la fenêtre l'affichait encore le lendemain
+        # matin, annonçant une réunion en cours qui n'existait plus.
+        if etat.phase.en_cours and not _vivant(etat.pid):
+            enregistrait = etat.phase in (Phase.ENREGISTREMENT, Phase.PAUSE)
             etat.phase = Phase.ECHEC
-            etat.message = "Enregistrement interrompu (redémarrage ?). L'audio est conservé."
+            etat.message = (
+                "Enregistrement interrompu (redémarrage ?). L'audio est conservé."
+                if enregistrait
+                else "Traitement interrompu (fermeture, veille ?). La "
+                     "transcription est gardée : « Rédiger » reprend."
+            )
         return etat
 
     def ecrire(self, etat: Etat) -> None:
