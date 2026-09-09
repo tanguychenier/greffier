@@ -211,10 +211,15 @@ class ChoixMicro:
     ecartes: tuple[tuple[str, float], ...] = ()
     #: Vrai quand même le meilleur candidat semble coupé.
     tous_muets: bool = False
+    #: Vrai quand un casque a été préféré bien qu'il capte moins fort. À dire :
+    #: le choix paraît contre-intuitif au vu des niveaux affichés.
+    casque_prefere: bool = False
 
 
-def choisir_par_ecoute(essais: dict[str, float]) -> ChoixMicro | None:
-    """Retient le micro qui capte le mieux, parmi ceux qu'on a écoutés.
+def choisir_par_ecoute(
+    essais: dict[str, float], casques: frozenset[str] = frozenset()
+) -> ChoixMicro | None:
+    """Retient le micro qui captera le mieux **la réunion**, après écoute.
 
     On compare plutôt que de trancher sur un seuil absolu : le bruit d'une pièce
     varie trop d'un lieu à l'autre pour qu'un chiffre fixe décide seul. Le
@@ -223,17 +228,41 @@ def choisir_par_ecoute(essais: dict[str, float]) -> ChoixMicro | None:
     Mesuré sur un poste réel : un casque Jabra branché, reconnu, gain à 1,0,
     rendait -78 dB parce que le bouton de sourdine de son boîtier était enfoncé,
     quand le micro intégré rendait -58 dB. Greffier retenait le casque et
-    enregistrait une heure de silence, puis accusait l'autorisation micro.
+    enregistrait une heure de silence, puis accusait l'autorisation micro. D'où
+    l'écoute.
+
+    **Mais le plus fort à froid n'est pas le meilleur en réunion.** Le
+    2026-09-09, le même Jabra a été écarté à -68 dB au profit du micro intégré
+    à -49 dB : le casque était simplement posé sur le bureau, à un mètre de la
+    bouche. Une fois porté, il aurait été de loin le meilleur — il l'est
+    toujours, un micro de casque étant à trois centimètres de la bouche là où
+    celui d'un portable est à cinquante et capte toute la pièce.
+
+    La règle est donc : **un casque qui capte quelque chose l'emporte**, même
+    plus faible. On ne se rabat sur l'intégré que si le casque est muet, ce que
+    l'écoute sait dire — et c'était tout son objet.
     """
     if not essais:
         return None
     classement = sorted(essais.items(), key=lambda x: -x[1])
     nom, niveau = classement[0]
+    # Un casque qui n'est pas déjà premier, et qui capte : il passe devant.
+    if casques:
+        vivants = [
+            (autre, db) for autre, db in classement
+            if autre in casques and db >= PLANCHER_MUET_DB
+        ]
+        if vivants and vivants[0][0] != nom:
+            nom, niveau = vivants[0]
+            classement = [(nom, niveau)] + [
+                paire for paire in classement if paire[0] != nom
+            ]
     return ChoixMicro(
         nom=nom,
         niveau_db=niveau,
         ecartes=tuple(classement[1:]),
-        tous_muets=niveau < PLANCHER_MUET_DB,
+        tous_muets=max(essais.values()) < PLANCHER_MUET_DB,
+        casque_prefere=bool(casques) and nom in casques,
     )
 
 
@@ -265,6 +294,41 @@ def candidats_a_ecouter(materiel: Materiel, prefere: str) -> list[str]:
 def casque_present(materiel: Materiel, nom: str) -> bool:
     """Raccourci lisible pour les vérifications d'avant-enregistrement."""
     return _casque_utilisable(materiel, nom) is not None
+
+
+def casques_parmi(materiel: Materiel) -> frozenset[str]:
+    """Les micros qui sont, selon toute vraisemblance, des micros de casque.
+
+    L'indice est qu'un **même nom** capte et restitue : un casque a un écouteur
+    et un micro, un micro de table n'a que le micro. Le rapprochement se fait
+    par le nom et non par périphérique, parce qu'un casque USB est souvent
+    présenté comme deux appareils distincts — sur ce poste, le Jabra apparaît en
+    « jabra:1 » pour l'entrée et « jabra:2 » pour la sortie. Un critère
+    « capte et restitue » sur un seul appareil ne l'aurait jamais reconnu.
+
+    L'entrée doit être **mono**, et c'est ce qui sépare un casque d'une carte
+    son générique. Mesuré sur ce poste : le Jabra expose une entrée à 1 canal et
+    une sortie à 2, tandis qu'une « Realtek USB2.0 Audio » — station d'accueil ou
+    écran — expose une entrée à 2 canaux et une sortie à 4. Sans ce critère,
+    cette carte passait pour un casque et serait préférée au micro intégré alors
+    que rien n'est branché dessus. `_micro_de_repli` dit déjà la même chose : une
+    entrée USB stéréo est presque toujours une entrée ligne.
+
+    Sont exclus les boucles logicielles, les agrégés fabriqués par l'outil, et
+    le matériel intégré : sur un portable, le micro et les haut-parleurs portent
+    des noms différents, mais l'ensemble n'est pas un casque pour autant.
+    """
+    sorties = {
+        p.nom for p in materiel.peripheriques
+        if p.sorties > 0 and not _est_boucle(p.nom) and not _est_agrege(p)
+    }
+    return frozenset(
+        p.nom for p in materiel.micros
+        if p.nom in sorties
+        and p.entrees == 1
+        and not _est_boucle(p.nom) and not _est_agrege(p)
+        and not _est_integre(p.nom)
+    )
 
 
 def micro_conseille(materiel: Materiel, prefere: str) -> str:
