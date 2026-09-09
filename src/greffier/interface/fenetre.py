@@ -417,6 +417,10 @@ class Fenetre:
         actions.grid(row=1, column=0, sticky="ew", pady=(16, 0))
         for intitule, action, largeur in (
             ("Traiter", self._traiter_selection, 100),
+            # Distinct de « Traiter », qui retranscrit tout : reprendre la seule
+            # rédaction prend quelques secondes là où la chaîne complète prend
+            # plusieurs minutes, et c'est le cas courant après un échec.
+            ("Rédiger", self._rediger_selection, 100),
             ("Ouvrir", self._ouvrir_compte_rendu, 96),
             ("Envoyer par courriel", self._envoyer_selection, 180),
             ("Renommer", self._renommer_selection, 110),
@@ -1519,8 +1523,7 @@ class Fenetre:
     def _traitement_fini(self, audio: Path, resultat: Any, souci: Exception | None) -> None:
         self._charger_reunions()
         if souci is not None:
-            self.etat_bas.configure(text=f"Échec : {souci}")
-            messagebox.showerror("Greffier", str(souci))
+            self._echec_de_traitement(audio, souci)
             return
         for avertissement in getattr(resultat, "avertissements", []):
             self._dire("note", avertissement)
@@ -1528,6 +1531,64 @@ class Fenetre:
         self._choisir(audio.stem)
         self.onglets.montrer("Conversation")
         self._proposer_la_suite(audio.stem, resultat)
+
+    def _echec_de_traitement(self, audio: Path, souci: Exception) -> None:
+        """Dit ce qui reste, et propose de reprendre là où ça s'est arrêté.
+
+        « Command timed out after 900 seconds » n'indiquait aucune action, alors
+        que la transcription était sauvée et qu'un clic suffisait — constaté le
+        2026-09-09, où la réponse « le compte rendu n'est pas arrivé » a coûté
+        une demi-heure de recherche. Une alerte qui ne dit pas quoi faire fait
+        croire que tout est perdu.
+        """
+        self.etat_bas.configure(text=f"Échec : {souci}")
+        transcrite = False
+        with contextlib.suppress(OSError, ValueError):
+            transcrite = bool(self.depot.lire(audio.stem).repliques)
+        if not transcrite:
+            messagebox.showerror("Greffier", str(souci))
+            return
+        reprendre = messagebox.askyesno(
+            "Greffier",
+            f"{souci}\n\nLa transcription et les voix sont gardées : rien n'est "
+            "perdu. Seule la rédaction a échoué.\n\nReprendre la rédaction "
+            "maintenant ?",
+        )
+        self._dire("note", f"La rédaction de « {audio.stem} » a échoué : {souci} "
+                           "La transcription est gardée, « Rédiger » la reprend.")
+        if reprendre:
+            self._rediger_seulement(audio.stem)
+
+    def _rediger_seulement(self, identifiant: str) -> None:
+        """Rejoue la seule rédaction, sans réécouter ni retranscrire."""
+        from greffier.application.restituer import regenerer_compte_rendu
+        from greffier.composition import redacteur
+
+        moteur = redacteur(self.config)
+        if moteur is None:
+            messagebox.showinfo("Greffier", "Aucun rédacteur configuré.")
+            return
+
+        def faire(dire: Callable[[str], None]) -> Any:
+            dire("rédaction…")
+            gardee = self.depot.lire(identifiant)
+            texte = regenerer_compte_rendu(gardee, moteur)
+            cible = self.config.chemins.comptes_rendus / f"{identifiant}.md"
+            cible.parent.mkdir(parents=True, exist_ok=True)
+            cible.write_text(texte, encoding="utf-8")
+            return texte
+
+        def fini(_resultat: Any, souci: Exception | None) -> None:
+            self._charger_reunions()
+            if souci is not None:
+                self.etat_bas.configure(text=f"Rédaction : {souci}")
+                self._dire("note", f"La rédaction a encore échoué : {souci}")
+                return
+            self.etat_bas.configure(text="Compte rendu prêt.")
+            self._dire("greffier", f"Le compte rendu de « {identifiant} » est prêt.")
+
+        self._lancer(Travail(intitule=f"rédaction de {identifiant}",
+                             faire=faire, fini=fini))
 
     def _proposer_la_suite(self, identifiant: str, resultat: Any) -> None:
         """Ce que Greffier demande de lui-même, une fois le compte rendu écrit.
@@ -1668,6 +1729,14 @@ class Fenetre:
             faire=self._chaine(audio),
             fini=lambda resultat, souci: self._traitement_fini(audio, resultat, souci),
         ))
+
+    def _rediger_selection(self) -> None:
+        """Rejoue la rédaction de la réunion choisie, sans la retranscrire."""
+        identifiant = self._selection()
+        if identifiant is None:
+            self.etat_bas.configure(text="Choisis une réunion dans la liste.")
+            return
+        self._rediger_seulement(identifiant)
 
     def _renommer_selection(self) -> None:
         """Donne un sujet lisible à la réunion choisie.
@@ -2035,7 +2104,38 @@ class Fenetre:
     # ------------------------------------------------------------------ boucle
 
     def tourner(self) -> None:
+        # Après le premier tour de boucle : signaler avant que la fenêtre ne
+        # soit peinte n'afficherait rien.
+        self.racine.after(600, self._signaler_les_redactions_manquantes)
         self.racine.mainloop()
+
+    def _signaler_les_redactions_manquantes(self) -> None:
+        """Dit quelles réunions attendent encore leur compte rendu.
+
+        Une rédaction qui échoue laissait une réunion transcrite sur le disque
+        et personne pour y penser : il fallait remarquer soi-même qu'un compte
+        rendu n'était jamais arrivé, ce qui prend des heures ou des jours. La
+        liste le montre colonne « Compte rendu », mais rien ne le portait à
+        l'attention.
+        """
+        with contextlib.suppress(OSError, ValueError):
+            manquantes = [
+                identifiant
+                for identifiant in self.depot.lister()[:20]
+                if not (self.config.chemins.comptes_rendus / f"{identifiant}.md").exists()
+                and bool(self.depot.lire(identifiant).repliques)
+            ]
+            if not manquantes:
+                return
+            pluriel = "s" if len(manquantes) > 1 else ""
+            self._dire("greffier", (
+                f"{len(manquantes)} réunion{pluriel} transcrite{pluriel} sans compte "
+                f"rendu : {', '.join(manquantes[:3])}"
+                + ("…" if len(manquantes) > 3 else "")
+                + ". Onglet Réunions, « Rédiger » reprend la rédaction sans "
+                "retranscrire."
+            ))
+            self.onglets.marquer("Conversation", len(manquantes))
 
 
 def ouvrir(config: Config) -> None:
