@@ -35,7 +35,7 @@ class ListeurCoreAudio:
         self.source = source
         # Le binaire livré dans le paquet macOS, quand il existe. Exécuter
         # depuis le paquet signé plutôt que depuis ~/.local change tout face à
-        # un garde du poste (WithSecure XFENCE) : exécuté depuis ~/.local, il
+        # un garde du poste : exécuté depuis ~/.local, il
         # redéclenchait une demande d'autorisation à chaque relevé du matériel
         # — toutes les cinq secondes pendant une réunion, constaté, la règle
         # « Autoriser » réécrite en boucle sans jamais suffire.
