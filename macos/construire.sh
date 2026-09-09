@@ -198,10 +198,37 @@ cat > "$CONTENU/Info.plist" <<PLIST
   <dict>
     <key>PYTHONNOUSERSITE</key>        <string>1</string>
     <key>PYTHONDONTWRITEBYTECODE</key> <string>1</string>
+    <!-- D'ou ce paquet a ete fabrique. Le bouton « Installer la mise a jour »
+         en depend entierement : sans cette cle, depot_de_construction() rend
+         None et le bouton repond « le depot d'origine est introuvable », ce
+         qu'aucun utilisateur ne peut corriger. Le paquet, lui, n'en a pas
+         besoin pour fonctionner : il reste autonome. Pas d'accent grave dans
+         ce commentaire : le gabarit passe par un heredoc non protege, ou bash
+         y verrait une substitution de commande. -->
+    <key>GREFFIER_DEPOT_SOURCE</key>   <string>a-graver</string>
   </dict>
 </dict>
 </plist>
 PLIST
+# Le chemin reel du depot, grave apres coup plutot que dans le gabarit : un
+# chemin d'utilisateur contient volontiers des caracteres que XML reserve, et
+# les echapper a la main dans un heredoc est le genre de detail qui casse un
+# jour sans prevenir.
+GRAVEUR="$(mktemp -t greffier-graveur)"
+cat > "$GRAVEUR" <<'GRAVURE'
+import plistlib
+import sys
+
+chemin, depot = sys.argv[1], sys.argv[2]
+with open(chemin, "rb") as flux:
+    contenu = plistlib.load(flux)
+contenu.setdefault("LSEnvironment", {})["GREFFIER_DEPOT_SOURCE"] = depot
+with open(chemin, "wb") as flux:
+    plistlib.dump(contenu, flux)
+GRAVURE
+python3 "$GRAVEUR" "$CONTENU/Info.plist" "$DEPOT"
+rm -f "$GRAVEUR"
+
 printf 'APPL????' > "$CONTENU/PkgInfo"
 
 echo "→ signature"
