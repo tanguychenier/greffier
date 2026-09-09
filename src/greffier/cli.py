@@ -777,6 +777,26 @@ def assister(
 
     journal = config.chemins.propositions / f"{etat.identifiant}.jsonl"
     transcripteur = None if sans_transcription else transcripteur_leger(config)
+
+    # Les questions sur les termes mal entendus, déposées au fil de la réunion.
+    # Les clefs déjà posées sont relues du fichier : le processus qui écoute
+    # peut être relancé en cours de réunion, et redemander serait pire que rien.
+    from greffier.adaptateurs import questions_fichier
+    from greffier.domaine.questions import Interrogateur
+
+    le_contexte = contexte(config)
+    fichier_questions = questions_fichier.fichier_des_questions(
+        config.chemins.questions, etat.identifiant
+    )
+    interrogateur = Interrogateur(
+        connus=tuple(t.ecriture for t in le_contexte.termes)
+        + tuple(i.nom for i in le_contexte.intervenants),
+        posees=questions_fichier.clefs_deja_posees(fichier_questions),
+    )
+
+    def interroger(texte: str) -> None:
+        for question in interrogateur.examiner(texte):
+            questions_fichier.deposer(fichier_questions, question)
     le_suivi = suivi(config, etat.identifiant) if config.direct.actif else None
     veilleur = Veilleur(
         veille=Veille(mot_cle=mot_cle),
@@ -792,7 +812,8 @@ def assister(
         langue=config.transcription.langue,
         # Le même contexte que la transcription définitive : c'est le fil qu'on
         # lit pendant la réunion, et c'est dessus qu'on corrige.
-        amorce=contexte(config).amorce(),
+        amorce=le_contexte.amorce(),
+        interroger=interroger,
         periode_tranche=config.direct.periode,
     )
     if le_suivi is not None:
