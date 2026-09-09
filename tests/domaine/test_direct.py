@@ -102,13 +102,31 @@ class TestReconnaissanceParLaBanque:
     def test_le_nom_est_redemande_quand_la_matiere_s_accumule(self) -> None:
         # Une voix reste souvent anonyme à sa première bribe : l'agrégat de deux
         # extraits peut franchir le seuil que le premier n'atteignait pas.
-        # 0,65 de cosinus au premier extrait : sous le seuil de 0,70, donc rien
-        # n'est affirmé. L'agrégat des deux monte à 0,83 et le franchit.
+        # 0,42 de cosinus au premier extrait : sous le seuil de 0,45, donc rien
+        # n'est affirmé. Le second est à 0,61, les deux se ressemblent à 0,975
+        # donc ils se rattachent à la même voix, et leur agrégat monte à 0,518
+        # qui franchit le seuil. Valeurs calculées, pas devinées.
+        #
+        # Elles suivaient le seuil de 0,70 (0,65 puis 0,95) : à 0,65, la voix
+        # est désormais reconnue dès sa première bribe, ce qui est précisément
+        # l'effet voulu par l'abaissement du 2026-09-09.
+        julie = Personne(nom="Julie", empreintes=[empreinte(1, 0, duree=30)])
+        fil = Fil(connues=[julie])
+        voix = fil.rattacher(empreinte(0.42, 0.9075), locale=False)
+        assert fil.voix[voix].nom is None
+        fil.rattacher(empreinte(0.61, 0.7924), locale=False)
+        assert fil.voix[voix].nom == "Julie"
+
+    def test_une_voix_franche_est_reconnue_des_sa_premiere_bribe(self) -> None:
+        """Ce que l'abaissement du seuil apporte : reconnaître plus tôt.
+
+        À 0,65, il fallait auparavant attendre un second extrait pour que
+        l'agrégat franchisse 0,70. Une personne restait donc « Voix 1 » pendant
+        ses premières phrases, dans le fil que tout le monde regarde.
+        """
         julie = Personne(nom="Julie", empreintes=[empreinte(1, 0, duree=30)])
         fil = Fil(connues=[julie])
         voix = fil.rattacher(empreinte(0.65, 0.76), locale=False)
-        assert fil.voix[voix].nom is None
-        fil.rattacher(empreinte(0.95, 0.31), locale=False)
         assert fil.voix[voix].nom == "Julie"
 
 

@@ -92,9 +92,10 @@ class TestReconnaissance:
     def test_les_seuils_sont_ajustables(self):
         """Une salle réverbérante abaisse la similarité : le seuil doit suivre."""
         banque = [Personne("Josiane", [voix(1.0, 0.0, 0.0)])]
-        lointaine = voix(0.5, 0.86, 0.0)
+        # 0,26 de similarité : sous le seuil mesuré de 0,45.
+        lointaine = voix(0.26, 0.966, 0.0)
         assert reconnaitre(lointaine, banque) is None
-        assert reconnaitre(lointaine, banque, seuil=0.4, marge_minimale=0.0) is not None
+        assert reconnaitre(lointaine, banque, seuil=0.2) is not None
 
 
 class TestEnrichissement:
@@ -112,8 +113,15 @@ class TestEnrichissement:
         assert min(e.duree_source for e in josiane.empreintes) >= 100.0
 
     def test_les_valeurs_par_defaut_restent_prudentes(self):
-        """Documenté pour que personne ne les abaisse sans le vouloir."""
-        assert SEUIL_RECONNAISSANCE >= 0.5
+        """Épinglé pour que personne ne les abaisse sans le vouloir.
+
+        Le seuil **a** été abaissé le 2026-09-09, de 0,70 à 0,45, et c'est une
+        mesure qui l'a décidé : sur le corpus AMI, 4 personnes reconnues sur 7
+        au lieu de 3, sans aucune confusion. Ce test garde la borne basse pour
+        que le prochain changement soit lui aussi mesuré.
+        """
+        assert SEUIL_RECONNAISSANCE >= 0.4
+        assert MARGE_MINIMALE > 0, "c'est la marge qui rend le seuil bas sans danger"
         assert MARGE_MINIMALE > 0
 
 
@@ -168,8 +176,23 @@ class TestFusionDesVoix:
         assert appartenance["vide"] == "vide"
 
     def test_le_seuil_mesure_est_documente(self):
-        """0,70 vient d'une mesure sur réunion réelle, pas d'une intuition."""
-        assert SEUIL_RECONNAISSANCE == 0.70
+        """0,45 vient d'une mesure, pas d'une intuition.
+
+        Le corpus AMI, quatre séries, en interrogeant la séance b contre une
+        banque faite de la séance a : 0,70 reconnaissait 3 personnes sur 7,
+        0,45 en reconnaît 4, et 0,30 en reconnaîtrait 5 au prix d'une
+        confusion.
+        """
+        assert SEUIL_RECONNAISSANCE == 0.45
+
+    def test_declarer_un_conflit_exige_davantage(self):
+        """Un conflit fait taire un nom : le déclarer à la légère revient à ne
+        plus reconnaître personne. Deux personnes différentes se mesurent
+        jusqu'à 0,652 sur le corpus."""
+        from greffier.domaine.empreintes import SEUIL_CONFLIT
+
+        assert SEUIL_CONFLIT > SEUIL_RECONNAISSANCE
+        assert SEUIL_CONFLIT >= 0.7
         assert SEUIL_FUSION > SEUIL_RECONNAISSANCE
 
     def test_deux_petits_groupes_ne_fusionnent_pas_sur_un_accident(self):
