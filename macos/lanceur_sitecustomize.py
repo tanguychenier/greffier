@@ -15,6 +15,7 @@ seule la copie dans le paquet l'est, jamais la ligne de commande.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 from pathlib import Path
@@ -46,7 +47,14 @@ sys.dont_write_bytecode = True
 if len(sys.orig_argv) == 1:
     journal = Path.home() / "Library/Logs/Greffier.log"
     journal.parent.mkdir(parents=True, exist_ok=True)
-    flux = journal.open("a", encoding="utf-8")
+    # Ligne par ligne (« buffering=1 »), sans quoi le journal ne contient rien.
+    # Le tampon par défaut fait 8 Ko et `os._exit` en fin de ce module ne vide
+    # aucun tampon : mesuré le 2026-09-09, une session complète laissait
+    # **0 octet** derrière elle, et le fichier n'avait pas bougé depuis huit
+    # jours alors que l'application tournait chaque jour. Un outil dont on
+    # diagnostique les pannes après coup perdait donc exactement la trace de
+    # la panne.
+    flux = journal.open("a", encoding="utf-8", buffering=1)
     sys.stdout = sys.stderr = flux
 
     sys.argv = ["greffier", "fenetre"]
@@ -65,6 +73,11 @@ if len(sys.orig_argv) == 1:
 
         traceback.print_exc()
     finally:
+        # Vidé explicitement : `os._exit` ne le fait pas, et une trace écrite
+        # juste avant la sortie est justement celle qu'on vient chercher.
+        with contextlib.suppress(Exception):
+            flux.flush()
+            os.fsync(flux.fileno())
         # os._exit, pas sys.exit : sans script à lancer ensuite, un retour
         # normal laisserait l'interpréteur tomber sur une invite interactive
         # fantôme, et sys.exit ici lève la même « Fatal Python error ».

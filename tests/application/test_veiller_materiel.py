@@ -151,6 +151,45 @@ class TestPlusAucunMicro:
         assert "n'est plus enregistrée" in machine.signalements[0]
 
 
+class TestLaCaptureQuiSArrete:
+    """La veille doit dire tout de suite que plus rien ne s'écrit.
+
+    Le 2026-09-09, une réunion n'a rien enregistré et rien ne l'a signalé : le
+    contrôle de silence n'existe qu'au traitement, donc après la réunion, quand
+    il n'y a plus rien à rattraper.
+    """
+
+    def test_une_taille_qui_stagne_est_signalee(self):
+        from greffier.domaine.capture import TOURS_AVANT_ALERTE
+
+        machine = MachineFactice()
+        v, dits, _ = veilleuse([SANS], machine=machine)
+        v.taille_captee = lambda: 4096
+        for _ in range(TOURS_AVANT_ALERTE + 1):
+            v.tour()
+        assert any("n'avance plus" in s for s in machine.signalements)
+        assert dits, "l'utilisateur doit être prévenu, pas seulement l'état"
+
+    def test_une_capture_qui_avance_ne_signale_rien(self):
+        machine = MachineFactice()
+        v, dits, _ = veilleuse([SANS], machine=machine)
+        octets = iter(range(1000, 100000, 1000))
+        v.taille_captee = lambda: next(octets)
+        for _ in range(8):
+            v.tour()
+        assert machine.signalements == []
+        assert dits == []
+
+    def test_sans_moyen_de_mesurer_la_veille_garde_son_ancien_office(self):
+        """Une taille illisible ne doit pas faire crier au loup."""
+        machine = MachineFactice()
+        v, dits, _ = veilleuse([SANS], machine=machine)
+        v.taille_captee = lambda: None
+        for _ in range(8):
+            v.tour()
+        assert machine.signalements == []
+
+
 class TestBoucle:
     def test_la_veille_s_arrete_avec_l_enregistrement(self) -> None:
         machine = MachineFactice(tours_avant_arret=3)
