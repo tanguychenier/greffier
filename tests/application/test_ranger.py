@@ -180,3 +180,67 @@ class TestRangementSelonLaRetention:
         assert (ou.transcriptions / "2026-01-01_09h00_ancienne.txt").exists(), (
             "la transcription porte le travail : elle reste"
         )
+
+
+class TestToutCeQuiAppartientALaReunion:
+    """Effacer une réunion doit tout prendre : sinon il reste des données.
+
+    Les questions posées, la conversation tenue et les documents fournis
+    vivaient hors de l'énumération : « effacer » laissait derrière lui ce que
+    la réunion avait produit de plus bavard.
+    """
+
+    def poser(self, tmp_path, identifiant="reunion-1"):
+        from greffier.application.ranger import Emplacements
+
+        for nom in ("enregistrements", "reunions", "transcriptions",
+                    "comptes-rendus", "direct", "propositions", "questions",
+                    "conversations", "pieces"):
+            (tmp_path / nom).mkdir()
+        (tmp_path / "questions" / f"{identifiant}.jsonl").write_text("{}\n")
+        (tmp_path / "conversations" / f"{identifiant}.jsonl").write_text("{}\n")
+        (tmp_path / "pieces" / identifiant).mkdir()
+        (tmp_path / "pieces" / identifiant / "ordre-du-jour.txt").write_text("x")
+        return Emplacements(
+            reunions=tmp_path / "reunions",
+            enregistrements=tmp_path / "enregistrements",
+            transcriptions=tmp_path / "transcriptions",
+            comptes_rendus=tmp_path / "comptes-rendus",
+            direct=tmp_path / "direct",
+            propositions=tmp_path / "propositions",
+            questions=tmp_path / "questions",
+            conversations=tmp_path / "conversations",
+            pieces=tmp_path / "pieces",
+        )
+
+    def test_les_questions_et_la_conversation_sont_comptees(self, tmp_path):
+        from greffier.application.ranger import pieces_de
+
+        quoi = {p.quoi for p in pieces_de(self.poser(tmp_path), "reunion-1")}
+        assert "questions posées" in quoi
+        assert "conversation avec l'assistant" in quoi
+
+    def test_les_documents_fournis_sont_comptes(self, tmp_path):
+        from greffier.application.ranger import pieces_de
+
+        trouvees = pieces_de(self.poser(tmp_path), "reunion-1")
+        assert any("document fourni" in p.quoi for p in trouvees)
+
+    def test_oublier_retire_aussi_le_dossier_des_documents(self, tmp_path):
+        """Un dossier vide laisse croire qu'il reste quelque chose."""
+        from greffier.application.ranger import oublier
+
+        ou = self.poser(tmp_path)
+        oublier(ou, "reunion-1")
+        assert not (tmp_path / "pieces" / "reunion-1").exists()
+        assert not (tmp_path / "questions" / "reunion-1.jsonl").exists()
+
+    def test_les_emplacements_facultatifs_restent_facultatifs(self, tmp_path):
+        """Les appels existants construisent six champs, pas neuf."""
+        from greffier.application.ranger import Emplacements, pieces_de
+
+        ou = Emplacements(
+            reunions=tmp_path, enregistrements=tmp_path, transcriptions=tmp_path,
+            comptes_rendus=tmp_path, direct=tmp_path, propositions=tmp_path,
+        )
+        assert pieces_de(ou, "reunion-1") == []

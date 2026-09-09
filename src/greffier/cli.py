@@ -99,6 +99,9 @@ def _emplacements(config: Config) -> ranger_module.Emplacements:
         comptes_rendus=config.chemins.comptes_rendus,
         direct=config.chemins.direct,
         propositions=config.chemins.propositions,
+        questions=config.chemins.questions,
+        conversations=config.chemins.conversations,
+        pieces=config.chemins.pieces,
     )
 
 

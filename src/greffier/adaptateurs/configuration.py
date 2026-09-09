@@ -106,6 +106,16 @@ class Chemins(BaseModel):
         return dossier_config() / "sources.toml"
 
     @property
+    def pieces(self) -> Path:
+        """Le texte des documents fournis pour une réunion.
+
+        Sous les données et non dans le dossier de configuration : ce sont des
+        pièces de réunion, elles suivent la rétention et la sauvegarde du
+        reste.
+        """
+        return self.donnees / "pieces"
+
+    @property
     def questions(self) -> Path:
         """Ce que l'outil a demandé pendant la réunion, et ce qu'on a répondu.
 
