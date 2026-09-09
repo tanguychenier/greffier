@@ -425,6 +425,33 @@ class TestEnteteContexte:
         entete = entete_contexte("2026-09-02_16h46_reunion", 1020.0)
         assert "de 16 h 46 à 17 h 03" in entete
 
+    def test_la_mention_sur_l_enregistrement_est_dictee(self) -> None:
+        """Une mention légale n'est pas matière à style : un modèle qui la
+        reformule la rend inexploitable, on ne peut plus la chercher."""
+        from greffier.application.restituer import entete_information
+
+        entete = entete_information("rien")
+        assert "telle quelle" in entete
+        assert "n'a pas été tracée" in entete
+
+    def test_la_mention_suit_ce_qui_a_ete_fait(self) -> None:
+        from greffier.application.restituer import entete_information
+
+        assert "informés" in entete_information("annoncé")
+        assert "accord" in entete_information("accord")
+
+    def test_une_valeur_inconnue_ne_pretend_a_aucun_accord(self) -> None:
+        from greffier.application.restituer import entete_information
+
+        assert "n'a pas été tracée" in entete_information("peut-être")
+
+    def test_le_redacteur_recoit_la_mention(self) -> None:
+        redacteur = RedacteurFactice()
+        traitement = chaine(redacteur=redacteur)
+        traitement.information = "annoncé"
+        traitement.executer(AUDIO)
+        assert "Mention sur l'enregistrement" in redacteur.recu
+
     def test_les_participants_nommes_sont_listes(self) -> None:
         from greffier.application.restituer import entete_contexte
 

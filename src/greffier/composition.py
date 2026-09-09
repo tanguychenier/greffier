@@ -326,4 +326,5 @@ def assembler(config: Config) -> Traitement:
         personnes=config.locuteurs.personnes,
         pas_des_prenoms=frozenset(m.lower() for m in config.locuteurs.pas_des_prenoms),
         destinataire=config.compte_rendu.destinataire,
+        information=config.conversation.information,
     )

@@ -32,16 +32,30 @@ class Faite:
     fichiers: int
     octets: int
     effacees: tuple[str, ...] = ()
+    #: Le dossier de données que cette archive sauvegarde, pour pouvoir dire si
+    #: la copie en est sortie.
+    donnees: Path | None = None
 
     @property
     def sur_le_meme_disque(self) -> bool:
-        """Vrai si l'archive est restée à côté de ce qu'elle sauvegarde.
+        """Vrai si l'archive est restée sous ce qu'elle sauvegarde.
 
         À dire à l'utilisateur : cela protège d'un effacement accidentel, pas
         de la perte du disque, et confondre les deux est la façon habituelle de
         n'avoir aucune sauvegarde le jour où il en faut une.
+
+        Comparé au dossier de données réel, et non en cherchant un mot dans le
+        chemin : « Greffier-sauvegardes » dans un espace synchronisé contient le
+        mot « Greffier » et déclenchait l'avertissement à tort, ce qui est la
+        pire façon de se tromper — on prévient qui a fait ce qu'il fallait.
         """
-        return "Greffier" in str(self.archive.parent)
+        if self.donnees is None:
+            return False
+        try:
+            self.archive.parent.resolve().relative_to(self.donnees.resolve())
+        except (ValueError, OSError):
+            return False
+        return True
 
 
 def faire(
@@ -103,7 +117,7 @@ def faire(
             continue
 
     return Faite(archive, tuple(pris), fichiers,
-                 archive.stat().st_size, tuple(effacees))
+                 archive.stat().st_size, tuple(effacees), donnees=donnees)
 
 
 def restaurer(archive: Path, donnees: Path, ecraser: bool = False) -> list[str]:
