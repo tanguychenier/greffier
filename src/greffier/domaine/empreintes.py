@@ -26,13 +26,36 @@ from greffier.domaine.modeles import Empreinte, Personne
 #   deux extraits d'une même voix     médiane 0,74   (0,62 à 0,79)
 #   deux voix différentes             médiane 0,41   (jusqu'à 0,66)
 #
-# D'où 0,70 : au-dessus du pire cas de voix distinctes, au niveau du cas courant
-# d'une même voix. La valeur de 0,55 initialement retenue au jugé laissait passer
-# des confusions. À reprendre si le matériel ou l'acoustique changent.
-SEUIL_RECONNAISSANCE = 0.70
+# D'où 0,70 pendant longtemps : au-dessus du pire cas de voix distinctes, au
+# niveau du cas courant d'une même voix. La valeur de 0,55 initialement retenue
+# au jugé laissait passer des confusions.
+#
+# **0,45 depuis le 2026-09-09**, et c'est une mesure qui l'a décidé. Les deux
+# chiffres ci-dessus comparent des paires d'extraits deux à deux, or ce n'est
+# pas la question que l'outil pose : il demande « laquelle des personnes
+# connues ressemble le plus, et **nettement** plus », seuil **et** marge. Sur
+# le corpus AMI, quatre séries, en interrogeant la séance b contre une banque
+# constituée de la séance a :
+#
+#   seuil 0,70 → 3 personnes reconnues sur 7, 0 confusion
+#   seuil 0,45 → 4 personnes reconnues sur 7, 0 confusion
+#   seuil 0,30 → 5 reconnues, mais 1 confusion
+#
+# 0,45 reconnaît donc une personne de plus sans jamais se tromper. Les deux
+# rapprochements faux du corpus sont écartés, l'un par le seuil (0,338), l'autre
+# par la marge (0,041). `outils/calibrer_sur_corpus.py` rejoue la mesure.
+SEUIL_RECONNAISSANCE = 0.45
 # Un écart minimal avec le second : deux collègues aux voix proches doivent
-# produire une hésitation, pas un choix arbitraire.
+# produire une hésitation, pas un choix arbitraire. C'est cette marge qui rend
+# le seuil abaissé sans danger — elle écarte le rapprochement à 0,482 dont la
+# marge n'était que de 0,041.
 MARGE_MINIMALE = 0.06
+# Déclarer qu'une **entrée de la banque porte la voix d'un autre** est une autre
+# question, et elle exige davantage. Un conflit fait taire un nom : le déclarer
+# à la légère revient à ne plus reconnaître personne. Deux personnes différentes
+# se mesurent jusqu'à 0,652 sur le corpus, donc un seuil de conflit à 0,45
+# aurait mis en conflit des collègues parfaitement distincts.
+SEUIL_CONFLIT = 0.70
 # Au sein d'une même réunion, les conditions d'enregistrement sont identiques :
 # on peut donc exiger davantage pour décider que deux groupes de segments sont
 # la même personne. La segmentation automatique sur-découpe beaucoup — 27 voix
@@ -135,7 +158,7 @@ def noms_en_conflit(banque: Iterable[Personne]) -> dict[str, set[str]]:
     conflits: dict[str, set[str]] = {}
     for i, un in enumerate(personnes):
         for autre in personnes[i + 1:]:
-            if similarite(agregats[un.nom], agregats[autre.nom]) >= SEUIL_RECONNAISSANCE:
+            if similarite(agregats[un.nom], agregats[autre.nom]) >= SEUIL_CONFLIT:
                 conflits.setdefault(un.nom, set()).add(autre.nom)
                 conflits.setdefault(autre.nom, set()).add(un.nom)
     return conflits

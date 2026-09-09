@@ -1063,6 +1063,76 @@ def connus(
             f"vue le {vue}"
         )
 
+    _dire_la_sante_de_la_banque(personnes)
+
+
+def _dire_la_sante_de_la_banque(personnes: list) -> None:  # type: ignore[type-arg]
+    """Dit quelles entrées se ressemblent trop, et ce que ça coûte.
+
+    Une entrée déposée sous le nom d'un collègue mais portant une autre voix
+    empoisonne toute la banque : les deux noms deviennent inreconnaissables,
+    et rien ne le dit. C'est arrivé le 2026-09-02, découvert seulement parce
+    qu'un prénom avait été affirmé à tort en réunion.
+    """
+    import itertools
+
+    from greffier.domaine.empreintes import (
+        SEUIL_CONFLIT,
+        SEUIL_RECONNAISSANCE,
+        agreger,
+        similarite,
+    )
+
+    agregats = {
+        personne.nom: (
+            agreger(personne.empreintes) if len(personne.empreintes) > 1
+            else personne.empreintes[0]
+        )
+        for personne in personnes if personne.empreintes
+    }
+    conflits: list[tuple[float, str, str]] = []
+    proches: list[tuple[float, str, str]] = []
+    for un, autre in itertools.combinations(sorted(agregats), 2):
+        valeur = similarite(agregats[un], agregats[autre])
+        if valeur >= SEUIL_CONFLIT:
+            conflits.append((valeur, un, autre))
+        elif valeur >= SEUIL_RECONNAISSANCE:
+            proches.append((valeur, un, autre))
+
+    if conflits:
+        typer.secho(
+            f"\n⚠ {len(conflits)} paire(s) trop ressemblante(s) : ces personnes "
+            "ne sont plus reconnues du tout.",
+            fg=typer.colors.RED,
+        )
+        for valeur, un, autre in sorted(conflits, reverse=True):
+            typer.secho(f"    {valeur:.3f}  {un} / {autre}", fg=typer.colors.RED)
+        typer.echo(
+            "  Une des deux entrées porte probablement la voix de l'autre. "
+            "Réécoute\n  un extrait de chacune, puis « greffier connus "
+            "--oublier <nom> » et renomme\n  la voix à la prochaine réunion."
+        )
+    if proches:
+        typer.secho(
+            f"\n· {len(proches)} paire(s) proche(s), au-dessus du seuil de "
+            f"reconnaissance ({SEUIL_RECONNAISSANCE:.2f}) :",
+            fg=typer.colors.YELLOW,
+        )
+        for valeur, un, autre in sorted(proches, reverse=True):
+            typer.echo(f"    {valeur:.3f}  {un} / {autre}")
+        typer.echo(
+            "  C'est l'écart avec le second qui les sépare. Une entrée d'une "
+            "seule\n  empreinte est fragile : renommer la même personne sur une "
+            "autre réunion\n  ajoute une empreinte et écarte les voix les unes "
+            "des autres."
+        )
+    maigres = [p.nom for p in personnes if len(p.empreintes) < 2]
+    if maigres:
+        typer.echo(
+            f"\n  {len(maigres)} entrée(s) d'une seule empreinte : "
+            f"{', '.join(maigres)}"
+        )
+
 
 @application.command()
 def montage(
