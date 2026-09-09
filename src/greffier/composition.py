@@ -310,7 +310,10 @@ def assembler(config: Config) -> Traitement:
         banque=BanqueFichiers(config.chemins.banque_de_voix),
         redacteur=redacteur(config),
         expediteur=_expediteur(config),
-        journal=enregistrement(config),
+        # Le journal est posé par l'appelant, qui sait de **quelle** réunion il
+        # s'agit : « assembler » ne le sait pas, et un journal qui publie sans
+        # cette précaution peut arrêter une capture en cours.
+        journal=None,
         notificateur=NotificateurSysteme(),
         # Câblés ici, donc pour tous les appelants : la fenêtre garde la
         # réunion comme la ligne de commande, ce qui n'était pas le cas.

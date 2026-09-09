@@ -1624,9 +1624,11 @@ class Fenetre:
         """Prépare l'exécution de la chaîne, l'avancement remonté à l'écran."""
 
         def faire(dire: Callable[[str], None]) -> Any:
-            from greffier.composition import assembler
+            from greffier.composition import assembler, enregistrement
 
             chaine = assembler(self.config)
+            # Voir cli.traiter : le journal est propre à cette réunion.
+            chaine.journal = enregistrement(self.config).pour(audio.stem)
             publieur = chaine.journal
 
             def publier(phase: str, message: str = "") -> None:

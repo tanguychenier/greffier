@@ -111,6 +111,30 @@ class Etat:
         return max(0.0, ecoule)
 
 
+@dataclass
+class Journal:
+    """Publie l'avancement, mais seulement pour la réunion qu'il concerne.
+
+    Une réunion **autre** que celle en cours d'enregistrement ne publie rien :
+    on préfère perdre l'affichage d'un retraitement — dont l'appelant montre
+    déjà l'avancement — que d'arrêter une capture en cours.
+    """
+
+    etat: Enregistrement
+    identifiant: str
+
+    def publier(self, phase: str, message: str = "") -> None:
+        try:
+            courant = self.etat.lire()
+        except (OSError, ValueError):
+            return
+        # Un état au repos n'appartient à aucune réunion : publier y est sans
+        # danger, et c'est le cas ordinaire d'un traitement lancé après coup.
+        if courant.identifiant and courant.identifiant != self.identifiant:
+            return
+        self.etat.publier(phase, message)
+
+
 class Enregistrement:
     """Démarre, arrête, et sait dire où on en est.
 
@@ -198,6 +222,21 @@ class Enregistrement:
         etat.message = message
         etat.pid = os.getpid()
         self.ecrire(etat)
+
+    def pour(self, identifiant: str) -> Journal:
+        """Un journal qui n'écrit **que** si l'état porte cette réunion.
+
+        Le fichier d'état est unique, et c'est ce qui rendait
+        `traiter --quand-meme` dangereux : un traitement lancé pendant qu'une
+        réunion s'enregistrait y publiait ses propres phases jusqu'à
+        « terminé », la fenêtre en concluait que la réunion était finie, et la
+        capture s'arrêtait. Une réunion entière a été perdue ainsi le
+        2026-09-09.
+
+        Le drapeau devient alors inutile plutôt que dangereux : la bonne façon
+        de retirer un piège est de lui ôter sa raison d'être.
+        """
+        return Journal(self, identifiant)
 
     def interrompre(self) -> Etat:
         """Arrête le traitement en cours. L'audio, lui, est conservé."""
