@@ -833,28 +833,41 @@ def etape_skill(ctx):
     qui pointerait dans le vide serait pire que pas de skill.
     """
     titre("7 bis. Dépannage assisté")
-    source = DEPOT / "skills/greffier/SKILL.md"
-    if not source.exists():
-        alerte("skill introuvable dans ce dépôt")
-        return
     if not shutil.which("claude"):
-        info("Claude Code absent : le skill sera posé quand il le sera.")
+        info("Claude Code absent : les skills seront posés quand il le sera.")
         return
-    cible = dossier_skills() / "greffier/SKILL.md"
-    if ctx.verifier_seulement:
-        ok(f"skill présent ({cible})") if cible.exists() else alerte("skill absent")
+
+    # Tous les skills du dépôt, et non le seul dépannage : ils se sont
+    # multipliés (assister une réunion en est un second), et un installeur qui
+    # en copie un et oublie les autres est un piège pour la fois suivante.
+    sources = sorted(
+        chemin for chemin in (DEPOT / "skills").glob("*/SKILL.md") if chemin.exists()
+    )
+    if not sources:
+        alerte("aucun skill trouvé dans ce dépôt")
         return
-    if cible.exists() and cible.read_text(encoding="utf-8") == source.read_text(encoding="utf-8"):
-        ok(f"skill à jour ({cible})")
-        return
-    action = "mis à jour" if cible.exists() else "installé"
-    if not ctx.demander(f"Installer le skill de dépannage pour Claude Code ? ({cible})"):
-        ctx.a_faire.append(f"mkdir -p {cible.parent} && cp {source} {cible}")
-        return
-    cible.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, cible)
-    ok(f"skill {action} ({cible})")
-    info("Dis « répare Greffier » à Claude Code : il saura où regarder.")
+
+    for source in sources:
+        nom = source.parent.name
+        cible = dossier_skills() / nom / "SKILL.md"
+        if ctx.verifier_seulement:
+            ok(f"skill « {nom} » présent") if cible.exists() else alerte(
+                f"skill « {nom} » absent")
+            continue
+        if (cible.exists()
+                and cible.read_text(encoding="utf-8") == source.read_text(encoding="utf-8")):
+            ok(f"skill « {nom} » à jour")
+            continue
+        action = "mis à jour" if cible.exists() else "installé"
+        if not ctx.demander(f"Installer le skill « {nom} » pour Claude Code ?"):
+            ctx.a_faire.append(f"mkdir -p {cible.parent} && cp {source} {cible}")
+            continue
+        cible.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, cible)
+        ok(f"skill « {nom} » {action} ({cible})")
+
+    if not ctx.verifier_seulement:
+        info("Dis « répare Greffier » ou « assiste ma réunion » à Claude Code.")
 
 
 # ---------------------------------------------------------- 8. vérification
