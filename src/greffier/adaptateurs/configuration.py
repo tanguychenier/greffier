@@ -268,9 +268,14 @@ class Sauvegarde(BaseModel):
     """
 
     #: Où écrire les archives. Vide : à côté des données, ce qui protège d'un
-    #: effacement accidentel mais **pas** de la perte du disque. Renseigner un
-    #: disque externe ou un espace synchronisé est ce qui fait une vraie
-    #: sauvegarde.
+    #: effacement accidentel mais **pas** de la perte du disque.
+    #:
+    #: Un espace synchronisé fait une vraie sauvegarde, mais **envoie les
+    #: données chez son hébergeur** : les transcriptions, les comptes rendus et
+    #: la banque de voix — qui contient des empreintes vocales de collègues, donc
+    #: des données personnelles de tiers. Vers le nuage d'un employeur, cela ne
+    #: se décide pas à la place de qui utilise l'outil. Un disque externe n'a pas
+    #: ce défaut.
     dossier: str = ""
     #: Sauvegarder de soi-même après chaque réunion traitée. Le moment est
     #: naturel : le travail vient d'être produit, et personne n'y pense après.
@@ -477,7 +482,9 @@ _COMMENTAIRES = {
     "courriel": "Envoi SMTP, pour les postes sans Outlook. Le mot de passe n'est jamais ici.",
     "sauvegarde": ("Où sont copiées les données, sans l'audio (3 Mo contre 1,1 Go).\n"
                    "# « dossier » vide : à côté des données, ce qui ne protège pas de la\n"
-                   "# perte du disque. Un disque externe ou un espace synchronisé, oui."),
+                   "# perte du disque. Un disque externe, oui. Un espace synchronisé\n"
+                   "# aussi, mais il envoie les transcriptions et la banque de voix chez\n"
+                   "# son hébergeur : à décider soi-même, pas à subir."),
     "retention": ("Combien de temps les enregistrements restent. Compresser ne perd\n"
                   "# rien d'utile ; effacer perd la seule pièce qu'on ne peut pas refaire,\n"
                   "# donc « effacer_apres_jours = 0 » désactive. « greffier ranger »."),
