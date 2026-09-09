@@ -21,7 +21,13 @@ from greffier.domaine.attribution import voix_de
 from greffier.domaine.compte_rendu import titre as titre_du_compte_rendu
 from greffier.domaine.generiques import est_un_generique, est_une_annotation
 from greffier.domaine.langue import ProfilLinguistique
-from greffier.domaine.modeles import Intervalle, Phase, Replique, TourDeParole
+from greffier.domaine.modeles import (
+    Empreinte,
+    Intervalle,
+    Phase,
+    Replique,
+    TourDeParole,
+)
 from greffier.domaine.profils.neutre import NEUTRE
 from greffier.domaine.reunion import ReunionEnregistree
 from greffier.ports import sortants
@@ -283,22 +289,48 @@ class Traitement:
         """Recolle les voix sur-découpées par la segmentation.
 
         La segmentation éclate volontiers une personne en plusieurs groupes —
-        27 voix pour 6 participants sur une réunion réelle. Sans ce recollage,
-        le compte rendu invente des participants.
+        **298 voix pour trois personnes** autour d'une table, mesuré sur une
+        réunion réelle de 92 minutes. Sans ce recollage, le compte rendu invente
+        des participants ; avec, il en reste 23, dont 3 portent plus de dix
+        secondes.
         """
         if self.extracteur is None:
             return tours
         par_voix: dict[str, list[Intervalle]] = {}
         for tour in tours:
             par_voix.setdefault(tour.voix, []).append(tour.intervalle)
-        empreintes = {
-            voix: self.extracteur.extraire_intervalles(audio, intervalles)
-            for voix, intervalles in par_voix.items()
-        }
-        appartenance = voix_domaine.fusionner_voix(empreintes)
+        empreintes = self._empreintes_par_voix(audio, par_voix)
+        appartenance = voix_domaine.recoller(empreintes)
         return [
             TourDeParole(t.intervalle, appartenance.get(t.voix, t.voix), t.source) for t in tours
         ]
+
+    def _empreintes_par_voix(
+        self, audio: Path, par_voix: dict[str, list[Intervalle]]
+    ) -> dict[str, list[Empreinte]]:
+        """Les empreintes de chaque voix, en ne lisant l'audio qu'une fois.
+
+        `extraire_intervalles` rouvre et relit le fichier entier à chaque appel.
+        Une voix par appel, sur une réunion de 92 minutes qui en produit 298 et
+        pèse 531 Mo, demandait 158 Go de lecture pour un travail qui en vaut un.
+        """
+        tous = [(voix, i) for voix, intervalles in par_voix.items() for i in intervalles]
+        empreintes = self.extracteur.extraire_intervalles(
+            audio, [i for _, i in tous]
+        ) if self.extracteur else []
+        # `extraire_intervalles` écarte les extraits trop courts sans le dire :
+        # la liste rendue est plus courte que celle demandée, et l'associer par
+        # rang attribuerait les empreintes à la mauvaise voix. On redemande donc
+        # voix par voix dès que le compte ne tombe pas juste.
+        if len(empreintes) != len(tous):
+            return {
+                voix: self.extracteur.extraire_intervalles(audio, intervalles)
+                for voix, intervalles in par_voix.items()
+            } if self.extracteur else {}
+        groupees: dict[str, list[Empreinte]] = {voix: [] for voix in par_voix}
+        for (voix, _), empreinte in zip(tous, empreintes, strict=True):
+            groupees[voix].append(empreinte)
+        return groupees
 
     def _reconnaitre(self, audio: Path, tours: list[TourDeParole]) -> dict[str, str]:
         """Noms venus de la banque de voix, pour les personnes déjà connues."""
@@ -454,8 +486,12 @@ class Traitement:
         duree = resultat.tours[-1].intervalle.fin if resultat.tours else 0.0
         # Les voix qui ont réellement porté la réunion, nommées ou non : sans ce
         # compte, un compte rendu dont aucune voix n'est nommée ne disait rien
-        # de qui était présent — constaté à l'usage.
-        entendues = {t.voix for t in resultat.tours if t.voix}
+        # de qui était présent — constaté à l'usage. Les fragments en sont
+        # exclus, sans quoi la ligne annonce « et 295 voix non nommées » là où
+        # trois personnes étaient présentes.
+        entendues = [
+            v for v in resultat.voix_significatives() if v
+        ] + [v for v in resultat.noms if v not in resultat.voix_significatives()]
         entete = (
             entete_contexte(audio.stem, duree,
                             noms=[resultat.noms[v] for v in entendues if v in resultat.noms],

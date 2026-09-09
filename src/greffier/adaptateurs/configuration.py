@@ -53,6 +53,15 @@ class Chemins(BaseModel):
         return self.donnees / "comptes-rendus"
 
     @property
+    def voix_de_synthese(self) -> Path:
+        """Le modèle qui donne une voix à l'assistant.
+
+        Sous « modeles » comme les autres : c'est un modèle, il pèse trois cent
+        vingt mégaoctets, et l'installeur le pose là comme il pose whisper.
+        """
+        return self.modeles / "voix"
+
+    @property
     def banque_de_voix(self) -> Path:
         return self.donnees / "banque-de-voix"
 
@@ -343,6 +352,40 @@ class Conversation(BaseModel):
     information: str = "rien"
 
 
+class Assistant(BaseModel):
+    """L'assistant en tant que participant : son nom, sa voix, sa retenue.
+
+    Distinct de `conversation`, qui règle ce qu'il a le droit de faire quand on
+    lui écrit. Ici il s'agit de ce qu'il fait **de lui-même** pendant la
+    réunion, et de la façon dont il se fait entendre.
+    """
+
+    #: Faux par défaut : une voix qui sort du haut-parleur au milieu d'une
+    #: réunion ne s'impose pas, elle se demande. Le bouton de la fenêtre pose ce
+    #: réglage et le repose, autant de fois qu'on veut.
+    actif: bool = False
+    #: Le nom auquel il répond. Lui donner un prénom vaut mieux que « Greffier »,
+    #: qui ressemble à trop de mots courants : « le greffe du tribunal » suffit à
+    #: le réveiller, un prénom non.
+    nom: str = "Lucie"
+    #: « kokoro » : la voix neuronale, celle qu'on écoute sans grincer des dents.
+    #: « systeme » : la voix livrée par l'ordinateur, disponible partout, mais
+    #: qui s'entend. « aucun » : il participe par écrit dans le fil.
+    voix: str = "kokoro"
+    #: Le débit. En dessous de 1, on parle à des gens occupés ; au-dessus, on
+    #: parle à quelqu'un qui écoute.
+    vitesse: float = 0.95
+    #: Secondes entre deux prises de parole **spontanées**. Être appelé ne compte
+    #: pas : on répond tout de suite, quel que soit le repos restant.
+    repos: float = 180.0
+    #: Secondes de silence exigées avant de s'insérer. En dessous, quelqu'un
+    #: parle encore, et prendre la parole revient à couper.
+    creux_minimal: float = 2.0
+    #: L'autorise à demander qui vient de parler quand une voix lui échappe.
+    #: C'est ce qui vaut un nom au compte rendu plutôt qu'un « Personne 12 ».
+    demander_les_voix: bool = True
+
+
 class Apparence(BaseModel):
     """Ce que la fenêtre montre, indépendamment de ce qu'elle fait.
 
@@ -387,6 +430,7 @@ class Config(BaseSettings):
     sauvegarde: Sauvegarde = Field(default_factory=Sauvegarde)
     retention: Retention = Field(default_factory=Retention)
     conversation: Conversation = Field(default_factory=Conversation)
+    assistant: Assistant = Field(default_factory=Assistant)
     apparence: Apparence = Field(default_factory=Apparence)
 
     @classmethod
@@ -486,6 +530,8 @@ SECTIONS: dict[str, tuple[str, ...]] = {
     "sauvegarde": ("dossier", "apres_chaque_reunion", "gardees"),
     "retention": ("compresser_apres_jours", "effacer_apres_jours"),
     "conversation": ("recherche_web", "information"),
+    "assistant": ("actif", "nom", "voix", "vitesse", "repos", "creux_minimal",
+                  "demander_les_voix"),
     "apparence": ("theme",),
 }
 
@@ -514,6 +560,14 @@ _COMMENTAIRES = {
                      "# « information » : ce qui a été fait vis-à-vis des participants,\n"
                      "# « rien », « annoncé » ou « accord ». Une voix est une donnée\n"
                      "# biométrique ; le compte rendu porte la mention correspondante."),
+    "assistant": ("L'assistant comme participant : le nom auquel il répond, et\n"
+                  "# s'il se fait entendre. « actif » est le bouton de l'onglet En\n"
+                  "# direct, et il se relit pendant la réunion : on peut le faire\n"
+                  "# taire sans rien arrêter. « voix » : kokoro (neuronale, un\n"
+                  "# modèle à télécharger), systeme (livrée par l'ordinateur), ou\n"
+                  "# aucun (il participe par écrit). « repos » : secondes entre deux\n"
+                  "# prises de parole spontanées. Être appelé par son nom ne compte\n"
+                  "# pas : on répond tout de suite."),
     "apparence": "systeme suit le réglage clair/sombre du poste.",
 }
 
