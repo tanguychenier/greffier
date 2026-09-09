@@ -29,6 +29,12 @@ from pathlib import Path
 # l'écraser.
 os.environ["PATH"] = __CHEMIN__ + os.pathsep + os.environ.get("PATH", "")  # noqa: F821
 
+# Le dépôt d'où ce paquet a été fabriqué. L'application n'en dépend pas pour
+# fonctionner — elle embarque tout — mais le bouton de mise à jour a besoin de
+# savoir où lancer « git pull » et la reconstruction. Absent, la mise à jour se
+# contente de signaler qu'une version existe.
+os.environ.setdefault("GREFFIER_DEPOT_SOURCE", __DEPOT__)  # noqa: F821
+
 # Tout le code du paquet est compilé à l'avance par `construire.sh`. Un .pyc
 # écrit après coup dans l'application en romprait le sceau de signature ;
 # Info.plist pose déjà PYTHONDONTWRITEBYTECODE, ceci vaut pour tout appel qui

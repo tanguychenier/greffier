@@ -972,14 +972,49 @@ class Fenetre:
                 self.etat_version.configure(text=f"Vérification impossible : {souci}")
                 return
             self.etat_version.configure(text=verdict.dire())
-            if verdict.mise_a_jour and verdict.adresse:
-                self._dire("greffier", f"{verdict.dire()} {verdict.adresse}")
+            if not verdict.mise_a_jour:
+                return
+            self._proposer_l_installation(verdict)
 
         self._lancer(Travail(
             intitule="mise à jour",
             faire=lambda _dire: verifier(),
             fini=fini,
         ))
+
+    def _proposer_l_installation(self, verdict: Any) -> None:
+        """Propose d'installer, ou dit pourquoi ce n'est pas possible d'ici.
+
+        L'installation demande le dépôt d'origine : le paquet est autonome mais
+        il ne sait pas se fabriquer lui-même. Sans dépôt, on donne l'adresse de
+        la version et on s'arrête là, ce qui reste plus utile que rien.
+        """
+        from greffier.adaptateurs.mises_a_jour import installable, installer
+
+        possible, raison = installable()
+        if not possible:
+            self._peindre_le_tour("greffier", (
+                f"{verdict.dire()} Installation impossible d'ici : {raison}."
+                + (f" À voir : {verdict.adresse}" if verdict.adresse else "")
+            ))
+            return
+        if not messagebox.askyesno(
+            "Greffier",
+            f"{verdict.dire()}\n\nInstaller maintenant ? Greffier va se fermer, "
+            "se reconstruire depuis son dépôt, puis se relancer.\n\n"
+            "Les réunions, les comptes rendus, la banque de voix et les "
+            "conversations ne sont pas touchés : ils vivent hors de "
+            "l'application.",
+        ):
+            return
+        lance, ou = installer()
+        if not lance:
+            messagebox.showerror("Greffier", f"Mise à jour impossible : {ou}")
+            return
+        self.etat_version.configure(text="Mise à jour en cours, fermeture…")
+        # Le relais attend la fin de ce processus avant de toucher au paquet :
+        # se fermer fait partie de la mise à jour.
+        self.racine.after(400, self.racine.destroy)
 
     def _brancher_les_reglages(self) -> None:
         """Fait de chaque changement un enregistrement.
