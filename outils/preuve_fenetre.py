@@ -48,6 +48,34 @@ def main() -> int:
         page = fenetre.onglets._pages[intitule]
         print(f"  onglet « {intitule} » peint — {len(page.winfo_children())} éléments")
 
+    # La pastille de compte se dessine hors des tests : elle touche Tk, qui ne
+    # démarre pas sur un exécuteur d'intégration continue. C'est donc ici qu'on
+    # vérifie qu'elle s'affiche, élargit son onglet, et s'efface à l'ouverture.
+    fenetre.onglets.montrer(intitules[0])
+    cible = "Conversation" if "Conversation" in intitules else intitules[-1]
+    segment = fenetre.onglets._segments[cible]
+    nue = int(segment.cget("width"))
+    fenetre.onglets.marquer(cible, 3)
+    fenetre.racine.update()
+    avec = int(segment.cget("width"))
+    marques = [
+        segment.itemcget(item, "text")
+        for item in segment.find_all()
+        if segment.type(item) == "text"
+    ]
+    if avec <= nue or "3" not in marques:
+        print(f"  ✗ pastille non dessinée sur « {cible} » ({nue} → {avec}, {marques})")
+        fenetre.racine.destroy()
+        return 1
+    print(f"  pastille sur « {cible} » : {nue} → {avec} px, marque {marques[-1]}")
+    fenetre.onglets.montrer(cible)
+    fenetre.racine.update()
+    if int(segment.cget("width")) != nue:
+        print("  ✗ la pastille survit à l'ouverture de son onglet")
+        fenetre.racine.destroy()
+        return 1
+    print("  pastille effacée à l'ouverture de l'onglet")
+
     fenetre.racine.destroy()
     print(f"{len(intitules)} onglets peints sans exception")
     return 0

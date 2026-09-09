@@ -12,6 +12,7 @@ retourne vite contre son auteur.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import platform
 import subprocess
@@ -107,6 +108,9 @@ class Veilleur:
     #: transcrite du tout, celle de la personne au micro.
     preparateur: sortants.Enregistreur | None = None
     langue: str = "fr"
+    #: Repère les termes que la transcription a probablement déformés et dépose
+    #: la question. Facultatif : sans lui, le direct fonctionne comme avant.
+    interroger: Callable[[str], None] | None = None
     #: Le vocabulaire donné au modèle du direct. Vide, il devinait les sigles et
     #: les prénoms que l'outil connaissait pourtant : l'amorce n'était câblée
     #: que sur la transcription définitive, si bien que le fil affichait
@@ -180,6 +184,13 @@ class Veilleur:
             # continue, et la transcription définitive se fera à la fin.
             return []
         self.traite = ou.decalage + ou.ecrit
+        # Pendant la réunion, sur ce qui vient d'être dit : après coup, une
+        # question sur un terme mal entendu arrive trop tard pour que le compte
+        # rendu en profite.
+        if self.interroger is not None:
+            for replique in repliques:
+                with contextlib.suppress(OSError):
+                    self.interroger(replique.texte)
         decalage = ou.decalage + debut
         # Les répliques sont datées dans la tranche : on les remet à l'heure de
         # la réunion, sinon les propositions renverraient au mauvais moment.
