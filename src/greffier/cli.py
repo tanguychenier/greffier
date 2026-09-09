@@ -6,6 +6,7 @@
     greffier oublier             efface une réunion et tout ce qui va avec
     greffier contexte            ce que l'outil sait des sigles et des personnes
     greffier ranger              applique la rétention aux enregistrements
+    greffier sauvegarder         copie les données, sans l'audio
     greffier carte               construit la carte d'un sujet depuis une réunion
     greffier verifier            dit ce qui est prêt et ce qui manque
 
@@ -1246,6 +1247,88 @@ def _publier_la_carte(
         # que rien ne le signale.
         typer.secho(
             f"  ⚠ {ecrit.liens_manques} lien(s) n'ont pas pu être tracés",
+            fg=typer.colors.YELLOW,
+        )
+
+
+@application.command()
+def sauvegarder(
+    restaurer_depuis: str = typer.Option(
+        None, "--restaurer", help="Nom de l'archive à remettre en place"
+    ),
+    ecraser: bool = typer.Option(
+        False, "--ecraser", help="Restaurer par-dessus ce qui existe déjà"
+    ),
+    lister_seulement: bool = typer.Option(
+        False, "--lister", help="Montrer les sauvegardes présentes"
+    ),
+    config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
+) -> None:
+    """Copie les données, sans l'audio. Restaure aussi.
+
+    3 Mo contre 1,1 Go d'enregistrements : c'est ce qui rend une sauvegarde
+    possible. Une réunion transcrite reste utilisable sans son audio ; l'inverse
+    n'est pas vrai, un enregistrement dont on a perdu la transcription et le
+    compte rendu est un fichier que personne ne réécoutera.
+    """
+    from greffier.application import sauvegarder as travail
+    from greffier.emplacements import dossier_config
+
+    config = Config.charger(config_fichier)
+    destination = (
+        Path(config.sauvegarde.dossier).expanduser()
+        if config.sauvegarde.dossier else config.chemins.sauvegardes
+    )
+
+    if lister_seulement:
+        trouvees = travail.lister(destination)
+        if not trouvees:
+            typer.echo(f"Aucune sauvegarde dans {destination}.")
+            raise typer.Exit(1)
+        typer.echo(f"\n{len(trouvees)} sauvegarde(s) dans {destination} :\n")
+        for nom, octets, quand in trouvees:
+            typer.echo(f"  {quand:%Y-%m-%d %H:%M}  {octets / 1024**2:6.1f} Mo  {nom}")
+        return
+
+    if restaurer_depuis:
+        archive = destination / restaurer_depuis
+        if not archive.exists() and not restaurer_depuis.endswith(".tar.gz"):
+            archive = destination / f"{restaurer_depuis}.tar.gz"
+        try:
+            remis = travail.restaurer(archive, config.chemins.donnees, ecraser)
+        except (FileNotFoundError, FileExistsError) as souci:
+            typer.secho(f"✗ {souci}", fg=typer.colors.RED, err=True)
+            raise typer.Exit(1) from souci
+        typer.secho(f"✓ restauré : {', '.join(remis)}", fg=typer.colors.GREEN)
+        return
+
+    try:
+        faite = travail.faire(
+            config.chemins.donnees, dossier_config(), destination,
+            gardees=config.sauvegarde.gardees,
+        )
+    except OSError as souci:
+        typer.secho(f"✗ sauvegarde impossible : {souci}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1) from souci
+
+    typer.secho(
+        f"✓ {faite.archive.name} — {faite.fichiers} fichier(s), "
+        f"{faite.octets / 1024**2:.1f} Mo",
+        fg=typer.colors.GREEN,
+    )
+    typer.echo(f"  contenu  {', '.join(faite.dossiers)}")
+    typer.echo(f"  écrit    {faite.archive.parent}")
+    if faite.effacees:
+        typer.echo(f"  rotation {len(faite.effacees)} ancienne(s) effacée(s)")
+    if faite.sur_le_meme_disque:
+        # Le dire à chaque fois : confondre « une copie existe » et « le travail
+        # est à l'abri » est la façon habituelle de n'avoir aucune sauvegarde le
+        # jour où il en faut une.
+        typer.secho(
+            "\n⚠ Cette copie est sur le même disque que les données : elle protège\n"
+            "  d'un effacement, pas d'une panne de disque. Règle "
+            "« sauvegarde.dossier »\n  vers un disque externe ou un espace "
+            "synchronisé.",
             fg=typer.colors.YELLOW,
         )
 

@@ -113,6 +113,16 @@ class Chemins(BaseModel):
         """
         return self.donnees / "conversations"
 
+    @property
+    def sauvegardes(self) -> Path:
+        """Où atterrissent les archives quand aucun dossier n'est réglé.
+
+        Sous les données, donc sur le même disque : c'est un défaut de repli, et
+        l'outil le dit à chaque sauvegarde plutôt que de laisser croire que le
+        travail est à l'abri.
+        """
+        return self.donnees / "sauvegardes"
+
 
 class Audio(BaseModel):
     # Sur macOS, deux périphériques à créer une fois. Ailleurs, le système
@@ -250,6 +260,25 @@ class CompteRendu(BaseModel):
         return ""
 
 
+class Sauvegarde(BaseModel):
+    """Où sont copiées les données, et combien de copies on garde.
+
+    L'audio n'y est jamais : 1,1 Go contre 3 Mo pour tout le reste, et une
+    réunion transcrite reste utilisable sans son enregistrement.
+    """
+
+    #: Où écrire les archives. Vide : à côté des données, ce qui protège d'un
+    #: effacement accidentel mais **pas** de la perte du disque. Renseigner un
+    #: disque externe ou un espace synchronisé est ce qui fait une vraie
+    #: sauvegarde.
+    dossier: str = ""
+    #: Sauvegarder de soi-même après chaque réunion traitée. Le moment est
+    #: naturel : le travail vient d'être produit, et personne n'y pense après.
+    apres_chaque_reunion: bool = True
+    #: Combien d'archives garder. Sept jours de travail, sept fois 3 Mo.
+    gardees: int = 7
+
+
 class Retention(BaseModel):
     """Combien de temps les enregistrements restent, et sous quelle forme.
 
@@ -325,6 +354,7 @@ class Config(BaseSettings):
     locuteurs: Locuteurs = Field(default_factory=Locuteurs)
     compte_rendu: CompteRendu = Field(default_factory=CompteRendu)
     courriel: Courriel = Field(default_factory=Courriel)
+    sauvegarde: Sauvegarde = Field(default_factory=Sauvegarde)
     retention: Retention = Field(default_factory=Retention)
     conversation: Conversation = Field(default_factory=Conversation)
     apparence: Apparence = Field(default_factory=Apparence)
@@ -423,6 +453,7 @@ SECTIONS: dict[str, tuple[str, ...]] = {
     "locuteurs": ("pas_des_prenoms", "personnes"),
     "compte_rendu": ("moteur", "modele", "langue", "destinataire", "delai"),
     "courriel": ("serveur", "port", "utilisateur", "expediteur"),
+    "sauvegarde": ("dossier", "apres_chaque_reunion", "gardees"),
     "retention": ("compresser_apres_jours", "effacer_apres_jours"),
     "conversation": ("recherche_web",),
     "apparence": ("theme",),
@@ -439,6 +470,9 @@ _COMMENTAIRES = {
                      "# « delai » : secondes accordées au rédacteur. Le dépasser ne perd rien,\n"
                      "# la transcription est gardée avant ; « greffier rediger » reprend."),
     "courriel": "Envoi SMTP, pour les postes sans Outlook. Le mot de passe n'est jamais ici.",
+    "sauvegarde": ("Où sont copiées les données, sans l'audio (3 Mo contre 1,1 Go).\n"
+                   "# « dossier » vide : à côté des données, ce qui ne protège pas de la\n"
+                   "# perte du disque. Un disque externe ou un espace synchronisé, oui."),
     "retention": ("Combien de temps les enregistrements restent. Compresser ne perd\n"
                   "# rien d'utile ; effacer perd la seule pièce qu'on ne peut pas refaire,\n"
                   "# donc « effacer_apres_jours = 0 » désactive. « greffier ranger »."),
