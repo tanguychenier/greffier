@@ -7,7 +7,7 @@ sous-titrées et comble les silences avec ce qu'il y a le plus vu.
 
 import pytest
 
-from greffier.domaine.generiques import est_un_generique
+from greffier.domaine.generiques import est_un_generique, est_une_annotation
 from greffier.domaine.profils.francais import FRANCAIS
 
 
@@ -49,3 +49,36 @@ class TestCeQuiReste:
         """Le piège de la correspondance par préfixe : cette phrase-là
         disparaissait, alors qu'elle porte une information."""
         assert not est_un_generique(texte, FRANCAIS)
+
+
+class TestAnnotations:
+    """Ce que le modèle écrit quand il entend du son sans parole.
+
+    Relevé dans le fil d'une réunion réelle : « *Belouge* » inscrit comme une
+    prise de parole, avec sa propre empreinte de voix — donc une voix de plus
+    dans une réunion qui n'en comptait que quelques-unes.
+    """
+
+    def test_une_annotation_entre_asterisques_part(self):
+        assert est_une_annotation("*Belouge*")
+
+    def test_une_annotation_entre_parentheses_part(self):
+        assert est_une_annotation("(rires)")
+        assert est_une_annotation("[Applaudissements]")
+
+    def test_une_note_de_musique_part(self):
+        assert est_une_annotation("♪ ♪ ♪")
+
+    def test_une_parenthese_au_milieu_d_une_phrase_reste(self):
+        """Couper là perdrait la phrase."""
+        assert not est_une_annotation("il a dit (à tort) que c'était prêt")
+
+    def test_deux_annotations_dans_une_phrase_ne_font_pas_une_annotation(self):
+        assert not est_une_annotation("(a) et (b) sont prêts")
+
+    def test_une_phrase_ordinaire_reste(self):
+        assert not est_une_annotation("on reprend le sujet lundi")
+
+    def test_un_texte_trop_court_ne_declenche_rien(self):
+        assert not est_une_annotation("**")
+

@@ -37,10 +37,11 @@ from greffier.domaine.empreintes import (
     reconnaitre,
     similarite,
 )
-from greffier.domaine.generiques import est_un_generique
+from greffier.domaine.generiques import est_un_generique, est_une_annotation
 from greffier.domaine.langue import ProfilLinguistique
 from greffier.domaine.modeles import Empreinte, Intervalle, Personne, Replique
 from greffier.domaine.profils.neutre import NEUTRE
+from greffier.domaine.questions import distance
 
 #: Matière minimale pour **fonder** une voix. En deçà, une bribe rejoint la voix
 #: la plus ressemblante plutôt que d'inventer une personne. Mesuré sur une
@@ -84,7 +85,65 @@ DUREE_POUR_LA_BANQUE_S = 3.0
 #: couper : ce serait le hasard, pas une vraie répétition.
 CARACTERES_RECOUVREMENT_MINIMUM = 4
 
+#: À partir de combien de mots on accepte un recouvrement **imparfait**. En
+#: dessous, seule l'égalité mot pour mot coupe : sur un ou deux mots, deux
+#: phrases différentes se ressemblent trop souvent.
+MOTS_POUR_TOLERER = 3
+
+#: Part des mots qui doivent être identiques, les autres devant être de simples
+#: variantes du même mot. Relevé le 2026-09-09 dans une réunion réelle :
+#: « Qu'est-ce qu'on dit d'autre sur l'ASIS ? » puis « - Qu'est-ce qu'on dit
+#: d'autre sur Oasis ? Il y a cette histoire… » — six mots sur sept identiques,
+#: et la phrase s'affichait deux fois faute de coupe. Chaque doublon coûtait en
+#: plus une empreinte, donc une voix de plus dans le fil.
+PART_IDENTIQUE = 0.5
+
 _MOT_DIRECT = re.compile(r"\S+")
+_PONCTUATION_MOT = ".,;:!?…\"'«»()[]-–—"
+
+
+def _mots_porteurs(texte: str) -> list[tuple[str, int]]:
+    """Les mots qui portent du sens, chacun avec sa fin dans le texte.
+
+    La ponctuation seule est écartée : le modèle préfixe une réplique d'un
+    tiret de dialogue, et comparer « - » à « Qu'est-ce » faisait échouer la
+    comparaison au premier mot, donc ne coupait rien du tout.
+    """
+    trouves: list[tuple[str, int]] = []
+    for mot in _MOT_DIRECT.finditer(texte):
+        nu = mot.group().strip(_PONCTUATION_MOT).casefold()
+        if nu:
+            trouves.append((nu, mot.end()))
+    return trouves
+
+
+def _meme_mot(un: str, autre: str) -> bool:
+    """Deux transcriptions du même mot : « l'ASIS » et « Oasis ».
+
+    Le seuil dépend de la longueur, comme pour les questions : sur trois
+    lettres, deux écarts font un autre mot.
+    """
+    if un == autre:
+        return True
+    plus_court = min(len(un), len(autre))
+    if plus_court < 4:
+        return False
+    return distance(un, autre) <= (2 if plus_court >= 5 else 1)
+
+
+def _se_recouvrent(gauche: list[str], droite: list[str]) -> bool:
+    """Vrai si ces deux suites de mots sont le même passage, dit deux fois."""
+    if gauche == droite:
+        return True
+    if len(gauche) < MOTS_POUR_TOLERER:
+        return False
+    # Tous les mots doivent au moins être des variantes l'un de l'autre : sans
+    # cela, « on va faire ça » et « on va faire autrement » se recouvriraient
+    # sur trois mots et la phrase neuve disparaîtrait.
+    if not all(_meme_mot(a, b) for a, b in zip(gauche, droite, strict=True)):
+        return False
+    identiques = sum(1 for a, b in zip(gauche, droite, strict=True) if a == b)
+    return identiques / len(gauche) >= PART_IDENTIQUE
 
 
 def retirer_repetition(precedent: str, nouveau: str) -> str:
@@ -97,22 +156,21 @@ def retirer_repetition(precedent: str, nouveau: str) -> str:
     les derniers mots déjà affichés : « dernier. » puis « dernier. Sandy, tu
     peux nous dire… ».
 
-    Comparaison mot à mot, sans casse ; le plus long recouvrement entre la fin
-    du texte précédent et le début du nouveau est retiré, à condition de porter
-    au moins `CARACTERES_RECOUVREMENT_MINIMUM` caractères.
+    La comparaison tolère la variante : le même passage n'est pas transcrit
+    deux fois pareil, et exiger l'égalité mot pour mot laissait passer le
+    doublon dès qu'un mot changeait.
     """
-    mots_precedent = list(_MOT_DIRECT.finditer(precedent))
-    mots_nouveau = list(_MOT_DIRECT.finditer(nouveau))
-    if not mots_precedent or not mots_nouveau:
+    avant = _mots_porteurs(precedent)
+    apres = _mots_porteurs(nouveau)
+    if not avant or not apres:
         return nouveau
-    suffixe = [m.group().casefold() for m in mots_precedent]
-    prefixe = [m.group().casefold() for m in mots_nouveau]
+    suffixe = [mot for mot, _ in avant]
+    prefixe = [mot for mot, _ in apres]
     for longueur in range(min(len(suffixe), len(prefixe)), 0, -1):
-        if suffixe[-longueur:] != prefixe[:longueur]:
+        if not _se_recouvrent(suffixe[-longueur:], prefixe[:longueur]):
             continue
-        recouvrement = " ".join(prefixe[:longueur])
-        if len(recouvrement) >= CARACTERES_RECOUVREMENT_MINIMUM:
-            return nouveau[mots_nouveau[longueur - 1].end():].lstrip(" ,.;:!?")
+        if len(" ".join(prefixe[:longueur])) >= CARACTERES_RECOUVREMENT_MINIMUM:
+            return nouveau[apres[longueur - 1][1]:].lstrip(" ,.;:!?-–—")
     return nouveau
 
 
@@ -397,7 +455,9 @@ class Fil:
             # Un générique inventé par le modèle n'a été prononcé par personne :
             # affiché, il occupe une ligne du fil et se retrouve dans le compte
             # rendu comme une prise de parole.
-            if est_un_generique(replique.texte, self.profil):
+            if est_un_generique(replique.texte, self.profil) or est_une_annotation(
+                replique.texte
+            ):
                 continue
             duree = replique.intervalle.duree
             neuf = replique.intervalle.fin - max(replique.intervalle.debut, self.jusqu_a)
