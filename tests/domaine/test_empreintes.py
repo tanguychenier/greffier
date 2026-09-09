@@ -5,8 +5,12 @@ import math
 import pytest
 
 from greffier.domaine.empreintes import (
+    MARGE_ADOPTION,
     MARGE_MINIMALE,
+    MATIERE_ETABLIE,
     MATIERE_MINIMALE_FUSION,
+    SEUIL_ADOPTION,
+    SEUIL_CONSOLIDATION,
     SEUIL_FUSION,
     SEUIL_RECONNAISSANCE,
     agreger,
@@ -14,6 +18,7 @@ from greffier.domaine.empreintes import (
     fusionner_voix,
     noms_en_conflit,
     normaliser,
+    recoller,
     reconnaitre,
     similarite,
 )
@@ -271,3 +276,107 @@ class TestBanqueAmbigue:
                      Personne(nom="Katell", empreintes=[voix(0.0, 1.0, 0.0)])]
         correspondance = reconnaitre(sophie, (p for p in personnes))
         assert correspondance is not None and correspondance.nom == "Sophie"
+
+
+class TestRecollage:
+    """Le recollage complet : paires, adoption, consolidation.
+
+    Le cas qui a motivé ces trois passes est une réunion réelle de 92 minutes,
+    trois personnes autour d'une table : la segmentation a rendu **298 voix**,
+    et le recollage par paires seul n'en retirait que 126.
+    """
+
+    def test_un_fragment_rejoint_le_groupe_etabli_qui_lui_ressemble(self):
+        """Le cas de la réunion réelle, en miniature.
+
+        Six secondes de parole ne ressemblent à aucun autre fragment, mais elles
+        ressemblent à quelqu'un qui a parlé dix minutes. Sans cette passe, le
+        fragment devient un participant de plus dans le compte rendu.
+        """
+        par_voix = {
+            "beaucoup": [voix(1.0, 0.05, 0.0, duree=600.0)],
+            "aussi": [voix(0.0, 1.0, 0.05, duree=400.0)],
+            "miette": [voix(0.93, 0.37, 0.0, duree=6.0)],
+        }
+        appartenance = recoller(par_voix)
+        assert appartenance["miette"] == "beaucoup"
+        assert appartenance["aussi"] == "aussi"
+
+    def test_un_fragment_qui_ne_ressemble_a_rien_reste_seul(self):
+        """L'adoption rattache, elle n'invente pas : sous le seuil, on se tait."""
+        par_voix = {
+            "etablie": [voix(1.0, 0.0, 0.0, duree=600.0)],
+            "autre": [voix(0.0, 1.0, 0.0, duree=400.0)],
+            "etrangere": [voix(0.0, 0.0, 1.0, duree=6.0)],
+        }
+        assert recoller(par_voix)["etrangere"] == "etrangere"
+
+    def test_deux_groupes_etablis_distincts_ne_se_consolident_pas(self):
+        """Deux personnes différentes montent à 0,652 sur le corpus AMI.
+
+        La consolidation compare des agrégats devenus fiables : c'est justement
+        là qu'une erreur coûterait le plus cher, puisqu'elle réunirait deux
+        participants pour de bon.
+        """
+        par_voix = {
+            "une": [voix(1.0, 0.0, 0.0, duree=600.0)],
+            "deux": [voix(0.62, 0.78, 0.0, duree=600.0)],
+        }
+        appartenance = recoller(par_voix)
+        assert appartenance["une"] != appartenance["deux"]
+
+    def test_une_personne_qui_change_de_place_est_consolidee(self):
+        """Deux groupes fournis, trop peu semblables pour la passe des paires.
+
+        0,72 ne franchit pas SEUIL_FUSION (0,75) : sans la consolidation, la
+        même personne reste deux participants jusque dans le compte rendu.
+        """
+        par_voix = {
+            "avant": [voix(1.0, 0.0, 0.0, duree=600.0)],
+            "apres": [voix(0.72, 0.694, 0.0, duree=600.0)],
+        }
+        appartenance = recoller(par_voix)
+        assert appartenance["avant"] == appartenance["apres"]
+
+    def test_un_fragment_adopte_sert_a_adopter_le_suivant(self):
+        """L'ordre cesse d'être arbitraire : on part du fragment le plus fourni.
+
+        Une miette proche d'une autre miette, elle-même proche d'un groupe
+        établi, finit dans ce groupe — à condition que la première ait été
+        traitée d'abord, ce que le tri par matière garantit.
+        """
+        par_voix = {
+            "etablie": [voix(1.0, 0.0, 0.0, duree=600.0)],
+            "moyenne": [voix(0.9, 0.436, 0.0, duree=20.0)],
+            "mince": [voix(0.86, 0.51, 0.0, duree=3.0)],
+        }
+        appartenance = recoller(par_voix)
+        assert appartenance["moyenne"] == "etablie"
+        assert appartenance["mince"] == "etablie"
+
+    def test_sans_aucun_groupe_etabli_rien_n_est_adopte(self):
+        """Une réunion de deux minutes n'a pas de « groupe établi ».
+
+        Rattacher des fragments les uns aux autres sans point d'attache solide
+        est exactement ce que la passe des paires fait déjà, avec la prudence
+        qui convient. L'adoption se retire alors au lieu de deviner.
+        """
+        par_voix = {
+            "a": [voix(1.0, 0.0, 0.0, duree=5.0)],
+            "b": [voix(0.93, 0.37, 0.0, duree=4.0)],
+        }
+        appartenance = recoller(par_voix)
+        assert appartenance["a"] != appartenance["b"]
+
+    def test_les_seuils_du_recollage_viennent_d_une_mesure(self):
+        """Rejoués sur la réunion réelle par `outils/rejouer_recollage.py`.
+
+        298 voix rendues par la segmentation, 172 après la passe des paires,
+        24 après l'adoption, 23 après la consolidation — dont 3 portent plus de
+        dix secondes, soit le nombre exact de personnes présentes. Aucun groupe
+        ne réunit deux personnes, contrôlé contre les noms posés à la main.
+        """
+        assert SEUIL_ADOPTION == 0.45
+        assert MARGE_ADOPTION == 0.0
+        assert SEUIL_CONSOLIDATION == 0.70
+        assert MATIERE_ETABLIE == 30.0
