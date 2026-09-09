@@ -7,7 +7,7 @@ comprendre ce qui n'en est pas.
 
 import pytest
 
-from greffier.domaine.intentions import Apprentissage, Quoi, comprendre
+from greffier.domaine.intentions import Apprentissage, Quoi, accord, comprendre
 
 
 class TestCeQuiEstCompris:
@@ -93,3 +93,25 @@ class TestLaConfirmation:
     def test_un_apprentissage_sans_sujet_est_refuse(self):
         with pytest.raises(ValueError, match="sans sujet"):
             Apprentissage(Quoi.TERME, "   ")
+
+
+class TestAccord:
+    """Confirmer ou refuser, et distinguer les deux d'une nouvelle demande."""
+
+    def test_oui_confirme(self):
+        assert accord("oui") is True
+        assert accord("Oui.") is True
+        assert accord("c'est ça") is True
+
+    def test_non_refuse(self):
+        assert accord("non") is False
+        assert accord("laisse tomber") is False
+
+    def test_autre_chose_n_est_ni_l_un_ni_l_autre(self):
+        """La prendre pour un refus perdrait la demande."""
+        assert accord("et qu'a-t-on décidé sur Oasis ?") is None
+        assert accord("retiens que FAST est un formulaire") is None
+
+    def test_la_ponctuation_ne_change_rien(self):
+        assert accord("oui !") is True
+

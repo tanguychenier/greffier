@@ -103,6 +103,36 @@ _MOTIFS = (
 )
 
 
+#: Ce qui vaut « oui » et ce qui vaut « non » quand l'outil demande confirmation.
+#: Ici et non dans la fenêtre : la même réponse sert à confirmer un
+#: apprentissage et à répondre à une question sur un terme, et deux listes qui
+#: divergent feraient accepter dans un cas ce qui est refusé dans l'autre.
+ACCORDS = frozenset({
+    "oui", "o", "ok", "d'accord", "daccord", "yes", "y", "exact", "exactement",
+    "c'est ça", "cest ça", "c'est ca", "voilà", "voila", "tout à fait",
+    "confirme", "vas-y", "va y", "parfait",
+})
+REFUS = frozenset({
+    "non", "n", "no", "pas du tout", "annule", "laisse", "laisse tomber",
+    "surtout pas", "oublie",
+})
+
+
+def accord(reponse: str) -> bool | None:
+    """Vrai si la phrase confirme, Faux si elle refuse, None si elle fait autre chose.
+
+    None est le cas important : une phrase qui n'est ni l'un ni l'autre est une
+    nouvelle demande, pas une confirmation. La prendre pour un « non » perdrait
+    la demande ; la prendre pour un « oui » écrirait sans accord.
+    """
+    nu = reponse.strip().casefold().rstrip(".!… ")
+    if nu in ACCORDS:
+        return True
+    if nu in REFUS:
+        return False
+    return None
+
+
 def comprendre(phrase: str) -> Apprentissage | None:
     """Ce que cette phrase demande de retenir, ou None si ce n'en est pas une.
 
