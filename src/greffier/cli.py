@@ -10,6 +10,7 @@
     greffier recuperer           reconstruit une réunion depuis le fil du direct
     greffier deposer <fichiers>  classe des audios, vidéos et documents
     greffier niveau              dit si le micro suffit à transcrire
+    greffier sources             les sources extérieures inscrites, et leur état
     greffier carte               construit la carte d'un sujet depuis une réunion
     greffier verifier            dit ce qui est prêt et ce qui manque
 
@@ -1407,6 +1408,73 @@ def _publier_la_carte(
             f"  ⚠ {ecrit.liens_manques} lien(s) n'ont pas pu être tracés",
             fg=typer.colors.YELLOW,
         )
+
+
+@application.command(name="sources")
+def sources_(
+    config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
+) -> None:
+    """Les sources extérieures inscrites, et si leur jeton répond.
+
+    Ce qui n'est pas inscrit est inatteignable : l'outil ne découvre aucun
+    projet de lui-même, et c'est ce qui borne le risque à ce qui a été listé.
+    """
+    from greffier.adaptateurs import sources_fichier
+
+    config = Config.charger(config_fichier)
+    if sources_fichier.poser_le_gabarit(config.chemins.sources):
+        typer.secho(f"Fichier créé : {config.chemins.sources}", fg=typer.colors.GREEN)
+
+    registre = sources_fichier.lire(config.chemins.sources)
+    if not registre.sources:
+        typer.echo("\nAucune source inscrite. Le fichier dit comment faire :")
+        typer.echo(f"  {config.chemins.sources}")
+        raise typer.Exit(1)
+
+    typer.echo("")
+    for source in registre.sources:
+        jeton = sources_fichier.jeton_de(source)
+        marque = "✓" if jeton else "✗"
+        couleur = typer.colors.GREEN if jeton else typer.colors.YELLOW
+        typer.secho(f"  {marque} {source.dire()}", fg=couleur)
+        if not jeton:
+            typer.echo(f"      jeton introuvable en « {source.jeton} »")
+            continue
+        try:
+            _essayer_la_source(source, jeton)
+        except RuntimeError as souci:
+            typer.secho(f"      ✗ {souci}", fg=typer.colors.RED)
+
+    ecrivables = [s.nom for s in registre.sources if s.peut_ecrire]
+    if ecrivables:
+        typer.secho(
+            f"\n⚠ {len(ecrivables)} source(s) en écriture : {', '.join(ecrivables)}.\n"
+            "  Chaque écriture demande confirmation, mais le jeton est atteignable.",
+            fg=typer.colors.YELLOW,
+        )
+    typer.echo(f"\n  registre  {config.chemins.sources}")
+
+
+def _essayer_la_source(source: object, jeton: str) -> None:
+    """Un appel de lecture, pour dire si l'accès fonctionne vraiment.
+
+    Un registre qui se contente de dire « configuré » ne sert à rien : le
+    jeton peut être expiré, sa portée insuffisante, le projet invisible. Mieux
+    vaut l'apprendre ici qu'en pleine réunion.
+    """
+    from greffier.domaine.sources import Genre, Source
+
+    assert isinstance(source, Source)
+    if source.genre is Genre.GITLAB:
+        from greffier.adaptateurs.gitlab_api import tickets
+
+        trouves = tickets(source, jeton)
+        typer.echo(f"      {len(trouves)} ticket(s) ouvert(s) lisible(s)")
+        return
+    from greffier.adaptateurs.jira_api import demandes
+
+    trouvees = demandes(source, jeton)
+    typer.echo(f"      {len(trouvees)} demande(s) lisible(s)")
 
 
 @application.command(name="niveau")
