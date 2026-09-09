@@ -41,6 +41,7 @@ class DepotFichiers:
             "identifiant": reunion.identifiant,
             "audio": str(reunion.audio),
             "traitee_le": reunion.traitee_le.isoformat(),
+            "sujet": reunion.sujet,
             "commencee_le": reunion.commencee_le.isoformat() if reunion.commencee_le else "",
             "terminee_le": reunion.terminee_le.isoformat() if reunion.terminee_le else "",
             "duree": reunion.duree,
@@ -86,6 +87,7 @@ class DepotFichiers:
             identifiant=contenu["identifiant"],
             audio=Path(contenu["audio"]),
             traitee_le=datetime.fromisoformat(contenu["traitee_le"]),
+            sujet=contenu.get("sujet", ""),
             commencee_le=(
                 datetime.fromisoformat(contenu["commencee_le"])
                 if contenu.get("commencee_le") else None
@@ -136,6 +138,20 @@ class DepotFichiers:
 
         return [f.stem for f in sorted(self.dossier.glob("*.json"),
                                        key=recence, reverse=True)]
+
+    def supprimer(self, identifiant: str) -> bool:
+        """Oublie le fichier maître. Rend False s'il n'y en avait pas.
+
+        Ne touche à rien d'autre : l'audio, la transcription et le compte rendu
+        appartiennent à qui sait ce qu'ils valent — voir `application.ranger`,
+        qui les rassemble pour qu'on puisse dire ce qu'on efface avant de le
+        faire.
+        """
+        chemin = self._chemin(identifiant)
+        if not chemin.exists():
+            return False
+        chemin.unlink()
+        return True
 
     def derniere(self) -> ReunionEnregistree | None:
         identifiants = self.lister()

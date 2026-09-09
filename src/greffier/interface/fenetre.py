@@ -415,6 +415,8 @@ class Fenetre:
             ("Traiter", self._traiter_selection, 100),
             ("Ouvrir", self._ouvrir_compte_rendu, 96),
             ("Envoyer par courriel", self._envoyer_selection, 180),
+            ("Renommer", self._renommer_selection, 110),
+            ("Supprimer", self._oublier_selection, 110),
             ("Rafraîchir", self._charger_reunions, 116),
         ):
             Bouton(actions, intitule, action, self.couleurs,
@@ -1586,7 +1588,7 @@ class Fenetre:
             # Les voix significatives, pas les groupes bruts de la segmentation :
             # « 118 » ne dit rien à personne, « 4 » est un nombre de participants.
             self.liste.insert("", "end", iid=identifiant, values=(
-                sujet_lisible(identifiant, compte_rendu),
+                sujet_lisible(identifiant, compte_rendu, detail.sujet),
                 len(voix_a_nommer(detail)),
                 sum(len(r.texte.split()) for r in detail.repliques),
                 "oui" if compte_rendu.exists() else "non",
@@ -1632,6 +1634,99 @@ class Fenetre:
             faire=self._chaine(audio),
             fini=lambda resultat, souci: self._traitement_fini(audio, resultat, souci),
         ))
+
+    def _renommer_selection(self) -> None:
+        """Donne un sujet lisible à la réunion choisie.
+
+        Un libellé, pas un renommage de fichiers : l'identifiant porte la date,
+        qui ordonne la liste et date le compte rendu.
+        """
+        identifiant = self._selection()
+        if identifiant is None:
+            self.etat_bas.configure(text="Choisis une réunion dans la liste.")
+            return
+        try:
+            gardee = self.depot.lire(identifiant)
+        except (OSError, ValueError) as souci:
+            messagebox.showerror("Greffier", str(souci))
+            return
+        from tkinter import simpledialog
+
+        propose = simpledialog.askstring(
+            "Renommer la réunion",
+            "Sujet de la réunion :",
+            initialvalue=gardee.sujet or sujet_lisible(
+                identifiant, self.config.chemins.comptes_rendus / f"{identifiant}.md"
+            ),
+            parent=self.racine,
+        )
+        if propose is None:
+            return
+        gardee.sujet = propose.strip()
+        try:
+            self.depot.enregistrer(gardee)
+        except OSError as souci:
+            messagebox.showerror("Greffier", str(souci))
+            return
+        self._charger_reunions()
+        # Vidé, le sujet rend la main au titre du compte rendu : c'est le moyen
+        # d'annuler un renommage sans avoir à retrouver le titre d'origine.
+        self.etat_bas.configure(
+            text=f"Renommée : {gardee.intitule}" if gardee.sujet
+            else "Sujet effacé : le titre du compte rendu reprend la main."
+        )
+
+    def _oublier_selection(self) -> None:
+        """Efface une réunion, après avoir dit exactement ce qui part.
+
+        L'audio est le seul morceau qu'on ne puisse pas refaire : la
+        confirmation le nomme et le pèse, plutôt que de demander « supprimer ? »
+        sans dire de quoi.
+        """
+        from greffier.application import ranger
+
+        identifiant = self._selection()
+        if identifiant is None:
+            self.etat_bas.configure(text="Choisis une réunion dans la liste.")
+            return
+        ou = self._emplacements()
+        pieces = ranger.pieces_de(ou, identifiant)
+        if not pieces:
+            messagebox.showinfo("Greffier", "Il ne reste rien à effacer pour cette réunion.")
+            self._charger_reunions()
+            return
+        detail = "\n".join(
+            f"  {ranger.lisible(p.octets):>8}  {p.quoi}" for p in pieces
+        )
+        total = ranger.lisible(sum(p.octets for p in pieces))
+        if not messagebox.askyesno(
+            "Greffier",
+            f"Effacer définitivement « {identifiant} » ?\n\n{detail}\n\n"
+            f"{total} au total. L'enregistrement audio ne peut pas être refait.",
+            default="no",
+        ):
+            return
+        effacees = ranger.oublier(ou, identifiant)
+        self._charger_reunions()
+        self._charger_voix()
+        self.etat_bas.configure(
+            text=f"{len(effacees)} fichier(s) effacé(s), "
+                 f"{ranger.lisible(sum(p.octets for p in effacees))} libérés."
+        )
+
+    def _emplacements(self) -> Any:
+        """Où vivent les morceaux d'une réunion, d'après la configuration."""
+        from greffier.application.ranger import Emplacements
+
+        chemins = self.config.chemins
+        return Emplacements(
+            reunions=chemins.donnees / "reunions",
+            enregistrements=chemins.enregistrements,
+            transcriptions=chemins.transcriptions,
+            comptes_rendus=chemins.comptes_rendus,
+            direct=chemins.direct,
+            propositions=chemins.propositions,
+        )
 
     def _ouvrir_compte_rendu(self) -> None:
         import subprocess

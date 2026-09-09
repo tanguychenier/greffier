@@ -57,12 +57,23 @@ class ReunionEnregistree:
     #: Constats de la veille sur le matériel, pour que régénérer la rédaction
     #: plus tard n'y perde pas ce que la première rédaction savait.
     evenements_materiel: list[str] = field(default_factory=list)
+    #: Le sujet, choisi à la main. Il l'emporte sur le titre du compte rendu à
+    #: l'affichage. Un **libellé** et non un renommage de l'identifiant : celui-ci
+    #: porte la date, qui ordonne les réunions et date le compte rendu, et sert
+    #: de clé à l'audio, à la transcription et au fil du direct. Le remplacer par
+    #: « point du lundi » perdrait tout cela d'un coup.
+    sujet: str = ""
     #: Quand la réunion a commencé et quand elle a été arrêtée, à l'horloge.
     #: Absentes d'une réunion traitée depuis un fichier audio seul : on retombe
     #: alors sur l'horodatage de l'identifiant. `duree` ne suffit pas à déduire
     #: la fin — elle s'arrête au dernier mot prononcé, pas à l'arrêt.
     commencee_le: datetime | None = None
     terminee_le: datetime | None = None
+
+    @property
+    def intitule(self) -> str:
+        """Ce qui nomme la réunion : le sujet choisi, sinon l'identifiant."""
+        return self.sujet or self.identifiant
 
     @property
     def couverture(self) -> float:
