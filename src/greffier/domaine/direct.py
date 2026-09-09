@@ -33,10 +33,13 @@ from greffier.domaine.canaux import VOIX_LOCALE
 from greffier.domaine.empreintes import (
     SEUIL_FUSION,
     agreger,
-    fusionner_voix,
     reconnaitre,
     similarite,
 )
+
+# Sous un alias : la méthode qui l'appelle porte le même nom, et lire
+# « recoller(candidates) » dans « def recoller » invite à croire à une récursion.
+from greffier.domaine.empreintes import recoller as recoller_les_voix
 from greffier.domaine.generiques import est_un_generique, est_une_annotation
 from greffier.domaine.langue import ProfilLinguistique
 from greffier.domaine.modeles import Empreinte, Intervalle, Personne, Replique
@@ -667,10 +670,20 @@ class Fil:
         la même paire monte à 0,79, et deux personnes différentes restent à
         0,63. Le seuil n'était pas en cause : il n'était pas rejoué.
 
-        C'est `fusionner_voix`, celle du traitement final, qui décide : même
-        seuil, même garde de matière minimale, rien de neuf à calibrer. Deux
-        voix nommées par un humain sous des noms différents ne sont jamais
-        réunies — une correction humaine ne se laisse pas défaire par une
+        C'est `recoller`, celui du traitement final, qui décide : mêmes seuils,
+        mêmes gardes, rien de neuf à calibrer — et c'est le point. Le fil
+        affichait quatre-vingt-dix voix là où le compte rendu, retraité, en
+        montrait trois, si bien qu'on corrigeait pendant la réunion un
+        découpage que le traitement final allait défaire tout seul.
+
+        Ses trois passes se prêtent bien au direct sans qu'on y touche :
+        l'adoption exige un groupe **établi** pour servir de point d'attache, et
+        au début d'une réunion aucun ne l'est. Elle ne fait donc rien tant que
+        la matière manque, puis se met à travailler d'elle-même — prudente
+        quand il faut l'être, utile quand elle peut l'être.
+
+        Deux voix nommées par un humain sous des noms différents ne sont jamais
+        réunies : une correction humaine ne se laisse pas défaire par une
         mesure.
         """
         candidates = {
@@ -681,7 +694,7 @@ class Fil:
         if len(candidates) < 2:
             return []
         faits: list[tuple[str, str]] = []
-        for source, cible in fusionner_voix(candidates).items():
+        for source, cible in recoller_les_voix(candidates).items():
             if source == cible or source not in self.voix or cible not in self.voix:
                 continue
             if self._noms_humains_differents(source, cible):
