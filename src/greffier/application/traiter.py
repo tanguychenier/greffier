@@ -18,7 +18,7 @@ from greffier.domaine import empreintes as voix_domaine
 from greffier.domaine import noms as noms_domaine
 from greffier.domaine import profils
 from greffier.domaine.attribution import voix_de
-from greffier.domaine.compte_rendu import titre
+from greffier.domaine.compte_rendu import titre as titre_du_compte_rendu
 from greffier.domaine.generiques import est_un_generique
 from greffier.domaine.langue import ProfilLinguistique
 from greffier.domaine.modeles import Intervalle, Phase, Replique, TourDeParole
@@ -439,7 +439,7 @@ class Traitement:
         # après lecture de toute la transcription, et « 2026-09-09_10h05_reunion »
         # ne dit rien de ce qui s'y est passé. Le préfixe « Compte rendu : » est
         # retiré — dans une liste de réunions, il ne distingue rien.
-        titre_ecrit = titre(resultat.compte_rendu, "")
+        titre_ecrit = titre_du_compte_rendu(resultat.compte_rendu, "")
         if titre_ecrit:
             resultat.sujet = (
                 titre_ecrit.split(":", 1)[-1].strip() if ":" in titre_ecrit else titre_ecrit
@@ -514,7 +514,7 @@ class Traitement:
         assert self.expediteur is not None
         self.expediteur.envoyer(
             self.destinataire,
-            titre(
+            titre_du_compte_rendu(
                 resultat.compte_rendu, f"Compte rendu de réunion — {audio.stem}"
             ),
             resultat.compte_rendu,
