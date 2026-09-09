@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from greffier.interface.lisible import boutons_par_rang as _par_rang
 from greffier.interface.lisible import etat_du_direct as _etat_du_direct
 from greffier.interface.lisible import horloge as _horloge
 from greffier.interface.lisible import marque_de_pastille as _marque
@@ -111,3 +112,51 @@ class TestPastilleDOnglet:
         """Deux chiffres déborderaient du disque, et « beaucoup » suffit."""
         assert _marque(10) == "9+"
         assert _marque(42) == "9+"
+
+
+class TestBarreDeBoutons:
+    """Le septième bouton de l'onglet Réunions sortait de la fenêtre.
+
+    Invisible et inatteignable — le défaut même contre lequel le module
+    d'apparence met en garde, en haut de son fichier, à propos d'un bouton
+    poussé hors du cadre.
+    """
+
+    #: Les largeurs réelles de l'onglet Réunions, dans l'ordre.
+    REUNIONS = [100, 100, 96, 180, 110, 110, 116]
+
+    def test_tout_tient_sur_un_rang_quand_la_place_est_la(self) -> None:
+        """Ils totalisent 866 px : à 1175 offerts, ils tiennent tous."""
+        assert _par_rang(self.REUNIONS, 1175) == 7
+
+    def test_un_pas_uniforme_aurait_renvoye_un_bouton_a_la_ligne(self) -> None:
+        """Le plus large fait 180 : 7 × 189 = 1 323 > 1 175, donc 6 + 1."""
+        assert _par_rang(self.REUNIONS, 1175) != 6
+
+    def test_la_place_manquante_fait_passer_a_la_ligne(self) -> None:
+        assert _par_rang(self.REUNIONS, 775) < 7
+
+    def test_aucun_bouton_ne_reste_seul_des_que_c_est_evitable(self) -> None:
+        """Un élément seul se lit comme une erreur de mise en page.
+
+        À deux par rang, sept boutons laissent forcément un reste de un : on ne
+        l'évite qu'en tombant à un seul par rang, ce qui est pire. Le
+        rééquilibrage ne vaut donc qu'à partir de trois par rang, et le test
+        dit cette limite au lieu de la contourner.
+        """
+        for offerte in range(200, 1400, 25):
+            par_rang = _par_rang(self.REUNIONS, offerte)
+            if par_rang >= len(self.REUNIONS) or par_rang < 3:
+                continue
+            assert len(self.REUNIONS) % par_rang != 1, offerte
+
+    def test_a_deux_par_rang_le_reste_est_inevitable(self) -> None:
+        """Le documenter plutôt que de le corriger de travers."""
+        assert _par_rang(self.REUNIONS, 300) == 2
+
+    def test_au_moins_un_bouton_par_rang_meme_a_l_etroit(self) -> None:
+        """Zéro colonne ferait disparaître la barre entière."""
+        assert _par_rang(self.REUNIONS, 10) == 1
+
+    def test_sans_bouton_le_calcul_ne_leve_pas(self) -> None:
+        assert _par_rang([], 800) == 1

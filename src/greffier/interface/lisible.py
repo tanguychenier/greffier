@@ -49,6 +49,38 @@ def sujet_lisible(identifiant: str, compte_rendu: Path, sujet: str = "") -> str:
     return identifiant
 
 
+def boutons_par_rang(largeurs: list[int], offerte: int, ecart: int = 9) -> int:
+    """Combien de boutons tiennent sur un rang de `offerte` pixels.
+
+    Ici et non dans le composant dessiné : ce qui touche à Tk n'est pas éprouvé
+    par les tests, faute de serveur d'affichage en intégration continue, et
+    c'est ce calcul qui portait le défaut — le septième bouton de l'onglet
+    Réunions sortait de la fenêtre, invisible et inatteignable.
+
+    Les largeurs sont **cumulées** et non multipliées par la plus grande : les
+    sept boutons totalisent 866 px, mais un pas uniforme réglé sur le plus
+    large (180) en annonçait 1 323 et en renvoyait un à la ligne pour rien.
+
+    Un dernier rang qui n'aurait qu'un seul bouton est rééquilibré : un élément
+    seul sur un rang se lit comme une erreur de mise en page.
+    """
+    if not largeurs:
+        return 1
+    cumul = 0
+    tiennent = 0
+    for largeur in largeurs:
+        besoin = largeur + (ecart if tiennent else 0)
+        if tiennent and cumul + besoin > offerte:
+            break
+        cumul += besoin
+        tiennent += 1
+    tiennent = max(1, tiennent)
+    total = len(largeurs)
+    if tiennent < total and total % tiennent == 1 and tiennent >= 3:
+        return tiennent - 1
+    return tiennent
+
+
 def marque_de_pastille(compte: int) -> str:
     """Ce qu'une pastille d'onglet affiche pour ce compte. Vide pour rien.
 
