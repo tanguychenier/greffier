@@ -16,6 +16,7 @@ Ce module ne connaît aucun outil : il reçoit les dossiers et rend des chemins.
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,6 +38,12 @@ class Emplacements:
     comptes_rendus: Path
     direct: Path
     propositions: Path
+    #: Facultatifs pour ne pas casser les appels existants, mais renseignés
+    #: partout : sans eux, effacer une réunion laissait derrière elle les
+    #: questions posées, la conversation tenue et les documents fournis.
+    questions: Path | None = None
+    conversations: Path | None = None
+    pieces: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,14 +75,29 @@ def pieces_de(ou: Emplacements, identifiant: str) -> list[Piece]:
         (ou.comptes_rendus, ("md",), "compte rendu"),
         (ou.direct, ("jsonl",), "fil du direct"),
         (ou.propositions, ("jsonl",), "propositions de noms"),
+        (ou.questions, ("jsonl",), "questions posées"),
+        (ou.conversations, ("jsonl",), "conversation avec l'assistant"),
     ]
     trouvees = [
         Piece(chemin, quoi)
         for dossier, suffixes, quoi in candidats
+        if dossier is not None
         for suffixe in suffixes
         if (chemin := dossier / f"{identifiant}.{suffixe}").exists()
     ]
+    trouvees += [
+        Piece(document, f"document fourni ({document.stem})")
+        for document in _documents_fournis(ou, identifiant)
+    ]
     return sorted(trouvees, key=lambda p: -p.octets)
+
+
+def _documents_fournis(ou: Emplacements, identifiant: str) -> list[Path]:
+    """Les documents déposés pendant la réunion. Un dossier, pas un fichier."""
+    if ou.pieces is None:
+        return []
+    dossier = ou.pieces / identifiant
+    return sorted(dossier.glob("*.txt")) if dossier.is_dir() else []
 
 
 def oublier(ou: Emplacements, identifiant: str) -> list[Piece]:
@@ -91,6 +113,9 @@ def oublier(ou: Emplacements, identifiant: str) -> list[Piece]:
         except OSError:
             continue
         effacees.append(piece)
+    if ou.pieces is not None:
+        with contextlib.suppress(OSError):
+            (ou.pieces / identifiant).rmdir()
     return effacees
 
 

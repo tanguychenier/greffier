@@ -137,10 +137,21 @@ def apprendre_du_document(
     confirmation est la même que pour une phrase tapée dans la conversation, et
     c'est un humain qui décide ce qui entre dans le contexte.
     """
+    return apprendre_du_texte(lire_le_texte(document), redacteur, maximum)
+
+
+def apprendre_du_texte(
+    texte: str, redacteur: object, maximum: int = 20
+) -> tuple[tuple[str, str, str], ...]:
+    """Les entrées de contexte que ce texte suggère.
+
+    Séparée de la lecture du fichier : un document fourni pendant la réunion
+    est lu une fois, son texte servant à la fois à répondre aux questions et à
+    proposer du vocabulaire. Le relire ferait tourner `pdftotext` deux fois.
+    """
     import json
     import re
 
-    texte = lire_le_texte(document)
     if not texte.strip():
         return ()
     rendu = redacteur.rediger(  # type: ignore[attr-defined]
