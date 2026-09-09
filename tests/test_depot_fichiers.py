@@ -73,6 +73,40 @@ class TestHorodatageDeLIdentifiant:
         assert tenue_le("fausse-reunion") is None
 
 
+class TestSujetChoisi:
+    """Le sujet saisi à la main l'emporte sur le titre du compte rendu.
+
+    Demandé à l'usage : la liste ne montrait que « 2026-09-09_10h05_reunion »
+    tant qu'aucun compte rendu n'existait, et rien ne permettait de la nommer.
+    """
+
+    def test_le_sujet_survit_a_l_ecriture(self, tmp_path):
+        depot = DepotFichiers(tmp_path)
+        gardee = reunion("2026-09-09_10h05_reunion")
+        gardee.sujet = "Point Oasis"
+        depot.enregistrer(gardee)
+        assert depot.lire("2026-09-09_10h05_reunion").sujet == "Point Oasis"
+
+    def test_sans_sujet_l_identifiant_nomme_la_reunion(self):
+        assert reunion("2026-09-09_10h05_reunion").intitule == "2026-09-09_10h05_reunion"
+
+    def test_avec_un_sujet_c_est_lui_qui_nomme(self):
+        gardee = reunion("2026-09-09_10h05_reunion")
+        gardee.sujet = "Point Oasis"
+        assert gardee.intitule == "Point Oasis"
+
+
+class TestSuppression:
+    def test_le_fichier_maitre_part(self, tmp_path):
+        depot = DepotFichiers(tmp_path)
+        depot.enregistrer(reunion("2026-09-09_10h05_reunion"))
+        assert depot.supprimer("2026-09-09_10h05_reunion") is True
+        assert depot.lister() == []
+
+    def test_supprimer_ce_qui_n_existe_pas_le_dit(self, tmp_path):
+        assert DepotFichiers(tmp_path).supprimer("jamais-vue") is False
+
+
 class TestAllerRetour:
     def test_ce_qui_est_ecrit_se_relit(self, tmp_path):
         depot = DepotFichiers(tmp_path)
