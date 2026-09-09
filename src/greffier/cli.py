@@ -25,8 +25,10 @@ import platform
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import typer
 
@@ -58,7 +60,9 @@ application = typer.Typer(
 )
 
 
-def _nommeur(le_suivi, config: Config, identifiant: str):
+def _nommeur(
+    le_suivi: Any, config: Config, identifiant: str
+) -> Callable[[str, str], bool]:
     """Donne à l'assistant le pouvoir de poser un nom sur une voix du fil.
 
     Sans lui, demander « qui vient de parler » n'est qu'une politesse : la

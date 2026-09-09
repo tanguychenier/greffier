@@ -393,9 +393,12 @@ def participant(config: Config, identifiant: str) -> Participant | None:
     # prononcerait les dièses.
     cerveau = assistant(config)
     if cerveau is not None and hasattr(cerveau, "consignes_propres"):
+        # `hasattr` et non un type : le port `Redacteur` ne promet que
+        # `rediger`, et c'est bien ainsi — un rédacteur Ollama n'a ni consignes
+        # séparées ni outils. On règle ce qui est réglable, sur ce qui l'expose.
         cerveau.consignes_propres = lui.consignes()
         # Rien à chercher en ligne quand on répond à voix haute : la réponse
         # doit venir en deux secondes, et une adresse ne se prononce pas.
-        cerveau.outils = ()
+        cerveau.outils = ()  # type: ignore[attr-defined]
     lui.cerveau = cerveau
     return lui
