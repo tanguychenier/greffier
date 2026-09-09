@@ -175,6 +175,13 @@ class CompteRendu(BaseModel):
     #: Code, et l'inverse non plus.
     modele: str = ""
     destinataire: str = ""
+    #: Secondes accordées au rédacteur avant de renoncer. Réglable parce que la
+    #: bonne valeur dépend de la longueur des réunions et de la charge du
+    #: service : 900 s codées en dur ont fait échouer la rédaction d'une réunion
+    #: de 32 minutes le 2026-09-09, sans recours pour qui la relançait. Dépasser
+    #: ce délai ne perd plus rien — la transcription est gardée avant, et
+    #: « greffier rediger » reprend.
+    delai: int = 1800
 
     #: Ce que Claude Code utilise quand rien n'est demandé. **Pas le modèle le
     #: plus puissant, le second** : rédiger un compte rendu à partir d'une
@@ -331,7 +338,7 @@ SECTIONS: dict[str, tuple[str, ...]] = {
     "transcription": ("moteur", "modele", "langue", "vocabulaire"),
     "direct": ("actif", "periode", "modele"),
     "locuteurs": ("pas_des_prenoms", "personnes"),
-    "compte_rendu": ("moteur", "modele", "langue", "destinataire"),
+    "compte_rendu": ("moteur", "modele", "langue", "destinataire", "delai"),
     "courriel": ("serveur", "port", "utilisateur", "expediteur"),
     "apparence": ("theme",),
 }
@@ -343,7 +350,9 @@ _COMMENTAIRES = {
     "direct": "Ce qui s'affiche pendant la réunion. Un second modèle tourne : c'est son coût.",
     "locuteurs": "Mots à ne jamais prendre pour des prénoms : projets, outils, produits.",
     "compte_rendu": ("Qui rédige, avec quel modèle, et à qui le compte rendu part.\n"
-                     "# « modele » vide : le second de la gamme, qui suffit pour une synthèse."),
+                     "# « modele » vide : le second de la gamme, qui suffit pour une synthèse.\n"
+                     "# « delai » : secondes accordées au rédacteur. Le dépasser ne perd rien,\n"
+                     "# la transcription est gardée avant ; « greffier rediger » reprend."),
     "courriel": "Envoi SMTP, pour les postes sans Outlook. Le mot de passe n'est jamais ici.",
     "apparence": "systeme suit le réglage clair/sombre du poste.",
 }

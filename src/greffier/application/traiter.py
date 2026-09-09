@@ -374,14 +374,16 @@ class Traitement:
         self._attribuer_noms(resultat.repliques, tours, self._reconnaitre(audio, tours), resultat)
         self._avertir_couverture(resultat)
 
+        # Gardée **avant** de rédiger, et non seulement quand aucun rédacteur
+        # n'est branché. Rédiger est la seule étape qui dépende d'un outil hors
+        # du poste, donc celle qui échoue : une expiration du rédacteur faisait
+        # perdre la transcription et l'attribution des voix d'une réunion
+        # entière — 32 minutes, le 2026-09-09 — alors que tout le calcul coûteux
+        # était déjà fait et juste. Gardée ici, la réunion se reprend d'un
+        # « greffier rediger », sans réécouter l'audio.
+        self._garder(audio, resultat)
+
         if self.redacteur is None:
-            # Gardée quand même. Sans cette écriture, la transcription et son
-            # attribution des voix étaient perdues à la seconde où elles
-            # étaient prêtes : « greffier reunions » n'en voyait aucune, et
-            # « greffier voix », que la ligne suivante propose pourtant, ne
-            # trouvait rien à nommer. C'est le cas de qui prend « Aucun »
-            # comme rédacteur pour que rien ne sorte du poste.
-            self._garder(audio, resultat)
             self._phase(Phase.TERMINE, "Transcription prête, aucun rédacteur configuré.")
             return resultat
 
@@ -411,8 +413,9 @@ class Traitement:
             rendre_transcription(resultat, entete)
         )
 
-        # Gardé **avant** l'envoi : un serveur de courriel indisponible ne doit
-        # pas faire perdre une heure de transcription et sa rédaction.
+        # Le compte rendu rejoint ce qui était déjà gardé, **avant** l'envoi :
+        # un serveur de courriel indisponible ne doit pas faire perdre une
+        # heure de transcription et sa rédaction.
         self._garder(audio, resultat)
 
         if envoyer and self.expediteur and self.destinataire:
