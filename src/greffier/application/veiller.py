@@ -107,6 +107,13 @@ class Veilleur:
     #: transcrite du tout, celle de la personne au micro.
     preparateur: sortants.Enregistreur | None = None
     langue: str = "fr"
+    #: Le vocabulaire donné au modèle du direct. Vide, il devinait les sigles et
+    #: les prénoms que l'outil connaissait pourtant : l'amorce n'était câblée
+    #: que sur la transcription définitive, si bien que le fil affichait
+    #: « l'exploitement » là où le compte rendu, lui, écrivait « déploiement ».
+    #: Or c'est le direct qu'on lit pendant la réunion, et c'est là qu'on
+    #: corrige.
+    amorce: str = ""
     periode_tranche: float = PERIODE_TRANCHE
     #: Jusqu'où la transcription au fil de l'eau est allée, en secondes de
     #: réunion. Ce qui précède a déjà été lu — et affiché.
@@ -167,7 +174,7 @@ class Veilleur:
                 tranche, travail / "tranche-niveau.wav"
             )
         try:
-            repliques = self.transcripteur.transcrire(a_transcrire, self.langue, "")
+            repliques = self.transcripteur.transcrire(a_transcrire, self.langue, self.amorce)
         except (RuntimeError, OSError):
             # Une tranche ratée ne doit pas interrompre la veille : la réunion
             # continue, et la transcription définitive se fera à la fin.

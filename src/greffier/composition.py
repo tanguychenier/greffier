@@ -30,6 +30,7 @@ from greffier.application.enregistrer import Enregistrement
 from greffier.application.nommer import Nommage
 from greffier.application.suivre import Suivi, fichiers, personnes_connues
 from greffier.application.traiter import Traitement
+from greffier.domaine.contexte import Contexte as ContexteDeTravail
 from greffier.domaine.direct import Fil
 from greffier.ports import sortants
 
@@ -155,6 +156,27 @@ def nommage(config: Config) -> Nommage:
     )
 
 
+def contexte(config: Config) -> ContexteDeTravail:
+    """Ce que l'outil sait du milieu, fondu depuis ses trois sources.
+
+    De la moins précise à la plus précise : le vocabulaire de `config.toml`, le
+    nom des habitués que la banque de voix connaît déjà, puis `contexte.toml`,
+    seul endroit où un sigle porte son sens. La plus précise l'emporte à égalité
+    de nom.
+
+    Assemblé ici et non lu à trois endroits : la transcription en direct, la
+    transcription définitive et la rédaction ont besoin du même contexte, et
+    trois lectures indépendantes finiraient par diverger — c'est exactement ce
+    qui faisait que le direct devinait des termes que l'outil connaissait.
+    """
+    from greffier.adaptateurs import contexte_fichier
+
+    fondu = contexte_fichier.depuis_vocabulaire(config.transcription.vocabulaire)
+    noms = [p.nom for p in personnes_connues(BanqueFichiers(config.chemins.banque_de_voix))]
+    fondu = fondu.fusionner(contexte_fichier.depuis_la_banque(noms))
+    return fondu.fusionner(contexte_fichier.lire(config.chemins.contexte))
+
+
 def _expediteur(config: Config, exiger_destinataire: bool = True) -> sortants.Expediteur | None:
     """Comment part le compte rendu.
 
@@ -210,6 +232,7 @@ def enregistrement(config: Config) -> Enregistrement:
 def assembler(config: Config) -> Traitement:
     modeles = config.chemins.modeles
     diarisation = modeles / "diarisation"
+    _le_contexte = contexte(config)
     return Traitement(
         enregistreur=_enregistreur(config),
         transcripteur=_transcripteur(config),
@@ -229,7 +252,8 @@ def assembler(config: Config) -> Traitement:
         dossier_transcriptions=config.chemins.transcriptions,
         dossier_comptes_rendus=config.chemins.comptes_rendus,
         langue=config.transcription.langue,
-        amorce=config.transcription.amorce,
+        amorce=_le_contexte.amorce(),
+        entete_contexte=_le_contexte.entete(),
         personnes=config.locuteurs.personnes,
         pas_des_prenoms=frozenset(m.lower() for m in config.locuteurs.pas_des_prenoms),
         destinataire=config.compte_rendu.destinataire,
