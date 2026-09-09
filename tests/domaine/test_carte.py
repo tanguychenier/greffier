@@ -187,3 +187,67 @@ class TestComptage:
     def test_les_enfants_comptent(self):
         racine = Noeud("racine", enfants=[Noeud("a"), Noeud("b", enfants=[Noeud("c")])])
         assert racine.compte() == 4
+
+
+class TestReformulations:
+    """Le rédacteur reformule d'une extraction à l'autre, et chaque
+    reformulation ouvrait une branche de plus : un quart des points revenaient
+    en doublon, mesuré sur une carte réelle.
+    """
+
+    def test_une_reformulation_reelle_est_rattrapee(self):
+        from greffier.domaine.carte import meme_point
+
+        assert meme_point(
+            "Pré-production du client en retard de deux versions",
+            "Pré-prod cliente en retard de deux versions",
+        )
+
+    def test_une_autre_formulation_du_meme_point(self):
+        from greffier.domaine.carte import meme_point
+
+        assert meme_point(
+            "Monter un environnement de recette chez nous",
+            "Monter un environnement de recette de notre côté",
+        )
+
+    def test_deux_points_distincts_ne_fusionnent_pas(self):
+        """Fusionner à tort perd de l'information : c'est le pire défaut ici."""
+        from greffier.domaine.carte import meme_point
+
+        assert not meme_point(
+            "Recette impossible sur l'environnement du client",
+            "Pré-prod du client en retard de deux versions",
+        )
+
+    def test_un_fragment_n_absorbe_pas_le_tout(self):
+        from greffier.domaine.carte import meme_point
+
+        assert not meme_point(
+            "la recette",
+            "la recette d'Oasis bloquée faute d'environnement à jour",
+        )
+
+    def test_une_reformulation_trop_eloignee_reste_un_doublon(self):
+        """Limite assumée : la rattraper demanderait un seuil qui fusionnerait
+        des points distincts. Le rédacteur reçoit les libellés existants, le
+        rapprochement n'est qu'un filet."""
+        from greffier.domaine.carte import meme_point
+
+        assert not meme_point(
+            "Questionnaires alimentés par des fixtures écrites à la main",
+            "Questionnaires construits avec des fixtures fragiles",
+        )
+
+    def test_la_fusion_ne_cree_plus_de_doublon_de_reformulation(self):
+        carte = Carte("Oasis")
+        fusionner(carte, [Apport("Pré-production du client en retard de deux versions")])
+        bilan = fusionner(carte, [Apport("Pré-prod cliente en retard de deux versions")])
+        assert bilan.ajoutes == ()
+        assert carte.compte == 2
+
+    def test_un_mot_court_ne_rapproche_pas(self):
+        """« prod » et « prof » sont à un écart et n'ont aucun rapport."""
+        from greffier.domaine.carte import meme_point
+
+        assert not meme_point("prod", "prof")
