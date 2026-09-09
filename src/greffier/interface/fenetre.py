@@ -434,13 +434,13 @@ class Fenetre:
             # plusieurs minutes, et c'est le cas courant après un échec.
             ("Rédiger", self._rediger_selection, 100),
             ("Ouvrir", self._ouvrir_compte_rendu, 96),
-            # « Envoyer » et non « Envoyer par courriel » : le libellé le plus
-            # long impose sa largeur à toutes les colonnes de la barre, et
-            # 180 px contre 96 pour « Ouvrir » faisaient passer les sept
-            # boutons sur deux rangs là où ils tenaient sur un seul. À côté
-            # d'« Ouvrir » et de « Supprimer », le moyen d'envoi ne fait aucun
-            # doute.
-            ("Envoyer", self._envoyer_selection, 116),
+            # « Envoyer par courriel » en entier. Le raccourcir à « Envoyer »
+            # gagnait une place qu'on n'a plus besoin de gagner — quatre
+            # colonnes de 187 px tiennent dans la largeur minimale — et créait
+            # une vraie ambiguïté : dans un onglet « Réunions », « Envoyer »
+            # sans complément peut se lire « envoyer quoi, à qui, comment ».
+            # Un bouton doit dire ce qui se passe quand on le presse.
+            ("Envoyer par courriel", self._envoyer_selection, 180),
             ("Déposer…", self._deposer_des_fichiers, 116),
             ("Renommer", self._renommer_selection, 110),
             ("Supprimer", self._oublier_selection, 110),

@@ -125,25 +125,27 @@ class TestBarreDeBoutons:
     """
 
     #: Les largeurs demandées dans l'onglet Réunions, dans l'ordre.
-    REUNIONS = [100, 100, 96, 116, 110, 110, 116]
+    #: « Envoyer par courriel » vaut 180 : le libellé complet, parce que
+    #: « Envoyer » seul ne dit pas ce qui est envoyé.
+    REUNIONS = [100, 100, 96, 180, 116, 110, 110, 116]
 
     def test_tout_tient_sur_un_rang_quand_la_place_est_la(self) -> None:
-        par_rang, _ = _grille(self.REUNIONS, 1400)
-        assert par_rang == 7
+        par_rang, _ = _grille(self.REUNIONS, 2000)
+        assert par_rang == len(self.REUNIONS)
 
     def test_la_place_manquante_fait_passer_a_la_ligne(self) -> None:
         par_rang, _ = _grille(self.REUNIONS, 500)
         assert par_rang < 7
 
     def test_les_rangs_sont_equilibres(self) -> None:
-        """Sept boutons sur deux rangs donnent 4 et 3, jamais 5 et 2.
+        """Huit boutons sur deux rangs donnent 4 et 4, jamais 6 et 2.
 
         Un premier rang plein contre un second presque vide est le défaut le
         plus visible d'une barre qui passe à la ligne.
         """
-        par_rang, _ = _grille(self.REUNIONS, 500)
+        par_rang, _ = _grille(self.REUNIONS, 775)
         assert par_rang == 4
-        assert len(self.REUNIONS) - par_rang == 3
+        assert len(self.REUNIONS) - par_rang == 4
 
     def test_les_colonnes_ont_toutes_la_meme_largeur(self) -> None:
         """Des bords qui ne tombent pas ensemble se lisent comme bâclés."""
@@ -159,10 +161,12 @@ class TestBarreDeBoutons:
         _, colonne = _grille(self.REUNIONS, 2000)
         assert colonne <= max(self.REUNIONS) * ETIREMENT_MAXIMUM
 
-    def test_les_sept_tiennent_sur_un_rang_a_une_largeur_courante(self) -> None:
-        """C'est ce que le libellé « Envoyer par courriel » empêchait."""
-        par_rang, _ = _grille(self.REUNIONS, 1175)
-        assert par_rang == 7
+    def test_le_libelle_le_plus_long_tient_dans_la_largeur_minimale(self) -> None:
+        """C'est ce qui permet de garder « Envoyer par courriel » en entier :
+        quatre colonnes de 187 px tiennent dans les 775 px offerts."""
+        par_rang, colonne = _grille(self.REUNIONS, 775)
+        assert par_rang == 4
+        assert colonne >= max(self.REUNIONS)
 
     def test_rien_ne_depasse_jamais_de_la_largeur(self) -> None:
         for offerte in range(200, 1500, 17):

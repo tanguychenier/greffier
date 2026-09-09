@@ -850,6 +850,9 @@ def assister(
         # Le même contexte que la transcription définitive : c'est le fil qu'on
         # lit pendant la réunion, et c'est dessus qu'on corrige.
         amorce=le_contexte.amorce(),
+        # Relue à chaque tranche : un terme ajouté en pleine réunion doit
+        # servir à la phrase suivante, pas à la réunion d'après.
+        relire_l_amorce=lambda: contexte(config).amorce(),
         interroger=interroger,
         periode_tranche=config.direct.periode,
     )
