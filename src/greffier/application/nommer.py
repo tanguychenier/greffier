@@ -12,7 +12,7 @@ remplacement : ils proposent, l'utilisateur tranche.
 from __future__ import annotations
 
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from greffier.domaine import empreintes as empreintes_domaine
@@ -148,7 +148,9 @@ class Nommage:
         # On ne refuse pas — deux collègues peuvent avoir des voix proches, et
         # l'utilisateur a le droit d'avoir raison contre la machine — mais on
         # ne laisse plus une entrée fausse entrer en silence.
-        agregat = agreger(empreintes)
+        # L'origine voyage avec l'empreinte : c'est ce qui permettra de
+        # défaire d'un geste ce qu'une réunion mal attribuée a versé.
+        agregat = replace(agreger(empreintes), origine=identifiant)
         self.doute = empreintes_domaine.entree_douteuse(
             agregat, nom, self.banque.personnes())
         self.banque.enregistrer(nom, agregat)

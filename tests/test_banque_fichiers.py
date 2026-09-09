@@ -235,3 +235,82 @@ class TestNomsNonLatins:
         banque.enregistrer("Josiane", voix(1.0, 0.0))
 
         assert (banque.dossier / "josiane.json").is_file()
+
+
+class TestReparerUneBanque:
+    """Corriger au grain de l'empreinte, et non de la personne."""
+
+    def test_une_empreinte_se_retire_sans_perdre_les_autres(self, tmp_path):
+        """Effacer quelqu'un pour une empreinte fautive perd tout le reste.
+
+        Ce qui décide de la reconnaissance est l'empreinte : c'est donc à ce
+        grain qu'on doit pouvoir corriger.
+        """
+        banque = BanqueFichiers(tmp_path)
+        for vecteur in ([1.0, 0.0], [0.0, 1.0], [0.5, 0.5]):
+            banque.enregistrer("Paul", normaliser(vecteur, duree_source=10.0))
+        assert banque.retirer_empreintes("Paul", [1]) == 1
+        reste = banque.trouver("Paul")
+        assert reste is not None and len(reste.empreintes) == 2
+
+    def test_tout_retirer_efface_la_personne(self, tmp_path):
+        """Une entrée sans empreinte ne reconnaît rien et encombre la liste."""
+        banque = BanqueFichiers(tmp_path)
+        banque.enregistrer("Paul", normaliser([1.0, 0.0], duree_source=10.0))
+        assert banque.retirer_empreintes("Paul", [0]) == 1
+        assert banque.trouver("Paul") is None
+
+    def test_un_rang_hors_limite_ne_casse_rien(self, tmp_path):
+        banque = BanqueFichiers(tmp_path)
+        banque.enregistrer("Paul", normaliser([1.0, 0.0], duree_source=10.0))
+        assert banque.retirer_empreintes("Paul", [7]) == 0
+        assert banque.trouver("Paul") is not None
+
+    def test_une_personne_inconnue_ne_leve_pas(self, tmp_path):
+        assert BanqueFichiers(tmp_path).retirer_empreintes("Absent", [0]) == 0
+
+
+class TestOublierUneReunion:
+    """Le geste qui manquait : défaire ce qu'une réunion a versé."""
+
+    def test_les_empreintes_d_une_reunion_partent_de_partout(self, tmp_path):
+        """Une réunion mal attribuée verse sous plusieurs noms d'un coup.
+
+        Sur ce poste, il a fallu lire les durées — treize et trente et une
+        minutes — pour comprendre que deux empreintes de « Paul » venaient
+        d'une réunion où il n'était pas.
+        """
+        from dataclasses import replace
+
+        banque = BanqueFichiers(tmp_path)
+        bonne = normaliser([1.0, 0.0], duree_source=10.0)
+        fautive = replace(normaliser([0.0, 1.0], duree_source=900.0),
+                          origine="2026-09-09_reunion")
+        banque.enregistrer("Paul", bonne)
+        banque.enregistrer("Paul", fautive)
+        banque.enregistrer("Kevin", fautive)
+
+        retires = banque.oublier_une_reunion("2026-09-09_reunion")
+
+        assert retires == {"Paul": 1, "Kevin": 1}
+        paul = banque.trouver("Paul")
+        assert paul is not None and len(paul.empreintes) == 1
+        # Kevin n'avait que celle-là : il disparaît plutôt que de rester vide.
+        assert banque.trouver("Kevin") is None
+
+    def test_une_reunion_inconnue_ne_touche_a_rien(self, tmp_path):
+        banque = BanqueFichiers(tmp_path)
+        banque.enregistrer("Paul", normaliser([1.0, 0.0], duree_source=10.0))
+        assert banque.oublier_une_reunion("jamais-tenue") == {}
+        assert banque.trouver("Paul") is not None
+
+    def test_l_origine_survit_a_l_ecriture(self, tmp_path):
+        """Sans persistance, la trace ne servirait qu'au processus qui l'a posée."""
+        from dataclasses import replace
+
+        banque = BanqueFichiers(tmp_path)
+        banque.enregistrer("Paul", replace(
+            normaliser([1.0, 0.0], duree_source=10.0), origine="2026-09-09_reunion"))
+        relue = BanqueFichiers(tmp_path).trouver("Paul")
+        assert relue is not None
+        assert relue.empreintes[0].origine == "2026-09-09_reunion"
