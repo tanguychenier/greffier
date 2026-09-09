@@ -116,6 +116,12 @@ def retirer_repetition(precedent: str, nouveau: str) -> str:
     return nouveau
 
 
+#: En dessous, l'écart avec la personne suivante est trop mince pour qu'un nom
+#: se lise comme le bon : c'est la même valeur que la marge exigée par la
+#: reconnaissance, reprise ici pour que l'explication et la décision coïncident.
+MARGE_LISIBLE = 0.06
+
+
 class Certitude(StrEnum):
     """D'où vient le nom affiché. Détermine ce qu'on ose en faire.
 
@@ -174,6 +180,12 @@ class VoixDirecte:
     certitude: Certitude = Certitude.INCONNUE
     rang: int = 0
     empreintes: list[Empreinte] = field(default_factory=list)
+    #: Ce que la banque a répondu : ressemblance au nom retenu, et écart avec la
+    #: personne suivante. Gardés parce que « Sophie ? » ne dit pas s'il s'agit
+    #: d'une hypothèse fragile ou d'une quasi-certitude, et que c'est
+    #: exactement ce qu'il faut savoir pour décider de corriger ou non.
+    ressemblance: float = 0.0
+    ecart: float = 0.0
 
     @property
     def secondes(self) -> float:
@@ -193,6 +205,31 @@ class VoixDirecte:
                 f"Voix {self.rang}"
             )
         return self.nom if self.certitude.ferme else f"{self.nom} ?"
+
+    @property
+    def confiance(self) -> str:
+        """Ce que la reconnaissance vaut, en clair. Vide quand elle n'a pas joué.
+
+        Un chiffre nu ne se lit pas : 0,46 et 0,89 sont deux situations qui
+        appellent des gestes différents, et personne ne connaît par cœur le
+        seuil ni la marge. On dit donc ce qu'on en fait, et on donne le chiffre
+        entre parenthèses pour qui veut vérifier.
+        """
+        if self.nom is None or not self.ressemblance:
+            return ""
+        if self.certitude is Certitude.HUMAINE:
+            return "nommée à la main"
+        if self.certitude is Certitude.CANAL:
+            return "c'est ton micro"
+        chiffres = f"ressemblance {self.ressemblance:.2f}, écart {self.ecart:.2f}"
+        if self.certitude is Certitude.RECONNUE:
+            return f"reconnue nettement ({chiffres})"
+        # Sous le seuil, ou trop proche de quelqu'un d'autre : les deux cas se
+        # distinguent, et le second est le plus trompeur — le nom est peut-être
+        # celui du voisin.
+        if self.ecart < MARGE_LISIBLE:
+            return f"proche d'une autre voix, à confirmer ({chiffres})"
+        return f"probable, peu de matière ({chiffres})"
 
     @property
     def nommable(self) -> bool:
@@ -492,6 +529,8 @@ class Fil:
             return
         voix.nom = correspondance.nom
         voix.certitude = trouvee
+        voix.ressemblance = correspondance.similarite
+        voix.ecart = correspondance.marge
 
     def inscrire(self, bloc: Bloc, voix: str) -> list[TourDirect]:
         """Ajoute les phrases d'un bloc au fil, attribuées à une voix."""
