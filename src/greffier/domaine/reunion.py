@@ -70,6 +70,21 @@ class ReunionEnregistree:
     commencee_le: datetime | None = None
     terminee_le: datetime | None = None
 
+    def participants(self, minimum: float = 10.0) -> list[str]:
+        """Les voix qui ont porté la réunion, de la plus bavarde à la moins.
+
+        La segmentation laisse une traîne de fragments d'une seconde. Les
+        compter comme des participants faisait annoncer « Florent, Tanguy,
+        Marcel, et 295 voix non nommées » en tête d'un compte rendu de trois
+        personnes. Un fragment qui porte déjà un nom échappe au filtre : c'est
+        quelqu'un qu'on a identifié, sa brièveté ne l'efface pas.
+        """
+        temps = self.temps_de_parole()
+        return [
+            voix for voix, duree in temps.items()
+            if duree >= minimum or voix in self.noms
+        ]
+
     def voix_portant(self, nom: str) -> list[str]:
         """Les voix déjà nommées ainsi, dans cette réunion."""
         replie = nom.casefold()
