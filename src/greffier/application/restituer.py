@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import tempfile
 from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
@@ -68,6 +69,8 @@ def entete_contexte(
     duree: float = 0.0,
     noms: Sequence[str] = (),
     voix_entendues: int = 0,
+    commencee_le: datetime | None = None,
+    terminee_le: datetime | None = None,
 ) -> str:
     """Le contexte de la réunion, dicté au rédacteur mot pour mot.
 
@@ -87,7 +90,8 @@ def entete_contexte(
     """
     trouve = _HORODATAGE.match(identifiant)
     lignes = ["[Contexte de la réunion]"]
-    contexte = _ligne_de_contexte(trouve, duree, noms, voix_entendues)
+    contexte = _ligne_de_contexte(trouve, duree, noms, voix_entendues,
+                                  commencee_le, terminee_le)
     if not contexte:
         return ""
     lignes.append(
@@ -105,14 +109,31 @@ def _ligne_de_contexte(
     duree: float,
     noms: Sequence[str],
     voix_entendues: int,
+    commencee_le: datetime | None = None,
+    terminee_le: datetime | None = None,
 ) -> str:
     morceaux: list[str] = []
     if trouve:
         annee, mois, jour, heure, minute = trouve.groups()
         morceaux.append(f"{int(jour)} {_MOIS[int(mois) - 1]} {annee}")
-        if heure:
-            morceaux.append(_horaires(int(heure), int(minute), duree))
-    if duree > 0:
+    if commencee_le is not None and terminee_le is not None:
+        # Les heures d'horloge, quand l'enregistrement les a retenues : ce sont
+        # les seules justes. Déduire la fin de la durée transcrite la plaçait au
+        # dernier mot prononcé — 10 h 32 pour un arrêt à 10 h 37, mesuré le
+        # 2026-09-09, parce que la réunion s'était terminée sur un silence.
+        locale_debut, locale_fin = commencee_le.astimezone(), terminee_le.astimezone()
+        morceaux.append(
+            f"de {locale_debut.hour} h {locale_debut.minute:02d} "
+            f"à {locale_fin.hour} h {locale_fin.minute:02d}"
+        )
+        ecoule = (terminee_le - commencee_le).total_seconds()
+        if ecoule > 0:
+            morceaux.append(f"durée {_duree_lisible(ecoule)}")
+    elif trouve and trouve.group(4):
+        morceaux.append(_horaires(int(trouve.group(4)), int(trouve.group(5)), duree))
+        if duree > 0:
+            morceaux.append(f"durée {_duree_lisible(duree)}")
+    elif duree > 0:
         morceaux.append(f"durée {_duree_lisible(duree)}")
     if not morceaux:
         return ""
@@ -242,8 +263,20 @@ def regenerer_compte_rendu(reunion: ReunionEnregistree, redacteur: sortants.Reda
     rédacteur doit refaire, c'est relire le même texte, avec les bonnes étiquettes.
     """
     duree = reunion.tours[-1].intervalle.fin if reunion.tours else 0.0
+    # Les participants et les heures viennent du fichier maître, comme pour une
+    # première rédaction. Sans eux, une régénération rendait un compte rendu qui
+    # n'annonçait plus personne — la ligne de contexte perdait les noms déjà
+    # attribués, alors que nommer une voix est justement ce qui déclenche une
+    # régénération.
+    entendues = {t.voix for t in reunion.tours if t.voix}
     entete = (
-        entete_contexte(reunion.identifiant, duree)
+        entete_contexte(
+            reunion.identifiant, duree,
+            noms=[reunion.noms[v] for v in entendues if v in reunion.noms],
+            voix_entendues=len(entendues),
+            commencee_le=reunion.commencee_le,
+            terminee_le=reunion.terminee_le,
+        )
         + entete_materiel(reunion.evenements_materiel)
         + entete_fiabilite(reunion)
     )

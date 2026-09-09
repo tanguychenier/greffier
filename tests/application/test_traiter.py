@@ -370,6 +370,39 @@ class TestEnteteContexte:
         entete = entete_contexte("2026-09-02_16h46_reunion", 1020.0)
         assert "de 16 h 46 à 17 h 03" in entete
 
+    def test_les_heures_d_horloge_l_emportent_sur_la_duree_transcrite(self) -> None:
+        """Ce que l'enregistrement a retenu vaut mieux que ce qu'on déduit.
+
+        Le 2026-09-09, une réunion arrêtée à 10 h 37 était annoncée « de 10 h 05
+        à 10 h 32 » : la fin se déduisait de la durée transcrite, qui s'arrête au
+        dernier mot prononcé, et la réunion s'était terminée sur cinq minutes de
+        silence. Un compte rendu envoyé à des tiers ne peut pas se tromper de
+        cinq minutes sur l'heure de fin.
+        """
+        from datetime import datetime
+
+        from greffier.application.restituer import entete_contexte
+
+        # Datées dans le fuseau du poste : c'est l'heure que la personne a lue
+        # sur sa montre qui doit figurer au compte rendu. L'état, lui, les garde
+        # en UTC, et l'entête les y ramène.
+        entete = entete_contexte(
+            "2026-09-09_10h05_reunion",
+            1620.0,  # la transcription s'arrête à 10 h 32
+            commencee_le=datetime(2026, 9, 9, 10, 5).astimezone(),
+            terminee_le=datetime(2026, 9, 9, 10, 37).astimezone(),
+        )
+        assert "de 10 h 05 à 10 h 37" in entete
+        assert "10 h 32" not in entete
+        assert "durée 32 min" in entete
+
+    def test_sans_heures_retenues_la_fin_reste_deduite(self) -> None:
+        """Les réunions déjà sur le disque n'ont pas ces heures : rien ne casse."""
+        from greffier.application.restituer import entete_contexte
+
+        entete = entete_contexte("2026-09-02_16h46_reunion", 1020.0)
+        assert "de 16 h 46 à 17 h 03" in entete
+
     def test_les_participants_nommes_sont_listes(self) -> None:
         from greffier.application.restituer import entete_contexte
 

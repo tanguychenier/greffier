@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 import pytest
 
 from greffier.adaptateurs.banque_fichiers import BanqueFichiers, _fichier_sur
-from greffier.adaptateurs.depot_fichiers import DepotFichiers, ReunionEnregistree
+from greffier.adaptateurs.depot_fichiers import FORMAT, DepotFichiers, ReunionEnregistree
 from greffier.domaine.empreintes import normaliser, reconnaitre
 from greffier.domaine.modeles import Intervalle, Replique, TourDeParole
 
@@ -138,13 +138,40 @@ class TestFichierMaitre:
             DepotFichiers(tmp_path).lire("jamais-vue")
 
     def test_un_format_plus_recent_est_refuse(self, tmp_path):
-        """Mieux vaut refuser que lire de travers un fichier d'une version future."""
+        """Mieux vaut refuser que lire de travers un fichier d'une version future.
+
+        Le numéro est lu depuis le module et non écrit en dur : la version
+        précédente cherchait « "format": 1 » dans le texte, si bien que passer
+        au format 2 ne cassait pas le test — il ne remplaçait plus rien et
+        vérifiait qu'un fichier valide lève une erreur, ce qu'il ne fait pas.
+        """
         magasin = DepotFichiers(tmp_path)
         magasin.enregistrer(reunion_type())
         chemin = tmp_path / "2026-08-24_reunion.json"
-        chemin.write_text(chemin.read_text().replace('"format": 1', '"format": 99'))
+        contenu = json.loads(chemin.read_text(encoding="utf-8"))
+        contenu["format"] = FORMAT + 1
+        chemin.write_text(json.dumps(contenu), encoding="utf-8")
         with pytest.raises(ValueError, match="plus récente"):
             magasin.lire("2026-08-24_reunion")
+
+    def test_un_fichier_sans_les_heures_se_relit(self, tmp_path):
+        """Le format 1 ne portait pas les heures d'horloge : il reste lisible.
+
+        Les réunions déjà sur le disque n'ont pas à être retraitées pour que
+        l'outil sache encore les ouvrir.
+        """
+        magasin = DepotFichiers(tmp_path)
+        magasin.enregistrer(reunion_type())
+        chemin = tmp_path / "2026-08-24_reunion.json"
+        contenu = json.loads(chemin.read_text(encoding="utf-8"))
+        contenu["format"] = 1
+        del contenu["commencee_le"]
+        del contenu["terminee_le"]
+        chemin.write_text(json.dumps(contenu), encoding="utf-8")
+        relue = magasin.lire("2026-08-24_reunion")
+        assert relue.commencee_le is None
+        assert relue.terminee_le is None
+        assert relue.repliques, "le reste du fichier se lit normalement"
 
     def test_les_plus_recentes_d_abord(self, tmp_path):
         magasin = DepotFichiers(tmp_path)

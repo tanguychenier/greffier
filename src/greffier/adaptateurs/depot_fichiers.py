@@ -19,7 +19,10 @@ from pathlib import Path
 from greffier.domaine.modeles import Intervalle, Replique, Source, TourDeParole
 from greffier.domaine.reunion import ReunionEnregistree, tenue_le
 
-FORMAT = 1
+# 2 ajoute « commencee_le » et « terminee_le ». Un fichier de format 1 se relit
+# sans elles : la lecture les laisse vides, et l'affichage retombe sur
+# l'horodatage de l'identifiant, comme avant.
+FORMAT = 2
 
 
 class DepotFichiers:
@@ -38,6 +41,8 @@ class DepotFichiers:
             "identifiant": reunion.identifiant,
             "audio": str(reunion.audio),
             "traitee_le": reunion.traitee_le.isoformat(),
+            "commencee_le": reunion.commencee_le.isoformat() if reunion.commencee_le else "",
+            "terminee_le": reunion.terminee_le.isoformat() if reunion.terminee_le else "",
             "duree": reunion.duree,
             "noms": reunion.noms,
             "propositions": reunion.propositions,
@@ -81,6 +86,14 @@ class DepotFichiers:
             identifiant=contenu["identifiant"],
             audio=Path(contenu["audio"]),
             traitee_le=datetime.fromisoformat(contenu["traitee_le"]),
+            commencee_le=(
+                datetime.fromisoformat(contenu["commencee_le"])
+                if contenu.get("commencee_le") else None
+            ),
+            terminee_le=(
+                datetime.fromisoformat(contenu["terminee_le"])
+                if contenu.get("terminee_le") else None
+            ),
             duree=contenu["duree"],
             noms=contenu.get("noms", {}),
             propositions=contenu.get("propositions", {}),
