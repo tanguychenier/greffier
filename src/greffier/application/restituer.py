@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Protocol
 
 from greffier.domaine.modeles import Intervalle, Replique, TourDeParole
-from greffier.domaine.reunion import ReunionEnregistree
+from greffier.domaine.reunion import HORODATAGE, ReunionEnregistree
 from greffier.ports import sortants
 
 
@@ -53,10 +53,11 @@ TROU_SIGNIFICATIF = 8.0
 COUVERTURE_SUSPECTE = 0.60
 
 
-# Les enregistrements sont nommés « 2026-08-25_14h33_sujet ». La date est donc
-# sur le disque : sans elle, le rédacteur prend celle du jour du traitement et
-# date la réunion de la veille — constaté sur une réunion réelle.
-_HORODATAGE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})(?:_(\d{2})h(\d{2}))?")
+# La date est dans l'identifiant : sans elle, le rédacteur prend celle du jour
+# du traitement et date la réunion de la veille — constaté sur une réunion
+# réelle. La règle vit dans le domaine, qui s'en sert aussi pour ordonner les
+# réunions ; deux expressions pour la même convention finissaient par diverger.
+_HORODATAGE = HORODATAGE
 
 _MOIS = ("janvier", "février", "mars", "avril", "mai", "juin", "juillet",
          "août", "septembre", "octobre", "novembre", "décembre")
