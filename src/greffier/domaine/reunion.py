@@ -13,11 +13,32 @@ maintenant à la première tentative.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
 from greffier.domaine.modeles import Intervalle, Replique, TourDeParole
+
+#: Les enregistrements sont nommés « 2026-08-25_14h33_sujet » : la date de la
+#: réunion est donc dans son identifiant, et c'est la seule source sûre — la
+#: date d'écriture du fichier est celle du traitement, qui peut être rejoué des
+#: semaines plus tard.
+HORODATAGE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})(?:_(\d{2})h(\d{2}))?")
+
+
+def tenue_le(identifiant: str) -> tuple[int, int, int, int, int] | None:
+    """Quand la réunion s'est tenue, d'après son identifiant. None s'il se taît.
+
+    Sert à ordonner les réunions. Un identifiant sans date — une réunion
+    importée, renommée à la main, fabriquée pour un essai — n'est pas une
+    erreur, mais il ne permet pas de dire qu'elle est la dernière.
+    """
+    trouve = HORODATAGE.match(identifiant)
+    if trouve is None:
+        return None
+    annee, mois, jour, heure, minute = trouve.groups()
+    return (int(annee), int(mois), int(jour), int(heure or 0), int(minute or 0))
 
 
 @dataclass

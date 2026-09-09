@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 
 from greffier.domaine.modeles import Intervalle, Replique, Source, TourDeParole
-from greffier.domaine.reunion import ReunionEnregistree
+from greffier.domaine.reunion import ReunionEnregistree, tenue_le
 
 FORMAT = 1
 
@@ -99,12 +99,30 @@ class DepotFichiers:
         )
 
     def lister(self) -> list[str]:
+        """Les réunions, la plus récemment **tenue** d'abord.
+
+        Trié sur l'horodatage que porte l'identifiant, et non par ordre
+        alphabétique : « fausse-reunion » passait avant « 2026-09-09_10h05… »
+        parce que « f » vient après « 2 », et devenait donc « la dernière
+        réunion » pour toutes les commandes appelées sans argument — jusqu'à
+        « greffier envoyer », qui expédiait le compte rendu d'une autre réunion
+        que celle qui venait de se tenir. Constaté le 2026-09-09.
+
+        Les identifiants sans date vont en fin de liste : ils ne peuvent pas
+        prétendre être les derniers. Entre eux, du plus récemment écrit, faute
+        de mieux.
+        """
         if not self.dossier.exists():
             return []
-        return sorted(
-            (f.stem for f in self.dossier.glob("*.json")),
-            reverse=True,  # les plus récentes d'abord : ce sont elles qu'on cherche
-        )
+
+        def recence(fichier: Path) -> tuple[int, tuple[int, ...], float]:
+            tenue = tenue_le(fichier.stem)
+            if tenue is None:
+                return (0, (0, 0, 0, 0, 0), fichier.stat().st_mtime)
+            return (1, tenue, 0.0)
+
+        return [f.stem for f in sorted(self.dossier.glob("*.json"),
+                                       key=recence, reverse=True)]
 
     def derniere(self) -> ReunionEnregistree | None:
         identifiants = self.lister()
