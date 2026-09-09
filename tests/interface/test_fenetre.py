@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from greffier.interface.lisible import boutons_par_rang as _par_rang
 from greffier.interface.lisible import etat_du_direct as _etat_du_direct
+from greffier.interface.lisible import grille_de_boutons as _grille
 from greffier.interface.lisible import horloge as _horloge
 from greffier.interface.lisible import marque_de_pastille as _marque
 from greffier.interface.lisible import sujet_lisible as _sujet_lisible
@@ -119,44 +119,64 @@ class TestBarreDeBoutons:
 
     Invisible et inatteignable — le défaut même contre lequel le module
     d'apparence met en garde, en haut de son fichier, à propos d'un bouton
-    poussé hors du cadre.
+    poussé hors du cadre. Puis, une fois qu'il passait à la ligne, la
+    répartition était mauvaise : cinq boutons contre deux, et des bords qui ne
+    tombaient pas ensemble.
     """
 
-    #: Les largeurs réelles de l'onglet Réunions, dans l'ordre.
-    REUNIONS = [100, 100, 96, 180, 110, 110, 116]
+    #: Les largeurs demandées dans l'onglet Réunions, dans l'ordre.
+    REUNIONS = [100, 100, 96, 116, 110, 110, 116]
 
     def test_tout_tient_sur_un_rang_quand_la_place_est_la(self) -> None:
-        """Ils totalisent 866 px : à 1175 offerts, ils tiennent tous."""
-        assert _par_rang(self.REUNIONS, 1175) == 7
-
-    def test_un_pas_uniforme_aurait_renvoye_un_bouton_a_la_ligne(self) -> None:
-        """Le plus large fait 180 : 7 × 189 = 1 323 > 1 175, donc 6 + 1."""
-        assert _par_rang(self.REUNIONS, 1175) != 6
+        par_rang, _ = _grille(self.REUNIONS, 1400)
+        assert par_rang == 7
 
     def test_la_place_manquante_fait_passer_a_la_ligne(self) -> None:
-        assert _par_rang(self.REUNIONS, 775) < 7
+        par_rang, _ = _grille(self.REUNIONS, 500)
+        assert par_rang < 7
 
-    def test_aucun_bouton_ne_reste_seul_des_que_c_est_evitable(self) -> None:
-        """Un élément seul se lit comme une erreur de mise en page.
+    def test_les_rangs_sont_equilibres(self) -> None:
+        """Sept boutons sur deux rangs donnent 4 et 3, jamais 5 et 2.
 
-        À deux par rang, sept boutons laissent forcément un reste de un : on ne
-        l'évite qu'en tombant à un seul par rang, ce qui est pire. Le
-        rééquilibrage ne vaut donc qu'à partir de trois par rang, et le test
-        dit cette limite au lieu de la contourner.
+        Un premier rang plein contre un second presque vide est le défaut le
+        plus visible d'une barre qui passe à la ligne.
         """
-        for offerte in range(200, 1400, 25):
-            par_rang = _par_rang(self.REUNIONS, offerte)
-            if par_rang >= len(self.REUNIONS) or par_rang < 3:
-                continue
-            assert len(self.REUNIONS) % par_rang != 1, offerte
+        par_rang, _ = _grille(self.REUNIONS, 500)
+        assert par_rang == 4
+        assert len(self.REUNIONS) - par_rang == 3
 
-    def test_a_deux_par_rang_le_reste_est_inevitable(self) -> None:
-        """Le documenter plutôt que de le corriger de travers."""
-        assert _par_rang(self.REUNIONS, 300) == 2
+    def test_les_colonnes_ont_toutes_la_meme_largeur(self) -> None:
+        """Des bords qui ne tombent pas ensemble se lisent comme bâclés."""
+        _, colonne = _grille(self.REUNIONS, 775)
+        assert colonne >= max(self.REUNIONS), "au moins la largeur du plus large"
 
-    def test_au_moins_un_bouton_par_rang_meme_a_l_etroit(self) -> None:
+    def test_l_etirement_est_plafonne(self) -> None:
+        """Remplir sans limite donnait des boutons de 290 px pour un « Ouvrir »
+        de 96, étirés sur du vide. Un bouton disproportionné est aussi mal
+        réparti qu'un bouton qui déborde."""
+        from greffier.interface.lisible import ETIREMENT_MAXIMUM
+
+        _, colonne = _grille(self.REUNIONS, 2000)
+        assert colonne <= max(self.REUNIONS) * ETIREMENT_MAXIMUM
+
+    def test_les_sept_tiennent_sur_un_rang_a_une_largeur_courante(self) -> None:
+        """C'est ce que le libellé « Envoyer par courriel » empêchait."""
+        par_rang, _ = _grille(self.REUNIONS, 1175)
+        assert par_rang == 7
+
+    def test_rien_ne_depasse_jamais_de_la_largeur(self) -> None:
+        for offerte in range(200, 1500, 17):
+            par_rang, colonne = _grille(self.REUNIONS, offerte)
+            largeur_totale = par_rang * colonne + (par_rang - 1) * 9
+            assert par_rang >= 1
+            if par_rang > 1:
+                assert largeur_totale <= offerte, offerte
+
+    def test_a_l_etroit_il_reste_une_colonne(self) -> None:
         """Zéro colonne ferait disparaître la barre entière."""
-        assert _par_rang(self.REUNIONS, 10) == 1
+        par_rang, colonne = _grille(self.REUNIONS, 10)
+        assert par_rang == 1
+        assert colonne == max(self.REUNIONS), "le bouton garde sa largeur minimale"
 
     def test_sans_bouton_le_calcul_ne_leve_pas(self) -> None:
-        assert _par_rang([], 800) == 1
+        assert _grille([], 800) == (1, 0)
