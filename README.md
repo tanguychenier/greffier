@@ -41,6 +41,14 @@ meeting audio → transcription → who speaks → names → minutes → mail
 - **Voice bank**: once a voice carries a name, the person is recognised at
   later meetings.
 - **Minutes** with timestamps, speaking time and decisions.
+- **It takes part, if you want it to.** Called by its first name it answers out
+  loud, on the meeting's own content, in about four seconds. Left alone it asks
+  who a voice belongs to when it cannot place one, and names that voice when
+  somebody answers — the answer becomes a name in the minutes rather than small
+  talk. It raises a decision left without an owner, or a question the room walked
+  past. The rest of the time it says nothing, which is the whole difficulty: four
+  refusals hold it back, and being called by name is the only thing that escapes
+  them. The voice is a neural model running locally, like everything else here.
 
 ## Installation
 
@@ -229,6 +237,32 @@ being stable, neither an update nor a reinstallation asks again.
   does not always appear, the processing running detached:
   `System Settings ▸ Privacy & Security ▸ Automation`.
 
+### Taking part
+
+Off by default: a voice coming out of the speakers in the middle of a meeting is
+something you ask for, not something you are given. The button is in the **En
+direct** tab, and it can be pressed as often as you like — the process listening
+to the meeting rereads the setting every slice, so it takes effect within
+seconds without restarting anything.
+
+```toml
+[assistant]
+actif = true          # the button writes this
+nom = "Lucie"         # the first name it answers to
+voix = "kokoro"       # kokoro | systeme | aucun
+repos = 180.0         # seconds between two unprompted remarks
+creux_minimal = 2.0   # silence required before speaking at all
+```
+
+Give it a first name rather than leaving "Greffier": a transcription model
+renders a first name reliably, whereas "greffier" sits two edits away from
+several common French words, and "le greffe du tribunal" is enough to wake it.
+
+The voice is Kokoro, run by the sherpa-onnx already loaded for segmentation, so
+there is no new dependency and nothing leaves the machine. The installer fetches
+it (325 MB). Without it the assistant falls back on the system voice, which every
+machine ships and which everyone can hear is a machine.
+
 ## Does it actually work?
 
 These are not claims: every line below has been run.
@@ -240,15 +274,18 @@ folder), the tests passed, voice print model loaded.
 **Installation on Linux, bare image** — reproducible by you:
 
 ```sh
-mkdir contexte && cp -r . contexte/greffier
-docker build -f outils/preuve-linux.Dockerfile -t greffier-preuve contexte
+docker build -f outils/preuve-linux.Dockerfile -t greffier-preuve .
 ```
 
 From a `python:3.13-slim` with nothing but git, the installer puts ffmpeg in
 place through apt, falls back to faster-whisper for want of whisper.cpp,
-downloads the models, falls back to `venv + pip` for want of `uv`, prepares the
-transcription model, writes the configuration — then the tests pass and a
-192-dimension voice print is really extracted under Linux.
+downloads the models and the assistant's voice, falls back to `venv + pip` for
+want of `uv`, prepares the transcription model, writes the configuration — then
+1351 tests pass and a 192-dimension voice print is really extracted under Linux.
+
+That fallback was dead until 2026-09-10: the installer announced it, skipped
+creating the environment, and called an interpreter that did not exist. Which is
+what "nothing works on Linux" looks like from the outside.
 
 **Then on a real Linux desktop**, which the container could not show: the
 installer goes all the way through, the window opens, and the chain runs on real
