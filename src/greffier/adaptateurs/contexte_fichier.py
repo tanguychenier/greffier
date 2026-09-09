@@ -122,6 +122,28 @@ def ajouter_un_terme(fichier: Path, ecriture: str, sens: str = "") -> bool:
     return True
 
 
+def ajouter_une_personne(fichier: Path, nom: str, role: str = "") -> bool:
+    """Ajoute une personne au fichier, en ajout seul. Faux si elle y était déjà.
+
+    Même principe que pour un terme : on ajoute au bout plutôt que de
+    régénérer, pour ne pas effacer les commentaires et l'ordre voulus.
+    """
+    nu = nom.strip()
+    if not nu:
+        return False
+    if any(i.nom.casefold() == nu.casefold() for i in lire(fichier).intervenants):
+        return False
+    fichier.parent.mkdir(parents=True, exist_ok=True)
+    if not fichier.exists():
+        poser_le_gabarit(fichier)
+    lignes = [f'\n[[personnes]]\nnom = "{nu}"\n']
+    if role.strip():
+        lignes.append(f'role = "{role.strip()}"\n')
+    with fichier.open("a", encoding="utf-8") as flux:
+        flux.write("".join(lignes))
+    return True
+
+
 def poser_le_gabarit(fichier: Path) -> bool:
     """Écrit le fichier d'exemple s'il n'existe pas. Vrai s'il a été créé.
 
