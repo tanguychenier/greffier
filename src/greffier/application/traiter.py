@@ -164,6 +164,11 @@ class Traitement:
 
     langue: str = "fr"
     amorce: str = ""
+    #: Le glossaire du milieu, dicté au rédacteur avant la transcription. Sans
+    #: lui, un sigle reste nu dans un document lu par des absents, et le
+    #: rédacteur n'a aucun moyen de rétablir un terme que la transcription a
+    #: déformé — il ne peut pas deviner ce qu'il n'a jamais vu écrit.
+    entete_contexte: str = ""
     personnes: int | None = None
     pas_des_prenoms: frozenset[str] = frozenset()
     destinataire: str = ""
@@ -421,6 +426,7 @@ class Traitement:
                             terminee_le=resultat.terminee_le)
             + entete_materiel(self.evenements_materiel)
             + entete_fiabilite(resultat)
+            + self.entete_contexte
         )
         resultat.compte_rendu = self.redacteur.rediger(
             rendre_transcription(resultat, entete)

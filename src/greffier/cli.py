@@ -4,6 +4,7 @@
     greffier rediger             reprend la rédaction d'une réunion transcrite
     greffier renommer <sujet>    donne un sujet lisible à une réunion
     greffier oublier             efface une réunion et tout ce qui va avec
+    greffier contexte            ce que l'outil sait des sigles et des personnes
     greffier verifier            dit ce qui est prêt et ce qui manque
 
 Volontairement mince : elle lit la configuration, demande à la composition
@@ -31,6 +32,7 @@ from greffier.application.restituer import regenerer_compte_rendu
 from greffier.application.traiter import ChaineInterrompue
 from greffier.composition import (
     assembler,
+    contexte,
     depot,
     enregistrement,
     listeur,
@@ -788,6 +790,9 @@ def assister(
         # sans cela, la voix la plus faible du mélange n'est pas transcrite.
         preparateur=_enregistreur(config),
         langue=config.transcription.langue,
+        # Le même contexte que la transcription définitive : c'est le fil qu'on
+        # lit pendant la réunion, et c'est dessus qu'on corrige.
+        amorce=contexte(config).amorce(),
         periode_tranche=config.direct.periode,
     )
     if le_suivi is not None:
@@ -1029,6 +1034,57 @@ def montage(
     total = sum(p.duree for p in passages)
     typer.secho(f"✓ {len(passages)} passages, {total / 60:.1f} min : {sortie}",
                 fg=typer.colors.GREEN)
+
+
+@application.command(name="contexte")
+def contexte_(
+    ouvrir: bool = typer.Option(False, "--ouvrir", help="Ouvrir le fichier pour l'éditer"),
+    config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
+) -> None:
+    """Montre ce que Greffier sait de votre milieu, et d'où il le sait.
+
+    Un sigle absent d'ici sera transcrit par le mot le plus proche que le modèle
+    connaît : « déploiement » devient « exploitement ». Cette commande sert à
+    vérifier ce qui est effectivement transmis, et ce que l'amorce a dû écarter.
+    """
+    from greffier.adaptateurs import contexte_fichier
+
+    config = Config.charger(config_fichier)
+    fichier = config.chemins.contexte
+    if contexte_fichier.poser_le_gabarit(fichier):
+        typer.secho(f"Fichier de contexte créé : {fichier}", fg=typer.colors.GREEN)
+
+    le_contexte = contexte(config)
+    typer.echo(f"\n{len(le_contexte.termes)} terme(s), "
+               f"{len(le_contexte.intervenants)} personne(s)")
+    typer.echo(f"  fichier      {fichier}")
+    typer.echo(f"  vocabulaire  config.toml, {len(config.transcription.vocabulaire)} mot(s)")
+    typer.echo(f"  banque       {config.chemins.banque_de_voix}")
+
+    typer.secho("\nTermes", fg=typer.colors.BRIGHT_WHITE, bold=True)
+    for terme in le_contexte.termes:
+        typer.echo(f"  {terme.glose}")
+    typer.secho("\nPersonnes", fg=typer.colors.BRIGHT_WHITE, bold=True)
+    for personne in le_contexte.intervenants:
+        typer.echo(f"  {personne.glose}")
+
+    amorce = le_contexte.amorce()
+    typer.secho(f"\nAmorce de transcription ({len(amorce)} caractères)",
+                fg=typer.colors.BRIGHT_WHITE, bold=True)
+    typer.echo(f"  {amorce or '(aucune)'}")
+    ecartes = le_contexte.ecartes()
+    if ecartes:
+        # whisper tronque sans prévenir : le dire est tout l'intérêt.
+        typer.secho(
+            f"\n⚠ {len(ecartes)} terme(s) écarté(s), l'amorce est pleine : "
+            + ", ".join(ecartes[:8]) + ("…" if len(ecartes) > 8 else ""),
+            fg=typer.colors.YELLOW,
+        )
+        typer.echo("  Retire les moins utiles : ce qui dépasse ne sert à personne.")
+
+    if ouvrir:
+        ouvreur = {"darwin": "open", "win32": "start"}.get(sys.platform, "xdg-open")
+        subprocess.run([ouvreur, str(fichier)], check=False)
 
 
 @application.command()

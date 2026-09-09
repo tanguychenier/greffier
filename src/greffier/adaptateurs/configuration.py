@@ -76,6 +76,16 @@ class Chemins(BaseModel):
         """
         return self.donnees / "propositions"
 
+    @property
+    def contexte(self) -> Path:
+        """Le glossaire du milieu de travail : sigles, produits, personnes.
+
+        Hors de `config.toml` : il grossit, se partage entre collègues et se
+        relit à la main, ce qu'un fichier régénéré à chaque changement dans la
+        fenêtre supporte mal.
+        """
+        return dossier_config() / "contexte.toml"
+
 
 class Audio(BaseModel):
     # Sur macOS, deux périphériques à créer une fois. Ailleurs, le système
