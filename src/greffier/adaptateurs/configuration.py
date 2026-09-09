@@ -96,6 +96,16 @@ class Chemins(BaseModel):
         return dossier_config() / "sujets.toml"
 
     @property
+    def sources(self) -> Path:
+        """Les sources extérieures que l'outil a le droit de consulter.
+
+        Ce qui n'y figure pas est inatteignable : le registre est la borne, et
+        c'est un humain qui l'écrit. Aucun jeton n'y vit — seulement le nom de
+        la variable ou de l'entrée de trousseau qui le porte.
+        """
+        return dossier_config() / "sources.toml"
+
+    @property
     def questions(self) -> Path:
         """Ce que l'outil a demandé pendant la réunion, et ce qu'on a répondu.
 
