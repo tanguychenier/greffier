@@ -1,6 +1,7 @@
 """La veille en réunion, sans micro ni presse-papier."""
 
 import json
+import pathlib
 
 from greffier.application import veiller
 from greffier.application.suivre import Position, Suivi
@@ -327,3 +328,45 @@ class TestReunionPubliee:
         ]
         fil = rejouer(lignes)
         assert {t.voix for t in fil.tours} == {"v1"}
+
+
+class TestAmorceRelueEnCoursDeReunion:
+    """Un terme appris en réunion doit servir à la phrase suivante.
+
+    Le processus du direct figeait son amorce au démarrage, si bien qu'ajouter
+    « OTP » pendant la réunion ne servait qu'à la réunion d'après — alors que
+    c'est justement en réunion qu'on découvre les mots qui manquent.
+    """
+
+    def veilleur_avec(self, amorce: str, relire=None):
+        return Veilleur(
+            veille=Veille(mot_cle="greffier"),
+            journal=pathlib.Path("/tmp/greffier-essai.jsonl"),
+            transcripteur=None,
+            situer=lambda: None,
+            amorce=amorce,
+            relire_l_amorce=relire,
+        )
+
+    def test_sans_relecture_l_amorce_ne_change_pas(self):
+        veilleur = self.veilleur_avec("Vocabulaire : CASA.")
+        assert veilleur._amorce_courante() == "Vocabulaire : CASA."
+
+    def test_une_amorce_fraiche_remplace_l_ancienne(self):
+        veilleur = self.veilleur_avec(
+            "Vocabulaire : CASA.", relire=lambda: "Vocabulaire : CASA, OTP."
+        )
+        assert "OTP" in veilleur._amorce_courante()
+        assert "OTP" in veilleur.amorce, "la nouvelle est retenue"
+
+    def test_une_relecture_vide_ne_perd_pas_l_amorce(self):
+        """Un contexte momentanément illisible ne doit pas dégrader la tranche."""
+        veilleur = self.veilleur_avec("Vocabulaire : CASA.", relire=lambda: "")
+        assert veilleur._amorce_courante() == "Vocabulaire : CASA."
+
+    def test_une_relecture_qui_echoue_ne_leve_pas(self):
+        def tomber():
+            raise OSError("fichier occupé")
+
+        veilleur = self.veilleur_avec("Vocabulaire : CASA.", relire=tomber)
+        assert veilleur._amorce_courante() == "Vocabulaire : CASA."

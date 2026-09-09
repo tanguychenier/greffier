@@ -118,12 +118,35 @@ class Veilleur:
     #: Or c'est le direct qu'on lit pendant la réunion, et c'est là qu'on
     #: corrige.
     amorce: str = ""
+    #: Relit le contexte, pour que l'amorce suive **pendant** la réunion.
+    #: Sans cela, un terme appris en cours de route ne servait qu'à la réunion
+    #: suivante : le processus du direct avait figé son amorce au démarrage, et
+    #: c'est justement en réunion qu'on découvre les mots qui manquent.
+    relire_l_amorce: Callable[[], str] | None = None
     periode_tranche: float = PERIODE_TRANCHE
     #: Jusqu'où la transcription au fil de l'eau est allée, en secondes de
     #: réunion. Ce qui précède a déjà été lu — et affiché.
     traite: float = 0.0
     #: Dernière taille d'audio observée, pour savoir si la capture avance.
     vu: float | None = None
+
+    def _amorce_courante(self) -> str:
+        """L'amorce à donner à cette tranche, contexte relu s'il a changé.
+
+        Relire un fichier toutes les dix secondes ne coûte rien mesurable, et
+        c'est le prix pour qu'« ajoute OTP au contexte » serve à la phrase
+        suivante et non à la réunion d'après. C'est en réunion qu'on découvre
+        les mots qui manquent, donc c'est là que l'apprentissage doit porter.
+        """
+        if self.relire_l_amorce is None:
+            return self.amorce
+        try:
+            fraiche = self.relire_l_amorce()
+        except OSError:
+            return self.amorce
+        if fraiche and fraiche != self.amorce:
+            self.amorce = fraiche
+        return self.amorce
 
     def publier(self, nouvelles: list[Proposition]) -> None:
         """Ajoute au journal, une proposition par ligne.
@@ -178,7 +201,9 @@ class Veilleur:
                 tranche, travail / "tranche-niveau.wav"
             )
         try:
-            repliques = self.transcripteur.transcrire(a_transcrire, self.langue, self.amorce)
+            repliques = self.transcripteur.transcrire(
+                a_transcrire, self.langue, self._amorce_courante()
+            )
         except (RuntimeError, OSError):
             # Une tranche ratée ne doit pas interrompre la veille : la réunion
             # continue, et la transcription définitive se fera à la fin.
