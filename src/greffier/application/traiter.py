@@ -308,29 +308,12 @@ class Traitement:
     def _empreintes_par_voix(
         self, audio: Path, par_voix: dict[str, list[Intervalle]]
     ) -> dict[str, list[Empreinte]]:
-        """Les empreintes de chaque voix, en ne lisant l'audio qu'une fois.
+        """Les empreintes de chaque voix, en ne lisant l'audio qu'une fois."""
+        from greffier.application.restituer import empreintes_par_voix
 
-        `extraire_intervalles` rouvre et relit le fichier entier à chaque appel.
-        Une voix par appel, sur une réunion de 92 minutes qui en produit 298 et
-        pèse 531 Mo, demandait 158 Go de lecture pour un travail qui en vaut un.
-        """
-        tous = [(voix, i) for voix, intervalles in par_voix.items() for i in intervalles]
-        empreintes = self.extracteur.extraire_intervalles(
-            audio, [i for _, i in tous]
-        ) if self.extracteur else []
-        # `extraire_intervalles` écarte les extraits trop courts sans le dire :
-        # la liste rendue est plus courte que celle demandée, et l'associer par
-        # rang attribuerait les empreintes à la mauvaise voix. On redemande donc
-        # voix par voix dès que le compte ne tombe pas juste.
-        if len(empreintes) != len(tous):
-            return {
-                voix: self.extracteur.extraire_intervalles(audio, intervalles)
-                for voix, intervalles in par_voix.items()
-            } if self.extracteur else {}
-        groupees: dict[str, list[Empreinte]] = {voix: [] for voix in par_voix}
-        for (voix, _), empreinte in zip(tous, empreintes, strict=True):
-            groupees[voix].append(empreinte)
-        return groupees
+        if self.extracteur is None:
+            return {}
+        return empreintes_par_voix(self.extracteur, audio, par_voix)
 
     def _reconnaitre(self, audio: Path, tours: list[TourDeParole]) -> dict[str, str]:
         """Noms venus de la banque de voix, pour les personnes déjà connues."""
