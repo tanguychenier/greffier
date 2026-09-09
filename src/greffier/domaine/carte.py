@@ -123,6 +123,62 @@ def etat_possible(genre: Genre, etat: Etat) -> Etat:
     return etat
 
 
+#: Part des mots porteurs qu'il faut avoir en commun pour que deux libellés
+#: désignent le même point. Mesuré sur les reformulations réelles du rédacteur :
+#: « Pré-production du client en retard de deux versions » et « Pré-prod cliente
+#: en retard de deux versions » partagent cinq mots sur huit, soit 0,62. Deux
+#: points réellement distincts d'une même carte tombent bien plus bas — ils ne
+#: partagent que les mots du domaine.
+PART_COMMUNE = 0.6
+
+#: Écart toléré entre deux mots pour les compter comme le même. Deux, parce que
+#: les reformulations jouent sur les terminaisons — « client » et « cliente »,
+#: « production » et « productions » — et une transposition suffit à séparer des
+#: mots identiques à l'oreille.
+ECART_MOT = 2
+
+#: En dessous, comparer deux mots par leur distance ne veut rien dire : « prod »
+#: et « prof » sont à un écart et n'ont aucun rapport.
+LONGUEUR_COMPARABLE = 5
+
+
+def _proches(un: str, autre: str) -> bool:
+    """Deux mots désignent-ils la même chose, à une terminaison près."""
+    if un == autre:
+        return True
+    if len(un) < LONGUEUR_COMPARABLE or len(autre) < LONGUEUR_COMPARABLE:
+        return False
+    from greffier.domaine.questions import distance
+
+    return distance(un, autre) <= ECART_MOT
+
+
+def meme_point(un: str, autre: str) -> bool:
+    """Vrai si ces deux libellés désignent le même point de la carte.
+
+    La comparaison exacte des clefs ne suffisait pas : le rédacteur reformule
+    d'une extraction à l'autre, et chaque reformulation ouvrait une branche de
+    plus — un quart des points revenaient en doublon, mesuré. On compare donc la
+    **part de mots porteurs communs**, en rapprochant les mots à une terminaison
+    près.
+
+    Le sens est symétrique et la part se calcule sur le plus court des deux :
+    « la recette » et « la recette d'Oasis bloquée faute d'environnement » ne
+    sont pas le même point, et diviser par l'union le dirait à tort dès que l'un
+    est un fragment de l'autre.
+    """
+    mots_un, mots_autre = set(mots_porteurs(un)), set(mots_porteurs(autre))
+    if not mots_un or not mots_autre:
+        return False
+    if mots_un == mots_autre:
+        return True
+    communs = sum(
+        1 for mot in mots_un if any(_proches(mot, cible) for cible in mots_autre)
+    )
+    # Sur le plus **long** des deux : un fragment ne doit pas absorber le tout.
+    return communs / max(len(mots_un), len(mots_autre)) >= PART_COMMUNE
+
+
 @dataclass
 class Noeud:
     """Un point de la carte, et ce qui s'y rattache."""
@@ -143,8 +199,8 @@ class Noeud:
         return clef(self.texte)
 
     def enfant(self, texte: str) -> Noeud | None:
-        cherchee = clef(texte)
-        return next((n for n in self.enfants if n.clef == cherchee), None)
+        """L'enfant qui porte ce point, à la reformulation près."""
+        return next((n for n in self.enfants if meme_point(n.texte, texte)), None)
 
     def compte(self) -> int:
         """Nombre de nœuds, celui-ci compris."""
@@ -244,8 +300,7 @@ def fusionner(carte: Carte, apports: list[Apport], reunion: str = "") -> Bilan:
 
 def _trouver(noeud: Noeud, texte: str) -> Noeud | None:
     """Le nœud portant ce libellé, où qu'il soit dans l'arbre."""
-    cherchee = clef(texte)
-    if noeud.clef == cherchee:
+    if meme_point(noeud.texte, texte):
         return noeud
     for enfant in noeud.enfants:
         trouve = _trouver(enfant, texte)

@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -150,6 +151,19 @@ def creer_le_tableau(sujet: str) -> tuple[str, str]:
     return (identifiant, str(reponse.get("viewLink", "")))
 
 
+@dataclass(frozen=True, slots=True)
+class Pose:
+    """Un point déjà sur le tableau, et ce qu'on en sait."""
+
+    identifiant: str
+    x: int
+    y: int
+    #: Vrai si le contenu porte la mention d'une réunion, donc si c'est l'outil
+    #: qui l'a posé. Sinon, un humain l'a écrit à la main — et c'est ce qui
+    #: mérite de revenir dans la réunion suivante.
+    de_l_outil: bool = False
+
+
 def objets_presents(tableau: str) -> dict[str, str]:
     """Les points déjà sur le tableau : libellé en clair → identifiant d'objet.
 
@@ -184,13 +198,168 @@ def objets_presents(tableau: str) -> dict[str, str]:
             return trouves
 
 
+#: Ce qui trahit un point posé par l'outil : la ligne de provenance qu'il
+#: ajoute sous le libellé, « 2026-09-09_10h05_reunion ».
+_PROVENANCE = re.compile(r"\d{4}-\d{2}-\d{2}_\d{2}h\d{2}")
+
+
+def poses_presentes(tableau: str) -> dict[str, Pose]:
+    """Les points du tableau, avec leur place et leur origine.
+
+    L'origine sert à deux choses : poser une pastille à côté d'un point sans le
+    modifier, et savoir ce qu'un humain a ajouté depuis la dernière réunion —
+    c'est tout l'intérêt d'une carte partagée, et cela n'était jamais relu.
+    """
+    _garder(tableau)
+    trouves: dict[str, Pose] = {}
+    curseur = ""
+    while True:
+        parametres = {"limit": "50"}
+        if curseur:
+            parametres["cursor"] = curseur
+        reponse = _appeler(
+            f"/boards/{urllib.parse.quote(tableau, safe='')}/items"
+            f"?{urllib.parse.urlencode(parametres)}"
+        )
+        for objet in reponse.get("data", []):
+            contenu = (objet.get("data") or {}).get("content", "")
+            if not contenu:
+                continue
+            premiere = _sans_balises(contenu.split("</p>")[0])
+            if not premiere or premiere in trouves:
+                continue
+            position = objet.get("position") or {}
+            trouves[premiere] = Pose(
+                identifiant=str(objet.get("id", "")),
+                x=int(position.get("x", 0) or 0),
+                y=int(position.get("y", 0) or 0),
+                de_l_outil=bool(_PROVENANCE.search(_sans_balises(contenu))),
+            )
+        curseur = str(reponse.get("cursor", ""))
+        if not curseur:
+            return trouves
+
+
+def apports_des_autres(tableau: str) -> list[str]:
+    """Ce que des humains ont écrit sur la carte, et que l'outil n'a pas posé.
+
+    À donner au rédacteur au début de la réunion suivante : c'est le moment où
+    cette information vaut le plus, et c'est ce qui fait qu'une carte partagée
+    sert à quelque chose plutôt que d'être un affichage.
+    """
+    return [
+        libelle for libelle, pose in poses_presentes(tableau).items()
+        if not pose.de_l_outil
+    ]
+
+
 def libelles_presents(tableau: str) -> list[str]:
     """Les libellés déjà sur le tableau, dans leur forme d'origine.
 
     Donnés au rédacteur pour qu'il les reprenne mot pour mot au lieu de
     reformuler — une reformulation ouvre une branche de plus.
     """
-    return list(objets_presents(tableau))
+    return list(poses_presentes(tableau))
+
+
+#: Ce qu'on pose à côté d'un point pour dire qu'il est acté, sans y toucher.
+MARQUE_ACTE = "acté"
+
+#: Où la pastille se place par rapport au point qu'elle marque. Constant, parce
+#: que c'est cette constance qui permet de reconnaître une pastille déjà posée :
+#: elle ne porte pas le texte de son point, seule sa place le désigne.
+DECALAGE_PASTILLE = (150, -60)
+
+#: Écart toléré en retrouvant une pastille. Quelqu'un peut l'avoir déplacée de
+#: quelques pixels sans vouloir la détacher de son point.
+TOLERANCE_PASTILLE = 40
+
+
+def _pastilles_posees(tableau: str) -> set[tuple[int, int]]:
+    """Les positions de toutes les pastilles « acté » du tableau."""
+    positions: set[tuple[int, int]] = set()
+    curseur = ""
+    while True:
+        parametres = {"limit": "50"}
+        if curseur:
+            parametres["cursor"] = curseur
+        try:
+            reponse = _appeler(
+                f"/boards/{urllib.parse.quote(tableau, safe='')}/shapes"
+                f"?{urllib.parse.urlencode(parametres)}"
+            )
+        except MiroRefuse:
+            return positions
+        for forme in reponse.get("data", []):
+            contenu = _sans_balises((forme.get("data") or {}).get("content", ""))
+            if contenu.strip().casefold() != MARQUE_ACTE:
+                continue
+            position = forme.get("position") or {}
+            positions.add((
+                int(position.get("x", 0) or 0), int(position.get("y", 0) or 0)
+            ))
+        curseur = str(reponse.get("cursor", ""))
+        if not curseur:
+            return positions
+
+
+def marquer_actes(
+    tableau: str, textes: list[str], reunion: str = ""
+) -> tuple[str, ...]:
+    """Pose une pastille « acté » à côté des points tranchés. Rend les marqués.
+
+    À côté et non dessus : un point déjà sur la carte n'est jamais modifié,
+    parce qu'un humain a peut-être déplacé ou réécrit cet objet et que l'API ne
+    dit pas qui l'a touché. Mais sans cette pastille, la couleur devenait fausse
+    avec le temps — une piste retenue restait jaune indéfiniment.
+    """
+    from greffier.domaine.carte import meme_point
+
+    _garder(tableau)
+    presents = poses_presentes(tableau)
+    # Les pastilles déjà là, avec **toutes** leurs positions. Elles ne portent
+    # pas le texte du point qu'elles marquent, donc seule leur place les
+    # rattache — et `poses_presentes` ne pouvait pas servir : il indexe par
+    # libellé, or toutes les pastilles s'appellent « acté », si bien qu'une
+    # seule position était retenue et qu'une pastille de plus était posée à
+    # chaque publication.
+    deja_marques = _pastilles_posees(tableau)
+    marques: list[str] = []
+    for texte in textes:
+        pose = next(
+            (p for libelle, p in presents.items() if meme_point(libelle, texte)),
+            None,
+        )
+        if pose is None:
+            continue
+        attendue = (pose.x + DECALAGE_PASTILLE[0], pose.y + DECALAGE_PASTILLE[1])
+        if any(
+            abs(x - attendue[0]) <= TOLERANCE_PASTILLE
+            and abs(y - attendue[1]) <= TOLERANCE_PASTILLE
+            for x, y in deja_marques
+        ):
+            continue
+        try:
+            _appeler(
+                f"/boards/{urllib.parse.quote(tableau, safe='')}/shapes",
+                "POST",
+                {
+                    "data": {"shape": "round_rectangle",
+                             "content": f"<p>{_echapper(MARQUE_ACTE)}</p>"},
+                    "style": {"fillColor": "#2e6b52", "color": "#ffffff",
+                              "fontSize": "12"},
+                    # À droite du point, hors de son emprise : la géométrie
+                    # rendue par l'API n'est pas fiable, donc on s'écarte
+                    # largement plutôt que de calculer au pixel.
+                    "position": {"x": attendue[0], "y": attendue[1],
+                                 "origin": "center"},
+                    "geometry": {"width": 70, "height": 34},
+                },
+            )
+            marques.append(texte)
+        except MiroRefuse:
+            continue
+    return tuple(marques)
 
 
 def textes_presents(tableau: str) -> set[str]:
@@ -226,21 +395,22 @@ def publier(carte: Carte, tableau: str, reunion: str = "") -> Ecrit:
     humain a peut-être déplacé ou réécrit demanderait de savoir qui l'a touché,
     ce que l'API ne dit pas.
     """
-    from greffier.domaine.carte import clef
+    from greffier.domaine.carte import meme_point
 
     _garder(tableau)
     # Les objets déjà là, avec leur identifiant : ils servent à comparer **et**
     # à rattacher les points nouveaux à un parent qui existait avant.
-    presents = objets_presents(tableau)
-    deja = {clef(libelle) for libelle in presents}
+    presents = poses_presentes(tableau)
     identifiants: dict[str, str] = {
-        libelle: identifiant for libelle, identifiant in presents.items() if identifiant
+        libelle: pose.identifiant for libelle, pose in presents.items()
+        if pose.identifiant
     }
     poses: list[str] = []
     connus: list[str] = []
 
     for place in disposer(carte):
-        if clef(place.noeud.texte) in deja:
+        # À la reformulation près : c'est ce qui empêche la carte de doubler.
+        if any(meme_point(libelle, place.noeud.texte) for libelle in presents):
             connus.append(place.noeud.texte)
             continue
         from greffier.domaine.carte import SANS_ETAT
