@@ -604,14 +604,20 @@ def _micro_par_ecoute(config: Config, materiel: object) -> str:
     heure de silence, puis accusait l'autorisation micro.
     """
     from greffier.composition import _enregistreur
-    from greffier.domaine.peripheriques import candidats_a_ecouter, choisir_par_ecoute
+    from greffier.domaine.peripheriques import (
+        candidats_a_ecouter,
+        casques_parmi,
+        choisir_par_ecoute,
+    )
 
     candidats = candidats_a_ecouter(materiel, config.audio.micro)  # type: ignore[arg-type]
     if not candidats:
         return ""
     enregistreur = _enregistreur(config)
     essais = {nom: enregistreur.essayer(nom) for nom in candidats}
-    choix = choisir_par_ecoute(essais)
+    choix = choisir_par_ecoute(
+        essais, casques_parmi(materiel)  # type: ignore[arg-type]
+    )
     if choix is None:
         return ""
     if choix.tous_muets:
@@ -621,6 +627,18 @@ def _micro_par_ecoute(config: Config, materiel: object) -> str:
             "casque, puis l'autorisation micro dans Réglages Système.",
             fg=typer.colors.YELLOW,
         )
+    if choix.casque_prefere:
+        # Le dire : au vu des seuls niveaux, le choix paraît faux. Un casque
+        # posé sur le bureau capte moins qu'un micro de portable, et devient de
+        # loin le meilleur dès qu'on le porte.
+        plus_fort = [nom for nom, db in choix.ecartes if db > choix.niveau_db]
+        if plus_fort:
+            typer.secho(
+                f"  « {choix.nom} » retenu bien que « {plus_fort[0]} » capte plus "
+                f"fort : un micro de casque est à trois centimètres de la bouche.\n"
+                "  Pense à le porter avant de démarrer.",
+                fg=typer.colors.BLUE,
+            )
     for nom, niveau in choix.ecartes:
         if niveau < choix.niveau_db - 10:
             typer.secho(f"  « {nom} » écarté : {niveau:.0f} dB contre "

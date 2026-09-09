@@ -15,6 +15,8 @@ from greffier.domaine.peripheriques import (
     Peripherique,
     Veille,
     casque_present,
+    casques_parmi,
+    choisir_par_ecoute,
     micro_conseille,
 )
 
@@ -244,3 +246,85 @@ class TestChoixParEcoute:
         assert candidats_a_ecouter(AVEC_CASQUE, "Micro MacBook Pro")[0] == (
             "Micro MacBook Pro"
         )
+
+
+class TestUnCasqueLEmporte:
+    """Le plus fort à froid n'est pas le meilleur en réunion.
+
+    Le 2026-09-09, un Jabra a été écarté à -68 dB au profit du micro intégré à
+    -49 dB : le casque était posé sur le bureau, à un mètre de la bouche. Une
+    fois porté, il aurait été de loin le meilleur — un micro de casque est à
+    trois centimètres de la bouche, celui d'un portable à cinquante et il capte
+    toute la pièce.
+    """
+
+    #: Le matériel réel de ce poste : le Jabra y est **deux** périphériques,
+    #: une entrée et une sortie de même nom, ce qui est la forme habituelle
+    #: d'un casque USB sur macOS.
+    MATERIEL = Materiel((
+        MICRO_INTEGRE, HP_INTEGRES, JABRA_MICRO, JABRA_SORTIE, BLACKHOLE,
+    ))
+
+    def test_un_casque_est_reconnu_a_son_nom_partage(self):
+        """Un critère « capte et restitue » sur un seul appareil échouerait :
+        le casque est présenté comme deux périphériques distincts."""
+        assert casques_parmi(self.MATERIEL) == frozenset({"Jabra EVOLVE 30 II"})
+
+    def test_le_micro_integre_n_est_pas_un_casque(self):
+        assert "Micro MacBook Pro" not in casques_parmi(self.MATERIEL)
+
+    def test_une_boucle_logicielle_n_est_pas_un_casque(self):
+        """BlackHole capte et restitue, mais ne s'approche d'aucune bouche."""
+        assert "BlackHole 2ch" not in casques_parmi(self.MATERIEL)
+
+    def test_une_carte_son_de_station_n_est_pas_un_casque(self):
+        """Mesuré : entrée à 2 canaux et sortie à 4, contre 1 et 2 pour un
+        casque. Sans ce critère, elle serait préférée au micro intégré alors
+        que rien n'est branché dessus."""
+        realtek_entree = Peripherique("Realtek USB2.0 Audio", "generic:1", entrees=2)
+        realtek_sortie = Peripherique("Realtek USB2.0 Audio", "generic:2", sorties=4)
+        materiel = Materiel((
+            MICRO_INTEGRE, JABRA_MICRO, JABRA_SORTIE,
+            realtek_entree, realtek_sortie,
+        ))
+        assert casques_parmi(materiel) == frozenset({"Jabra EVOLVE 30 II"})
+
+    def test_les_haut_parleurs_integres_ne_font_pas_un_casque(self):
+        """Micro et haut-parleurs d'un portable portent des noms différents,
+        et l'ensemble n'est pas un casque."""
+        assert "Haut-parleurs MacBook Pro" not in casques_parmi(self.MATERIEL)
+
+    def test_le_casque_l_emporte_meme_plus_faible(self):
+        essais = {"Micro MacBook Pro": -49.0, "Jabra EVOLVE 30 II": -68.0}
+        choix = choisir_par_ecoute(essais, casques_parmi(self.MATERIEL))
+        assert choix is not None
+        assert choix.nom == "Jabra EVOLVE 30 II"
+        assert choix.casque_prefere is True
+
+    def test_un_casque_mute_ne_l_emporte_pas(self):
+        """C'était tout l'objet de l'écoute : un casque coupé rend -78 dB."""
+        essais = {"Micro MacBook Pro": -58.0, "Jabra EVOLVE 30 II": -78.0}
+        choix = choisir_par_ecoute(essais, casques_parmi(self.MATERIEL))
+        assert choix is not None
+        assert choix.nom == "Micro MacBook Pro"
+        assert choix.casque_prefere is False
+
+    def test_sans_casque_le_plus_fort_gagne(self):
+        essais = {"Micro MacBook Pro": -49.0, "Micro de table": -62.0}
+        choix = choisir_par_ecoute(essais, frozenset())
+        assert choix is not None
+        assert choix.nom == "Micro MacBook Pro"
+
+    def test_le_micro_ecarte_reste_dit_avec_son_niveau(self):
+        """Pour pouvoir expliquer le choix, qui paraît faux au vu des niveaux."""
+        essais = {"Micro MacBook Pro": -49.0, "Jabra EVOLVE 30 II": -68.0}
+        choix = choisir_par_ecoute(essais, casques_parmi(self.MATERIEL))
+        assert choix is not None
+        assert ("Micro MacBook Pro", -49.0) in choix.ecartes
+
+    def test_tous_muets_regarde_le_meilleur_reellement_capte(self):
+        """Préférer un casque coupé ne doit pas masquer que rien ne capte."""
+        essais = {"Micro MacBook Pro": -90.0, "Jabra EVOLVE 30 II": -95.0}
+        choix = choisir_par_ecoute(essais, casques_parmi(self.MATERIEL))
+        assert choix is not None
+        assert choix.tous_muets is True
