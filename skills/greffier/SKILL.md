@@ -139,6 +139,14 @@ qui faisait perdre une réunion entière quand le rédacteur échouait.
 | Le casque est ignoré au profit du micro intégré | depuis le 2026-09-09, un casque qui capte l'emporte même plus faible. S'il est écarté, il rend moins que -68 dB : bouton de sourdine, ou débranché |
 | La réunion n'a rien enregistré | la veille le signale désormais pendant la réunion. Si rien n'a été dit, chercher un traitement lancé en parallèle (voir ci-dessous) |
 | « La dernière réunion » n'est pas la bonne | l'ordre suit l'horodatage de l'identifiant. Un identifiant sans date passe en fin de liste, à dessein |
+| Le compte rendu annonce dix ou vingt participants | la segmentation sur-découpe et le recollage n'a pas été rejoué. `greffier revoir <réunion>` le rejoue sans retranscrire |
+| Une personne connue n'est plus reconnue du tout | la banque a une **paire en conflit** : deux entrées trop ressemblantes font taire les deux noms. `greffier connus` la nomme, et dit quelle empreinte est fautive. `greffier connus --nettoyer <nom>` la retire sans effacer la personne |
+| Une réunion a versé de fausses empreintes | `greffier connus --oublier-reunion <réunion>` défait ce qu'elle a déposé, sous tous les noms d'un coup |
+| L'assistant ne répond pas à son prénom | il ne participe pas : bouton dans l'onglet **En direct**. Vérifier ensuite `assistant.nom` : un prénom court et distinct vaut mieux que « Greffier », que « le greffe » suffit à réveiller |
+| L'assistant parle avec une voix de robot | le modèle de voix manque, il s'est replié sur celle du système. `python3 outils/installer.py` le télécharge (325 Mo, dans `modeles/voix`) |
+| L'assistant coupe la parole, ou ne dit jamais rien | `assistant.repos` et `assistant.creux_minimal`. Être appelé par son nom passe outre les deux, à dessein |
+| L'assistant se répond à lui-même | il ne devrait pas : ses propres prises de parole sont exclues de ce qu'il réécoute. Si cela arrive, le haut-parleur est très en avance sur l'horloge de la réunion — le signaler avec le journal |
+| Sous Linux, l'installation s'arrête sans rien dire | corrigé le 2026-09-10 : un `.venv` venu d'une autre machine était pris pour valide. Si cela se reproduit, effacer `.venv` et relancer |
 
 ## Avant de conclure
 
