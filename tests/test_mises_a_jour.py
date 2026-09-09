@@ -85,3 +85,73 @@ class TestQuandRienNeRepond:
     def test_sans_version_installee_on_ne_conclut_rien(self, monkeypatch):
         monkeypatch.setattr(mises_a_jour, "version_installee", lambda: "")
         assert mises_a_jour.verifier().souci
+
+
+class TestInstallation:
+    """Une mise à jour ne doit jamais emporter le travail de qui développe."""
+
+    def depot_git(self, tmp_path, propre: bool = True):
+        import subprocess
+
+        depot = tmp_path / "greffier"
+        (depot / "macos").mkdir(parents=True)
+        (depot / "macos" / "construire.sh").write_text("#!/bin/bash\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(depot), "init", "-q"], check=True)
+        subprocess.run(["git", "-C", str(depot), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(depot), "-c", "user.email=e@x", "-c", "user.name=n",
+             "commit", "-qm", "socle"],
+            check=True,
+        )
+        if not propre:
+            (depot / "macos" / "construire.sh").write_text("modifié\n", encoding="utf-8")
+        return depot
+
+    def test_sans_depot_grave_l_installation_est_refusee(self, monkeypatch):
+        monkeypatch.delenv("GREFFIER_DEPOT_SOURCE", raising=False)
+        possible, raison = mises_a_jour.installable()
+        assert possible is False
+        assert "introuvable" in raison
+
+    def test_un_dossier_qui_n_est_pas_un_depot_est_refuse(self, monkeypatch, tmp_path):
+        (tmp_path / "macos").mkdir()
+        (tmp_path / "macos" / "construire.sh").write_text("#!/bin/bash\n", encoding="utf-8")
+        monkeypatch.setenv("GREFFIER_DEPOT_SOURCE", str(tmp_path))
+        possible, raison = mises_a_jour.installable()
+        assert possible is False
+        assert "git" in raison
+
+    def test_un_depot_propre_est_accepte(self, monkeypatch, tmp_path):
+        depot = self.depot_git(tmp_path)
+        monkeypatch.setenv("GREFFIER_DEPOT_SOURCE", str(depot))
+        possible, ou = mises_a_jour.installable()
+        assert possible is True
+        assert ou == str(depot)
+
+    def test_un_depot_modifie_est_refuse(self, monkeypatch, tmp_path):
+        """« git pull » sur un arbre sale échoue à moitié : mieux vaut refuser avant."""
+        depot = self.depot_git(tmp_path, propre=False)
+        monkeypatch.setenv("GREFFIER_DEPOT_SOURCE", str(depot))
+        possible, raison = mises_a_jour.installable()
+        assert possible is False
+        assert "non validées" in raison
+
+
+class TestRelais:
+    """Le relais attend la mort du processus avant de toucher au paquet."""
+
+    def test_il_attend_la_fin_du_processus(self):
+        assert 'kill -0 "$2"' in mises_a_jour._RELAIS
+
+    def test_il_refuse_d_agir_si_l_application_tourne_encore(self):
+        assert "n'a pas quitté" in mises_a_jour._RELAIS
+
+    def test_il_ne_fusionne_jamais(self):
+        """Un dépôt divergent ne doit pas être rafistolé par une mise à jour."""
+        assert "git pull --ff-only" in mises_a_jour._RELAIS
+
+    def test_un_pull_qui_echoue_laisse_le_paquet_intact(self):
+        assert "le paquet est intact" in mises_a_jour._RELAIS
+
+    def test_il_relance_l_application(self):
+        assert "open -a" in mises_a_jour._RELAIS
