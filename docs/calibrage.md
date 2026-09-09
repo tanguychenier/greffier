@@ -59,16 +59,38 @@ of each recording:
 | Same person, **two sittings** | 0.444 – 0.730 |
 | Different people | 0.072 – 0.184 |
 
-The two clouds are cleanly separated: any threshold between 0.184 and 0.444
-would classify all six pairs correctly. **`SEUIL_RECONNAISSANCE = 0.70` sits
-above one of the two same-person pairs**, so that person would not be
-recognised from one meeting to the next.
+On those six pairs the two clouds separated cleanly, which suggested any
+threshold between 0.184 and 0.444 would do and that 0.70 was too high.
 
-Nothing has been changed on the strength of two pairs. What this says is that
-the threshold is calibrated on within-meeting pairs and has never been checked
-across meetings, and that the check now exists. More series, and voices
-recorded on this machine rather than in an Edinburgh meeting room, are needed
-before moving it.
+**Four series later, that conclusion does not hold.** ES2002, IS1000, TS3003
+and ES2003 give 91 pairs instead of 6:
+
+| | Range |
+|---|---|
+| Same person, two sittings (7 pairs) | 0.152 – 0.893 |
+| Different people (84 pairs) | -0.035 – 0.652 |
+
+The clouds now overlap, so **no threshold separates them**. What each one costs:
+
+| Threshold | Not recognised | Confused |
+|---|---|---|
+| 0.70 (current) | 4 of 7 | **0 of 84** |
+| 0.50 | 4 of 7 | 1 of 84 |
+| 0.45 | 3 of 7 | 3 of 84 |
+| 0.40 | 1 of 7 | 3 of 84 |
+
+0.70 is the only value that confuses nobody. Lowering it to 0.40 would
+recognise three more people at the cost of three confusions -- and this tool
+writes names into a report sent to other people, where the standing rule is
+already that staying silent beats asserting. **The threshold stays at 0.70**,
+and the earlier reading was drawn from too few pairs.
+
+One methodological caveat, and it matters: AMI does not guarantee that
+participant N keeps the same headset from one sitting to the next. Some of the
+"different people" pairs scoring 0.48 to 0.65 may well be the same person on a
+different microphone number, which would mean the overlap is partly an artefact
+of the labelling rather than of the voice prints. Confirming that needs the
+corpus's own speaker annotations, which this tool does not read.
 
 **Method matters more than the numbers here.** A first run took the extract as
 it came and produced 0.149 for the same person against 0.280 for two different
