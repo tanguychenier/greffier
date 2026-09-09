@@ -87,6 +87,15 @@ class Chemins(BaseModel):
         return dossier_config() / "contexte.toml"
 
     @property
+    def sujets(self) -> Path:
+        """Les sujets suivis, leurs appellations et où vit la carte de chacun.
+
+        À côté du contexte : deux registres tenus par un humain, qui
+        grossissent et se relisent.
+        """
+        return dossier_config() / "sujets.toml"
+
+    @property
     def questions(self) -> Path:
         """Ce que l'outil a demandé pendant la réunion, et ce qu'on a répondu.
 

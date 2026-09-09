@@ -93,6 +93,26 @@ _VIDES = frozenset({
 })
 
 
+#: Les genres pour lesquels « acté » veut dire quelque chose. Une piste peut
+#: être retenue, une action décidée. Un **problème** est constaté, pas décidé :
+#: le marquer « acté » n'a pas de sens et le lecteur y lit « le groupe a tranché
+#: là-dessus », ce qui est faux. Mesuré sur une extraction réelle du
+#: 2026-09-09 : sept problèmes sur douze revenaient marqués « acté », le
+#: rédacteur ayant lu « acté » comme « établi ».
+GENRES_DECIDABLES = frozenset({Genre.PISTE, Genre.ACTION})
+
+
+def etat_possible(genre: Genre, etat: Etat) -> Etat:
+    """L'état que ce genre peut porter. Ramène à « en discussion » sinon.
+
+    « Dépassé » reste possible pour tout genre : un problème peut avoir cessé
+    d'en être un.
+    """
+    if etat is Etat.ACTE and genre not in GENRES_DECIDABLES:
+        return Etat.EN_DISCUSSION
+    return etat
+
+
 @dataclass
 class Noeud:
     """Un point de la carte, et ce qui s'y rattache."""
@@ -100,6 +120,9 @@ class Noeud:
     texte: str
     genre: Genre = Genre.CONSTAT
     etat: Etat = Etat.EN_DISCUSSION
+
+    def __post_init__(self) -> None:
+        self.etat = etat_possible(self.genre, self.etat)
     enfants: list[Noeud] = field(default_factory=list)
     #: Réunions qui ont parlé de ce point. Sert à dire d'où vient une branche,
     #: ce qui est la première question de qui découvre une carte.
@@ -199,7 +222,8 @@ def fusionner(carte: Carte, apports: list[Apport], reunion: str = "") -> Bilan:
             existant.reunions.append(reunion)
         # Une décision relève l'état ; elle ne l'abaisse pas. « Acté » qui
         # redeviendrait « en discussion » ferait douter de toute la carte.
-        if apport.etat is Etat.ACTE and existant.etat is Etat.EN_DISCUSSION:
+        voulu = etat_possible(existant.genre, apport.etat)
+        if voulu is Etat.ACTE and existant.etat is Etat.EN_DISCUSSION:
             existant.etat = Etat.ACTE
             actes.append(existant.texte)
         else:
