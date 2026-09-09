@@ -1178,8 +1178,11 @@ def carte(
 
     for nom in vises:
         typer.secho(f"\n— {nom} —", fg=typer.colors.BRIGHT_WHITE, bold=True)
+        # Ce qui est déjà sur la carte, donné au rédacteur : sans cela il
+        # reformule et chaque reformulation crée une branche de plus.
+        deja = _libelles_de_la_carte(registre, nom) if publier else ()
         try:
-            apports = extraire(moteur, nom, matiere)
+            apports = extraire(moteur, nom, matiere, deja=deja)
         except RenduIllisible as souci:
             # Distinct de « rien à ajouter » : une panne ne doit pas se lire
             # comme un résultat.
@@ -1200,6 +1203,22 @@ def carte(
         _publier_la_carte(config, registre, nom, la_carte, identifiant)
 
 
+def _libelles_de_la_carte(registre: object, nom: str) -> tuple[str, ...]:
+    """Les libellés déjà sur la carte de ce sujet, s'il en a une."""
+    from greffier.adaptateurs import carte_miro
+
+    connu = registre.par_nom(nom)  # type: ignore[attr-defined]
+    if connu is None or not connu.carte:
+        return ()
+    try:
+        return tuple(carte_miro.libelles_presents(connu.carte))
+    except carte_miro.MiroRefuse:
+        # Ne pas pouvoir relire n'empêche pas d'extraire ; on risque seulement
+        # des doublons, ce qui se corrige, là où ne rien produire ne se corrige
+        # pas.
+        return ()
+
+
 def _publier_la_carte(
     config: Config, registre: object, nom: str, la_carte: object, identifiant: str
 ) -> None:
@@ -1218,9 +1237,17 @@ def _publier_la_carte(
         typer.secho(f"  ✗ {souci}", fg=typer.colors.RED, err=True)
         return
     typer.secho(
-        f"  ✓ {len(ecrit.poses)} posé(s), {len(ecrit.deja)} déjà présent(s)",
+        f"  ✓ {len(ecrit.poses)} posé(s), {len(ecrit.deja)} déjà présent(s), "
+        f"{ecrit.liens} lien(s)",
         fg=typer.colors.GREEN,
     )
+    if ecrit.liens_manques:
+        # Dit, et non avalé : une carte a été publiée sans un seul trait sans
+        # que rien ne le signale.
+        typer.secho(
+            f"  ⚠ {ecrit.liens_manques} lien(s) n'ont pas pu être tracés",
+            fg=typer.colors.YELLOW,
+        )
 
 
 @application.command()
