@@ -135,6 +135,8 @@ class Fenetre:
         #: Réunion dont la conversation est à l'écran, pour ne pas la repeindre
         #: à chaque tour de la boucle du direct.
         self._conversation_affichee = ""
+        #: Ce que l'outil propose de retenir, en attente de confirmation.
+        self._apprentissage: Any = None
         self._fil_reunion = ""
         self._fil_position = 0
         self._fil_annonce = ""

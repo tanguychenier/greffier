@@ -63,3 +63,48 @@ class TestGabarit:
         poser_le_gabarit(fichier)
         contexte = lire(fichier)
         assert not contexte.vide, "un gabarit sans exemple actif n'apprend rien"
+
+
+class TestAjoutDepuisLaConversation:
+    """Alimenter le contexte demandait d'ouvrir un fichier."""
+
+    def test_un_terme_s_ajoute_avec_son_sens(self, tmp_path):
+        from greffier.adaptateurs.contexte_fichier import ajouter_un_terme
+
+        fichier = tmp_path / "contexte.toml"
+        assert ajouter_un_terme(fichier, "OTP", "mot de passe à usage unique")
+        terme = next(t for t in lire(fichier).termes if t.ecriture == "OTP")
+        assert terme.sens == "mot de passe à usage unique"
+
+    def test_une_personne_s_ajoute_avec_son_role(self, tmp_path):
+        from greffier.adaptateurs.contexte_fichier import ajouter_une_personne
+
+        fichier = tmp_path / "contexte.toml"
+        assert ajouter_une_personne(fichier, "Maud", "cheffe de projet")
+        gens = lire(fichier).intervenants
+        assert gens[-1].nom == "Maud"
+        assert gens[-1].role == "cheffe de projet"
+
+    def test_une_personne_deja_connue_n_est_pas_doublee(self, tmp_path):
+        from greffier.adaptateurs.contexte_fichier import ajouter_une_personne
+
+        fichier = tmp_path / "contexte.toml"
+        ajouter_une_personne(fichier, "Maud", "cheffe de projet")
+        assert ajouter_une_personne(fichier, "maud") is False
+
+    def test_les_commentaires_survivent_aux_ajouts(self, tmp_path):
+        """Le fichier est édité à la main : on ajoute au bout, on ne régénère pas."""
+        from greffier.adaptateurs.contexte_fichier import (
+            ajouter_une_personne,
+            poser_le_gabarit,
+        )
+
+        fichier = tmp_path / "contexte.toml"
+        poser_le_gabarit(fichier)
+        ajouter_une_personne(fichier, "Maud", "cheffe de projet")
+        assert "il faut les lui dire" in fichier.read_text(encoding="utf-8")
+
+    def test_un_nom_vide_est_refuse(self, tmp_path):
+        from greffier.adaptateurs.contexte_fichier import ajouter_une_personne
+
+        assert ajouter_une_personne(tmp_path / "contexte.toml", "  ") is False
