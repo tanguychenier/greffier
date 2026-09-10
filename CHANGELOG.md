@@ -1,15 +1,26 @@
-# Journal des modifications
+# Changelog
 
-Engendré depuis les messages de commit (convention Angular) :
+Generated from the commit messages, which follow the Angular convention:
 
     python3 tools/changelog.py > CHANGELOG.md
 
-## Nouveautés
+## New
 
-- **voices** — replay the stitching without transcribing an hour again (`3a2e367`)
-- **assistant** — let it raise a point, and mostly decide not to (`d99ce6f`)
-- **assistant** — download its voice, and settle its name in the window (`9e8e52e`)
-- **assistant** — give it a voice, a name, and the sense to keep quiet (`8051d8b`)
+- **models** — the application fetches its own models (`63ee2db`)
+- **voices** — split two voices joined after the meeting (`cb082c7`)
+- **minutes** — the instructions given during the meeting reach the writer (`d81b996`)
+- **update** — install the published binary for this system (`827396c`)
+- **mail** — check the send will work at the start of the meeting (`b10bd8d`)
+- **assistant** — choose its first name from a list that has been tested (`2229eb9`)
+- **windows** — write the entry point the executable needs (`33d39fb`)
+- **assistant** — give it the documents, and let the exchange run its course (`22705f7`)
+- **voice** — pick the voice by ear, and gain a factor of ten on the way (`c468f39`)
+- **assistant** — let the exchange continue, and separate voice from taking part (`0a2235f`)
+- **direct** — put the document button where the meeting is (`b530999`)
+- **voices** — replay the stitching without transcribing an hour again (`ce689d9`)
+- **assistant** — let it raise a point, and mostly decide not to (`d516b31`)
+- **assistant** — download its voice, and settle its name in the window (`d5ac99d`)
+- **assistant** — give it a voice, a name, and the sense to keep quiet (`0682cec`)
 - **conversation** — teach it and feed it documents while the meeting runs (`c2252e8`)
 - **sources** — read and write a registered GitLab or Jira, never beyond it (`e5e2336`)
 - **depot** — drop audio, video or documents and get a proposed filing (`f7e7645`)
@@ -41,14 +52,40 @@ Engendré depuis les messages de commit (convention Angular) :
 - **transcription** — make the graphics card usable on Linux (`c3e5dc9`)
 - Greffier, a local-first meeting assistant (`d0d8c8a`)
 
-## Corrections
+## Fixed
 
-- **linux** — stop taking a directory for a working environment (`b5b9706`)
-- **bank** — repair a bank at the grain that matters, the print (`55d9c4d`)
-- **update** — make the update button able to work at all (`b72b4c4`)
-- **minutes** — count the people present, and notice a writing left undone (`18a728e`)
-- **names** — make naming a voice reversible, and stop it poisoning the bank (`c669188`)
-- **voices** — stitch fragments onto the voices that carry the meeting (`3194bfb`)
+- **assistant** — stay silent once the meeting is over (`c62c715`)
+- **assistant** — make hearing itself unable to start a loop (`9b4f5cb`)
+- **transcription** — collapse the model's repeat loop (`87f612f`)
+- **mail** — let Outlook take its time, and say which failure it was (`85dac83`)
+- **build** — refuse a framework interpreter instead of half-building (`7690f3a`)
+- **assistant** — the two controls that decide how it takes part (`22952e6`)
+- **minutes** — agree the verb on the participants line (`8700ca2`)
+- **build** — relaunch the app for real, and check that it came back (`62b466b`)
+- **state** — a failure must stop the state from lying (`f1ed16b`)
+- **minutes** — two voices under the same name are one person (`d1dead7`)
+- **direct** — make joining two voices reversible (`8f9bcf5`)
+- **voice** — cutting means silence, not skipping a sentence (`54f9b6b`)
+- **voice** — cut the sound when the button is pressed, not fifteen seconds later (`afa44a2`)
+- **direct** — correct itself in session, on what the bank already said (`ac2b63d`)
+- **assistant** — one button for the voice, and stop hiding the on switch (`d77b634`)
+- **build** — rebuilding also means relaunching (`fbfd123`)
+- **direct** — stop founding a voice per sentence, and measure why it did (`e9ede1b`)
+- **direct** — follow both buttons without restarting the meeting (`98511f4`)
+- **questions** — stop asking things whose answer changes nothing (`a1fc764`)
+- **installer** — recognise a voice model whose file is not named model.onnx (`87fd54c`)
+- **window** — use a cursor that exists outside macOS (`5e139e5`)
+- **assistant** — stop paraphrasing a sentence written to be said (`bbc71e2`)
+- **types** — settle what a night of --no-verify let through (`7fb57ae`)
+- **state** — notice that a processing run died, not only a recording (`7fc11fb`)
+- **channels** — stop announcing that everyone is missing when nobody is (`2a6249b`)
+- **tests** — give the test dialogue voices a model can actually hear (`9dc73f3`)
+- **linux** — stop taking a directory for a working environment (`0cad2cf`)
+- **bank** — repair a bank at the grain that matters, the print (`ddda4bc`)
+- **update** — make the update button able to work at all (`68fb452`)
+- **minutes** — count the people present, and notice a writing left undone (`d2471b7`)
+- **names** — make naming a voice reversible, and stop it poisoning the bank (`dcc8abb`)
+- **voices** — stitch fragments onto the voices that carry the meeting (`4db91d5`)
 - **direct** — give the model the minute before the slice, so the word is right (`ace8129`)
 - **direct** — a term learned mid-meeting serves the next sentence (`f53c3b7`)
 - **reglages** — say what the button updates, and reread the account on return (`1eee477`)
@@ -75,6 +112,20 @@ Engendré depuis les messages de commit (convention Angular) :
 
 ## Documentation
 
+- the window, the command line and the wiring, in English (`2a85ac8`)
+- **adapters** — the tools, in English (`1c1afd1`)
+- **adapters** — the nine biggest adapters, in English (`50e5fd2`)
+- **application** — the remaining use cases, in English (`04a9116`)
+- say the ports and the application in English (`8ff25e3`)
+- **domain** — say the domain in English, in one line each (`3f7e20d`)
+- **rex** — what the meeting of 2026-09-10 actually measured (`372516e`)
+- ouvrir l'étude de la séparation des voix, et le banc qui la tranchera (`a7ef693`)
+- ouvrir le retour d'expérience de la réunion du 10, avec ses chiffres (`f689c07`)
+- record what the first morning of use showed, and what it left open (`8654db3`)
+- **publier** — sortir le workflow du chemin que le jeton ne peut pas écrire (`751ad4b`)
+- **skill** — teach the repair skill what this week added (`71905a9`)
+- **readme** — say that it takes part, and how to keep it quiet (`f7d4168`)
+- record the night the tool learned to take part (`9252b7a`)
 - **sauvegarde** — a synchronised folder sends the data to its host (`6c714d4`)
 - **calibrage** — four series say the threshold is right, one series said wrong (`bb15473`)
 - **skills** — write down how to assist a meeting while it runs (`006db91`)
@@ -88,8 +139,15 @@ Engendré depuis les messages de commit (convention Angular) :
 - record what real recordings showed, and what the run costs (`0124760`)
 - record the first run on a real Linux desktop (`8722c34`)
 
-## Remaniements
+## Refactored
 
+- the tools directory and its files, in English (`9f411f3`)
+- name the remaining classes in English (`f30a6bf`)
+- drop the comment blocks, and say the domain in English (`1b3bbda`)
+- **tests** — name the test files after the modules they exercise (`eae8ee7`)
+- the code speaks English (`ffb9ccb`)
+- **config** — pin the file keys with validation aliases (`88e19a2`)
+- drop the field comment blocks (`53fcd07`)
 - **traiter** — name the report title import for what it is (`73c9d5e`)
 - **couches** — put every module in the layer its imports say it belongs to (`0641d59`)
 
