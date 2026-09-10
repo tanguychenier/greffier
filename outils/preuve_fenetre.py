@@ -25,7 +25,7 @@ RACINE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RACINE / "src"))
 
 
-def capturer(fenetre: object, cible: Path) -> bool:
+def capturer(window: object, target: Path) -> bool:
     """Photographie la fenêtre, pour qu'on puisse la **regarder**.
 
     Les tests disent qu'un onglet se peint sans exception ; ils ne disent pas
@@ -43,7 +43,7 @@ def capturer(fenetre: object, cible: Path) -> bool:
 
     if _sys.platform != "darwin" or shutil.which("screencapture") is None:
         return False
-    racine = fenetre.racine  # type: ignore[attr-defined]
+    racine = window.racine  # type: ignore[attr-defined]
     # Devant, et devant tout le reste. `screencapture -R` photographie une
     # **région de l'écran**, pas une fenêtre : la première version de cet outil
     # a rendu une capture de la messagerie qui se trouvait à cet endroit, la
@@ -67,48 +67,48 @@ def capturer(fenetre: object, cible: Path) -> bool:
     marge = 24
     x = racine.winfo_rootx() - marge
     y = racine.winfo_rooty() - marge
-    largeur = racine.winfo_width() + 2 * marge
-    hauteur = racine.winfo_height() + 2 * marge
-    cible.parent.mkdir(parents=True, exist_ok=True)
+    width = racine.winfo_width() + 2 * marge
+    height = racine.winfo_height() + 2 * marge
+    target.parent.mkdir(parents=True, exist_ok=True)
     fait = subprocess.run(
-        ["screencapture", "-x", "-o", f"-R{x},{y},{largeur},{hauteur}", str(cible)],
+        ["screencapture", "-x", "-o", f"-R{x},{y},{width},{height}", str(target)],
         check=False, capture_output=True,
     )
-    return fait.returncode == 0 and cible.exists()
+    return fait.returncode == 0 and target.exists()
 
 
 def main() -> int:
     import tkinter as tk
 
-    from greffier.adaptateurs.configuration import Config
-    from greffier.interface.fenetre import Fenetre
+    from greffier.adapters.configuration import Config
+    from greffier.interface.window import Window
 
     print("tkinter", tk.TkVersion, "— Tcl", tk.TclVersion)
 
-    fenetre = Fenetre(Config())
+    window = Window(Config())
     # Une passe de boucle d'événements : sans elle, rien n'est encore peint et
     # une exception de peinture passerait inaperçue.
-    fenetre.racine.update()
-    largeur = fenetre.racine.winfo_width()
-    hauteur = fenetre.racine.winfo_height()
-    print(f"fenêtre ouverte : {largeur}x{hauteur}")
+    window.racine.update()
+    width = window.racine.winfo_width()
+    height = window.racine.winfo_height()
+    print(f"fenêtre ouverte : {width}x{height}")
 
-    intitules = list(fenetre.onglets._pages)
-    for intitule in intitules:
-        fenetre.onglets.montrer(intitule)
-        fenetre.racine.update()
-        page = fenetre.onglets._pages[intitule]
-        print(f"  onglet « {intitule} » peint — {len(page.winfo_children())} éléments")
+    intitules = list(window.tabs._pages)
+    for caption in intitules:
+        window.tabs.reveal(caption)
+        window.racine.update()
+        page = window.tabs._pages[caption]
+        print(f"  onglet « {caption} » peint — {len(page.winfo_children())} éléments")
 
     # La pastille de compte se dessine hors des tests : elle touche Tk, qui ne
     # démarre pas sur un exécuteur d'intégration continue. C'est donc ici qu'on
     # vérifie qu'elle s'affiche, élargit son onglet, et s'efface à l'ouverture.
-    fenetre.onglets.montrer(intitules[0])
-    cible = "Conversation" if "Conversation" in intitules else intitules[-1]
-    segment = fenetre.onglets._segments[cible]
+    window.tabs.reveal(intitules[0])
+    target = "Conversation" if "Conversation" in intitules else intitules[-1]
+    segment = window.tabs._segments[target]
     nue = int(segment.cget("width"))
-    fenetre.onglets.marquer(cible, 3)
-    fenetre.racine.update()
+    window.tabs.mark(target, 3)
+    window.racine.update()
     avec = int(segment.cget("width"))
     marques = [
         segment.itemcget(item, "text")
@@ -116,15 +116,15 @@ def main() -> int:
         if segment.type(item) == "text"
     ]
     if avec <= nue or "3" not in marques:
-        print(f"  ✗ pastille non dessinée sur « {cible} » ({nue} → {avec}, {marques})")
-        fenetre.racine.destroy()
+        print(f"  ✗ pastille non dessinée sur « {target} » ({nue} → {avec}, {marques})")
+        window.racine.destroy()
         return 1
-    print(f"  pastille sur « {cible} » : {nue} → {avec} px, marque {marques[-1]}")
-    fenetre.onglets.montrer(cible)
-    fenetre.racine.update()
+    print(f"  pastille sur « {target} » : {nue} → {avec} px, marque {marques[-1]}")
+    window.tabs.reveal(target)
+    window.racine.update()
     if int(segment.cget("width")) != nue:
         print("  ✗ la pastille survit à l'ouverture de son onglet")
-        fenetre.racine.destroy()
+        window.racine.destroy()
         return 1
     print("  pastille effacée à l'ouverture de l'onglet")
 
@@ -132,33 +132,33 @@ def main() -> int:
     # confortable : c'est étroit que les barres de boutons débordent, et large
     # qu'on voit si elles s'aèrent correctement.
     if "--capturer" in sys.argv:
-        dossier = Path(
+        folder = Path(
             sys.argv[sys.argv.index("--capturer") + 1]
             if len(sys.argv) > sys.argv.index("--capturer") + 1
             else "/tmp/greffier-captures"
         )
-        for largeur, nom in ((880, "etroit"), (1280, "large")):
-            for intitule in intitules:
+        for width, name in ((880, "etroit"), (1280, "large")):
+            for caption in intitules:
                 # La géométrie est réaffirmée à **chaque** onglet : changer
                 # d'onglet change le contenu, et la fenêtre se rétablit sur ce
                 # que ce contenu demande. Fixée une seule fois en tête de
                 # boucle, elle valait encore pour la première capture et plus
                 # pour les suivantes — des images tronquées, dont on cherche le
                 # défaut dans l'interface au lieu de l'outil.
-                fenetre.racine.geometry(f"{largeur}x760")
-                fenetre.onglets.montrer(intitule)
-                fenetre.racine.update()
-                sans_accent = (
-                    intitule.lower().replace(" ", "-").replace("é", "e")
+                window.racine.geometry(f"{width}x760")
+                window.tabs.reveal(caption)
+                window.racine.update()
+                without_accents = (
+                    caption.lower().replace(" ", "-").replace("é", "e")
                 )
-                cible = dossier / f"{nom}-{sans_accent}.png"
-                if capturer(fenetre, cible):
-                    print(f"  capture {cible}")
+                target = folder / f"{name}-{without_accents}.png"
+                if capturer(window, target):
+                    print(f"  capture {target}")
                 else:
                     print("  capture indisponible sur ce système")
                     break
 
-    fenetre.racine.destroy()
+    window.racine.destroy()
     print(f"{len(intitules)} onglets peints sans exception")
     return 0
 

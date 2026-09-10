@@ -16,21 +16,21 @@ import soundfile as sf
 
 sys.path.insert(0, "src")
 
-from greffier.domaine.empreintes import agreger, normaliser, similarite
+from greffier.domain.voiceprints import aggregate, normalise, similarity
 
 audio = Path(sys.argv[1])
 nb_personnes = int(sys.argv[2]) if len(sys.argv) > 2 else 0
 DUREE_MINIMALE = 3.0
 
-MODELES = Path.home() / "reunions/models/diarisation"
+MODELS = Path.home() / "reunions/models/diarisation"
 config = sherpa_onnx.OfflineSpeakerDiarizationConfig(
     segmentation=sherpa_onnx.OfflineSpeakerSegmentationModelConfig(
         pyannote=sherpa_onnx.OfflineSpeakerSegmentationPyannoteModelConfig(
-            model=str(MODELES / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx")
+            model=str(MODELS / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx")
         ),
     ),
     embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(
-        model=str(MODELES / "nemo_en_titanet_large.onnx")
+        model=str(MODELS / "nemo_en_titanet_large.onnx")
     ),
     clustering=sherpa_onnx.FastClusteringConfig(
         num_clusters=nb_personnes if nb_personnes else -1, threshold=0.8
@@ -38,71 +38,71 @@ config = sherpa_onnx.OfflineSpeakerDiarizationConfig(
     min_duration_on=0.3,
     min_duration_off=0.5,
 )
-moteur = sherpa_onnx.OfflineSpeakerDiarization(config)
+engine = sherpa_onnx.OfflineSpeakerDiarization(config)
 
-donnees, frequence = sf.read(audio, dtype="float32", always_2d=True)
+data, frequency = sf.read(audio, dtype="float32", always_2d=True)
 actifs = [
     i
-    for i in range(donnees.shape[1])
-    if float(np.sqrt(np.mean(donnees[:, i] ** 2))) > 1e-5
+    for i in range(data.shape[1])
+    if float(np.sqrt(np.mean(data[:, i] ** 2))) > 1e-5
 ]
-signal = donnees[:, actifs].mean(axis=1)
-print(f"{len(signal) / frequence / 60:.1f} min, {len(actifs)} canal/canaux actifs")
+signal = data[:, actifs].mean(axis=1)
+print(f"{len(signal) / frequency / 60:.1f} min, {len(actifs)} canal/canaux actifs")
 
-segments = moteur.process(signal).sort_by_start_time()
+segments = engine.process(signal).sort_by_start_time()
 print(f"{len(segments)} segments, {len({s.speaker for s in segments})} voix distinctes")
 
-extracteur = sherpa_onnx.SpeakerEmbeddingExtractor(
+extractor = sherpa_onnx.SpeakerEmbeddingExtractor(
     sherpa_onnx.SpeakerEmbeddingExtractorConfig(
-        model=str(MODELES / "nemo_en_titanet_large.onnx")
+        model=str(MODELS / "nemo_en_titanet_large.onnx")
     )
 )
 
 
-def empreinte(debut: float, fin: float):
-    flux = extracteur.create_stream()
+def voiceprint(start: float, end: float):
+    flux = extractor.create_stream()
     flux.accept_waveform(
-        sample_rate=frequence,
-        waveform=signal[int(debut * frequence) : int(fin * frequence)],
+        sample_rate=frequency,
+        waveform=signal[int(start * frequency) : int(end * frequency)],
     )
     flux.input_finished()
-    return normaliser(extracteur.compute(flux), duree_source=fin - debut)
+    return normalise(extractor.compute(flux), source_duration=end - start)
 
 
-par_voix: dict[int, list] = {}
+per_voice: dict[int, list] = {}
 for segment in segments:
-    duree = segment.end - segment.start
-    if duree < DUREE_MINIMALE:
+    duration = segment.end - segment.start
+    if duration < DUREE_MINIMALE:
         continue
-    par_voix.setdefault(segment.speaker, []).append(empreinte(segment.start, segment.end))
+    per_voice.setdefault(segment.speaker, []).append(voiceprint(segment.start, segment.end))
 
 print(f"\nsegments retenus (≥ {DUREE_MINIMALE:.0f} s) :")
-for voix, empreintes in sorted(par_voix.items()):
-    total = sum(e.duree_source for e in empreintes)
-    print(f"  voix {voix} : {len(empreintes):3d} extraits, {total / 60:.1f} min de parole")
+for voice, voiceprints in sorted(per_voice.items()):
+    total = sum(e.source_duration for e in voiceprints)
+    print(f"  voix {voice} : {len(voiceprints):3d} extraits, {total / 60:.1f} min de parole")
 
 print("\n--- deux extraits d'une MÊME voix ---")
 intra: list[float] = []
-for voix, empreintes in sorted(par_voix.items()):
+for voice, voiceprints in sorted(per_voice.items()):
     scores = [
-        similarite(empreintes[i], empreintes[j])
-        for i in range(len(empreintes))
-        for j in range(i + 1, len(empreintes))
+        similarity(voiceprints[i], voiceprints[j])
+        for i in range(len(voiceprints))
+        for j in range(i + 1, len(voiceprints))
     ]
     if scores:
         intra += scores
         print(
-            f"  voix {voix} : médiane {statistics.median(scores):.3f}  "
+            f"  voix {voice} : médiane {statistics.median(scores):.3f}  "
             f"min {min(scores):.3f}  max {max(scores):.3f}"
         )
 
 print("\n--- voix DIFFÉRENTES (agrégées) ---")
 inter: list[float] = []
-agregees = {v: agreger(e) for v, e in par_voix.items() if e}
+agregees = {v: aggregate(e) for v, e in per_voice.items() if e}
 voix_triees = sorted(agregees)
 for i, a in enumerate(voix_triees):
     for b in voix_triees[i + 1 :]:
-        score = similarite(agregees[a], agregees[b])
+        score = similarity(agregees[a], agregees[b])
         inter.append(score)
         print(f"  voix {a} ↔ voix {b} : {score:.3f}")
 

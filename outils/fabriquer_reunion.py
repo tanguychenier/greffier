@@ -101,39 +101,39 @@ FUITE_DB = -40.0
 
 # Deux voix aussi éloignées que possible : la segmentation doit pouvoir les
 # distinguer, sinon le test mesurerait la synthèse vocale et non la chaîne.
-VOIX = {"A": "Thomas", "B": "Amélie"}
+VOICE = {"A": "Thomas", "B": "Amélie"}
 SILENCE = 0.4  # secondes entre deux répliques, comme dans une vraie discussion
 
 
-def fabriquer(destination: Path, voix: dict | None = None, dialogue=None) -> Path:
+def fabriquer(destination: Path, voice: dict | None = None, dialogue=None) -> Path:
     if platform.system() != "Darwin":
         raise RuntimeError("la synthèse « say » n'existe que sur macOS")
     if not shutil.which("say") or not shutil.which("ffmpeg"):
         raise RuntimeError("« say » et « ffmpeg » sont nécessaires")
 
-    voix = voix or VOIX
+    voice = voice or VOICE
     dialogue = dialogue if dialogue is not None else DIALOGUE
-    with tempfile.TemporaryDirectory() as dossier:
-        travail = Path(dossier)
-        morceaux = []
-        for index, (locuteur, texte) in enumerate(dialogue):
-            brut = travail / f"{index:02d}.aiff"
+    with tempfile.TemporaryDirectory() as folder:
+        job = Path(folder)
+        chunks = []
+        for index, (speaker_index, text) in enumerate(dialogue):
+            brut = job / f"{index:02d}.aiff"
             subprocess.run(
-                ["say", "-v", voix[locuteur], "-o", str(brut), texte],
+                ["say", "-v", voice[speaker_index], "-o", str(brut), text],
                 check=True, capture_output=True,
             )
-            morceaux.append(brut)
+            chunks.append(brut)
 
-        silence = travail / "silence.wav"
+        silence = job / "silence.wav"
         subprocess.run(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
              "-i", f"anullsrc=r=16000:cl=mono:d={SILENCE}", str(silence)],
             check=True,
         )
 
-        liste = travail / "liste.txt"
+        listing = job / "liste.txt"
         entrees = []
-        for morceau in morceaux:
+        for morceau in chunks:
             converti = morceau.with_suffix(".wav")
             subprocess.run(
                 ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(morceau),
@@ -141,14 +141,14 @@ def fabriquer(destination: Path, voix: dict | None = None, dialogue=None) -> Pat
                 check=True,
             )
             entrees += [converti, silence]
-        liste.write_text(
-            "\n".join(f"file '{chemin}'" for chemin in entrees) + "\n", encoding="utf-8"
+        listing.write_text(
+            "\n".join(f"file '{path}'" for path in entrees) + "\n", encoding="utf-8"
         )
 
         destination.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "concat",
-             "-safe", "0", "-i", str(liste), "-ar", "16000", "-ac", "1",
+             "-safe", "0", "-i", str(listing), "-ar", "16000", "-ac", "1",
              "-c:a", "pcm_s16le", str(destination)],
             check=True,
         )
@@ -166,9 +166,9 @@ def fabriquer_presentiel(destination: Path) -> Path:
     précisément la fuite qui faisait conclure « visio » à tort, et attribuait
     toute la réunion à la personne qui enregistrait.
     """
-    with tempfile.TemporaryDirectory() as dossier:
-        melange = Path(dossier) / "micro.wav"
-        fabriquer(melange, voix=VOIX_PRESENTIEL, dialogue=DIALOGUE_PRESENTIEL)
+    with tempfile.TemporaryDirectory() as folder:
+        melange = Path(folder) / "micro.wav"
+        fabriquer(melange, voice=VOIX_PRESENTIEL, dialogue=DIALOGUE_PRESENTIEL)
         destination.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(melange),
@@ -189,21 +189,21 @@ def main() -> int:
         help="trois voix autour d'une table, en stéréo, au lieu de deux en mono",
     )
     arguments = analyseur.parse_args()
-    chemin = (
-        fabriquer_presentiel(arguments.sortie)
+    path = (
+        fabriquer_presentiel(arguments.output)
         if arguments.presentiel
-        else fabriquer(arguments.sortie)
+        else fabriquer(arguments.output)
     )
-    duree = subprocess.run(
+    duration = subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
-         str(chemin)], capture_output=True, text=True, check=False,
+         str(path)], capture_output=True, text=True, check=False,
     ).stdout.strip()
-    repliques, voix, canaux = (
+    utterances, voice, channels = (
         (len(DIALOGUE_PRESENTIEL), 3, "stéréo")
         if arguments.presentiel
         else (len(DIALOGUE), 2, "mono")
     )
-    print(f"{chemin} — {float(duree):.1f} s, {repliques} répliques, {voix} voix, {canaux}")
+    print(f"{path} — {float(duration):.1f} s, {utterances} répliques, {voice} voix, {channels}")
     return 0
 
 
