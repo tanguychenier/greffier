@@ -486,7 +486,7 @@ class Fenetre:
         # onglet de configuration au milieu d'une phrase.
         barre = tk.Frame(dedans, bg=c.carte)
         barre.grid(row=1, column=0, sticky="ew", pady=(0, 14))
-        barre.columnconfigure(2, weight=1)
+        barre.columnconfigure(3, weight=1)
         self.bouton_participation = Bouton(
             barre, self._intitule_participation(), self._basculer_la_participation,
             self.couleurs, largeur=210, hauteur=34,
@@ -497,12 +497,22 @@ class Fenetre:
         # document se fournit **pendant** la réunion, donc depuis l'onglet où
         # l'on est pendant la réunion. Le chercher dans un autre onglet revient
         # à ne pas l'avoir.
+        # Participer et **parler** sont deux décisions distinctes, et c'est le
+        # cas d'usage qui l'impose : sans la voix, elle pose ses questions dans
+        # la conversation et celui qui tient l'ordinateur répond au clavier —
+        # ce qui convient à une réunion où l'on ne veut pas d'une voix dans la
+        # pièce. Les enfouir dans un même réglage obligeait à choisir une fois
+        # pour toutes.
+        self.bouton_voix = Bouton(
+            barre, self._intitule_voix(), self._basculer_la_voix, self.couleurs,
+            largeur=160, hauteur=34, principal=False)
+        self.bouton_voix.grid(row=0, column=1, sticky="w", padx=(10, 0))
         Bouton(barre, "Fournir un document", self._fournir_un_document,
                self.couleurs, largeur=190, hauteur=34).grid(
-                   row=0, column=1, sticky="w", padx=(10, 0))
+                   row=0, column=2, sticky="w", padx=(10, 0))
         self.mot_participation = self._texte(
-            barre, "", taille=11, pale=True, wraplength=420, justify="left")
-        self.mot_participation.grid(row=0, column=2, sticky="w", padx=(14, 0))
+            barre, "", taille=11, pale=True, wraplength=380, justify="left")
+        self.mot_participation.grid(row=0, column=3, sticky="w", padx=(14, 0))
         self._dire_la_participation()
 
         cadre = tk.Frame(dedans, bg=c.carte)
@@ -535,6 +545,42 @@ class Fenetre:
         nom = self.config.assistant.nom
         return f"Faire taire {nom}" if self.config.assistant.actif else f"{nom} participe"
 
+    def _intitule_voix(self) -> str:
+        return ("Sans la voix" if self.config.assistant.voix != "aucun"
+                else "À voix haute")
+
+    def _basculer_la_voix(self) -> None:
+        """Lui donne la parole, ou la lui retire, sans la faire taire.
+
+        Distinct du bouton de participation : sans voix, elle pose toujours ses
+        questions, mais dans la conversation, et on lui répond au clavier. Avec,
+        elle se fait entendre dans la pièce. Deux réunions différentes.
+        """
+        from greffier.adaptateurs import configuration as reglages
+        from greffier.adaptateurs.voix_kokoro import VoixKokoro
+
+        avant = self.config.assistant.voix
+        if avant != "aucun":
+            self.config.assistant.voix = "aucun"
+        else:
+            # La meilleure voix disponible, sans demander : la neuronale si son
+            # modèle est là, celle du système sinon.
+            self.config.assistant.voix = (
+                "kokoro"
+                if VoixKokoro(self.config.chemins.voix_de_synthese).installee
+                else "systeme"
+            )
+        try:
+            reglages.sauver(self.config)
+        except OSError as souci:
+            self.config.assistant.voix = avant
+            messagebox.showerror("Greffier", f"Réglage non enregistré : {souci}")
+            return
+        self.bouton_voix.intituler(self._intitule_voix())
+        self._dire_la_participation()
+        if hasattr(self, "reglage_voix_assistant"):
+            self.reglage_voix_assistant.choisir(self.config.assistant.voix)
+
     def _dire_la_participation(self) -> None:
         """Ce que le bouton vient de changer, en clair.
 
@@ -543,9 +589,10 @@ class Fenetre:
         """
         nom = self.config.assistant.nom
         if not self.config.assistant.actif:
-            mot = f"{nom} écoute et prend des notes, sans jamais parler."
+            mot = f"{nom} écoute et prend des notes, sans jamais intervenir."
         elif self.config.assistant.voix == "aucun":
-            mot = f"{nom} intervient dans l'onglet Conversation, sans voix."
+            mot = (f"{nom} pose ses questions dans l'onglet Conversation. "
+                   "Répondez-lui au clavier.")
         else:
             mot = (f"{nom} peut prendre la parole. Appelez-la par son nom pour "
                    "lui poser une question.")
