@@ -22,7 +22,7 @@ from greffier.application.name_voice import Naming, voices_to_name
 from greffier.application.process import _as_stored_meeting as depuis_resultat
 
 RACINE = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(RACINE / "outils"))
+sys.path.insert(0, str(RACINE / "tools"))
 
 pytestmark = pytest.mark.integration
 
@@ -38,13 +38,13 @@ def atelier(tmp_path_factory):
     config = Config()
     diarisation = config.paths.models / "diarisation"
     if not (diarisation / "nemo_en_titanet_large.onnx").exists():
-        pytest.skip("modèles absents — lance outils/installer.py")
+        pytest.skip("modèles absents — lance tools/install.py")
 
     racine = tmp_path_factory.mktemp("poste")
     config.paths.data = racine
     config.minutes.engine = "aucun"
 
-    from fabriquer_reunion import DIALOGUE_SANS_NOMS, fabriquer
+    from make_meeting import DIALOGUE_SANS_NOMS, fabriquer
 
     premiere = fabriquer(racine / "reunion-1.wav")
     seconde = fabriquer(racine / "reunion-2.wav", dialogue=DIALOGUE_SANS_NOMS)

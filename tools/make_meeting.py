@@ -7,7 +7,7 @@ avec deux voix du système, ce qui donne un fichier audio réel — passé par l
 même chemin que n'importe quel enregistrement — sans la moindre donnée
 personnelle, et rejouable par qui veut.
 
-    python3 outils/fabriquer_reunion.py sortie.wav
+    python3 tools/make_meeting.py sortie.wav
 
 macOS uniquement pour l'instant : « say » est le seul moteur de synthèse
 disponible sans rien installer. Sur Linux, « espeak-ng » ferait l'affaire.

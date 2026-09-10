@@ -11,9 +11,9 @@ son propre agrégat. Une voix qui mélange deux personnes a une cohérence **plu
 basse** que les autres : son agrégat tombe entre deux nuages, donc il est loin
 des deux. C'est un signe négatif utilisable sans vérité terrain.
 
-    python3 outils/coherence_des_voix.py 2026-09-10_10h10_reunion
+    python3 tools/voice_coherence.py 2026-09-10_10h10_reunion
 
-Les empreintes viennent du cache de « rejouer_recollage.py » : lance-le d'abord.
+Les empreintes viennent du cache de « replay_stitching.py » : lance-le d'abord.
 """
 
 from __future__ import annotations
@@ -56,7 +56,7 @@ def main() -> int:
     cache = cache_de(arguments.meeting)
     if not cache.exists():
         print("Les empreintes manquent : lance d'abord "
-              "« outils/rejouer_recollage.py » sur cette réunion.", file=sys.stderr)
+              "« tools/replay_stitching.py » sur cette réunion.", file=sys.stderr)
         return 1
     per_voice: dict[str, list[Voiceprint]] = pickle.loads(cache.read_bytes())
     grosses = sorted(

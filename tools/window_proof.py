@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Ouvre la vraie fenêtre, affiche chaque onglet, et rend compte.
 
-Sert la preuve Linux de l'interface (`outils/preuve-fenetre-linux.Dockerfile`),
+Sert la preuve Linux de l'interface (`tools/window-proof-linux.Dockerfile`),
 et se lance aussi bien à la main sur n'importe quel système :
 
-    .venv/bin/python outils/preuve_fenetre.py
+    .venv/bin/python tools/window_proof.py
 
 La fenêtre est **construite pour de vrai**, puis chaque onglet est affiché par
 son propre code — la méthode déjà retenue sur macOS, qui pilote la fenêtre plutôt

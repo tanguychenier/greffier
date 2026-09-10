@@ -12,7 +12,7 @@ ici : **sur des extraits courts, l'écart entre "même personne" et "personnes
 différentes"**. C'est cet écart qui rend un seuil possible, et c'est lui qui
 manquait quand le fil affichait cent onze voix.
 
-    python3 outils/comparer_extracteurs.py 2026-09-09_16h36_reunion
+    python3 tools/compare_extractors.py 2026-09-09_16h36_reunion
 
 La vérité terrain vient du recollage final de la réunion, qui a été contrôlé
 contre les noms posés à la main. Les empreintes sont mises en cache par modèle :
@@ -112,7 +112,7 @@ def verite(meeting: dict) -> list:
     if not cache.exists():
         raise SystemExit(
             "La vérité terrain manque : lance d'abord "
-            "« outils/rejouer_recollage.py » sur cette réunion."
+            "« tools/replay_stitching.py » sur cette réunion."
         )
     per_voice = pickle.loads(cache.read_bytes())
     membership = stitch(per_voice)

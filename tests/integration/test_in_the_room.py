@@ -34,7 +34,7 @@ from greffier.application.process import Chain
 from greffier.domain.channels import VOIX_LOCALE
 
 RACINE = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(RACINE / "outils"))
+sys.path.insert(0, str(RACINE / "tools"))
 
 pytestmark = pytest.mark.integration
 
@@ -52,7 +52,7 @@ def models_present(config: Config) -> bool:
 def config() -> Config:
     configuration = Config()
     if not models_present(configuration):
-        pytest.skip("modèles absents — lance outils/installer.py")
+        pytest.skip("modèles absents — lance tools/install.py")
     if not shutil.which("whisper-cli"):
         pytest.skip("whisper.cpp absent")
     return configuration
@@ -62,7 +62,7 @@ def config() -> Config:
 def table(tmp_path_factory) -> Path:
     if platform.system() != "Darwin":
         pytest.skip("la synthèse vocale « say » n'existe que sur macOS")
-    from fabriquer_reunion import fabriquer_presentiel
+    from make_meeting import fabriquer_presentiel
 
     return fabriquer_presentiel(tmp_path_factory.mktemp("audio") / "table.wav")
 

@@ -129,7 +129,7 @@ def assistant(config: Config) -> outbound.Writer | None:
         config.minutes.effective_model,
         timeout=config.minutes.timeout,
         language=config.minutes.language,
-        outils=(ClaudeWriter.OUTILS_DE_RECHERCHE
+        tools=(ClaudeWriter.SEARCH_TOOLS
                 if config.conversation.recherche_web else ()),
         consignes_propres=CONSIGNES_CONVERSATION,
     )
@@ -309,6 +309,6 @@ def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
     cerveau = assistant(config)
     if cerveau is not None and hasattr(cerveau, "consignes_propres"):
         cerveau.consignes_propres = lui.guidance()
-        cerveau.outils = ()  # type: ignore[attr-defined]
+        cerveau.tools = ()  # type: ignore[attr-defined]
     lui.cerveau = cerveau
     return lui

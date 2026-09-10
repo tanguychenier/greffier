@@ -27,11 +27,11 @@
 # au certificat : les autorisations données une fois survivent.
 #
 # Conséquence assumée : une modification du code ne se voit dans l'application
-# qu'après reconstruction (outils/installer.py, ou ce script). C'est le
+# qu'après reconstruction (tools/install.py, ou ce script). C'est le
 # comportement d'un logiciel installé ; la ligne de commande du dépôt
 # (`.venv/bin/greffier`) reste là pour développer, elle suit le code.
 #
-# Appelé par outils/installer.py ; relançable à la main.
+# Appelé par tools/install.py ; relançable à la main.
 set -euo pipefail
 
 DEPOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -67,7 +67,7 @@ fi
 # standard dans `lib/`, retrouvées par `@executable_path/../lib`. Un Python
 # Homebrew ou système est un « framework », qui ne se copie pas ainsi.
 PYTHON="$DEPOT/.venv/bin/python3"
-[ -x "$PYTHON" ] || { echo "❌ Pas d'environnement dans $DEPOT/.venv : lance outils/installer.py." >&2; exit 1; }
+[ -x "$PYTHON" ] || { echo "❌ Pas d'environnement dans $DEPOT/.venv : lance tools/install.py." >&2; exit 1; }
 VERSION="$("$PYTHON" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
 BASE_PREFIX="$("$PYTHON" -c 'import sys; print(sys.base_prefix)')"
 # Un framework porte aussi lib/libpython3.13.dylib et bin/python3.13 : il

@@ -40,7 +40,7 @@ class Suggestion:
 def offer(
     file: Path,
     taille: int | None = None,
-    outils: frozenset[str] = frozenset(),
+    tools: frozenset[str] = frozenset(),
 ) -> Suggestion:
     """What is proposed for this file."""
     suffixe = file.suffix.casefold()
@@ -57,7 +57,7 @@ def offer(
         return Suggestion(
             file, Destination.VIDEO,
             "vidéo : la piste sonore sera extraite, l'image ne sert à rien ici",
-            bloque_par="" if "ffmpeg" in outils else "ffmpeg est introuvable",
+            bloque_par="" if "ffmpeg" in tools else "ffmpeg est introuvable",
         )
 
     if suffixe in TEXTS:
@@ -68,7 +68,7 @@ def offer(
         return Suggestion(
             file, Destination.CONTEXT,
             f"document {suffixe.lstrip('.')} : son texte sera extrait",
-            bloque_par="" if besoin in outils else f"{besoin} est introuvable",
+            bloque_par="" if besoin in tools else f"{besoin} est introuvable",
         )
 
     return Suggestion(

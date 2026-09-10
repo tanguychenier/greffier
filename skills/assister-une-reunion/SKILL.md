@@ -186,7 +186,7 @@ Ne conclus jamais sur une lecture. Ce qui prouve :
 
 ```sh
 .venv/bin/python -m pytest                     # aucun modèle chargé
-.venv/bin/python -m ruff check src tests outils
+.venv/bin/python -m ruff check src tests tools
 .venv/bin/python -m mypy src
 ```
 

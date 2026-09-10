@@ -83,7 +83,7 @@ jobs:
           pyinstaller --noconfirm --name Greffier --windowed `
             --collect-all sherpa_onnx --collect-all soundfile `
             --collect-submodules greffier `
-            outils/lanceur_windows.py
+            tools/windows_launcher.py
       - name: It starts
         # A `--windowed` executable detaches from the terminal and returns at
         # once, so calling it directly reports its launcher's exit code and
