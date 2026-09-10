@@ -25,8 +25,6 @@ from collections.abc import Sequence
 from greffier.domaine.carte import Apport, Etat, Genre
 from greffier.ports import sortants
 
-#: Ce qu'on demande au rédacteur. Le format est décrit avec ses contraintes
-#: plutôt qu'illustré seulement : un exemple seul se voit copié tel quel.
 CONSIGNES = """Tu extrais d'une réunion les points qui construisent la carte d'un
 sujet. Tu ne rédiges pas, tu extrais.
 
@@ -67,10 +65,7 @@ Règles :
 _GENRES = {str(genre): genre for genre in Genre}
 _ETATS = {str(etat): etat for etat in Etat}
 
-#: Le rédacteur enrobe volontiers sa réponse dans un bloc de code, malgré la
-#: consigne. On l'accepte plutôt que de perdre l'extraction pour trois carets.
 _BLOC = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
-
 
 def extraire(
     redacteur: sortants.Redacteur,
@@ -102,7 +97,6 @@ def extraire(
     invite.append(f"\nCe qui a été dit :\n{matiere}")
     return analyser(redacteur.rediger("\n".join(invite)), maximum=maximum)
 
-
 class RenduIllisible(ValueError):
     """La réponse ne contenait pas de tableau. Distinct de « rien trouvé ».
 
@@ -110,7 +104,6 @@ class RenduIllisible(ValueError):
     commande annonçait « rien à ajouter » alors que le modèle avait répondu en
     prose sans jamais produire de JSON.
     """
-
 
 def analyser(rendu: str, maximum: int = 12) -> list[Apport]:
     """Traduit la réponse du rédacteur en apports. Ignore ce qui ne va pas.

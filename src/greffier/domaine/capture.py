@@ -19,11 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-#: Tours consécutifs sans un octet de plus avant de le dire. À quatre secondes
-#: par tour, cela laisse douze secondes : assez pour qu'un tampon d'écriture se
-#: vide, trop peu pour qu'on enregistre une réunion entière dans le vide.
 TOURS_AVANT_ALERTE = 3
-
 
 @dataclass
 class SurveillanceDeCapture:

@@ -27,16 +27,12 @@ from greffier.domaine.direct import Fil
 from greffier.domaine.modeles import Intervalle, Replique, Source, TourDeParole
 from greffier.domaine.reunion import ReunionEnregistree, tenue_le
 
-#: Ce que le compte rendu doit savoir d'une réunion reconstruite. Sans cette
-#: phrase, une transcription de moindre qualité passe pour une transcription
-#: ordinaire, et le compte rendu affirme avec le même aplomb.
 AVERTISSEMENT = (
     "Réunion reconstruite depuis le fil du direct, faute de traitement complet. "
     "La transcription vient du modèle rapide, les voix n'ont pas été recollées "
     "par empreinte et l'attribution des phrases est approximative. Retraiter "
     "l'enregistrement, s'il existe encore, donnera un bien meilleur résultat."
 )
-
 
 def depuis_le_fil(
     identifiant: str,
@@ -97,7 +93,6 @@ def depuis_le_fil(
             commencee + timedelta(seconds=duree) if commencee and duree else None
         ),
     )
-
 
 def fusionner_intervalles(tours: list[TourDeParole]) -> list[TourDeParole]:
     """Recolle les tours consécutifs d'une même voix.

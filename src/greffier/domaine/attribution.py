@@ -21,13 +21,7 @@ from __future__ import annotations
 
 from greffier.domaine.modeles import Intervalle, TourDeParole
 
-#: Part du temps couvert que le tour meneur doit tenir pour qu'on lui donne la
-#: phrase. Mesuré sur 29 répliques de cinq réunions synthétisées : 26 tiennent
-#: 0,98 ou plus (24 à 1,00 exactement), et les 3 qui enjambent un changement de
-#: locuteur tiennent 0,50, 0,52 et 0,61. Rien entre 0,62 et 0,97 : le seuil est
-#: posé au milieu de cette bande vide, pas choisi au doigt mouillé.
 PART_MINIMALE = 0.80
-
 
 def temps_par_voix(intervalle: Intervalle, tours: list[TourDeParole]) -> dict[str, float]:
     """Combien de secondes chaque voix tient pendant cet intervalle."""
@@ -37,7 +31,6 @@ def temps_par_voix(intervalle: Intervalle, tours: list[TourDeParole]) -> dict[st
         if commun > 0:
             cumuls[tour.voix] = cumuls.get(tour.voix, 0.0) + commun
     return cumuls
-
 
 def voix_de(
     intervalle: Intervalle,

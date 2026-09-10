@@ -23,16 +23,12 @@ from greffier.domaine.modeles import Phase
 from greffier.domaine.niveau import SurveillanceDeNiveau
 from greffier.domaine.peripheriques import Action, Materiel, Veille
 
-#: Quatre secondes : assez court pour qu'un branchement ne coûte qu'un mot ou
-#: deux, assez long pour que la lecture du matériel reste imperceptible.
 INTERVALLE = 4.0
-
 
 class Listeur(Protocol):
     """Ce qu'on attend de la lecture du matériel."""
 
     def lire(self) -> Materiel: ...  # pragma: no cover
-
 
 class Machine(Protocol):
     """Ce qu'on attend de la machine à états d'enregistrement.
@@ -47,7 +43,6 @@ class Machine(Protocol):
 
     def signaler(self, avertissement: str) -> Any: ...  # pragma: no cover
 
-
 @dataclass
 class VeilleMateriel:
     """Un tour de veille, isolé de l'horloge et du matériel pour être éprouvable."""
@@ -55,16 +50,9 @@ class VeilleMateriel:
     machine: Machine
     listeur: Listeur
     veille: Veille
-    #: Reconstruit le périphérique agrégé autour du micro donné. Vrai si réussi.
     reconstruire: Callable[[str], bool]
-    #: Prévient l'utilisateur, quand le système sait afficher quelque chose.
     prevenir: Callable[[str], None] = lambda _: None
-    #: Taille du morceau en cours d'écriture, en octets, ou None si on ne sait
-    #: pas la lire. Facultatif : sans elle la veille garde son ancien office,
-    #: ce dont les tests du matériel profitent.
     taille_captee: Callable[[], int | None] | None = None
-    #: Niveau du micro sur les dernières fractions de seconde écrites, ou None
-    #: si on ne sait pas le lire. Facultatif au même titre que la taille.
     niveau_capte: Callable[[], float | None] | None = None
     intervalle: float = INTERVALLE
 

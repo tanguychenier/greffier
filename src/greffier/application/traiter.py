@@ -45,11 +45,7 @@ COUVERTURE_BASSE = 0.80
 # de toutes pièces, expédié par mail (constaté le 2026-08-20).
 MOTS_MINIMUM = 20
 
-#: Posé quand la boucle système est muette, retiré ou précisé une fois qu'on
-#: sait combien de voix le micro portait. Une constante parce que deux endroits
-#: doivent désigner exactement le même message.
 AVERTISSEMENT_SANS_BOUCLE = "· boucle système muette, à préciser"
-
 
 class ChaineInterrompue(Exception):
     """Arrêt volontaire de la chaîne, avec une raison présentable."""
@@ -58,7 +54,6 @@ class ChaineInterrompue(Exception):
         super().__init__(raison)
         self.phase = phase
         self.raison = raison
-
 
 @dataclass
 class Resultat:
@@ -71,24 +66,14 @@ class Resultat:
     propositions: dict[str, str] = field(default_factory=dict)
     compte_rendu: str = ""
     envoye: bool = False
-    #: Où la chaîne a écrit, quand elle a écrit. La fenêtre et la ligne de
-    #: commande l'affichent au lieu de le recalculer chacune de son côté.
     fichier_maitre: Path | None = None
     transcription_ecrite: Path | None = None
     compte_rendu_ecrit: Path | None = None
     avertissements: list[str] = field(default_factory=list)
-    #: Constats de la veille sur le matériel, pour que régénérer la rédaction
-    #: plus tard n'y perde pas ce que la première rédaction savait.
     evenements_materiel: list[str] = field(default_factory=list)
-    #: La langue dans laquelle la réunion s'est tenue, telle que la chaîne l'a
-    #: résolue. Neutre tant que la transcription n'a pas eu lieu.
     profil: ProfilLinguistique = NEUTRE
-    #: Les heures d'horloge de la réunion, quand l'enregistrement les a
-    #: retenues. `duree` ne les remplace pas : elle s'arrête au dernier mot.
     commencee_le: datetime | None = None
     terminee_le: datetime | None = None
-    #: Le sujet de la réunion, tiré du titre du compte rendu. Le rédacteur l'a
-    #: écrit après avoir lu toute la transcription : personne n'est mieux placé.
     sujet: str = ""
 
     @property
@@ -152,7 +137,6 @@ class Resultat:
         """
         return {v: d for v, d in self.temps_de_parole().items() if d >= minimum}
 
-
 @dataclass
 class Traitement:
     """Assemble les ports. La composition décide de qui est branché où."""
@@ -166,32 +150,17 @@ class Traitement:
     expediteur: sortants.Expediteur | None = None
     journal: sortants.JournalEtat | None = None
     notificateur: sortants.Notificateur | None = None
-    #: Où la réunion est **gardée**. Sans lui, une réunion traitée depuis la
-    #: fenêtre ne laissait rien sur le disque : le compte rendu partait par
-    #: courriel puis disparaissait, la réunion n'apparaissait dans aucune liste,
-    #: et nommer une voix après coup devenait impossible. L'écriture n'existait
-    #: que dans la commande en ligne, donc seulement pour qui passait par elle.
     depot: sortants.DepotReunions | None = None
-    #: Où écrire la transcription lisible et le compte rendu. Absents, la
-    #: chaîne reste utilisable en mémoire — ce dont les tests profitent.
     dossier_transcriptions: Path | None = None
     dossier_comptes_rendus: Path | None = None
 
     langue: str = "fr"
     amorce: str = ""
-    #: Le glossaire du milieu, dicté au rédacteur avant la transcription. Sans
-    #: lui, un sigle reste nu dans un document lu par des absents, et le
-    #: rédacteur n'a aucun moyen de rétablir un terme que la transcription a
-    #: déformé — il ne peut pas deviner ce qu'il n'a jamais vu écrit.
     entete_contexte: str = ""
     personnes: int | None = None
     pas_des_prenoms: frozenset[str] = frozenset()
     destinataire: str = ""
-    #: Ce qui a été fait vis-à-vis des participants. Porté au compte rendu :
-    #: une voix est une donnée biométrique, et ce qui n'est pas écrit n'a pas eu
-    #: lieu — une mention orale ne se retrouve pas six mois plus tard.
     information: str = "rien"
-    #: Constats de la veille sur le matériel, remplis par « executer ».
     evenements_materiel: list[str] = field(default_factory=list)
 
     # ------------------------------------------------------------- avancement
@@ -656,7 +625,6 @@ class Traitement:
             resultat.compte_rendu,
             [],
         )
-
 
 def _en_reunion_enregistree(resultat: Resultat, duree: float) -> ReunionEnregistree:
     """Le fichier maître, depuis ce que la chaîne a produit.

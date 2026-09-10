@@ -38,19 +38,13 @@ class Emplacements:
     comptes_rendus: Path
     direct: Path
     propositions: Path
-    #: Facultatifs pour ne pas casser les appels existants, mais renseignés
-    #: partout : sans eux, effacer une réunion laissait derrière elle les
-    #: questions posées, la conversation tenue et les documents fournis.
     questions: Path | None = None
     conversations: Path | None = None
     pieces: Path | None = None
 
-
 @dataclass(frozen=True, slots=True)
 class Piece:
     chemin: Path
-    #: Ce que la pièce est, dit à qui va confirmer : « enregistrement audio »
-    #: pèse autrement que « propositions de noms ».
     quoi: str
 
     @property
@@ -59,7 +53,6 @@ class Piece:
             return self.chemin.stat().st_size
         except OSError:
             return 0
-
 
 def pieces_de(ou: Emplacements, identifiant: str) -> list[Piece]:
     """Tout ce qui existe pour cette réunion, du plus lourd au plus léger.
@@ -91,14 +84,12 @@ def pieces_de(ou: Emplacements, identifiant: str) -> list[Piece]:
     ]
     return sorted(trouvees, key=lambda p: -p.octets)
 
-
 def _documents_fournis(ou: Emplacements, identifiant: str) -> list[Path]:
     """Les documents déposés pendant la réunion. Un dossier, pas un fichier."""
     if ou.pieces is None:
         return []
     dossier = ou.pieces / identifiant
     return sorted(dossier.glob("*.txt")) if dossier.is_dir() else []
-
 
 def oublier(ou: Emplacements, identifiant: str) -> list[Piece]:
     """Efface la réunion, et rend ce qui a été effacé.
@@ -118,17 +109,14 @@ def oublier(ou: Emplacements, identifiant: str) -> list[Piece]:
             (ou.pieces / identifiant).rmdir()
     return effacees
 
-
 @dataclass(frozen=True, slots=True)
 class Rangement:
     """Ce qu'un tour de rangement a fait, ou ferait."""
 
     identifiant: str
     geste: str
-    #: Octets libérés — ou qui le seraient, quand on ne fait que constater.
     gagne: int = 0
     souci: str = ""
-
 
 def audio_de(ou: Emplacements, identifiant: str) -> Path | None:
     """L'enregistrement de cette réunion, compressé ou non."""
@@ -137,7 +125,6 @@ def audio_de(ou: Emplacements, identifiant: str) -> Path | None:
         if chemin.exists():
             return chemin
     return None
-
 
 def ranger(
     ou: Emplacements,
@@ -183,7 +170,6 @@ def ranger(
         except (OSError, RuntimeError) as souci:
             faits.append(Rangement(identifiant, str(geste), 0, str(souci)))
     return faits
-
 
 def lisible(octets: int) -> str:
     """« 151 Mo », « 34 Ko » — pour une phrase de confirmation."""
