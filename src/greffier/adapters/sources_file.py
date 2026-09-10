@@ -1,9 +1,7 @@
-"""Le registre des sources, dans un fichier, et les jetons hors de ce fichier.
+"""The source registry, in a file, and the tokens outside the repository.
 
-Le fichier dit **où** trouver un jeton, jamais le jeton. Deux formes acceptées :
-le nom d'une variable d'environnement, ou une entrée de trousseau préfixée
-« trousseau: ». Le trousseau est préférable sur macOS — il survit aux
-sauvegardes du dossier de configuration sans y figurer.
+What is not registered does not exist. A token never sits in the file: it comes
+from the environment or the keychain.
 """
 
 from __future__ import annotations
@@ -52,12 +50,7 @@ GABARIT = '''# Les sources extérieures que Greffier a le droit de consulter.
 PREFIXE_TROUSSEAU = "trousseau:"
 
 def read(file: Path) -> Registry:
-    """Les sources inscrites. Vide si le fichier n'existe pas.
-
-    Une entrée mal formée est écartée **avec** son nom : contrairement au
-    contexte, une source ignorée en silence produirait un refus incompréhensible
-    plus tard — « cette source n'est pas inscrite » alors qu'elle y figure.
-    """
+    """The registered sources. Empty when the file does not exist."""
     if not file.exists():
         return Registry([])
     try:

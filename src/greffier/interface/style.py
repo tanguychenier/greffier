@@ -1,11 +1,4 @@
-"""Palette et typographie, sans une ligne de Tk.
-
-Séparé des widgets pour deux raisons. La première est architecturale : une
-couleur et une taille de police ne dépendent d'aucune boîte à outils. La seconde
-est pratique et fut découverte en intégration continue : l'image « python:3.13-slim »
-n'embarque pas « libtk8.6.so », donc tout module qui importe « tkinter » y est
-inimportable, tests compris. Ce qui se teste vit donc ici.
-"""
+"""Palette and typography, without a line of Tk."""
 
 from __future__ import annotations
 
@@ -16,13 +9,12 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Palette:
-    """Les rôles, pas les couleurs : c'est ce qui permet d'avoir deux thèmes.
+    """Roles, not colours: that is what makes two themes possible.
 
-    Chaque valeur est éprouvée par `tests/interface/test_style.py`, contrastes
-    compris. Deux mesures y comptent plus que le goût : le texte doit passer
-    4,5:1 sur son fond, et le **filet** doit rester perceptible — mesuré à
-    1,28:1, il ne se voyait pas, et une interface dont les bordures sont
-    invisibles paraît plate quoi qu'on fasse par ailleurs.
+    Every value is measured by the tests, contrasts included. Two figures matter
+    more than taste: text must clear 4.5:1 on its ground, and the rule must stay
+    visible — measured at 1.28:1 it did not, and an interface whose borders are
+    invisible looks flat whatever else is done.
     """
 
     ground: str
@@ -69,13 +61,7 @@ SOMBRE = Palette(
 )
 
 def system_is_dark() -> bool:
-    """Suit le réglage du système, plutôt que d'imposer un goût.
-
-    Les trois systèmes le disent, chacun à sa façon, et aucun ne coûte plus de
-    quelques millisecondes. Ne demander qu'à macOS laissait un bureau réglé en
-    sombre recevoir une interface claire, ce qui saute aux yeux à côté de toutes
-    les autres fenêtres.
-    """
+    """Follows the system setting rather than imposing a taste."""
     system = platform.system()
     if system == "Darwin":
         return _output(["defaults", "read", "-g", "AppleInterfaceStyle"]) == "Dark"
@@ -102,12 +88,7 @@ def system_is_dark() -> bool:
     return "dark" in theme.lower()
 
 def _output(command: list[str]) -> str:
-    """Ce qu'une commande écrit, ou rien si elle manque ou échoue.
-
-    Rien est le cas courant : `gdbus` n'existe pas sur un poste sans D-Bus,
-    `reg` pas hors de Windows. Un thème clair est un repli acceptable, une
-    fenêtre qui ne s'ouvre pas ne l'est pas.
-    """
+    """What a command writes, or nothing when it is missing."""
     try:
         fait = subprocess.run(command, capture_output=True, text=True,
                               check=False, timeout=2)
@@ -116,7 +97,7 @@ def _output(command: list[str]) -> str:
     return fait.stdout.strip() if fait.returncode == 0 else ""
 
 def palette(theme: str = "systeme") -> Palette:
-    """La palette demandée, ou celle du système quand on ne demande rien."""
+    """The palette asked for, or the system's when following it."""
     if theme == "clair":
         return CLAIR
     if theme == "sombre":
@@ -124,14 +105,7 @@ def palette(theme: str = "systeme") -> Palette:
     return SOMBRE if system_is_dark() else CLAIR
 
 def font(taille: int, gras: bool = False) -> tuple[str, int, str]:
-    """La police de l'interface du système, avec un repli sûr.
-
-    La taille part en négatif, ce que Tk lit comme des pixels. Un nombre positif
-    serait des points, qu'il convertit selon la résolution annoncée par l'écran :
-    macOS en annonce soixante-douze par pouce, où points et pixels se confondent,
-    contre près de cent sous X11. À taille égale, la même interface y grandissait
-    donc d'un tiers, et les libellés débordaient de leurs boutons.
-    """
+    """The system interface font, with a fallback."""
     familles = {
         "Darwin": "SF Pro Text",
         "Windows": "Segoe UI",
@@ -140,18 +114,12 @@ def font(taille: int, gras: bool = False) -> tuple[str, int, str]:
     return (famille, -taille, "bold" if gras else "normal")
 
 def blend(depuis: str, vers: str, part: float) -> str:
-    """Une couleur entre deux autres, en hexadécimal — le fondu du point rouge."""
+    """A colour between two others, in hexadecimal."""
     a = tuple(int(depuis[i : i + 2], 16) for i in (1, 3, 5))
     b = tuple(int(vers[i : i + 2], 16) for i in (1, 3, 5))
     return "#" + "".join(f"{round(x + (y - x) * part):02x}" for x, y in zip(a, b, strict=True))
 
 def title_font(taille: int) -> tuple[str, int, str]:
-    """Une empreinte plus éditoriale pour le nom de la réunion.
-
-    Le seul texte de la fenêtre qui n'a pas besoin de ressembler à un bouton.
-    Georgia est du système sur macOS et Windows ; ailleurs « Times », que Tk
-    garantit et fait pointer vers la sérif de la plateforme, comme le repli de
-    `police`. La taille suit la même règle : négative, donc en pixels.
-    """
+    """A more editorial face for the meeting's name."""
     famille = {"Darwin": "Georgia", "Windows": "Georgia"}.get(platform.system(), "Times")
     return (famille, -taille, "bold")
