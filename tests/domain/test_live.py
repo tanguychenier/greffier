@@ -40,6 +40,12 @@ def voiceprint(x: float, y: float, duration: float = 4.0) -> Voiceprint:
 MEME_VOIX = (voiceprint(1, 0, duration=8.0), voiceprint(0.8, 0.6, duration=8.0))
 #: Cosinus nul : deux personnes, sans ambiguïté possible.
 AUTRE_VOIX = voiceprint(0, 1)
+#: Trois vecteurs deux à deux orthogonaux : trois personnes distinctes.
+ECARTEES = (normalise([1.0, 0.0, 0.0], source_duration=4.0),
+            normalise([0.0, 1.0, 0.0], source_duration=4.0),
+            normalise([0.0, 0.0, 1.0], source_duration=4.0))
+#: À cosinus négatif des trois : une quatrième personne, jamais rattachée.
+LOIN = normalise([0.0, 0.0, -1.0], source_duration=4.0)
 
 
 def utterance(start: float, end: float, text: str = "on cale la recette jeudi") -> Utterance:
@@ -60,6 +66,7 @@ class TestQuiParleEnDirect:
         premiere = thread.attach(MEME_VOIX[0], local=False)
         seconde = thread.attach(MEME_VOIX[1], local=False)
         assert premiere == seconde
+        thread.record_turn(blocks([utterance(0.0, 20.0)], [])[0], premiere)
         assert thread.label(premiere) == "Voix 1"
 
     def test_deux_extraits_eloignes_sont_deux_voix(self) -> None:
@@ -67,6 +74,8 @@ class TestQuiParleEnDirect:
         premiere = thread.attach(MEME_VOIX[0], local=False)
         seconde = thread.attach(AUTRE_VOIX, local=False)
         assert premiere != seconde
+        thread.record_turn(blocks([utterance(0.0, 20.0)], [])[0], premiere)
+        thread.record_turn(blocks([utterance(20.0, 40.0)], [])[0], seconde)
         assert {thread.label(premiere), thread.label(seconde)} == {"Voix 1", "Voix 2"}
 
     def test_une_bribe_trop_courte_ne_cree_pas_un_participant(self) -> None:
@@ -100,6 +109,7 @@ class TestReconnaissanceParLaBanque:
         thread = LiveThread(known=[marc])
         voice = thread.attach(AUTRE_VOIX, local=False)
         assert thread.voice[voice].name is None
+        thread.record_turn(blocks([utterance(0.0, 20.0)], [])[0], voice)
         assert thread.label(voice) == "Voix 1"
 
     def test_le_nom_est_redemande_quand_la_matiere_s_accumule(self) -> None:
@@ -768,7 +778,7 @@ class TestReunirLesHomonymes:
         for identifier in ("v1", "v2", "v3"):
             thread.voice[identifier].name = "Tanguy"
             thread.voice[identifier].certainty = Certainty.PROBABLE
-        faits = thread._join_namesakes()
+        faits = thread.join_namesakes()
         assert len(faits) == 2
         restantes = [v for v in thread.voice.values() if v.name == "Tanguy"]
         assert len(restantes) == 1
@@ -778,7 +788,7 @@ class TestReunirLesHomonymes:
         thread = self._thread()
         thread.voice["v1"].name = thread.voice["v3"].name = "Tanguy"
         thread.voice["v1"].certainty = thread.voice["v3"].certainty = Certainty.PROBABLE
-        thread._join_namesakes()
+        thread.join_namesakes()
         assert thread.voice["v1"].name == "Tanguy"
         assert "v3" not in thread.voice or thread.voice["v3"].name != "Tanguy"
 
@@ -786,18 +796,18 @@ class TestReunirLesHomonymes:
         thread = self._thread()
         thread.voice["v1"].name, thread.voice["v2"].name = "Tanguy", "Garance"
         thread.voice["v1"].certainty = thread.voice["v2"].certainty = Certainty.PROBABLE
-        assert thread._join_namesakes() == []
+        assert thread.join_namesakes() == []
         assert thread.voice["v1"].name == "Tanguy" and thread.voice["v2"].name == "Garance"
 
     def test_la_casse_ne_cree_pas_deux_personnes(self):
         thread = self._thread()
         thread.voice["v1"].name, thread.voice["v2"].name = "Tanguy", "tanguy"
         thread.voice["v1"].certainty = thread.voice["v2"].certainty = Certainty.PROBABLE
-        assert len(thread._join_namesakes()) == 1
+        assert len(thread.join_namesakes()) == 1
 
     def test_une_voix_sans_nom_n_est_pas_concernee(self):
         thread = self._thread()
-        assert thread._join_namesakes() == []
+        assert thread.join_namesakes() == []
 
     def test_le_recollage_les_reunit_de_lui_meme(self):
         """C'est là que l'auto-correction se produit, à chaque tranche."""
@@ -930,3 +940,121 @@ class TestSeparerDeuxVoixReunies:
         thread.split("v2")
         assert thread.voice["v2"].name == "Tanguy", "l'état d'avant la fusion"
         assert thread.voice["v1"].name is None
+
+
+class TestADisplayNumberIsHandedOutOnce:
+    """Three voices showed "Voix 11" in a real ninety-minute meeting.
+
+    The number was counted from the voices present, and every join deletes one,
+    so the count came back down and the next voice took a number already on
+    screen. Two people under one label cannot be told apart, and naming one of
+    them names the wrong person.
+    """
+
+    def _parle(self, thread, voiceprint, start, end):
+        """Attaches an extract and records what it said, as the watch does."""
+        voice = thread.attach(voiceprint, local=False)
+        thread.record_turn(blocks([utterance(start, end)], [])[0], voice)
+        return voice
+
+    def test_every_voice_carries_its_own_number(self):
+        thread = LiveThread()
+        identifiers = [self._parle(thread, e, 20.0 * i, 20.0 * i + 18.0)
+                       for i, e in enumerate(ECARTEES)]
+        rangs = [thread.voice[i].rank for i in identifiers]
+        assert len(set(rangs)) == len(rangs), rangs
+        assert 0 not in rangs, "chacune a parlé assez pour porter un numéro"
+
+    def test_a_join_does_not_free_a_number(self):
+        thread = LiveThread()
+        identifiers = [self._parle(thread, e, 20.0 * i, 20.0 * i + 18.0)
+                       for i, e in enumerate(ECARTEES)]
+        avant = max(thread.voice[i].rank for i in identifiers)
+        thread.join_into(identifiers[0], identifiers[1])
+        neuve = self._parle(thread, LOIN, 100.0, 118.0)
+        assert thread.voice[neuve].rank > avant
+
+    def test_the_labels_stay_distinct_after_a_join(self):
+        thread = LiveThread()
+        identifiers = [self._parle(thread, e, 20.0 * i, 20.0 * i + 18.0)
+                       for i, e in enumerate(ECARTEES)]
+        thread.join_into(identifiers[0], identifiers[1])
+        self._parle(thread, LOIN, 100.0, 118.0)
+        libelles = [v.label for v in thread.voice.values() if v.name is None
+                    and v.rank > 0]
+        assert len(set(libelles)) == len(libelles), libelles
+
+    def test_a_reserved_number_is_never_handed_out_again(self):
+        """A rebuilt thread must not reuse a number the log already shows."""
+        thread = LiveThread()
+        thread.reserve_rank(11)
+        neuve = self._parle(thread, LOIN, 0.0, 18.0)
+        assert thread.voice[neuve].rank == 12
+
+    def test_reserving_a_smaller_number_changes_nothing(self):
+        thread = LiveThread()
+        thread.reserve_rank(11)
+        thread.reserve_rank(3)
+        neuve = self._parle(thread, LOIN, 0.0, 18.0)
+        assert thread.voice[neuve].rank == 12
+
+
+class TestAVoiceEarnsItsNumber:
+    """A number handed out on two seconds of audio fills the screen with people.
+
+    Measured on a real ninety-minute meeting: four voices held 0.7% of the
+    words between them, 5.9 to 13.9 seconds each, and each took a row of its
+    own next to the nine people who actually spoke. They are announced with the
+    others until they carry something.
+    """
+
+    def _parle(self, thread, voiceprint, start, end):
+        voice = thread.attach(voiceprint, local=False)
+        thread.record_turn(blocks([utterance(start, end)], [])[0], voice)
+        return voice
+
+    def test_a_scrap_is_announced_with_the_others(self):
+        thread = LiveThread()
+        gros = self._parle(thread, ECARTEES[0], 0.0, 300.0)
+        miette = self._parle(thread, ECARTEES[1], 300.0, 302.0)
+        assert thread.label(miette) == UNDETERMINED_NAME
+        assert thread.label(gros) == "Voix 1"
+
+    def test_the_first_voice_of_a_meeting_is_a_person_at_once(self):
+        """It holds all the speech there is: no reason to hide it."""
+        thread = LiveThread()
+        premiere = self._parle(thread, ECARTEES[0], 0.0, 3.0)
+        assert thread.label(premiere) == "Voix 1"
+
+    def test_a_latecomer_who_speaks_becomes_a_person(self):
+        """Fifteen seconds is enough, whatever the others said before."""
+        thread = LiveThread()
+        self._parle(thread, ECARTEES[0], 0.0, 3000.0)
+        tardive = self._parle(thread, ECARTEES[1], 3000.0, 3016.0)
+        assert thread.label(tardive) == "Voix 2"
+
+    def test_a_number_once_earned_is_never_taken_back(self):
+        """The others speaking for an hour must not turn a person into a scrap."""
+        thread = LiveThread()
+        petite = self._parle(thread, ECARTEES[0], 0.0, 20.0)
+        assert thread.label(petite) == "Voix 1"
+        self._parle(thread, ECARTEES[1], 20.0, 4000.0)
+        assert thread.label(petite) == "Voix 1"
+
+    def test_a_named_scrap_shows_its_name(self):
+        """Naming is what the person in the room says, and it wins."""
+        thread = LiveThread()
+        self._parle(thread, ECARTEES[0], 0.0, 300.0)
+        miette = self._parle(thread, ECARTEES[1], 300.0, 302.0)
+        thread.voice[miette].name = "Laura"
+        thread.voice[miette].certainty = Certainty.HUMAINE
+        assert thread.label(miette) == "Laura"
+
+    def test_a_scrap_keeps_everything_it_holds(self):
+        """Grouping is what shows, not what is kept: it can still be named."""
+        thread = LiveThread()
+        self._parle(thread, ECARTEES[0], 0.0, 300.0)
+        miette = self._parle(thread, ECARTEES[1], 300.0, 302.0)
+        assert thread.voice[miette].voiceprints, "son empreinte est là"
+        assert [t for t in thread.turns if t.voice == miette], "ses tours sont là"
+        assert thread.voice[miette].nameable

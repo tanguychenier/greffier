@@ -175,6 +175,11 @@ def replay(lines: list[dict[str, Any]], thread: LiveThread | None = None) -> Liv
             _replay_join(thread, line)
         elif kind == GENRE_SEPARATION:
             _replay_split(thread, line)
+    # A correction made in the window names a voice like another one, and the
+    # join that follows belongs to the listening process. Replaying without it
+    # showed the same person twice: measured on a real meeting, three people out
+    # of nine, still doubled at the end of ninety minutes.
+    thread.join_namesakes()
     return thread
 
 def _replay_split(thread: LiveThread, line: dict[str, Any]) -> None:
@@ -188,6 +193,7 @@ def _replay_split(thread: LiveThread, line: dict[str, Any]) -> None:
         return
     numbers = {int(n) for n in line.get("numeros", [])}
     thread.reserve_identifier(rendue)
+    thread.reserve_rank(int(line.get("rang", 0)))
     thread.voice[rendue] = LiveVoice(
         identifier=rendue,
         name=line.get("nom"),
@@ -238,7 +244,7 @@ def _replay_turn(thread: LiveThread, line: dict[str, Any]) -> None:
     if not voice.certainty.firm:
         voice.name = line.get("nom")
         voice.certainty = Certainty(line.get("certitude", Certainty.UNKNOWN.value))
-        voice.rank = int(line.get("rang", 0))
+        thread.adopt_rank(voice, int(line.get("rang", 0)))
     number = int(line.get("numero", len(thread.turns) + 1))
     if any(t.number == number for t in thread.turns):
         return
@@ -373,6 +379,8 @@ class Follower:
                 continue
             faites.append(correction)
             confirmations.append(_ligne_correction(correction))
+        for source, target in self.thread.join_namesakes():
+            confirmations.append(_ligne_reunion(source, target))
         add(self.log, confirmations)
         self.learn_named_voices()
         return faites
