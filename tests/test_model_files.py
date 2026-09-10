@@ -76,10 +76,19 @@ class TestCeQuiManque:
         petits = [m for m in model_files.CATALOGUE if m.minimum < 10_000_000]
         assert model_files.weight(petits).endswith("Mo")
 
-    def test_la_voix_et_le_direct_sont_facultatifs(self):
-        """Sans eux l'outil marche : voix du système, et gros modèle en direct."""
+    def test_seul_le_modele_du_direct_est_facultatif(self):
+        """Sans lui, le direct se replie sur le grand modèle."""
         facultatifs = {m.name for m in model_files.CATALOGUE if not m.required}
-        assert facultatifs == {"voix", "ggml-small.bin"}
+        assert facultatifs == {"ggml-small.bin"}
+
+    def test_la_voix_est_telechargee_partout(self):
+        """C'est la partie qu'on entend : elle doit sonner pareil sur les trois
+        systèmes. Le repli — le synthétiseur de chaque système — sonne
+        différemment sur chacun, n'existe pas sur certaines sessions Linux, et
+        fait machine là où il existe."""
+        voix = next(m for m in model_files.CATALOGUE if m.name == "voix")
+        assert voix.required
+        assert not voix.engine, "aucun système n'en est dispensé"
 
 
 class TestTelechargement:
