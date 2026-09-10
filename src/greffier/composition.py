@@ -350,7 +350,7 @@ def voix_de_l_assistant(config: Config) -> Any | None:
         neuronale = VoixNeuronale(
             config.chemins.voix_de_synthese,
             langue=config.transcription.langue or "fr",
-            voix=config.assistant.locuteur,
+            voix=config.assistant.locuteur_effectif,
             vitesse=config.assistant.vitesse,
             baillon=config.chemins.baillon,
         )
