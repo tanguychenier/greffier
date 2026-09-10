@@ -12,7 +12,7 @@ from greffier.domain.live import LiveThread
 from greffier.domain.models import Span, Utterance
 
 
-class TranscripteurDeTranche:
+class SliceTranscriber:
     """Rend, pour chaque tranche, les répliques qu'on lui a données d'avance."""
 
     def __init__(self, tranches):
@@ -85,7 +85,7 @@ class TestTranscriptionAuFilDeLEau:
                             lambda audio, start, end, dest: dest)
         # La fenêtre transcrite précède la tranche de CONTEXTE_S : une réplique
         # dite 3 s après le début de la tranche y est datée d'autant plus tard.
-        transcriber = TranscripteurDeTranche(
+        transcriber = SliceTranscriber(
             [[utterance(watch.CONTEXTE_S + 3, "Greffier, ouvre le tableau")]]
         )
         instance = watcher(tmp_path, transcriber=transcriber, traite=120.0)
@@ -101,7 +101,7 @@ class TestTranscriptionAuFilDeLEau:
         """
         monkeypatch.setattr(watch, "extract_slice",
                             lambda audio, start, end, dest: dest)
-        transcriber = TranscripteurDeTranche(
+        transcriber = SliceTranscriber(
             [[utterance(2, "Greffier, ouvre le ticket")]]
         )
         # Le morceau ne porte que 20 s : la fenêtre ne peut pas remonter plus
@@ -117,7 +117,7 @@ class TestTranscriptionAuFilDeLEau:
         # Le modèle invente plus qu'il n'entend sur deux secondes d'audio.
         monkeypatch.setattr(watch, "extract_slice",
                             lambda audio, start, end, dest: dest)
-        transcriber = TranscripteurDeTranche([[utterance(0, "à peine un mot")]])
+        transcriber = SliceTranscriber([[utterance(0, "à peine un mot")]])
         instance = watcher(tmp_path, transcriber=transcriber)
         assert instance.transcription_turn(ou(tmp_path, ecrit=2.0), tmp_path) == []
         assert transcriber.appels == 0
@@ -130,7 +130,7 @@ class TestTranscriptionAuFilDeLEau:
         plus s'afficher avec la fin de la précédente collée devant."""
         monkeypatch.setattr(watch, "extract_slice",
                             lambda audio, start, end, dest: dest)
-        transcriber = TranscripteurDeTranche([
+        transcriber = SliceTranscriber([
             # Tranche 1 (0-10 s de réunion) : une phrase se termine à 8 s.
             [Utterance(Span(0, 8), "c'est notre dernier.")],
             # Tranche 2 : la fenêtre repart de 0 s — le morceau ne porte pas
@@ -152,14 +152,14 @@ class TestTranscriptionAuFilDeLEau:
             watch, "extract_slice",
             lambda audio, start, end, dest: demandees.append((start, end)) or None,
         )
-        instance = watcher(tmp_path, transcriber=TranscripteurDeTranche([]))
+        instance = watcher(tmp_path, transcriber=SliceTranscriber([]))
         instance.transcription_turn(ou(tmp_path, ecrit=600.0), tmp_path)
         start, end = demandees[0]
         assert end - start == watch.TRANCHE_MAXIMALE
 
     def test_une_tranche_illisible_n_interrompt_pas_la_veille(self, tmp_path, monkeypatch):
         monkeypatch.setattr(watch, "extract_slice", lambda *args: None)
-        instance = watcher(tmp_path, transcriber=TranscripteurDeTranche([]))
+        instance = watcher(tmp_path, transcriber=SliceTranscriber([]))
         assert instance.transcription_turn(ou(tmp_path, ecrit=30.0), tmp_path) == []
 
     def test_sans_transcripteur_seule_la_veille_du_presse_papier_tourne(self, tmp_path):
@@ -179,7 +179,7 @@ class TestFinDeReunion:
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         monkeypatch.setattr(watch, "extract_slice",
                             lambda audio, start, end, dest: dest)
-        transcriber = TranscripteurDeTranche([[utterance(1, "Greffier, ouvre le ticket")]])
+        transcriber = SliceTranscriber([[utterance(1, "Greffier, ouvre le ticket")]])
         instance = watcher(tmp_path, transcriber=transcriber, slice_period=30.0)
         fige = ou(tmp_path, ecrit=6.0)
         # Premier passage : on ne sait pas encore si la capture avance.
@@ -191,7 +191,7 @@ class TestFinDeReunion:
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         monkeypatch.setattr(watch, "extract_slice",
                             lambda audio, start, end, dest: dest)
-        transcriber = TranscripteurDeTranche([[utterance(1, "Greffier, ouvre le ticket")]])
+        transcriber = SliceTranscriber([[utterance(1, "Greffier, ouvre le ticket")]])
         instance = watcher(
             tmp_path, transcriber=transcriber, slice_period=30.0,
             situer=lambda: ou(tmp_path, ecrit=12.0),
@@ -218,7 +218,7 @@ class TestBoucle:
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         monkeypatch.setattr(watch, "extract_slice",
                             lambda audio, start, end, dest: dest)
-        transcriber = TranscripteurDeTranche([[], [], []])
+        transcriber = SliceTranscriber([[], [], []])
         ecrit = {"s": 0.0}
         instance = watcher(
             tmp_path,
@@ -254,7 +254,7 @@ class TestBoucle:
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         monkeypatch.setattr(watch, "extract_slice",
                             lambda audio, start, end, dest: dest)
-        transcriber = TranscripteurDeTranche([[], []])
+        transcriber = SliceTranscriber([[], []])
         clock = {"t": 0.0}
         instance = watcher(
             tmp_path,
@@ -399,7 +399,7 @@ class TestLaFenetreDeContexte:
             return dest
 
         monkeypatch.setattr(watch, "extract_slice", extract)
-        transcriber = TranscripteurDeTranche([[]])
+        transcriber = SliceTranscriber([[]])
         instance = watcher(tmp_path, transcriber=transcriber, traite=120.0)
         instance.transcription_turn(ou(tmp_path, ecrit=150.0), tmp_path)
         tranche, window = demandees
@@ -410,7 +410,7 @@ class TestLaFenetreDeContexte:
         """Sinon chaque phrase s'afficherait six fois."""
         monkeypatch.setattr(watch, "extract_slice",
                             lambda audio, start, end, dest: dest)
-        transcriber = TranscripteurDeTranche([[
+        transcriber = SliceTranscriber([[
             utterance(2, "phrase déjà affichée, dans le contexte"),
             utterance(watch.CONTEXTE_S + 1, "phrase neuve, dans la tranche"),
         ]])
@@ -427,7 +427,7 @@ class TestLaFenetreDeContexte:
             watch, "extract_slice",
             lambda audio, start, end, dest: demandees.append(start) or dest,
         )
-        transcriber = TranscripteurDeTranche([[]])
+        transcriber = SliceTranscriber([[]])
         instance = watcher(tmp_path, transcriber=transcriber)
         instance.transcription_turn(ou(tmp_path, ecrit=12.0), tmp_path)
         assert all(start >= 0.0 for start in demandees)
@@ -482,7 +482,7 @@ class TestLesDeuxBoutonsEnCoursDeReunion:
         from greffier.application.take_part import AssistantSettings
         from greffier.domain.participation import Manners
 
-        class Voix:
+        class FakeVoice:
             def __init__(self):
                 self.tue = False
 
@@ -495,7 +495,7 @@ class TestLesDeuxBoutonsEnCoursDeReunion:
             def is_speaking(self):
                 return False
 
-        return AssistantSettings(name="Lucie", voice=Voix() if avec_voix else None,
+        return AssistantSettings(name="Lucie", voice=FakeVoice() if avec_voix else None,
                            manners=Manners(active=True))
 
     def test_couper_la_voix_l_interrompt_tout_de_suite(self):

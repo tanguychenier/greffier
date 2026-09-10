@@ -18,7 +18,7 @@ def source(droit: Right = Right.LECTURE) -> Source:
     )
 
 
-class Reponse(BytesIO):
+class Response(BytesIO):
     def __enter__(self):
         return self
 
@@ -26,7 +26,7 @@ class Reponse(BytesIO):
         return False
 
 
-class FauxGitLab:
+class FakeGitLab:
     """Un GitLab qui garde ce qu'on lui envoie : l'adresse et le corps comptent."""
 
     def __init__(self) -> None:
@@ -35,7 +35,7 @@ class FauxGitLab:
 
     def __call__(self, requete, timeout=None):
         self.appels.append(requete)
-        return Reponse(json.dumps(self.charge).encode("utf-8"))
+        return Response(json.dumps(self.charge).encode("utf-8"))
 
     @property
     def premier(self):
@@ -43,8 +43,8 @@ class FauxGitLab:
 
 
 @pytest.fixture
-def gitlab(monkeypatch) -> FauxGitLab:
-    faux = FauxGitLab()
+def gitlab(monkeypatch) -> FakeGitLab:
+    faux = FakeGitLab()
     monkeypatch.setattr(gitlab_api.urllib.request, "urlopen", faux)
     return faux
 

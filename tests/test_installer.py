@@ -242,10 +242,10 @@ class TestConsole:
         assert all(value for value in installer.SYMBOLES.values())
 
     def test_le_repli_est_choisi_selon_l_encodage(self, installer, monkeypatch):
-        class ConsoleLimitee:
+        class NarrowConsole:
             encoding = "cp1252"
 
-        monkeypatch.setattr(installer.sys, "stdout", ConsoleLimitee())
+        monkeypatch.setattr(installer.sys, "stdout", NarrowConsole())
         assert installer._ecrivable("✓") is False
         assert installer._ecrivable("ok") is True
 

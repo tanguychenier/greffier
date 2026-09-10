@@ -38,6 +38,21 @@ MOTS_MINIMUM = 20
 
 AVERTISSEMENT_SANS_BOUCLE = "· boucle système muette, à préciser"
 
+MATERIAL_TO_RECOGNISE = 6.0
+"""Seconds of speech required before the voice bank may name a voice.
+
+Measured on the meeting of 2026-09-10: the bank put "Sophie" on a voice holding
+**3.1 seconds**, and Sophie was not in the room. It also named the nine
+fragments of one Laura, each between 2.5 and 8.1 seconds. A few seconds of
+speech resemble too many people, and a wrong label in minutes is worse than an
+unnamed voice, because it is believed.
+
+Six seconds, twice the calibration threshold below which an excerpt carries the
+noise of the room more than the timbre. The same floor already guards the live
+thread.
+"""
+
+
 class ChainStopped(Exception):
     """Deliberate stop of the chain, with a reason fit to show."""
 
@@ -261,6 +276,8 @@ class Chain:
         for turn in turns:
             per_voice.setdefault(turn.voice, []).append(turn.span)
         for voice, intervalles in per_voice.items():
+            if sum(i.duration for i in intervalles) < MATERIAL_TO_RECOGNISE:
+                continue
             extraits = self.extractor.extract_spans(audio, intervalles)
             if not extraits:
                 continue
