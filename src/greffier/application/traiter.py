@@ -412,6 +412,39 @@ class Traitement:
         for replique in repliques:
             replique.voix = voix_de(replique.intervalle, tours)
 
+    def _reunir_les_homonymes(self, resultat: Resultat) -> None:
+        """Replie sur une seule voix celles qui portent le même nom.
+
+        Après l'attribution, et non avant : c'est elle qui donne les noms, et
+        c'est le nom qui dit ici que deux voix sont la même personne. Le
+        recollage par empreinte a déjà fait ce qu'il pouvait ; ce qui reste, il
+        ne peut pas le savoir — quelques secondes de parole ne ressemblent
+        assez à rien.
+        """
+        poids = {
+            voix: sum(
+                t.intervalle.fin - t.intervalle.debut
+                for t in resultat.tours if t.voix == voix
+            )
+            for voix in set(resultat.noms)
+        }
+        appartenance = noms_domaine.reunir_les_homonymes(resultat.noms, poids)
+        replies = {v: c for v, c in appartenance.items() if v != c}
+        if not replies:
+            return
+        resultat.tours = [
+            TourDeParole(
+                t.intervalle, appartenance.get(t.voix, t.voix), t.source
+            )
+            for t in resultat.tours
+        ]
+        for replique in resultat.repliques:
+            if replique.voix is not None:
+                replique.voix = appartenance.get(replique.voix, replique.voix)
+        for voix in replies:
+            resultat.noms.pop(voix, None)
+            resultat.propositions.pop(voix, None)
+
     # ------------------------------------------------------------- exécution
 
     def executer(
@@ -470,6 +503,7 @@ class Traitement:
         resultat.tours = tours
         self._attacher_voix(resultat.repliques, tours)
         self._attribuer_noms(resultat.repliques, tours, self._reconnaitre(audio, tours), resultat)
+        self._reunir_les_homonymes(resultat)
         # Après le découpage : c'est le nombre de voix entendues qui dit si le
         # silence de la boucle système était normal ou coûteux.
         self._preciser_les_canaux(resultat)
