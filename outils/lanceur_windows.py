@@ -28,21 +28,21 @@ import traceback
 from pathlib import Path
 
 
-def journal() -> Path:
+def log() -> Path:
     """Où écrire ce qui casse. `%LOCALAPPDATA%` sur Windows, le dossier des
     données ailleurs — le même endroit que le reste des traces de l'outil."""
     import os
 
     base = os.environ.get("LOCALAPPDATA")
-    dossier = Path(base) / "Greffier" if base else Path.home() / ".greffier"
-    dossier.mkdir(parents=True, exist_ok=True)
-    return dossier / "demarrage.log"
+    folder = Path(base) / "Greffier" if base else Path.home() / ".greffier"
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder / "demarrage.log"
 
 
 def version() -> str:
-    from greffier.adaptateurs.mises_a_jour import version_installee
+    from greffier.adapters.updates import installed_version
 
-    return version_installee() or "inconnue"
+    return installed_version() or "inconnue"
 
 
 def main() -> int:
@@ -52,20 +52,20 @@ def main() -> int:
     try:
         # Importé ici et non en tête : sur `--version`, charger l'interface
         # coûterait Tk et les modèles pour une chaîne de caractères.
-        from greffier.adaptateurs.configuration import Config
-        from greffier.emplacements import situer_tcl
-        from greffier.interface.fenetre import Fenetre
+        from greffier.adapters.configuration import Config
+        from greffier.interface.window import Window
+        from greffier.locations import locate_tcl
 
-        situer_tcl()
-        Fenetre(Config()).boucler()
+        locate_tcl()
+        Window(Config()).loop()
     except Exception:  # noqa: BLE001 — dernier recours avant l'écran noir
         trace = traceback.format_exc()
-        cible = journal()
+        target = log()
         with contextlib.suppress(OSError):
-            cible.write_text(trace, encoding="utf-8")
+            target.write_text(trace, encoding="utf-8")
         _dire_a_l_ecran(
             "Greffier n'a pas pu démarrer.\n\n"
-            f"Le détail est dans :\n{cible}\n\n"
+            f"Le détail est dans :\n{target}\n\n"
             + _cause_probable(trace)
         )
         return 1

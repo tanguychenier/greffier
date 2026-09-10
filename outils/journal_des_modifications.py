@@ -26,31 +26,31 @@ MOTIF = re.compile(r"^(?P<type>\w+)(?:\((?P<portee>[^)]+)\))?(?P<casse>!)?: (?P<
 
 
 def commits() -> list[tuple[str, str]]:
-    sortie = subprocess.run(
+    output = subprocess.run(
         ["git", "log", "--no-merges", "--pretty=format:%h\t%s"],
         capture_output=True, text=True, check=True,
     ).stdout
     couples = []
-    for ligne in sortie.splitlines():
-        if "\t" in ligne:
-            empreinte, sujet = ligne.split("\t", 1)
-            couples.append((empreinte, sujet))
+    for line in output.splitlines():
+        if "\t" in line:
+            voiceprint, subject = line.split("\t", 1)
+            couples.append((voiceprint, subject))
     return couples
 
 
 def main() -> int:
     par_type: dict[str, list[str]] = defaultdict(list)
     ruptures: list[str] = []
-    for empreinte, sujet in commits():
-        trouve = MOTIF.match(sujet)
+    for voiceprint, subject in commits():
+        trouve = MOTIF.match(subject)
         if not trouve:
             continue
         portee = trouve.group("portee")
         prefixe = f"**{portee}** — " if portee else ""
-        ligne = f"- {prefixe}{trouve.group('sujet')} (`{empreinte}`)"
+        line = f"- {prefixe}{trouve.group('sujet')} (`{voiceprint}`)"
         if trouve.group("casse"):
-            ruptures.append(ligne)
-        par_type[trouve.group("type")].append(ligne)
+            ruptures.append(line)
+        par_type[trouve.group("type")].append(line)
 
     print("# Journal des modifications\n")
     print("Engendré depuis les messages de commit (convention Angular) :\n")
@@ -58,9 +58,9 @@ def main() -> int:
     if ruptures:
         print("## Ruptures de compatibilité\n")
         print("\n".join(ruptures) + "\n")
-    for type_, titre in TITRES.items():
+    for type_, title in TITRES.items():
         if par_type.get(type_):
-            print(f"## {titre}\n")
+            print(f"## {title}\n")
             print("\n".join(par_type[type_]) + "\n")
     return 0
 
