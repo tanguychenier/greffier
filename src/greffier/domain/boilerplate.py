@@ -26,7 +26,7 @@ def _nu(text: str) -> str:
 
 def is_boilerplate(text: str, profil: LanguageProfile) -> bool:
     """True when the whole utterance is boilerplate from the model."""
-    return _nu(text) in profil.redaction.boilerplate
+    return _nu(text) in profil.wording.boilerplate
 
 _BORNES_ANNOTATION = (("*", "*"), ("(", ")"), ("[", "]"), ("♪", "♪"), ("{", "}"))
 

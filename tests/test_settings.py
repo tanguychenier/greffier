@@ -48,8 +48,8 @@ class TestAllerRetour:
         relu = Config.model_validate(tomllib.loads(reglages.render(garnie)))
         for section in reglages.SECTIONS:
             attribut = reglages.SOUS_MODELE.get(section, section)
-            attendu = getattr(garnie, attribut).model_dump()
-            assert getattr(relu, attribut).model_dump() == attendu, section
+            expected = getattr(garnie, attribut).model_dump()
+            assert getattr(relu, attribut).model_dump() == expected, section
 
     def test_une_configuration_par_defaut_se_relit_aussi(self):
         rendered = reglages.render(Config())

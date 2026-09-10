@@ -12,5 +12,5 @@ NEUTRAL = LanguageProfile(
     code="",
     name="",
     detection=Detection(active=False),
-    decoupage=Splitting(mots_separes_par_des_espaces=False),
+    splitting=Splitting(words_split_by_spaces=False),
 )

@@ -11,30 +11,30 @@ import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-CREUX_MINIMAL = 2.0
+MINIMUM_LULL = 2.0
 
 REST = 180.0
 
 STALENESS = 90.0
 
-DENSITE_MAXIMALE = 0.85
+MAXIMUM_DENSITY = 0.85
 
 class Because(StrEnum):
     """Why the assistant would want to speak, strongest reason first."""
 
     APPELE = "on l'appelle"
-    VOIX_INDISTINCTE = "il ne distingue pas une voix"
-    DECISION_SANS_SUITE = "une décision sans responsable ni date"
-    QUESTION_SANS_REPONSE = "une question restée en l'air"
-    ECART_AVEC_UN_DOCUMENT = "un écart avec un document fourni"
+    INDISTINCT_VOICE = "il ne distingue pas une voix"
+    DECISION_WITHOUT_FOLLOW_UP = "une décision sans responsable ni date"
+    QUESTION_WITHOUT_ANSWER = "une question restée en l'air"
+    GAP_WITH_A_DOCUMENT = "un écart avec un document fourni"
     CONTRIBUTION = "il a quelque chose à ajouter"
 
 WEIGHT = {
     Because.APPELE: 100,
-    Because.VOIX_INDISTINCTE: 60,
-    Because.DECISION_SANS_SUITE: 50,
-    Because.QUESTION_SANS_REPONSE: 40,
-    Because.ECART_AVEC_UN_DOCUMENT: 30,
+    Because.INDISTINCT_VOICE: 60,
+    Because.DECISION_WITHOUT_FOLLOW_UP: 50,
+    Because.QUESTION_WITHOUT_ANSWER: 40,
+    Because.GAP_WITH_A_DOCUMENT: 30,
     Because.CONTRIBUTION: 10,
 }
 
@@ -61,12 +61,12 @@ class Opening:
 class Manners:
     """What the assistant allows itself, and the memory of what it said."""
 
-    creux_minimal: float = CREUX_MINIMAL
+    creux_minimal: float = MINIMUM_LULL
     rest: float = REST
     staleness: float = STALENESS
-    densite_maximale: float = DENSITE_MAXIMALE
+    densite_maximale: float = MAXIMUM_DENSITY
     active: bool = True
-    parle_le: float | None = None
+    spoke_at: float | None = None
     dits: set[str] = field(default_factory=set)
 
     def refusal(
@@ -89,8 +89,8 @@ class Manners:
             return "quelqu'un parle"
         if density > self.densite_maximale:
             return "la discussion est trop dense"
-        if self.parle_le is not None and now - self.parle_le < self.rest:
-            reste = self.rest - (now - self.parle_le)
+        if self.spoke_at is not None and now - self.spoke_at < self.rest:
+            reste = self.rest - (now - self.spoke_at)
             return f"il vient de parler, encore {reste:.0f} s de repos"
         return None
 
@@ -112,7 +112,7 @@ class Manners:
 
     def has_spoken(self, opening: Opening, now: float) -> None:
         """To be called once the remark has actually been spoken."""
-        self.parle_le = now
+        self.spoke_at = now
         if opening.subject:
             self.dits.add(opening.subject)
 
@@ -180,14 +180,14 @@ def question_asked(text: str, name: str) -> str:
     return re.sub(r"^[\s,.:;!?]+", "", reste).strip()
 
 
-MOTS_POUR_JUGER = 3
+WORDS_TO_JUDGE = 3
 """Significant words below which an utterance cannot be recognised as its own.
 
 "Oui" and "d'accord" belong to everybody. Deciding on two words would silence
 the room every time the assistant had said one of them.
 """
 
-PART_DES_MOTS = 0.6
+SHARE_OF_WORDS = 0.6
 """Share of an utterance's words that must come from its own remark.
 
 Not all of them: the loudspeakers, the room and the capture loop cost words on
@@ -195,7 +195,7 @@ the way, so what comes back is a subset, sometimes a mangled one. Measured on
 the assistant's own sentences played through a room, six words in ten survive.
 """
 
-MEMOIRE_DE_SES_MOTS = 180.0
+MEMORY_OF_ITS_WORDS = 180.0
 """Seconds a remark stays recognisable as its own.
 
 Long, on purpose. It answers late — the model takes seconds, the voice takes
@@ -229,10 +229,10 @@ def is_own(text: str, remarks: list[frozenset[str]]) -> bool:
     answers late, in a separate thread, so no window of time can be trusted.
     """
     words = own_words(text)
-    if len(words) < MOTS_POUR_JUGER:
+    if len(words) < WORDS_TO_JUDGE:
         return False
     return any(
-        len(words & dites) >= PART_DES_MOTS * len(words)
+        len(words & dites) >= SHARE_OF_WORDS * len(words)
         for dites in remarks
         if dites
     )

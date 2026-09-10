@@ -70,13 +70,13 @@ class Outcome:
     certitudes: dict[str, Attribution] = field(default_factory=dict)
     propositions: list[Attribution] = field(default_factory=list)
 
-_MOT = re.compile(r"[\w'’-]+")
+_WORD = re.compile(r"[\w'’-]+")
 
 def _common_words(utterances: list[Utterance]) -> frozenset[str]:
     """Words the meeting also uses in lower case: never first names."""
     minuscules: set[str] = set()
     for utterance in utterances:
-        for mot in _MOT.findall(utterance.text):
+        for mot in _WORD.findall(utterance.text):
             if mot[:1].islower():
                 minuscules.add(_without_accents(mot))
     return frozenset(minuscules)
@@ -84,12 +84,12 @@ def _common_words(utterances: list[Utterance]) -> frozenset[str]:
 def spot_mentions(
     utterances: list[Utterance],
     profil: LanguageProfile,
-    exclus: frozenset[str] | None = None,
+    excluded: frozenset[str] | None = None,
 ) -> list[Mention]:
     """Collects every spoken name and what it points at."""
     if not profil.detection.active:
         return []
-    interdits = profil.detection.exclus | (exclus or frozenset()) | _common_words(utterances)
+    interdits = profil.detection.excluded | (excluded or frozenset()) | _common_words(utterances)
     francs = [(t, m) for t, m, confirmation in profil.detection.motifs if not confirmation]
     larges = [(t, m) for t, m, confirmation in profil.detection.motifs if confirmation]
 
@@ -112,13 +112,13 @@ def _passe(
             for trouve in motif.finditer(utterance.text):
                 name = trouve.group("nom")
                 if (_without_accents(name) in interdits
-                or len(name) < profil.detection.longueur_minimale):
+                or len(name) < profil.detection.minimum_length):
                     continue
                 depouille = _without_accents(name)
-                suffixe = profil.detection.suffixe_adverbial
+                suffixe = profil.detection.adverb_suffix
                 if (
                     suffixe
-                    and len(depouille) >= profil.detection.longueur_du_suffixe
+                    and len(depouille) >= profil.detection.suffix_length
                     and depouille.endswith(suffixe)
                 ):
                     continue

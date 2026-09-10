@@ -57,7 +57,7 @@ def instruction_after(text: str, keyword: str) -> str | None:
 
 def decisions_in(text: str, profil: LanguageProfile) -> bool:
     """Does the passage announce a decision or a follow-up?"""
-    return any(motif.search(text) for motif in profil.redaction.motifs_de_decision)
+    return any(motif.search(text) for motif in profil.wording.decision_patterns)
 
 @dataclass
 class WatchRules:

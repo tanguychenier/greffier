@@ -73,8 +73,8 @@ class TestAjoutDepuisLaConversation:
 
         file = tmp_path / "contexte.toml"
         assert add_a_term(file, "OTP", "mot de passe à usage unique")
-        terme = next(t for t in read(file).termes if t.ecriture == "OTP")
-        assert terme.sens == "mot de passe à usage unique"
+        term = next(t for t in read(file).termes if t.ecriture == "OTP")
+        assert term.sens == "mot de passe à usage unique"
 
     def test_une_personne_s_ajoute_avec_son_role(self, tmp_path):
         from greffier.adapters.context_file import add_a_person

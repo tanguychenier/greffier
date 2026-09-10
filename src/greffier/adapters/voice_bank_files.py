@@ -14,7 +14,7 @@ from pathlib import Path
 
 from greffier.domain.models import Person, Voiceprint
 from greffier.domain.texts import short_voiceprint
-from greffier.domain.voiceprints import EMPREINTES_PAR_PERSONNE, enrichir
+from greffier.domain.voiceprints import VOICEPRINTS_PER_PERSON, enrichir
 
 FORMAT = 1
 
@@ -26,19 +26,19 @@ def _file_at(name: str) -> str:
     return reduit or short_voiceprint(name)
 
 class FileVoiceBank:
-    def __init__(self, folder: Path, maximum: int = EMPREINTES_PAR_PERSONNE) -> None:
+    def __init__(self, folder: Path, maximum: int = VOICEPRINTS_PER_PERSON) -> None:
         self.folder = folder
         self.maximum = maximum
 
     def people(self) -> list[Person]:
         if not self.folder.exists():
             return []
-        connues = []
+        known = []
         for file in sorted(self.folder.glob("*.json")):
             personne = self._read(file)
             if personne is not None:
-                connues.append(personne)
-        return connues
+                known.append(personne)
+        return known
 
     def _read(self, file: Path) -> Person | None:
         try:

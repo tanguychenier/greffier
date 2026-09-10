@@ -126,12 +126,12 @@ def _reunion_visee(config: Config, demandee: str | None) -> str:
     """The named meeting, or the last one processed."""
     if demandee:
         return demandee
-    connues = store(config).lister()
-    if not connues:
+    known = store(config).lister()
+    if not known:
         typer.secho("Aucune réunion traitée. « greffier traiter <audio> » pour commencer.",
                     fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
-    return connues[0]
+    return known[0]
 
 def _hours_of(config: Config, audio: Path) -> tuple[datetime | None, datetime | None]:
     """This meeting's clock times, when the state kept them."""
@@ -765,7 +765,7 @@ def assist(
     questioner = Questioner(
         known=tuple(t.ecriture for t in the_context.termes)
         + tuple(i.name for i in the_context.intervenants),
-        posees=questions_file.keys_already_placed(fichier_questions),
+        asked=questions_file.keys_already_placed(fichier_questions),
     )
 
     def interrogate(text: str) -> None:
@@ -1085,8 +1085,8 @@ def _say_the_bank_health(people: list) -> None:  # type: ignore[type-arg]
     import itertools
 
     from greffier.domain.voiceprints import (
-        SEUIL_CONFLIT,
-        SEUIL_RECONNAISSANCE,
+        CONFLICT_THRESHOLD,
+        RECOGNITION_THRESHOLD,
         aggregate,
         similarity,
     )
@@ -1098,22 +1098,22 @@ def _say_the_bank_health(people: list) -> None:  # type: ignore[type-arg]
         )
         for personne in people if personne.voiceprints
     }
-    conflits: list[tuple[float, str, str]] = []
+    conflicts: list[tuple[float, str, str]] = []
     near_ones: list[tuple[float, str, str]] = []
     for un, autre in itertools.combinations(sorted(agregats), 2):
         value = similarity(agregats[un], agregats[autre])
-        if value >= SEUIL_CONFLIT:
-            conflits.append((value, un, autre))
-        elif value >= SEUIL_RECONNAISSANCE:
+        if value >= CONFLICT_THRESHOLD:
+            conflicts.append((value, un, autre))
+        elif value >= RECOGNITION_THRESHOLD:
             near_ones.append((value, un, autre))
 
-    if conflits:
+    if conflicts:
         typer.secho(
-            f"\n⚠ {len(conflits)} paire(s) trop ressemblante(s) : ces personnes "
+            f"\n⚠ {len(conflicts)} paire(s) trop ressemblante(s) : ces personnes "
             "ne sont plus reconnues du tout.",
             fg=typer.colors.RED,
         )
-        for value, un, autre in sorted(conflits, reverse=True):
+        for value, un, autre in sorted(conflicts, reverse=True):
             typer.secho(f"    {value:.3f}  {un} / {autre}", fg=typer.colors.RED)
         typer.echo(
             "  Une des deux entrées porte probablement la voix de l'autre. "
@@ -1124,7 +1124,7 @@ def _say_the_bank_health(people: list) -> None:  # type: ignore[type-arg]
     if near_ones:
         typer.secho(
             f"\n· {len(near_ones)} paire(s) proche(s), au-dessus du seuil de "
-            f"reconnaissance ({SEUIL_RECONNAISSANCE:.2f}) :",
+            f"reconnaissance ({RECOGNITION_THRESHOLD:.2f}) :",
             fg=typer.colors.YELLOW,
         )
         for value, un, autre in sorted(near_ones, reverse=True):
@@ -1224,8 +1224,8 @@ def contexte_(
     typer.echo(f"  banque       {config.paths.voice_bank}")
 
     typer.secho("\nTermes", fg=typer.colors.BRIGHT_WHITE, bold=True)
-    for terme in the_context.termes:
-        typer.echo(f"  {terme.gloss}")
+    for term in the_context.termes:
+        typer.echo(f"  {term.gloss}")
     typer.secho("\nPersonnes", fg=typer.colors.BRIGHT_WHITE, bold=True)
     for personne in the_context.intervenants:
         typer.echo(f"  {personne.gloss}")

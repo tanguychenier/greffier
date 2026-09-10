@@ -56,9 +56,9 @@ class TestChemins:
         monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
         monkeypatch.delenv("XDG_DATA_HOME", raising=False)
         module = sous("Darwin")
-        attendu = tmp_path / "Library/Application Support/Greffier"
-        assert module.config_folder() == attendu
-        assert module.data_folder() == attendu
+        expected = tmp_path / "Library/Application Support/Greffier"
+        assert module.config_folder() == expected
+        assert module.data_folder() == expected
 
     def test_l_installeur_et_l_application_disent_la_meme_chose(self, sous, monkeypatch, tmp_path):
         """Une seule définition des emplacements : sinon l'installeur cherche

@@ -71,8 +71,8 @@ class TestIdentifiants:
     def test_le_secret_porte_l_adresse_et_le_jeton(self, jira):
         """Basic demande les deux ; un seul secret est à déposer."""
         jira_api.requests(source(), SECRET)
-        attendu = base64.b64encode(SECRET.encode()).decode()
-        assert jira.premier.get_header("Authorization") == f"Basic {attendu}"
+        expected = base64.b64encode(SECRET.encode()).decode()
+        assert jira.premier.get_header("Authorization") == f"Basic {expected}"
 
     def test_un_secret_sans_adresse_est_dit_clairement(self, muet):
         with pytest.raises(jira_api.JiraRefused, match="adresse@exemple.fr"):
