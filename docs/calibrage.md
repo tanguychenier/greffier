@@ -157,7 +157,7 @@ depended on.
 The `threshold = 0.8` of `DiariseurSherpa` (passed to `FastClusteringConfig`)
 had never been measured the way `SEUIL_RECONNAISSANCE`/`SEUIL_FUSION` above
 are — it came from the sherpa-onnx examples. On a synthetic test set with three
-speakers (`tools/make_hard_cases.py --cas trois-voix`, two close
+speakers (`tools/make_hard_cases.py --case trois-voix`, two close
 timbres), it merged two distinct speakers into one at the raw clustering stage,
 **before `fusionner_voix` even came into play**: segmentation returned only 2
 voices for 3 people, and `fusionner_voix` cannot separate what has already been

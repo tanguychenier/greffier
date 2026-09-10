@@ -48,8 +48,8 @@ def coherence(voiceprints: list[Voiceprint]) -> list[float]:
 
 def main() -> int:
     analyse = argparse.ArgumentParser(description=__doc__)
-    analyse.add_argument("reunion")
-    analyse.add_argument("--combien", type=int, default=6,
+    analyse.add_argument("meeting")
+    analyse.add_argument("--how-many", type=int, default=6,
                          help="Combien de voix examiner (les plus grosses)")
     arguments = analyse.parse_args()
 

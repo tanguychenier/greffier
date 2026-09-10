@@ -188,7 +188,7 @@ def significatives(membership, meeting, minimum=10.0) -> int:
 
 def main() -> int:
     parseur = argparse.ArgumentParser(description=__doc__)
-    parseur.add_argument("reunion")
+    parseur.add_argument("meeting")
     arguments = parseur.parse_args()
 
     path = data_folder() / "reunions" / f"{arguments.meeting}.json"
