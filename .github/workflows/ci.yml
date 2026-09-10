@@ -1,10 +1,6 @@
-# Preuve continue, ici et non ailleurs : le dépôt portait un « .gitlab-ci.yml »
-# de son hébergement précédent, et le README annonçait une intégration continue
-# qui ne tournait nulle part.
-#
-# Un seul job plutôt que trois : les trois contrôles durent quelques secondes
-# chacun, et trois jobs paieraient trois démarrages de machine pour le même
-# résultat. L'étape qui échoue se voit dans le journal.
+# One job rather than three: the three checks take a few seconds each, and three
+# jobs would pay for three machine startups for the same result. Whichever step
+# fails shows up in the log.
 name: CI
 
 on:
@@ -17,8 +13,8 @@ permissions:
   contents: read
 
 jobs:
-  controles:
-    name: ruff, mypy et les tests
+  checks:
+    name: ruff, mypy and the tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,11 +24,11 @@ jobs:
           python-version: '3.13'
           cache: pip
 
-      - name: Dépendances
+      - name: Dependencies
         run: pip install -q -e ".[dev]"
 
-      # Bloquant, et non « toléré » : une remarque de qualité laissée passer
-      # finit par masquer une vraie régression.
+      # Blocking, not "tolerated": a quality remark let through ends up hiding a
+      # real regression.
       - name: ruff
         run: ruff check src tests outils
 
@@ -42,19 +38,19 @@ jobs:
       - name: Tests
         run: python -m pytest tests/ -v --cov=greffier --cov-report=term
 
-      # Les tests d'intégration doivent s'ignorer proprement là où les modèles
-      # sont absents, et non échouer : aucun exécuteur n'a 1,7 Go de modèles.
-      - name: Les tests d'intégration s'ignorent sans modèles
+      # The integration tests must skip cleanly where the models are absent
+      # rather than fail: no runner carries 1.7 GB of models.
+      - name: Integration tests skip without models
         run: python -m pytest -m integration -v
 
-  installation-linux:
-    name: Installation sur une image nue
-    # Coûteuse — elle télécharge les modèles — donc jamais automatique.
+  linux-install:
+    name: Install on a bare image
+    # Expensive, it downloads the models, so never automatic.
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Preuve d'installation
+      - name: Proof of installation
         run: |
           mkdir -p contexte && cp -r . contexte/greffier
           docker build -f outils/preuve-linux.Dockerfile -t greffier-preuve contexte
