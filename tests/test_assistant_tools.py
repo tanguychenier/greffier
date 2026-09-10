@@ -75,3 +75,42 @@ class TestLAssistantPeutChercher:
         """« Qu'il le fasse lui-même pour se donner du contexte » — demandé."""
         aplati = " ".join(assistant(config()).consignes_propres.split())
         assert "de ton propre chef" in aplati
+
+
+class TestTheAssistantOfAMeetingKeepsThem:
+    """The factory granted the tools; the wiring that runs in a meeting took
+    them back on the next line.
+
+    Its guidance says it may look something up and name the source aloud. With
+    no tools it answered "oui, je peux chercher sur Internet" and "non, je n'ai
+    pas d'accès à Internet ici" in turn, four times in one real meeting.
+    """
+
+    def _lui(self, **conversation):
+        from greffier.wiring import assistant_of
+
+        return assistant_of(config(**conversation), "essai")
+
+    def test_the_meeting_assistant_can_search(self):
+        lui = self._lui(recherche_web=True)
+        assert lui is not None and isinstance(lui.cerveau, ClaudeWriter)
+        assert lui.cerveau.tools == ClaudeWriter.SEARCH_TOOLS
+
+    def test_the_setting_still_switches_it_off(self):
+        lui = self._lui(recherche_web=False)
+        assert lui is not None and isinstance(lui.cerveau, ClaudeWriter)
+        assert lui.cerveau.tools == ()
+
+    def test_its_own_guidance_survives_the_change(self):
+        lui = self._lui(recherche_web=True)
+        assert lui is not None and isinstance(lui.cerveau, ClaudeWriter)
+        assert "Lucie" in lui.cerveau.consignes_propres or lui.name in (
+            lui.cerveau.consignes_propres
+        )
+
+    def test_what_it_may_do_matches_what_it_is_told(self):
+        """The guidance says it can search; the tools must say the same."""
+        lui = self._lui(recherche_web=True)
+        assert lui is not None and isinstance(lui.cerveau, ClaudeWriter)
+        assert "chercher en ligne" in lui.guidance()
+        assert lui.cerveau.tools, "dire qu'elle peut chercher sans pouvoir le faire"
