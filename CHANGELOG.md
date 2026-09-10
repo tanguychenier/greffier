@@ -2,7 +2,7 @@
 
 Engendré depuis les messages de commit (convention Angular) :
 
-    python3 outils/journal_des_modifications.py > CHANGELOG.md
+    python3 tools/changelog.py > CHANGELOG.md
 
 ## Nouveautés
 

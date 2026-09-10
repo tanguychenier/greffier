@@ -68,7 +68,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 # L'installeur doit tourner sur Python 3.9 — celui encore livré par défaut sur
 # beaucoup de postes — alors que le paquet, lui, exige 3.13. Ses gardes de
 # version ne sont donc pas obsolètes.
-"outils/installer.py" = ["UP036"]
+"tools/install.py" = ["UP036"]
 "src/greffier/adaptateurs/configuration.py" = ["UP036"]
 
 [tool.mypy]

@@ -66,7 +66,7 @@ Ces modèles sont réputés meilleurs que TitaNet sur les épreuves de vérifica
 du locuteur. **Ce n'est pas notre épreuve** : celles-là portent sur des extraits
 de plusieurs secondes, prononcés seul devant un micro. Le nôtre est un extrait
 de deux secondes, dans une salle, avec du bruit et des chevauchements. D'où
-`outils/comparer_extracteurs.py`, qui mesure la seule chose qui nous importe :
+`tools/compare_extractors.py`, qui mesure la seule chose qui nous importe :
 l'écart entre « même personne » et « personnes différentes » sur des extraits
 courts.
 
@@ -105,7 +105,7 @@ Du moins coûteux au plus coûteux, chacun mesurable sur le corpus étiqueté qu
 nous avons déjà.
 
 1. **Changer d'extracteur d'empreintes.** Une ligne de configuration, un modèle
-   à télécharger, et `outils/comparer_extracteurs.py` donne la réponse. Si la
+   à télécharger, et `tools/compare_extractors.py` donne la réponse. Si la
    marge entre les deux distributions s'élargit, tous les seuils en profitent
    d'un coup.
 2. **Tenir compte du locuteur précédent.** Une pénalité sur le changement de

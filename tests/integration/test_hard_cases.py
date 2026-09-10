@@ -1,6 +1,6 @@
 """Les pièges déjà rencontrés, rejoués à travers la vraie chaîne.
 
-`outils/fabriquer_cas_difficiles.py` fabrique un enregistrement par défaut
+`tools/make_hard_cases.py` fabrique un enregistrement par défaut
 constaté sur une vraie réunion ou rendu possible par la conception. Ce fichier
 les fait passer par la vraie chaîne — segmentation, reconnaissance, attribution
 des noms — plutôt que par des doublures, pour prouver que le défaut reste
@@ -27,7 +27,7 @@ from greffier.application.process import Chain
 from greffier.application.process import _as_stored_meeting as depuis_resultat
 
 RACINE = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(RACINE / "outils"))
+sys.path.insert(0, str(RACINE / "tools"))
 
 pytestmark = pytest.mark.integration
 
@@ -45,7 +45,7 @@ def models_present(config: Config) -> bool:
 def config() -> Config:
     configuration = Config()
     if not models_present(configuration):
-        pytest.skip("modèles absents — lance outils/installer.py")
+        pytest.skip("modèles absents — lance tools/install.py")
     if not shutil.which("whisper-cli"):
         pytest.skip("whisper.cpp absent")
     return configuration
@@ -54,8 +54,8 @@ def config() -> Config:
 def _fabriquer_cas(name: str, tmp_path_factory) -> Path:
     if platform.system() != "Darwin":
         pytest.skip("la synthèse vocale « say » n'existe que sur macOS")
-    from fabriquer_cas_difficiles import CAS
-    from fabriquer_reunion import fabriquer
+    from make_hard_cases import CAS
+    from make_meeting import fabriquer
 
     voice, dialogue = CAS[name]
     destination = tmp_path_factory.mktemp("audio") / f"cas-{name}.wav"
@@ -94,7 +94,7 @@ class TestTroisVoix:
         """Jacques et Amélie se présentent ; la troisième voix reste sans nom
         plutôt que d'hériter de celui d'un autre — un « merci Amélie » dit
         juste après le tour de la troisième personne est un piège volontaire
-        du fixture (`outils/fabriquer_cas_difficiles.py`), à ne jamais
+        du fixture (`tools/make_hard_cases.py`), à ne jamais
         affirmer sans plus de matière."""
         assert set(resultat_trois_voix.names.values()) == {"Jacques", "Amélie"}
         assert len(resultat_trois_voix.names) == 2
