@@ -1,13 +1,7 @@
-"""Veiller pendant la réunion, sans jamais agir seul.
+"""Watching during the meeting, never acting alone.
 
-Deux boucles de rythmes différents, parce que les deux sources n'ont pas le même
-coût : le presse-papier se relit en quelques millisecondes, la transcription
-d'une tranche demande plusieurs secondes de calcul.
-
-Rien n'est exécuté. Les propositions s'accumulent dans un fichier que
-l'interface lit et présente ; c'est un humain qui déclenche. Une action lancée
-seule sur une phrase mal transcrite, au milieu d'une réunion confidentielle, se
-retourne vite contre son auteur.
+Everything it finds is a suggestion, written to a log and validated later. The
+only thing it does on its own is speak, and only when called by name.
 """
 
 from __future__ import annotations
@@ -46,13 +40,7 @@ TRANCHE_MAXIMALE = 90.0
 CONTEXTE_S = 50.0
 
 def _within_the_slice(utterances: list[Utterance], frontiere: float) -> list[Utterance]:
-    """Ne garde que ce qui déborde dans la tranche, remis à l'heure de celle-ci.
-
-    Une réplique entièrement dans le contexte a déjà été affichée : la
-    réafficher doublerait chaque phrase. Une réplique à cheval est gardée
-    entière — le texte déjà montré en sera retiré à l'affichage, ce qui vaut
-    mieux que de couper une phrase au milieu.
-    """
+    """Keeps only what spills into the slice, rebased on it."""
     if frontiere <= 0:
         return utterances
     kept = []
@@ -69,7 +57,7 @@ def _within_the_slice(utterances: list[Utterance], frontiere: float) -> list[Utt
     return kept
 
 def read_the_clipboard() -> str:
-    """Contenu du presse-papier, ou vide si le système ne le donne pas."""
+    """Clipboard contents, or empty when the system will not give them."""
     commands = {
         "Darwin": ["pbpaste"],
         "Linux": (["wl-paste"] if _exists("wl-paste")
@@ -92,11 +80,7 @@ def _exists(programme: str) -> bool:
     return shutil.which(programme) is not None
 
 def extract_slice(audio: Path, start: float, end: float, destination: Path) -> Path | None:
-    """Découpe un morceau d'un enregistrement **en cours d'écriture**.
-
-    ffmpeg lit sans gêner l'écriture : c'est ce qui permet de transcrire une
-    réunion pendant qu'elle a lieu, sans toucher au fichier qui s'écrit.
-    """
+    """Cuts a chunk out of a recording **while it is being written**."""
     if not audio.exists() or audio.stat().st_size < 1024:
         return None
     outcome = subprocess.run(
@@ -111,7 +95,7 @@ def extract_slice(audio: Path, start: float, end: float, destination: Path) -> P
 
 @dataclass
 class Watcher:
-    """Fait tourner la veille tant que la réunion est enregistrée."""
+    """Runs the watch as long as the meeting is recording."""
 
     watch_rules: WatchRules
     log: Path
@@ -133,13 +117,7 @@ class Watcher:
     vu: float | None = None
 
     def _current_prompt_seed(self) -> str:
-        """L'amorce à donner à cette tranche, contexte relu s'il a changé.
-
-        Relire un fichier toutes les dix secondes ne coûte rien mesurable, et
-        c'est le prix pour qu'« ajoute OTP au contexte » serve à la phrase
-        suivante et non à la réunion d'après. C'est en réunion qu'on découvre
-        les mots qui manquent, donc c'est là que l'apprentissage doit porter.
-        """
+        """The seed for this slice, context re-read if it changed."""
         if self.relire_l_amorce is None:
             return self.prompt_seed
         try:
@@ -151,12 +129,7 @@ class Watcher:
         return self.prompt_seed
 
     def publish(self, nouvelles: list[Suggestion]) -> None:
-        """Ajoute au journal, une proposition par ligne.
-
-        Un fichier en ajout plutôt qu'un fichier réécrit : l'interface peut le
-        suivre au fil de l'eau, et une interruption ne perd rien de ce qui
-        précède.
-        """
+        """Appends to the log, one suggestion per line."""
         if not nouvelles:
             return
         self.log.parent.mkdir(parents=True, exist_ok=True)
@@ -177,13 +150,7 @@ class Watcher:
         return nouvelles
 
     def transcription_turn(self, ou: Position, job: Path) -> list[Suggestion]:
-        """Transcrit ce qui a été enregistré depuis la dernière tranche.
-
-        Le découpage se fait sur ce que le fichier **porte réellement**, jamais
-        sur l'horloge : après une pause, les deux ont divergé de tout le temps
-        d'arrêt, et lire à la position de l'horloge demandait à ffmpeg un passage
-        au-delà de la fin du fichier — donc rien.
-        """
+        """Transcribes what has been recorded since the last slice."""
         if self.transcriber is None:
             return []
         start = max(0.0, self.traite - ou.decalage - OVERLAP, ou.ecrit - TRANCHE_MAXIMALE)
@@ -232,11 +199,7 @@ class Watcher:
         return nouvelles
 
     def assistant_turn(self, utterances: list[Utterance], now: float) -> None:
-        """Laisse l'assistant décider s'il a quelque chose à dire, et le dire.
-
-        Après l'affichage, jamais avant : ce qui se dit doit être visible même
-        quand l'assistant se tait, ce qui est le cas la plupart du temps.
-        """
+        """Lets the assistant decide whether it has anything to say."""
         if self.assistant_of is None:
             return
         if self.reread_participation is not None:
@@ -256,15 +219,11 @@ class Watcher:
         self.assistant_of.answer_aside(retenue, now)
 
     def _apply_the_buttons(self, a_voix_haute: bool, de_lui_meme: bool) -> None:
-        """Suit les deux boutons de la fenêtre, sans redémarrer quoi que ce soit.
+        """Follows the window's two buttons, without restarting anything.
 
-        Se taire est immédiat, phrase en cours comprise : appuyer sur le bouton
-        pendant qu'il parle doit l'interrompre, pas attendre la fin de sa
-        tirade. Reprendre la parole ne coûte le chargement du modèle qu'une
-        fois, et seulement si on la lui redonne.
-
-        L'initiative se relit ici et non au démarrage : sans cela, le bouton
-        n'agissait qu'à la réunion suivante, ce qui ne se devine pas.
+        Going quiet is immediate, current sentence included. The initiative is re-read
+        here and not at startup, or its button would only take effect at the next
+        meeting.
         """
         if self.assistant_of is None:
             return
@@ -277,18 +236,13 @@ class Watcher:
             lui.voice = self.give_voice_back()
 
     def _turn_bounds(self) -> list[tuple[float, float]]:
-        """Les tours de parole affichés, pour mesurer la densité de la discussion."""
+        """The displayed speaker turns, to measure how dense the discussion is."""
         if self.follower is None:
             return []
         return [(t.span.start, t.span.end) for t in self.follower.thread.turns]
 
     def _voices_to_ask_about(self, now: float) -> list[Opening]:
-        """Une voix qui a parlé longtemps sans qu'on sache de qui elle est.
-
-        C'est le défaut le plus coûteux de l'outil : elle deviendra
-        « Personne 12 » dans le compte rendu, et plus personne ne saura la
-        reconnaître. La demander sur le moment coûte une phrase et vaut un nom.
-        """
+        """A voice that spoke at length without anyone knowing whose it is."""
         if self.follower is None or self.assistant_of is None or not self.initiative:
             return []
         for voice in self.follower.thread.voice.values():
@@ -304,16 +258,7 @@ class Watcher:
         job: Path,
         pause: Callable[[float], None] = time.sleep,
     ) -> list[Suggestion]:
-        """Tourne jusqu'à la fin de l'enregistrement.
-
-        Les deux rythmes sont gérés dans une seule boucle : deux fils
-        d'exécution pour ça compliqueraient l'arrêt sans rien apporter.
-
-        `depuis` donne l'heure de la réunion, pour horodater les liens collés.
-        Le rythme des tranches, lui, suit l'audio écrit : en pause, rien ne
-        s'ajoute au fichier, donc rien n'est transcrit — et la reprise repart où
-        la capture s'était arrêtée.
-        """
+        """Runs until the recording ends."""
         while still_running():
             self.clipboard_turn(depuis())
             ou = self.situer() if self.situer is not None else None
@@ -324,27 +269,14 @@ class Watcher:
         return self.watch_rules.propositions
 
     def last_pass(self, job: Path) -> list[Suggestion]:
-        """Transcrit ce qui restait quand la réunion s'est arrêtée.
-
-        Il reste toujours jusqu'à une période d'audio non lue : sans cette
-        passe, on finit sa phrase devant un fil qui s'arrête avant elle. Le
-        fichier visé est alors celui que l'arrêt vient de recoller, où les temps
-        sont déjà ceux de la réunion.
-        """
+        """Transcribes what was left when the meeting stopped."""
         ou = self.situer() if self.situer is not None else None
         if ou is None or ou.overall - self.traite < TRANCHE_MINIMALE_S:
             return []
         return self.transcription_turn(ou, job)
 
     def _is_time(self, ou: Position) -> bool:
-        """Faut-il transcrire maintenant ?
-
-        Deux cas. Le rythme ordinaire : assez d'audio s'est ajouté. Et le
-        rattrapage, quand le fichier **ne grandit plus** — mise en pause, ou fin
-        de la réunion : sans lui, les dernières secondes de chaque prise de
-        parole ne s'affichaient jamais, et l'on finissait sa phrase devant un fil
-        qui s'arrêtait avant elle.
-        """
+        """Is it time to transcribe?"""
         avance = ou.overall - self.traite
         stagne = self.vu is not None and abs(ou.ecrit - self.vu) < 0.05
         self.vu = ou.ecrit

@@ -1,9 +1,8 @@
-"""Traiter une réunion enregistrée : de l'audio au compte rendu envoyé.
+"""Processing a recorded meeting: from audio to minutes.
 
-Ce module ne connaît aucun outil. Il reçoit des ports, les appelle dans l'ordre,
-applique les règles du domaine et rend un résultat. C'est ce qui permet de le
-tester entièrement avec des doublures, sans audio, sans modèle et sans réseau —
-et de savoir que la logique est juste indépendamment de whisper ou d'Ollama.
+The order is not arbitrary. Everything expensive is written to disk before the
+one step that leaves the machine — writing the minutes — because a writer
+timeout used to lose a whole meeting's transcript and attribution.
 """
 
 from __future__ import annotations
@@ -40,7 +39,7 @@ MOTS_MINIMUM = 20
 AVERTISSEMENT_SANS_BOUCLE = "· boucle système muette, à préciser"
 
 class ChainStopped(Exception):
-    """Arrêt volontaire de la chaîne, avec une raison présentable."""
+    """Deliberate stop of the chain, with a reason fit to show."""
 
     def __init__(self, phase: Phase, because: str) -> None:
         super().__init__(because)
@@ -68,12 +67,7 @@ class Outcome:
 
     @property
     def words(self) -> int:
-        """Le nombre de mots, compté comme la langue les sépare.
-
-        Compter les espaces refusait une transcription chinoise, japonaise ou
-        thaï parfaitement valable : elle tombait sous le seuil et la chaîne
-        s'interrompait sur « Transcription quasi vide », avant de rédiger.
-        """
+        """The word count, counted the way the language separates them."""
         return sum(self.profil.decoupage.count_them(r.text) for r in self.utterances)
 
     def nom_de(self, voice: str | None) -> str:
@@ -82,7 +76,7 @@ class Outcome:
         return self.names.get(voice, f"Personne {voice}")
 
     def speaking_time(self) -> dict[str, float]:
-        """Secondes parlées par voix, du plus bavard au moins bavard."""
+        """Seconds spoken per voice, most talkative first."""
         cumul: dict[str, float] = {}
         for turn in self.turns:
             cumul[turn.voice] = cumul.get(turn.voice, 0.0) + turn.span.duration
@@ -90,22 +84,18 @@ class Outcome:
 
     @property
     def duration(self) -> float:
-        """Durée couverte par la réunion, d'après le dernier tour de parole."""
+        """Time the meeting covers, from the last turn."""
         return self.turns[-1].span.end if self.turns else 0.0
 
     @property
     def coverage(self) -> float:
-        """Part de l'audio qui porte effectivement du texte."""
+        """Share of the audio that actually carries text."""
         if self.duration <= 0:
             return 0.0
         return min(1.0, sum(r.span.duration for r in self.utterances) / self.duration)
 
     def gaps(self, minimum: float = 5.0) -> list[Span]:
-        """Passages d'au moins `minimum` secondes sans une seule réplique.
-
-        Un silence peut être un vrai silence — ou du texte perdu. On les liste
-        sans trancher : c'est au compte rendu de le dire honnêtement.
-        """
+        """Passages of at least `minimum` seconds without a single utterance."""
         if not self.utterances:
             return [Span(0.0, self.duration)] if self.duration > minimum else []
         manques: list[Span] = []
@@ -119,17 +109,16 @@ class Outcome:
         return manques
 
     def significant_voices(self, minimum: float = 10.0) -> dict[str, float]:
-        """Voix ayant assez parlé pour être un participant.
+        """Voices that spoke enough to be an attendee.
 
-        La segmentation laisse toujours une traîne de fragments d'une seconde,
-        trop courts pour porter un timbre. Les compter comme des participants
-        donnerait « 22 personnes » à une réunion qui en compte cinq.
+        Segmentation always leaves a trail of one-second fragments. Counting them as
+        attendees would announce 22 people in a meeting of five.
         """
         return {v: d for v, d in self.speaking_time().items() if d >= minimum}
 
 @dataclass
 class Chain:
-    """Assemble les ports. La composition décide de qui est branché où."""
+    """Wires the ports together. What is plugged where is decided elsewhere."""
 
     audio_recorder: outbound.AudioRecorder
     transcriber: outbound.Transcriber
@@ -162,11 +151,7 @@ class Chain:
             self.notificateur.notify(title, message)
 
     def _check_audio(self, audio: Path, outcome: Outcome) -> None:
-        """Refuse de transcrire un enregistrement muet.
-
-        Sans ce garde-fou, whisper rend un fichier vide, le compte rendu est
-        rédigé à partir de rien, et il part quand même par mail.
-        """
+        """Refuses to transcribe a silent recording."""
         levels = self.audio_recorder.levels(audio)
         if not levels:
             return
@@ -185,14 +170,7 @@ class Chain:
                 outcome.warnings.append(AVERTISSEMENT_SANS_BOUCLE)
 
     def _preciser_les_canaux(self, outcome: Outcome) -> None:
-        """Dit ce que le silence de la boucle système voulait dire.
-
-        Une seule voix sur le micro : la boucle manquait vraiment, et les autres
-        participants sont perdus. Plusieurs voix : c'est une réunion en salle, le
-        micro a tout entendu, et il n'y a rien à signaler. Le rédacteur lit ces
-        avertissements ; lui laisser croire qu'il manque du monde lui fait écrire
-        un compte rendu prudent sur une transcription complète.
-        """
+        """Says what the silence of the system loop meant."""
         if AVERTISSEMENT_SANS_BOUCLE not in outcome.warnings:
             return
         outcome.warnings.remove(AVERTISSEMENT_SANS_BOUCLE)
@@ -204,12 +182,7 @@ class Chain:
         )
 
     def _warn_about_coverage(self, outcome: Outcome) -> None:
-        """Dit à l'utilisateur ce que la transcription a perdu.
-
-        Le taux était calculé, transmis au rédacteur, et jamais montré. Sur une
-        réunion réelle, 22 % de l'audio ne portait aucun texte : le compte rendu
-        l'a mentionné de lui-même, l'utilisateur n'a rien vu passer.
-        """
+        """Tells the user what the transcription lost."""
         from greffier.application.render import COUVERTURE_SUSPECTE, TROU_SIGNIFICATIF
 
         coverage = outcome.coverage
@@ -236,18 +209,7 @@ class Chain:
             )
 
     def _warn_about_attendees(self, outcome: Outcome) -> None:
-        """Dit quand le nombre annoncé contredit ce que l'audio contient.
-
-        Annoncer un nombre force **exactement** autant de groupes : une voix de
-        plus est fondue dans une autre, en silence. Sur une réunion réelle du
-        2026-09-09, « 4 participants » avait été laissé dans la configuration et
-        la réunion en comptait davantage — deux personnes se sont retrouvées
-        confondues sans que rien ne le signale, et le compte rendu leur a prêté
-        les propos l'une de l'autre.
-
-        On ne peut pas savoir laquelle des deux valeurs est juste : le nombre
-        vient d'un humain, le recollage d'une mesure. On dit l'écart.
-        """
+        """Says when the announced count contradicts what the audio holds."""
         if self.people is None:
             return
         entendues = len(outcome.significant_voices())
@@ -261,13 +223,10 @@ class Chain:
         )
 
     def _identify_voices(self, audio: Path, turns: list[SpeakerTurn]) -> list[SpeakerTurn]:
-        """Recolle les voix sur-découpées par la segmentation.
+        """Stitches back the voices the segmenter over-split.
 
-        La segmentation éclate volontiers une personne en plusieurs groupes —
-        **298 voix pour trois personnes** autour d'une table, mesuré sur une
-        réunion réelle de 92 minutes. Sans ce recollage, le compte rendu invente
-        des participants ; avec, il en reste 23, dont 3 portent plus de dix
-        secondes.
+        298 groups for three people around a table, measured on a real 92-minute
+        meeting. Without this the minutes invent attendees.
         """
         if self.extractor is None:
             return turns
@@ -283,7 +242,7 @@ class Chain:
     def _voiceprints_per_voice(
         self, audio: Path, per_voice: dict[str, list[Span]]
     ) -> dict[str, list[Voiceprint]]:
-        """Les empreintes de chaque voix, en ne lisant l'audio qu'une fois."""
+        """The voiceprints of each voice, reading the audio only once."""
         from greffier.application.render import voiceprints_per_voice
 
         if self.extractor is None:
@@ -291,7 +250,7 @@ class Chain:
         return voiceprints_per_voice(self.extractor, audio, per_voice)
 
     def _recognise(self, audio: Path, turns: list[SpeakerTurn]) -> dict[str, str]:
-        """Noms venus de la banque de voix, pour les personnes déjà connues."""
+        """Names from the voice bank, for people already known."""
         if self.extractor is None or self.bank is None:
             return {}
         connues = self.bank.people()
@@ -317,11 +276,10 @@ class Chain:
         depuis_banque: dict[str, str],
         outcome: Outcome,
     ) -> None:
-        """Croise les noms prononcés et les voix reconnues.
+        """Crosses the spoken names with the recognised voices.
 
-        Une voix à la fois reconnue par son empreinte *et* nommée par un
-        collègue est une certitude. Une seule des deux reste une proposition :
-        mieux vaut demander que d'écrire un nom inventé dans un compte rendu.
+        Both at once is a certainty. Either one alone stays a suggestion: better to ask
+        than to write an invented name into minutes.
         """
         mentions = noms_domaine.spot_mentions(
             utterances, outcome.profil, self.not_first_names
@@ -346,22 +304,15 @@ class Chain:
                 outcome.propositions[proposition.voice] = proposition.name
 
     def _attach_voices(self, utterances: list[Utterance], turns: list[SpeakerTurn]) -> None:
-        """Donne à chaque réplique la voix qui la tient nettement, sinon aucune.
-
-        Le « nettement » est la règle du domaine : une phrase qui enjambe un
-        changement de locuteur ne désigne personne plutôt que le plus bavard.
-        """
+        """Gives each utterance the voice that clearly holds it, else none."""
         for utterance in utterances:
             utterance.voice = voice_of(utterance.span, turns)
 
     def _join_namesakes(self, outcome: Outcome) -> None:
-        """Replie sur une seule voix celles qui portent le même nom.
+        """Folds onto one voice those that carry the same name.
 
-        Après l'attribution, et non avant : c'est elle qui donne les noms, et
-        c'est le nom qui dit ici que deux voix sont la même personne. Le
-        recollage par empreinte a déjà fait ce qu'il pouvait ; ce qui reste, il
-        ne peut pas le savoir — quelques secondes de parole ne ressemblent
-        assez à rien.
+        After attribution, not before: attribution is what gives the names, and here it
+        is the name that says two voices are one person.
         """
         poids = {
             voice: sum(
@@ -507,11 +458,7 @@ class Chain:
         return outcome
 
     def _keep(self, audio: Path, outcome: Outcome) -> None:
-        """Écrit le fichier maître, la transcription et le compte rendu.
-
-        Rien n'est écrit si l'appelant n'a pas fourni où : la chaîne reste
-        utilisable en mémoire, ce dont les tests d'intégration profitent.
-        """
+        """Writes the master file, the transcript and the minutes."""
         from greffier.application.render import render_transcript
 
         duration = outcome.turns[-1].span.end if outcome.turns else 0.0
@@ -535,13 +482,7 @@ class Chain:
             outcome.compte_rendu_ecrit = minutes
 
     def _send(self, audio: Path, outcome: Outcome) -> None:
-        """Expédie le compte rendu, sans pièce jointe.
-
-        Le corps du message **est** le compte rendu : le joindre une seconde fois
-        en fichier n'apporte rien, et expédier la transcription intégrale ferait
-        circuler par courriel les propos de chacun mot à mot. « greffier envoyer
-        --avec-transcription » la joint quand elle est vraiment demandée.
-        """
+        """Sends the minutes, with no attachment."""
         assert self.sender is not None
         self.sender.send(
             self.recipient,
@@ -553,13 +494,7 @@ class Chain:
         )
 
 def _as_stored_meeting(outcome: Outcome, duration: float) -> StoredMeeting:
-    """Le fichier maître, depuis ce que la chaîne a produit.
-
-    Ici et non dans l'adaptateur de dépôt : la conversion appartient au cas
-    d'usage qui produit le résultat. Elle y vivait derrière un `Protocol` écrit
-    pour éviter que l'adaptateur importe le cas d'usage — un contournement qui
-    n'avait plus lieu d'être une fois la dépendance remise à l'endroit.
-    """
+    """The master file, from what the chain produced."""
     return StoredMeeting(
         identifier=outcome.audio.stem,
         audio=outcome.audio,
