@@ -20,7 +20,7 @@ from greffier.domain.models import Person, Phase, Span, SpeakerTurn, Utterance
 AUDIO = Path("/tmp/reunion.wav")
 
 
-class EnregistreurFactice:
+class FakeRecorder:
     def __init__(self, levels=(-30.0, -35.0)):
         self._levels = list(levels)
         self.prepares = []
@@ -44,7 +44,7 @@ class EnregistreurFactice:
         return self._levels
 
 
-class TranscripteurFactice:
+class FakeTranscriber:
     def __init__(self, utterances):
         self.utterances = utterances
         self.amorce_recue = None
@@ -54,7 +54,7 @@ class TranscripteurFactice:
         return list(self.utterances)
 
 
-class DiariseurFactice:
+class FakeDiariser:
     def __init__(self, turns):
         self._turns = turns
 
@@ -62,7 +62,7 @@ class DiariseurFactice:
         return list(self._turns)
 
 
-class RedacteurFactice:
+class FakeWriter:
     def __init__(self):
         self.recu = None
 
@@ -71,7 +71,7 @@ class RedacteurFactice:
         return "# Compte rendu\n\nTout va bien."
 
 
-class ExpediteurFactice:
+class FakeSender:
     def __init__(self):
         self.envois = []
 
@@ -79,7 +79,7 @@ class ExpediteurFactice:
         self.envois.append((recipient, subject, corps))
 
 
-class JournalFactice:
+class FakeStateLog:
     def __init__(self):
         self.phases = []
 
@@ -104,12 +104,12 @@ BAVARDAGE = [
 TURNS = [turn(0, 12, "1"), turn(13, 20, "2"), turn(21, 28, "1")]
 
 
-def chaine(**overrides):
+def chain(**overrides):
     defauts = dict(
-        audio_recorder=EnregistreurFactice(),
-        transcriber=TranscripteurFactice(BAVARDAGE),
-        diariser=DiariseurFactice(TURNS),
-        writer=RedacteurFactice(),
+        audio_recorder=FakeRecorder(),
+        transcriber=FakeTranscriber(BAVARDAGE),
+        diariser=FakeDiariser(TURNS),
+        writer=FakeWriter(),
     )
     defauts.update(overrides)
     return Chain(**defauts)
@@ -118,16 +118,16 @@ def chaine(**overrides):
 class TestGardeFous:
     def test_un_enregistrement_muet_arrete_tout(self):
         """Le bug du 2026-08-20 : sans ça, un CR était fabriqué puis envoyé."""
-        processing = chaine(audio_recorder=EnregistreurFactice(levels=(-120.0, -120.0)))
+        processing = chain(audio_recorder=FakeRecorder(levels=(-120.0, -120.0)))
         with pytest.raises(ChainStopped) as arret:
             processing.run_chain(AUDIO)
         assert arret.value.phase is Phase.ECHEC
         assert "muet" in arret.value.because
 
     def test_une_transcription_vide_n_est_pas_redigee(self):
-        transcriber = TranscripteurFactice([utterance(0, 2, "Bonjour.")])
-        writer = RedacteurFactice()
-        processing = chaine(transcriber=transcriber, writer=writer)
+        transcriber = FakeTranscriber([utterance(0, 2, "Bonjour.")])
+        writer = FakeWriter()
+        processing = chain(transcriber=transcriber, writer=writer)
         with pytest.raises(ChainStopped, match="quasi vide"):
             processing.run_chain(AUDIO)
         assert writer.recu is None, "le rédacteur ne doit pas être appelé"
@@ -139,66 +139,66 @@ class TestGardeFous:
         poste et la réunion en comptait davantage : deux personnes ont été
         confondues sans que rien ne le dise.
         """
-        processing = chaine()
+        processing = chain()
         processing.people = 9
         outcome = processing.run_chain(AUDIO)
         assert any("9 participants sont annoncés" in a for a in outcome.warnings)
 
     def test_un_nombre_juste_ne_dit_rien(self):
-        processing = chaine()
-        processing.people = len(chaine().run_chain(AUDIO).significant_voices())
+        processing = chain()
+        processing.people = len(chain().run_chain(AUDIO).significant_voices())
         outcome = processing.run_chain(AUDIO)
         assert not any("annoncés" in a for a in outcome.warnings)
 
     def test_sans_nombre_annonce_il_n_y_a_rien_a_contredire(self):
-        outcome = chaine().run_chain(AUDIO)
+        outcome = chain().run_chain(AUDIO)
         assert not any("annoncés" in a for a in outcome.warnings)
 
     def test_le_seuil_de_mots_reste_bas_mais_non_nul(self):
         assert 0 < MOTS_MINIMUM <= 50
 
     def test_un_micro_muet_avertit_sans_bloquer(self):
-        processing = chaine(audio_recorder=EnregistreurFactice(levels=(-120.0, -30.0)))
+        processing = chain(audio_recorder=FakeRecorder(levels=(-120.0, -30.0)))
         outcome = processing.run_chain(AUDIO)
         assert any("micro" in a for a in outcome.warnings)
         assert outcome.minutes
 
     def test_aucun_son_systeme_avertit_sans_bloquer(self):
-        processing = chaine(audio_recorder=EnregistreurFactice(levels=(-30.0, -120.0)))
+        processing = chain(audio_recorder=FakeRecorder(levels=(-30.0, -120.0)))
         outcome = processing.run_chain(AUDIO)
         assert any("système" in a for a in outcome.warnings)
 
 
 class TestEnchainement:
     def test_les_phases_se_suivent(self):
-        log = JournalFactice()
-        chaine(log=log).run_chain(AUDIO)
+        log = FakeStateLog()
+        chain(log=log).run_chain(AUDIO)
         assert log.phases[0] == Phase.TRANSCRIPTION.value
         assert Phase.LOCUTEURS.value in log.phases
         assert log.phases[-1] == Phase.TERMINE.value
 
     def test_le_vocabulaire_est_transmis_au_transcripteur(self):
-        transcriber = TranscripteurFactice(BAVARDAGE)
-        processing = chaine(transcriber=transcriber)
+        transcriber = FakeTranscriber(BAVARDAGE)
+        processing = chain(transcriber=transcriber)
         processing.prompt_seed = "Vocabulaire : Copernic."
         processing.run_chain(AUDIO)
         assert transcriber.amorce_recue == "Vocabulaire : Copernic."
 
     def test_sans_redacteur_la_transcription_reste_disponible(self):
-        outcome = chaine(writer=None).run_chain(AUDIO)
+        outcome = chain(writer=None).run_chain(AUDIO)
         assert outcome.utterances and outcome.minutes == ""
 
     def test_l_envoi_n_a_lieu_qu_avec_un_destinataire(self):
-        sender = ExpediteurFactice()
-        processing = chaine(sender=sender)
+        sender = FakeSender()
+        processing = chain(sender=sender)
         assert processing.run_chain(AUDIO).envoye is False
         processing.recipient = "moi@exemple.fr"
         assert processing.run_chain(AUDIO).envoye is True
         assert sender.envois[0][0] == "moi@exemple.fr"
 
     def test_on_peut_traiter_sans_envoyer(self):
-        sender = ExpediteurFactice()
-        processing = chaine(sender=sender)
+        sender = FakeSender()
+        processing = chain(sender=sender)
         processing.recipient = "moi@exemple.fr"
         outcome = processing.run_chain(AUDIO, send=False)
         assert outcome.minutes and not outcome.envoye and not sender.envois
@@ -206,36 +206,36 @@ class TestEnchainement:
 
 class TestAttributionDesVoix:
     def test_chaque_replique_recoit_la_voix_dominante(self):
-        outcome = chaine().run_chain(AUDIO)
+        outcome = chain().run_chain(AUDIO)
         assert [r.voice for r in outcome.utterances] == ["1", "1", "2", "1"]
 
     def test_l_auto_presentation_nomme_le_locuteur(self):
         """« moi c'est Tanguy » désigne celui qui parle."""
-        outcome = chaine().run_chain(AUDIO)
+        outcome = chain().run_chain(AUDIO)
         assert outcome.names["1"] == "Tanguy"
 
     def test_le_vocabulaire_metier_n_est_pas_pris_pour_un_prenom(self):
-        transcriber = TranscripteurFactice([
+        transcriber = FakeTranscriber([
             utterance(0, 6, "Merci Copernic pour la démonstration de ce matin, c'était clair."),
             utterance(7, 14, "On enchaîne sur le sujet suivant, à savoir la reprise des données."),
             utterance(15, 22, "Très bien, je note que la reprise démarre la semaine prochaine."),
         ])
-        processing = chaine(transcriber=transcriber)
+        processing = chain(transcriber=transcriber)
         processing.not_first_names = frozenset({"copernic"})
         outcome = processing.run_chain(AUDIO)
         assert "Copernic" not in outcome.names.values()
         assert "Copernic" not in outcome.propositions.values()
 
     def test_la_transcription_rendue_porte_les_noms_et_les_horaires(self):
-        writer = RedacteurFactice()
-        chaine(writer=writer).run_chain(AUDIO)
+        writer = FakeWriter()
+        chain(writer=writer).run_chain(AUDIO)
         assert "[Tanguy]" in writer.recu
         assert "00:00" in writer.recu
         # Une voix sans nom reste identifiée, jamais inventée.
         assert "[Personne 2]" in writer.recu
 
 
-class ExtracteurFactice:
+class FakeExtractor:
     """Rend une empreinte par intervalle, dictée par la voix attendue."""
 
     def __init__(self, vectors):
@@ -255,7 +255,7 @@ class ExtracteurFactice:
         ]
 
 
-class BanqueFactice:
+class FakeBank:
     def __init__(self, people):
         self._people = people
         self.ajouts = []
@@ -274,8 +274,8 @@ class TestBanqueDeVoix:
 
         vectors = {(0.0, 12.0): [1.0, 0.0, 0.0], (13.0, 20.0): [0.0, 1.0, 0.0],
                     (21.0, 28.0): [1.0, 0.0, 0.0]}
-        bank = BanqueFactice([Person("Josiane", [normalise([0.02, 1.0, 0.0])])])
-        processing = chaine(extractor=ExtracteurFactice(vectors), bank=bank)
+        bank = FakeBank([Person("Josiane", [normalise([0.02, 1.0, 0.0])])])
+        processing = chain(extractor=FakeExtractor(vectors), bank=bank)
         outcome = processing.run_chain(AUDIO)
         assert outcome.names["2"] == "Josiane"
 
@@ -285,8 +285,8 @@ class TestBanqueDeVoix:
 
         vectors = {(0.0, 12.0): [1.0, 0.0, 0.0], (13.0, 20.0): [0.0, 1.0, 0.0],
                     (21.0, 28.0): [1.0, 0.0, 0.0]}
-        bank = BanqueFactice([Person("Michel", [normalise([1.0, 0.02, 0.0])])])
-        processing = chaine(extractor=ExtracteurFactice(vectors), bank=bank)
+        bank = FakeBank([Person("Michel", [normalise([1.0, 0.02, 0.0])])])
+        processing = chain(extractor=FakeExtractor(vectors), bank=bank)
         outcome = processing.run_chain(AUDIO)
         assert outcome.names["1"] == "Michel"
         assert any("Michel" in a and "Tanguy" in a for a in outcome.warnings)
@@ -294,20 +294,20 @@ class TestBanqueDeVoix:
     def test_une_banque_vide_ne_gene_pas(self):
         vectors = {(0.0, 12.0): [1.0, 0.0, 0.0], (13.0, 20.0): [0.0, 1.0, 0.0],
                     (21.0, 28.0): [1.0, 0.0, 0.0]}
-        processing = chaine(extractor=ExtracteurFactice(vectors), bank=BanqueFactice([]))
+        processing = chain(extractor=FakeExtractor(vectors), bank=FakeBank([]))
         assert processing.run_chain(AUDIO).names["1"] == "Tanguy"
 
 
 class TestLectureDuResultat:
     def test_les_fragments_ne_sont_pas_des_participants(self):
         """La segmentation laisse une traîne de fragments d'une seconde."""
-        outcome = chaine().run_chain(AUDIO)
+        outcome = chain().run_chain(AUDIO)
         outcome.turns = outcome.turns + [turn(29, 29.5, "bruit")]
         assert "bruit" in outcome.speaking_time()
         assert "bruit" not in outcome.significant_voices()
 
     def test_le_temps_de_parole_va_du_plus_bavard_au_moins(self):
-        outcome = chaine().run_chain(AUDIO)
+        outcome = chain().run_chain(AUDIO)
         durees = list(outcome.speaking_time().values())
         assert durees == sorted(durees, reverse=True)
 
@@ -315,16 +315,16 @@ class TestLectureDuResultat:
 class TestFiabilite:
     def test_la_couverture_dit_ce_qui_manque(self):
         """25 s de texte sur 28 s de parole : seules les respirations manquent."""
-        outcome = chaine().run_chain(AUDIO)
+        outcome = chain().run_chain(AUDIO)
         assert outcome.coverage == pytest.approx(25 / 28, abs=0.01)
 
     def test_un_trou_de_transcription_est_repere(self):
-        transcriber = TranscripteurFactice([
+        transcriber = FakeTranscriber([
             utterance(0, 10, "On commence par le point sur la recette de la semaine."),
             utterance(120, 130, "Voilà, je crois qu'on a fait le tour des sujets prévus."),
         ])
-        diariser = DiariseurFactice([turn(0, 10, "1"), turn(120, 130, "2")])
-        outcome = chaine(transcriber=transcriber, diariser=diariser).run_chain(AUDIO)
+        diariser = FakeDiariser([turn(0, 10, "1"), turn(120, 130, "2")])
+        outcome = chain(transcriber=transcriber, diariser=diariser).run_chain(AUDIO)
         gaps = outcome.gaps(minimum=8)
         assert any(t.duration > 100 for t in gaps)
 
@@ -333,17 +333,17 @@ class TestFiabilite:
         qui ne l'est pas."""
         from greffier.application.render import reliability_header
 
-        transcriber = TranscripteurFactice([
+        transcriber = FakeTranscriber([
             utterance(0, 10, "On commence par le point sur la recette de la semaine."),
             utterance(120, 130, "Voilà, je crois qu'on a fait le tour des sujets prévus."),
         ])
-        diariser = DiariseurFactice([turn(0, 10, "1"), turn(120, 130, "2")])
-        writer = RedacteurFactice()
-        chaine(transcriber=transcriber, diariser=diariser,
+        diariser = FakeDiariser([turn(0, 10, "1"), turn(120, 130, "2")])
+        writer = FakeWriter()
+        chain(transcriber=transcriber, diariser=diariser,
                writer=writer).run_chain(AUDIO)
         assert "Fiabilité de la transcription" in writer.recu
         assert "ne comble" in writer.recu
-        assert reliability_header(chaine().run_chain(AUDIO)) == "", \
+        assert reliability_header(chain().run_chain(AUDIO)) == "", \
             "une transcription complète ne doit pas être affublée d'un avertissement"
 
 
@@ -451,8 +451,8 @@ class TestEnteteContexte:
         assert "n'a pas été tracée" in disclosure_header("peut-être")
 
     def test_le_redacteur_recoit_la_mention(self) -> None:
-        writer = RedacteurFactice()
-        processing = chaine(writer=writer)
+        writer = FakeWriter()
+        processing = chain(writer=writer)
         processing.disclosure = "annoncé"
         processing.run_chain(AUDIO)
         assert "Mention sur l'enregistrement" in writer.recu
@@ -553,8 +553,8 @@ class TestMiseANiveauAvantTranscription:
     """
 
     def test_l_audio_est_prepare_avant_d_etre_transcrit(self, tmp_path):
-        audio_recorder = EnregistreurFactice()
-        processing = chaine(audio_recorder=audio_recorder)
+        audio_recorder = FakeRecorder()
+        processing = chain(audio_recorder=audio_recorder)
         audio = tmp_path / "reunion.wav"
         audio.write_bytes(b"RIFF----WAVEfmt ")
         processing.run_chain(audio, send=False)
@@ -574,17 +574,17 @@ class TestLaChaineGardeLaReunion:
     def test_le_fichier_maitre_est_ecrit(self, tmp_path):
         deposees = []
 
-        class DepotEspion:
+        class SpyStore:
             def record(self, meeting):
                 deposees.append(meeting)
                 return tmp_path / "reunions/essai.json"
 
-        outcome = chaine(store=DepotEspion()).run_chain(AUDIO)
+        outcome = chain(store=SpyStore()).run_chain(AUDIO)
         assert deposees, "la chaîne doit déposer la réunion"
         assert outcome.fichier_maitre == tmp_path / "reunions/essai.json"
 
     def test_la_transcription_et_le_compte_rendu_sont_ecrits(self, tmp_path):
-        outcome = chaine(
+        outcome = chain(
             dossier_transcriptions=tmp_path / "transcriptions",
             dossier_comptes_rendus=tmp_path / "comptes-rendus",
         ).run_chain(AUDIO)
@@ -602,14 +602,14 @@ class TestLaChaineGardeLaReunion:
         `TestUnEnvoiQuiEchoue`.
         """
 
-        class ExpediteurQuiTombe:
+        class FallingSender:
             def send(self, *_args, **_options):
                 raise RuntimeError("serveur injoignable")
 
-        processing = chaine(
+        processing = chain(
             dossier_transcriptions=tmp_path / "transcriptions",
             dossier_comptes_rendus=tmp_path / "comptes-rendus",
-            sender=ExpediteurQuiTombe(),
+            sender=FallingSender(),
             recipient="moi@exemple.fr",
         )
         outcome = processing.run_chain(AUDIO)
@@ -627,20 +627,20 @@ class TestLaChaineGardeLaReunion:
         rédacteur échoue » ne l'était pas.
         """
 
-        class RedacteurQuiExpire:
+        class TimingOutWriter:
             def write_up(self, transcription):
                 raise subprocess.TimeoutExpired(cmd="redacteur", timeout=900)
 
         deposees = []
 
-        class DepotEspion:
+        class SpyStore:
             def record(self, meeting):
                 deposees.append(meeting)
                 return tmp_path / "reunions/essai.json"
 
-        processing = chaine(
-            writer=RedacteurQuiExpire(),
-            store=DepotEspion(),
+        processing = chain(
+            writer=TimingOutWriter(),
+            store=SpyStore(),
             dossier_transcriptions=tmp_path / "transcriptions",
             dossier_comptes_rendus=tmp_path / "comptes-rendus",
         )
@@ -660,13 +660,13 @@ class TestLaChaineGardeLaReunion:
         Le rédacteur a écrit son titre après avoir lu toute la transcription :
         personne n'est mieux placé pour nommer la réunion.
         """
-        class RedacteurQuiTitre:
+        class TitlingWriter:
             def write_up(self, transcription):
                 return "# Compte rendu : point d'avancement des projets\n\nTexte."
 
         deposees = []
 
-        class DepotEspion:
+        class SpyStore:
             def record(self, meeting):
                 deposees.append(meeting)
                 return tmp_path / "reunions/essai.json"
@@ -674,7 +674,7 @@ class TestLaChaineGardeLaReunion:
             def read(self, identifier):
                 raise FileNotFoundError(identifier)
 
-        chaine(writer=RedacteurQuiTitre(), store=DepotEspion()).run_chain(AUDIO)
+        chain(writer=TitlingWriter(), store=SpyStore()).run_chain(AUDIO)
         assert deposees[-1].subject == "point d'avancement des projets"
 
     def test_un_sujet_saisi_a_la_main_survit_au_retraitement(self, tmp_path):
@@ -683,13 +683,13 @@ class TestLaChaineGardeLaReunion:
 
         from greffier.domain.meeting import StoredMeeting
 
-        class RedacteurQuiTitre:
+        class TitlingWriter:
             def write_up(self, transcription):
                 return "# Compte rendu : titre automatique\n\nTexte."
 
         deposees = []
 
-        class DepotAvecSujet:
+        class StoreWithSubject:
             def record(self, meeting):
                 deposees.append(meeting)
                 return tmp_path / "reunions/essai.json"
@@ -702,12 +702,12 @@ class TestLaChaineGardeLaReunion:
                     warnings=[], subject="Point Oasis",
                 )
 
-        chaine(writer=RedacteurQuiTitre(), store=DepotAvecSujet()).run_chain(AUDIO)
+        chain(writer=TitlingWriter(), store=StoreWithSubject()).run_chain(AUDIO)
         assert deposees[-1].subject == "Point Oasis"
 
     def test_sans_dossier_la_chaine_reste_utilisable(self):
         """Les tests d'intégration s'en servent en mémoire, sans rien écrire."""
-        outcome = chaine().run_chain(AUDIO)
+        outcome = chain().run_chain(AUDIO)
         assert outcome.transcript_written is None
         assert outcome.compte_rendu_ecrit is None
 
@@ -723,14 +723,14 @@ class TestLaChaineGardeLaReunion:
         """
         deposees = []
 
-        class DepotEspion:
+        class SpyStore:
             def record(self, meeting):
                 deposees.append(meeting)
                 return tmp_path / "reunions/essai.json"
 
-        outcome = chaine(
+        outcome = chain(
             writer=None,
-            store=DepotEspion(),
+            store=SpyStore(),
             dossier_transcriptions=tmp_path / "transcriptions",
         ).run_chain(AUDIO)
 
@@ -740,7 +740,7 @@ class TestLaChaineGardeLaReunion:
 
     def test_sans_redacteur_aucun_compte_rendu_n_est_ecrit(self, tmp_path):
         """Garder la réunion ne doit pas fabriquer un compte rendu vide."""
-        outcome = chaine(
+        outcome = chain(
             writer=None,
             dossier_transcriptions=tmp_path / "transcriptions",
             dossier_comptes_rendus=tmp_path / "comptes-rendus",
@@ -769,7 +769,7 @@ class TestCanauxEnPresentiel:
             SpeakerTurn(Span(0, 40), "0"),
             SpeakerTurn(Span(40, 90), "1"),
         ]
-        chaine()._preciser_les_canaux(outcome)
+        chain()._preciser_les_canaux(outcome)
         assert outcome.warnings == []
 
     def test_une_seule_voix_sans_boucle_est_signalee(self):
@@ -779,7 +779,7 @@ class TestCanauxEnPresentiel:
         outcome = Outcome(audio=AUDIO)
         outcome.warnings.append(AVERTISSEMENT_SANS_BOUCLE)
         outcome.turns = [SpeakerTurn(Span(0, 90), "0")]
-        chaine()._preciser_les_canaux(outcome)
+        chain()._preciser_les_canaux(outcome)
         assert len(outcome.warnings) == 1
         assert "visio" in outcome.warnings[0]
 
@@ -793,7 +793,7 @@ class TestCanauxEnPresentiel:
             outcome = Outcome(audio=AUDIO)
             outcome.warnings.append(AVERTISSEMENT_SANS_BOUCLE)
             outcome.turns = turns
-            chaine()._preciser_les_canaux(outcome)
+            chain()._preciser_les_canaux(outcome)
             assert AVERTISSEMENT_SANS_BOUCLE not in outcome.warnings
 
     def test_sans_marque_rien_n_est_ajoute(self):
@@ -801,7 +801,7 @@ class TestCanauxEnPresentiel:
 
         outcome = Outcome(audio=AUDIO)
         outcome.turns = [SpeakerTurn(Span(0, 90), "0")]
-        chaine()._preciser_les_canaux(outcome)
+        chain()._preciser_les_canaux(outcome)
         assert outcome.warnings == []
 
 
@@ -828,8 +828,8 @@ class TestHomonymesApresReunion:
     def _outcome(self):
         from greffier.domain.voiceprints import normalise
 
-        bank = BanqueFactice([Person("Josiane", [normalise([0.92, 0.39, 0.0])])])
-        processing = chaine(extractor=ExtracteurFactice(self.VECTORS), bank=bank)
+        bank = FakeBank([Person("Josiane", [normalise([0.92, 0.39, 0.0])])])
+        processing = chain(extractor=FakeExtractor(self.VECTORS), bank=bank)
         return processing.run_chain(AUDIO)
 
     def test_une_seule_voix_porte_le_nom(self):
@@ -853,14 +853,14 @@ class TestHomonymesApresReunion:
         """Le garde-fou : la règle ne doit pas tout replier sur une voix."""
         from greffier.domain.voiceprints import normalise
 
-        bank = BanqueFactice([
+        bank = FakeBank([
             Person("Josiane", [normalise([1.0, 0.02, 0.0])]),
             Person("Michel", [normalise([0.02, 1.0, 0.0])]),
         ])
         vectors = {(0.0, 12.0): [1.0, 0.0, 0.0], (21.0, 28.0): [1.0, 0.0, 0.0],
                     (13.0, 20.0): [0.0, 1.0, 0.0]}
-        outcome = chaine(
-            extractor=ExtracteurFactice(vectors), bank=bank
+        outcome = chain(
+            extractor=FakeExtractor(vectors), bank=bank
         ).run_chain(AUDIO)
         assert sorted(outcome.names.values()) == ["Josiane", "Michel"]
 
@@ -876,40 +876,40 @@ class TestUnEnvoiQuiEchoue:
     modale que personne n'a vue.
     """
 
-    class ExpediteurQuiTombe:
+    class FallingSender:
         def send(self, recipient, subject, corps, pieces):
             raise PermissionError("macOS refuse de piloter Outlook.")
 
     def _outcome(self, log):
-        processing = chaine(
-            sender=self.ExpediteurQuiTombe(),
+        processing = chain(
+            sender=self.FallingSender(),
             recipient="tanguy@example.org",
             log=log,
         )
         return processing.run_chain(AUDIO)
 
     def test_la_chaine_va_jusqu_au_bout(self):
-        log = JournalFactice()
+        log = FakeStateLog()
         self._outcome(log)
         assert log.phases[-1] == Phase.TERMINE.value, log.phases
 
     def test_la_phase_envoi_ne_reste_pas_la_derniere(self):
         """C'est elle qui mentait : « Envoi du compte rendu… », pour toujours."""
-        log = JournalFactice()
+        log = FakeStateLog()
         self._outcome(log)
         assert Phase.ENVOI.value in log.phases
         assert log.phases[-1] != Phase.ENVOI.value
 
     def test_la_raison_est_dite(self):
-        outcome = self._outcome(JournalFactice())
+        outcome = self._outcome(FakeStateLog())
         assert any("Outlook" in a for a in outcome.warnings), outcome.warnings
         assert any("greffier envoyer" in a for a in outcome.warnings)
 
     def test_le_compte_rendu_n_est_pas_annonce_comme_parti(self):
-        assert self._outcome(JournalFactice()).envoye is False
+        assert self._outcome(FakeStateLog()).envoye is False
 
     def test_le_compte_rendu_est_bien_la(self):
-        assert self._outcome(JournalFactice()).minutes
+        assert self._outcome(FakeStateLog()).minutes
 
 
 class TestLigneDesParticipants:
@@ -956,3 +956,98 @@ class TestLigneDesParticipants:
         le défaire si un nom arrive deux fois."""
         line = self._line(["Laura", "Laura", "Paul"], 3)
         assert "Participants : Laura, Paul, et 1 voix non nommée." in line
+
+
+class TestPlancherAvantDeNommer:
+    """La banque ne doit pas nommer quelqu'un sur trois secondes de parole.
+
+    Mesuré sur la réunion du 2026-09-10 : « Sophie » a été posée sur une voix
+    de **3,1 secondes**, et Sophie n'était pas dans la pièce. La même banque a
+    nommé neuf fragments d'une seule Laura, entre 2,5 et 8,1 secondes chacun.
+
+    Une étiquette fausse dans un compte rendu est pire qu'une voix sans nom :
+    on la croit. Le fil du direct portait déjà ce plancher ; la chaîne d'après
+    réunion ne l'avait pas.
+    """
+
+    def _resultat(self, seconde_duree: float):
+        from greffier.domain.voiceprints import normalise
+
+        vecteurs = {(0.0, 12.0): [1.0, 0.0, 0.0], (21.0, 28.0): [1.0, 0.0, 0.0],
+                    (13.0, 13.0 + seconde_duree): [0.02, 1.0, 0.0]}
+        turns = [turn(0, 12, "1"), turn(13, 13 + seconde_duree, "2"),
+                 turn(21, 28, "1")]
+        bank = FakeBank([Person("Josiane", [normalise([0.02, 1.0, 0.0])])])
+        return chain(
+            extractor=FakeExtractor(vecteurs), bank=bank,
+            diariser=FakeDiariser(turns),
+        ).run_chain(AUDIO)
+
+    def test_une_voix_de_trois_secondes_n_est_pas_nommee(self):
+        assert "Josiane" not in self._resultat(3.0).names.values()
+
+    def test_la_meme_voix_est_nommee_des_qu_elle_a_de_quoi(self):
+        """Le plancher ne doit pas empêcher de reconnaître qui parle vraiment."""
+        assert self._resultat(9.0).names.get("2") == "Josiane"
+
+    def test_le_plancher_vaut_six_secondes(self):
+        """Le double du seuil du calibrage. Changé, la mesure est à refaire."""
+        from greffier.application.process import MATERIAL_TO_RECOGNISE
+
+        assert MATERIAL_TO_RECOGNISE == 6.0
+
+    def test_juste_sous_le_plancher_ne_passe_pas(self):
+        assert "Josiane" not in self._resultat(5.9).names.values()
+
+    def test_juste_au_dessus_passe(self):
+        assert self._resultat(6.1).names.get("2") == "Josiane"
+
+
+class TestLesConsignesArriventAuRedacteur:
+    """La chaîne doit poser les consignes de la séance devant le rédacteur.
+
+    Le défaut : elles étaient écrites dans la conversation, gardées sur le
+    disque, et la chaîne ne les lisait pas. Dix-sept messages perdus sur une
+    réunion de 1 h 42, dont « Il n'y a pas de sophie dans la réunion ».
+    """
+
+    CONSIGNES = [
+        "Il n'y a pas de sophie dans la réunion",
+        "Paul n'a pas dit booting, mais blue team",
+    ]
+
+    def _writer(self, consignes):
+        writer = FakeWriter()
+        chain(writer=writer, instructions=lambda _i: consignes).run_chain(AUDIO)
+        return writer.recu
+
+    def test_les_consignes_sont_devant_le_redacteur(self):
+        transcription = self._writer(self.CONSIGNES)
+        assert "Il n'y a pas de sophie" in transcription
+        assert "blue team" in transcription
+
+    def test_elles_passent_avant_le_reste_de_l_entete(self):
+        """Une correction humaine l'emporte sur ce que la transcription croit."""
+        transcription = self._writer(self.CONSIGNES)
+        assert transcription.index("Consignes données") < transcription.index(
+            "Mention sur l'enregistrement"
+        )
+
+    def test_sans_consigne_rien_n_est_ajoute(self):
+        assert "Consignes données" not in self._writer([])
+
+    def test_une_conversation_illisible_ne_coute_pas_le_compte_rendu(self):
+        """Le compte rendu vaut plus qu'un en-tête."""
+        def tombe(_identifier):
+            raise OSError("fichier illisible")
+
+        writer = FakeWriter()
+        outcome = chain(writer=writer, instructions=tombe).run_chain(AUDIO)
+        assert outcome.minutes, "le compte rendu doit être écrit quand même"
+        assert "Consignes données" not in writer.recu
+
+    def test_sans_lecteur_de_consignes_la_chaine_tourne(self):
+        """Le port est facultatif : la ligne de commande peut ne pas le brancher."""
+        writer = FakeWriter()
+        chain(writer=writer).run_chain(AUDIO)
+        assert "Consignes données" not in writer.recu

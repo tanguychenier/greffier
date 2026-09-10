@@ -3,7 +3,7 @@
 from greffier.application.tickets import Ticket, depuis_reponse, extract_json, offer
 
 
-class RedacteurFactice:
+class FakeWriter:
     def __init__(self, response):
         self.response = response
         self.recu = None
@@ -75,7 +75,7 @@ class TestRendu:
 
 class TestBoucle:
     def test_le_compte_rendu_est_transmis_au_redacteur(self):
-        writer = RedacteurFactice(RESPONSE)
+        writer = FakeWriter(RESPONSE)
         proposition = offer("# Compte rendu\n\nOn décale la recette.", writer)
         assert "On décale la recette." in writer.recu
         assert "un ticket par action réellement décidée" in writer.recu

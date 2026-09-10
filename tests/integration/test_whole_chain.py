@@ -75,9 +75,9 @@ def outcome(config: Config, meeting: Path):
     from greffier.wiring import wire_up
 
     config.minutes.engine = "aucun"
-    chaine: Chain = wire_up(config)
-    chaine.writer = None
-    return chaine.run_chain(meeting, send=False)
+    chain: Chain = wire_up(config)
+    chain.writer = None
+    return chain.run_chain(meeting, send=False)
 
 
 class TestChaineReelle:
@@ -125,3 +125,61 @@ class TestChaineReelle:
         assert "[Jacques]" in text and "[Sandy]" in text
         assert "00:0" in text
         assert "Personne" not in text, "aucune voix ne devrait rester anonyme"
+
+
+@pytest.mark.integration
+class TestDeLaConversationAuCompteRendu:
+    """De bout en bout : ce qu'on écrit dans le chat parvient au rédacteur.
+
+    Les tests unitaires vérifient chaque maillon. Celui-ci vérifie le fil :
+    un message écrit dans la conversation d'une réunion, sur le disque, dans le
+    format réel, et retrouvé dans ce que le rédacteur reçoit. C'est le chemin
+    exact qui était rompu le 2026-09-10.
+    """
+
+    def test_un_message_ecrit_dans_le_chat_arrive_au_redacteur(self, tmp_path):
+        from greffier.adapters import conversations_file
+        from greffier.adapters.configuration import Config
+        from greffier.application.render import instructions_header
+        from greffier.wiring import _instructions_of
+
+        identifier = "2026-09-10_10h10_reunion"
+        config = Config(paths={"donnees": tmp_path})
+        fichier = conversations_file.file_for(config.paths.conversations, identifier)
+
+        # Tel que la fenêtre l'écrit : une note de l'outil, une question de
+        # l'assistant, puis la consigne humaine.
+        conversations_file.add(fichier, "note", "❓ J'ai entendu « ailleurs ».")
+        conversations_file.add(fichier, "lucie", "Qui prend la migration ?")
+        conversations_file.add(fichier, "moi", "Il n'y a pas de sophie dans la réunion")
+        conversations_file.add(fichier, "greffier", "Le compte rendu est prêt.")
+
+        consignes = _instructions_of(config)(identifier)
+        assert consignes == ["Il n'y a pas de sophie dans la réunion"], consignes
+
+        entete = instructions_header(consignes)
+        assert "Il n'y a pas de sophie" in entete
+        assert "ailleurs" not in entete, "une note n'est pas une consigne"
+        assert "migration" not in entete, "une question de l'assistant non plus"
+
+    def test_l_ordre_des_consignes_est_celui_de_la_reunion(self, tmp_path):
+        """Une consigne plus tardive corrige une plus ancienne."""
+        from greffier.adapters import conversations_file
+        from greffier.adapters.configuration import Config
+        from greffier.wiring import _instructions_of
+
+        identifier = "2026-09-10_13h08_reunion"
+        config = Config(paths={"donnees": tmp_path})
+        fichier = conversations_file.file_for(config.paths.conversations, identifier)
+        for texte in ("c'est Fantin qui a dit ça", "non, c'était Paul"):
+            conversations_file.add(fichier, "moi", texte)
+        assert _instructions_of(config)(identifier) == [
+            "c'est Fantin qui a dit ça", "non, c'était Paul",
+        ]
+
+    def test_aucune_consigne_quand_personne_n_a_rien_dit(self, tmp_path):
+        from greffier.adapters.configuration import Config
+        from greffier.wiring import _instructions_of
+
+        config = Config(paths={"donnees": tmp_path})
+        assert _instructions_of(config)("2026-01-01_09h00_reunion") == []

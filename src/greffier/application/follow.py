@@ -18,6 +18,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+from greffier.domain.boilerplate import collapse_loops
 from greffier.domain.channels import subtract
 from greffier.domain.live import (
     Block,
@@ -300,6 +301,10 @@ class Follower:
         globaux = [
             Span(x.start + decalage, x.end + decalage) for x in locaux
         ]
+        # La boucle de répétition du transcripteur se coupe ici, avant
+        # l'attribution : onze fois la même phrase, c'est une voix de plus et
+        # onze lignes dans le fil.
+        utterances = collapse_loops(utterances)
         recalees = [
             Utterance(
                 span=Span(
