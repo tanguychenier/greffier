@@ -121,3 +121,71 @@ class TestReconnaissanceEntreReunions:
         assert all(c.extrait is not None and c.extrait.duration >= 3 for c in candidates)
         # De la plus bavarde à la moins : on nomme d'abord qui compte le plus.
         assert candidates[0].duration >= candidates[1].duration
+
+
+@pytest.mark.integration
+class TestSeparerApresLaReunionDeBoutEnBout:
+    """Le geste complet : réunir, écrire, relire, séparer, réécrire.
+
+    Ce qui manquait : le fil du direct savait revenir en arrière, la chaîne
+    d'après réunion non. Deux personnes réunies à tort le restaient jusqu'au
+    compte rendu, et le compte rendu annonçait un participant de moins.
+
+    Ce test passe par le vrai dépôt de fichiers, pas par une doublure : c'est
+    la persistance qui manquait, et c'est elle qu'il faut éprouver.
+    """
+
+    def _reunion(self, tmp_path):
+        from datetime import UTC, datetime
+
+        from greffier.domain.meeting import StoredMeeting
+        from greffier.domain.models import Span, SpeakerTurn, Utterance
+
+        return StoredMeeting(
+            identifier="2026-09-10_10h10_reunion",
+            audio=tmp_path / "r.wav",
+            traitee_le=datetime.now(UTC),
+            duration=120.0,
+            utterances=[
+                Utterance(Span(0, 40), "on cale la recette jeudi", "v1"),
+                Utterance(Span(50, 90), "le devis part demain matin", "v2"),
+            ],
+            turns=[SpeakerTurn(Span(0, 40), "v1"), SpeakerTurn(Span(50, 90), "v2")],
+            names={"v1": "Tanguy", "v2": "Paul"},
+            propositions={},
+            warnings=[],
+        )
+
+    def test_le_cycle_complet(self, tmp_path):
+        from greffier.adapters.store_files import FileStore
+
+        magasin = FileStore(tmp_path / "reunions")
+        detail = self._reunion(tmp_path)
+        detail.join_into("v2", "v1")
+        magasin.record(detail)
+
+        # Ce que le compte rendu aurait annoncé : une seule personne.
+        relue = magasin.read("2026-09-10_10h10_reunion")
+        assert list(relue.names.values()) == ["Tanguy"]
+        assert {t.voice for t in relue.turns} == {"v1"}
+
+        # Le geste qui manquait, et il survit à l'écriture.
+        assert relue.can_split("v1")
+        relue.split("v1")
+        magasin.record(relue)
+
+        finale = magasin.read("2026-09-10_10h10_reunion")
+        assert sorted(finale.names.values()) == ["Paul", "Tanguy"]
+        assert {t.voice for t in finale.turns} == {"v1", "v2"}
+        assert {u.voice for u in finale.utterances} == {"v1", "v2"}
+        assert not finale.can_split("v1"), "défaite une fois, pas deux"
+
+    def test_le_temps_de_parole_revient_a_chacun(self, tmp_path):
+        """C'est ce que le compte rendu annonce : qui a parlé combien."""
+        detail = self._reunion(tmp_path)
+        detail.join_into("v2", "v1")
+        assert detail.speaking_time()["v1"] == 80.0
+        detail.split("v1")
+        temps = detail.speaking_time()
+        assert temps["v1"] == 40.0
+        assert temps["v2"] == 40.0
