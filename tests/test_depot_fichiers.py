@@ -3,22 +3,22 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
-from greffier.adaptateurs.depot_fichiers import DepotFichiers
-from greffier.domaine.modeles import Intervalle, Replique, TourDeParole
-from greffier.domaine.reunion import ReunionEnregistree, tenue_le
+from greffier.adapters.store_files import DepotFichiers
+from greffier.domain.meeting import StoredMeeting, held_on
+from greffier.domain.models import Span, SpeakerTurn, Utterance
 
 
-def reunion(identifiant: str) -> ReunionEnregistree:
-    return ReunionEnregistree(
-        identifiant=identifiant,
-        audio=Path(f"/tmp/{identifiant}.wav"),
+def meeting(identifier: str) -> StoredMeeting:
+    return StoredMeeting(
+        identifier=identifier,
+        audio=Path(f"/tmp/{identifier}.wav"),
         traitee_le=datetime.now(UTC),
-        duree=60.0,
-        repliques=[Replique(Intervalle(0, 5), "Bonjour.")],
-        tours=[TourDeParole(Intervalle(0, 5), "1")],
-        noms={},
+        duration=60.0,
+        utterances=[Utterance(Span(0, 5), "Bonjour.")],
+        turns=[SpeakerTurn(Span(0, 5), "1")],
+        names={},
         propositions={},
-        avertissements=[],
+        warnings=[],
     )
 
 
@@ -33,30 +33,30 @@ class TestOrdreDesReunions:
     """
 
     def test_les_reunions_datees_vont_de_la_plus_recente_a_la_plus_ancienne(self, tmp_path):
-        depot = DepotFichiers(tmp_path)
-        for identifiant in ("2026-09-02_17h37_reunion", "2026-09-09_10h05_reunion",
+        store = DepotFichiers(tmp_path)
+        for identifier in ("2026-09-02_17h37_reunion", "2026-09-09_10h05_reunion",
                             "2026-09-09_08h30_reunion"):
-            depot.enregistrer(reunion(identifiant))
-        assert depot.lister() == [
+            store.record(meeting(identifier))
+        assert store.lister() == [
             "2026-09-09_10h05_reunion",
             "2026-09-09_08h30_reunion",
             "2026-09-02_17h37_reunion",
         ]
 
     def test_un_identifiant_sans_date_ne_passe_pas_devant_une_reunion_datee(self, tmp_path):
-        depot = DepotFichiers(tmp_path)
-        depot.enregistrer(reunion("2026-09-09_10h05_reunion"))
-        depot.enregistrer(reunion("fausse-reunion"))
-        assert depot.lister()[0] == "2026-09-09_10h05_reunion"
-        assert "fausse-reunion" in depot.lister()
+        store = DepotFichiers(tmp_path)
+        store.record(meeting("2026-09-09_10h05_reunion"))
+        store.record(meeting("fausse-reunion"))
+        assert store.lister()[0] == "2026-09-09_10h05_reunion"
+        assert "fausse-reunion" in store.lister()
 
     def test_la_derniere_est_la_plus_recemment_tenue(self, tmp_path):
-        depot = DepotFichiers(tmp_path)
-        depot.enregistrer(reunion("zzz-essai"))
-        depot.enregistrer(reunion("2026-09-09_10h05_reunion"))
-        derniere = depot.derniere()
-        assert derniere is not None
-        assert derniere.identifiant == "2026-09-09_10h05_reunion"
+        store = DepotFichiers(tmp_path)
+        store.record(meeting("zzz-essai"))
+        store.record(meeting("2026-09-09_10h05_reunion"))
+        latest = store.latest()
+        assert latest is not None
+        assert latest.identifier == "2026-09-09_10h05_reunion"
 
     def test_sans_dossier_la_liste_est_vide(self, tmp_path):
         assert DepotFichiers(tmp_path / "rien").lister() == []
@@ -64,13 +64,13 @@ class TestOrdreDesReunions:
 
 class TestHorodatageDeLIdentifiant:
     def test_la_date_et_l_heure_sont_lues(self):
-        assert tenue_le("2026-09-09_10h05_reunion") == (2026, 9, 9, 10, 5)
+        assert held_on("2026-09-09_10h05_reunion") == (2026, 9, 9, 10, 5)
 
     def test_une_date_sans_heure_reste_lisible(self):
-        assert tenue_le("2026-09-09_reunion") == (2026, 9, 9, 0, 0)
+        assert held_on("2026-09-09_reunion") == (2026, 9, 9, 0, 0)
 
     def test_un_identifiant_sans_date_ne_ment_pas(self):
-        assert tenue_le("fausse-reunion") is None
+        assert held_on("fausse-reunion") is None
 
 
 class TestSujetChoisi:
@@ -81,36 +81,36 @@ class TestSujetChoisi:
     """
 
     def test_le_sujet_survit_a_l_ecriture(self, tmp_path):
-        depot = DepotFichiers(tmp_path)
-        gardee = reunion("2026-09-09_10h05_reunion")
-        gardee.sujet = "Point Oasis"
-        depot.enregistrer(gardee)
-        assert depot.lire("2026-09-09_10h05_reunion").sujet == "Point Oasis"
+        store = DepotFichiers(tmp_path)
+        gardee = meeting("2026-09-09_10h05_reunion")
+        gardee.subject = "Point Oasis"
+        store.record(gardee)
+        assert store.read("2026-09-09_10h05_reunion").subject == "Point Oasis"
 
     def test_sans_sujet_l_identifiant_nomme_la_reunion(self):
-        assert reunion("2026-09-09_10h05_reunion").intitule == "2026-09-09_10h05_reunion"
+        assert meeting("2026-09-09_10h05_reunion").caption == "2026-09-09_10h05_reunion"
 
     def test_avec_un_sujet_c_est_lui_qui_nomme(self):
-        gardee = reunion("2026-09-09_10h05_reunion")
-        gardee.sujet = "Point Oasis"
-        assert gardee.intitule == "Point Oasis"
+        gardee = meeting("2026-09-09_10h05_reunion")
+        gardee.subject = "Point Oasis"
+        assert gardee.caption == "Point Oasis"
 
 
 class TestSuppression:
     def test_le_fichier_maitre_part(self, tmp_path):
-        depot = DepotFichiers(tmp_path)
-        depot.enregistrer(reunion("2026-09-09_10h05_reunion"))
-        assert depot.supprimer("2026-09-09_10h05_reunion") is True
-        assert depot.lister() == []
+        store = DepotFichiers(tmp_path)
+        store.record(meeting("2026-09-09_10h05_reunion"))
+        assert store.delete("2026-09-09_10h05_reunion") is True
+        assert store.lister() == []
 
     def test_supprimer_ce_qui_n_existe_pas_le_dit(self, tmp_path):
-        assert DepotFichiers(tmp_path).supprimer("jamais-vue") is False
+        assert DepotFichiers(tmp_path).delete("jamais-vue") is False
 
 
 class TestAllerRetour:
     def test_ce_qui_est_ecrit_se_relit(self, tmp_path):
-        depot = DepotFichiers(tmp_path)
-        depot.enregistrer(reunion("2026-09-09_10h05_reunion"))
-        relue = depot.lire("2026-09-09_10h05_reunion")
-        assert relue.repliques[0].texte == "Bonjour."
-        assert relue.tours[0].voix == "1"
+        store = DepotFichiers(tmp_path)
+        store.record(meeting("2026-09-09_10h05_reunion"))
+        relue = store.read("2026-09-09_10h05_reunion")
+        assert relue.utterances[0].text == "Bonjour."
+        assert relue.turns[0].voice == "1"

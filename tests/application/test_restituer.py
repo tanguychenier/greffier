@@ -3,34 +3,34 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
-from greffier.application.restituer import regenerer_compte_rendu, rendre_transcription
-from greffier.domaine.modeles import Intervalle, Replique, TourDeParole
-from greffier.domaine.reunion import ReunionEnregistree
+from greffier.application.render import regenerate_minutes, render_transcript
+from greffier.domain.meeting import StoredMeeting
+from greffier.domain.models import Span, SpeakerTurn, Utterance
 
 
-def reunion_type(**remplacements) -> ReunionEnregistree:
+def reunion_type(**overrides) -> StoredMeeting:
     defauts = dict(
-        identifiant="2026-08-24_reunion",
+        identifier="2026-08-24_reunion",
         audio=Path("/tmp/r.wav"),
         traitee_le=datetime.now(UTC),
-        duree=100.0,
-        repliques=[Replique(Intervalle(0, 40), "bonjour à tous", "1"),
-                   Replique(Intervalle(60, 95), "au revoir", "2")],
-        tours=[TourDeParole(Intervalle(0, 40), "1"), TourDeParole(Intervalle(60, 95), "2")],
-        noms={"1": "Josiane"},
+        duration=100.0,
+        utterances=[Utterance(Span(0, 40), "bonjour à tous", "1"),
+                   Utterance(Span(60, 95), "au revoir", "2")],
+        turns=[SpeakerTurn(Span(0, 40), "1"), SpeakerTurn(Span(60, 95), "2")],
+        names={"1": "Josiane"},
         propositions={},
-        avertissements=[],
-        evenements_materiel=[],
+        warnings=[],
+        hardware_events=[],
     )
-    defauts.update(remplacements)
-    return ReunionEnregistree(**defauts)
+    defauts.update(overrides)
+    return StoredMeeting(**defauts)
 
 
 class RedacteurFactice:
     def __init__(self) -> None:
         self.recu: str | None = None
 
-    def rediger(self, transcription: str) -> str:
+    def write_up(self, transcription: str) -> str:
         self.recu = transcription
         return "# Compte rendu\n\nTout va bien."
 
@@ -40,29 +40,29 @@ class TestRendreLaTranscription:
         """`ReunionEnregistree` doit satisfaire le même protocole que
         `Resultat`, sans conversion : c'est ce qui permet de rejouer la
         rédaction sans repasser par un traitement complet."""
-        texte = rendre_transcription(reunion_type())
-        assert "[Josiane]" in texte
-        assert "[Personne 2]" in texte
+        text = render_transcript(reunion_type())
+        assert "[Josiane]" in text
+        assert "[Personne 2]" in text
 
 
 class TestRegenererLeCompteRendu:
     def test_le_redacteur_recoit_les_noms_a_jour(self) -> None:
-        reunion = reunion_type(noms={"1": "Josiane", "2": "Marc"})
-        redacteur = RedacteurFactice()
-        regenerer_compte_rendu(reunion, redacteur)
-        assert "[Josiane]" in redacteur.recu
-        assert "[Marc]" in redacteur.recu
+        meeting = reunion_type(names={"1": "Josiane", "2": "Marc"})
+        writer = RedacteurFactice()
+        regenerate_minutes(meeting, writer)
+        assert "[Josiane]" in writer.recu
+        assert "[Marc]" in writer.recu
 
     def test_le_texte_rendu_est_celui_du_redacteur(self) -> None:
         assert (
-            regenerer_compte_rendu(reunion_type(), RedacteurFactice())
+            regenerate_minutes(reunion_type(), RedacteurFactice())
             == "# Compte rendu\n\nTout va bien."
         )
 
     def test_les_evenements_materiel_survivent_a_la_regeneration(self) -> None:
         """Le défaut visé : régénérer ne doit pas rendre le compte rendu moins
         fiable que l'original en perdant ce que la veille du matériel savait."""
-        reunion = reunion_type(evenements_materiel=["casque branché à 12:03"])
-        redacteur = RedacteurFactice()
-        regenerer_compte_rendu(reunion, redacteur)
-        assert "casque branché à 12:03" in redacteur.recu
+        meeting = reunion_type(hardware_events=["casque branché à 12:03"])
+        writer = RedacteurFactice()
+        regenerate_minutes(meeting, writer)
+        assert "casque branché à 12:03" in writer.recu

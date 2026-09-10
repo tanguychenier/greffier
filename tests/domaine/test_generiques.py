@@ -7,12 +7,12 @@ sous-titrées et comble les silences avec ce qu'il y a le plus vu.
 
 import pytest
 
-from greffier.domaine.generiques import est_un_generique, est_une_annotation
-from greffier.domaine.profils.francais import FRANCAIS
+from greffier.domain.boilerplate import is_an_annotation, is_boilerplate
+from greffier.domain.profiles.french import FRENCH
 
 
 class TestCeQuiEstEcarte:
-    @pytest.mark.parametrize("texte", [
+    @pytest.mark.parametrize("text", [
         "Sous-titrage réalisé par la communauté d'Amara.org",
         "sous-titrage réalisé par",
         "Sous-titres réalisés par la communauté",
@@ -22,12 +22,12 @@ class TestCeQuiEstEcarte:
         "Sous-titrage Société Radio-Canada",
         "  Sous-titrage.  ",
     ])
-    def test_un_generique_entier_part(self, texte):
-        assert est_un_generique(texte, FRANCAIS)
+    def test_un_generique_entier_part(self, text):
+        assert is_boilerplate(text, FRENCH)
 
 
 class TestCeQuiReste:
-    @pytest.mark.parametrize("texte", [
+    @pytest.mark.parametrize("text", [
         "Merci.",
         "Merci Sophie, on valide jeudi.",
         "On a sous-titré la vidéo de présentation, c'est fait.",
@@ -35,20 +35,20 @@ class TestCeQuiReste:
         "",
         "   ",
     ])
-    def test_la_parole_reelle_reste(self, texte):
+    def test_la_parole_reelle_reste(self, text):
         """Mieux vaut laisser passer un générique que perdre une décision."""
-        assert not est_un_generique(texte, FRANCAIS)
+        assert not is_boilerplate(text, FRENCH)
 
-    @pytest.mark.parametrize("texte", [
+    @pytest.mark.parametrize("text", [
         "Merci d'avoir regardé le ticket, il est passé en recette.",
         "Merci d'avoir regardé cette vidéo, mais revenons au calendrier de la "
         "recette : il faut trancher avant jeudi.",
         "Sous-titrage réalisé par nos soins, et validé par la communication.",
     ])
-    def test_une_phrase_qui_commence_comme_un_generique_mais_continue(self, texte):
+    def test_une_phrase_qui_commence_comme_un_generique_mais_continue(self, text):
         """Le piège de la correspondance par préfixe : cette phrase-là
         disparaissait, alors qu'elle porte une information."""
-        assert not est_un_generique(texte, FRANCAIS)
+        assert not is_boilerplate(text, FRENCH)
 
 
 class TestAnnotations:
@@ -60,25 +60,25 @@ class TestAnnotations:
     """
 
     def test_une_annotation_entre_asterisques_part(self):
-        assert est_une_annotation("*Belouge*")
+        assert is_an_annotation("*Belouge*")
 
     def test_une_annotation_entre_parentheses_part(self):
-        assert est_une_annotation("(rires)")
-        assert est_une_annotation("[Applaudissements]")
+        assert is_an_annotation("(rires)")
+        assert is_an_annotation("[Applaudissements]")
 
     def test_une_note_de_musique_part(self):
-        assert est_une_annotation("♪ ♪ ♪")
+        assert is_an_annotation("♪ ♪ ♪")
 
     def test_une_parenthese_au_milieu_d_une_phrase_reste(self):
         """Couper là perdrait la phrase."""
-        assert not est_une_annotation("il a dit (à tort) que c'était prêt")
+        assert not is_an_annotation("il a dit (à tort) que c'était prêt")
 
     def test_deux_annotations_dans_une_phrase_ne_font_pas_une_annotation(self):
-        assert not est_une_annotation("(a) et (b) sont prêts")
+        assert not is_an_annotation("(a) et (b) sont prêts")
 
     def test_une_phrase_ordinaire_reste(self):
-        assert not est_une_annotation("on reprend le sujet lundi")
+        assert not is_an_annotation("on reprend le sujet lundi")
 
     def test_un_texte_trop_court_ne_declenche_rien(self):
-        assert not est_une_annotation("**")
+        assert not is_an_annotation("**")
 

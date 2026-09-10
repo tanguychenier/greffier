@@ -37,7 +37,7 @@ sys.path.insert(0, str(RACINE / "src"))
 
 #: Secondes lues au milieu de l'enregistrement. Le début d'une réunion AMI
 #: porte des consignes lues et des silences ; le milieu porte de la discussion.
-DUREE = 240.0
+DURATION = 240.0
 
 #: Un micro-casque AMI capte **aussi** les voisins de table, et son porteur ne
 #: parle qu'une fraction du temps. Prendre l'extrait tel quel donne une
@@ -49,21 +49,21 @@ DUREE = 240.0
 #: On ne garde donc que les fenêtres les plus fortes : sur son propre micro, le
 #: porteur est de loin le plus près, et son niveau le sépare nettement des
 #: voix qui traversent la table.
-FENETRE = 1.0
+WINDOW = 1.0
 PART_RETENUE = 0.25
 
 #: « ES2002a.Headset-0.wav » → série ES2002, séance a, participant 0.
-_NOM = re.compile(r"^(?P<serie>[A-Z]{2}\d{4})(?P<seance>[a-z])\.Headset-(?P<qui>\d+)")
+_NAME = re.compile(r"^(?P<serie>[A-Z]{2}\d{4})(?P<seance>[a-z])\.Headset-(?P<qui>\d+)")
 
 
-def situer(fichier: Path) -> tuple[str, str, str] | None:
-    trouve = _NOM.match(fichier.name)
+def situer(file: Path) -> tuple[str, str, str] | None:
+    trouve = _NAME.match(file.name)
     if trouve is None:
         return None
     return (trouve["serie"], trouve["seance"], trouve["qui"])
 
 
-def empreinte_de(fichier: Path, extracteur) -> object | None:
+def empreinte_de(file: Path, extractor) -> object | None:
     """L'empreinte de la voix **du porteur** du micro, et de lui seul.
 
     Les fenêtres les plus fortes sont recollées bout à bout, les autres jetées.
@@ -73,100 +73,100 @@ def empreinte_de(fichier: Path, extracteur) -> object | None:
     import numpy as np
     import soundfile as sf
 
-    info = sf.info(str(fichier))
-    depart = max(0, int((info.frames - DUREE * info.samplerate) / 2))
-    donnees, frequence = sf.read(
-        str(fichier), start=depart,
-        frames=int(DUREE * info.samplerate), dtype="float32", always_2d=True,
+    info = sf.info(str(file))
+    depart = max(0, int((info.frames - DURATION * info.samplerate) / 2))
+    data, frequency = sf.read(
+        str(file), start=depart,
+        frames=int(DURATION * info.samplerate), dtype="float32", always_2d=True,
     )
-    mono = donnees.mean(axis=1)
+    mono = data.mean(axis=1)
     if float(np.abs(mono).max()) < 1e-4:
         return None
 
-    par_fenetre = int(FENETRE * frequence)
+    par_fenetre = int(WINDOW * frequency)
     entieres = len(mono) // par_fenetre
     if entieres < 4:
-        return extracteur.extraire(mono, frequence)
+        return extractor.extract(mono, frequency)
     fenetres = mono[:entieres * par_fenetre].reshape(entieres, par_fenetre)
     # Énergie efficace par fenêtre : c'est le niveau, pas un maximum ponctuel
     # qu'un claquement suffirait à faire monter.
-    niveaux = np.sqrt((fenetres.astype(np.float64) ** 2).mean(axis=1))
+    levels = np.sqrt((fenetres.astype(np.float64) ** 2).mean(axis=1))
     combien = max(4, int(entieres * PART_RETENUE))
-    retenues = np.argsort(niveaux)[-combien:]
-    return extracteur.extraire(
-        fenetres[np.sort(retenues)].reshape(-1).astype(np.float32), frequence
+    retenues = np.argsort(levels)[-combien:]
+    return extractor.extract(
+        fenetres[np.sort(retenues)].reshape(-1).astype(np.float32), frequency
     )
 
 
 def main() -> int:
-    from greffier.adaptateurs.configuration import Config
-    from greffier.adaptateurs.empreintes_titanet import ExtracteurTitaNet
-    from greffier.domaine.empreintes import (
+    from greffier.adapters.configuration import Config
+    from greffier.adapters.voiceprints_titanet import ExtracteurTitaNet
+    from greffier.domain.voiceprints import (
         MARGE_MINIMALE,
         SEUIL_RECONNAISSANCE,
-        similarite,
+        similarity,
     )
 
-    dossier = Path(sys.argv[1]).expanduser() if len(sys.argv) > 1 else (
-        Config().chemins.donnees / "corpus"
+    folder = Path(sys.argv[1]).expanduser() if len(sys.argv) > 1 else (
+        Config().paths.data / "corpus"
     )
-    fichiers = sorted(chemin for chemin in dossier.glob("*.Headset-*.wav"))
-    if len(fichiers) < 2:
-        print(f"Il faut au moins deux enregistrements « Headset-N » dans {dossier}.")
+    files = sorted(path for path in folder.glob("*.Headset-*.wav"))
+    if len(files) < 2:
+        print(f"Il faut au moins deux enregistrements « Headset-N » dans {folder}.")
         print("Le script d'exemple les prend dans le corpus AMI, séries ES2002a/b.")
         return 1
 
-    modele = Config().chemins.modeles / "diarisation" / "nemo_en_titanet_large.onnx"
-    if not modele.exists():
-        print(f"Modèle d'empreintes absent : {modele}")
+    model = Config().paths.models / "diarisation" / "nemo_en_titanet_large.onnx"
+    if not model.exists():
+        print(f"Modèle d'empreintes absent : {model}")
         return 1
-    extracteur = ExtracteurTitaNet(modele)
+    extractor = ExtracteurTitaNet(model)
 
-    print(f"{len(fichiers)} enregistrement(s), {DUREE:.0f} s lus au milieu, "
+    print(f"{len(files)} enregistrement(s), {DURATION:.0f} s lus au milieu, "
           f"les {PART_RETENUE:.0%} de fenêtres les plus fortes retenues\n")
-    empreintes: dict[tuple[str, str, str], object] = {}
-    for fichier in fichiers:
-        situation = situer(fichier)
+    voiceprints: dict[tuple[str, str, str], object] = {}
+    for file in files:
+        situation = situer(file)
         if situation is None:
-            print(f"  ignoré, nom non reconnu : {fichier.name}")
+            print(f"  ignoré, nom non reconnu : {file.name}")
             continue
-        empreinte = empreinte_de(fichier, extracteur)
-        if empreinte is None:
-            print(f"  ignoré, muet : {fichier.name}")
+        voiceprint = empreinte_de(file, extractor)
+        if voiceprint is None:
+            print(f"  ignoré, muet : {file.name}")
             continue
-        empreintes[situation] = empreinte
+        voiceprints[situation] = voiceprint
         serie, seance, qui = situation
         print(f"  {serie}{seance} participant {qui}")
 
     memes: list[float] = []
     autres: list[float] = []
     print("\nRessemblances mesurées :\n")
-    for (un, autre) in combinations(sorted(empreintes), 2):
-        valeur = similarite(empreintes[un], empreintes[autre])  # type: ignore[arg-type]
+    for (un, autre) in combinations(sorted(voiceprints), 2):
+        value = similarity(voiceprints[un], voiceprints[autre])  # type: ignore[arg-type]
         meme_personne = un[0] == autre[0] and un[2] == autre[2]
         meme_seance = un[1] == autre[1]
         if meme_personne and not meme_seance:
             quoi = "MÊME personne, deux séances"
-            memes.append(valeur)
+            memes.append(value)
         elif meme_personne:
             quoi = "même personne, même séance"
         else:
             quoi = "personnes différentes"
-            autres.append(valeur)
-        print(f"  {valeur:.3f}  {quoi:<28} "
+            autres.append(value)
+        print(f"  {value:.3f}  {quoi:<28} "
               f"{un[0]}{un[1]}·{un[2]} / {autre[0]}{autre[1]}·{autre[2]}")
 
     print(f"\nSeuil en vigueur : {SEUIL_RECONNAISSANCE:.2f} "
           f"(marge minimale {MARGE_MINIMALE:.2f})")
     if memes:
         print(f"  même personne, deux séances : {min(memes):.3f} à {max(memes):.3f}")
-        sous = [valeur for valeur in memes if valeur < SEUIL_RECONNAISSANCE]
+        sous = [value for value in memes if value < SEUIL_RECONNAISSANCE]
         if sous:
             print(f"  ⚠ {len(sous)} paire(s) sous le seuil : ces personnes ne seraient")
             print("    pas reconnues d'une réunion à l'autre.")
     if autres:
         print(f"  personnes différentes       : {min(autres):.3f} à {max(autres):.3f}")
-        au_dessus = [valeur for valeur in autres if valeur >= SEUIL_RECONNAISSANCE]
+        au_dessus = [value for value in autres if value >= SEUIL_RECONNAISSANCE]
         if au_dessus:
             print(f"  ⚠ {len(au_dessus)} paire(s) au-dessus du seuil : deux personnes")
             print("    différentes seraient confondues.")
@@ -182,8 +182,8 @@ def main() -> int:
               "chacun coûte :\n")
         print(f"    {'seuil':>6}  {'non reconnu(s)':>15}  {'confusion(s)':>13}")
         for seuil in (0.70, 0.60, 0.50, 0.45, 0.40, 0.30):
-            manques = sum(1 for valeur in memes if valeur < seuil)
-            confusions = sum(1 for valeur in autres if valeur >= seuil)
+            manques = sum(1 for value in memes if value < seuil)
+            confusions = sum(1 for value in autres if value >= seuil)
             print(f"    {seuil:>6.2f}  {manques:>7}/{len(memes):<7}  "
                   f"{confusions:>6}/{len(autres):<6}")
         print("\n  Une confusion écrit le nom de quelqu'un d'autre dans un "

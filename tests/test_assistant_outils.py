@@ -5,15 +5,15 @@ ce qui a été dit ne doit pas pouvoir compléter une décision par ce qu'un mot
 de recherche a rendu.
 """
 
-from greffier.adaptateurs.configuration import Config
-from greffier.adaptateurs.redaction_claude import RedacteurClaude
-from greffier.composition import assistant, redacteur
+from greffier.adapters.configuration import Config
+from greffier.adapters.writer_claude import RedacteurClaude
+from greffier.wiring import assistant, writer
 
 
 def config(**conversation) -> Config:
     reglages = Config()
-    for clef, valeur in conversation.items():
-        setattr(reglages.conversation, clef, valeur)
+    for key, value in conversation.items():
+        setattr(reglages.conversation, key, value)
     return reglages
 
 
@@ -22,41 +22,41 @@ class TestLeRedacteurNaJamaisDOutil:
         assert RedacteurClaude().outils == ()
 
     def test_le_redacteur_du_compte_rendu_n_en_recoit_aucun(self):
-        moteur = redacteur(config())
-        assert isinstance(moteur, RedacteurClaude)
-        assert moteur.outils == ()
+        engine = writer(config())
+        assert isinstance(engine, RedacteurClaude)
+        assert engine.outils == ()
 
     def test_meme_si_la_recherche_est_activee(self):
         """Le réglage de la conversation ne doit pas fuir vers le compte rendu."""
-        moteur = redacteur(config(recherche_web=True))
-        assert isinstance(moteur, RedacteurClaude)
-        assert moteur.outils == ()
+        engine = writer(config(recherche_web=True))
+        assert isinstance(engine, RedacteurClaude)
+        assert engine.outils == ()
 
 
 class TestLAssistantPeutChercher:
     def test_la_recherche_est_accordee_quand_elle_est_activee(self):
-        moteur = assistant(config(recherche_web=True))
-        assert isinstance(moteur, RedacteurClaude)
-        assert moteur.outils == RedacteurClaude.OUTILS_DE_RECHERCHE
+        engine = assistant(config(recherche_web=True))
+        assert isinstance(engine, RedacteurClaude)
+        assert engine.outils == RedacteurClaude.OUTILS_DE_RECHERCHE
 
     def test_elle_s_eteint_depuis_les_reglages(self):
         """Il y a des réunions où même le terme cherché ne doit pas sortir."""
-        moteur = assistant(config(recherche_web=False))
-        assert isinstance(moteur, RedacteurClaude)
-        assert moteur.outils == ()
+        engine = assistant(config(recherche_web=False))
+        assert isinstance(engine, RedacteurClaude)
+        assert engine.outils == ()
 
     def test_l_assistant_ne_recite_pas_le_plan_du_compte_rendu(self):
         """Répondre « qui est Morgane ? » n'appelle pas Décisions / Actions."""
-        moteur = assistant(config())
-        assert isinstance(moteur, RedacteurClaude)
-        assert moteur.consignes_propres
-        assert "Décisions" not in moteur.consignes_propres
+        engine = assistant(config())
+        assert isinstance(engine, RedacteurClaude)
+        assert engine.consignes_propres
+        assert "Décisions" not in engine.consignes_propres
 
     def test_il_lui_est_interdit_d_envoyer_les_propos_dehors(self):
-        moteur = assistant(config())
-        assert isinstance(moteur, RedacteurClaude)
+        engine = assistant(config())
+        assert isinstance(engine, RedacteurClaude)
         # Aplati : la consigne tient sur deux lignes dans le texte source.
-        aplati = " ".join(moteur.consignes_propres.split())
+        aplati = " ".join(engine.consignes_propres.split())
         assert "jamais la phrase de la réunion" in aplati
 
     def test_il_doit_donner_l_adresse_de_ce_qu_il_trouve(self):
