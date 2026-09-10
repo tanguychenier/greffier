@@ -207,3 +207,54 @@ class TestCouperLeSonDepuisUnAutreProcessus:
         baillon = tmp_path / "parole.pid"
         baillon.write_text("ce n'est pas un numéro")
         assert not faire_taire(baillon)
+
+
+class TestUneCoupureArreteToutLePropos:
+    """Couper doit faire taire, pas sauter une phrase.
+
+    Un propos est découpé en phrases jouées l'une après l'autre. Tuer le lecteur
+    de la phrase en cours laissait la suivante repartir : elle s'arrêtait puis
+    reprenait, ce qui est pire que de ne pas s'arrêter du tout.
+    """
+
+    def _voix(self, tmp_path, monkeypatch, retour):
+        """Une voix dont le lecteur rend le code de retour voulu."""
+        from greffier.adaptateurs import voix_neuronale
+
+        class Lecture:
+            pid = 4242
+
+            def wait(self):
+                return retour
+
+            def poll(self):
+                return retour
+
+            def terminate(self):
+                ...
+
+            def kill(self):
+                ...
+
+        monkeypatch.setattr(voix_neuronale, "_lecteur", lambda: ["afplay"])
+        monkeypatch.setattr(voix_neuronale.subprocess, "Popen",
+                            lambda *_a, **_k: Lecture())
+        return voix_neuronale.VoixNeuronale(tmp_path, baillon=tmp_path / "p.pid")
+
+    def test_un_lecteur_tue_par_un_signal_arrete_la_suite(self, tmp_path, monkeypatch):
+        """`afplay` tué par SIGTERM rend -15 : c'est le bouton, pas une fin."""
+        voix = self._voix(tmp_path, monkeypatch, retour=-15)
+        assert voix._jouer(tmp_path / "un.wav") is False
+        assert voix._interrompu.is_set(), "la suite du propos n'a pas été annulée"
+
+    def test_un_lecteur_qui_finit_normalement_laisse_la_suite(self, tmp_path,
+                                                              monkeypatch):
+        voix = self._voix(tmp_path, monkeypatch, retour=0)
+        assert voix._jouer(tmp_path / "un.wav") is True
+        assert not voix._interrompu.is_set()
+
+    def test_le_baillon_est_efface_dans_les_deux_cas(self, tmp_path, monkeypatch):
+        for retour in (-15, 0):
+            voix = self._voix(tmp_path, monkeypatch, retour=retour)
+            voix._jouer(tmp_path / "un.wav")
+            assert not (tmp_path / "p.pid").exists()
