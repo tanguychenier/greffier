@@ -159,3 +159,30 @@ class TestDensite:
 
     def test_un_tour_a_cheval_n_est_compte_que_pour_sa_part(self):
         assert densite_de_parole([(50.0, 70.0)], maintenant=60.0, fenetre=60.0) == 10.0 / 60.0
+
+
+class TestCeQueLeReglageGarantit:
+    """Le contrat, tel qu'il a été demandé : trois phrases, trois garanties.
+
+    « Si j'active : elle parle uniquement quand on cite son nom. Quand on la
+    coupe, elle ne parle pas. Si elle est en train de parler, on la coupe, elle
+    ne continue pas sa phrase. »
+    """
+
+    def test_activee_elle_ne_parle_que_sur_son_nom(self):
+        """Sans initiative, aucune occasion spontanée ne passe."""
+        politique = Politique(actif=True)
+        idee = Occasion(raison=Raison.APPORT, propos="une remarque", ne_le=100.0)
+        appel = Occasion(raison=Raison.APPELE, propos="oui ?", ne_le=100.0)
+        # L'apport n'est même pas cherché quand l'initiative est éteinte : c'est
+        # la veille qui s'en charge. Ici on vérifie que l'appel, lui, passe
+        # toujours — quelles que soient les conditions.
+        assert politique.refus(appel, maintenant=100.0, creux=0.0, densite=1.0) is None
+        assert politique.refus(idee, maintenant=100.0, creux=0.0, densite=1.0)
+
+    def test_coupee_elle_ne_dit_rien_du_tout(self):
+        politique = Politique(actif=False)
+        for raison in Raison:
+            occasion = Occasion(raison=raison, propos="…", ne_le=100.0)
+            assert politique.refus(occasion, maintenant=100.0, creux=9.0) == (
+                "il ne participe pas")
