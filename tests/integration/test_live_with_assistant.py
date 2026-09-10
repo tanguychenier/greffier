@@ -262,3 +262,93 @@ class TestLaBoucleSurUnFilReel:
 
         textes = [u.text for u in collapse_loops(self._fil())]
         assert len(textes) == len(set(textes))
+
+
+@pytest.mark.integration
+class TestUnAncienReglageNeRendPlusMuet:
+    """Un réglage que l'interface n'expose plus ne doit plus décider.
+
+    Le défaut, vécu deux fois en réunion : le fichier de configuration portait
+    « actif = false », écrit à l'époque où un bouton existait pour ce réglage.
+    Passer la valeur par défaut à vrai n'a servi à rien — un fichier existant
+    garde la sienne — et comme l'interface n'exposait plus ce bouton, plus rien
+    ne pouvait le remettre. L'appel était bien entendu : « Est-ce que tu
+    entends, Lucie ? » figure douze fois dans le fil du 2026-09-10 à 13 h 08.
+    Elle n'a pas répondu une seule fois.
+
+    Ce test lit un vrai fichier, dans l'état où les postes en portent un.
+    """
+
+    ANCIEN = """
+[assistant]
+actif = false
+nom = "Lucie"
+voix = "kokoro"
+initiative = false
+"""
+
+    def _boutons(self, tmp_path, monkeypatch, contenu: str):
+        from greffier.cli import _reread_the_buttons
+
+        dossier = tmp_path / "greffier"
+        dossier.mkdir(parents=True, exist_ok=True)
+        (dossier / "config.toml").write_text(contenu, encoding="utf-8")
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        monkeypatch.setenv("APPDATA", str(tmp_path))
+        for clef in ("GREFFIER_ASSISTANT__ACTIVE", "GREFFIER_ASSISTANT__VOICE",
+                     "GREFFIER_ASSISTANT__INITIATIVE"):
+            monkeypatch.delenv(clef, raising=False)
+        return _reread_the_buttons()
+
+    def test_un_fichier_portant_actif_faux_ne_coupe_plus_la_voix(
+        self, tmp_path, monkeypatch
+    ):
+        a_voix_haute, _de_lui_meme = self._boutons(tmp_path, monkeypatch, self.ANCIEN)
+        assert a_voix_haute, "la voix est réglée sur kokoro : elle doit parler"
+
+    def test_couper_la_voix_reste_possible(self, tmp_path, monkeypatch):
+        """Le seul réglage qui décide encore, et il doit décider."""
+        a_voix_haute, _ = self._boutons(
+            tmp_path, monkeypatch,
+            '[assistant]\nactif = true\nnom = "Lucie"\nvoix = "aucun"\n',
+        )
+        assert not a_voix_haute
+
+    def test_l_initiative_se_lit_dans_le_fichier(self, tmp_path, monkeypatch):
+        _, de_lui_meme = self._boutons(
+            tmp_path, monkeypatch,
+            '[assistant]\nnom = "Lucie"\nvoix = "kokoro"\ninitiative = true\n',
+        )
+        assert de_lui_meme
+
+    def test_appelee_elle_repond_malgre_l_ancien_reglage(self, meeting, tmp_path):
+        """Le scénario complet, avec le fichier qui l'avait rendue muette."""
+        transcriber = light_transcriber(Config())
+        if transcriber is None:
+            pytest.skip("aucun modèle de transcription installé")
+        import soundfile
+
+        voice, cerveau = FakeVoiceAdapter(), FakeBrain()
+        assistant = AssistantSettings(
+            name="Lucie", voice=voice, cerveau=cerveau,
+            manners=Manners(creux_minimal=0.0),
+            context=lambda: "Réunion d'équipe sur la recette.",
+        )
+        watcher = Watcher(
+            watch_rules=WatchRules(mot_cle="greffier"),
+            log=tmp_path / "propositions.jsonl",
+            transcriber=transcriber,
+            situer=lambda: Position(
+                morceau=meeting,
+                ecrit=soundfile.info(str(meeting)).duration,
+                decalage=0.0,
+            ),
+            assistant_of=assistant,
+            # Ce que la veille lit du fichier : la voix est donnée, pas
+            # d'initiative. « actif » n'entre plus dans la décision.
+            reread_participation=lambda: (True, False),
+        )
+        watcher.transcription_turn(watcher.situer(), tmp_path)
+        if assistant._job is not None:
+            assistant._job.join(timeout=30)
+        assert voice.remark, "appelée par son nom, elle doit avoir parlé"
