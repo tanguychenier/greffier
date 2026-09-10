@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from greffier.adaptateurs.empreintes_titanet import DUREE_MAXIMALE, DUREE_MINIMALE
+from greffier.adapters.voiceprints_titanet import DUREE_MAXIMALE, DUREE_MINIMALE
 
 
 class Enregistre:
@@ -24,9 +24,9 @@ class Enregistre:
     def __init__(self) -> None:
         self.recus: list[int] = []
 
-    def borner(self, echantillons: np.ndarray, frequence: int) -> np.ndarray:
+    def borner(self, echantillons: np.ndarray, frequency: int) -> np.ndarray:
         # Reproduit le bornage de l'adaptateur, la seule règle en jeu.
-        borne = int(DUREE_MAXIMALE * frequence)
+        borne = int(DUREE_MAXIMALE * frequency)
         if len(echantillons) > borne:
             milieu = len(echantillons) // 2
             echantillons = echantillons[milieu - borne // 2 : milieu + borne // 2]
@@ -53,9 +53,9 @@ class TestBornes:
     def test_c_est_le_milieu_du_passage_qui_est_gardé(self) -> None:
         # Le début d'un long tour de parole porte volontiers une hésitation ou
         # un « alors » qui ne dit rien du timbre.
-        frequence = 16000
-        signal = np.arange(frequence * 600, dtype="float32")
-        borne = int(DUREE_MAXIMALE * frequence)
+        frequency = 16000
+        signal = np.arange(frequency * 600, dtype="float32")
+        borne = int(DUREE_MAXIMALE * frequency)
         milieu = len(signal) // 2
         attendu = signal[milieu - borne // 2 : milieu + borne // 2]
         assert attendu[0] > 0, "le début du signal n'est pas retenu"

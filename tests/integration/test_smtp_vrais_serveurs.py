@@ -25,7 +25,7 @@ import ssl
 
 import pytest
 
-from greffier.adaptateurs.courriel import ExpediteurSmtp
+from greffier.adapters.email import SmtpSender
 
 pytestmark = pytest.mark.integration
 
@@ -41,13 +41,13 @@ SERVEURS = [
 @pytest.fixture(params=SERVEURS, ids=lambda p: f"{p[0]}:{p[1]}")
 def session(request):
     """Une session ouverte par le vrai code, ou le test est ignoré."""
-    serveur, port = request.param
-    expediteur = ExpediteurSmtp(serveur=serveur, port=port)
+    server, port = request.param
+    sender = SmtpSender(server=server, port=port)
     try:
-        with expediteur.session() as ouverte:
+        with sender.session() as ouverte:
             yield ouverte
     except (TimeoutError, OSError, smtplib.SMTPException, ssl.SSLError) as erreur:
-        pytest.skip(f"{serveur}:{port} injoignable ({type(erreur).__name__}) : {erreur}")
+        pytest.skip(f"{server}:{port} injoignable ({type(erreur).__name__}) : {erreur}")
 
 
 class TestSessionReelle:

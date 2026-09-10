@@ -30,12 +30,12 @@ INTERDIT_AU_DOMAINE = frozenset({
 
 #: Les couches qu'un module d'une couche donnée n'a pas le droit d'importer.
 INTERDITS = {
-    "domaine": ("greffier.adaptateurs", "greffier.application", "greffier.interface",
-                "greffier.cli", "greffier.composition", "greffier.emplacements"),
-    "application": ("greffier.adaptateurs", "greffier.interface", "greffier.cli",
-                    "greffier.composition"),
-    "ports": ("greffier.adaptateurs", "greffier.application", "greffier.interface",
-              "greffier.cli", "greffier.composition"),
+    "domaine": ("greffier.adapters", "greffier.application", "greffier.interface",
+                "greffier.cli", "greffier.wiring", "greffier.locations"),
+    "application": ("greffier.adapters", "greffier.interface", "greffier.cli",
+                    "greffier.wiring"),
+    "ports": ("greffier.adapters", "greffier.application", "greffier.interface",
+              "greffier.cli", "greffier.wiring"),
 }
 
 
@@ -43,39 +43,39 @@ def modules_de(couche: str) -> list[Path]:
     return sorted((PAQUET / couche).rglob("*.py"))
 
 
-def imports_de(fichier: Path) -> list[str]:
+def imports_de(file: Path) -> list[str]:
     """Tous les modules importés, imports tardifs compris.
 
     `ast.walk` descend dans les corps de fonction : un « import » écrit au
     milieu d'une méthode pour éviter un cycle est une dépendance comme une
     autre, et c'est la façon dont elles reviennent en douce.
     """
-    arbre = ast.parse(fichier.read_text(encoding="utf-8"))
-    noms: list[str] = []
+    arbre = ast.parse(file.read_text(encoding="utf-8"))
+    names: list[str] = []
     for noeud in ast.walk(arbre):
         if isinstance(noeud, ast.Import):
-            noms += [alias.name for alias in noeud.names]
+            names += [alias.name for alias in noeud.names]
         elif isinstance(noeud, ast.ImportFrom) and noeud.module and noeud.level == 0:
-            noms.append(noeud.module)
-    return noms
+            names.append(noeud.module)
+    return names
 
 
 class TestLeDomaineEstPur:
     def test_il_n_importe_aucune_bibliotheque_qui_touche_le_monde(self):
         fautes = [
-            f"{fichier.relative_to(RACINE)} importe {nom}"
-            for fichier in modules_de("domaine")
-            for nom in imports_de(fichier)
-            if nom.split(".")[0] in INTERDIT_AU_DOMAINE
+            f"{file.relative_to(RACINE)} importe {name}"
+            for file in modules_de("domaine")
+            for name in imports_de(file)
+            if name.split(".")[0] in INTERDIT_AU_DOMAINE
         ]
         assert not fautes, "\n".join(fautes)
 
     def test_il_ne_connait_aucune_autre_couche(self):
         fautes = [
-            f"{fichier.relative_to(RACINE)} importe {nom}"
-            for fichier in modules_de("domaine")
-            for nom in imports_de(fichier)
-            if nom.startswith(INTERDITS["domaine"])
+            f"{file.relative_to(RACINE)} importe {name}"
+            for file in modules_de("domaine")
+            for name in imports_de(file)
+            if name.startswith(INTERDITS["domaine"])
         ]
         assert not fautes, "\n".join(fautes)
 
@@ -84,19 +84,19 @@ class TestLesDependancesVontDansLeBonSens:
     def test_l_application_n_importe_aucun_adaptateur(self):
         """Y compris les imports tardifs : c'est là qu'ils se cachaient."""
         fautes = [
-            f"{fichier.relative_to(RACINE)} importe {nom}"
-            for fichier in modules_de("application")
-            for nom in imports_de(fichier)
-            if nom.startswith(INTERDITS["application"])
+            f"{file.relative_to(RACINE)} importe {name}"
+            for file in modules_de("application")
+            for name in imports_de(file)
+            if name.startswith(INTERDITS["application"])
         ]
         assert not fautes, "\n".join(fautes)
 
     def test_les_ports_ne_connaissent_que_le_domaine(self):
         fautes = [
-            f"{fichier.relative_to(RACINE)} importe {nom}"
-            for fichier in modules_de("ports")
-            for nom in imports_de(fichier)
-            if nom.startswith(INTERDITS["ports"])
+            f"{file.relative_to(RACINE)} importe {name}"
+            for file in modules_de("ports")
+            for name in imports_de(file)
+            if name.startswith(INTERDITS["ports"])
         ]
         assert not fautes, "\n".join(fautes)
 
@@ -112,11 +112,11 @@ class TestLaRacineDuPaquetResteVide:
     """
 
     AUTORISES = frozenset({
-        "__init__.py", "__main__.py", "cli.py", "composition.py", "emplacements.py",
+        "__init__.py", "__main__.py", "cli.py", "wiring.py", "locations.py",
     })
 
     def test_rien_de_nouveau_ne_s_installe_a_la_racine(self):
-        presents = {f.name for f in PAQUET.glob("*.py")}
-        assert presents <= self.AUTORISES, (
-            f"hors couche : {sorted(presents - self.AUTORISES)}"
+        present_line = {f.name for f in PAQUET.glob("*.py")}
+        assert present_line <= self.AUTORISES, (
+            f"hors couche : {sorted(present_line - self.AUTORISES)}"
         )

@@ -5,36 +5,36 @@ Une voix est une donnée biométrique. Le principe retenu : ce qui n'est pas
 tard, une ligne dans le compte rendu si.
 """
 
-from greffier.domaine.consentement import (
+from greffier.domain.consent import (
     MENTIONS,
     RAPPEL,
     Information,
-    a_tracer,
-    lire,
     mention,
+    read,
+    to_draw,
 )
 
 
 class TestLecture:
     def test_les_trois_etats_se_lisent(self):
-        assert lire("rien") is Information.RIEN
-        assert lire("annoncé") is Information.ANNONCE
-        assert lire("accord") is Information.ACCORD
+        assert read("rien") is Information.RIEN
+        assert read("annoncé") is Information.ANNONCE
+        assert read("accord") is Information.AGREEMENT
 
     def test_la_casse_et_les_espaces_ne_comptent_pas(self):
-        assert lire("  Accord ") is Information.ACCORD
+        assert read("  Accord ") is Information.AGREEMENT
 
     def test_une_valeur_inconnue_retombe_sur_le_plus_prudent(self):
         """Une faute d'orthographe ne doit pas faire écrire que les
         participants ont donné leur accord."""
-        assert lire("oui") is Information.RIEN
-        assert lire("") is Information.RIEN
+        assert read("oui") is Information.RIEN
+        assert read("") is Information.RIEN
 
 
 class TestMention:
     def test_chaque_etat_a_sa_phrase(self):
-        for etat in Information:
-            assert mention(etat)
+        for state in Information:
+            assert mention(state)
 
     def test_rien_est_dit_tel_quel(self):
         """Prétendre le contraire serait pire que de l'avouer."""
@@ -46,7 +46,7 @@ class TestMention:
         assert "accord" not in phrase
 
     def test_l_accord_est_distingue_de_l_annonce(self):
-        assert "accord" in mention(Information.ACCORD)
+        assert "accord" in mention(Information.AGREEMENT)
 
     def test_toutes_disent_que_la_reunion_est_enregistree(self):
         for phrase in MENTIONS.values():
@@ -55,11 +55,11 @@ class TestMention:
 
 class TestCeQuiResteAFaire:
     def test_rien_de_trace_reste_a_faire(self):
-        assert a_tracer(Information.RIEN) is True
+        assert to_draw(Information.RIEN) is True
 
     def test_une_annonce_tracee_suffit(self):
-        assert a_tracer(Information.ANNONCE) is False
-        assert a_tracer(Information.ACCORD) is False
+        assert to_draw(Information.ANNONCE) is False
+        assert to_draw(Information.AGREEMENT) is False
 
     def test_le_rappel_dit_pourquoi_et_quoi_faire(self):
         aplati = " ".join(RAPPEL.split())

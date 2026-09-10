@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import pytest
 
-from greffier.adaptateurs.configuration import Config
-from greffier.composition import participant
+from greffier.adapters.configuration import Config
+from greffier.wiring import assistant_of
 
 pytestmark = pytest.mark.lent
 
@@ -38,46 +38,46 @@ Dominique : oui, on a un dépassement de douze pour cent.
 """
 
 
-def _assistant(matiere: str):
+def _assistant(material: str):
     config = Config()
-    config.assistant.actif = True
+    config.assistant.active = True
     # Sans voix : on éprouve ce qu'il décide de dire, pas la synthèse.
-    config.assistant.voix = "aucun"
-    lui = participant(config, "essai-proactif")
+    config.assistant.voice = "aucun"
+    lui = assistant_of(config, "essai-proactif")
     if lui is None or lui.cerveau is None:
         pytest.skip("aucun rédacteur configuré")
-    lui.contexte = lambda: matiere
+    lui.context = lambda: material
     return lui
 
 
 def test_une_reunion_ordinaire_ne_lui_arrache_pas_un_mot():
     """Le cas de très loin le plus fréquent, et le plus facile à rater."""
-    assert _assistant(ORDINAIRE).apport(maintenant=600.0) is None
+    assert _assistant(ORDINAIRE).contribution(now=600.0) is None
 
 
 def test_une_decision_sans_personne_pour_la_porter_le_fait_parler():
-    occasion = _assistant(SANS_RESPONSABLE).apport(maintenant=600.0)
-    assert occasion is not None
-    assert "?" in occasion.propos
+    opening = _assistant(SANS_RESPONSABLE).contribution(now=600.0)
+    assert opening is not None
+    assert "?" in opening.remark
 
 
 def test_une_question_laissee_en_l_air_le_fait_parler():
-    occasion = _assistant(QUESTION_EN_L_AIR).apport(maintenant=600.0)
-    assert occasion is not None
+    opening = _assistant(QUESTION_EN_L_AIR).contribution(now=600.0)
+    assert opening is not None
 
 
 def test_il_ne_cherche_rien_pendant_son_repos():
     """Un appel au modèle toutes les dix secondes pour un silence."""
     lui = _assistant(SANS_RESPONSABLE)
-    lui.politique.parle_le = 590.0
-    assert lui.apport(maintenant=600.0) is None
+    lui.manners.parle_le = 590.0
+    assert lui.contribution(now=600.0) is None
 
 
 def test_ce_qu_il_dit_se_prononce(monkeypatch):
     """Ni titre, ni liste, ni adresse : tout cela serait lu à voix haute."""
-    occasion = _assistant(SANS_RESPONSABLE).apport(maintenant=600.0)
-    assert occasion is not None
-    propos = occasion.propos
-    assert "\n" not in propos.strip()
-    assert not propos.lstrip().startswith(("#", "-", "*", "|"))
-    assert "http" not in propos
+    opening = _assistant(SANS_RESPONSABLE).contribution(now=600.0)
+    assert opening is not None
+    remark = opening.remark
+    assert "\n" not in remark.strip()
+    assert not remark.lstrip().startswith(("#", "-", "*", "|"))
+    assert "http" not in remark

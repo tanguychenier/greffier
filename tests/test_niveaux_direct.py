@@ -12,36 +12,36 @@ from __future__ import annotations
 import struct
 from pathlib import Path
 
-from greffier.adaptateurs.niveaux_direct import duree_ecrite, lire_forme, relever
-from greffier.domaine.canaux import QuiParle
+from greffier.adapters.live_levels import lire_forme, read_level, written_duration
+from greffier.domain.channels import WhoSpeaks
 
 
 def wav(
-    chemin: Path,
-    canaux: list[list[int]],
-    frequence: int = 16000,
+    path: Path,
+    channels: list[list[int]],
+    frequency: int = 16000,
     avec_liste: bool = False,
     fmt_etendu: bool = False,
 ) -> Path:
     """Fabrique un WAV, avec ou sans les chunks que ffmpeg ajoute."""
     entrelace = bytearray()
-    for trame in zip(*canaux, strict=True):
-        for valeur in trame:
-            entrelace += struct.pack("<h", valeur)
+    for trame in zip(*channels, strict=True):
+        for value in trame:
+            entrelace += struct.pack("<h", value)
 
-    nb = len(canaux)
+    nb = len(channels)
     taille_fmt = 40 if fmt_etendu else 16
-    fmt = struct.pack("<HHIIHH", 1, nb, frequence, frequence * nb * 2, nb * 2, 16)
+    fmt = struct.pack("<HHIIHH", 1, nb, frequency, frequency * nb * 2, nb * 2, 16)
     if fmt_etendu:
         fmt += b"\x00" * (taille_fmt - 16)
-    morceaux = b"fmt " + struct.pack("<I", taille_fmt) + fmt
+    chunks = b"fmt " + struct.pack("<I", taille_fmt) + fmt
     if avec_liste:
         info = b"INFOISFT" + struct.pack("<I", 14) + b"Lavf62.0.100\x00\x00"
-        morceaux += b"LIST" + struct.pack("<I", len(info)) + info
+        chunks += b"LIST" + struct.pack("<I", len(info)) + info
     # ffmpeg annonce une taille indéterminée tant que le fichier est ouvert.
-    morceaux += b"data" + struct.pack("<I", 0xFFFFFFFF) + bytes(entrelace)
-    chemin.write_bytes(b"RIFF" + struct.pack("<I", len(morceaux) + 4) + b"WAVE" + morceaux)
-    return chemin
+    chunks += b"data" + struct.pack("<I", 0xFFFFFFFF) + bytes(entrelace)
+    path.write_bytes(b"RIFF" + struct.pack("<I", len(chunks) + 4) + b"WAVE" + chunks)
+    return path
 
 
 FORT = [12000] * 8000
@@ -52,7 +52,7 @@ class TestLectureDeLEntete:
     def test_un_entete_canonique_est_lu(self, tmp_path: Path) -> None:
         forme = lire_forme(wav(tmp_path / "a.wav", [FORT, MUET, MUET]))
         assert forme is not None
-        assert forme.canaux == 3 and forme.debut_donnees == 44
+        assert forme.channels == 3 and forme.debut_donnees == 44
 
     def test_l_entete_reel_de_ffmpeg_est_lu(self, tmp_path: Path) -> None:
         # « fmt » étendu plus « LIST » : 102 octets, la forme observée en usage.
@@ -75,34 +75,34 @@ class TestLectureDeLEntete:
 
 class TestQuiParle:
     def test_le_micro_seul_actif_donne_toi(self, tmp_path: Path) -> None:
-        releve = relever(wav(tmp_path / "a.wav", [FORT, MUET, MUET]))
+        releve = read_level(wav(tmp_path / "a.wav", [FORT, MUET, MUET]))
         assert releve is not None
-        assert releve.qui is QuiParle.TOI
+        assert releve.qui is WhoSpeaks.TOI
 
     def test_les_canaux_ne_sont_pas_inverses_avec_l_entete_de_ffmpeg(
         self, tmp_path: Path
     ) -> None:
         # C'est le défaut constaté : avec ces chunks, la lecture était décalée
         # et l'interface annonçait « les autres parlent ».
-        releve = relever(
+        releve = read_level(
             wav(tmp_path / "b.wav", [FORT, MUET, MUET], avec_liste=True, fmt_etendu=True)
         )
         assert releve is not None
-        assert releve.qui is QuiParle.TOI
+        assert releve.qui is WhoSpeaks.TOI
         assert releve.micro_db > releve.systeme_db
 
     def test_la_boucle_seule_active_donne_les_autres(self, tmp_path: Path) -> None:
-        releve = relever(
+        releve = read_level(
             wav(tmp_path / "c.wav", [MUET, FORT, FORT], avec_liste=True, fmt_etendu=True)
         )
         assert releve is not None
-        assert releve.qui is QuiParle.LES_AUTRES
+        assert releve.qui is WhoSpeaks.LES_AUTRES
 
     def test_un_fichier_sans_echantillons_ne_rend_rien(self, tmp_path: Path) -> None:
-        assert relever(wav(tmp_path / "d.wav", [[], [], []])) is None
+        assert read_level(wav(tmp_path / "d.wav", [[], [], []])) is None
 
     def test_un_fichier_absent_ne_rend_rien(self, tmp_path: Path) -> None:
-        assert relever(tmp_path / "jamais-ecrit.wav") is None
+        assert read_level(tmp_path / "jamais-ecrit.wav") is None
 
 
 class TestDureeEcrite:
@@ -116,14 +116,14 @@ class TestDureeEcrite:
     def test_la_duree_se_compte_en_octets_et_non_dans_l_entete(self, tmp_path: Path) -> None:
         # L'en-tête annonce 0xFFFFFFFF tant que le fichier est ouvert : s'y fier
         # donnerait une durée absurde.
-        fichier = wav(tmp_path / "en-cours.wav", [FORT, MUET], avec_liste=True,
+        file = wav(tmp_path / "en-cours.wav", [FORT, MUET], avec_liste=True,
                       fmt_etendu=True)
-        assert duree_ecrite(fichier) == 8000 / 16000
+        assert written_duration(file) == 8000 / 16000
 
     def test_un_fichier_a_peine_ouvert_ne_porte_rien(self, tmp_path: Path) -> None:
-        fichier = wav(tmp_path / "vide.wav", [[], []])
-        assert duree_ecrite(fichier) == 0.0
+        file = wav(tmp_path / "vide.wav", [[], []])
+        assert written_duration(file) == 0.0
 
     def test_un_fichier_absent_ne_donne_pas_de_duree(self, tmp_path: Path) -> None:
         # Le premier morceau n'existe pas encore quand la fenêtre lit l'état.
-        assert duree_ecrite(tmp_path / "rien.wav") is None
+        assert written_duration(tmp_path / "rien.wav") is None
