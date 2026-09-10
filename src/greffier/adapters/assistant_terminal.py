@@ -1,17 +1,7 @@
-"""L'assistant de première configuration.
+"""The first-run configuration assistant.
 
-Au premier lancement, personne ne sait ce que l'outil attend. Cet assistant pose
-les questions dans l'ordre, propose à chaque fois la réponse qui convient à
-*cette* machine — pas une valeur générique — installe ce qui manque, et se
-termine par un `.env` valide et une vérification.
-
-Il est en terminal et non en fenêtre graphique, délibérément : une fenêtre
-supposerait une bibliothèque d'interface différente sur chacun des trois
-systèmes, et donc trois fois plus de code à maintenir pour la même conversation.
-Sur macOS, l'icône de barre de menus l'ouvre dans un terminal.
-
-Chaque étape est une fonction qui rend un fragment de configuration. C'est ce
-qui permet de les tester une par une, en simulant les réponses.
+It observes the machine rather than asking about it, and says what follows.
+Every question it does ask is one no observation can answer.
 """
 
 from __future__ import annotations
@@ -35,7 +25,7 @@ SYSTEM = platform.system()
 
 @dataclass
 class Answers:
-    """Ce que l'assistant a retenu, prêt à devenir un `.env`."""
+    """What the assistant retained, ready to become a configuration."""
 
     values: dict[str, str] = field(default_factory=dict)
     reglages: dict[str, dict[str, str]] = field(default_factory=dict)
@@ -46,7 +36,7 @@ class Answers:
         self.values[key] = value
 
     def set_up(self, section: str, champ: str, value: str) -> None:
-        """Un réglage que la fenêtre doit pouvoir changer ensuite."""
+        """A setting the window must be able to change afterwards."""
         self.reglages.setdefault(section, {})[champ] = value
 
     def render_env(self) -> str:
@@ -61,7 +51,7 @@ class Answers:
 
 @dataclass
 class Dialogue:
-    """Les entrées/sorties de l'assistant, remplaçables pour les tests."""
+    """The assistant's input and output, replaceable for the tests."""
 
     ask: Callable[[str, str], str]
     confirmer: Callable[[str, bool], bool]
@@ -69,19 +59,7 @@ class Dialogue:
     choose: Callable[[str, list[tuple[str, str]], int], str]
 
 def language_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
-    """Dans quelle langue se tiennent les réunions, et s'écrivent les comptes rendus.
-
-    Première question, parce qu'elle change ce que tout le reste sait faire : la
-    transcription, la reconnaissance des prénoms, et la langue du document.
-
-    La langue du poste est proposée par défaut plutôt que le français : un
-    renseignement gratuit, que rien ne lisait, et sans lequel un poste allemand
-    ressortait réglé sur le français.
-
-    Les réponses vont dans les réglages, jamais dans le `.env` : celui-ci prime
-    sur `config.toml`, et la liste déroulante des Réglages ne pourrait plus rien
-    changer.
-    """
+    """Which language meetings are held in, the system's guess first."""
     title = "\n— Dans quelle langue ? —"
     dialogue.show(title)
     defaut = _system_language()
@@ -107,7 +85,7 @@ def language_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
     answers.set_up("compte_rendu", "langue", document)
 
 def _system_language() -> str:
-    """Le code à deux lettres que le système annonce, s'il est au catalogue."""
+    """The two-letter code the system announces."""
     for variable in ("LC_ALL", "LC_MESSAGES", "LANG"):
         value = os.environ.get(variable, "")
         if value:
@@ -117,7 +95,7 @@ def _system_language() -> str:
     return "fr"
 
 def hardware_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
-    """Constate la machine et annonce ce qui en découle."""
+    """Observes the machine and announces what follows from it."""
     recorder = state.recorder
     dialogue.show(
         f"Machine : {recorder.system} {recorder.architecture}, "
@@ -140,7 +118,7 @@ def hardware_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
     )
 
 def writer_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
-    """Claude Code : installé ? authentifié ? sinon rien ne pourra être rédigé."""
+    """Claude Code: installed? signed in? otherwise what is left."""
     dialogue.show("\n— Qui rédige le compte rendu —")
 
     if not diagnostic.claude_installed():
@@ -180,13 +158,7 @@ def writer_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None
         answers.place("GREFFIER_MINUTES__MODEL", _claude_model(dialogue))
 
 def _claude_model(dialogue: Dialogue) -> str:
-    """Quel modèle Claude Code doit rédiger. Le second de la gamme par défaut.
-
-    Volontairement pas le premier. Rédiger à partir d'une transcription déjà
-    découpée et attribuée est un travail de synthèse : le haut de gamme rend le
-    même document en entamant un quota bien plus vite — une réunion par jour
-    suffit à le sentir. Le réglage reste offert, dans les deux sens.
-    """
+    """Which model Claude Code should write with."""
     dialogue.show(
         "\nLe modèle est demandé explicitement, plutôt que laissé au réglage\n"
         "personnel de Claude Code : le compte rendu ne doit pas changer de\n"
@@ -208,7 +180,7 @@ def _ollama_model(dialogue: Dialogue, answers: Answers) -> str:
     return "qwen3:8b"
 
 def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
-    """Par courriel, ou dans un dossier ?"""
+    """By email, or into a folder?"""
     dialogue.show("\n— Où arrive le compte rendu —")
 
     if not dialogue.confirmer("Le recevoir par courriel ?", True):
@@ -255,7 +227,7 @@ def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
     answers.to_do.append("export GREFFIER_SMTP_MOT_DE_PASSE='…'")
 
 def vocabulary_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
-    """Le réglage qui change le plus la qualité de la transcription."""
+    """The setting that changes transcription quality the most."""
     dialogue.show("\n— Vocabulaire de tes réunions —")
     dialogue.show(
         "Les noms de projets, d'outils et d'acronymes que le modèle ne connaît pas.\n"
@@ -271,7 +243,7 @@ def vocabulary_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> 
 ETAPES = [language_step, hardware_step, writer_step, delivery_step, vocabulary_step]
 
 def run_chain(dialogue: Dialogue, state: Diagnostic | None = None) -> Answers:
-    """Déroule l'assistant et rend ce qu'il a retenu."""
+    """Runs the assistant and returns what it retained."""
     state = state or diagnostic.examine(data_folder())
     answers = Answers()
     for etape in ETAPES:
@@ -279,7 +251,7 @@ def run_chain(dialogue: Dialogue, state: Diagnostic | None = None) -> Answers:
     return answers
 
 def write(answers: Answers, file: Path | None = None) -> Path:
-    """Range la configuration là où toutes les commandes la liront."""
+    """Files the configuration where every command reads it."""
     target = file or config_folder() / ".env"
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
@@ -289,12 +261,7 @@ def write(answers: Answers, file: Path | None = None) -> Path:
     return target
 
 def apply_settings(answers: Answers) -> None:
-    """Écrit dans `config.toml` ce que la fenêtre doit pouvoir rechanger.
-
-    Séparé du `.env` à dessein : l'ordre de priorité est environnement, puis
-    `.env`, puis `config.toml`. Une langue écrite dans le `.env` primerait pour
-    toujours, et la liste déroulante de l'onglet Réglages n'y pourrait rien.
-    """
+    """Writes into config.toml what the window changed."""
     if not answers.reglages:
         return
     config = Config.load()

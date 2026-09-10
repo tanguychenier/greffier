@@ -1,12 +1,4 @@
-"""Ce que la machine sait faire, et ce qui lui manque.
-
-Aucune question posée, aucune décision prise : ce module ne fait que constater.
-L'assistant de configuration s'en sert pour proposer des réponses par défaut qui
-tiennent debout, et « greffier diagnostic » l'affiche tel quel.
-
-Séparer le constat de la décision permet de tester les deux : on peut vérifier
-qu'un poste sans micro reçoit le bon conseil sans avoir à débrancher un micro.
-"""
+"""What the machine can do, and what it is missing."""
 
 from __future__ import annotations
 
@@ -49,20 +41,14 @@ def memory_gb() -> float:
     return 0.0
 
 def sound_server_present() -> bool:
-    """Si la session a un serveur de son auquel se brancher.
-
-    « pactl » n'enregistre rien : il interroge le serveur, là où ffmpeg s'y
-    branche directement par sa prise. Juger la capture sur cet outil déclarait
-    donc perdue une machine parfaitement capable d'enregistrer — PipeWire en
-    marche, mais « pulseaudio-utils » jamais installé.
-    """
+    """Whether the session has a sound server to hook into."""
     if os.environ.get("PULSE_SERVER"):
         return True
     execution = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
     return (Path(execution) / "pulse" / "native").exists()
 
 def speedup() -> str:
-    """Le calcul disponible pour la transcription."""
+    """The compute available for transcription."""
     if SYSTEM == "Darwin" and platform.machine() == "arm64":
         return "metal"
     if shutil.which("nvidia-smi"):
@@ -96,13 +82,7 @@ def claude_version() -> str:
     return output.strip().split()[0] if output.strip() else ""
 
 def claude_signed_in() -> bool:
-    """Vérifie que la session Claude Code existe.
-
-    Sans authentification, Claude Code est installé mais incapable de rédiger
-    quoi que ce soit — et l'erreur n'apparaîtrait qu'après une heure de
-    transcription, au pire moment. On regarde le marqueur de session plutôt que
-    d'appeler le modèle : la vérification doit être gratuite et instantanée.
-    """
+    """Checks that the Claude Code session exists."""
     file = Path.home() / ".claude.json"
     if not file.exists():
         return False
@@ -114,7 +94,7 @@ def claude_signed_in() -> bool:
 
 @dataclass(frozen=True)
 class ClaudeAccount:
-    """Qui rédige, vu du poste. Lu du fichier de session, jamais du réseau."""
+    """Who writes, as seen from the machine."""
 
     adresse: str
     organisation: str
@@ -125,13 +105,7 @@ class ClaudeAccount:
         return " · ".join(chunks) if chunks else "session ouverte"
 
 def claude_account() -> ClaudeAccount | None:
-    """Le compte Claude Code connecté, ou None si aucune session.
-
-    On lit le marqueur de session plutôt que d'interroger l'API : la fenêtre
-    affiche ce renseignement à chaque ouverture de l'onglet, et un appel réseau
-    y ferait une attente là où il n'y a rien à attendre. Aucun jeton n'est lu,
-    seulement de quoi reconnaître le compte.
-    """
+    """The signed-in Claude Code account, or None."""
     file = Path.home() / ".claude.json"
     try:
         content = json.loads(file.read_text(encoding="utf-8"))
@@ -158,11 +132,7 @@ def outlook_present() -> bool:
     return Path("/Applications/Microsoft Outlook.app").exists()
 
 def system_capture() -> Reading:
-    """De quoi réenregistrer ce que jouent les haut-parleurs.
-
-    C'est ce qui permet d'entendre les autres participants d'une visio. Le seul
-    point où les trois systèmes divergent vraiment.
-    """
+    """What it takes to record back what the speakers play."""
     if SYSTEM == "Darwin":
         output = subprocess.run(["system_profiler", "SPAudioDataType"],
                                 capture_output=True, text=True, check=False).stdout
@@ -205,7 +175,7 @@ def mic_present() -> Reading:
                    remede="branche un micro ou un casque", bloquant=True)
 
 def examine(data_folder: Path | None = None) -> Diagnostic:
-    """Tout ce qu'il faut savoir avant de configurer quoi que ce soit."""
+    """Everything worth knowing before configuring the tool."""
     infos = recorder(data_folder)
     constats = [
         Reading(
