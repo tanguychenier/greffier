@@ -33,7 +33,7 @@ from typing import Any
 
 from greffier.domain.version import is_newer
 
-STORE = "tanguychenier/greffier"
+REPOSITORY = "tanguychenier/greffier"
 
 TIMEOUT = 5.0
 
@@ -369,7 +369,7 @@ def bundle_is_newer(argv0: str = "") -> bool:
 
 _CHARGE_LE = time.time()
 
-def check(store: str = STORE, timeout: float = TIMEOUT) -> Verdict:
+def check(store: str = REPOSITORY, timeout: float = TIMEOUT) -> Verdict:
     """Interroge la dernière release publiée. Ne lève jamais.
 
     Une vérification de mise à jour qui fait tomber la fenêtre serait un très
