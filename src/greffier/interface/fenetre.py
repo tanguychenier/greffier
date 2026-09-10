@@ -1245,37 +1245,112 @@ class Fenetre:
         ))
 
     def _proposer_l_installation(self, verdict: Any) -> None:
-        """Propose d'installer, ou dit pourquoi ce n'est pas possible d'ici.
+        """Propose d'installer, par la voie qui existe sur ce poste.
 
-        L'installation demande le dépôt d'origine : le paquet est autonome mais
-        il ne sait pas se fabriquer lui-même. Sans dépôt, on donne l'adresse de
-        la version et on s'arrête là, ce qui reste plus utile que rien.
+        Deux voies, et la seconde est celle de presque tout le monde : depuis le
+        dépôt quand il est là — c'est le poste de qui développe — et sinon
+        depuis le **binaire publié pour ce système**. Auparavant il n'y avait
+        que la première, donc le bouton ne servait à personne d'autre qu'à moi.
         """
-        from greffier.adaptateurs.mises_a_jour import installable, installer
+        from greffier.adaptateurs.mises_a_jour import installable
 
-        possible, raison = installable()
-        if not possible:
+        depuis_le_depot, raison = installable()
+        if depuis_le_depot:
+            self._installer_depuis_le_depot(verdict)
+        elif verdict.telechargeable:
+            self._installer_depuis_le_binaire(verdict)
+        else:
             self._peindre_le_tour("greffier", (
-                f"{verdict.dire()} Installation impossible d'ici : {raison}."
+                f"{verdict.dire()} Rien à installer d'ici : {raison}, et la "
+                "version publiée ne porte pas d'archive pour ce système."
                 + (f" À voir : {verdict.adresse}" if verdict.adresse else "")
             ))
-            return
+
+    #: Ce qu'une mise à jour ne touche jamais, dit à chaque fois : c'est la
+    #: seule question que se pose quelqu'un devant ce bouton.
+    RIEN_N_EST_PERDU = (
+        "Les réunions, les comptes rendus, la banque de voix, les "
+        "conversations et les réglages ne sont pas touchés : ils vivent hors "
+        "de l'application."
+    )
+
+    def _installer_depuis_le_depot(self, verdict: Any) -> None:
+        from greffier.adaptateurs.mises_a_jour import installer
+
         if not messagebox.askyesno(
             "Greffier",
             f"{verdict.dire()}\n\nInstaller maintenant ? Greffier va se fermer, "
-            "se reconstruire depuis son dépôt, puis se relancer.\n\n"
-            "Les réunions, les comptes rendus, la banque de voix et les "
-            "conversations ne sont pas touchés : ils vivent hors de "
-            "l'application.",
+            f"se reconstruire depuis son dépôt, puis se relancer.\n\n"
+            f"{self.RIEN_N_EST_PERDU}",
         ):
             return
         lance, ou = installer()
         if not lance:
             messagebox.showerror("Greffier", f"Mise à jour impossible : {ou}")
             return
+        self._se_fermer_pour_la_mise_a_jour()
+
+    def _installer_depuis_le_binaire(self, verdict: Any) -> None:
+        """Télécharge l'archive publiée pour ce système, puis remplace le paquet.
+
+        Le téléchargement se fait dans un fil : cent cinquante mégaoctets
+        figeraient la fenêtre une minute ou deux, et une fenêtre figée sans
+        rien dire passe pour cassée.
+        """
+        import platform
+
+        from greffier.adaptateurs.mises_a_jour import (
+            installer_depuis_la_publication,
+        )
+
+        if not messagebox.askyesno(
+            "Greffier",
+            f"{verdict.dire()}\n\nTélécharger « {verdict.artefact_nom} » et "
+            "l'installer ? Greffier va se fermer puis se relancer sur la "
+            "nouvelle version.\n\n"
+            f"{self.RIEN_N_EST_PERDU}",
+        ):
+            return
+
+        sur_mac = platform.system() == "Darwin"
+
+        def faire(dire: Callable[[str], None]) -> Any:
+            def avancement(recu: int, total: int) -> None:
+                if total:
+                    dire(f"téléchargement… {recu * 100 // total} %")
+                else:
+                    dire(f"téléchargement… {recu // 1024 // 1024} Mo")
+
+            return installer_depuis_la_publication(
+                verdict, sys.executable, avancement=avancement
+            )
+
+        def fini(resultat: Any, souci: Exception | None) -> None:
+            if souci is not None:
+                messagebox.showerror("Greffier", f"Mise à jour impossible : {souci}")
+                return
+            lance, ou = resultat
+            if not lance:
+                messagebox.showerror("Greffier", f"Mise à jour impossible : {ou}")
+                return
+            if not sur_mac:
+                # Dire où elle est plutôt que de prétendre l'installer :
+                # remplacer un exécutable Windows qui tourne demande autre
+                # chose, et une fausse promesse coûterait plus qu'un chemin.
+                self._peindre_le_tour("greffier", (
+                    f"La version {verdict.disponible} est téléchargée dans "
+                    f"{ou}. Ferme Greffier, remplace le dossier de "
+                    f"l'application par celui-là, et relance. {self.RIEN_N_EST_PERDU}"
+                ))
+                return
+            self._se_fermer_pour_la_mise_a_jour()
+
+        self._lancer(Travail(intitule="mise à jour", faire=faire, fini=fini))
+
+    def _se_fermer_pour_la_mise_a_jour(self) -> None:
+        """Le relais attend la fin de ce processus avant de toucher au paquet :
+        se fermer fait partie de la mise à jour."""
         self.etat_version.configure(text="Mise à jour en cours, fermeture…")
-        # Le relais attend la fin de ce processus avant de toucher au paquet :
-        # se fermer fait partie de la mise à jour.
         self.racine.after(400, self.racine.destroy)
 
     def _brancher_les_reglages(self) -> None:

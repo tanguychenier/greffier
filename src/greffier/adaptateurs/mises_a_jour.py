@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -23,10 +24,12 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as version_du_paquet
 from pathlib import Path
+from typing import Any
 
 from greffier.domaine.version import plus_recente
 
@@ -38,6 +41,19 @@ DEPOT = "tanguychenier/greffier"
 #: facultative. Cinq secondes suffisent à une réponse de quelques kilooctets.
 DELAI = 5.0
 
+#: Bien plus long : on télécharge ici cent cinquante mégaoctets, pas une
+#: réponse JSON.
+DELAI_TELECHARGEMENT = 600.0
+
+#: Le nom de l'artefact publié, par système. Celui du poste et aucun autre :
+#: installer une archive Windows sur un Mac ne produirait rien d'utilisable, et
+#: la publication attache les trois à la même version.
+ARTEFACTS = {
+    "Darwin": "Greffier-macos.zip",
+    "Windows": "Greffier-windows.zip",
+    "Linux": "Greffier-linux.tar.gz",
+}
+
 
 @dataclass(frozen=True, slots=True)
 class Verdict:
@@ -48,6 +64,15 @@ class Verdict:
     #: L'adresse où la trouver, pour qui veut voir avant d'installer.
     adresse: str = ""
     souci: str = ""
+    #: L'artefact publié pour **ce** système, et son nom. Vides quand la version
+    #: publiée n'en porte pas pour ce poste — ce qui arrive et doit se dire.
+    artefact: str = ""
+    artefact_nom: str = ""
+
+    @property
+    def telechargeable(self) -> bool:
+        """Vrai quand il existe un binaire à installer pour ce poste."""
+        return bool(self.disponible and self.artefact)
 
     @property
     def a_jour(self) -> bool:
@@ -193,6 +218,179 @@ def installer(app: str = "Greffier") -> tuple[bool, str]:
     return (True, str(journal))
 
 
+def paquet_de_ce_processus(argv0: str = "") -> Path | None:
+    """Le paquet .app depuis lequel ce processus tourne, s'il y en a un.
+
+    Rend rien hors du paquet : depuis la ligne de commande, il n'y a pas
+    d'application à remplacer.
+    """
+    executable = Path(argv0 or sys.executable).resolve()
+    for parent in executable.parents:
+        if parent.suffix == ".app":
+            return parent
+    return None
+
+
+def telecharger(
+    url: str, cible: Path, delai: float = DELAI_TELECHARGEMENT,
+    avancement: Callable[[int, int], None] | None = None,
+) -> tuple[bool, str]:
+    """Écrit l'artefact sur le disque. Ne lève jamais.
+
+    Par morceaux, et en rapportant l'avancement : on télécharge cent cinquante
+    mégaoctets, et une fenêtre qui se figeait sans rien dire pendant deux
+    minutes passait pour cassée.
+    """
+    requete = urllib.request.Request(url, headers={"User-Agent": "Greffier"})
+    try:
+        cible.parent.mkdir(parents=True, exist_ok=True)
+        with urllib.request.urlopen(requete, timeout=delai) as reponse:
+            total = int(reponse.headers.get("Content-Length") or 0)
+            recu = 0
+            with cible.open("wb") as sortie:
+                while morceau := reponse.read(262144):
+                    sortie.write(morceau)
+                    recu += len(morceau)
+                    if avancement is not None:
+                        avancement(recu, total)
+    except (urllib.error.URLError, TimeoutError):
+        return (False, "pas de réseau")
+    except (OSError, ValueError) as souci:
+        return (False, str(souci))
+    if cible.stat().st_size == 0:
+        return (False, "archive vide")
+    return (True, str(cible))
+
+
+def deballer(archive: Path, dossier: Path) -> tuple[bool, str]:
+    """Ouvre l'archive dans un dossier. Rend le chemin de ce qu'elle contient.
+
+    Zip pour macOS et Windows, tar pour Linux : le format vient du nom, pas
+    d'une devinette sur le contenu.
+    """
+    import tarfile
+    import zipfile
+
+    try:
+        dossier.mkdir(parents=True, exist_ok=True)
+        if archive.name.endswith(".zip"):
+            with zipfile.ZipFile(archive) as z:
+                z.extractall(dossier)
+        elif archive.name.endswith((".tar.gz", ".tgz")):
+            with tarfile.open(archive) as a:
+                a.extractall(dossier, filter="data")
+        else:
+            return (False, f"format inconnu : {archive.name}")
+    except (OSError, ValueError, zipfile.BadZipFile, tarfile.TarError) as souci:
+        return (False, str(souci))
+    return (True, str(dossier))
+
+
+#: Le relais qui remplace le paquet par celui qu'on vient de télécharger.
+#:
+#: Il ne touche **que** le paquet. Les réunions, les comptes rendus, la banque
+#: de voix, les conversations et la configuration vivent dans
+#: ~/Library/Application Support/Greffier, que ce script ne nomme nulle part :
+#: mettre à jour ne peut pas faire perdre une réunion.
+#:
+#: L'ancien paquet est mis de côté et non supprimé, et il est remis en place si
+#: le neuf ne démarre pas. Une mise à jour qui laisse le poste sans application
+#: est arrivée aujourd'hui, par une autre voie.
+_RELAIS_BINAIRE = """#!/bin/bash
+set -u
+exec >>"$3" 2>&1
+echo "=== mise a jour binaire lancee le $(date '+%Y-%m-%d %H:%M:%S') ==="
+NEUF="$1"; PID="$2"; APP="$4"
+for _ in $(seq 1 120); do
+  kill -0 "$PID" 2>/dev/null || break
+  sleep 0.5
+done
+if kill -0 "$PID" 2>/dev/null; then
+  echo "x l'application n'a pas quitte : rien n'a ete touche"
+  exit 1
+fi
+[ -d "$NEUF" ] || { echo "x le paquet telecharge est introuvable"; exit 1; }
+DE_COTE="$APP.precedent"
+rm -rf "$DE_COTE"
+mv "$APP" "$DE_COTE" 2>/dev/null || true
+if ! mv "$NEUF" "$APP"; then
+  echo "x remplacement impossible, ancienne version remise"
+  mv "$DE_COTE" "$APP" 2>/dev/null || true
+  exit 1
+fi
+LSREG="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+[ -x "$LSREG" ] && "$LSREG" -f "$APP" 2>/dev/null
+open -a "$APP" || true
+for _ in $(seq 1 24); do
+  pgrep -f "$APP/Contents/MacOS/" >/dev/null 2>&1 && break
+  sleep 0.5
+done
+if pgrep -f "$APP/Contents/MacOS/" >/dev/null 2>&1; then
+  echo "v mis a jour et relance"
+  rm -rf "$DE_COTE"
+else
+  echo "x la nouvelle version ne demarre pas, ancienne version remise"
+  rm -rf "$APP"
+  mv "$DE_COTE" "$APP" 2>/dev/null || true
+  open -a "$APP" || true
+  exit 1
+fi
+"""
+
+
+def installer_depuis_la_publication(
+    verdict: Verdict, argv0: str = "",
+    avancement: Callable[[int, int], None] | None = None,
+) -> tuple[bool, str]:
+    """Télécharge l'artefact de ce système et le met en place.
+
+    C'est le chemin de qui n'a pas le dépôt : la très grande majorité. Rien
+    n'est compilé, rien n'est cloné — on prend l'archive publiée pour ce
+    système, on l'ouvre, et un relais remplace le paquet après la fermeture.
+
+    Hors macOS, l'archive est téléchargée et son chemin rendu : remplacer un
+    exécutable Windows qui tourne, ou réinstaller des sources sous Linux,
+    demande autre chose qu'un `mv`, et prétendre le faire serait pire que le
+    dire.
+    """
+    if not verdict.telechargeable:
+        return (False, "aucun binaire publié pour ce système")
+    atelier = Path(tempfile.mkdtemp(prefix="greffier-maj."))
+    archive = atelier / verdict.artefact_nom
+    recu, ou = telecharger(verdict.artefact, archive, avancement=avancement)
+    if not recu:
+        return (False, ou)
+    ouvert, souci = deballer(archive, atelier / "contenu")
+    if not ouvert:
+        return (False, souci)
+
+    if platform.system() != "Darwin":
+        return (True, str(atelier / "contenu"))
+
+    paquets = list((atelier / "contenu").glob("*.app"))
+    if not paquets:
+        return (False, "l'archive ne contient pas d'application")
+    app = paquet_de_ce_processus(argv0)
+    if app is None:
+        return (False, "cette version ne tourne pas depuis un paquet")
+
+    journal = Path.home() / "Library" / "Logs" / "Greffier-maj.log"
+    journal.parent.mkdir(parents=True, exist_ok=True)
+    script = Path(tempfile.gettempdir()) / "greffier-maj-binaire.sh"
+    script.write_text(_RELAIS_BINAIRE, encoding="utf-8")
+    script.chmod(0o755)
+    try:
+        subprocess.Popen(
+            ["/bin/bash", str(script), str(paquets[0]), str(os.getpid()),
+             str(journal), str(app)],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL, start_new_session=True,
+        )
+    except OSError as souci:
+        return (False, str(souci))
+    return (True, str(journal))
+
+
 def paquet_plus_recent(argv0: str = "") -> bool:
     """Le paquet sur le disque est-il plus récent que le processus qui tourne ?
 
@@ -259,8 +457,28 @@ def verifier(depot: str = DEPOT, delai: float = DELAI) -> Verdict:
         return Verdict(installee=installee, souci="version publiée sans étiquette")
     if not plus_recente(etiquette, installee):
         return Verdict(installee=installee)
+    nom, url = _artefact_de_ce_poste(contenu)
     return Verdict(
         installee=installee,
         disponible=etiquette.lstrip("v"),
         adresse=str(contenu.get("html_url", "")),
+        artefact=url,
+        artefact_nom=nom,
     )
+
+
+def _artefact_de_ce_poste(publication: dict[str, Any]) -> tuple[str, str]:
+    """Le nom et l'adresse de l'artefact qui convient à ce système.
+
+    Le bon et aucun autre : les trois sont attachés à la même version, et une
+    archive Windows installée sur un Mac ne produirait rien de lançable.
+    """
+    attendu = ARTEFACTS.get(platform.system(), "")
+    if not attendu:
+        return ("", "")
+    for piece in publication.get("assets") or []:
+        if not isinstance(piece, dict):
+            continue
+        if str(piece.get("name", "")) == attendu:
+            return (attendu, str(piece.get("browser_download_url", "")))
+    return ("", "")
