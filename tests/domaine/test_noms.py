@@ -5,6 +5,7 @@ from greffier.domaine.noms import (
     TypeMention,
     attribuer,
     reperer_mentions,
+    reunir_les_homonymes,
 )
 from greffier.domaine.profils.francais import FRANCAIS
 
@@ -255,3 +256,52 @@ class TestInterpellationSansReponse:
         tours = [tour(0, 20, "v1")]
         resultat = attribuer(_mentions(repliques), tours)
         assert resultat.certitudes["v1"].nom == "Jacques"
+
+
+class TestReunirLesHomonymes:
+    """Deux voix que l'on nomme pareil sont la même personne.
+
+    Mesuré sur une réunion réelle de 1 h 42 : la chaîne concluait « Lise » sur
+    neuf voix distinctes, dont huit d'un seul tour de parole. Le compte rendu
+    annonçait donc huit participants de trop. La même règle existait pour le
+    direct depuis le matin ; elle manquait à la chaîne d'après réunion.
+    """
+
+    def test_neuf_voix_d_un_meme_nom_n_en_font_qu_une(self) -> None:
+        noms = {f"v{i}": "Lise" for i in range(9)}
+        poids = {f"v{i}": float(i) for i in range(9)}
+        appartenance = reunir_les_homonymes(noms, poids)
+        assert len(set(appartenance.values())) == 1
+
+    def test_la_voix_la_plus_fournie_l_emporte(self) -> None:
+        """C'est celle dont l'extrait est le plus représentatif."""
+        noms = {"maigre": "Lise", "fournie": "Lise"}
+        appartenance = reunir_les_homonymes(noms, {"maigre": 3.0, "fournie": 240.0})
+        assert set(appartenance.values()) == {"fournie"}
+
+    def test_deux_noms_differents_ne_se_touchent_pas(self) -> None:
+        noms = {"v1": "Lise", "v2": "Pascal"}
+        appartenance = reunir_les_homonymes(noms, {"v1": 10.0, "v2": 20.0})
+        assert appartenance == {"v1": "v1", "v2": "v2"}
+
+    def test_la_casse_et_les_accents_ne_font_pas_deux_personnes(self) -> None:
+        noms = {"v1": "Hélène", "v2": "helene", "v3": "HÉLÈNE"}
+        appartenance = reunir_les_homonymes(noms, {"v1": 5.0, "v2": 9.0, "v3": 1.0})
+        assert set(appartenance.values()) == {"v2"}
+
+    def test_une_voix_sans_poids_connu_ne_casse_rien(self) -> None:
+        noms = {"v1": "Lise", "v2": "Lise"}
+        appartenance = reunir_les_homonymes(noms, {})
+        assert len(set(appartenance.values())) == 1
+
+    def test_un_nom_vide_est_ignore(self) -> None:
+        noms = {"v1": "  ", "v2": "  ", "v3": "Pascal"}
+        appartenance = reunir_les_homonymes(noms, {"v1": 1.0, "v2": 2.0, "v3": 3.0})
+        assert appartenance["v1"] == "v1"
+        assert appartenance["v2"] == "v2"
+
+    def test_chaque_voix_figure_dans_l_appartenance(self) -> None:
+        """L'appelant applique le résultat sans avoir à combler les trous."""
+        noms = {"v1": "Lise", "v2": "Lise", "v3": "Pascal"}
+        appartenance = reunir_les_homonymes(noms, {"v1": 1.0, "v2": 2.0, "v3": 3.0})
+        assert set(appartenance) == {"v1", "v2", "v3"}
