@@ -12,7 +12,7 @@ LANGUAGES: tuple[tuple[str, str], ...] = (
 
 _NAMES = dict(LANGUAGES)
 
-def nom_de(code: str) -> str:
+def name_of(code: str) -> str:
     """The name of a language, or the code itself when unknown."""
     return _NAMES.get(code, code)
 
@@ -24,7 +24,7 @@ def eprouvee(code: str) -> bool:
 
 def label_text(code: str) -> str:
     """What to show next to a language, without euphemism."""
-    name = nom_de(code)
+    name = name_of(code)
     if not code or eprouvee(code):
         return name
     return f"{name} — voix à nommer à la main"

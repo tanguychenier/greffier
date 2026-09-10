@@ -78,8 +78,8 @@ def _reread_the_buttons() -> tuple[bool, bool]:
     configuration file is the only channel between them. A setting the watch reads
     only at startup is a button with no effect.
     """
-    reglages = Config().assistant
-    return reglages.voice != "aucun", reglages.initiative
+    settings = Config().assistant
+    return settings.voice != "aucun", settings.initiative
 
 def _live_material(
     config: Config, identifier: str, the_follower: Any
@@ -126,12 +126,12 @@ def _reunion_visee(config: Config, demandee: str | None) -> str:
     """The named meeting, or the last one processed."""
     if demandee:
         return demandee
-    connues = store(config).lister()
-    if not connues:
+    known = store(config).lister()
+    if not known:
         typer.secho("Aucune réunion traitée. « greffier traiter <audio> » pour commencer.",
                     fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
-    return connues[0]
+    return known[0]
 
 def _hours_of(config: Config, audio: Path) -> tuple[datetime | None, datetime | None]:
     """This meeting's clock times, when the state kept them."""
@@ -141,7 +141,7 @@ def _hours_of(config: Config, audio: Path) -> tuple[datetime | None, datetime | 
         return (None, None)
     if state.identifier != audio.stem:
         return (None, None)
-    return (state.start, state.terminee_le)
+    return (state.start, state.ended_at)
 
 def _locations(config: Config) -> ranger_module.Places:
     """Where a meeting's pieces live, according to the configuration."""
@@ -216,17 +216,17 @@ def process(
     chaine.log = type("Journal", (), {"publish": staticmethod(progress)})()
 
     try:
-        commencee_le, terminee_le = _hours_of(config, audio)
+        started_at, ended_at = _hours_of(config, audio)
         outcome = chaine.run_chain(
             audio,
             send=not without_sending and bool(config.minutes.recipient),
             hardware_events=events,
-            commencee_le=commencee_le,
-            terminee_le=terminee_le,
+            started_at=started_at,
+            ended_at=ended_at,
         )
-    except ChainStopped as arret:
-        typer.secho(f"✗ {arret.because}", fg=typer.colors.RED, err=True)
-        raise typer.Exit(1) from arret
+    except ChainStopped as stop:
+        typer.secho(f"✗ {stop.because}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1) from stop
 
     for warning in outcome.warnings:
         typer.secho(f"⚠ {warning}", fg=typer.colors.YELLOW)
@@ -257,10 +257,10 @@ def process(
         typer.echo(f"\nTranscription : {outcome.transcript_written}")
     if outcome.fichier_maitre:
         typer.echo(f"Fichier maître: {outcome.fichier_maitre}")
-    manque_des_noms = outcome.propositions or any(
+    missing_names = outcome.propositions or any(
         v not in outcome.names for v in significatives
     )
-    if manque_des_noms and not _ask_for_names(config, audio.stem):
+    if missing_names and not _ask_for_names(config, audio.stem):
         typer.echo(f"\nPour nommer les voix : greffier voix {audio.stem}")
 
     if outcome.compte_rendu_ecrit:
@@ -281,8 +281,8 @@ def _ask_for_names(config: Config, identifier: str) -> bool:
         return False
 
     typer.echo()
-    combien = "une voix" if len(restantes) == 1 else f"{len(restantes)} voix"
-    typer.secho(f"{combien} sans nom. Les nommer maintenant les fait entrer en "
+    how_many = "une voix" if len(restantes) == 1 else f"{len(restantes)} voix"
+    typer.secho(f"{how_many} sans nom. Les nommer maintenant les fait entrer en "
                 "banque, et elles seront reconnues seules ensuite.",
                 fg=typer.colors.YELLOW)
     if not typer.confirm("Les nommer ?", default=True):
@@ -586,15 +586,15 @@ def _mic_by_listening(config: Config, materiel: object) -> str:
     )
     if choix is None:
         return ""
-    if choix.tous_muets:
+    if choix.all_silent:
         typer.secho(
             f"⚠ Aucun micro ne capte : le meilleur, « {choix.name} », rend "
-            f"{choix.niveau_db:.0f} dB. Vérifie le bouton de sourdine de ton "
+            f"{choix.level_db:.0f} dB. Vérifie le bouton de sourdine de ton "
             "casque, puis l'autorisation micro dans Réglages Système.",
             fg=typer.colors.YELLOW,
         )
-    if choix.casque_prefere:
-        plus_fort = [name for name, db in choix.ecartes if db > choix.niveau_db]
+    if choix.preferred_headset:
+        plus_fort = [name for name, db in choix.ecartes if db > choix.level_db]
         if plus_fort:
             typer.secho(
                 f"  « {choix.name} » retenu bien que « {plus_fort[0]} » capte plus "
@@ -603,9 +603,9 @@ def _mic_by_listening(config: Config, materiel: object) -> str:
                 fg=typer.colors.BLUE,
             )
     for name, level in choix.ecartes:
-        if level < choix.niveau_db - 10:
+        if level < choix.level_db - 10:
             typer.secho(f"  « {name} » écarté : {level:.0f} dB contre "
-                        f"{choix.niveau_db:.0f} dB", fg=typer.colors.YELLOW)
+                        f"{choix.level_db:.0f} dB", fg=typer.colors.YELLOW)
     return choix.name
 
 def _raise_the_gain(mic: str) -> None:
@@ -718,7 +718,7 @@ def cancel(
 
 @application.command("assister")
 def assist(
-    mot_cle: str = typer.Option("greffier", "--mot-cle", help="Mot d'activation"),
+    keyword: str = typer.Option("greffier", "--mot-cle", help="Mot d'activation"),
     sans_transcription: bool = typer.Option(
         False, "--sans-transcription", help="Ne surveiller que le presse-papier"),
     config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
@@ -765,7 +765,7 @@ def assist(
     questioner = Questioner(
         known=tuple(t.ecriture for t in the_context.termes)
         + tuple(i.name for i in the_context.intervenants),
-        posees=questions_file.keys_already_placed(fichier_questions),
+        asked=questions_file.keys_already_placed(fichier_questions),
     )
 
     def interrogate(text: str) -> None:
@@ -778,7 +778,7 @@ def assist(
         lui.name_voice = _namer(the_follower, config, state.identifier)
         lui.context = _live_material(config, state.identifier, the_follower)
     watcher = Watcher(
-        watch_rules=WatchRules(mot_cle=mot_cle),
+        watch_rules=WatchRules(keyword=keyword),
         log=log,
         transcriber=transcriber,
         situer=lambda: position(recorder.read().chunks, written_duration),
@@ -802,7 +802,7 @@ def assist(
             active=transcriber is not None,
         )
     typer.secho(f"Veille sur « {state.name} ». Ctrl+C pour arrêter.", fg=typer.colors.BLUE)
-    typer.echo(f"  mot d'activation : « {mot_cle} »")
+    typer.echo(f"  mot d'activation : « {keyword} »")
     if lui is not None:
         comment = "à voix haute" if lui.voice is not None else "par écrit"
         typer.echo(f"  assistant        : « {lui.name} », {comment}")
@@ -816,7 +816,7 @@ def assist(
 
     with tempfile.TemporaryDirectory() as job:
         try:
-            watcher.loop(still_running=still_running, depuis=lambda: recorder.read().seconds,
+            watcher.loop(still_running=still_running, since=lambda: recorder.read().seconds,
                              job=Path(job))
         except KeyboardInterrupt:
             typer.echo("")
@@ -1031,8 +1031,8 @@ def known(
                 "suspectes."
             )
             return
-        for name, combien in sorted(retires.items()):
-            typer.secho(f"✓ {combien} empreinte(s) retirée(s) de {name}",
+        for name, how_many in sorted(retires.items()):
+            typer.secho(f"✓ {how_many} empreinte(s) retirée(s) de {name}",
                         fg=typer.colors.GREEN)
         _say_the_bank_health(bank.people())
         return
@@ -1041,10 +1041,10 @@ def known(
     if not people:
         typer.echo("Banque de voix vide. « greffier voix » pour nommer une première voix.")
         return
-    for personne in people:
-        vue = personne.vu_le.strftime("%Y-%m-%d") if personne.vu_le else "—"
+    for person in people:
+        vue = person.seen_at.strftime("%Y-%m-%d") if person.seen_at else "—"
         typer.echo(
-            f"  {personne.name:<20} {len(personne.voiceprints)} empreinte(s)  "
+            f"  {person.name:<20} {len(person.voiceprints)} empreinte(s)  "
             f"vue le {vue}"
         )
 
@@ -1067,7 +1067,7 @@ def _clean_an_entry(bank: FileVoiceBank, name: str) -> None:
     for intruse in suspectes:
         typer.echo(
             f"  empreinte {intruse.rank} ({intruse.duration:.0f} s) : "
-            f"ressemble à {intruse.qui} ({intruse.elsewhere:.2f}) plus qu'à "
+            f"ressemble à {intruse.who} ({intruse.elsewhere:.2f}) plus qu'à "
             f"{cette.name} ({intruse.at_home:.2f})"
         )
     if not typer.confirm(
@@ -1075,8 +1075,8 @@ def _clean_an_entry(bank: FileVoiceBank, name: str) -> None:
     ):
         typer.echo("Rien n'a été touché.")
         return
-    combien = bank.remove_voiceprints(cette.name, [i.rank for i in suspectes])
-    typer.secho(f"✓ {combien} empreinte(s) retirée(s) de {cette.name}",
+    how_many = bank.remove_voiceprints(cette.name, [i.rank for i in suspectes])
+    typer.secho(f"✓ {how_many} empreinte(s) retirée(s) de {cette.name}",
                 fg=typer.colors.GREEN)
     _say_the_bank_health(bank.people())
 
@@ -1085,36 +1085,36 @@ def _say_the_bank_health(people: list) -> None:  # type: ignore[type-arg]
     import itertools
 
     from greffier.domain.voiceprints import (
-        SEUIL_CONFLIT,
-        SEUIL_RECONNAISSANCE,
+        CONFLICT_THRESHOLD,
+        RECOGNITION_THRESHOLD,
         aggregate,
         similarity,
     )
 
     agregats = {
-        personne.name: (
-            aggregate(personne.voiceprints) if len(personne.voiceprints) > 1
-            else personne.voiceprints[0]
+        person.name: (
+            aggregate(person.voiceprints) if len(person.voiceprints) > 1
+            else person.voiceprints[0]
         )
-        for personne in people if personne.voiceprints
+        for person in people if person.voiceprints
     }
-    conflits: list[tuple[float, str, str]] = []
+    conflicts: list[tuple[float, str, str]] = []
     near_ones: list[tuple[float, str, str]] = []
-    for un, autre in itertools.combinations(sorted(agregats), 2):
-        value = similarity(agregats[un], agregats[autre])
-        if value >= SEUIL_CONFLIT:
-            conflits.append((value, un, autre))
-        elif value >= SEUIL_RECONNAISSANCE:
-            near_ones.append((value, un, autre))
+    for one, other in itertools.combinations(sorted(agregats), 2):
+        value = similarity(agregats[one], agregats[other])
+        if value >= CONFLICT_THRESHOLD:
+            conflicts.append((value, one, other))
+        elif value >= RECOGNITION_THRESHOLD:
+            near_ones.append((value, one, other))
 
-    if conflits:
+    if conflicts:
         typer.secho(
-            f"\n⚠ {len(conflits)} paire(s) trop ressemblante(s) : ces personnes "
+            f"\n⚠ {len(conflicts)} paire(s) trop ressemblante(s) : ces personnes "
             "ne sont plus reconnues du tout.",
             fg=typer.colors.RED,
         )
-        for value, un, autre in sorted(conflits, reverse=True):
-            typer.secho(f"    {value:.3f}  {un} / {autre}", fg=typer.colors.RED)
+        for value, one, other in sorted(conflicts, reverse=True):
+            typer.secho(f"    {value:.3f}  {one} / {other}", fg=typer.colors.RED)
         typer.echo(
             "  Une des deux entrées porte probablement la voix de l'autre. "
             "Réécoute\n  un extrait de chacune, puis « greffier connus "
@@ -1124,11 +1124,11 @@ def _say_the_bank_health(people: list) -> None:  # type: ignore[type-arg]
     if near_ones:
         typer.secho(
             f"\n· {len(near_ones)} paire(s) proche(s), au-dessus du seuil de "
-            f"reconnaissance ({SEUIL_RECONNAISSANCE:.2f}) :",
+            f"reconnaissance ({RECOGNITION_THRESHOLD:.2f}) :",
             fg=typer.colors.YELLOW,
         )
-        for value, un, autre in sorted(near_ones, reverse=True):
-            typer.echo(f"    {value:.3f}  {un} / {autre}")
+        for value, one, other in sorted(near_ones, reverse=True):
+            typer.echo(f"    {value:.3f}  {one} / {other}")
         typer.echo(
             "  C'est l'écart avec le second qui les sépare. Une entrée d'une "
             "seule\n  empreinte est fragile : renommer la même personne sur une "
@@ -1146,25 +1146,25 @@ def _say_the_intruders(people: list) -> None:  # type: ignore[type-arg]
     """Names the offending voiceprints, one by one."""
     from greffier.domain.voiceprints import intruding_voiceprints
 
-    trouvees = [
-        (personne.name, intruse)
-        for personne in people
-        for intruse in intruding_voiceprints(personne, people)
+    found = [
+        (person.name, intruse)
+        for person in people
+        for intruse in intruding_voiceprints(person, people)
     ]
-    if not trouvees:
+    if not found:
         return
     typer.secho(
-        f"\n  {len(trouvees)} empreinte(s) désignent quelqu'un d'autre que "
+        f"\n  {len(found)} empreinte(s) désignent quelqu'un d'autre que "
         "la personne sous laquelle elles sont rangées :",
         fg=typer.colors.YELLOW,
     )
-    for name, intruse in sorted(trouvees, key=lambda x: -x[1].gap):
+    for name, intruse in sorted(found, key=lambda x: -x[1].gap):
         typer.echo(
             f"    {name} n° {intruse.rank} ({intruse.duration:.0f} s) : "
-            f"{intruse.qui} {intruse.elsewhere:.2f} contre {name} "
+            f"{intruse.who} {intruse.elsewhere:.2f} contre {name} "
             f"{intruse.at_home:.2f}"
         )
-    names = sorted({name for name, _ in trouvees})
+    names = sorted({name for name, _ in found})
     typer.echo(
         f"  « greffier connus --nettoyer {names[0]} » les retire sans effacer "
         "le reste."
@@ -1188,7 +1188,7 @@ def assembly(
     magasin = store(config)
     identifier = _reunion_visee(config, meeting)
     detail = magasin.read(identifier)
-    passages = notable_passages(detail, duree_visee=minutes * 60)
+    passages = notable_passages(detail, target_length=minutes * 60)
     if not passages:
         typer.secho("Pas assez de parole pour un montage.", fg=typer.colors.YELLOW)
         raise typer.Exit(1)
@@ -1224,11 +1224,11 @@ def contexte_(
     typer.echo(f"  banque       {config.paths.voice_bank}")
 
     typer.secho("\nTermes", fg=typer.colors.BRIGHT_WHITE, bold=True)
-    for terme in the_context.termes:
-        typer.echo(f"  {terme.gloss}")
+    for term in the_context.termes:
+        typer.echo(f"  {term.gloss}")
     typer.secho("\nPersonnes", fg=typer.colors.BRIGHT_WHITE, bold=True)
-    for personne in the_context.intervenants:
-        typer.echo(f"  {personne.gloss}")
+    for person in the_context.intervenants:
+        typer.echo(f"  {person.gloss}")
 
     prompt_seed = the_context.prompt_seed()
     typer.secho(f"\nAmorce de transcription ({len(prompt_seed)} caractères)",
@@ -1313,7 +1313,7 @@ def board(
 
     for name in vises:
         typer.secho(f"\n— {name} —", fg=typer.colors.BRIGHT_WHITE, bold=True)
-        deja = _board_labels(registre, name) if publish else ()
+        already = _board_labels(registre, name) if publish else ()
         des_autres = _contributions_of_others(registre, name) if publish else ()
         if des_autres:
             typer.secho(
@@ -1323,7 +1323,7 @@ def board(
             for label_text in des_autres[:5]:
                 typer.echo(f"    · {label_text}")
         try:
-            apports = extract(engine, name, material, deja=deja)
+            apports = extract(engine, name, material, already=already)
         except UnreadableOutput as trouble:
             typer.secho(f"  ✗ extraction illisible : {trouble}", fg=typer.colors.RED)
             continue
@@ -1334,8 +1334,8 @@ def board(
         bilan = join(the_board, apports, meeting=identifier)
         for contribution in apports:
             marque = "✓" if str(contribution.state) == "acté" else "·"
-            sous = f"  ← {contribution.sous}" if contribution.sous else ""
-            typer.echo(f"  {marque} [{contribution.kind}] {contribution.text}{sous}")
+            under = f"  ← {contribution.under}" if contribution.under else ""
+            typer.echo(f"  {marque} [{contribution.kind}] {contribution.text}{under}")
         if not publish:
             typer.echo(f"  ({len(bilan.ajoutes)} point(s), « --publier » pour l'écrire)")
             continue
@@ -1357,18 +1357,18 @@ def _action_texts(board: object) -> list[str]:
     """The labels of the points the group settled."""
     from greffier.domain.board import Kind, Node, Standing
 
-    trouves: list[str] = []
+    found: list[str] = []
 
     def walk(noeud: Node) -> None:
-        if noeud.state is Standing.ACTE and noeud.kind is not Kind.SUBJECT:
-            trouves.append(noeud.text)
-        for enfant in noeud.enfants:
+        if noeud.state is Standing.AGREED and noeud.kind is not Kind.SUBJECT:
+            found.append(noeud.text)
+        for enfant in noeud.children:
             walk(enfant)
 
-    racine = getattr(board, "racine", None)
-    if racine is not None:
-        walk(racine)
-    return trouves
+    root = getattr(board, "racine", None)
+    if root is not None:
+        walk(root)
+    return found
 
 def _contributions_of_others(registre: object, name: str) -> tuple[str, ...]:
     """What humans wrote on the board, and the tool did not."""
@@ -1389,30 +1389,30 @@ def _publier_la_carte(
     from greffier.adapters import board_miro, subjects_file
 
     connu = registre.by_name(name)  # type: ignore[attr-defined]
-    tableau = connu.board if connu and connu.board else ""
+    board_id = connu.board if connu and connu.board else ""
     try:
-        if not tableau:
-            tableau, adresse = board_miro.creer_le_tableau(name)
-            subjects_file.noter_la_carte(config.paths.subjects, name, tableau)
-            typer.secho(f"  tableau créé : {adresse or tableau}", fg=typer.colors.GREEN)
-        ecrit = board_miro.publish(the_board, tableau, meeting=identifier)  # type: ignore[arg-type]
+        if not board_id:
+            board_id, adresse = board_miro.create_the_board(name)
+            subjects_file.noter_la_carte(config.paths.subjects, name, board_id)
+            typer.secho(f"  tableau créé : {adresse or board_id}", fg=typer.colors.GREEN)
+        written = board_miro.publish(the_board, board_id, meeting=identifier)  # type: ignore[arg-type]
     except board_miro.MiroRefused as trouble:
         typer.secho(f"  ✗ {trouble}", fg=typer.colors.RED, err=True)
         return
     typer.secho(
-        f"  ✓ {len(ecrit.poses)} posé(s), {len(ecrit.deja)} déjà présent(s), "
-        f"{ecrit.liens} lien(s)",
+        f"  ✓ {len(written.poses)} posé(s), {len(written.already)} déjà présent(s), "
+        f"{written.liens} lien(s)",
         fg=typer.colors.GREEN,
     )
     actes = _action_texts(the_board)
     if actes:
-        marques = board_miro.mark_actions(tableau, actes, meeting=identifier)
+        marques = board_miro.mark_actions(board_id, actes, meeting=identifier)
         if marques:
             typer.secho(f"  ✓ {len(marques)} point(s) marqué(s) « acté »",
                         fg=typer.colors.GREEN)
-    if ecrit.liens_manques:
+    if written.liens_manques:
         typer.secho(
-            f"  ⚠ {ecrit.liens_manques} lien(s) n'ont pas pu être tracés",
+            f"  ⚠ {written.liens_manques} lien(s) n'ont pas pu être tracés",
             fg=typer.colors.YELLOW,
         )
 
@@ -1468,13 +1468,13 @@ def _try_the_source(source: object, token: str) -> None:
     if source.kind is Kind.GITLAB:
         from greffier.adapters.gitlab_api import tickets
 
-        trouves = tickets(source, token)
-        typer.echo(f"      {len(trouves)} ticket(s) ouvert(s) lisible(s)")
+        found = tickets(source, token)
+        typer.echo(f"      {len(found)} ticket(s) ouvert(s) lisible(s)")
         return
     from greffier.adapters.jira_api import requests
 
-    trouvees = requests(source, token)
-    typer.echo(f"      {len(trouvees)} demande(s) lisible(s)")
+    readable = requests(source, token)
+    typer.echo(f"      {len(readable)} demande(s) lisible(s)")
 
 @application.command(name="niveau")
 def niveau_(
@@ -1547,15 +1547,15 @@ def publish(
     for proposition in propositions:
         colour = (
             typer.colors.GREEN if proposition.feasible
-            else (typer.colors.YELLOW if proposition.bloque_par else typer.colors.BRIGHT_BLACK)
+            else (typer.colors.YELLOW if proposition.blocked_by else typer.colors.BRIGHT_BLACK)
         )
         typer.secho(
-            f"  {str(proposition.destin):9} {proposition.file.name}",
+            f"  {str(proposition.destination):9} {proposition.file.name}",
             fg=colour,
         )
-        typer.echo(f"            {proposition.parce_que}")
-        if proposition.bloque_par:
-            typer.secho(f"            ⚠ {proposition.bloque_par}", fg=typer.colors.YELLOW)
+        typer.echo(f"            {proposition.because}")
+        if proposition.blocked_by:
+            typer.secho(f"            ⚠ {proposition.blocked_by}", fg=typer.colors.YELLOW)
     typer.echo(f"\n  {summarise(propositions)}")
 
     if not do_it:
@@ -1563,7 +1563,7 @@ def publish(
         return
 
     redacteur_document = cartographe(config)
-    if any(p.destin is Destination.CONTEXT and p.feasible for p in propositions):
+    if any(p.destination is Destination.CONTEXT and p.feasible for p in propositions):
         from greffier.adapters.writer_claude import ClaudeWriter
         from greffier.application.publish import CONSIGNES_DOCUMENT
 
@@ -1573,25 +1573,25 @@ def publish(
     typer.echo("")
     a_traiter: list[Path] = []
     for proposition in propositions:
-        fait = job.run_chain(
+        done = job.run_chain(
             proposition, config.paths.recordings, redacteur_document
         )
-        if fait.trouble:
-            typer.secho(f"  ✗ {proposition.file.name} : {fait.trouble}",
+        if done.trouble:
+            typer.secho(f"  ✗ {proposition.file.name} : {done.trouble}",
                         fg=typer.colors.RED)
             continue
-        if fait.produit is not None:
-            typer.secho(f"  ✓ {fait.produit.name}", fg=typer.colors.GREEN)
-            a_traiter.append(fait.produit)
-        for ecriture, sens, kind in fait.appris:
+        if done.produit is not None:
+            typer.secho(f"  ✓ {done.produit.name}", fg=typer.colors.GREEN)
+            a_traiter.append(done.produit)
+        for ecriture, sens, kind in done.appris:
             typer.echo(f"    · {kind:8} {ecriture}"
                        + (f" — {sens}" if sens else ""))
-        if fait.appris:
+        if done.appris:
             typer.secho(
-                f"  {len(fait.appris)} entrée(s) proposée(s) depuis "
+                f"  {len(done.appris)} entrée(s) proposée(s) depuis "
                 f"{proposition.file.name}", fg=typer.colors.GREEN,
             )
-            _offer_to_the_context(config, fait.appris)
+            _offer_to_the_context(config, done.appris)
 
     if a_traiter:
         typer.echo("\nÀ transcrire :")
@@ -1713,13 +1713,13 @@ def back_up(
     )
 
     if lister_seulement:
-        trouvees = job.lister(destination)
-        if not trouvees:
+        found = job.lister(destination)
+        if not found:
             typer.echo(f"Aucune sauvegarde dans {destination}.")
             raise typer.Exit(1)
-        typer.echo(f"\n{len(trouvees)} sauvegarde(s) dans {destination} :\n")
-        for name, bytes_read, quand in trouvees:
-            typer.echo(f"  {quand:%Y-%m-%d %H:%M}  {bytes_read / 1024**2:6.1f} Mo  {name}")
+        typer.echo(f"\n{len(found)} sauvegarde(s) dans {destination} :\n")
+        for name, bytes_read, when in found:
+            typer.echo(f"  {when:%Y-%m-%d %H:%M}  {bytes_read / 1024**2:6.1f} Mo  {name}")
         return
 
     if restaurer_depuis:
@@ -1798,7 +1798,7 @@ def tidy(
             detail = magasin.read(identifier)
         except (OSError, ValueError):
             continue
-        reference = detail.commencee_le or detail.traitee_le
+        reference = detail.started_at or detail.processed_at
         jours = (now - reference).total_seconds() / 86400
         meetings.append((identifier, jours, bool(detail.utterances)))
 
@@ -1809,12 +1809,12 @@ def tidy(
         typer.echo("Rien à ranger : tout est déjà dans l'état voulu.")
         return
 
-    for fait in faits:
-        if fait.trouble:
-            typer.secho(f"  ⚠ {fait.identifier} : {fait.trouble}", fg=typer.colors.YELLOW)
+    for done in faits:
+        if done.trouble:
+            typer.secho(f"  ⚠ {done.identifier} : {done.trouble}", fg=typer.colors.YELLOW)
             continue
-        typer.echo(f"  {fait.geste:<12} {fait.identifier}  "
-                   f"{rangement.readable(fait.gagne)}")
+        typer.echo(f"  {done.geste:<12} {done.identifier}  "
+                   f"{rangement.readable(done.gagne)}")
     total = rangement.readable(sum(f.gagne for f in faits))
     if for_real:
         typer.secho(f"✓ {total} libérés", fg=typer.colors.GREEN)
@@ -1824,7 +1824,7 @@ def tidy(
 @application.command("oublier")
 def forget(
     meeting: str = typer.Argument(None, help="Réunion (défaut : la dernière)"),
-    oui: bool = typer.Option(False, "--oui", help="Effacer sans confirmation"),
+    yes: bool = typer.Option(False, "--oui", help="Effacer sans confirmation"),
     config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
 ) -> None:
     """Efface une réunion et tout ce qui va avec, après confirmation.
@@ -1845,12 +1845,12 @@ def forget(
 
     typer.echo(f"\nÀ effacer pour « {identifier} » :")
     for piece in pieces:
-        typer.echo(f"  {tidy.readable(piece.bytes_read):>8}  {piece.quoi}")
+        typer.echo(f"  {tidy.readable(piece.bytes_read):>8}  {piece.what}")
     total = sum(p.bytes_read for p in pieces)
     typer.echo(f"  {'─' * 8}")
     typer.echo(f"  {tidy.readable(total):>8}  au total\n")
 
-    if not oui and not typer.confirm("Effacer définitivement ?", default=False):
+    if not yes and not typer.confirm("Effacer définitivement ?", default=False):
         typer.echo("Rien n'a été effacé.")
         raise typer.Exit(1)
 
@@ -1860,8 +1860,8 @@ def forget(
         f"{tidy.readable(sum(p.bytes_read for p in effacees))} libérés",
         fg=typer.colors.GREEN,
     )
-    reste = tidy.pieces_de(ou, identifier)
-    for piece in reste:
+    remaining = tidy.pieces_de(ou, identifier)
+    for piece in remaining:
         typer.secho(f"⚠ {piece.path} n'a pas pu être effacé", fg=typer.colors.YELLOW)
 
 @application.command()
@@ -2163,11 +2163,11 @@ def watch(
     def reconstruire(mic: str) -> bool:
         if not mic or not source.exists():
             return False
-        fait = subprocess.run(
+        done = subprocess.run(
             ["swift", str(source), "--mic", mic, "--casque", mic],
             capture_output=True, text=True, check=False,
         )
-        return fait.returncode == 0
+        return done.returncode == 0
 
     def notify_user(message: str) -> None:
         SystemNotifier().notify("Greffier", message)
@@ -2177,10 +2177,10 @@ def watch(
     def captured_size() -> int | None:
         """The bytes written in the current chunk, to tell whether it advances."""
         try:
-            etat_courant = recorder.read()
+            current_state = recorder.read()
         except (OSError, ValueError):
             return None
-        chunks = etat_courant.chunks or ([etat_courant.audio] if etat_courant.audio else [])
+        chunks = current_state.chunks or ([current_state.audio] if current_state.audio else [])
         if not chunks:
             return None
         try:
@@ -2193,21 +2193,21 @@ def watch(
         from greffier.adapters.live_levels import read_level
 
         try:
-            etat_courant = recorder.read()
+            current_state = recorder.read()
         except (OSError, ValueError):
             return None
-        chunks = etat_courant.chunks or (
-            [etat_courant.audio] if etat_courant.audio else []
+        chunks = current_state.chunks or (
+            [current_state.audio] if current_state.audio else []
         )
         if not chunks:
             return None
         releve = read_level(chunks[-1])
-        return None if releve is None else releve.micro_db
+        return None if releve is None else releve.mic_db
 
     veilleuse = HardwareWatch(
         recorder=recorder,
         lister=player,
-        watch_rules=WatchRules(micro_voulu=voulu, agrege=config.audio.input),
+        watch_rules=WatchRules(wanted_mic=voulu, agrege=config.audio.input),
         reconstruire=reconstruire,
         notify_user=notify_user,
         captured_size=captured_size,

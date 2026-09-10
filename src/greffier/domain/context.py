@@ -54,12 +54,12 @@ class Context:
     def empty(self) -> bool:
         return not self.termes and not self.intervenants
 
-    def join(self, autre: Context) -> Context:
+    def join(self, other: Context) -> Context:
         """This context, completed by another, which wins on equal names."""
         termes = {t.ecriture.casefold(): t for t in self.termes}
-        termes.update({t.ecriture.casefold(): t for t in autre.termes})
+        termes.update({t.ecriture.casefold(): t for t in other.termes})
         gens = {i.name.casefold(): i for i in self.intervenants}
-        gens.update({i.name.casefold(): i for i in autre.intervenants})
+        gens.update({i.name.casefold(): i for i in other.intervenants})
         return Context(tuple(termes.values()), tuple(gens.values()))
 
     def prompt_seed(self) -> str:
@@ -100,10 +100,10 @@ def _hold(words: list[str], place: int) -> list[str]:
     """The first words that fit in the room available."""
     retenus: list[str] = []
     length = 0
-    for mot in dict.fromkeys(m for m in words if m.strip()):
-        ajout = len(mot) + (2 if retenus else 0)
+    for word in dict.fromkeys(m for m in words if m.strip()):
+        ajout = len(word) + (2 if retenus else 0)
         if length + ajout > place:
             continue
-        retenus.append(mot)
+        retenus.append(word)
         length += ajout
     return retenus

@@ -33,9 +33,9 @@ INTERDITS = frozenset({"uXjVH5WwzTI="})
 PREFIXE = "Greffier"
 
 COLOURS = {
-    Standing.ACTE: "light_green",
-    Standing.EN_DISCUSSION: "light_yellow",
-    Standing.DEPASSE: "gray",
+    Standing.AGREED: "light_green",
+    Standing.UNDER_DISCUSSION: "light_yellow",
+    Standing.OVERTAKEN: "gray",
 }
 
 COULEUR_SUJET = "light_blue"
@@ -47,9 +47,9 @@ class MiroRefused(RuntimeError):
 class Written:
     """What a publication did. Nothing is ever deleted."""
 
-    tableau: str
+    board_id: str
     poses: tuple[str, ...] = ()
-    deja: tuple[str, ...] = ()
+    already: tuple[str, ...] = ()
     adresse: str = ""
     liens: int = 0
     liens_manques: int = 0
@@ -91,16 +91,16 @@ def _appeler(path: str, methode: str = "GET",
     except (urllib.error.URLError, TimeoutError) as trouble:
         raise MiroRefused(f"Miro est injoignable : {trouble}") from trouble
 
-def _keep(tableau: str) -> str:
+def _keep(board_id: str) -> str:
     """Refuses a forbidden board at once."""
-    if tableau in INTERDITS:
+    if board_id in INTERDITS:
         raise MiroRefused(
-            f"le tableau {tableau} est sur la liste des tableaux interdits : "
+            f"le tableau {board_id} est sur la liste des tableaux interdits : "
             "cet outil n'y écrit jamais"
         )
-    return tableau
+    return board_id
 
-def creer_le_tableau(subject: str) -> tuple[str, str]:
+def create_the_board(subject: str) -> tuple[str, str]:
     """Creates a subject's board. Returns its identifier."""
     response = _appeler("/boards", "POST", {
         "name": f"{PREFIXE} — {subject}",
@@ -122,83 +122,83 @@ class Placement:
     identifier: str
     x: int
     y: int
-    de_l_outil: bool = False
+    of_the_tool: bool = False
 
-def objets_presents(tableau: str) -> dict[str, str]:
+def objets_presents(board_id: str) -> dict[str, str]:
     """The points already on the board: label and identifier."""
-    _keep(tableau)
-    trouves: dict[str, str] = {}
+    _keep(board_id)
+    found: dict[str, str] = {}
     cursor = ""
     while True:
         parametres = {"limit": "50"}
         if cursor:
             parametres["cursor"] = cursor
         response = _appeler(
-            f"/boards/{urllib.parse.quote(tableau, safe='')}/items"
+            f"/boards/{urllib.parse.quote(board_id, safe='')}/items"
             f"?{urllib.parse.urlencode(parametres)}"
         )
         for objet in response.get("data", []):
             content = (objet.get("data") or {}).get("content", "")
             if not content:
                 continue
-            premiere = _sans_balises(content.split("</p>")[0])
+            premiere = _without_markup(content.split("</p>")[0])
             if premiere:
-                trouves.setdefault(premiere, str(objet.get("id", "")))
+                found.setdefault(premiere, str(objet.get("id", "")))
         cursor = str(response.get("cursor", ""))
         if not cursor:
-            return trouves
+            return found
 
 _PROVENANCE = re.compile(r"\d{4}-\d{2}-\d{2}_\d{2}h\d{2}")
 
-def placements_present(tableau: str) -> dict[str, Placement]:
+def placements_present(board_id: str) -> dict[str, Placement]:
     """The points of the board, with their place and their size."""
-    _keep(tableau)
-    trouves: dict[str, Placement] = {}
+    _keep(board_id)
+    found: dict[str, Placement] = {}
     cursor = ""
     while True:
         parametres = {"limit": "50"}
         if cursor:
             parametres["cursor"] = cursor
         response = _appeler(
-            f"/boards/{urllib.parse.quote(tableau, safe='')}/items"
+            f"/boards/{urllib.parse.quote(board_id, safe='')}/items"
             f"?{urllib.parse.urlencode(parametres)}"
         )
         for objet in response.get("data", []):
             content = (objet.get("data") or {}).get("content", "")
             if not content:
                 continue
-            premiere = _sans_balises(content.split("</p>")[0])
-            if not premiere or premiere in trouves:
+            premiere = _without_markup(content.split("</p>")[0])
+            if not premiere or premiere in found:
                 continue
             position = objet.get("position") or {}
-            trouves[premiere] = Placement(
+            found[premiere] = Placement(
                 identifier=str(objet.get("id", "")),
                 x=int(position.get("x", 0) or 0),
                 y=int(position.get("y", 0) or 0),
-                de_l_outil=bool(_PROVENANCE.search(_sans_balises(content))),
+                of_the_tool=bool(_PROVENANCE.search(_without_markup(content))),
             )
         cursor = str(response.get("cursor", ""))
         if not cursor:
-            return trouves
+            return found
 
-def contributions_of_others(tableau: str) -> list[str]:
+def contributions_of_others(board_id: str) -> list[str]:
     """What humans wrote on the board, and the tool did not."""
     return [
-        label_text for label_text, pose in placements_present(tableau).items()
-        if not pose.de_l_outil
+        label_text for label_text, pose in placements_present(board_id).items()
+        if not pose.of_the_tool
     ]
 
-def labels_present(tableau: str) -> list[str]:
+def labels_present(board_id: str) -> list[str]:
     """The labels already on the board, in their own wording."""
-    return list(placements_present(tableau))
+    return list(placements_present(board_id))
 
 MARQUE_ACTE = "acté"
 
-DECALAGE_PASTILLE = (150, -60)
+BADGE_OFFSET = (150, -60)
 
 TOLERANCE_PASTILLE = 40
 
-def _dots_placed(tableau: str) -> set[tuple[int, int]]:
+def _dots_placed(board_id: str) -> set[tuple[int, int]]:
     """The positions of every "settled" dot."""
     positions: set[tuple[int, int]] = set()
     cursor = ""
@@ -208,13 +208,13 @@ def _dots_placed(tableau: str) -> set[tuple[int, int]]:
             parametres["cursor"] = cursor
         try:
             response = _appeler(
-                f"/boards/{urllib.parse.quote(tableau, safe='')}/shapes"
+                f"/boards/{urllib.parse.quote(board_id, safe='')}/shapes"
                 f"?{urllib.parse.urlencode(parametres)}"
             )
         except MiroRefused:
             return positions
         for forme in response.get("data", []):
-            content = _sans_balises((forme.get("data") or {}).get("content", ""))
+            content = _without_markup((forme.get("data") or {}).get("content", ""))
             if content.strip().casefold() != MARQUE_ACTE:
                 continue
             position = forme.get("position") or {}
@@ -226,14 +226,14 @@ def _dots_placed(tableau: str) -> set[tuple[int, int]]:
             return positions
 
 def mark_actions(
-    tableau: str, texts: list[str], meeting: str = ""
+    board_id: str, texts: list[str], meeting: str = ""
 ) -> tuple[str, ...]:
     """Places a "settled" dot next to the points that are settled."""
     from greffier.domain.board import same_point
 
-    _keep(tableau)
-    present_line = placements_present(tableau)
-    deja_marques = _dots_placed(tableau)
+    _keep(board_id)
+    present_line = placements_present(board_id)
+    already_marked = _dots_placed(board_id)
     marques: list[str] = []
     for text in texts:
         pose = next(
@@ -242,16 +242,16 @@ def mark_actions(
         )
         if pose is None:
             continue
-        attendue = (pose.x + DECALAGE_PASTILLE[0], pose.y + DECALAGE_PASTILLE[1])
+        attendue = (pose.x + BADGE_OFFSET[0], pose.y + BADGE_OFFSET[1])
         if any(
             abs(x - attendue[0]) <= TOLERANCE_PASTILLE
             and abs(y - attendue[1]) <= TOLERANCE_PASTILLE
-            for x, y in deja_marques
+            for x, y in already_marked
         ):
             continue
         try:
             _appeler(
-                f"/boards/{urllib.parse.quote(tableau, safe='')}/shapes",
+                f"/boards/{urllib.parse.quote(board_id, safe='')}/shapes",
                 "POST",
                 {
                     "data": {"shape": "round_rectangle",
@@ -268,24 +268,24 @@ def mark_actions(
             continue
     return tuple(marques)
 
-def textes_presents(tableau: str) -> set[str]:
+def textes_presents(board_id: str) -> set[str]:
     """The comparison keys of the points already on the board."""
     from greffier.domain.board import key
 
-    return {key(label_text) for label_text in labels_present(tableau)}
+    return {key(label_text) for label_text in labels_present(board_id)}
 
-def _sans_balises(html: str) -> str:
+def _without_markup(html: str) -> str:
     """Miro returns content as light HTML; only the text is compared."""
     import re
 
     return re.sub(r"<[^>]+>", " ", html).replace("&nbsp;", " ").strip()
 
-def publish(board: Board, tableau: str, meeting: str = "") -> Written:
+def publish(board: Board, board_id: str, meeting: str = "") -> Written:
     """Places on the board the nodes that are not on it yet."""
     from greffier.domain.board import same_point
 
-    _keep(tableau)
-    present_line = placements_present(tableau)
+    _keep(board_id)
+    present_line = placements_present(board_id)
     identifiers: dict[str, str] = {
         label_text: pose.identifier for label_text, pose in present_line.items()
         if pose.identifier
@@ -297,10 +297,10 @@ def publish(board: Board, tableau: str, meeting: str = "") -> Written:
         if any(same_point(label_text, place.noeud.text) for label_text in present_line):
             known.append(place.noeud.text)
             continue
-        from greffier.domain.board import SANS_ETAT
+        from greffier.domain.board import WITHOUT_STANDING
 
         colour = (
-            COULEUR_SUJET if place.noeud.kind in SANS_ETAT
+            COULEUR_SUJET if place.noeud.kind in WITHOUT_STANDING
             else COLOURS.get(place.noeud.state, "light_yellow")
         )
         corps = {
@@ -310,7 +310,7 @@ def publish(board: Board, tableau: str, meeting: str = "") -> Written:
             "position": {"x": place.x, "y": place.y, "origin": "center"},
         }
         response = _appeler(
-            f"/boards/{urllib.parse.quote(tableau, safe='')}/sticky_notes",
+            f"/boards/{urllib.parse.quote(board_id, safe='')}/sticky_notes",
             "POST", corps,
         )
         identifier = str(response.get("id", ""))
@@ -318,22 +318,22 @@ def publish(board: Board, tableau: str, meeting: str = "") -> Written:
             identifiers[place.noeud.text] = identifier
             poses.append(place.noeud.text)
 
-    liens, manques = _relier(tableau, board, identifiers)
-    return Written(tableau, tuple(poses), tuple(known), liens=liens, liens_manques=manques)
+    liens, manques = _relier(board_id, board, identifiers)
+    return Written(board_id, tuple(poses), tuple(known), liens=liens, liens_manques=manques)
 
 def _as_html(noeud: Node, meeting: str) -> str:
     """The sticky note's text: the point, then where it comes from."""
-    from greffier.domain.board import SANS_ETAT
+    from greffier.domain.board import WITHOUT_STANDING
 
     lines = [f"<p>{_echapper(noeud.text)}</p>"]
-    if noeud.kind not in SANS_ETAT and noeud.state is not Standing.ACTE:
+    if noeud.kind not in WITHOUT_STANDING and noeud.state is not Standing.AGREED:
         lines.append(f"<p><i>{noeud.state}</i></p>")
-    origine = meeting or (noeud.meetings[-1] if noeud.meetings else "")
-    if origine:
-        lines.append(f"<p><i>{_echapper(origine)}</i></p>")
+    origin = meeting or (noeud.meetings[-1] if noeud.meetings else "")
+    if origin:
+        lines.append(f"<p><i>{_echapper(origin)}</i></p>")
     return "".join(lines)
 
-def _liens_existants(tableau: str) -> set[tuple[str, str]]:
+def _liens_existants(board_id: str) -> set[tuple[str, str]]:
     """The pairs already connected, so as not to draw twice."""
     couples: set[tuple[str, str]] = set()
     cursor = ""
@@ -343,7 +343,7 @@ def _liens_existants(tableau: str) -> set[tuple[str, str]]:
             parametres["cursor"] = cursor
         try:
             response = _appeler(
-                f"/boards/{urllib.parse.quote(tableau, safe='')}/connectors"
+                f"/boards/{urllib.parse.quote(board_id, safe='')}/connectors"
                 f"?{urllib.parse.urlencode(parametres)}"
             )
         except MiroRefused:
@@ -361,22 +361,22 @@ def _echapper(text: str) -> str:
     return (text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
 def _relier(
-    tableau: str, board: Board, identifiers: dict[str, str]
+    board_id: str, board: Board, identifiers: dict[str, str]
 ) -> tuple[int, int]:
     """Draws the links between the nodes just placed."""
     traces = 0
     manques = 0
-    deja_reliees = _liens_existants(tableau)
+    already_linked = _liens_existants(board_id)
     for place in disposer(board):
         depart = identifiers.get(place.parent)
         arrivee = identifiers.get(place.noeud.text)
         if not place.parent or depart is None or arrivee is None:
             continue
-        if (depart, arrivee) in deja_reliees:
+        if (depart, arrivee) in already_linked:
             continue
         try:
             _appeler(
-                f"/boards/{urllib.parse.quote(tableau, safe='')}/connectors",
+                f"/boards/{urllib.parse.quote(board_id, safe='')}/connectors",
                 "POST",
                 {"startItem": {"id": int(depart)}, "endItem": {"id": int(arrivee)},
                  "style": {"strokeStyle": "normal", "strokeWidth": "2"}},

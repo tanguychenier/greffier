@@ -46,7 +46,7 @@ class Source(StrEnum):
 
     MIC = "micro"          # la personne qui tient le Mac
     SYSTEM = "systeme"      # les participants distants
-    INCONNUE = "inconnue"    # présentiel : une seule source pour tout le monde
+    UNKNOWN = "inconnue"    # présentiel : une seule source pour tout le monde
 
 @dataclass(frozen=True, slots=True)
 class Span:
@@ -61,9 +61,9 @@ class Span:
     def duration(self) -> float:
         return self.end - self.start
 
-    def overlap(self, autre: Span) -> float:
+    def overlap(self, other: Span) -> float:
         """Time common to both spans, 0 when they are disjoint."""
-        return max(0.0, min(self.end, autre.end) - max(self.start, autre.start))
+        return max(0.0, min(self.end, other.end) - max(self.start, other.start))
 
 @dataclass(frozen=True, slots=True)
 class SpeakerTurn:
@@ -71,7 +71,7 @@ class SpeakerTurn:
 
     span: Span
     voice: str          # identifiant acoustique, pas un nom : « v1 », « v2 »…
-    source: Source = Source.INCONNUE
+    source: Source = Source.UNKNOWN
 
 @dataclass(slots=True)
 class Utterance:
@@ -80,7 +80,7 @@ class Utterance:
     span: Span
     text: str
     voice: str | None = None
-    source: Source = Source.INCONNUE
+    source: Source = Source.UNKNOWN
 
 @dataclass(frozen=True, slots=True)
 class Voiceprint:
@@ -88,7 +88,7 @@ class Voiceprint:
 
     vector: tuple[float, ...]
     source_duration: float = 0.0
-    origine: str = ""
+    origin: str = ""
 
     def __post_init__(self) -> None:
         if not self.vector:
@@ -100,7 +100,7 @@ class Person:
 
     name: str
     voiceprints: list[Voiceprint] = field(default_factory=list)
-    vu_le: datetime | None = None
+    seen_at: datetime | None = None
     meetings: int = 0
 
 @dataclass(slots=True)
@@ -116,9 +116,9 @@ class Meeting:
     utterances: list[Utterance] = field(default_factory=list)
     turns: list[SpeakerTurn] = field(default_factory=list)
     names: dict[str, str] = field(default_factory=dict)
-    personnes_en_salle: int | None = None
+    people_in_the_room: int | None = None
 
-    def nom_de(self, voice: str | None) -> str:
+    def name_of(self, voice: str | None) -> str:
         if voice is None:
             return "Indéterminé"
         return self.names.get(voice, voice)

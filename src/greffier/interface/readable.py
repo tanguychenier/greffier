@@ -9,8 +9,8 @@ from pathlib import Path
 def clock(seconds: float) -> str:
     """The meeting's stopwatch."""
     entier = max(0, int(seconds))
-    heures, reste = divmod(entier, 3600)
-    minutes, restantes = divmod(reste, 60)
+    heures, remaining = divmod(entier, 3600)
+    minutes, restantes = divmod(remaining, 60)
     if heures:
         return f"{heures}:{minutes:02d}:{restantes:02d}"
     return f"{minutes}:{restantes:02d}"
@@ -25,8 +25,8 @@ def readable_subject(identifier: str, minutes: Path, subject: str = "") -> str:
 
             title = extraire_titre(minutes.read_text(encoding="utf-8"), "")
             if title:
-                sans_prefixe = title.split(":", 1)[-1].strip() if ":" in title else title
-                return sans_prefixe or title
+                without_prefix = title.split(":", 1)[-1].strip() if ":" in title else title
+                return without_prefix or title
     return identifier
 
 ETIREMENT_MAXIMUM = 1.25
@@ -88,14 +88,14 @@ def dot_marker(count: int) -> str:
         return ""
     return str(count) if count < 10 else "9+"
 
-def live_state_line(en_reunion: bool, annonce: str, sentences: int) -> str:
+def live_state_line(in_a_meeting: bool, annonce: str, sentences: int) -> str:
     """La ligne qui dit ce que le fil est en train de faire, ou pourquoi rien.
 
     Un onglet vide se lit « personne ne parle » alors qu'il veut souvent dire
     « rien n'écoute » : modèle absent, processus non lancé, réunion terminée. La
     différence est celle entre attendre et perdre sa réunion.
     """
-    if not en_reunion:
+    if not in_a_meeting:
         return (
             "Aucune réunion en cours. Pendant une réunion, ce qui se dit "
             "s'affiche ici et le locuteur se corrige d'un clic sur son nom."

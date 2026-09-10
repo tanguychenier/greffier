@@ -67,8 +67,8 @@ def download(name: str, target: Path) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     print(f"  téléchargement de {name}…", file=sys.stderr)
     partiel = target.with_suffix(".partiel")
-    with urllib.request.urlopen(CATALOGUE + name) as flux, partiel.open("wb") as output:
-        while morceau := flux.read(1 << 20):
+    with urllib.request.urlopen(CATALOGUE + name) as stream, partiel.open("wb") as output:
+        while morceau := stream.read(1 << 20):
             output.write(morceau)
     partiel.replace(target)
     return target
@@ -83,21 +83,21 @@ def voiceprints(model: Path, meeting: dict, key: str) -> list:
     import numpy as np
     import soundfile as sf
 
-    from greffier.adapters.voiceprints_titanet import DUREE_MINIMALE, TitaNetExtractor
+    from greffier.adapters.voiceprints_titanet import MINIMUM_LENGTH, TitaNetExtractor
 
     extractor = TitaNetExtractor(model)
     rendered = []
-    with sf.SoundFile(str(meeting["audio"])) as flux:
-        frequency = flux.samplerate
+    with sf.SoundFile(str(meeting["audio"])) as stream:
+        frequency = stream.samplerate
         for turn in meeting["tours"]:
             at_instant = turn["debut"]
-            while at_instant + DUREE_MINIMALE <= turn["fin"]:
+            while at_instant + MINIMUM_LENGTH <= turn["fin"]:
                 bout = min(at_instant + WINDOW, turn["fin"])
-                flux.seek(int(at_instant * frequency))
-                bloc = flux.read(int((bout - at_instant) * frequency),
+                stream.seek(int(at_instant * frequency))
+                block = stream.read(int((bout - at_instant) * frequency),
                                  dtype="float32", always_2d=True)
-                if len(bloc) >= DUREE_MINIMALE * frequency:
-                    signal = np.ascontiguousarray(bloc.mean(axis=1))
+                if len(block) >= MINIMUM_LENGTH * frequency:
+                    signal = np.ascontiguousarray(block.mean(axis=1))
                     rendered.append((at_instant, extractor.extract(signal, frequency)))
                 at_instant = bout
     rendered.sort()
@@ -129,30 +129,30 @@ def grade(etiquetees: list) -> dict:
     une phrase contre une voix accumulée, jamais deux phrases entre elles.
     """
     par = defaultdict(list)
-    for qui, voiceprint in etiquetees:
-        par[qui].append(voiceprint)
+    for who, voiceprint in etiquetees:
+        par[who].append(voiceprint)
     gros = sorted(par, key=lambda q: -len(par[q]))[:3]
     if len(gros) < 2:
         return {}
-    memes, autres = [], []
-    for qui in gros:
-        reference = aggregate(par[qui][:40])
-        memes += [similarity(e, reference) for e in par[qui][40:140]]
-        for autre in gros:
-            if autre != qui:
-                autres += [similarity(e, reference) for e in par[autre][40:140]]
-    if len(memes) < 10 or len(autres) < 10:
+    memes, others = [], []
+    for who in gros:
+        reference = aggregate(par[who][:40])
+        memes += [similarity(e, reference) for e in par[who][40:140]]
+        for other in gros:
+            if other != who:
+                others += [similarity(e, reference) for e in par[other][40:140]]
+    if len(memes) < 10 or len(others) < 10:
         return {}
     memes.sort()
-    autres.sort()
+    others.sort()
     return {
         "meme": stat.median(memes),
         "meme_bas": memes[len(memes) // 10],
-        "autre": stat.median(autres),
-        "autre_haut": autres[9 * len(autres) // 10],
+        "autre": stat.median(others),
+        "autre_haut": others[9 * len(others) // 10],
         # Ce qui décide : la place qui reste entre les deux distributions. Un
         # écart négatif veut dire qu'aucun seuil ne les sépare proprement.
-        "marge": memes[len(memes) // 10] - autres[9 * len(autres) // 10],
+        "marge": memes[len(memes) // 10] - others[9 * len(others) // 10],
     }
 
 
@@ -166,7 +166,7 @@ def main() -> int:
     meeting["identifiant"] = arguments.meeting
     turns = verite(meeting)
 
-    def qui(at_instant: float) -> str | None:
+    def who(at_instant: float) -> str | None:
         for start, end, voice in turns:
             if start <= at_instant < end:
                 return voice
@@ -181,7 +181,7 @@ def main() -> int:
         depart = time.time()
         extraits = voiceprints(model, meeting, key)
         cout = 1000 * (time.time() - depart) / max(1, len(extraits))
-        etiquetees = [(qui(t), e) for t, e in extraits]
+        etiquetees = [(who(t), e) for t, e in extraits]
         scores = grade([(q, e) for q, e in etiquetees if q])
         if not scores:
             print(f"{key:16} pas assez de matière étiquetée")

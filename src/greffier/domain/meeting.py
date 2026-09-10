@@ -13,10 +13,10 @@ HORODATAGE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})(?:_(\d{2})h(\d{2}))?")
 
 def held_on(identifier: str) -> tuple[int, int, int, int, int] | None:
     """When the meeting was held, from its identifier."""
-    trouve = HORODATAGE.match(identifier)
-    if trouve is None:
+    found = HORODATAGE.match(identifier)
+    if found is None:
         return None
-    annee, mois, jour, heure, minute = trouve.groups()
+    annee, mois, jour, heure, minute = found.groups()
     return (int(annee), int(mois), int(jour), int(heure or 0), int(minute or 0))
 
 @dataclass(frozen=True, slots=True)
@@ -43,7 +43,7 @@ class StoredMeeting:
 
     identifier: str
     audio: Path
-    traitee_le: datetime
+    processed_at: datetime
     duration: float
     utterances: list[Utterance]
     turns: list[SpeakerTurn]
@@ -52,8 +52,8 @@ class StoredMeeting:
     warnings: list[str]
     hardware_events: list[str] = field(default_factory=list)
     subject: str = ""
-    commencee_le: datetime | None = None
-    terminee_le: datetime | None = None
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
     joins: list[Join] = field(default_factory=list)
 
     def attendees(self, minimum: float = 10.0) -> list[str]:
@@ -143,16 +143,16 @@ class StoredMeeting:
             return [Span(0.0, self.duration)] if self.duration > minimum else []
         manques: list[Span] = []
         ordonnees = sorted(self.utterances, key=lambda r: r.span.start)
-        precedent = 0.0
+        previous = 0.0
         for utterance in ordonnees:
-            if utterance.span.start - precedent >= minimum:
-                manques.append(Span(precedent, utterance.span.start))
-            precedent = max(precedent, utterance.span.end)
-        if self.duration - precedent >= minimum:
-            manques.append(Span(precedent, self.duration))
+            if utterance.span.start - previous >= minimum:
+                manques.append(Span(previous, utterance.span.start))
+            previous = max(previous, utterance.span.end)
+        if self.duration - previous >= minimum:
+            manques.append(Span(previous, self.duration))
         return manques
 
-    def nom_de(self, voice: str | None) -> str:
+    def name_of(self, voice: str | None) -> str:
         if voice is None:
             return "Indéterminé"
         return self.names.get(voice, f"Personne {voice}")

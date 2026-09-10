@@ -81,11 +81,11 @@ def extract_json(response: str) -> list[object]:
     try:
         charge = json.loads(nettoye)
     except json.JSONDecodeError:
-        trouve = re.search(r"\[.*\]", nettoye, re.DOTALL)
-        if not trouve:
+        found = re.search(r"\[.*\]", nettoye, re.DOTALL)
+        if not found:
             return []
         try:
-            charge = json.loads(trouve.group(0))
+            charge = json.loads(found.group(0))
         except json.JSONDecodeError:
             return []
     return charge if isinstance(charge, list) else []

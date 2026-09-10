@@ -114,12 +114,12 @@ class Button(tk.Canvas):
         self.itemconfigure(self._text, fill=self._ink(),
                            font=font(12, principal))
 
-    def activer(self, oui: bool) -> None:
-        self._active = oui
+    def activer(self, yes: bool) -> None:
+        self._active = yes
         self.itemconfigure(self._text, fill=self._ink())
         self.itemconfigure(
             self._forme,
-            fill=self._plain_background() if oui else self.colours.hover,
+            fill=self._plain_background() if yes else self.colours.hover,
         )
 
 class Listing(tk.Canvas):
@@ -163,8 +163,8 @@ class Listing(tk.Canvas):
     def fill_menu(self, choix: list[tuple[str, str]], key: str = "") -> None:
         """Places the possible choices, and selects one."""
         self._choix = list(choix)
-        connues = [c for c, _ in self._choix]
-        self._key = key if key in connues else (connues[0] if connues else "")
+        known = [c for c, _ in self._choix]
+        self._key = key if key in known else (known[0] if known else "")
         self._show()
 
     def value(self) -> str:
@@ -175,12 +175,12 @@ class Listing(tk.Canvas):
             self._key = key
             self._show()
 
-    def activer(self, oui: bool) -> None:
-        self._active = oui
+    def activer(self, yes: bool) -> None:
+        self._active = yes
         self.itemconfigure(self._text,
-                           fill=self.colours.ink if oui else self.colours.calm)
+                           fill=self.colours.ink if yes else self.colours.calm)
         self.itemconfigure(self._chevron,
-                           fill=self.colours.ink_pale if oui else self.colours.calm)
+                           fill=self.colours.ink_pale if yes else self.colours.calm)
 
     def _label_text(self) -> str:
         for key, label_text in self._choix:
@@ -197,9 +197,9 @@ class Listing(tk.Canvas):
 
     def _text_width(self, text: str) -> int:
         essai = self.create_text(-1000, -1000, text=text, anchor="w", font=font(12))
-        gauche, _, droite, _ = self.bbox(essai)
+        left, _, right, _ = self.bbox(essai)
         self.delete(essai)
-        return int(droite - gauche)
+        return int(right - left)
 
     def _paint(self, hover: bool) -> None:
         if not self._active:
@@ -305,9 +305,9 @@ class LevelMeter(tk.Canvas):
     def reveal(self, part: float) -> None:
         self._target = max(0.0, min(1.0, part))
         if self._glisse is None:
-            self._pas()
+            self._step()
 
-    def _pas(self) -> None:
+    def _step(self) -> None:
         if not self.winfo_exists():
             self._glisse = None
             return
@@ -319,7 +319,7 @@ class LevelMeter(tk.Canvas):
             return
         self._value += gap * 0.32
         self._draw()
-        self._glisse = self.after(30, self._pas)
+        self._glisse = self.after(30, self._step)
 
     def _draw(self) -> None:
         part = self._value

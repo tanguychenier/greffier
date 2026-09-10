@@ -9,13 +9,13 @@ from enum import StrEnum
 
 class What(StrEnum):
     TERME = "terme"
-    PERSONNE = "personne"
+    NOBODY = "personne"
 
 @dataclass(frozen=True, slots=True)
 class Learning:
     """What a sentence asks to be remembered."""
 
-    quoi: What
+    what: What
     subject: str
     precision: str = ""
 
@@ -25,10 +25,10 @@ class Learning:
 
     def say(self) -> str:
         """The confirmation to show, spelling out exactly what will be written."""
-        if self.quoi is What.PERSONNE:
-            qui = f"« {self.subject} »"
+        if self.what is What.NOBODY:
+            who = f"« {self.subject} »"
             role = f", {self.precision}" if self.precision else ""
-            return f"J'ajoute {qui}{role} aux personnes du contexte. Confirme ?"
+            return f"J'ajoute {who}{role} aux personnes du contexte. Confirme ?"
         sens = f" ({self.precision})" if self.precision else ""
         return f"J'ajoute « {self.subject} »{sens} au contexte. Confirme ?"
 
@@ -43,7 +43,7 @@ _ROLES = (
     "chargée", "consultant", "consultante", "ingénieur", "ingénieure",
 )
 
-_MOTIF_PERSONNE = re.compile(
+_PERSON_PATTERN = re.compile(
     rf"^\s*{_AMORCES}\b[^:]*?\bque\s+(?P<sujet>[A-ZÉÈÀÂÎÔÛ][\w'’-]{{1,30}}"
     rf"(?:\s+[A-ZÉÈÀÂÎÔÛ][\w'’-]{{1,30}})?)\s+(?:est|était|sera)\s+"
     rf"(?P<precision>.{{1,120}}?)\s*[.!]?\s*$",
@@ -87,28 +87,28 @@ def agreement(response: str) -> bool | None:
         return False
     return None
 
-def understand(phrase: str) -> Learning | None:
+def understand(sentence: str) -> Learning | None:
     """What this sentence asks to remember, or None if it asks nothing."""
-    personne = _MOTIF_PERSONNE.match(phrase)
-    if personne is not None:
-        role = _clean(personne.group("precision"))
-        name = _clean(personne.group("sujet"))
+    person = _PERSON_PATTERN.match(sentence)
+    if person is not None:
+        role = _clean(person.group("precision"))
+        name = _clean(person.group("sujet"))
         if name and _is_a_role(role):
-            return Learning(What.PERSONNE, name, role)
+            return Learning(What.NOBODY, name, role)
 
     for motif in _MOTIFS:
-        trouve = motif.match(phrase)
-        if trouve is None:
+        found = motif.match(sentence)
+        if found is None:
             continue
-        subject = _clean(trouve.group("sujet"))
+        subject = _clean(found.group("sujet"))
         precision = _clean(
-            trouve.groupdict().get("precision") or ""
+            found.groupdict().get("precision") or ""
         )
         if not subject or len(subject.split()) > 5:
             continue
-        quoi = What.PERSONNE if _is_a_role(precision) else What.TERME
+        what = What.NOBODY if _is_a_role(precision) else What.TERME
         try:
-            return Learning(quoi, subject, precision)
+            return Learning(what, subject, precision)
         except ValueError:
             continue
     return None

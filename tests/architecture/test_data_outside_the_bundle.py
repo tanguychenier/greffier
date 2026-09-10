@@ -58,11 +58,11 @@ class TestRienNeVitDansLePaquet:
     def test_tout_est_rassemble_sous_un_seul_dossier_de_donnees(self):
         """Ce qui permet de sauvegarder, et de dire ce qu'une purge emporte."""
         config = Config()
-        racine = config.paths.data
+        root = config.paths.data
         for name, path in tous_les_chemins(config).items():
             if name in {"donnees", "contexte"}:
                 continue
-            assert racine in path.parents or path == racine, f"{name} hors de {racine}"
+            assert root in path.parents or path == root, f"{name} hors de {root}"
 
 
 class TestUnAncienFichierResteLisible:
@@ -96,4 +96,4 @@ class TestUnAncienFichierResteLisible:
         relue = FileStore(tmp_path).read("2026-08-01_09h00_ancienne")
         assert relue.utterances[0].text == "Bonjour."
         assert relue.subject == ""
-        assert relue.commencee_le is None
+        assert relue.started_at is None

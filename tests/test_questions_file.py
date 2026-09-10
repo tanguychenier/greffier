@@ -10,13 +10,13 @@ from greffier.adapters.questions_file import (
 from greffier.domain.questions import Question, Reason
 
 
-def question(number: int = 1, entendu: str = "bakclog", attendu: str = "backlog") -> Question:
+def question(number: int = 1, heard: str = "bakclog", expected: str = "backlog") -> Question:
     return Question(
         number=number,
-        text=f"J'ai entendu « {entendu} ». Fallait-il comprendre « {attendu} » ?",
+        text=f"J'ai entendu « {heard} ». Fallait-il comprendre « {expected} » ?",
         motif=Reason.NEAR_TERM,
-        entendu=entendu,
-        attendu=attendu,
+        heard=heard,
+        expected=expected,
     )
 
 
@@ -25,7 +25,7 @@ class TestFile:
         file = questions_file(tmp_path, "2026-09-09_10h05_reunion")
         publish(file, question())
         awaiting, answers = read(file)
-        assert [en_attente.question.attendu for en_attente in awaiting] == ["backlog"]
+        assert [en_attente.question.expected for en_attente in awaiting] == ["backlog"]
         assert answers == {}
 
     def test_une_question_repondue_quitte_l_attente(self, tmp_path):
@@ -50,14 +50,14 @@ class TestFile:
         """La file est écrite par un autre processus, qui peut être interrompu."""
         file = questions_file(tmp_path, "essai")
         publish(file, question())
-        with file.open("a", encoding="utf-8") as flux:
-            flux.write('{"genre": "question", "nume')
+        with file.open("a", encoding="utf-8") as stream:
+            stream.write('{"genre": "question", "nume')
         awaiting, _ = read(file)
         assert len(awaiting) == 1
 
     def test_l_ordre_des_questions_est_celui_des_numeros(self, tmp_path):
         file = questions_file(tmp_path, "essai")
-        publish(file, question(number=2, entendu="mrege", attendu="merge"))
+        publish(file, question(number=2, heard="mrege", expected="merge"))
         publish(file, question(number=1))
         awaiting, _ = read(file)
         assert [en_attente.number for en_attente in awaiting] == [1, 2]

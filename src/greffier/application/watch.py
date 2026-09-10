@@ -26,10 +26,10 @@ from greffier.ports import outbound
 SYSTEM = platform.system()
 
 ATTENDENT_UNE_REPONSE = frozenset({
-    Because.VOIX_INDISTINCTE,
-    Because.DECISION_SANS_SUITE,
-    Because.QUESTION_SANS_REPONSE,
-    Because.ECART_AVEC_UN_DOCUMENT,
+    Because.INDISTINCT_VOICE,
+    Because.DECISION_WITHOUT_FOLLOW_UP,
+    Because.QUESTION_WITHOUT_ANSWER,
+    Because.GAP_WITH_A_DOCUMENT,
     Because.CONTRIBUTION,
 })
 
@@ -128,26 +128,26 @@ class Watcher:
             self.prompt_seed = fraiche
         return self.prompt_seed
 
-    def publish(self, nouvelles: list[Suggestion]) -> None:
+    def publish(self, fresh: list[Suggestion]) -> None:
         """Appends to the log, one suggestion per line."""
-        if not nouvelles:
+        if not fresh:
             return
         self.log.parent.mkdir(parents=True, exist_ok=True)
-        with self.log.open("a", encoding="utf-8") as flux:
-            for proposition in nouvelles:
-                flux.write(json.dumps({
+        with self.log.open("a", encoding="utf-8") as stream:
+            for proposition in fresh:
+                stream.write(json.dumps({
                     "genre": proposition.kind.value,
                     "texte": proposition.text,
                     "instant": round(proposition.at_instant, 1),
-                    "origine": proposition.origine.value,
+                    "origine": proposition.origin.value,
                     "contexte": proposition.context,
                 }, ensure_ascii=False) + "\n")
 
     def clipboard_turn(self, at_instant: float) -> list[Suggestion]:
         content = read_the_clipboard()
-        nouvelles = self.watch_rules.paste(content, at_instant) if content else []
-        self.publish(nouvelles)
-        return nouvelles
+        fresh = self.watch_rules.paste(content, at_instant) if content else []
+        self.publish(fresh)
+        return fresh
 
     def transcription_turn(
         self, ou: Position, job: Path, laisser_parler: bool = True
@@ -162,16 +162,16 @@ class Watcher:
         """
         if self.transcriber is None:
             return []
-        start = max(0.0, self.traite - ou.decalage - OVERLAP, ou.ecrit - TRANCHE_MAXIMALE)
-        if ou.ecrit - start < TRANCHE_MINIMALE_S:
+        start = max(0.0, self.traite - ou.offset - OVERLAP, ou.written - TRANCHE_MAXIMALE)
+        if ou.written - start < TRANCHE_MINIMALE_S:
             return []
-        tranche = extract_slice(ou.morceau, start, ou.ecrit, job / "tranche.wav")
-        if tranche is None:
+        slice_ = extract_slice(ou.morceau, start, ou.written, job / "tranche.wav")
+        if slice_ is None:
             return []
         depart = max(0.0, start - CONTEXTE_S)
-        avec_contexte = tranche if depart >= start else (
-            extract_slice(ou.morceau, depart, ou.ecrit, job / "fenetre.wav")
-            or tranche
+        avec_contexte = slice_ if depart >= start else (
+            extract_slice(ou.morceau, depart, ou.written, job / "fenetre.wav")
+            or slice_
         )
         a_transcrire = avec_contexte
         if self.preparateur is not None:
@@ -185,28 +185,28 @@ class Watcher:
         except (RuntimeError, OSError):
             return []
         utterances = _within_the_slice(utterances, start - depart)
-        self.traite = ou.decalage + ou.ecrit
+        self.traite = ou.offset + ou.written
         if self.interrogate is not None:
             for utterance in utterances:
                 with contextlib.suppress(OSError):
                     self.interrogate(utterance.text)
-        decalage = ou.decalage + start
+        offset = ou.offset + start
         recalees = [
             Utterance(
                 span=Span(
-                    r.span.start + decalage, r.span.end + decalage
+                    r.span.start + offset, r.span.end + offset
                 ),
                 text=r.text, voice=r.voice, source=r.source,
             )
             for r in utterances
         ]
-        nouvelles = self.watch_rules.listen(recalees)
-        self.publish(nouvelles)
+        fresh = self.watch_rules.listen(recalees)
+        self.publish(fresh)
         if self.follower is not None:
-            self.follower.take_in(tranche, utterances, decalage)
+            self.follower.take_in(slice_, utterances, offset)
         if laisser_parler:
             self.assistant_turn(recalees, self.traite)
-        return nouvelles
+        return fresh
 
     def assistant_turn(self, utterances: list[Utterance], now: float) -> None:
         """Lets the assistant decide whether it has anything to say."""
@@ -264,13 +264,13 @@ class Watcher:
     def loop(
         self,
         still_running: Callable[[], bool],
-        depuis: Callable[[], float],
+        since: Callable[[], float],
         job: Path,
         pause: Callable[[float], None] = time.sleep,
     ) -> list[Suggestion]:
         """Runs until the recording ends."""
         while still_running():
-            self.clipboard_turn(depuis())
+            self.clipboard_turn(since())
             ou = self.situer() if self.situer is not None else None
             if ou is not None and self._is_time(ou):
                 self.transcription_turn(ou, job)
@@ -290,8 +290,8 @@ class Watcher:
     def _is_time(self, ou: Position) -> bool:
         """Is it time to transcribe?"""
         avance = ou.overall - self.traite
-        stagne = self.vu is not None and abs(ou.ecrit - self.vu) < 0.05
-        self.vu = ou.ecrit
+        stagne = self.vu is not None and abs(ou.written - self.vu) < 0.05
+        self.vu = ou.written
         if avance >= self.slice_period:
             return True
         return stagne and avance >= TRANCHE_MINIMALE_S

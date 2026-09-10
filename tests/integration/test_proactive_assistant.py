@@ -69,7 +69,7 @@ def test_une_question_laissee_en_l_air_le_fait_parler():
 def test_il_ne_cherche_rien_pendant_son_repos():
     """Un appel au modèle toutes les dix secondes pour un silence."""
     lui = _assistant(SANS_RESPONSABLE)
-    lui.manners.parle_le = 590.0
+    lui.manners.spoke_at = 590.0
     assert lui.contribution(now=600.0) is None
 
 

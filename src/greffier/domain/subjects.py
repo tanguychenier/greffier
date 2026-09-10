@@ -24,9 +24,9 @@ class Subject:
     def forms_of_address(self) -> tuple[str, ...]:
         return (self.name, *self.alias)
 
-    def recognises(self, mot: str) -> bool:
+    def recognises(self, word: str) -> bool:
         """True when this word is one of its aliases."""
-        return key(mot) in {key(name) for name in self.forms_of_address}
+        return key(word) in {key(name) for name in self.forms_of_address}
 
 @dataclass
 class Registry:

@@ -75,9 +75,9 @@ class TestPublicationSansReseau:
         board = Board("Oasis")
         join(board, [Contribution("Déjà là"), Contribution("Nouveau")])
         self.mark(monkeypatch, present_line=("Oasis", "Déjà là"))
-        ecrit = board_miro.publish(board, "uXjVtest=")
-        assert ecrit.poses == ("Nouveau",)
-        assert set(ecrit.deja) == {"Oasis", "Déjà là"}
+        written = board_miro.publish(board, "uXjVtest=")
+        assert written.poses == ("Nouveau",)
+        assert set(written.already) == {"Oasis", "Déjà là"}
 
     def test_rien_n_est_supprime_ni_modifie(self, monkeypatch):
         """Ce que quelqu'un a posé reste tel quel."""
@@ -95,7 +95,7 @@ class TestPublicationSansReseau:
 
         board = Board("Oasis")
         # Une piste : seuls une piste et une action peuvent être actées.
-        join(board, [Contribution("Décidé", kind=Kind.PISTE, state=Standing.ACTE)])
+        join(board, [Contribution("Décidé", kind=Kind.LEAD, state=Standing.AGREED)])
         appels = self.mark(monkeypatch)
         board_miro.publish(board, "uXjVtest=")
         colours = [
@@ -103,7 +103,7 @@ class TestPublicationSansReseau:
             for methode, path, corps in appels
             if methode == "POST" and "sticky_notes" in path and corps
         ]
-        assert board_miro.COLOURS[Standing.ACTE] in colours
+        assert board_miro.COLOURS[Standing.AGREED] in colours
 
     def test_le_texte_est_echappe(self, monkeypatch):
         """Un « < » dans un libellé ne doit pas casser le contenu HTML."""
@@ -170,9 +170,9 @@ class TestConnecteurs:
         board = Board("Oasis")
         join(board, [Contribution("A"), Contribution("B")])
         self.mark(monkeypatch)
-        ecrit = board_miro.publish(board, "uXjVtest=")
-        assert ecrit.liens == 2
-        assert ecrit.liens_manques == 0
+        written = board_miro.publish(board, "uXjVtest=")
+        assert written.liens == 2
+        assert written.liens_manques == 0
 
     def test_les_liens_echoues_sont_comptes_et_non_avales(self, monkeypatch):
         from greffier.domain.board import Board, Contribution, join
@@ -189,9 +189,9 @@ class TestConnecteurs:
 
         monkeypatch.setattr(board_miro, "_appeler", faux)
         monkeypatch.setenv("GREFFIER_MIRO_JETON", "essai")
-        ecrit = board_miro.publish(board, "uXjVtest=")
-        assert ecrit.liens == 0
-        assert ecrit.liens_manques == 1, "l'échec doit se compter"
+        written = board_miro.publish(board, "uXjVtest=")
+        assert written.liens == 0
+        assert written.liens_manques == 1, "l'échec doit se compter"
 
 
 class TestLaRacine:
@@ -200,8 +200,8 @@ class TestLaRacine:
         from greffier.domain.board import Board
 
         board = Board("Oasis")
-        assert board.racine is not None
-        html = board_miro._as_html(board.racine, "")
+        assert board.root is not None
+        html = board_miro._as_html(board.root, "")
         assert "en discussion" not in html
 
     def test_le_sujet_a_sa_propre_couleur(self):
@@ -209,4 +209,4 @@ class TestLaRacine:
 
         assert Kind.SUBJECT in __import__(
             "greffier.domain.board", fromlist=["SANS_ETAT"]
-        ).SANS_ETAT
+        ).WITHOUT_STANDING

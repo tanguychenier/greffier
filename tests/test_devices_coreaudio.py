@@ -98,7 +98,7 @@ class TestDecisionSurDuReel:
     """La décision, appliquée aux relevés réels plutôt qu'à des cas fabriqués."""
 
     def test_le_branchement_du_casque_est_vu(self) -> None:
-        watch_rules = WatchRules(micro_voulu="Jabra EVOLVE 30 II")
+        watch_rules = WatchRules(wanted_mic="Jabra EVOLVE 30 II")
         decision = watch_rules.examine(analyser(SEUL), analyser(BRANCHE))
         assert decision.mic == "Jabra EVOLVE 30 II"
         assert decision.audio_suspect
@@ -106,7 +106,7 @@ class TestDecisionSurDuReel:
     def test_le_debranchement_evite_l_entree_ligne_de_la_station(self) -> None:
         # En débranchant, la station Realtek disparaît aussi. Mais même si elle
         # restait, elle ne devrait pas être choisie : voir le test suivant.
-        watch_rules = WatchRules(micro_voulu="Jabra EVOLVE 30 II")
+        watch_rules = WatchRules(wanted_mic="Jabra EVOLVE 30 II")
         assert watch_rules.examine(analyser(BRANCHE), analyser(SEUL)).mic == "Micro MacBook Pro"
 
     def test_la_station_seule_ne_bat_pas_le_micro_du_portable(self) -> None:

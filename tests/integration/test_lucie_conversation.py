@@ -156,14 +156,14 @@ class Reunion:
         """Complète la prise pour que la tranche vaille d'être transcrite."""
         import soundfile
 
-        depuis = sum(
+        since = sum(
             float(soundfile.info(str(p)).duration)
             for p in self.morceaux[self.dernier_tour:]
         )
-        if depuis < self.TRANCHE_UTILE:
+        if since < self.TRANCHE_UTILE:
             self.rang += 1
             self.morceaux.append(_silence(
-                self.TRANCHE_UTILE - depuis,
+                self.TRANCHE_UTILE - since,
                 self.dossier / f"souffle{self.rang}.wav",
             ))
         self.dernier_tour = len(self.morceaux)
@@ -190,11 +190,11 @@ def transcriber():
 def _veilleur(reunion: Reunion, assistante: AssistantSettings,
               transcriber, dossier: Path) -> Watcher:
     return Watcher(
-        watch_rules=WatchRules(mot_cle="greffier"),
+        watch_rules=WatchRules(keyword="greffier"),
         log=dossier / "propositions.jsonl",
         transcriber=transcriber,
         situer=lambda: Position(
-            morceau=reunion.audio(), ecrit=reunion.duree(), decalage=0.0
+            morceau=reunion.audio(), written=reunion.duree(), offset=0.0
         ),
         assistant_of=assistante,
         reread_participation=lambda: (True, False),

@@ -81,16 +81,16 @@ class Outcome:
     warnings: list[str] = field(default_factory=list)
     hardware_events: list[str] = field(default_factory=list)
     profil: LanguageProfile = NEUTRAL
-    commencee_le: datetime | None = None
-    terminee_le: datetime | None = None
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
     subject: str = ""
 
     @property
     def words(self) -> int:
         """The word count, counted the way the language separates them."""
-        return sum(self.profil.decoupage.count_them(r.text) for r in self.utterances)
+        return sum(self.profil.splitting.count_them(r.text) for r in self.utterances)
 
-    def nom_de(self, voice: str | None) -> str:
+    def name_of(self, voice: str | None) -> str:
         if voice is None:
             return "Indéterminé"
         return self.names.get(voice, f"Personne {voice}")
@@ -119,13 +119,13 @@ class Outcome:
         if not self.utterances:
             return [Span(0.0, self.duration)] if self.duration > minimum else []
         manques: list[Span] = []
-        precedent = 0.0
+        previous = 0.0
         for utterance in sorted(self.utterances, key=lambda r: r.span.start):
-            if utterance.span.start - precedent >= minimum:
-                manques.append(Span(precedent, utterance.span.start))
-            precedent = max(precedent, utterance.span.end)
-        if self.duration - precedent >= minimum:
-            manques.append(Span(precedent, self.duration))
+            if utterance.span.start - previous >= minimum:
+                manques.append(Span(previous, utterance.span.start))
+            previous = max(previous, utterance.span.end)
+        if self.duration - previous >= minimum:
+            manques.append(Span(previous, self.duration))
         return manques
 
     def significant_voices(self, minimum: float = 10.0) -> dict[str, float]:
@@ -233,12 +233,12 @@ class Chain:
         """Says when the announced count contradicts what the audio holds."""
         if self.people is None:
             return
-        entendues = len(outcome.significant_voices())
-        if entendues == 0 or entendues == self.people:
+        heard = len(outcome.significant_voices())
+        if heard == 0 or heard == self.people:
             return
         outcome.warnings.append(
             f"{self.people} participants sont annoncés dans la configuration, "
-            f"mais {entendues} voix distinctes ont été entendues. Le nombre "
+            f"mais {heard} voix distinctes ont été entendues. Le nombre "
             "annoncé l'emporte, donc des personnes ont pu être confondues. "
             "Laisse « participants » vide pour que le nombre soit déduit."
         )
@@ -274,10 +274,10 @@ class Chain:
         """Names from the voice bank, for people already known."""
         if self.extractor is None or self.bank is None:
             return {}
-        connues = self.bank.people()
-        if not connues:
+        known = self.bank.people()
+        if not known:
             return {}
-        trouves: dict[str, str] = {}
+        found: dict[str, str] = {}
         per_voice: dict[str, list[Span]] = {}
         for turn in turns:
             per_voice.setdefault(turn.voice, []).append(turn.span)
@@ -287,10 +287,10 @@ class Chain:
             extraits = self.extractor.extract_spans(audio, intervalles)
             if not extraits:
                 continue
-            match = voix_domaine.recognise(voix_domaine.aggregate(extraits), connues)
+            match = voix_domaine.recognise(voix_domaine.aggregate(extraits), known)
             if match and match.sure:
-                trouves[voice] = match.name
-        return trouves
+                found[voice] = match.name
+        return found
 
     def _attribute_names(
         self,
@@ -312,15 +312,15 @@ class Chain:
         for voice, name in depuis_banque.items():
             outcome.names[voice] = name
 
-        for voice, trouve in attribution.certitudes.items():
+        for voice, found in attribution.certitudes.items():
             connu = depuis_banque.get(voice)
-            if connu and connu.lower() != trouve.name.lower():
+            if connu and connu.lower() != found.name.lower():
                 outcome.warnings.append(
-                    f"La voix {voice} est reconnue comme {connu} mais nommée {trouve.name} "
+                    f"La voix {voice} est reconnue comme {connu} mais nommée {found.name} "
                     "pendant la réunion."
                 )
                 continue
-            outcome.names[voice] = trouve.name
+            outcome.names[voice] = found.name
 
         for proposition in attribution.propositions:
             if proposition.voice not in outcome.names:
@@ -366,15 +366,15 @@ class Chain:
         audio: Path,
         send: bool = True,
         hardware_events: list[str] | None = None,
-        commencee_le: datetime | None = None,
-        terminee_le: datetime | None = None,
+        started_at: datetime | None = None,
+        ended_at: datetime | None = None,
     ) -> Outcome:
         self.hardware_events = list(hardware_events or [])
         outcome = Outcome(
             audio=audio,
             hardware_events=self.hardware_events,
-            commencee_le=commencee_le,
-            terminee_le=terminee_le,
+            started_at=started_at,
+            ended_at=ended_at,
         )
 
         self._phase(Phase.TRANSCRIPTION, "Vérification de l'enregistrement…")
@@ -428,16 +428,16 @@ class Chain:
         )
 
         duration = outcome.turns[-1].span.end if outcome.turns else 0.0
-        entendues = [
+        heard = [
             v for v in outcome.significant_voices() if v
         ] + [v for v in outcome.names if v not in outcome.significant_voices()]
         header = (
             self._instructions_of(audio.stem)
             + context_header(audio.stem, duration,
-                            names=[outcome.names[v] for v in entendues if v in outcome.names],
-                            voix_entendues=len(entendues),
-                            commencee_le=outcome.commencee_le,
-                            terminee_le=outcome.terminee_le)
+                            names=[outcome.names[v] for v in heard if v in outcome.names],
+                            voices_heard=len(heard),
+                            started_at=outcome.started_at,
+                            ended_at=outcome.ended_at)
             + hardware_header(self.hardware_events)
             + reliability_header(outcome)
             + disclosure_header(self.disclosure)
@@ -536,7 +536,7 @@ def _as_stored_meeting(outcome: Outcome, duration: float) -> StoredMeeting:
     return StoredMeeting(
         identifier=outcome.audio.stem,
         audio=outcome.audio,
-        traitee_le=datetime.now(UTC),
+        processed_at=datetime.now(UTC),
         duration=duration,
         utterances=outcome.utterances,
         turns=outcome.turns,
@@ -545,6 +545,6 @@ def _as_stored_meeting(outcome: Outcome, duration: float) -> StoredMeeting:
         warnings=list(outcome.warnings),
         hardware_events=list(outcome.hardware_events),
         subject=outcome.subject,
-        commencee_le=outcome.commencee_le,
-        terminee_le=outcome.terminee_le,
+        started_at=outcome.started_at,
+        ended_at=outcome.ended_at,
     )

@@ -13,7 +13,7 @@ from greffier.domain.sources import Kind, Right, Source
 def source(droit: Right = Right.LECTURE) -> Source:
     return Source(
         name="recherche", kind=Kind.GITLAB,
-        adresse="https://gitlab.example.fr", projet="equipe/outil",
+        adresse="https://gitlab.example.fr", project="equipe/outil",
         droit=droit, token="GREFFIER_GITLAB_JETON",
     )
 
@@ -77,10 +77,10 @@ UN_TICKET = {
 class TestLecture:
     def test_les_tickets_sont_rendus_utilisables(self, gitlab):
         gitlab.charge = [UN_TICKET]
-        trouves = gitlab_api.tickets(source(), "glpat-x")
-        assert trouves[0].number == 42
-        assert trouves[0].assigne == "Sophie"
-        assert trouves[0].etiquettes == ("recette",)
+        found = gitlab_api.tickets(source(), "glpat-x")
+        assert found[0].number == 42
+        assert found[0].assigne == "Sophie"
+        assert found[0].etiquettes == ("recette",)
 
     def test_un_ticket_sans_assigne_ne_casse_pas(self, gitlab):
         """GitLab rend « assignee: null », pas un objet vide."""
@@ -115,15 +115,15 @@ class TestLecture:
 
     def test_les_demandes_de_fusion_se_lisent_aussi(self, gitlab):
         gitlab.charge = [UN_TICKET]
-        trouvees = gitlab_api.join_requests(source(), "glpat-x")
+        found = gitlab_api.join_requests(source(), "glpat-x")
         assert "merge_requests" in gitlab.premier.full_url
-        assert trouvees[0].number == 42
+        assert found[0].number == 42
 
 
 class TestEcriture:
     def test_une_source_en_lecture_seule_n_appelle_meme_pas(self, muet):
         with pytest.raises(gitlab_api.GitLabRefused, match="lecture seule"):
-            gitlab_api.creer_un_ticket(source(), "glpat-x", "Faire la chose")
+            gitlab_api.create_a_ticket(source(), "glpat-x", "Faire la chose")
 
     def test_commenter_est_une_ecriture(self, muet):
         """Un commentaire notifie des gens et reste attaché à leur travail."""
@@ -132,7 +132,7 @@ class TestEcriture:
 
     def test_un_titre_vide_est_refuse(self, muet):
         with pytest.raises(gitlab_api.GitLabRefused):
-            gitlab_api.creer_un_ticket(source(Right.ECRITURE), "glpat-x", "  ")
+            gitlab_api.create_a_ticket(source(Right.ECRITURE), "glpat-x", "  ")
 
     def test_un_commentaire_vide_est_refuse(self, muet):
         with pytest.raises(gitlab_api.GitLabRefused):
@@ -141,7 +141,7 @@ class TestEcriture:
     def test_le_ticket_cree_est_rendu_avec_son_adresse(self, gitlab):
         """Une écriture dont on ne montre pas le résultat n'est pas vérifiable."""
         gitlab.charge = UN_TICKET
-        cree = gitlab_api.creer_un_ticket(
+        cree = gitlab_api.create_a_ticket(
             source(Right.ECRITURE), "glpat-x", "Corriger l'envoi"
         )
         assert cree.number == 42
@@ -150,7 +150,7 @@ class TestEcriture:
 
     def test_le_corps_porte_le_titre_donne(self, gitlab):
         gitlab.charge = UN_TICKET
-        gitlab_api.creer_un_ticket(source(Right.ECRITURE), "glpat-x", "Un titre")
+        gitlab_api.create_a_ticket(source(Right.ECRITURE), "glpat-x", "Un titre")
         assert json.loads(gitlab.premier.data)["title"] == "Un titre"
 
     def test_un_commentaire_rend_l_adresse_du_ticket(self, gitlab):

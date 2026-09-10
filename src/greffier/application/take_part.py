@@ -15,8 +15,8 @@ from typing import Any, Protocol
 
 from greffier.domain.models import Utterance
 from greffier.domain.participation import (
-    MEMOIRE_DE_SES_MOTS,
-    MOTS_POUR_JUGER,
+    MEMORY_OF_ITS_WORDS,
+    WORDS_TO_JUDGE,
     Because,
     Manners,
     Opening,
@@ -55,7 +55,7 @@ N'emploie ni tiret cadratin ni demi-cadratin.
 
 CONTEXTE_MAXIMAL = 6000
 
-RIEN = "RIEN"
+NOTHING = "RIEN"
 
 CONSIGNES_SUITE = """Tu t'appelles {name} et tu participes à une réunion. Tu as
 posé une question, on vient de te répondre.
@@ -228,9 +228,9 @@ class AssistantSettings:
         transcription came back too mangled to recognise.
         """
         self._oublier_ses_vieux_mots(now or utterance.span.end)
-        if is_own(utterance.text, [mots for _quand, mots in self.its_own_words]):
+        if is_own(utterance.text, [words for _when, words in self.its_own_words]):
             return True
-        if len(own_words(utterance.text)) >= MOTS_POUR_JUGER:
+        if len(own_words(utterance.text)) >= WORDS_TO_JUDGE:
             # Assez de mots pour trancher : ils l'ont fait, et la fenêtre de
             # temps n'a pas à s'en mêler. Elle est **estimée** d'après la
             # longueur du texte, et elle englobait la question suivante — la
@@ -248,8 +248,8 @@ class AssistantSettings:
     def _oublier_ses_vieux_mots(self, now: float) -> None:
         """Drops what it said long enough ago to belong to the room again."""
         self.its_own_words = [
-            (quand, mots) for quand, mots in self.its_own_words
-            if now - quand <= MEMOIRE_DE_SES_MOTS
+            (when, words) for when, words in self.its_own_words
+            if now - when <= MEMORY_OF_ITS_WORDS
         ]
 
     def _lull(self, utterances: list[Utterance], now: float) -> float:
@@ -263,7 +263,7 @@ class AssistantSettings:
         attendue, self.awaiting = self.awaiting, None
         if attendue is None:
             return None
-        if attendue.because is Because.VOIX_INDISTINCTE:
+        if attendue.because is Because.INDISTINCT_VOICE:
             return self._name_from_answer(attendue, text, a)
         return self._follow_up_its_question(attendue, text, a)
 
@@ -293,12 +293,12 @@ class AssistantSettings:
         if self.cerveau is None:
             return None
         guidance = CONSIGNES_SUITE.format(
-            name=self.name, rien=RIEN, question=attendue.remark, exemple="Hugo")
+            name=self.name, rien=NOTHING, question=attendue.remark, exemple="Hugo")
         try:
             remark = self._interrogate(guidance, text)
         except (RuntimeError, OSError):
             return None
-        if not remark or remark.strip().upper().startswith(RIEN):
+        if not remark or remark.strip().upper().startswith(NOTHING):
             return None
         suite = Opening(
             because=Because.APPELE,
@@ -373,8 +373,8 @@ class AssistantSettings:
         """What the assistant would have to add of its own, or nothing."""
         if self.cerveau is None or self.context is None:
             return None
-        if self.manners.parle_le is not None and (
-                now - self.manners.parle_le < self.manners.rest):
+        if self.manners.spoke_at is not None and (
+                now - self.manners.spoke_at < self.manners.rest):
             return None
         try:
             material = str(self.context())[-CONTEXTE_MAXIMAL:]
@@ -382,12 +382,12 @@ class AssistantSettings:
             return None
         if not material.strip():
             return None
-        guidance = CONSIGNES_APPORT.format(name=self.name, rien=RIEN)
+        guidance = CONSIGNES_APPORT.format(name=self.name, rien=NOTHING)
         try:
             remark = self._interrogate(guidance, material)
         except (RuntimeError, OSError):
             return None
-        if not remark or remark.strip().upper().startswith(RIEN):
+        if not remark or remark.strip().upper().startswith(NOTHING):
             return None
         return Opening(
             because=Because.CONTRIBUTION,
@@ -418,7 +418,7 @@ class AssistantSettings:
         it afterwards. Asking on the spot costs one sentence and earns a name.
         """
         return Opening(
-            because=Because.VOIX_INDISTINCTE,
+            because=Because.INDISTINCT_VOICE,
             remark="Excusez-moi, je n'arrive pas à situer la voix qui vient de "
                    "parler. Est-ce que cette personne peut dire son prénom ?",
             born_at=now,

@@ -11,30 +11,30 @@ import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-CREUX_MINIMAL = 2.0
+MINIMUM_LULL = 2.0
 
 REST = 180.0
 
 STALENESS = 90.0
 
-DENSITE_MAXIMALE = 0.85
+MAXIMUM_DENSITY = 0.85
 
 class Because(StrEnum):
     """Why the assistant would want to speak, strongest reason first."""
 
     APPELE = "on l'appelle"
-    VOIX_INDISTINCTE = "il ne distingue pas une voix"
-    DECISION_SANS_SUITE = "une décision sans responsable ni date"
-    QUESTION_SANS_REPONSE = "une question restée en l'air"
-    ECART_AVEC_UN_DOCUMENT = "un écart avec un document fourni"
+    INDISTINCT_VOICE = "il ne distingue pas une voix"
+    DECISION_WITHOUT_FOLLOW_UP = "une décision sans responsable ni date"
+    QUESTION_WITHOUT_ANSWER = "une question restée en l'air"
+    GAP_WITH_A_DOCUMENT = "un écart avec un document fourni"
     CONTRIBUTION = "il a quelque chose à ajouter"
 
 WEIGHT = {
     Because.APPELE: 100,
-    Because.VOIX_INDISTINCTE: 60,
-    Because.DECISION_SANS_SUITE: 50,
-    Because.QUESTION_SANS_REPONSE: 40,
-    Because.ECART_AVEC_UN_DOCUMENT: 30,
+    Because.INDISTINCT_VOICE: 60,
+    Because.DECISION_WITHOUT_FOLLOW_UP: 50,
+    Because.QUESTION_WITHOUT_ANSWER: 40,
+    Because.GAP_WITH_A_DOCUMENT: 30,
     Because.CONTRIBUTION: 10,
 }
 
@@ -61,12 +61,12 @@ class Opening:
 class Manners:
     """What the assistant allows itself, and the memory of what it said."""
 
-    creux_minimal: float = CREUX_MINIMAL
+    creux_minimal: float = MINIMUM_LULL
     rest: float = REST
     staleness: float = STALENESS
-    densite_maximale: float = DENSITE_MAXIMALE
+    densite_maximale: float = MAXIMUM_DENSITY
     active: bool = True
-    parle_le: float | None = None
+    spoke_at: float | None = None
     dits: set[str] = field(default_factory=set)
 
     def refusal(
@@ -89,9 +89,9 @@ class Manners:
             return "quelqu'un parle"
         if density > self.densite_maximale:
             return "la discussion est trop dense"
-        if self.parle_le is not None and now - self.parle_le < self.rest:
-            reste = self.rest - (now - self.parle_le)
-            return f"il vient de parler, encore {reste:.0f} s de repos"
+        if self.spoke_at is not None and now - self.spoke_at < self.rest:
+            remaining = self.rest - (now - self.spoke_at)
+            return f"il vient de parler, encore {remaining:.0f} s de repos"
         return None
 
     def choose(
@@ -112,19 +112,19 @@ class Manners:
 
     def has_spoken(self, opening: Opening, now: float) -> None:
         """To be called once the remark has actually been spoken."""
-        self.parle_le = now
+        self.spoke_at = now
         if opening.subject:
             self.dits.add(opening.subject)
 
 def speech_density(turns: list[tuple[float, float]], now: float,
                       window: float = 60.0) -> float:
     """Share of the last minute in which someone was speaking, 0 to 1."""
-    depuis = max(0.0, now - window)
-    width = now - depuis
+    since = max(0.0, now - window)
+    width = now - since
     if width <= 0:
         return 0.0
     is_speaking = sum(
-        max(0.0, min(end, now) - max(start, depuis))
+        max(0.0, min(end, now) - max(start, since))
         for start, end in turns
     )
     return min(1.0, is_speaking / width)
@@ -132,29 +132,29 @@ def speech_density(turns: list[tuple[float, float]], now: float,
 def _ecart_tolere(name: str) -> int:
     return 1 if len(name) < 5 else 2
 
-def _distance(un: str, autre: str, plafond: int) -> int:
+def _distance(one: str, other: str, plafond: int) -> int:
     """Edit distance, abandoned as soon as it passes the ceiling."""
-    if abs(len(un) - len(autre)) > plafond:
+    if abs(len(one) - len(other)) > plafond:
         return plafond + 1
-    precedent = list(range(len(autre) + 1))
-    for i, lettre in enumerate(un, start=1):
+    previous = list(range(len(other) + 1))
+    for i, lettre in enumerate(one, start=1):
         current = [i]
-        for j, autre_lettre in enumerate(autre, start=1):
+        for j, autre_lettre in enumerate(other, start=1):
             current.append(min(
-                precedent[j] + 1,
+                previous[j] + 1,
                 current[j - 1] + 1,
-                precedent[j - 1] + (lettre != autre_lettre),
+                previous[j - 1] + (lettre != autre_lettre),
             ))
         if min(current) > plafond:
             return plafond + 1
-        precedent = current
-    return precedent[-1]
+        previous = current
+    return previous[-1]
 
-def _strip_accents(mot: str) -> str:
+def _strip_accents(word: str) -> str:
     import unicodedata
 
     return "".join(
-        c for c in unicodedata.normalize("NFD", mot.lower())
+        c for c in unicodedata.normalize("NFD", word.lower())
         if unicodedata.category(c) != "Mn"
     )
 
@@ -165,29 +165,29 @@ def called_by_name(text: str, name: str) -> bool:
         return False
     plafond = _ecart_tolere(cherche)
     words = re.findall(r"\w+", _strip_accents(text), flags=re.UNICODE)
-    return any(_distance(mot, cherche, plafond) <= plafond for mot in words)
+    return any(_distance(word, cherche, plafond) <= plafond for word in words)
 
 def question_asked(text: str, name: str) -> str:
     """What is being asked of the assistant, with its name removed."""
     cherche = _strip_accents(name.strip())
     plafond = _ecart_tolere(cherche)
     gardes = [
-        mot for mot in re.split(r"(\W+)", text, flags=re.UNICODE)
-        if not (mot.strip() and _distance(_strip_accents(mot), cherche, plafond) <= plafond)
+        word for word in re.split(r"(\W+)", text, flags=re.UNICODE)
+        if not (word.strip() and _distance(_strip_accents(word), cherche, plafond) <= plafond)
     ]
-    reste = re.sub(r"\s+", " ", "".join(gardes))
-    reste = re.sub(r"\s+([,.])", r"\1", reste)
-    return re.sub(r"^[\s,.:;!?]+", "", reste).strip()
+    remaining = re.sub(r"\s+", " ", "".join(gardes))
+    remaining = re.sub(r"\s+([,.])", r"\1", remaining)
+    return re.sub(r"^[\s,.:;!?]+", "", remaining).strip()
 
 
-MOTS_POUR_JUGER = 3
+WORDS_TO_JUDGE = 3
 """Significant words below which an utterance cannot be recognised as its own.
 
 "Oui" and "d'accord" belong to everybody. Deciding on two words would silence
 the room every time the assistant had said one of them.
 """
 
-PART_DES_MOTS = 0.6
+SHARE_OF_WORDS = 0.6
 """Share of an utterance's words that must come from its own remark.
 
 Not all of them: the loudspeakers, the room and the capture loop cost words on
@@ -195,7 +195,7 @@ the way, so what comes back is a subset, sometimes a mangled one. Measured on
 the assistant's own sentences played through a room, six words in ten survive.
 """
 
-MEMOIRE_DE_SES_MOTS = 180.0
+MEMORY_OF_ITS_WORDS = 180.0
 """Seconds a remark stays recognisable as its own.
 
 Long, on purpose. It answers late — the model takes seconds, the voice takes
@@ -211,8 +211,8 @@ def own_words(remark: str) -> frozenset[str]:
     loudspeakers and the capture loop is never spelt the same way.
     """
     return frozenset(
-        _strip_accents(mot)
-        for mot in re.findall(r"\w{4,}", remark, flags=re.UNICODE)
+        _strip_accents(word)
+        for word in re.findall(r"\w{4,}", remark, flags=re.UNICODE)
     )
 
 
@@ -229,10 +229,10 @@ def is_own(text: str, remarks: list[frozenset[str]]) -> bool:
     answers late, in a separate thread, so no window of time can be trusted.
     """
     words = own_words(text)
-    if len(words) < MOTS_POUR_JUGER:
+    if len(words) < WORDS_TO_JUDGE:
         return False
     return any(
-        len(words & dites) >= PART_DES_MOTS * len(words)
+        len(words & dites) >= SHARE_OF_WORDS * len(words)
         for dites in remarks
         if dites
     )
@@ -253,15 +253,15 @@ def without_own_name(remark: str, name: str) -> str:
         return remark
     plafond = _ecart_tolere(cherche)
     gardes = [
-        mot for mot in re.split(r"(\W+)", remark, flags=re.UNICODE)
-        if not (mot.strip()
-                and _distance(_strip_accents(mot), cherche, plafond) <= plafond)
+        word for word in re.split(r"(\W+)", remark, flags=re.UNICODE)
+        if not (word.strip()
+                and _distance(_strip_accents(word), cherche, plafond) <= plafond)
     ]
-    reste = "".join(gardes)
-    if reste == remark:
+    remaining = "".join(gardes)
+    if remaining == remark:
         return remark
-    reste = re.sub(r"\s+", " ", reste)
+    remaining = re.sub(r"\s+", " ", remaining)
     # La virgule et le point seuls : le français garde une espace avant les
     # deux-points, le point-virgule, le point d'exclamation et d'interrogation.
-    reste = re.sub(r"\s+([,.])", r"\1", reste)
-    return re.sub(r"^[\s,.:;!?]+", "", reste).strip()
+    remaining = re.sub(r"\s+([,.])", r"\1", remaining)
+    return re.sub(r"^[\s,.:;!?]+", "", remaining).strip()
