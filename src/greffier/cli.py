@@ -92,13 +92,21 @@ def _reprendre_le_fil(config: Config, identifiant: str, le_suivi: Any) -> float:
 
 
 def _relire_les_boutons() -> tuple[bool, bool]:
-    """Où en sont les deux boutons de l'onglet En direct.
+    """Où en sont les deux boutons de l'onglet En direct : la voix, l'initiative.
 
-    Relu à chaque tranche : la fenêtre et la veille sont deux processus, et le
-    seul canal entre eux est le fichier de configuration.
+    Relus à chaque tranche : la fenêtre et la veille sont deux processus, et le
+    seul canal entre eux est le fichier de configuration. Un réglage que la
+    veille ne lit qu'à son démarrage est un bouton sans effet — et c'est ce
+    qu'était l'initiative.
+
+    L'assistant participe **toujours** : il écoute, prend des notes, pose ses
+    questions par écrit. Ce qui se règle, c'est s'il se fait entendre, et s'il
+    peut parler sans qu'on l'ait appelé. `actif` n'est plus consulté : ne pas
+    l'avoir retiré en même temps que son bouton a coûté une réunion, où le
+    fichier gardait `actif = false` sans que rien ne puisse le remettre à vrai.
     """
     reglages = Config().assistant
-    return reglages.actif, reglages.voix != "aucun"
+    return reglages.voix != "aucun", reglages.initiative
 
 
 def _matiere_du_direct(
