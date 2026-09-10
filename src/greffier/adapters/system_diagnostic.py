@@ -174,6 +174,45 @@ def mic_present() -> Reading:
     return Reading(name="Micro", present=present, detail=detail,
                    remede="branche un micro ou un casque", bloquant=True)
 
+def models_present(data_folder: Path | None = None) -> Reading:
+    """The models the chain loads, which no meeting starts without."""
+    from greffier.adapters.model_files import missing, weight
+    from greffier.locations import data_folder as ou
+
+    folder = (data_folder or ou()) / "modeles"
+    engine = "whisper.cpp" if SYSTEM == "Darwin" else "faster-whisper"
+    manquants = missing(folder, engine)
+    if not manquants:
+        return Reading(name="Modèles", present=True,
+                       detail="transcription, voix et diarisation en place")
+    noms = ", ".join(m.role for m in manquants)
+    return Reading(
+        name="Modèles", present=False,
+        detail=f"{len(manquants)} manquant(s) : {noms} — {weight(manquants)} à télécharger",
+        remede="python3 tools/install.py",
+        bloquant=any(m.required for m in manquants),
+    )
+
+def known_voices(data_folder: Path | None = None) -> Reading:
+    """How many people the bank already recognises without being told."""
+    from greffier.adapters.voice_bank_files import FileVoiceBank
+    from greffier.locations import data_folder as ou
+
+    folder = (data_folder or ou()) / "banque-de-voix"
+    if not folder.exists():
+        return Reading(name="Banque de voix", present=True,
+                       detail="vide — les voix se nomment en réunion")
+    try:
+        connus = FileVoiceBank(folder).people()
+    except (OSError, ValueError) as trouble:
+        return Reading(name="Banque de voix", present=False, detail=str(trouble),
+                       remede="vérifie les droits sur le dossier banque-de-voix")
+    if not connus:
+        return Reading(name="Banque de voix", present=True,
+                       detail="vide — les voix se nomment en réunion")
+    return Reading(name="Banque de voix", present=True,
+                   detail=f"{len(connus)} personne(s) reconnue(s) sans rien dire")
+
 def examine(data_folder: Path | None = None) -> Diagnostic:
     """Everything worth knowing before configuring the tool."""
     infos = recorder(data_folder)
@@ -208,5 +247,7 @@ def examine(data_folder: Path | None = None) -> Diagnostic:
             remede="libère de la place avant de télécharger les modèles",
             bloquant=True,
         ),
+        models_present(data_folder),
+        known_voices(data_folder),
     ]
     return Diagnostic(recorder=infos, constats=constats)
