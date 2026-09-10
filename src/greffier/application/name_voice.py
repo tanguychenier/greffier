@@ -121,6 +121,30 @@ class Naming:
         self.store.record(meeting)
         return meeting
 
+    def split(self, identifier: str, voice: str) -> StoredMeeting:
+        """Undoes the last join that produced this voice, in the meeting.
+
+        The gesture the live thread has and the after-meeting chain did not.
+        Naming two voices alike joins them, which is what one wants when the
+        tool split one person in two — and there was no way back when it was
+        the other way round.
+
+        The voiceprints of the two people stay in the bank under the name they
+        were filed under: separating a meeting does not unlearn a voice. The
+        bank has its own gestures for that, and « greffier connus » shows what
+        looks doubtful.
+        """
+        meeting = self.store.read(identifier)
+        if not meeting.can_split(voice):
+            raise KeyError(
+                f"La voix « {voice} » n'a absorbé aucune autre voix : "
+                "il n'y a rien à séparer."
+            )
+        rendue = meeting.split(voice)
+        assert rendue is not None
+        self.store.record(meeting)
+        return meeting
+
     def forget(self, identifier: str, voice: str) -> StoredMeeting:
         """Removes a voice's name, within the meeting."""
         meeting = self.store.read(identifier)

@@ -19,6 +19,24 @@ def held_on(identifier: str) -> tuple[int, int, int, int, int] | None:
     annee, mois, jour, heure, minute = trouve.groups()
     return (int(annee), int(mois), int(jour), int(heure or 0), int(minute or 0))
 
+@dataclass(frozen=True, slots=True)
+class Join:
+    """What has to be kept in order to undo a join of two voices.
+
+    The live thread has carried this since the day two people joined by mistake
+    stayed one until the minutes. The after-meeting chain had the same gesture
+    and no way back: naming two voices alike retagged every turn and dropped
+    the absorbed name, and nothing said which turns had moved.
+    """
+
+    absorbed: str
+    kept: str
+    turns: tuple[int, ...]
+    utterances: tuple[int, ...]
+    name: str | None = None
+    proposition: str | None = None
+
+
 @dataclass
 class StoredMeeting:
     """A processed meeting, as it sits on disk."""
@@ -36,6 +54,7 @@ class StoredMeeting:
     subject: str = ""
     commencee_le: datetime | None = None
     terminee_le: datetime | None = None
+    joins: list[Join] = field(default_factory=list)
 
     def attendees(self, minimum: float = 10.0) -> list[str]:
         """The voices that carried the meeting, most talkative first."""
@@ -51,10 +70,22 @@ class StoredMeeting:
         return [v for v, porte in self.names.items() if porte.casefold() == replie]
 
     def join_into(self, absorbee: str, gardee: str) -> int:
-        """Pours every turn and utterance of one voice into another."""
+        """Pours every turn and utterance of one voice into another.
+
+        Records what it takes to undo it: which turns and which utterances
+        moved, and what the absorbed voice was called.
+        """
         if absorbee == gardee:
             return 0
-        deplaces = sum(1 for t in self.turns if t.voice == absorbee)
+        rangs = tuple(i for i, t in enumerate(self.turns) if t.voice == absorbee)
+        dits = tuple(
+            i for i, u in enumerate(self.utterances) if u.voice == absorbee
+        )
+        self.joins.append(Join(
+            absorbed=absorbee, kept=gardee, turns=rangs, utterances=dits,
+            name=self.names.get(absorbee),
+            proposition=self.propositions.get(absorbee),
+        ))
         self.turns = [
             replace(turn, voice=gardee) if turn.voice == absorbee else turn
             for turn in self.turns
@@ -64,7 +95,35 @@ class StoredMeeting:
                 utterance.voice = gardee
         self.names.pop(absorbee, None)
         self.propositions.pop(absorbee, None)
-        return deplaces
+        return len(rangs)
+
+    def can_split(self, kept: str) -> bool:
+        """True when this voice absorbed another one that can be taken back."""
+        return any(f.kept == kept for f in self.joins)
+
+    def split(self, kept: str) -> Join | None:
+        """Undoes the last join that produced this voice.
+
+        Gives the absorbed voice back its identifier, its turns, its utterances
+        and the name it carried. Returns nothing when there is nothing to undo.
+        """
+        rendue = next((f for f in reversed(self.joins) if f.kept == kept), None)
+        if rendue is None:
+            return None
+        for rang in rendue.turns:
+            if 0 <= rang < len(self.turns):
+                self.turns[rang] = replace(
+                    self.turns[rang], voice=rendue.absorbed
+                )
+        for rang in rendue.utterances:
+            if 0 <= rang < len(self.utterances):
+                self.utterances[rang].voice = rendue.absorbed
+        if rendue.name:
+            self.names[rendue.absorbed] = rendue.name
+        if rendue.proposition:
+            self.propositions[rendue.absorbed] = rendue.proposition
+        self.joins.remove(rendue)
+        return rendue
 
     @property
     def caption(self) -> str:
