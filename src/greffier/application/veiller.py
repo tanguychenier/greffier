@@ -187,6 +187,7 @@ class Veilleur:
     #: Rend le couple (participe, parle à voix haute). Les deux se règlent
     #: séparément : sans la voix, l'assistant pose toujours ses questions, mais
     #: dans la conversation.
+    #: Rend (se fait entendre, peut parler de lui-même), relu à chaque tranche.
     relire_la_participation: Callable[[], tuple[bool, bool]] | None = None
     #: De quoi rendre la parole à l'assistant quand on la lui redonne en cours
     #: de réunion. Construire une voix charge un modèle : on ne le fait qu'une
@@ -355,21 +356,21 @@ class Veilleur:
             self.participant.attente = retenue
         self.participant.repondre_a_part(retenue, maintenant)
 
-    def _appliquer_les_boutons(self, participe: bool, a_voix_haute: bool) -> None:
+    def _appliquer_les_boutons(self, a_voix_haute: bool, de_lui_meme: bool) -> None:
         """Suit les deux boutons de la fenêtre, sans redémarrer quoi que ce soit.
 
         Se taire est immédiat, phrase en cours comprise : appuyer sur le bouton
         pendant qu'il parle doit l'interrompre, pas attendre la fin de sa
         tirade. Reprendre la parole ne coûte le chargement du modèle qu'une
         fois, et seulement si on la lui redonne.
+
+        L'initiative se relit ici et non au démarrage : sans cela, le bouton
+        n'agissait qu'à la réunion suivante, ce qui ne se devine pas.
         """
         if self.participant is None:
             return
         lui = self.participant
-        if participe != lui.politique.actif:
-            lui.politique.actif = participe
-            if not participe and lui.voix is not None:
-                lui.voix.se_taire()
+        self.initiative = de_lui_meme
         if not a_voix_haute and lui.voix is not None:
             lui.voix.se_taire()
             lui.voix = None
