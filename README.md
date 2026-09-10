@@ -29,7 +29,11 @@ meeting audio → transcription → who speaks → names → minutes → mail
 - **Transcription** by the `large-v3` model: whisper.cpp with Metal
   acceleration on macOS, faster-whisper elsewhere — on the NVIDIA card if it is
   there, on the processor otherwise.
-- **Voice identification** by voice print (pyannote + TitaNet), locally.
+- **Voice identification** by voice print, locally:
+  **pyannote-segmentation-3.0** cuts the audio into speaking turns and
+  **NeMo TitaNet** turns each excerpt into a 192-dimension vector, both through
+  sherpa-onnx. Over-segmenting and stitching back is reversible; under-segmenting
+  is not, so the split is deliberately fine and the domain repairs afterwards.
 - **Name attribution**: participants name each other during the meeting, and
   the tool collects those clues and cross-checks them. Nobody has to introduce
   themselves. What stays uncertain is proposed, never asserted.
@@ -48,7 +52,9 @@ meeting audio → transcription → who speaks → names → minutes → mail
   talk. It raises a decision left without an owner, or a question the room walked
   past. The rest of the time it says nothing, which is the whole difficulty: four
   refusals hold it back, and being called by name is the only thing that escapes
-  them. The voice is a neural model running locally, like everything else here.
+  them. The voice is **Kokoro or a VITS model**, whichever is installed, run
+  locally through the same sherpa-onnx as the voice prints — no new dependency,
+  no network call, 48× real time.
 
 ## Installation
 
@@ -143,6 +149,15 @@ Downloaded once, no network call afterwards.
 | `faster-whisper large-v3` | transcription | 1.5 GB | Linux and Windows |
 | `nemo_en_titanet_large` | voice prints | 98 MB | everywhere |
 | `pyannote-segmentation-3.0` | splitting into speaking turns | 6 MB | everywhere |
+| `vits-piper-fr_FR-upmc-medium` | the assistant's voice | 80 MB | optional |
+
+The voice deserves a word, because it is the part people hear. It runs through
+the **sherpa-onnx** already loaded for the voice prints, so it costs no new
+dependency and makes no network call. Both families are supported and the
+installed one is detected: **Kokoro** where its `voices.bin` is present, a
+**VITS** model otherwise. The one shipped is a French VITS at 48× real time.
+Left out, the system synthesiser takes over — it works the moment the tool is
+installed, and it sounds like a machine, which is why the neural one exists.
 
 On Linux, an NVIDIA card is not enough on its own: CTranslate2 wants cuBLAS and
 cuDNN, which no distribution ships with the driver. The installer offers the
@@ -405,21 +420,21 @@ Hexagonal — the domain at the centre, the techniques around it.
 
 ```
 src/greffier/
-├── domaine/       business core, no dependency: models, name attribution rules,
+├── domain/        business core, no dependency: models, name attribution rules,
 │                  voice print matching, language profiles, what a machine can
 │                  run. Testable without audio, without a disk, without a card.
 ├── ports/         interfaces the domain expects (Protocol)
 ├── application/   use cases: orchestration of the ports
-├── adaptateurs/   ffmpeg, whisper.cpp, sherpa-onnx, AI writer, Outlook,
+├── adapters/      ffmpeg, whisper.cpp, sherpa-onnx, AI writer, Outlook,
 │                  CoreAudio, configuration, system diagnosis, terminal wizard
 ├── interface/     the window (Tkinter): palette, drawn shapes, screens
 ├── cli.py         command-line interface (Typer) — a primary adapter
-├── composition.py the composition root: the only module that knows both the
+├── wiring.py      the composition root: the only module that knows both the
 │                  concrete adapters and the use cases, so it sits outside the
 │                  layers rather than in one of them
-└── emplacements.py where files live per system. An adapter by nature, kept here
+└── locations.py   where files live per system. An adapter by nature, kept here
                    because its path is a published contract: outils/installer.py
-                   loads it literally, under Python 3.9, before anything exists
+                   loads it literally, before anything else exists
 macos/             audio device creation (Swift) and the .app bundle
 outils/            the installer and the proof harnesses
 skills/            what a coding assistant needs to repair an installation
@@ -429,7 +444,7 @@ The domain knows nothing of whisper, ffmpeg or Outlook. That is what makes it
 possible to test the name attribution rules on hand-written sentences, in a few
 milliseconds, without a 1.6 GB model.
 
-None of that is held by good intentions. `tests/architecture/test_couches.py`
+None of that is held by good intentions. `tests/architecture/test_layers.py`
 reads the imports with `ast` — late imports written inside functions included,
 which is how they came back — and fails on a domain that touches the world, on
 a use case that reaches for an adapter, and on any new module settling at the
