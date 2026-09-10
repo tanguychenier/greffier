@@ -12,10 +12,12 @@ from pathlib import Path
 
 from greffier.application.suivre import (
     GENRE_CORRECTION,
+    GENRE_SEPARATION,
     GENRE_TOUR,
     Suivi,
     ajouter,
     demander,
+    demander_une_separation,
     fichiers,
     lire_depuis,
     position,
@@ -399,3 +401,175 @@ class TestDeuxFichiers:
         journal, demandes = fichiers(tmp_path, "2026-08-27_10h00_reunion")
         assert journal != demandes
         assert journal.parent == demandes.parent
+
+
+class TestSeparationEntreLesDeuxProcessus:
+    """La séparation traverse les deux processus, comme une correction.
+
+    La fenêtre l'affiche tout de suite, mais c'est le processus qui écoute qui
+    tient les empreintes : lui seul peut les rendre à chaque voix, et c'est de
+    ça que dépend ce qui entrera en banque de voix.
+    """
+
+    def _deux_voix_reunies(self, tmp_path: Path) -> Suivi:
+        instance = suivi(
+            tmp_path,
+            extracteur=ExtracteurDeSuite([empreinte(1, 0), empreinte(0, 1)]),
+            banque=BanqueEnMemoire(),
+        )
+        instance.accueillir(
+            tmp_path / "un.wav", [replique(0, 8, "on cale la recette jeudi")],
+            decalage=0.0,
+        )
+        instance.accueillir(
+            tmp_path / "deux.wav", [replique(9, 17, "le devis part demain matin")],
+            decalage=0.0,
+        )
+        assert len({t.voix for t in instance.fil.tours}) == 2, "deux voix distinctes"
+        demander(instance.demandes, numero=1, nom="Tanguy")
+        demander(instance.demandes, numero=2, nom="Tanguy")
+        instance.appliquer_les_demandes()
+        assert len({t.voix for t in instance.fil.tours}) == 1, "réunies"
+        return instance
+
+    def test_une_separation_deposee_est_appliquee(self, tmp_path: Path) -> None:
+        instance = self._deux_voix_reunies(tmp_path)
+        gardee = instance.fil.tours[0].voix
+        demander_une_separation(instance.demandes, gardee)
+        instance.appliquer_les_demandes()
+        assert len({t.voix for t in instance.fil.tours}) == 2
+
+    def test_la_separation_est_confirmee_dans_le_journal(self, tmp_path: Path) -> None:
+        # C'est ainsi que toute autre fenêtre ouverte, et un fil repris après
+        # un plantage, apprennent que ces deux voix ne sont pas la même.
+        instance = self._deux_voix_reunies(tmp_path)
+        gardee = instance.fil.tours[0].voix
+        demander_une_separation(instance.demandes, gardee)
+        instance.appliquer_les_demandes()
+        dites = [
+            x for x in lignes_du(instance.journal) if x["genre"] == GENRE_SEPARATION
+        ]
+        assert len(dites) == 1
+        assert dites[0]["de"] == gardee
+        assert dites[0]["numeros"] == [2]
+
+    def test_un_fil_rejoue_garde_les_voix_separees(self, tmp_path: Path) -> None:
+        """Le point qui fait tout : une reprise de fil ne refait pas la fusion."""
+        instance = self._deux_voix_reunies(tmp_path)
+        gardee = instance.fil.tours[0].voix
+        demander_une_separation(instance.demandes, gardee)
+        instance.appliquer_les_demandes()
+        repris = rejouer(lignes_du(instance.journal))
+        assert len({t.voix for t in repris.tours}) == 2
+        assert repris.separees, "la paire doit rester tenue à part"
+
+    def test_chaque_empreinte_revient_a_sa_voix(self, tmp_path: Path) -> None:
+        instance = self._deux_voix_reunies(tmp_path)
+        gardee = instance.fil.tours[0].voix
+        demander_une_separation(instance.demandes, gardee)
+        instance.appliquer_les_demandes()
+        comptes = {
+            i: len(v.empreintes)
+            for i, v in instance.fil.voix.items()
+            if v.empreintes
+        }
+        assert sorted(comptes.values()) == [1, 1], comptes
+
+    def test_separer_ce_qui_n_a_rien_absorbe_ne_dit_rien(self, tmp_path: Path) -> None:
+        instance = self._deux_voix_reunies(tmp_path)
+        demander_une_separation(instance.demandes, "voix-jamais-vue")
+        instance.appliquer_les_demandes()
+        assert not [
+            x for x in lignes_du(instance.journal) if x["genre"] == GENRE_SEPARATION
+        ]
+
+
+class TestPorteeDeLaCorrectionRejouee:
+    """La portée d'une correction voyage dans le journal, elle ne se déduit pas.
+
+    Le défaut : la ligne ne portait que les numéros touchés, et le rejeu en
+    tirait la portée. Une correction « toute la voix » saisie alors que la voix
+    n'avait qu'un seul tour se rejouait donc en « seulement cette phrase », et à
+    la reprise du fil les tours suivants de cette voix perdaient le nom.
+    Rencontré pour de vrai : un fil de six cent quarante-six tours repris à la
+    cinquantième minute.
+    """
+
+    def _journal(self, tmp_path: Path, **surcharge: object) -> Path:
+        journal, _ = fichiers(tmp_path, "2026-09-10_10h10_reunion")
+        correction: dict[str, object] = {
+            "genre": GENRE_CORRECTION, "nom": "Marc", "voix": "v1", "numeros": [1],
+        }
+        correction.update(surcharge)
+        ajouter(journal, [
+            {"genre": GENRE_TOUR, "numero": 1, "debut": 0.0, "fin": 8.0,
+             "texte": "on cale la recette jeudi", "voix": "v1",
+             "nom": None, "certitude": Certitude.INCONNUE.value, "rang": 1},
+            correction,
+            {"genre": GENRE_TOUR, "numero": 2, "debut": 9.0, "fin": 17.0,
+             "texte": "le devis part demain matin", "voix": "v1",
+             "nom": None, "certitude": Certitude.INCONNUE.value, "rang": 1},
+        ])
+        return journal
+
+    def test_toute_la_voix_couvre_les_tours_qui_arrivent_apres(
+        self, tmp_path: Path
+    ) -> None:
+        repris = rejouer(lignes_du(self._journal(tmp_path, toute_la_voix=True)))
+        noms = {repris.etiquette(t.voix) for t in repris.tours}
+        assert noms == {"Marc"}, noms
+
+    def test_seulement_cette_phrase_ne_couvre_que_la_phrase(
+        self, tmp_path: Path
+    ) -> None:
+        repris = rejouer(lignes_du(self._journal(tmp_path, toute_la_voix=False)))
+        par_numero = {t.numero: repris.etiquette(t.voix) for t in repris.tours}
+        assert par_numero[1] == "Marc"
+        assert par_numero[2] != "Marc"
+
+    def test_un_journal_d_avant_reste_lisible(self, tmp_path: Path) -> None:
+        """Sans le champ : on retombe sur l'ancienne déduction, faute de mieux."""
+        repris = rejouer(lignes_du(self._journal(tmp_path)))
+        assert repris.tours, "le journal doit rester relisible"
+
+
+class TestIdentifiantsJamaisReutilises:
+    """Un fil repris ne doit jamais redistribuer un identifiant déjà porté.
+
+    Le défaut, silencieux : le rejeu du journal inscrivait les voix « v1 »,
+    « v2 »… directement, sans avancer le compteur. La voix suivante que le fil
+    fondait s'appelait donc « v1 » de nouveau et **écrasait** l'entrée
+    existante : les tours de deux personnes passaient sous un seul identifiant,
+    sans rien qui le signale. Toute reprise de fil était touchée — et il y en a
+    eu une sur un fil de six cent quarante-six tours.
+    """
+
+    def _journal_a_deux_voix(self, tmp_path: Path) -> Path:
+        journal, _ = fichiers(tmp_path, "2026-09-10_10h10_reunion")
+        ajouter(journal, [
+            {"genre": GENRE_TOUR, "numero": numero, "debut": float(numero * 10),
+             "fin": float(numero * 10 + 8), "texte": f"phrase {numero}",
+             "voix": f"v{numero}", "nom": None,
+             "certitude": Certitude.INCONNUE.value, "rang": numero}
+            for numero in (1, 2, 3)
+        ])
+        return journal
+
+    def test_le_compteur_repart_apres_la_derniere_voix_du_journal(
+        self, tmp_path: Path
+    ) -> None:
+        repris = rejouer(lignes_du(self._journal_a_deux_voix(tmp_path)))
+        assert repris._identifiant() == "v4"
+
+    def test_une_correction_de_phrase_n_ecrase_aucune_voix(
+        self, tmp_path: Path
+    ) -> None:
+        """Le symptôme visible : trois voix rejouées, une correction, toujours
+        trois personnes distinctes — et non deux tours sous le même nom."""
+        repris = rejouer(lignes_du(self._journal_a_deux_voix(tmp_path)))
+        avant = {t.numero: t.voix for t in repris.tours}
+        repris.corriger(2, "Marc", toute_la_voix=False)
+        apres = {t.numero: t.voix for t in repris.tours}
+        assert apres[1] == avant[1], "la phrase 1 a changé de voix"
+        assert apres[3] == avant[3], "la phrase 3 a changé de voix"
+        assert len(set(apres.values())) == 3, apres
