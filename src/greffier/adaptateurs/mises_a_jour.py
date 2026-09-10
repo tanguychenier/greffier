@@ -33,27 +33,17 @@ from typing import Any
 
 from greffier.domaine.version import plus_recente
 
-#: Le dépôt public. Configurable par variable d'environnement pour qui
-#: travaillerait sur un miroir, sans quoi il faudrait modifier le code.
 DEPOT = "tanguychenier/greffier"
 
-#: Court exprès : on ne fait pas attendre une fenêtre pour une information
-#: facultative. Cinq secondes suffisent à une réponse de quelques kilooctets.
 DELAI = 5.0
 
-#: Bien plus long : on télécharge ici cent cinquante mégaoctets, pas une
-#: réponse JSON.
 DELAI_TELECHARGEMENT = 600.0
 
-#: Le nom de l'artefact publié, par système. Celui du poste et aucun autre :
-#: installer une archive Windows sur un Mac ne produirait rien d'utilisable, et
-#: la publication attache les trois à la même version.
 ARTEFACTS = {
     "Darwin": "Greffier-macos.zip",
     "Windows": "Greffier-windows.zip",
     "Linux": "Greffier-linux.tar.gz",
 }
-
 
 @dataclass(frozen=True, slots=True)
 class Verdict:
@@ -61,11 +51,8 @@ class Verdict:
 
     installee: str
     disponible: str = ""
-    #: L'adresse où la trouver, pour qui veut voir avant d'installer.
     adresse: str = ""
     souci: str = ""
-    #: L'artefact publié pour **ce** système, et son nom. Vides quand la version
-    #: publiée n'en porte pas pour ce poste — ce qui arrive et doit se dire.
     artefact: str = ""
     artefact_nom: str = ""
 
@@ -90,7 +77,6 @@ class Verdict:
             return f"Version {self.disponible} disponible (vous avez {self.installee})."
         return f"À jour : version {self.installee}."
 
-
 def version_installee() -> str:
     """La version du paquet en place, ou une chaîne vide si elle est illisible.
 
@@ -110,7 +96,6 @@ def version_installee() -> str:
     depuis_les_sources = _version_du_projet()
     return depuis_les_sources or installee
 
-
 def _version_du_projet() -> str:
     """La version écrite dans `pyproject.toml`, si on tourne depuis les sources.
 
@@ -128,7 +113,6 @@ def _version_du_projet() -> str:
     except (OSError, ValueError):
         return ""
 
-
 def depot_de_construction() -> Path | None:
     """Le dépôt d'où ce paquet a été fabriqué, s'il est encore là.
 
@@ -141,7 +125,6 @@ def depot_de_construction() -> Path | None:
         return None
     chemin = Path(grave)
     return chemin if (chemin / "macos" / "construire.sh").exists() else None
-
 
 def installable() -> tuple[bool, str]:
     """Peut-on installer d'ici ? Sinon, pourquoi.
@@ -165,12 +148,6 @@ def installable() -> tuple[bool, str]:
         return (False, "le dépôt porte des modifications non validées")
     return (True, str(depot))
 
-
-#: Le relais qui met à jour. Il tourne **après** la fermeture de
-#: l'application, parce que la reconstruction remplace le paquet : `construire.sh`
-#: bâtit à côté puis fait un `rm -rf` du paquet en place, ce qu'on ne peut pas
-#: subir en cours d'exécution. Détaché, il attend la fin du processus, tire,
-#: reconstruit, et relance.
 _RELAIS = """#!/bin/bash
 set -u
 exec >>"$3" 2>&1
@@ -189,7 +166,6 @@ bash macos/construire.sh || { echo "✗ la reconstruction a échoué"; exit 1; }
 echo "✓ mis à jour, relancement"
 open -a "$4"
 """
-
 
 def installer(app: str = "Greffier") -> tuple[bool, str]:
     """Lance le relais de mise à jour, puis rend la main pour qu'on se ferme.
@@ -217,7 +193,6 @@ def installer(app: str = "Greffier") -> tuple[bool, str]:
         return (False, str(souci))
     return (True, str(journal))
 
-
 def paquet_de_ce_processus(argv0: str = "") -> Path | None:
     """Le paquet .app depuis lequel ce processus tourne, s'il y en a un.
 
@@ -229,7 +204,6 @@ def paquet_de_ce_processus(argv0: str = "") -> Path | None:
         if parent.suffix == ".app":
             return parent
     return None
-
 
 def telecharger(
     url: str, cible: Path, delai: float = DELAI_TELECHARGEMENT,
@@ -261,7 +235,6 @@ def telecharger(
         return (False, "archive vide")
     return (True, str(cible))
 
-
 def deballer(archive: Path, dossier: Path) -> tuple[bool, str]:
     """Ouvre l'archive dans un dossier. Rend le chemin de ce qu'elle contient.
 
@@ -285,17 +258,6 @@ def deballer(archive: Path, dossier: Path) -> tuple[bool, str]:
         return (False, str(souci))
     return (True, str(dossier))
 
-
-#: Le relais qui remplace le paquet par celui qu'on vient de télécharger.
-#:
-#: Il ne touche **que** le paquet. Les réunions, les comptes rendus, la banque
-#: de voix, les conversations et la configuration vivent dans
-#: ~/Library/Application Support/Greffier, que ce script ne nomme nulle part :
-#: mettre à jour ne peut pas faire perdre une réunion.
-#:
-#: L'ancien paquet est mis de côté et non supprimé, et il est remis en place si
-#: le neuf ne démarre pas. Une mise à jour qui laisse le poste sans application
-#: est arrivée aujourd'hui, par une autre voie.
 _RELAIS_BINAIRE = """#!/bin/bash
 set -u
 exec >>"$3" 2>&1
@@ -336,7 +298,6 @@ else
   exit 1
 fi
 """
-
 
 def installer_depuis_la_publication(
     verdict: Verdict, argv0: str = "",
@@ -390,7 +351,6 @@ def installer_depuis_la_publication(
         return (False, str(souci))
     return (True, str(journal))
 
-
 def paquet_plus_recent(argv0: str = "") -> bool:
     """Le paquet sur le disque est-il plus récent que le processus qui tourne ?
 
@@ -417,10 +377,7 @@ def paquet_plus_recent(argv0: str = "") -> bool:
     except OSError:
         return False
 
-
-#: L'heure à laquelle l'application a démarré, à quelques secondes près.
 _CHARGE_LE = time.time()
-
 
 def verifier(depot: str = DEPOT, delai: float = DELAI) -> Verdict:
     """Interroge la dernière release publiée. Ne lève jamais.
@@ -465,7 +422,6 @@ def verifier(depot: str = DEPOT, delai: float = DELAI) -> Verdict:
         artefact=url,
         artefact_nom=nom,
     )
-
 
 def _artefact_de_ce_poste(publication: dict[str, Any]) -> tuple[str, str]:
     """Le nom et l'adresse de l'artefact qui convient à ce système.

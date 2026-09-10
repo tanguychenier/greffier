@@ -40,31 +40,20 @@ from greffier.domaine.mise_en_page import disposer
 
 BASE = "https://api.miro.com/v2"
 
-#: Tableaux sur lesquels cet outil n'écrit jamais, quoi qu'on lui demande.
-#: « Circuit Signature CASA » documente les étapes d'un circuit de signature et
-#: appartient à quelqu'un d'autre : une écriture par erreur y serait grave, et
-#: la question a déjà été posée une fois par son auteur.
 INTERDITS = frozenset({"uXjVH5WwzTI="})
 
-#: Ce qui préfixe les tableaux créés par l'outil, pour qu'on les distingue d'un
-#: coup d'œil de ceux d'une équipe.
 PREFIXE = "Greffier"
 
-#: Couleurs des pense-bêtes selon l'état. Ce qui est en discussion ne doit pas
-#: se lire comme une décision : la couleur le dit avant le texte.
 COULEURS = {
     Etat.ACTE: "light_green",
     Etat.EN_DISCUSSION: "light_yellow",
     Etat.DEPASSE: "gray",
 }
 
-#: La racine se distingue de ses branches : c'est le sujet, pas un point.
 COULEUR_SUJET = "light_blue"
-
 
 class MiroRefuse(RuntimeError):
     """L'appel n'a pas eu lieu, et pour une raison présentable."""
-
 
 @dataclass(frozen=True, slots=True)
 class Ecrit:
@@ -74,12 +63,8 @@ class Ecrit:
     poses: tuple[str, ...] = ()
     deja: tuple[str, ...] = ()
     adresse: str = ""
-    #: Liens tracés, et liens qui ont échoué. Les compter plutôt que d'avaler
-    #: l'échec : une carte sans un seul trait a été publiée ainsi, et rien ne
-    #: l'a dit — l'API attendait des identifiants numériques, pas des chaînes.
     liens: int = 0
     liens_manques: int = 0
-
 
 def jeton() -> str:
     """Le jeton d'accès, depuis l'environnement ou un fichier désigné par lui.
@@ -100,7 +85,6 @@ def jeton() -> str:
         "aucun jeton Miro : pose « GREFFIER_MIRO_JETON », ou "
         "« GREFFIER_MIRO_JETON_FICHIER » vers le fichier qui le contient"
     )
-
 
 def _appeler(chemin: str, methode: str = "GET",
              corps: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -124,7 +108,6 @@ def _appeler(chemin: str, methode: str = "GET",
     except (urllib.error.URLError, TimeoutError) as souci:
         raise MiroRefuse(f"Miro est injoignable : {souci}") from souci
 
-
 def _garder(tableau: str) -> str:
     """Refuse tout de suite un tableau interdit."""
     if tableau in INTERDITS:
@@ -133,7 +116,6 @@ def _garder(tableau: str) -> str:
             "cet outil n'y écrit jamais"
         )
     return tableau
-
 
 def creer_le_tableau(sujet: str) -> tuple[str, str]:
     """Crée le tableau d'un sujet. Rend son identifiant et son adresse."""
@@ -150,7 +132,6 @@ def creer_le_tableau(sujet: str) -> tuple[str, str]:
         raise MiroRefuse("Miro n'a pas rendu d'identifiant de tableau")
     return (identifiant, str(reponse.get("viewLink", "")))
 
-
 @dataclass(frozen=True, slots=True)
 class Pose:
     """Un point déjà sur le tableau, et ce qu'on en sait."""
@@ -158,11 +139,7 @@ class Pose:
     identifiant: str
     x: int
     y: int
-    #: Vrai si le contenu porte la mention d'une réunion, donc si c'est l'outil
-    #: qui l'a posé. Sinon, un humain l'a écrit à la main — et c'est ce qui
-    #: mérite de revenir dans la réunion suivante.
     de_l_outil: bool = False
-
 
 def objets_presents(tableau: str) -> dict[str, str]:
     """Les points déjà sur le tableau : libellé en clair → identifiant d'objet.
@@ -197,11 +174,7 @@ def objets_presents(tableau: str) -> dict[str, str]:
         if not curseur:
             return trouves
 
-
-#: Ce qui trahit un point posé par l'outil : la ligne de provenance qu'il
-#: ajoute sous le libellé, « 2026-09-09_10h05_reunion ».
 _PROVENANCE = re.compile(r"\d{4}-\d{2}-\d{2}_\d{2}h\d{2}")
-
 
 def poses_presentes(tableau: str) -> dict[str, Pose]:
     """Les points du tableau, avec leur place et leur origine.
@@ -239,7 +212,6 @@ def poses_presentes(tableau: str) -> dict[str, Pose]:
         if not curseur:
             return trouves
 
-
 def apports_des_autres(tableau: str) -> list[str]:
     """Ce que des humains ont écrit sur la carte, et que l'outil n'a pas posé.
 
@@ -252,7 +224,6 @@ def apports_des_autres(tableau: str) -> list[str]:
         if not pose.de_l_outil
     ]
 
-
 def libelles_presents(tableau: str) -> list[str]:
     """Les libellés déjà sur le tableau, dans leur forme d'origine.
 
@@ -261,19 +232,11 @@ def libelles_presents(tableau: str) -> list[str]:
     """
     return list(poses_presentes(tableau))
 
-
-#: Ce qu'on pose à côté d'un point pour dire qu'il est acté, sans y toucher.
 MARQUE_ACTE = "acté"
 
-#: Où la pastille se place par rapport au point qu'elle marque. Constant, parce
-#: que c'est cette constance qui permet de reconnaître une pastille déjà posée :
-#: elle ne porte pas le texte de son point, seule sa place le désigne.
 DECALAGE_PASTILLE = (150, -60)
 
-#: Écart toléré en retrouvant une pastille. Quelqu'un peut l'avoir déplacée de
-#: quelques pixels sans vouloir la détacher de son point.
 TOLERANCE_PASTILLE = 40
-
 
 def _pastilles_posees(tableau: str) -> set[tuple[int, int]]:
     """Les positions de toutes les pastilles « acté » du tableau."""
@@ -301,7 +264,6 @@ def _pastilles_posees(tableau: str) -> set[tuple[int, int]]:
         curseur = str(reponse.get("cursor", ""))
         if not curseur:
             return positions
-
 
 def marquer_actes(
     tableau: str, textes: list[str], reunion: str = ""
@@ -361,7 +323,6 @@ def marquer_actes(
             continue
     return tuple(marques)
 
-
 def textes_presents(tableau: str) -> set[str]:
     """Les clefs de comparaison des points déjà sur le tableau.
 
@@ -379,13 +340,11 @@ def textes_presents(tableau: str) -> set[str]:
 
     return {clef(libelle) for libelle in libelles_presents(tableau)}
 
-
 def _sans_balises(html: str) -> str:
     """Miro rend le contenu en HTML léger ; on ne compare que le texte."""
     import re
 
     return re.sub(r"<[^>]+>", " ", html).replace("&nbsp;", " ").strip()
-
 
 def publier(carte: Carte, tableau: str, reunion: str = "") -> Ecrit:
     """Pose sur le tableau les nœuds qui n'y sont pas encore.
@@ -437,7 +396,6 @@ def publier(carte: Carte, tableau: str, reunion: str = "") -> Ecrit:
     liens, manques = _relier(tableau, carte, identifiants)
     return Ecrit(tableau, tuple(poses), tuple(connus), liens=liens, liens_manques=manques)
 
-
 def _en_html(noeud: Noeud, reunion: str) -> str:
     """Le texte du pense-bête : le point, puis d'où il vient.
 
@@ -456,7 +414,6 @@ def _en_html(noeud: Noeud, reunion: str) -> str:
     if origine:
         lignes.append(f"<p><i>{_echapper(origine)}</i></p>")
     return "".join(lignes)
-
 
 def _liens_existants(tableau: str) -> set[tuple[str, str]]:
     """Les couples déjà reliés, pour ne pas superposer les traits."""
@@ -482,10 +439,8 @@ def _liens_existants(tableau: str) -> set[tuple[str, str]]:
         if not curseur:
             return couples
 
-
 def _echapper(texte: str) -> str:
     return (texte.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
-
 
 def _relier(
     tableau: str, carte: Carte, identifiants: dict[str, str]

@@ -39,8 +39,6 @@ from greffier.domaine.participation import (
     question_posee,
 )
 
-#: Comment l'assistant s'exprime quand il parle dans la pièce. Court, oral, sans
-#: plan : ce qui suit est prononcé, pas lu. Le contraire d'un compte rendu.
 CONSIGNES_ORALES = """Tu t'appelles {nom} et tu participes à une réunion de
 travail. On t'entend par un haut-parleur : ce que tu écris sera prononcé tel
 quel, à voix haute, devant les participants.
@@ -56,20 +54,10 @@ posait pas vraiment de question, dis-le brièvement et rends la parole.
 N'emploie ni tiret cadratin ni demi-cadratin.
 """
 
-#: Ce qu'on lui remet du fil avant sa réponse. Assez pour comprendre de quoi on
-#: parle, pas au point de faire un appel long au milieu d'une réunion.
 CONTEXTE_MAXIMAL = 6000
 
-#: Le mot par lequel il déclare n'avoir rien à dire. Un mot convenu plutôt
-#: qu'une phrase à interpréter : « je n'ai rien de particulier à ajouter »
-#: serait prononcé à voix haute, ce qui est exactement ce qu'on veut éviter.
 RIEN = "RIEN"
 
-#: Ce qu'on lui demande quand on vient de répondre à sa question. Un échange
-#: est un aller-retour : poser une question puis rester muet quand on répond
-#: fait passer pour distrait, et laisse celui qui a répondu se demander s'il a
-#: été entendu. Mais deux répliques de plus feraient d'elle un participant de
-#: trop, d'où le silence encore proposé par défaut.
 CONSIGNES_SUITE = """Tu t'appelles {nom} et tu participes à une réunion. Tu as
 posé une question, on vient de te répondre.
 
@@ -93,10 +81,6 @@ Ta question était : « {question} »
 Ce qu'on vient de te répondre :
 """
 
-#: Ce qu'on lui demande quand personne ne lui a rien demandé. La consigne
-#: insiste sur le silence parce que c'est la réponse juste presque à chaque
-#: fois, et qu'un modèle à qui l'on demande « as-tu quelque chose à dire »
-#: trouve toujours quelque chose à dire.
 CONSIGNES_APPORT = """Tu t'appelles {nom} et tu assistes à une réunion de travail
 sans y avoir été invitée à parler. On te donne ce qui vient de se dire.
 
@@ -126,7 +110,6 @@ fais pas la leçon. N'emploie ni tiret cadratin ni demi-cadratin.
 Ce qui vient de se dire :
 """
 
-
 class Parleur(Protocol):
     """Ce qui prononce. `VoixNeuronale` et `VoixSysteme` s'y conforment."""
 
@@ -139,7 +122,6 @@ class Parleur(Protocol):
     def parle(self) -> bool:
         ...
 
-
 @dataclass(frozen=True, slots=True)
 class Intervention:
     """Ce que l'assistant a dit, et pourquoi."""
@@ -149,40 +131,19 @@ class Intervention:
     a: float
     prononce: bool = False
 
-
 @dataclass
 class Participant:
     """Écoute la réunion, et y prend la parole quand cela vaut la peine."""
 
     nom: str = "Greffier"
     politique: Politique = field(default_factory=Politique)
-    #: Prononce. Absent, l'assistant participe **par écrit** dans le fil : c'est
-    #: le mode par défaut, et il reste utile — tout le monde ne veut pas d'une
-    #: voix dans la pièce.
     voix: Parleur | None = None
-    #: Formule le propos. Absent, l'assistant ne dit que ce qu'il sait dire
-    #: sans réfléchir : demander qui parle, par exemple, ce qui est déjà
-    #: l'essentiel de ce qu'il a à demander.
     cerveau: Any | None = None
-    #: Ce qui a été dit jusque-là, pour que la réponse tienne compte du sujet.
     contexte: Callable[[], str] | None = None
-    #: Écrit dans la conversation de la fenêtre, pour qu'il reste une trace de
-    #: ce qui a été dit à voix haute.
     tracer: Callable[[str, str], None] | None = None
-    #: Ce que l'assistant attend : la question qu'il vient de poser. La phrase
-    #: suivante lui répond, et il en accuse réception.
     attente: Occasion | None = None
-    #: Appelé quand la réponse à « qui parle ? » donne un prénom. C'est ce qui
-    #: transforme une question polie en un nom porté au compte rendu.
     nommer: Callable[[str, str], bool] | None = None
-    #: L'apport trouvé au tour précédent, en attente d'un moment pour être dit.
-    #: Chercher coûte un appel au modèle, donc plusieurs secondes : on ne le
-    #: fait pas dans la boucle qui transcrit, on le fait à côté et on relit le
-    #: résultat à la tranche suivante.
     en_reserve: Occasion | None = None
-    #: Les instants où l'assistant a parlé, pour ne pas se transcrire lui-même.
-    #: Sa voix sort par le haut-parleur et rentre par le micro : sans cela, il
-    #: deviendrait un participant de plus, avec une empreinte vocale à la clé.
     ses_prises: list[tuple[float, float]] = field(default_factory=list)
     _travail: threading.Thread | None = None
     _recherche: threading.Thread | None = None
@@ -463,7 +424,6 @@ class Participant:
     def consignes(self) -> str:
         return CONSIGNES_ORALES.format(nom=self.nom)
 
-
 def _empreinte_du_propos(propos: str) -> str:
     """De quoi reconnaître une remarque déjà faite, aux mots près."""
     import hashlib
@@ -471,7 +431,6 @@ def _empreinte_du_propos(propos: str) -> str:
 
     mots = " ".join(sorted(set(re.findall(r"\w{4,}", propos.lower()))))
     return hashlib.sha256(mots.encode("utf-8")).hexdigest()[:12]
-
 
 def _prenom_dans(texte: str) -> str:
     """Le prénom d'une réponse du genre « c'est Marcel » ou « Marcel ».

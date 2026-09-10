@@ -33,7 +33,6 @@ class Peripherique:
     def capte(self) -> bool:
         return self.entrees > 0
 
-
 @dataclass(frozen=True)
 class Materiel:
     """L'état du matériel audio à un instant donné."""
@@ -50,26 +49,19 @@ class Materiel:
     def micros(self) -> tuple[Peripherique, ...]:
         return tuple(p for p in self.peripheriques if p.capte)
 
-
 class Action(Enum):
     """Ce que l'enregistrement doit faire du changement constaté."""
 
     RIEN = "rien"
-    #: Reconstruire l'agrégé, puis reprendre la capture sur un nouveau segment.
     RECONSTRUIRE = "reconstruire"
-    #: Le micro attendu a disparu et rien ne le remplace : prévenir, ne pas couper.
     ALERTER = "alerter"
-
 
 @dataclass(frozen=True)
 class Decision:
     action: Action
     raison: str = ""
-    #: Micro à placer dans l'agrégé quand il faut le reconstruire.
     micro: str = ""
-    #: Vrai quand le changement a probablement dégradé ce qui a déjà été capté.
     audio_suspect: bool = False
-
 
 # Un casque USB expose micro et écouteurs sous le même nom : c'est le cas le plus
 # fréquent en réunion, et celui qu'il faut privilégier dès qu'il apparaît.
@@ -78,7 +70,6 @@ def _casque_utilisable(materiel: Materiel, prefere: str) -> Peripherique | None:
     if attendu is not None and attendu.capte:
         return attendu
     return None
-
 
 def _micro_de_repli(materiel: Materiel, exclus: tuple[str, ...]) -> Peripherique | None:
     """Le meilleur micro disponible, hors ceux qu'on veut éviter.
@@ -107,7 +98,6 @@ def _micro_de_repli(materiel: Materiel, exclus: tuple[str, ...]) -> Peripherique
     integres = [p for p in candidats if _est_integre(p.nom)]
     return (casques or integres or candidats)[0]
 
-
 def _est_agrege(peripherique: Peripherique) -> bool:
     """Les périphériques que Greffier fabrique lui-même.
 
@@ -117,14 +107,11 @@ def _est_agrege(peripherique: Peripherique) -> bool:
     """
     return peripherique.uid.startswith("com.reunions.")
 
-
 def _est_boucle(nom: str) -> bool:
     return any(marque in nom.lower() for marque in ("blackhole", "loopback", "soundflower"))
 
-
 def _est_integre(nom: str) -> bool:
     return any(marque in nom.lower() for marque in ("macbook", "built-in", "intégré", "integre"))
-
 
 @dataclass
 class Veille:
@@ -136,7 +123,6 @@ class Veille:
 
     micro_voulu: str
     agrege: str = "Reunion Entree"
-    #: Historique des changements, pour le compte rendu et le journal.
     evenements: list[str] = field(default_factory=list)
 
     def examiner(self, avant: Materiel, apres: Materiel) -> Decision:
@@ -194,12 +180,7 @@ class Veille:
         # enceinte. Rien à faire, mais on le note : la sortie a pu changer.
         return Decision(Action.RIEN)
 
-
-#: Sous ce niveau, une entrée ne porte même pas le bruit d'une pièce calme.
-#: Mesuré : un casque au micro coupé rend -78 dB, le micro intégré de la même
-#: machine -58 dB dans le même silence.
 PLANCHER_MUET_DB = -68.0
-
 
 @dataclass(frozen=True)
 class ChoixMicro:
@@ -207,14 +188,9 @@ class ChoixMicro:
 
     nom: str
     niveau_db: float
-    #: Micros écoutés et écartés, avec leur niveau, pour pouvoir l'expliquer.
     ecartes: tuple[tuple[str, float], ...] = ()
-    #: Vrai quand même le meilleur candidat semble coupé.
     tous_muets: bool = False
-    #: Vrai quand un casque a été préféré bien qu'il capte moins fort. À dire :
-    #: le choix paraît contre-intuitif au vu des niveaux affichés.
     casque_prefere: bool = False
-
 
 def choisir_par_ecoute(
     essais: dict[str, float], casques: frozenset[str] = frozenset()
@@ -265,7 +241,6 @@ def choisir_par_ecoute(
         casque_prefere=bool(casques) and nom in casques,
     )
 
-
 def candidats_a_ecouter(materiel: Materiel, prefere: str) -> list[str]:
     """Les micros qui valent une écoute, le préféré d'abord.
 
@@ -290,11 +265,9 @@ def candidats_a_ecouter(materiel: Materiel, prefere: str) -> list[str]:
         ),
     )
 
-
 def casque_present(materiel: Materiel, nom: str) -> bool:
     """Raccourci lisible pour les vérifications d'avant-enregistrement."""
     return _casque_utilisable(materiel, nom) is not None
-
 
 def casques_parmi(materiel: Materiel) -> frozenset[str]:
     """Les micros qui sont, selon toute vraisemblance, des micros de casque.
@@ -329,7 +302,6 @@ def casques_parmi(materiel: Materiel) -> frozenset[str]:
         and not _est_boucle(p.nom) and not _est_agrege(p)
         and not _est_integre(p.nom)
     )
-
 
 def micro_conseille(materiel: Materiel, prefere: str) -> str:
     """Micro à mettre dans l'agrégé, maintenant, au vu de ce qui est branché.

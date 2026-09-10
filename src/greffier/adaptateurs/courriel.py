@@ -53,8 +53,6 @@ class ExpediteurOutlook:
 end run
 """
 
-    #: Sonde sans effet : demande son nom à Outlook, et rien de plus. Le seul
-    #: but est de déclencher l'autorisation d'automatisation **maintenant**.
     SONDE = 'tell application "Microsoft Outlook" to get name'
 
     def eprouver(self) -> str | None:
@@ -111,7 +109,6 @@ end run
                 "Réglages Système ▸ Confidentialité et sécurité ▸ Automatisation."
             )
         raise RuntimeError(f"Envoi impossible : {sortie.strip().splitlines()[-1:] or sortie}")
-
 
 class ExpediteurSmtp:
     """Envoi direct, pour les postes sans Outlook.
@@ -188,7 +185,6 @@ class ExpediteurSmtp:
     def envoyer(self, destinataire: str, sujet: str, corps: str, pieces: list[Path]) -> None:
         with self.session() as session:
             session.send_message(self.message(destinataire, sujet, corps, pieces))
-
 
 class ExpediteurFichier:
     """N'envoie rien, écrit à côté. Repli quand aucun envoi n'est configuré."""

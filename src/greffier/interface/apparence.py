@@ -19,14 +19,7 @@ from collections.abc import Callable
 from greffier.interface.lisible import grille_de_boutons, marque_de_pastille
 from greffier.interface.style import Palette, police
 
-#: Le curseur de survol d'un élément cliquable. « hand2 » et non
-#: « pointinghand » : ce dernier n'existe que sur macOS, et sous X11 chaque
-#: survol de bouton levait un `TclError: bad cursor spec` — la fenêtre se
-#: peignait quand même, mais les boutons ne changeaient plus de curseur et le
-#: journal se remplissait. « hand2 » est le nom X11 historique, et Tk le
-#: reconnaît aussi sur macOS et Windows.
 MAIN = "hand2"
-
 
 def rectangle_arrondi(
     toile: tk.Canvas,
@@ -44,7 +37,6 @@ def rectangle_arrondi(
         _points_arrondis(x1, y1, x2, y2, rayon),
         smooth=True, splinesteps=24, fill=fill, outline=outline,
     )
-
 
 class Bouton(tk.Canvas):
     """Un bouton dessiné : coins arrondis, survol, deux allures."""
@@ -143,7 +135,6 @@ class Bouton(tk.Canvas):
         self._actif = oui
         self.itemconfigure(self._texte, fill=self._encre())
         self.itemconfigure(self._forme, fill=self._fond_normal() if oui else self.couleurs.survol)
-
 
 class Liste(tk.Canvas):
     """Une liste déroulante dessinée, à la place de celle de Tk.
@@ -276,7 +267,6 @@ class Liste(tk.Canvas):
         if change and self.sur_choix is not None:
             self.sur_choix(clef)
 
-
 class Defileur(tk.Canvas):
     """Un ascenseur fin et dessiné, à la place de celui de Tk — gris, à bords
     carrés, avec ses boutons flèche, il détonne dans une fenêtre par ailleurs
@@ -344,7 +334,6 @@ class Defileur(tk.Canvas):
         cible = evenement.y / hauteur - portee / 2
         self.commande("moveto", max(0.0, min(1.0 - portee, cible)))
 
-
 class Vumetre(tk.Canvas):
     """Une barre de niveau, arrondie, qui change de teinte avec l'intensité.
 
@@ -410,7 +399,6 @@ class Vumetre(tk.Canvas):
             self._jauge, fill=self.couleurs.ambre if part > 0.7 else self.couleurs.vert
         )
 
-
 def _points_arrondis(
     x1: float, y1: float, x2: float, y2: float, rayon: float
 ) -> list[float]:
@@ -420,7 +408,6 @@ def _points_arrondis(
         x2, y2 - rayon, x2, y2, x2 - rayon, y2, x1 + rayon, y2,
         x1, y2, x1, y2 - rayon, x1, y1 + rayon, x1, y1,
     ]
-
 
 class _Segment(tk.Canvas):
     """Un onglet dessiné, qui sait se peindre choisi ou non — et porter un compte.
@@ -432,7 +419,6 @@ class _Segment(tk.Canvas):
     un vide permanent.
     """
 
-    #: Place prise par la pastille, marge comprise.
     PLACE_PASTILLE = 26
 
     def __init__(self, parent: tk.Misc, intitule: str, couleurs: Palette,
@@ -496,7 +482,6 @@ class _Segment(tk.Canvas):
         self._compte = compte
         self._dessiner()
 
-
 class BarreDeBoutons(tk.Frame):
     """Des boutons qui passent à la ligne quand la largeur manque.
 
@@ -510,7 +495,6 @@ class BarreDeBoutons(tk.Frame):
     permet de placer les boutons sur plusieurs rangs sans les mesurer un à un.
     """
 
-    #: Espace entre deux boutons, horizontalement et verticalement.
     ECART = 9
 
     def __init__(self, parent: tk.Misc, couleurs: Palette) -> None:
@@ -545,7 +529,6 @@ class BarreDeBoutons(tk.Frame):
                 padx=(0, self.ECART) if index % par_rang < par_rang - 1 else 0,
                 pady=(0, self.ECART) if rang < dernier_rang else 0,
             )
-
 
 class Onglets(tk.Frame):
     """Une barre de segments, à la place du bandeau d'onglets de Tk."""

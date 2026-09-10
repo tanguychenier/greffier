@@ -22,14 +22,9 @@ import numpy as np
 
 from greffier.domaine.canaux import QuiParle, qui_parle
 
-#: Taille minimale d'un en-tête WAV : « RIFF », « WAVE », un « fmt » de 16
-#: octets. La vraie taille se lit, elle ne se suppose pas — voir `lire_forme`.
 _ENTETE_MINIMAL = 44
 
-#: Durée observée à chaque relevé. Assez pour un niveau stable, assez court pour
-#: qu'un vumètre suive la parole.
 FENETRE_S = 0.25
-
 
 @dataclass(frozen=True)
 class Forme:
@@ -38,17 +33,11 @@ class Forme:
     canaux: int
     frequence: int
     octets_par_echantillon: int
-    #: Où commencent réellement les échantillons. **Pas 44.** ffmpeg écrit un
-    #: « fmt » étendu de 40 octets et un chunk « LIST », ce qui porte l'en-tête
-    #: à 102 octets sur un enregistrement réel. Supposer 44 décalait la lecture
-    #: de 29 échantillons, donc de deux canaux sur trois : l'interface montrait
-    #: « les autres parlent » quand c'était la personne qui enregistrait.
     debut_donnees: int
 
     @property
     def octets_par_trame(self) -> int:
         return self.canaux * self.octets_par_echantillon
-
 
 @dataclass(frozen=True)
 class Releve:
@@ -67,7 +56,6 @@ class Releve:
     def systeme_part(self) -> float:
         return _part(self.systeme_db)
 
-
 def _part(db: float) -> float:
     """Convertit des décibels en fraction affichable.
 
@@ -75,7 +63,6 @@ def _part(db: float) -> float:
     vumètre saturé n'apprend plus rien, et en dessous il ne montre que du bruit.
     """
     return max(0.0, min(1.0, (db + 60.0) / 50.0))
-
 
 def lire_forme(audio: Path) -> Forme | None:
     """Lit le format et l'endroit où commencent les échantillons.
@@ -111,7 +98,6 @@ def lire_forme(audio: Path) -> Forme | None:
         # Un chunk de taille impaire est suivi d'un octet de bourrage.
         position = corps + taille + (taille % 2)
     return None
-
 
 def relever(audio: Path, fenetre_s: float = FENETRE_S) -> Releve | None:
     """Les niveaux des dernières fractions de seconde écrites.
@@ -155,12 +141,10 @@ def relever(audio: Path, fenetre_s: float = FENETRE_S) -> Releve | None:
         qui=qui_parle(micro_db, systeme_db),
     )
 
-
 def _decibels(signal: np.ndarray) -> float:
     if signal.size == 0:
         return -120.0
     return float(20 * np.log10(max(float(np.sqrt(np.mean(signal**2))), 1e-12)))
-
 
 def duree_ecrite(audio: Path) -> float | None:
     """Combien de son le fichier porte réellement, pendant qu'il s'écrit.
