@@ -13,7 +13,7 @@ from typing import Any
 from greffier.domain.sources import Source
 
 TIMEOUT = 15.0
-AU_PLUS = 20
+AT_MOST = 20
 
 class JiraRefused(RuntimeError):
     """The call did not happen, and for a reason worth showing."""
@@ -29,8 +29,8 @@ class Request:
     assigne: str = ""
 
     def say(self) -> str:
-        qui = f" — {self.assigne}" if self.assigne else ""
-        return f"{self.key} {self.title}{qui} ({self.state})"
+        who = f" — {self.assigne}" if self.assigne else ""
+        return f"{self.key} {self.title}{who} ({self.state})"
 
 def _identifiers(token: str) -> tuple[str, str]:
     """The email and token pair, from the single secret."""
@@ -90,23 +90,23 @@ def _as_request(source: Source, brut: dict[str, Any]) -> Request:
 
 def requests(source: Source, token: str, ouvertes: bool = True) -> list[Request]:
     """The registered project's issues. Read only."""
-    jql = f'project = "{source.projet}"'
+    jql = f'project = "{source.project}"'
     if ouvertes:
         jql += " AND statusCategory != Done"
     jql += " ORDER BY updated DESC"
     parametres = urllib.parse.urlencode({
-        "jql": jql, "maxResults": str(AU_PLUS),
+        "jql": jql, "maxResults": str(AT_MOST),
         "fields": "summary,status,assignee",
     })
     rendered = _appeler(source, token, f"/search/jql?{parametres}")
     if not isinstance(rendered, dict):
         raise JiraRefused("réponse inattendue de Jira")
-    trouvees = rendered.get("issues", [])
+    found = rendered.get("issues", [])
     return [
-        _as_request(source, brut) for brut in trouvees if isinstance(brut, dict)
+        _as_request(source, brut) for brut in found if isinstance(brut, dict)
     ]
 
-def creer_une_demande(
+def create_a_request(
     source: Source, token: str, title: str, description: str = "",
     kind: str = "Task",
 ) -> Request:
@@ -119,7 +119,7 @@ def creer_une_demande(
         raise JiraRefused("une demande sans titre ne sert à personne")
     corps = {
         "fields": {
-            "project": {"key": source.projet},
+            "project": {"key": source.project},
             "summary": title.strip(),
             "issuetype": {"name": kind},
         }

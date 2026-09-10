@@ -92,7 +92,7 @@ class Abandon(Exception):
 
 class Context:
     def __init__(self, args):
-        self.oui = args.oui
+        self.yes = args.yes
         self.check_only = args.check
         self.models = Path(
             args.models or os.environ.get("GREFFIER_MODELES") or data_folder() / "modeles"
@@ -109,7 +109,7 @@ class Context:
     def ask(self, question):
         if self.check_only:
             return False
-        if self.oui:
+        if self.yes:
             return True
         if not sys.stdin.isatty():
             # Sans terminal (CI, script), ne rien installer en douce.
@@ -233,12 +233,12 @@ def system_language():
     transcription.
     """
     languages = _charger_langues()
-    connues = {code for code, _ in languages.LANGUAGES} if languages else {"fr"}
+    known = {code for code, _ in languages.LANGUAGES} if languages else {"fr"}
     for variable in ("LC_ALL", "LC_MESSAGES", "LANG"):
         value = os.environ.get(variable, "")
         if value:
             code = value.split(".")[0].split("_")[0].lower()
-            if code in connues:
+            if code in known:
                 return code
     return "fr"
 
@@ -298,18 +298,18 @@ def installer_paquet(ctx, name, because):
         info(f"Installe-le à la main : {because}")
         return False
     outil, command = gest
-    paquet = PAQUETS.get(name, {}).get(outil)
-    if paquet is None:
+    package = PAQUETS.get(name, {}).get(outil)
+    if package is None:
         alerte(f"{name} n'est pas empaqueté par {outil}")
         return False
     if not ctx.ask(f"Installer {name} avec {outil} ? ({because})"):
-        ctx.to_do.append(f"{' '.join(command)} {paquet}")
+        ctx.to_do.append(f"{' '.join(command)} {package}")
         return False
     if outil == "apt-get":
         # Sans rafraîchissement, apt échoue sur une image ou un poste dont la
         # liste de paquets n'a jamais été mise à jour.
         run_job(command[:-2] + ["update", "-qq"], stdout=subprocess.DEVNULL)
-    return run_job(command + [paquet]).returncode == 0
+    return run_job(command + [package]).returncode == 0
 
 
 # ---------------------------------------------------------- 1. outils système
@@ -481,11 +481,11 @@ def relier_ou_copier(source, target, folder=False):
 def download(url, target):
     """Télécharge en affichant la progression, sans laisser de fichier tronqué."""
     partiel = target.with_suffix(target.suffix + ".partiel")
-    with urllib.request.urlopen(url) as flux, open(partiel, "wb") as output:
-        total = int(flux.headers.get("Content-Length") or 0)
+    with urllib.request.urlopen(url) as stream, open(partiel, "wb") as output:
+        total = int(stream.headers.get("Content-Length") or 0)
         recu = 0
         while True:
-            morceau = flux.read(1 << 20)
+            morceau = stream.read(1 << 20)
             if not morceau:
                 break
             output.write(morceau)
@@ -546,11 +546,11 @@ def _installer_la_segmentation(ctx):
     archive = ctx.models / "diarisation/segmentation.tar.bz2"
     info("téléchargement du modèle de segmentation…")
     download(SEGMENTATION, archive)
-    with tarfile.open(archive, "r:bz2") as paquet:
+    with tarfile.open(archive, "r:bz2") as package:
         if sys.version_info >= (3, 12):
-            paquet.extractall(ctx.models / "diarisation", filter="data")
+            package.extractall(ctx.models / "diarisation", filter="data")
         else:
-            paquet.extractall(ctx.models / "diarisation")  # noqa: S202
+            package.extractall(ctx.models / "diarisation")  # noqa: S202
     archive.unlink()
     ok("modèle de segmentation")
 
@@ -585,11 +585,11 @@ def _installer_la_voix(ctx):
     info("téléchargement de la voix de l'assistant (80 Mo)…")
     try:
         download(VOICE, archive)
-        with tarfile.open(archive, "r:bz2") as paquet:
+        with tarfile.open(archive, "r:bz2") as package:
             if sys.version_info >= (3, 12):
-                paquet.extractall(ctx.models, filter="data")
+                package.extractall(ctx.models, filter="data")
             else:
-                paquet.extractall(ctx.models)  # noqa: S202
+                package.extractall(ctx.models)  # noqa: S202
         extrait = ctx.models / VOIX_DOSSIER
         if extrait.exists():
             if folder.exists():
@@ -661,10 +661,10 @@ def etape_redaction(ctx):
 
     if shutil.which("ollama"):
         disponibles = modeles_ollama()
-        trouve = modele_utilisable(disponibles)
-        if trouve:
-            ok(f"Ollama disponible en remplacement : {trouve} (tout reste local)")
-            return {"moteur": "ollama", "modele": trouve}
+        found = modele_utilisable(disponibles)
+        if found:
+            ok(f"Ollama disponible en remplacement : {found} (tout reste local)")
+            return {"moteur": "ollama", "modele": found}
         alerte(
             f"Ollama installé mais aucun modèle de synthèse reconnu "
             f"({len(disponibles)} présents)"
@@ -806,7 +806,7 @@ destinataire = ""
 '''
 
 
-def etape_configuration(ctx, engine, redaction):
+def etape_configuration(ctx, engine, wording):
     title("6. Configuration")
     ctx.config.mkdir(parents=True, exist_ok=True)
     file = ctx.config / "config.toml"
@@ -824,8 +824,8 @@ def etape_configuration(ctx, engine, redaction):
             output="Reunion Sortie" if SYSTEM == "Darwin" else "default.monitor",
             engine=engine,
             language=system_language(),
-            writer=redaction["moteur"],
-            model=redaction["modele"],
+            writer=wording["moteur"],
+            model=wording["modele"],
         ),
         encoding="utf-8",
     )
@@ -1062,10 +1062,10 @@ def main():
         engine = system_tools_step(ctx)
         etape_audio(ctx)
         etape_modeles(ctx, engine)
-        redaction = etape_redaction(ctx)
+        wording = etape_redaction(ctx)
         python = etape_environnement(ctx, engine)
         etape_modele_whisper(ctx, engine, python)
-        etape_configuration(ctx, engine, redaction)
+        etape_configuration(ctx, engine, wording)
         etape_bureau(ctx)
         etape_skill(ctx)
         saine = etape_verification(ctx, python)
@@ -1087,7 +1087,7 @@ def main():
     # L'installation pose les outils ; l'assistant décide de comment on s'en
     # sert. Enchaîner les deux évite qu'un poste reste installé mais muet.
     if not ctx.check_only and python.exists():
-        if ctx.oui or ctx.ask("Configurer maintenant (rédacteur, courriel, vocabulaire) ?"):
+        if ctx.yes or ctx.ask("Configurer maintenant (rédacteur, courriel, vocabulaire) ?"):
             greffier = python.parent / ("greffier.exe" if SYSTEM == "Windows" else "greffier")
             if greffier.exists():
                 subprocess.run([str(greffier), "configurer"], cwd=ROOT, check=False)

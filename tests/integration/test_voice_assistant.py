@@ -55,16 +55,16 @@ def transcriber():
     return outil
 
 
-@pytest.mark.parametrize("voice,phrase,attendu", SENTENCES)
+@pytest.mark.parametrize("voice,sentence,expected", SENTENCES)
 def test_son_nom_est_entendu_dans_du_vrai_son(
-    voice, phrase, attendu, transcriber, tmp_path
+    voice, sentence, expected, transcriber, tmp_path
 ):
-    audio = _synthetiser(voice, phrase, tmp_path / "phrase.wav")
+    audio = _synthetiser(voice, sentence, tmp_path / "phrase.wav")
     if audio is None:
         pytest.skip("« say » ou ffmpeg absent : synthèse impossible")
     utterances = transcriber.transcribe(audio, "fr", f"{NAME}, l'assistante de réunion.")
     text = " ".join(r.text for r in utterances)
-    assert called_by_name(text, NAME) is attendu, f"transcrit : {text!r}"
+    assert called_by_name(text, NAME) is expected, f"transcrit : {text!r}"
 
 
 def test_la_question_est_extraite_sans_le_nom(transcriber, tmp_path):

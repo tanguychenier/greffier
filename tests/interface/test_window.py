@@ -73,21 +73,21 @@ class TestEtatDuDirect:
     """
 
     def test_hors_reunion_on_explique_a_quoi_sert_l_onglet(self) -> None:
-        dit = _live_state_line(en_reunion=False, annonce="", sentences=0)
+        dit = _live_state_line(in_a_meeting=False, annonce="", sentences=0)
         assert "Aucune réunion en cours" in dit
 
     def test_un_modele_absent_est_dit_plutot_que_montre_par_un_vide(self) -> None:
         dit = _live_state_line(
-            en_reunion=True, annonce="Aucun modèle de transcription : le fil restera vide.",
+            in_a_meeting=True, annonce="Aucun modèle de transcription : le fil restera vide.",
             sentences=0,
         )
         assert "Aucun modèle" in dit
 
     def test_avant_la_premiere_tranche_on_dit_qu_on_attend(self) -> None:
-        assert "attente" in _live_state_line(en_reunion=True, annonce="", sentences=0)
+        assert "attente" in _live_state_line(in_a_meeting=True, annonce="", sentences=0)
 
     def test_des_qu_il_y_a_du_texte_on_rappelle_comment_corriger(self) -> None:
-        dit = _live_state_line(en_reunion=True, annonce="", sentences=14)
+        dit = _live_state_line(in_a_meeting=True, annonce="", sentences=14)
         assert "14 phrase(s)" in dit
         assert "corriger" in dit
 

@@ -46,7 +46,7 @@ class HardwareWatch:
     span: float = SPAN
 
     def __post_init__(self) -> None:
-        self._precedent: Hardware | None = None
+        self._previous: Hardware | None = None
         self._capture = CaptureWatch()
         self._level = LevelWatch()
 
@@ -64,13 +64,13 @@ class HardwareWatch:
         current = self.lister.read()
         if not current.devices:
             return
-        if self._precedent is None:
-            self._precedent = current
+        if self._previous is None:
+            self._previous = current
             return
 
-        decision = self.watch_rules.examine(self._precedent, current)
-        self._precedent = current
-        if decision.action is Action.RIEN:
+        decision = self.watch_rules.examine(self._previous, current)
+        self._previous = current
+        if decision.action is Action.NOTHING:
             return
 
         if decision.action is Action.ALERTER:

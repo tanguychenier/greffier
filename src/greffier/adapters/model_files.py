@@ -151,12 +151,12 @@ def fetch(
     partiel = cible.with_suffix(cible.suffix + ".partiel")
     requete = urllib.request.Request(model.url, headers={"User-Agent": "Greffier"})
     try:
-        with urllib.request.urlopen(requete, timeout=delai) as flux:
-            total = int(flux.headers.get("Content-Length") or 0)
+        with urllib.request.urlopen(requete, timeout=delai) as stream:
+            total = int(stream.headers.get("Content-Length") or 0)
             recu = 0
-            with partiel.open("wb") as sortie:
-                while morceau := flux.read(MORCEAU):
-                    sortie.write(morceau)
+            with partiel.open("wb") as output:
+                while morceau := stream.read(MORCEAU):
+                    output.write(morceau)
                     recu += len(morceau)
                     if progress is not None:
                         progress(recu, total)
@@ -209,11 +209,11 @@ def _deballer(archive: Path, model: Model, folder: Path) -> tuple[bool, str]:
     return (True, str(cible))
 
 
-def _effacer(chemin: Path) -> None:
+def _effacer(path: Path) -> None:
     import shutil
 
     with contextlib.suppress(OSError):
-        if chemin.is_dir():
-            shutil.rmtree(chemin)
+        if path.is_dir():
+            shutil.rmtree(path)
         else:
-            chemin.unlink(missing_ok=True)
+            path.unlink(missing_ok=True)

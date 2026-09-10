@@ -32,9 +32,9 @@ def _say_voice() -> list[tuple[str, str]]:
         return []
     voice = []
     for line in output.splitlines():
-        trouve = re.match(r"^(.+?)\s+([a-z]{2}_[A-Z]{2})\s+#", line)
-        if trouve and trouve.group(2).startswith("fr"):
-            voice.append((trouve.group(1).strip(), trouve.group(2)))
+        found = re.match(r"^(.+?)\s+([a-z]{2}_[A-Z]{2})\s+#", line)
+        if found and found.group(2).startswith("fr"):
+            voice.append((found.group(1).strip(), found.group(2)))
     return voice
 
 def best_voice() -> str | None:

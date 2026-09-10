@@ -38,8 +38,8 @@ def voiceprints_per_voice(meeting: dict, cache: Path) -> dict[str, list[Voicepri
     import soundfile as sf
 
     from greffier.adapters.voiceprints_titanet import (
-        DUREE_MAXIMALE,
-        DUREE_MINIMALE,
+        MAXIMUM_LENGTH,
+        MINIMUM_LENGTH,
         TitaNetExtractor,
     )
 
@@ -56,24 +56,24 @@ def voiceprints_per_voice(meeting: dict, cache: Path) -> dict[str, list[Voicepri
     with sf.SoundFile(str(meeting["audio"])) as file:
         frequency = file.samplerate
         total = sum(len(v) for v in per_voice.values())
-        fait = 0
+        done = 0
         for voice, intervalles in per_voice.items():
             for span in intervalles:
-                fait += 1
-                if fait % 100 == 0:
-                    print(f"  {fait}/{total} extraits…", file=sys.stderr)
-                if span.duration < DUREE_MINIMALE:
+                done += 1
+                if done % 100 == 0:
+                    print(f"  {done}/{total} extraits…", file=sys.stderr)
+                if span.duration < MINIMUM_LENGTH:
                     continue
                 start, end = span.start, span.end
-                if end - start > DUREE_MAXIMALE:
+                if end - start > MAXIMUM_LENGTH:
                     milieu = (start + end) / 2
-                    start, end = milieu - DUREE_MAXIMALE / 2, milieu + DUREE_MAXIMALE / 2
+                    start, end = milieu - MAXIMUM_LENGTH / 2, milieu + MAXIMUM_LENGTH / 2
                 file.seek(int(start * frequency))
-                bloc = file.read(int((end - start) * frequency), dtype="float32",
+                block = file.read(int((end - start) * frequency), dtype="float32",
                                     always_2d=True)
-                if len(bloc) < DUREE_MINIMALE * frequency:
+                if len(block) < MINIMUM_LENGTH * frequency:
                     continue
-                signal = np.ascontiguousarray(bloc.mean(axis=1))
+                signal = np.ascontiguousarray(block.mean(axis=1))
                 outcome[voice].append(extractor.extract(signal, frequency))
 
     cache.parent.mkdir(parents=True, exist_ok=True)
@@ -90,14 +90,14 @@ def note(membership: dict[str, str], meeting: dict,
         voice = membership.get(str(turn["voix"]), str(turn["voix"]))
         duration[voice] += turn["fin"] - turn["debut"]
 
-    groupes: dict[str, Counter] = defaultdict(Counter)
+    groups: dict[str, Counter] = defaultdict(Counter)
     for voice, name in verite.items():
-        groupes[membership.get(voice, voice)][name] += sum(
+        groups[membership.get(voice, voice)][name] += sum(
             e.source_duration for e in per_voice.get(voice, [])) or 1.0
 
-    melanges = {g: dict(c) for g, c in groupes.items() if len(c) > 1}
+    melanges = {g: dict(c) for g, c in groups.items() if len(c) > 1}
     eclats = Counter()
-    for c in groupes.values():
+    for c in groups.values():
         eclats[c.most_common(1)[0][0]] += 1
     total = sum(duration.values()) or 1.0
     gros = sorted(duration.items(), key=lambda x: -x[1])[:6]
@@ -109,7 +109,7 @@ def note(membership: dict[str, str], meeting: dict,
     }
 
 
-def adoption(per_voice, seuil, marge, material) -> dict[str, str]:
+def adoption(per_voice, threshold, margin, material) -> dict[str, str]:
     """Rattache les petits groupes au grand qui leur ressemble le plus.
 
     Le recollage par paires s'arrête dès qu'aucune paire ne franchit son seuil,
@@ -119,15 +119,15 @@ def adoption(per_voice, seuil, marge, material) -> dict[str, str]:
     donc, et non un seuil seul.
     """
     membership = domain.join_voices(per_voice)
-    groupes: dict[str, list[Voiceprint]] = defaultdict(list)
-    for voice, vers in membership.items():
-        groupes[vers].extend(per_voice.get(voice, []))
-    groupes = {g: e for g, e in groupes.items() if e}
-    matieres = {g: sum(x.source_duration for x in e) for g, e in groupes.items()}
-    etablis = {g: domain.aggregate(e) for g, e in groupes.items() if matieres[g] >= material}
+    groups: dict[str, list[Voiceprint]] = defaultdict(list)
+    for voice, into in membership.items():
+        groups[into].extend(per_voice.get(voice, []))
+    groups = {g: e for g, e in groups.items() if e}
+    matieres = {g: sum(x.source_duration for x in e) for g, e in groups.items()}
+    etablis = {g: domain.aggregate(e) for g, e in groups.items() if matieres[g] >= material}
     if not etablis:
         return membership
-    for petit, voiceprints in groupes.items():
+    for petit, voiceprints in groups.items():
         if petit in etablis:
             continue
         aggregate_of = domain.aggregate(voiceprints)
@@ -137,14 +137,14 @@ def adoption(per_voice, seuil, marge, material) -> dict[str, str]:
         )
         best, gagnant = ranking[0]
         second = ranking[1][0] if len(ranking) > 1 else -1.0
-        if best >= seuil and best - second >= marge:
-            for voice, vers in membership.items():
-                if vers == petit:
+        if best >= threshold and best - second >= margin:
+            for voice, into in membership.items():
+                if into == petit:
                     membership[voice] = gagnant
     return membership
 
 
-def consolidation(per_voice, seuil_adoption, marge, material, seuil_final) -> dict[str, str]:
+def consolidation(per_voice, seuil_adoption, margin, material, seuil_final) -> dict[str, str]:
     """Adoption, puis les groupes établis se comparent entre eux.
 
     Une fois les fragments rattachés, un groupe établi porte des minutes de
@@ -152,29 +152,29 @@ def consolidation(per_voice, seuil_adoption, marge, material, seuil_final) -> di
     deux groupes qui sont la même personne peuvent enfin se reconnaître à un
     seuil que des fragments n'auraient pas mérité.
     """
-    membership = adoption(per_voice, seuil_adoption, marge, material)
+    membership = adoption(per_voice, seuil_adoption, margin, material)
     while True:
-        groupes: dict[str, list[Voiceprint]] = defaultdict(list)
-        for voice, vers in membership.items():
-            groupes[vers].extend(per_voice.get(voice, []))
-        etablis = {g: e for g, e in groupes.items()
+        groups: dict[str, list[Voiceprint]] = defaultdict(list)
+        for voice, into in membership.items():
+            groups[into].extend(per_voice.get(voice, []))
+        etablis = {g: e for g, e in groups.items()
                    if sum(x.source_duration for x in e) >= material}
         agregats = {g: domain.aggregate(e) for g, e in etablis.items()}
         names = sorted(agregats)
-        meilleure = None
+        best = None
         for i, a in enumerate(names):
             for b in names[i + 1:]:
                 score = domain.similarity(agregats[a], agregats[b])
-                if score >= seuil_final and (meilleure is None or score > meilleure[0]):
-                    meilleure = (score, a, b)
-        if meilleure is None:
+                if score >= seuil_final and (best is None or score > best[0]):
+                    best = (score, a, b)
+        if best is None:
             return membership
-        _, garde, absorbe = meilleure
+        _, garde, absorbe = best
         if sum(x.source_duration for x in etablis[absorbe]) > sum(
                 x.source_duration for x in etablis[garde]):
             garde, absorbe = absorbe, garde
-        for voice, vers in membership.items():
-            if vers == absorbe:
+        for voice, into in membership.items():
+            if into == absorbe:
                 membership[voice] = garde
 
 
@@ -199,16 +199,16 @@ def main() -> int:
     print(f"{len(per_voice)} voix portent au moins une empreinte.\n")
 
     print("== recollage actuel, par seuil ==")
-    for seuil in (0.75, 0.70, 0.65, 0.60, 0.55, 0.50, 0.45):
-        note = note(domain.join_voices(per_voice, seuil=seuil), meeting, per_voice)
-        print(f"seuil {seuil:.2f} → {note['voix']:4d} voix, "
+    for threshold in (0.75, 0.70, 0.65, 0.60, 0.55, 0.50, 0.45):
+        note = note(domain.join_voices(per_voice, threshold=threshold), meeting, per_voice)
+        print(f"seuil {threshold:.2f} → {note['voix']:4d} voix, "
               f"éclats {note['eclats']}, mélanges {len(note['melanges'])}")
 
     print("\n== recollage puis adoption des petits groupes ==")
-    for seuil in (0.60, 0.55, 0.50, 0.45, 0.40, 0.35, 0.30):
-        for marge in (0.0, 0.05, 0.10):
-            note = note(adoption(per_voice, seuil, marge, 30.0), meeting, per_voice)
-            print(f"seuil {seuil:.2f} marge {marge:.2f} → {note['voix']:4d} voix, "
+    for threshold in (0.60, 0.55, 0.50, 0.45, 0.40, 0.35, 0.30):
+        for margin in (0.0, 0.05, 0.10):
+            note = note(adoption(per_voice, threshold, margin, 30.0), meeting, per_voice)
+            print(f"seuil {threshold:.2f} marge {margin:.2f} → {note['voix']:4d} voix, "
                   f"éclats {note['eclats']}, mélanges {len(note['melanges'])}, "
                   f"gros {note['gros'][:4]}")
     print("\n== adoption puis consolidation des établis ==")

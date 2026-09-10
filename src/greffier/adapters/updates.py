@@ -76,14 +76,14 @@ def installed_version() -> str:
 
 def _version_du_projet() -> str:
     """The version written in pyproject.toml, when it can be reached."""
-    projet = Path(__file__).resolve().parents[3] / "pyproject.toml"
-    if not projet.exists():
+    project = Path(__file__).resolve().parents[3] / "pyproject.toml"
+    if not project.exists():
         return ""
     try:
         import tomllib
 
-        with projet.open("rb") as flux:
-            return str(tomllib.load(flux).get("project", {}).get("version", ""))
+        with project.open("rb") as stream:
+            return str(tomllib.load(stream).get("project", {}).get("version", ""))
     except (OSError, ValueError):
         return ""
 
@@ -358,12 +358,12 @@ def _artifact_for_this_system(publication: dict[str, Any]) -> tuple[str, str]:
     The right one and no other: all three hang off the same release, and a Windows
     archive installed on a Mac would produce nothing that launches.
     """
-    attendu = ARTEFACTS.get(platform.system(), "")
-    if not attendu:
+    expected = ARTEFACTS.get(platform.system(), "")
+    if not expected:
         return ("", "")
     for piece in publication.get("assets") or []:
         if not isinstance(piece, dict):
             continue
-        if str(piece.get("name", "")) == attendu:
-            return (attendu, str(piece.get("browser_download_url", "")))
+        if str(piece.get("name", "")) == expected:
+            return (expected, str(piece.get("browser_download_url", "")))
     return ("", "")

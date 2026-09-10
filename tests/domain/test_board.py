@@ -53,26 +53,26 @@ class TestFusion:
 
     def test_une_piste_s_accroche_sous_son_probleme(self):
         board = Board("Oasis")
-        join(board, [Contribution("Le PDF ne se régénère pas", kind=Kind.PROBLEME)])
-        join(board, [Contribution("Forcer la régénération", kind=Kind.PISTE,
-                                 sous="Le PDF ne se régénère pas")])
-        assert board.racine is not None
-        probleme = board.racine.enfant("Le PDF ne se régénère pas")
+        join(board, [Contribution("Le PDF ne se régénère pas", kind=Kind.PROBLEM)])
+        join(board, [Contribution("Forcer la régénération", kind=Kind.LEAD,
+                                 under="Le PDF ne se régénère pas")])
+        assert board.root is not None
+        probleme = board.root.enfant("Le PDF ne se régénère pas")
         assert probleme is not None
-        assert [enfant.text for enfant in probleme.enfants] == ["Forcer la régénération"]
+        assert [enfant.text for enfant in probleme.children] == ["Forcer la régénération"]
 
     def test_un_parent_introuvable_ne_perd_pas_l_apport(self):
         """Mal placé, il reste corrigeable ; perdu, il faut réécouter la réunion."""
         board = Board("Oasis")
-        join(board, [Contribution("Une piste", sous="un parent qui n'existe pas")])
-        assert board.racine is not None
-        assert board.racine.enfant("Une piste") is not None
+        join(board, [Contribution("Une piste", under="un parent qui n'existe pas")])
+        assert board.root is not None
+        assert board.root.enfant("Une piste") is not None
 
     def test_la_reunion_d_origine_est_notee(self):
         board = Board("Oasis")
         join(board, [Contribution("Un point")], meeting="2026-09-09_10h05_reunion")
-        assert board.racine is not None
-        noeud = board.racine.enfant("Un point")
+        assert board.root is not None
+        noeud = board.root.enfant("Un point")
         assert noeud is not None
         assert noeud.meetings == ["2026-09-09_10h05_reunion"]
 
@@ -80,8 +80,8 @@ class TestFusion:
         board = Board("Oasis")
         join(board, [Contribution("Un point")], meeting="premiere")
         join(board, [Contribution("Un point")], meeting="seconde")
-        assert board.racine is not None
-        noeud = board.racine.enfant("Un point")
+        assert board.root is not None
+        noeud = board.root.enfant("Un point")
         assert noeud is not None
         assert noeud.meetings == ["premiere", "seconde"]
 
@@ -96,21 +96,21 @@ class TestEtats:
     def test_le_defaut_est_en_discussion(self):
         board = Board("Oasis")
         join(board, [Contribution("Une idée lancée à l'oral")])
-        assert board.racine is not None
-        noeud = board.racine.enfant("Une idée lancée à l'oral")
+        assert board.root is not None
+        noeud = board.root.enfant("Une idée lancée à l'oral")
         assert noeud is not None
-        assert noeud.state is Standing.EN_DISCUSSION
+        assert noeud.state is Standing.UNDER_DISCUSSION
 
     def test_une_decision_releve_l_etat(self):
         board = Board("Oasis")
-        join(board, [Contribution("Monter la recette en interne", kind=Kind.PISTE)])
+        join(board, [Contribution("Monter la recette en interne", kind=Kind.LEAD)])
         bilan = join(board, [Contribution("Monter la recette en interne",
-                                         kind=Kind.PISTE, state=Standing.ACTE)])
+                                         kind=Kind.LEAD, state=Standing.AGREED)])
         assert bilan.actes == ("Monter la recette en interne",)
-        assert board.racine is not None
-        noeud = board.racine.enfant("Monter la recette en interne")
+        assert board.root is not None
+        noeud = board.root.enfant("Monter la recette en interne")
         assert noeud is not None
-        assert noeud.state is Standing.ACTE
+        assert noeud.state is Standing.AGREED
 
     def test_un_probleme_ne_peut_pas_etre_acte(self):
         """« Acté » se lirait « le groupe a décidé ce problème ».
@@ -120,37 +120,38 @@ class TestEtats:
         """
         board = Board("Oasis")
         join(board, [Contribution("Le PDF ne se régénère pas",
-                                 kind=Kind.PROBLEME, state=Standing.ACTE)])
-        assert board.racine is not None
-        noeud = board.racine.enfant("Le PDF ne se régénère pas")
+                                 kind=Kind.PROBLEM, state=Standing.AGREED)])
+        assert board.root is not None
+        noeud = board.root.enfant("Le PDF ne se régénère pas")
         assert noeud is not None
-        assert noeud.state is Standing.EN_DISCUSSION
+        assert noeud.state is Standing.UNDER_DISCUSSION
 
     def test_une_piste_et_une_action_peuvent_etre_actees(self):
         board = Board("Oasis")
-        join(board, [Contribution("Monter la recette", kind=Kind.PISTE, state=Standing.ACTE),
-                          Contribution("Chiffrer le coût", kind=Kind.ACTION, state=Standing.ACTE)])
-        assert board.racine is not None
+        join(board, [
+            Contribution("Monter la recette", kind=Kind.LEAD, state=Standing.AGREED),
+            Contribution("Chiffrer le coût", kind=Kind.ACTION, state=Standing.AGREED)])
+        assert board.root is not None
         for text in ("Monter la recette", "Chiffrer le coût"):
-            noeud = board.racine.enfant(text)
-            assert noeud is not None and noeud.state is Standing.ACTE
+            noeud = board.root.enfant(text)
+            assert noeud is not None and noeud.state is Standing.AGREED
 
     def test_un_probleme_peut_etre_depasse(self):
         """Un problème peut avoir cessé d'en être un."""
         board = Board("Oasis")
-        join(board, [Contribution("Un souci", kind=Kind.PROBLEME)])
+        join(board, [Contribution("Un souci", kind=Kind.PROBLEM)])
         assert mark_overdue(board, "Un souci") is True
 
     def test_une_decision_ne_redevient_pas_une_discussion(self):
         """« Acté » qui redeviendrait « en discussion » ferait douter de tout."""
         board = Board("Oasis")
-        join(board, [Contribution("Monter la recette", kind=Kind.PISTE, state=Standing.ACTE)])
-        join(board, [Contribution("Monter la recette", kind=Kind.PISTE,
-                                 state=Standing.EN_DISCUSSION)])
-        assert board.racine is not None
-        noeud = board.racine.enfant("Monter la recette")
+        join(board, [Contribution("Monter la recette", kind=Kind.LEAD, state=Standing.AGREED)])
+        join(board, [Contribution("Monter la recette", kind=Kind.LEAD,
+                                 state=Standing.UNDER_DISCUSSION)])
+        assert board.root is not None
+        noeud = board.root.enfant("Monter la recette")
         assert noeud is not None
-        assert noeud.state is Standing.ACTE
+        assert noeud.state is Standing.AGREED
 
 
 class TestRienNeDisparait:
@@ -161,10 +162,10 @@ class TestRienNeDisparait:
         join(board, [Contribution("Une piste écartée")])
         assert mark_overdue(board, "Une piste écartée") is True
         assert board.count == 2, "le nœud reste"
-        assert board.racine is not None
-        noeud = board.racine.enfant("Une piste écartée")
+        assert board.root is not None
+        noeud = board.root.enfant("Une piste écartée")
         assert noeud is not None
-        assert noeud.state is Standing.DEPASSE
+        assert noeud.state is Standing.OVERTAKEN
 
     def test_la_racine_ne_se_marque_pas(self):
         assert mark_overdue(Board("Oasis"), "Oasis") is False
@@ -185,8 +186,8 @@ class TestComptage:
         assert Node("seul").count() == 1
 
     def test_les_enfants_comptent(self):
-        racine = Node("racine", enfants=[Node("a"), Node("b", enfants=[Node("c")])])
-        assert racine.count() == 4
+        root = Node("racine", children=[Node("a"), Node("b", children=[Node("c")])])
+        assert root.count() == 4
 
 
 class TestReformulations:

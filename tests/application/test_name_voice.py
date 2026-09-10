@@ -12,7 +12,7 @@ def reunion_type(**overrides) -> StoredMeeting:
     defauts = dict(
         identifier="2026-08-24_reunion",
         audio=Path("/tmp/r.wav"),
-        traitee_le=datetime.now(UTC),
+        processed_at=datetime.now(UTC),
         duration=100.0,
         utterances=[Utterance(Span(0, 40), "bonjour à tous", "1"),
                    Utterance(Span(60, 65), "bref", "2")],

@@ -1,6 +1,6 @@
 """La capture avance-t-elle ? La seule question qui compte pendant la réunion."""
 
-from greffier.domain.capture import TOURS_AVANT_ALERTE, CaptureWatch
+from greffier.domain.capture import TURNS_BEFORE_ALERT, CaptureWatch
 
 
 class TestQuandLaCaptureAvance:
@@ -26,7 +26,7 @@ class TestQuandLaCaptureSArrete:
     def test_l_immobilite_finit_par_alerter(self):
         monitoring = CaptureWatch()
         monitoring.observe(5000)
-        raisons = [monitoring.observe(5000) for _ in range(TOURS_AVANT_ALERTE)]
+        raisons = [monitoring.observe(5000) for _ in range(TURNS_BEFORE_ALERT)]
         assert raisons[-1], "l'alerte doit finir par sortir"
         assert "n'avance plus" in raisons[-1]
 
@@ -46,10 +46,10 @@ class TestQuandLaCaptureSArrete:
         """Un changement de matériel peut interrompre la capture le temps d'un morceau."""
         monitoring = CaptureWatch()
         monitoring.observe(5000)
-        for _ in range(TOURS_AVANT_ALERTE):
+        for _ in range(TURNS_BEFORE_ALERT):
             monitoring.observe(5000)
         assert monitoring.observe(9000) == "", "ça repart : plus rien à dire"
-        for _ in range(TOURS_AVANT_ALERTE):
+        for _ in range(TURNS_BEFORE_ALERT):
             dernier = monitoring.observe(9000)
         assert dernier, "une seconde panne doit se dire aussi"
 
@@ -57,5 +57,5 @@ class TestQuandLaCaptureSArrete:
         """Ça n'arrive pas normalement, et ne doit donc pas passer inaperçu."""
         monitoring = CaptureWatch()
         monitoring.observe(9000)
-        raisons = [monitoring.observe(1000) for _ in range(TOURS_AVANT_ALERTE)]
+        raisons = [monitoring.observe(1000) for _ in range(TURNS_BEFORE_ALERT)]
         assert raisons[-1]

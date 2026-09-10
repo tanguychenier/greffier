@@ -50,7 +50,7 @@ class TestRenduDuFil:
         rendered = fil_avec(
             (1, 0.0, 10.0, "Le début, très ancien.", "v1"),
             (2, 600.0, 610.0, "La fin, celle qui compte.", "v1"),
-        ).rendered(depuis=300.0)
+        ).rendered(since=300.0)
         assert "celle qui compte" in rendered
         assert "très ancien" not in rendered
 

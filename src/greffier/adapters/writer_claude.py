@@ -11,7 +11,7 @@ import shutil
 import subprocess
 from typing import ClassVar
 
-from greffier.domain.languages import nom_de
+from greffier.domain.languages import name_of
 
 GUIDANCE = """Tu rédiges le compte rendu d'une réunion de travail, à partir d'une
 transcription automatique locale dont les locuteurs ont été identifiés.
@@ -123,7 +123,7 @@ def guidance(language: str = "") -> str:
     """The instructions, dictated in the language wanted."""
     if not language or language == "fr":
         return GUIDANCE
-    name = nom_de(language)
+    name = name_of(language)
     header = (
         f"Rédige entièrement en {name}. Tout le document : le titre, les intitulés\n"
         f"de section, les phrases. La transcription qui suit peut être dans une\n"

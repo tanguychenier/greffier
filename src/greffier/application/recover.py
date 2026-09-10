@@ -41,34 +41,34 @@ def depuis_le_fil(
             span=turn.span,
             text=turn.text.strip(),
             voice=turn.voice,
-            source=Source.INCONNUE,
+            source=Source.UNKNOWN,
         ))
-        turns.append(SpeakerTurn(turn.span, turn.voice, Source.INCONNUE))
+        turns.append(SpeakerTurn(turn.span, turn.voice, Source.UNKNOWN))
 
     names = {
         voice: connue.name
         for voice, connue in thread.voice.items()
-        if connue.name and connue.certitude.name != "INCONNUE"
+        if connue.name and connue.certainty.name != "INCONNUE"
     }
     duration = turns[-1].span.end if turns else 0.0
-    quand = held_on(identifier)
+    when = held_on(identifier)
     commencee = None
-    if quand is not None:
-        annee, mois, jour, heure, minute = quand
+    if when is not None:
+        annee, mois, jour, heure, minute = when
         commencee = datetime(annee, mois, jour, heure, minute).astimezone()
 
     return StoredMeeting(
         identifier=identifier,
         audio=audio if audio is not None else Path(""),
-        traitee_le=datetime.now(UTC),
+        processed_at=datetime.now(UTC),
         duration=duration,
         utterances=utterances,
         turns=turns,
         names=names,
         propositions={},
         warnings=[WARNING],
-        commencee_le=commencee,
-        terminee_le=(
+        started_at=commencee,
+        ended_at=(
             commencee + timedelta(seconds=duration) if commencee and duration else None
         ),
     )

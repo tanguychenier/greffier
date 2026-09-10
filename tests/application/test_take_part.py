@@ -61,7 +61,7 @@ class TestEtreAppele:
         traces = []
         voice, cerveau = FakeVoiceAdapter(), FakeBrain()
         assistant = AssistantSettings(name="Lucie", voice=voice, cerveau=cerveau,
-                                tracer=lambda qui, quoi: traces.append((qui, quoi)))
+                                tracer=lambda who, what: traces.append((who, what)))
         opening = Opening(because=Because.APPELE, remark="tu nous entends ?", born_at=10.0)
         rendered = assistant.answer(opening, now=13.0)
         assert rendered.prononce
@@ -72,7 +72,7 @@ class TestEtreAppele:
         """Tout le monde ne veut pas d'une voix dans la pièce."""
         traces = []
         assistant = AssistantSettings(name="Lucie", cerveau=FakeBrain(),
-                                tracer=lambda qui, quoi: traces.append(quoi))
+                                tracer=lambda who, what: traces.append(what))
         rendered = assistant.answer(
             Opening(because=Because.APPELE, remark="?", born_at=1.0), now=2.0)
         assert not rendered.prononce and traces == ["Oui, je vous entends très bien."]
@@ -214,7 +214,7 @@ class TestEchecs:
         traces = []
         assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(marche=False),
                                 cerveau=FakeBrain(),
-                                tracer=lambda qui, quoi: traces.append(quoi))
+                                tracer=lambda who, what: traces.append(what))
         rendered = assistant.answer(
             Opening(because=Because.APPELE, remark="?", born_at=1.0), now=2.0)
         assert not rendered.prononce and traces == ["Oui, je vous entends très bien."]

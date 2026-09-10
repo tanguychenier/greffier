@@ -57,10 +57,10 @@ _NAME = re.compile(r"^(?P<serie>[A-Z]{2}\d{4})(?P<seance>[a-z])\.Headset-(?P<qui
 
 
 def situer(file: Path) -> tuple[str, str, str] | None:
-    trouve = _NAME.match(file.name)
-    if trouve is None:
+    found = _NAME.match(file.name)
+    if found is None:
         return None
-    return (trouve["serie"], trouve["seance"], trouve["qui"])
+    return (found["serie"], found["seance"], found["qui"])
 
 
 def empreinte_de(file: Path, extractor) -> object | None:
@@ -91,8 +91,8 @@ def empreinte_de(file: Path, extractor) -> object | None:
     # Énergie efficace par fenêtre : c'est le niveau, pas un maximum ponctuel
     # qu'un claquement suffirait à faire monter.
     levels = np.sqrt((fenetres.astype(np.float64) ** 2).mean(axis=1))
-    combien = max(4, int(entieres * PART_RETENUE))
-    retenues = np.argsort(levels)[-combien:]
+    how_many = max(4, int(entieres * PART_RETENUE))
+    retenues = np.argsort(levels)[-how_many:]
     return extractor.extract(
         fenetres[np.sort(retenues)].reshape(-1).astype(np.float32), frequency
     )
@@ -102,8 +102,8 @@ def main() -> int:
     from greffier.adapters.configuration import Config
     from greffier.adapters.voiceprints_titanet import TitaNetExtractor
     from greffier.domain.voiceprints import (
-        MARGE_MINIMALE,
-        SEUIL_RECONNAISSANCE,
+        MINIMUM_MARGIN,
+        RECOGNITION_THRESHOLD,
         similarity,
     )
 
@@ -135,45 +135,45 @@ def main() -> int:
             print(f"  ignoré, muet : {file.name}")
             continue
         voiceprints[situation] = voiceprint
-        serie, seance, qui = situation
-        print(f"  {serie}{seance} participant {qui}")
+        serie, seance, who = situation
+        print(f"  {serie}{seance} participant {who}")
 
     memes: list[float] = []
-    autres: list[float] = []
+    others: list[float] = []
     print("\nRessemblances mesurées :\n")
-    for (un, autre) in combinations(sorted(voiceprints), 2):
-        value = similarity(voiceprints[un], voiceprints[autre])  # type: ignore[arg-type]
-        meme_personne = un[0] == autre[0] and un[2] == autre[2]
-        meme_seance = un[1] == autre[1]
+    for (one, other) in combinations(sorted(voiceprints), 2):
+        value = similarity(voiceprints[one], voiceprints[other])  # type: ignore[arg-type]
+        meme_personne = one[0] == other[0] and one[2] == other[2]
+        meme_seance = one[1] == other[1]
         if meme_personne and not meme_seance:
-            quoi = "MÊME personne, deux séances"
+            what = "MÊME personne, deux séances"
             memes.append(value)
         elif meme_personne:
-            quoi = "même personne, même séance"
+            what = "même personne, même séance"
         else:
-            quoi = "personnes différentes"
-            autres.append(value)
-        print(f"  {value:.3f}  {quoi:<28} "
-              f"{un[0]}{un[1]}·{un[2]} / {autre[0]}{autre[1]}·{autre[2]}")
+            what = "personnes différentes"
+            others.append(value)
+        print(f"  {value:.3f}  {what:<28} "
+              f"{one[0]}{one[1]}·{one[2]} / {other[0]}{other[1]}·{other[2]}")
 
-    print(f"\nSeuil en vigueur : {SEUIL_RECONNAISSANCE:.2f} "
-          f"(marge minimale {MARGE_MINIMALE:.2f})")
+    print(f"\nSeuil en vigueur : {RECOGNITION_THRESHOLD:.2f} "
+          f"(marge minimale {MINIMUM_MARGIN:.2f})")
     if memes:
         print(f"  même personne, deux séances : {min(memes):.3f} à {max(memes):.3f}")
-        sous = [value for value in memes if value < SEUIL_RECONNAISSANCE]
-        if sous:
-            print(f"  ⚠ {len(sous)} paire(s) sous le seuil : ces personnes ne seraient")
+        under = [value for value in memes if value < RECOGNITION_THRESHOLD]
+        if under:
+            print(f"  ⚠ {len(under)} paire(s) sous le seuil : ces personnes ne seraient")
             print("    pas reconnues d'une réunion à l'autre.")
-    if autres:
-        print(f"  personnes différentes       : {min(autres):.3f} à {max(autres):.3f}")
-        au_dessus = [value for value in autres if value >= SEUIL_RECONNAISSANCE]
+    if others:
+        print(f"  personnes différentes       : {min(others):.3f} à {max(others):.3f}")
+        au_dessus = [value for value in others if value >= RECOGNITION_THRESHOLD]
         if au_dessus:
             print(f"  ⚠ {len(au_dessus)} paire(s) au-dessus du seuil : deux personnes")
             print("    différentes seraient confondues.")
-    if memes and autres and max(autres) < min(memes):
-        print(f"\n  Les deux nuages sont séparés : tout seuil entre {max(autres):.3f} "
+    if memes and others and max(others) < min(memes):
+        print(f"\n  Les deux nuages sont séparés : tout seuil entre {max(others):.3f} "
               f"et {min(memes):.3f} sépare correctement.")
-    elif memes and autres:
+    elif memes and others:
         # Le cas ordinaire dès qu'on mesure assez de paires. Ce qui compte
         # alors n'est plus « quel seuil sépare » mais « que coûte chaque
         # seuil » : c'est ce tableau qui permet de décider, et une première
@@ -181,11 +181,11 @@ def main() -> int:
         print("\n  Les nuages se chevauchent : aucun seuil ne sépare. Ce que "
               "chacun coûte :\n")
         print(f"    {'seuil':>6}  {'non reconnu(s)':>15}  {'confusion(s)':>13}")
-        for seuil in (0.70, 0.60, 0.50, 0.45, 0.40, 0.30):
-            manques = sum(1 for value in memes if value < seuil)
-            confusions = sum(1 for value in autres if value >= seuil)
-            print(f"    {seuil:>6.2f}  {manques:>7}/{len(memes):<7}  "
-                  f"{confusions:>6}/{len(autres):<6}")
+        for threshold in (0.70, 0.60, 0.50, 0.45, 0.40, 0.30):
+            manques = sum(1 for value in memes if value < threshold)
+            confusions = sum(1 for value in others if value >= threshold)
+            print(f"    {threshold:>6.2f}  {manques:>7}/{len(memes):<7}  "
+                  f"{confusions:>6}/{len(others):<6}")
         print("\n  Une confusion écrit le nom de quelqu'un d'autre dans un "
               "compte rendu ;\n  un défaut de reconnaissance laisse une voix "
               "à nommer d'un clic. Les deux\n  ne se valent pas.")

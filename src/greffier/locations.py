@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 NATIF_MACOS = "Library/Application Support/Greffier"
-FICHIERS_CONFIG = ("config.toml", ".env")
+CONFIG_FILES = ("config.toml", ".env")
 
 def _system(system: str | None) -> str:
     return system or platform.system()
@@ -50,7 +50,7 @@ def data_folder(system: str | None = None) -> Path:
     return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "greffier"
 
 def _holds_configuration(folder: Path) -> bool:
-    return any((folder / name).exists() for name in FICHIERS_CONFIG)
+    return any((folder / name).exists() for name in CONFIG_FILES)
 
 def relocate(system: str | None = None) -> list[tuple[Path, Path]]:
     """Brings out of hidden folders what an earlier version put there."""
@@ -82,11 +82,11 @@ def _move_contents(former: Path, natif: Path) -> list[tuple[Path, Path]]:
 def locate_tcl(environnement: dict[str, str] | None = None, prefixe: Path | None = None) -> None:
     """Tells Tcl where its files are, when the interpreter cannot find them."""
     env = environnement if environnement is not None else os.environ
-    racine = prefixe or Path(sys.base_prefix)
+    root = prefixe or Path(sys.base_prefix)
     for variable, motif in (("TCL_LIBRARY", "tcl"), ("TK_LIBRARY", "tk")):
         if env.get(variable):
             continue
-        candidats = sorted((racine / "lib").glob(f"{motif}[0-9]*.[0-9]*"))
+        candidats = sorted((root / "lib").glob(f"{motif}[0-9]*.[0-9]*"))
         dossiers = [c for c in candidats if c.is_dir()]
         if dossiers:
             env[variable] = str(dossiers[-1])

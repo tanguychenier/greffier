@@ -46,22 +46,22 @@ class Done:
 
 def tools_present() -> frozenset[str]:
     """The extraction commands actually available on this machine."""
-    trouvees = {name for name in ("ffmpeg", "pdftotext") if shutil.which(name)}
+    found = {name for name in ("ffmpeg", "pdftotext") if shutil.which(name)}
     if platform.system() == "Darwin" and shutil.which("textutil"):
-        trouvees.add("textutil")
-    return frozenset(trouvees)
+        found.add("textutil")
+    return frozenset(found)
 
 def extract_sound(video: Path, destination: Path) -> Path:
     """Pulls the sound track out of a video, in the format transcription wants."""
     destination.parent.mkdir(parents=True, exist_ok=True)
-    fait = subprocess.run(
+    done = subprocess.run(
         ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
          "-i", str(video), "-vn", "-ac", "1", "-ar", "16000",
          "-c:a", "pcm_s16le", str(destination)],
         capture_output=True, text=True, check=False,
     )
-    if fait.returncode != 0 or not destination.exists():
-        details = (fait.stderr or "").strip().splitlines()
+    if done.returncode != 0 or not destination.exists():
+        details = (done.stderr or "").strip().splitlines()
         raise RuntimeError(
             "extraction du son impossible"
             + (f" : {details[-1][:160]}" if details else "")
@@ -70,7 +70,7 @@ def extract_sound(video: Path, destination: Path) -> Path:
 
 def lire_le_texte(document: Path) -> str:
     """The text of a document, whatever its format. Empty when unreadable."""
-    from greffier.domain.store import TEXTES_OUTILLES, TEXTS
+    from greffier.domain.store import TEXTS, TOOLED_TEXTS
 
     suffixe = document.suffix.casefold()
     if suffixe in TEXTS:
@@ -78,7 +78,7 @@ def lire_le_texte(document: Path) -> str:
             return document.read_text(encoding="utf-8", errors="replace")
         except OSError:
             return ""
-    if suffixe not in TEXTES_OUTILLES:
+    if suffixe not in TOOLED_TEXTS:
         return ""
     command = (
         ["pdftotext", "-q", str(document), "-"] if suffixe == ".pdf"
@@ -86,8 +86,8 @@ def lire_le_texte(document: Path) -> str:
     )
     if shutil.which(command[0]) is None:
         return ""
-    fait = subprocess.run(command, capture_output=True, text=True, check=False)
-    return fait.stdout if fait.returncode == 0 else ""
+    done = subprocess.run(command, capture_output=True, text=True, check=False)
+    return done.stdout if done.returncode == 0 else ""
 
 def learn_from_document(
     document: Path, writer: object, maximum: int = 20
@@ -107,8 +107,8 @@ def learn_from_text(
     rendered = writer.write_up(  # type: ignore[attr-defined]
         CONSIGNES_DOCUMENT + text[:LU_AU_PLUS]
     )
-    bloc = re.search(r"```(?:json)?\s*(.*?)```", rendered, re.DOTALL)
-    brut = bloc.group(1) if bloc else rendered
+    block = re.search(r"```(?:json)?\s*(.*?)```", rendered, re.DOTALL)
+    brut = block.group(1) if block else rendered
     start, end = brut.find("["), brut.rfind("]")
     if start == -1 or end <= start:
         return ()
@@ -137,16 +137,16 @@ def run_chain(
 ) -> Done:
     """Does what the suggestion announced. Never raises."""
     if not proposition.feasible:
-        return Done(proposition, trouble=proposition.bloque_par or "rien à en faire")
+        return Done(proposition, trouble=proposition.blocked_by or "rien à en faire")
 
-    if proposition.destin is Destination.VIDEO:
+    if proposition.destination is Destination.VIDEO:
         target = recordings / f"{proposition.file.stem}.wav"
         try:
             return Done(proposition, produit=extract_sound(proposition.file, target))
         except (RuntimeError, OSError) as trouble:
             return Done(proposition, trouble=str(trouble))
 
-    if proposition.destin is Destination.MEETING:
+    if proposition.destination is Destination.MEETING:
         target = recordings / proposition.file.name
         try:
             if target.resolve() != proposition.file.resolve():
@@ -156,7 +156,7 @@ def run_chain(
         except OSError as trouble:
             return Done(proposition, trouble=str(trouble))
 
-    if proposition.destin is Destination.CONTEXT:
+    if proposition.destination is Destination.CONTEXT:
         if writer is None:
             return Done(proposition, trouble="aucun rédacteur pour lire le document")
         try:
