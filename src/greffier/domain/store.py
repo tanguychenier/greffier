@@ -13,29 +13,29 @@ class Destination(StrEnum):
     MEETING = "réunion"
     VIDEO = "vidéo"
     CONTEXT = "contexte"
-    INCONNU = "inconnu"
+    UNKNOWN = "inconnu"
 
-SONS = frozenset({".wav", ".mp3", ".m4a", ".opus", ".flac", ".aac", ".aiff", ".ogg"})
+SOUNDS = frozenset({".wav", ".mp3", ".m4a", ".opus", ".flac", ".aac", ".aiff", ".ogg"})
 
 VIDEOS = frozenset({".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"})
 
 TEXTS = frozenset({".txt", ".md", ".markdown"})
-TEXTES_OUTILLES = frozenset({".pdf", ".doc", ".docx", ".rtf", ".odt"})
+TOOLED_TEXTS = frozenset({".pdf", ".doc", ".docx", ".rtf", ".odt"})
 
-TAILLE_MINIMALE_SON = 200_000
+MINIMUM_SOUND_SIZE = 200_000
 
 @dataclass(frozen=True, slots=True)
 class Suggestion:
     """What is proposed for a file, and why."""
 
     file: Path
-    destin: Destination
-    parce_que: str
-    bloque_par: str = ""
+    destination: Destination
+    because: str
+    blocked_by: str = ""
 
     @property
     def feasible(self) -> bool:
-        return self.destin is not Destination.INCONNU and not self.bloque_par
+        return self.destination is not Destination.UNKNOWN and not self.blocked_by
 
 def offer(
     file: Path,
@@ -45,10 +45,10 @@ def offer(
     """What is proposed for this file."""
     suffixe = file.suffix.casefold()
 
-    if suffixe in SONS:
-        if taille is not None and taille < TAILLE_MINIMALE_SON:
+    if suffixe in SOUNDS:
+        if taille is not None and taille < MINIMUM_SOUND_SIZE:
             return Suggestion(
-                file, Destination.INCONNU,
+                file, Destination.UNKNOWN,
                 f"son trop court pour une réunion ({taille / 1024:.0f} Ko)",
             )
         return Suggestion(file, Destination.MEETING, "enregistrement sonore")
@@ -57,37 +57,42 @@ def offer(
         return Suggestion(
             file, Destination.VIDEO,
             "vidéo : la piste sonore sera extraite, l'image ne sert à rien ici",
-            bloque_par="" if "ffmpeg" in tools else "ffmpeg est introuvable",
+            blocked_by="" if "ffmpeg" in tools else "ffmpeg est introuvable",
         )
 
     if suffixe in TEXTS:
         return Suggestion(file, Destination.CONTEXT, "texte lisible tel quel")
 
-    if suffixe in TEXTES_OUTILLES:
+    if suffixe in TOOLED_TEXTS:
         besoin = "pdftotext" if suffixe == ".pdf" else "textutil"
         return Suggestion(
             file, Destination.CONTEXT,
             f"document {suffixe.lstrip('.')} : son texte sera extrait",
-            bloque_par="" if besoin in tools else f"{besoin} est introuvable",
+            blocked_by="" if besoin in tools else f"{besoin} est introuvable",
         )
 
     return Suggestion(
-        file, Destination.INCONNU,
+        file, Destination.UNKNOWN,
         f"« {suffixe or 'sans extension'} » n'est ni un son, ni une vidéo, "
         "ni un document texte",
     )
+
+def _plural(destination: Destination, how_many: int) -> str:
+    """The mark that turns « réunion » into « réunions », never « contextes »."""
+    return "s" if how_many > 1 and destination is not Destination.CONTEXT else ""
 
 def summarise(propositions: list[Suggestion]) -> str:
     """A sentence saying what the batch will become, before approval."""
     if not propositions:
         return "Aucun fichier."
-    par_destin: dict[Destination, int] = {}
+    by_destination: dict[Destination, int] = {}
     for proposition in propositions:
-        par_destin[proposition.destin] = par_destin.get(proposition.destin, 0) + 1
+        ou = proposition.destination
+        by_destination[ou] = by_destination.get(ou, 0) + 1
     chunks = [
-        f"{combien} {destin}{'s' if combien > 1 and destin is not Destination.CONTEXT else ''}"
-        for destin, combien in par_destin.items()
+        f"{how_many} {destination}{_plural(destination, how_many)}"
+        for destination, how_many in by_destination.items()
     ]
-    bloques = sum(1 for p in propositions if p.bloque_par)
-    phrase = ", ".join(chunks)
-    return phrase + (f" — dont {bloques} en attente d'un outil" if bloques else "")
+    blocked = sum(1 for p in propositions if p.blocked_by)
+    sentence = ", ".join(chunks)
+    return sentence + (f" — dont {blocked} en attente d'un outil" if blocked else "")

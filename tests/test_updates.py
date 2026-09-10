@@ -106,7 +106,7 @@ class TestQuandRienNeRepond:
 class TestInstallation:
     """Une mise à jour ne doit jamais emporter le travail de qui développe."""
 
-    def depot_git(self, tmp_path, propre: bool = True):
+    def depot_git(self, tmp_path, clean: bool = True):
         import subprocess
 
         store = tmp_path / "greffier"
@@ -119,7 +119,7 @@ class TestInstallation:
              "commit", "-qm", "socle"],
             check=True,
         )
-        if not propre:
+        if not clean:
             (store / "macos" / "construire.sh").write_text("modifié\n", encoding="utf-8")
         return store
 
@@ -146,7 +146,7 @@ class TestInstallation:
 
     def test_un_depot_modifie_est_refuse(self, monkeypatch, tmp_path):
         """« git pull » sur un arbre sale échoue à moitié : mieux vaut refuser avant."""
-        store = self.depot_git(tmp_path, propre=False)
+        store = self.depot_git(tmp_path, clean=False)
         monkeypatch.setenv("GREFFIER_DEPOT_SOURCE", str(store))
         possible, because = updates.installable()
         assert possible is False
@@ -377,8 +377,8 @@ class TestLePaquetDeCeProcessus:
         executable = tmp_path / "Greffier.app" / "Contents" / "MacOS" / "Greffier"
         executable.parent.mkdir(parents=True)
         executable.write_text("", encoding="utf-8")
-        trouve = updates.bundle_of_this_process(str(executable))
-        assert trouve is not None and trouve.name == "Greffier.app"
+        found = updates.bundle_of_this_process(str(executable))
+        assert found is not None and found.name == "Greffier.app"
 
     def test_hors_du_paquet_il_n_y_a_rien_a_remplacer(self):
         assert updates.bundle_of_this_process("/usr/local/bin/greffier") is None

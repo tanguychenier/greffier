@@ -77,7 +77,7 @@ class TestQuiParle:
     def test_le_micro_seul_actif_donne_toi(self, tmp_path: Path) -> None:
         releve = read_level(wav(tmp_path / "a.wav", [FORT, MUET, MUET]))
         assert releve is not None
-        assert releve.qui is WhoSpeaks.TOI
+        assert releve.who is WhoSpeaks.YOU
 
     def test_les_canaux_ne_sont_pas_inverses_avec_l_entete_de_ffmpeg(
         self, tmp_path: Path
@@ -88,15 +88,15 @@ class TestQuiParle:
             wav(tmp_path / "b.wav", [FORT, MUET, MUET], avec_liste=True, fmt_etendu=True)
         )
         assert releve is not None
-        assert releve.qui is WhoSpeaks.TOI
-        assert releve.micro_db > releve.systeme_db
+        assert releve.who is WhoSpeaks.YOU
+        assert releve.mic_db > releve.system_db
 
     def test_la_boucle_seule_active_donne_les_autres(self, tmp_path: Path) -> None:
         releve = read_level(
             wav(tmp_path / "c.wav", [MUET, FORT, FORT], avec_liste=True, fmt_etendu=True)
         )
         assert releve is not None
-        assert releve.qui is WhoSpeaks.LES_AUTRES
+        assert releve.who is WhoSpeaks.THE_OTHERS
 
     def test_un_fichier_sans_echantillons_ne_rend_rien(self, tmp_path: Path) -> None:
         assert read_level(wav(tmp_path / "d.wav", [[], [], []])) is None

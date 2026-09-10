@@ -106,7 +106,7 @@ class TestChaineReelle:
     def test_l_auto_presentation_gagne_sur_le_reste(self, outcome):
         """Celui qui dit « moi c'est Jacques » est Jacques, quoi qu'il arrive."""
         premiere = outcome.utterances[0]
-        assert outcome.nom_de(premiere.voice) == "Jacques"
+        assert outcome.name_of(premiere.voice) == "Jacques"
 
     def test_un_enregistrement_mono_ne_declenche_pas_de_fausse_alerte(self, outcome):
         """Un fichier à un seul canal n'a pas de second canal manquant.

@@ -57,7 +57,7 @@ def read(file: Path) -> Context:
 
 def from_vocabulary(words: list[str]) -> Context:
     """The vocabulary from config.toml, as terms without meanings."""
-    return Context(tuple(Term(mot.strip()) for mot in words if mot.strip()))
+    return Context(tuple(Term(word.strip()) for word in words if word.strip()))
 
 
 def from_the_bank(names: list[str]) -> Context:
@@ -79,8 +79,8 @@ def add_a_term(file: Path, ecriture: str, sens: str = "") -> bool:
     lines = [f'\n[[termes]]\necriture = "{nu}"\n']
     if sens.strip():
         lines.append(f'sens = "{sens.strip()}"\n')
-    with file.open("a", encoding="utf-8") as flux:
-        flux.write("".join(lines))
+    with file.open("a", encoding="utf-8") as stream:
+        stream.write("".join(lines))
     return True
 
 
@@ -97,8 +97,8 @@ def add_a_person(file: Path, name: str, role: str = "") -> bool:
     lines = [f'\n[[personnes]]\nnom = "{nu}"\n']
     if role.strip():
         lines.append(f'role = "{role.strip()}"\n')
-    with file.open("a", encoding="utf-8") as flux:
-        flux.write("".join(lines))
+    with file.open("a", encoding="utf-8") as stream:
+        stream.write("".join(lines))
     return True
 
 

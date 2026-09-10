@@ -87,15 +87,15 @@ class TestUnProfilEprouveRetrouveSesPrenoms:
             if not profil.eprouve:
                 continue
             assert profil.detection.motifs, profil.code
-            assert profil.detection.exclus, profil.code
+            assert profil.detection.excluded, profil.code
 
 
 class TestDecoupage:
     def test_le_francais_compte_les_mots_par_les_espaces(self):
-        assert FRENCH.decoupage.count_them("on décale la recette à jeudi") == 6
+        assert FRENCH.splitting.count_them("on décale la recette à jeudi") == 6
 
     def test_une_langue_sans_espaces_compte_ses_caracteres(self):
         """Compter les espaces rendait un ou deux sur une transcription
         chinoise valable, qui passait alors pour vide et interrompait la
         chaîne avant la rédaction."""
-        assert NEUTRAL.decoupage.count_them("点検会議を始めます") > 5
+        assert NEUTRAL.splitting.count_them("点検会議を始めます") > 5

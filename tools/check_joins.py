@@ -40,12 +40,12 @@ extractor = sherpa_onnx.SpeakerEmbeddingExtractor(
 
 
 def voiceprint(start: float, end: float):
-    flux = extractor.create_stream()
-    flux.accept_waveform(
+    stream = extractor.create_stream()
+    stream.accept_waveform(
         sample_rate=frequency, waveform=signal[int(start * frequency) : int(end * frequency)]
     )
-    flux.input_finished()
-    return normalise(extractor.compute(flux), source_duration=end - start)
+    stream.input_finished()
+    return normalise(extractor.compute(stream), source_duration=end - start)
 
 
 per_voice: dict[str, list] = {}
@@ -67,12 +67,12 @@ avec_parole = [v for v in retenues if duree_voix.get(v, 0) >= 10]
 print(f"APRÈS : {len(retenues)} voix, dont {len(avec_parole)} avec au moins 10 s de parole\n")
 
 cumul: dict[str, float] = {}
-for voice, vers in membership.items():
-    cumul[vers] = cumul.get(vers, 0.0) + duree_voix.get(voice, 0.0)
+for voice, into in membership.items():
+    cumul[into] = cumul.get(into, 0.0) + duree_voix.get(voice, 0.0)
 
 total = sum(cumul.values()) or 1
 for voice in sorted(cumul, key=lambda v: -cumul[v]):
-    absorbees = [v for v, vers in membership.items() if vers == voice and v != voice]
+    absorbees = [v for v, into in membership.items() if into == voice and v != voice]
     if cumul[voice] < 5:
         continue
     print(

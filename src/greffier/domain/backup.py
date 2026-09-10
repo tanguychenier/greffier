@@ -33,10 +33,10 @@ KEPT = 7
 class BackupName:
     """A backup's name: its date, down to the minute."""
 
-    quand: datetime
+    when: datetime
 
     def __str__(self) -> str:
-        return f"greffier-{self.quand:%Y-%m-%d_%Hh%M}"
+        return f"greffier-{self.when:%Y-%m-%d_%Hh%M}"
 
     @staticmethod
     def read(name: str) -> datetime | None:
@@ -51,10 +51,10 @@ class BackupName:
 def to_erase(names: list[str], kept: int = KEPT) -> list[str]:
     """The backups in excess, oldest first."""
     datees = [(BackupName.read(name), name) for name in names]
-    connues = sorted(
-        ((quand, name) for quand, name in datees if quand is not None),
+    known = sorted(
+        ((when, name) for when, name in datees if when is not None),
         reverse=True,
     )
-    if len(connues) <= max(1, kept):
+    if len(known) <= max(1, kept):
         return []
-    return [name for _, name in connues[max(1, kept):]]
+    return [name for _, name in known[max(1, kept):]]

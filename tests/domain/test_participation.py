@@ -1,7 +1,7 @@
 """La politesse de l'assistant, éprouvée sans lancer une réunion."""
 
 from greffier.domain.participation import (
-    CREUX_MINIMAL,
+    MINIMUM_LULL,
     Because,
     Manners,
     Opening,
@@ -30,7 +30,7 @@ class TestNePasCouper:
 
     def test_un_vrai_creux_lui_laisse_la_parole(self):
         manners = Manners()
-        assert manners.refusal(opening(), now=10.0, lull=CREUX_MINIMAL) is None
+        assert manners.refusal(opening(), now=10.0, lull=MINIMUM_LULL) is None
 
     def test_il_ne_s_insere_pas_dans_un_echange_serre(self):
         """Trois personnes qui s'enchaînent n'attendent pas un quatrième avis."""
@@ -97,8 +97,8 @@ class TestChoisir:
         retenue = manners.choose(
             [
                 opening(because=Because.CONTRIBUTION, remark="une idée", born_at=10.0),
-                opening(because=Because.VOIX_INDISTINCTE, remark="qui parle ?", born_at=10.0),
-                opening(because=Because.QUESTION_SANS_REPONSE, remark="et Pascal ?", born_at=10.0),
+                opening(because=Because.INDISTINCT_VOICE, remark="qui parle ?", born_at=10.0),
+                opening(because=Because.QUESTION_WITHOUT_ANSWER, remark="et Pascal ?", born_at=10.0),
             ],
             now=12.0, lull=5.0,
         )
@@ -120,7 +120,7 @@ class TestChoisir:
         manners = Manners()
         retenue = manners.choose(
             [
-                opening(because=Because.VOIX_INDISTINCTE, remark="qui parle ?", born_at=10.0),
+                opening(because=Because.INDISTINCT_VOICE, remark="qui parle ?", born_at=10.0),
                 opening(because=Because.APPELE, remark="oui ?", born_at=11.0),
             ],
             now=12.0, lull=0.0, density=1.0,
@@ -146,7 +146,7 @@ class TestEchecDeLaParole:
         """`a_parle` s'appelle après coup : rien n'a été dit, rien n'est retenu."""
         manners = Manners()
         assert manners.refusal(opening(born_at=10.0), now=11.0, lull=5.0) is None
-        assert manners.parle_le is None
+        assert manners.spoke_at is None
 
 
 class TestDensite:
@@ -312,5 +312,5 @@ class TestSonNomNeSortJamaisDeSaBouche:
             "Lucie, tu as compris le sujet Lucie ?",
             "Dis-moi Lucie",
         ):
-            reste = without_own_name(question, "Lucie")
-            assert not called_by_name(reste, "Lucie"), reste
+            remaining = without_own_name(question, "Lucie")
+            assert not called_by_name(remaining, "Lucie"), remaining

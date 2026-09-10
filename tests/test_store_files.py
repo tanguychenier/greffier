@@ -12,7 +12,7 @@ def meeting(identifier: str) -> StoredMeeting:
     return StoredMeeting(
         identifier=identifier,
         audio=Path(f"/tmp/{identifier}.wav"),
-        traitee_le=datetime.now(UTC),
+        processed_at=datetime.now(UTC),
         duration=60.0,
         utterances=[Utterance(Span(0, 5), "Bonjour.")],
         turns=[SpeakerTurn(Span(0, 5), "1")],
@@ -121,7 +121,7 @@ def reunie(identifier: str = "2026-09-10_10h10_reunion") -> StoredMeeting:
     detail = StoredMeeting(
         identifier=identifier,
         audio=Path(f"/tmp/{identifier}.wav"),
-        traitee_le=datetime.now(UTC),
+        processed_at=datetime.now(UTC),
         duration=60.0,
         utterances=[
             Utterance(Span(0, 5), "on cale la recette jeudi", voice="v1"),
@@ -186,10 +186,10 @@ class TestSeparerDeuxVoixApresLaReunion:
         import json
 
         magasin = FileStore(tmp_path)
-        chemin = magasin.record(meeting("2026-09-09_10h05_reunion"))
-        contenu = json.loads(chemin.read_text(encoding="utf-8"))
+        path = magasin.record(meeting("2026-09-09_10h05_reunion"))
+        contenu = json.loads(path.read_text(encoding="utf-8"))
         del contenu["fusions"]
-        chemin.write_text(json.dumps(contenu, ensure_ascii=False), encoding="utf-8")
+        path.write_text(json.dumps(contenu, ensure_ascii=False), encoding="utf-8")
         relue = magasin.read("2026-09-09_10h05_reunion")
         assert relue.joins == []
         assert not relue.can_split("1")

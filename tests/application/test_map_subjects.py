@@ -23,8 +23,8 @@ class TestAnalyse:
             '"etat": "en discussion", "sous": ""}]'
         )
         assert len(apports) == 1
-        assert apports[0].kind is Kind.PROBLEME
-        assert apports[0].state is Standing.EN_DISCUSSION
+        assert apports[0].kind is Kind.PROBLEM
+        assert apports[0].state is Standing.UNDER_DISCUSSION
 
     def test_un_bloc_de_code_est_accepte(self):
         """Le rédacteur enrobe volontiers, malgré la consigne."""
@@ -73,23 +73,23 @@ class TestPrudenceSurLEtat:
     """Présenter une idée orale comme une décision est le pire défaut ici."""
 
     def test_le_defaut_est_en_discussion(self):
-        assert analyser('[{"texte": "Une idée"}]')[0].state is Standing.EN_DISCUSSION
+        assert analyser('[{"texte": "Une idée"}]')[0].state is Standing.UNDER_DISCUSSION
 
     def test_un_etat_non_reconnu_retombe_en_discussion(self):
         apports = analyser('[{"texte": "Une idée", "etat": "peut-être"}]')
-        assert apports[0].state is Standing.EN_DISCUSSION
+        assert apports[0].state is Standing.UNDER_DISCUSSION
 
     def test_depasse_ne_peut_pas_venir_d_une_extraction(self):
         """Seul un humain marque une piste comme dépassée."""
         apports = analyser('[{"texte": "Une piste", "etat": "dépassé"}]')
-        assert apports[0].state is Standing.EN_DISCUSSION
+        assert apports[0].state is Standing.UNDER_DISCUSSION
 
     def test_acte_est_respecte_quand_il_est_explicite(self):
         apports = analyser('[{"texte": "Monter la recette", "etat": "acté"}]')
-        assert apports[0].state is Standing.ACTE
+        assert apports[0].state is Standing.AGREED
 
     def test_un_genre_non_reconnu_devient_un_constat(self):
-        assert analyser('[{"texte": "X", "genre": "truc"}]')[0].kind is Kind.CONSTAT
+        assert analyser('[{"texte": "X", "genre": "truc"}]')[0].kind is Kind.OBSERVATION
 
 
 class TestExtraction:
@@ -138,12 +138,12 @@ class TestCompleterSansDupliquer:
     def test_les_libelles_existants_sont_donnes_au_redacteur(self):
         writer = FakeWriter('[{"texte": "Un point"}]')
         extract(writer, "Oasis", "matière",
-                 deja=("Pré-production du client en retard de deux versions",))
+                 already=("Pré-production du client en retard de deux versions",))
         assert "Pré-production du client en retard" in writer.recu
 
     def test_il_lui_est_demande_de_les_reprendre_mot_pour_mot(self):
         writer = FakeWriter("[]")
-        extract(writer, "Oasis", "matière", deja=("Un point existant",))
+        extract(writer, "Oasis", "matière", already=("Un point existant",))
         assert "mot pour mot" in writer.recu
 
     def test_sans_carte_existante_rien_n_est_ajoute_a_l_invite(self):

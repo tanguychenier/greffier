@@ -46,8 +46,8 @@ _STYLES = {
 _GRAS = re.compile(r"\*\*(.+?)\*\*")
 _ITALIQUE = re.compile(r"(?<![\w*])\*([^*\n]+)\*(?![\w*])")
 _CODE = re.compile(r"`([^`\n]+)`")
-_LIEN = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
-_SEPARATEUR_TABLEAU = re.compile(r"^\s*\|?[\s:|-]+\|[\s:|-]*$")
+_LINK = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
+_TABLE_SEPARATOR = re.compile(r"^\s*\|?[\s:|-]+\|[\s:|-]*$")
 
 def _balise(style: str, content: str, extra: str = "", name: str = "") -> str:
     """A styled HTML tag."""
@@ -66,7 +66,7 @@ def _as_line(text: str) -> str:
     output = _CODE.sub(lambda m: _balise("code", m.group(1)), output)
     output = _GRAS.sub(r"<strong>\1</strong>", output)
     output = _ITALIQUE.sub(r"<em>\1</em>", output)
-    return _LIEN.sub(
+    return _LINK.sub(
         lambda m: f'<a href="{m.group(2)}" style="color:#2c5aa0">{m.group(1)}</a>', output
     )
 
@@ -135,7 +135,7 @@ def as_html(markdown: str) -> str:
             i += 1
             continue
 
-        if "|" in nue and i + 1 < len(lines) and _SEPARATEUR_TABLEAU.match(lines[i + 1]):
+        if "|" in nue and i + 1 < len(lines) and _TABLE_SEPARATOR.match(lines[i + 1]):
             entetes = _cellules(nue)
             i += 2
             corps: list[list[str]] = []
@@ -156,11 +156,11 @@ def as_html(markdown: str) -> str:
             continue
 
         if nue.startswith((">", "&gt;")):
-            bloc = []
+            block = []
             while i < len(lines) and lines[i].strip().startswith((">", "&gt;")):
-                bloc.append(lines[i].strip().lstrip(">").strip())
+                block.append(lines[i].strip().lstrip(">").strip())
                 i += 1
-            output.append(_balise("blockquote", _as_line(" ".join(bloc))))
+            output.append(_balise("blockquote", _as_line(" ".join(block))))
             continue
 
         if re.match(r"^[-*+]\s+", nue) or re.match(r"^\d+[.)]\s+", nue):
@@ -180,13 +180,13 @@ def as_html(markdown: str) -> str:
             output.append(_balise("ol" if ordonnee else "ul", content))
             continue
 
-        bloc = []
+        block = []
         while (i < len(lines) and lines[i].strip()
                and not lines[i].strip().startswith(("#", ">", "|"))):
-            bloc.append(lines[i].strip())
+            block.append(lines[i].strip())
             i += 1
-        if bloc:
-            output.append(_balise("p", _as_line(" ".join(bloc))))
+        if block:
+            output.append(_balise("p", _as_line(" ".join(block))))
         else:
             i += 1
 
@@ -196,22 +196,22 @@ def _header(minutes: str) -> tuple[str, str]:
     """Separates the title and the context line from the rest."""
     lines = minutes.splitlines()
     title = context = ""
-    reste = 0
+    remaining = 0
     for indice, line in enumerate(lines):
         nue = line.strip()
         if not nue:
             continue
         if not title and nue.startswith("# "):
             title = nue[2:].strip()
-            reste = indice + 1
+            remaining = indice + 1
             continue
         if title and not context and not nue.startswith("#"):
             context = nue
-            reste = indice + 1
+            remaining = indice + 1
         break
     if not title:
         return "", minutes
-    bloc = (
+    block = (
         f'<h1 style="{_STYLES["h1"]}">{_as_line(title)}</h1>'
         + (
             f'<p style="margin:0 0 24px;font:400 13px/1.5 {_FONT};'
@@ -220,7 +220,7 @@ def _header(minutes: str) -> tuple[str, str]:
             else ""
         )
     )
-    return bloc, "\n".join(lines[reste:])
+    return block, "\n".join(lines[remaining:])
 
 def email(minutes: str, pied: str = "") -> str:
     """Wraps the minutes in a complete document."""

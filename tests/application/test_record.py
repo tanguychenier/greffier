@@ -60,12 +60,12 @@ def recorder(tmp_path, monkeypatch, audio_recorder):
 
 class TestIdentifiant:
     def test_la_date_d_abord_pour_que_ca_se_trie(self):
-        quand = datetime(2026, 8, 24, 14, 30)
-        assert _identifier("Point Copernic", quand) == "2026-08-24_14h30_point-copernic"
+        when = datetime(2026, 8, 24, 14, 30)
+        assert _identifier("Point Copernic", when) == "2026-08-24_14h30_point-copernic"
 
     def test_les_accents_et_symboles_disparaissent(self):
-        quand = datetime(2026, 8, 24, 9, 5)
-        assert _identifier("Réunion #4 (été)", quand) == "2026-08-24_09h05_reunion-4-ete"
+        when = datetime(2026, 8, 24, 9, 5)
+        assert _identifier("Réunion #4 (été)", when) == "2026-08-24_09h05_reunion-4-ete"
 
     def test_un_nom_vide_reste_utilisable(self):
         """Et deux noms différents restent deux réunions.
@@ -99,13 +99,13 @@ class TestCycle:
     def test_l_etat_survit_a_un_autre_processus(self, recorder, tmp_path):
         """Deux commandes séparées d'une heure : l'état est sur le disque."""
         recorder.start_recording("copil")
-        autre = Recording(
+        other = Recording(
             audio_recorder=FakeRecorder(),
             dossier_audio=tmp_path / "enregistrements",
             fichier_etat=tmp_path / "etat.json",
         )
-        assert autre.read().name == "copil"
-        assert autre.read().phase is Phase.RECORDING
+        assert other.read().name == "copil"
+        assert other.read().phase is Phase.RECORDING
 
     def test_deux_enregistrements_a_la_fois_sont_refuses(self, recorder):
         recorder.start_recording("premier")

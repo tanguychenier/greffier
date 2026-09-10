@@ -11,7 +11,7 @@ import pytest
 from greffier.application.back_up import do_it, lister, restore
 
 
-def poser_des_donnees(racine):
+def poser_des_donnees(root):
     """Une installation vraisemblable : du texte, et de l'audio à ne pas prendre."""
     for folder, file, content in (
         ("banque-de-voix", "sophie.json", '{"nom": "Sophie"}'),
@@ -20,20 +20,20 @@ def poser_des_donnees(racine):
         ("transcriptions", "2026-09-09_10h05_reunion.txt", "Bonjour."),
         ("conversations", "2026-09-09_10h05_reunion.jsonl", '{"qui": "moi"}'),
     ):
-        (racine / folder).mkdir(parents=True, exist_ok=True)
-        (racine / folder / file).write_text(content, encoding="utf-8")
-    (racine / "enregistrements").mkdir(parents=True, exist_ok=True)
-    (racine / "enregistrements" / "gros.wav").write_bytes(b"x" * 200_000)
-    (racine / "modeles").mkdir(parents=True, exist_ok=True)
-    (racine / "modeles" / "modele.bin").write_bytes(b"y" * 200_000)
-    return racine
+        (root / folder).mkdir(parents=True, exist_ok=True)
+        (root / folder / file).write_text(content, encoding="utf-8")
+    (root / "enregistrements").mkdir(parents=True, exist_ok=True)
+    (root / "enregistrements" / "gros.wav").write_bytes(b"x" * 200_000)
+    (root / "modeles").mkdir(parents=True, exist_ok=True)
+    (root / "modeles" / "modele.bin").write_bytes(b"y" * 200_000)
+    return root
 
 
-def poser_la_config(racine):
-    racine.mkdir(parents=True, exist_ok=True)
+def poser_la_config(root):
+    root.mkdir(parents=True, exist_ok=True)
     for file in ("config.toml", "contexte.toml", "sujets.toml"):
-        (racine / file).write_text(f"# {file}\n", encoding="utf-8")
-    return racine
+        (root / file).write_text(f"# {file}\n", encoding="utf-8")
+    return root
 
 
 class TestCeQuiEstEmporte:
@@ -108,7 +108,7 @@ class TestRotation:
         copies = tmp_path / "copies"
         for jour in range(1, 6):
             do_it(data, None, copies, kept=3,
-                  quand=datetime(2026, 9, jour, 12, 0, tzinfo=UTC))
+                  when=datetime(2026, 9, jour, 12, 0, tzinfo=UTC))
         assert len(lister(copies)) == 3
 
     def test_la_plus_recente_survit_toujours(self, tmp_path):
@@ -116,7 +116,7 @@ class TestRotation:
         copies = tmp_path / "copies"
         for jour in (1, 2):
             do_it(data, None, copies, kept=0,
-                  quand=datetime(2026, 9, jour, 12, 0, tzinfo=UTC))
+                  when=datetime(2026, 9, jour, 12, 0, tzinfo=UTC))
         restantes = lister(copies)
         assert len(restantes) == 1
         assert "2026-09-02" in restantes[0][0]

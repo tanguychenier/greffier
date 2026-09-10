@@ -25,13 +25,13 @@ class Source:
     name: str
     kind: Kind
     adresse: str
-    projet: str
+    project: str
     droit: Right = Right.LECTURE
     token: str = ""
 
     def __post_init__(self) -> None:
         for champ, value in (
-            ("nom", self.name), ("adresse", self.adresse), ("projet", self.projet)
+            ("nom", self.name), ("adresse", self.adresse), ("projet", self.project)
         ):
             if not value.strip():
                 raise ValueError(f"une source sans {champ} ne sert à rien")
@@ -46,7 +46,7 @@ class Source:
 
     def say(self) -> str:
         """One line for the screen, showing the real scope."""
-        return f"{self.name} — {self.kind} {self.projet} sur {self.adresse} ({self.droit})"
+        return f"{self.name} — {self.kind} {self.project} sur {self.adresse} ({self.droit})"
 
 @dataclass
 class Registry:
@@ -70,8 +70,8 @@ class Registry:
         """Is the gesture permitted? If not, why — in the user's terms."""
         source = self.by_name(name)
         if source is None:
-            connues = ", ".join(self.recorded()) or "aucune"
-            return (False, f"« {name} » n'est pas inscrite. Sources connues : {connues}")
+            known = ", ".join(self.recorded()) or "aucune"
+            return (False, f"« {name} » n'est pas inscrite. Sources connues : {known}")
         if ecriture and not source.can_write:
             return (
                 False,
