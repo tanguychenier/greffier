@@ -1,0 +1,125 @@
+# Builds one artefact per system and attaches it to the release.
+#
+# The point is the double click: someone who does not write code downloads a
+# file, opens it, and the tool installs itself. That the installer then fetches
+# models is expected: 1.7 GB of whisper and a voice do not travel as an
+# attachment.
+#
+# What each artefact is, and what it is not:
+#
+# - **macOS**: the .app bundle `construire.sh` already produces, interpreter and
+#   dependencies included. Signed **ad hoc** here, for want of the development
+#   machine's certificate: Gatekeeper will refuse it on first launch, and it
+#   takes a right click then "Open". Solving that needs a Developer ID and
+#   notarisation, so a paid account and a decision nobody has taken.
+# - **Windows**: a folder with an .exe, by PyInstaller. Never run on a real
+#   Windows machine as these lines are written: what this workflow proves is
+#   that it builds and that it starts on the runner.
+# - **Linux**: the source tree and its installer. An AppImage would be handier,
+#   and is still to be done.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    name: macOS bundle
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Relocatable interpreter
+        # `only-managed` is the heart of the matter, not a precaution.
+        # `construire.sh` copies the .venv interpreter into the bundle, which
+        # only works with a uv Python (python-build-standalone). Without the
+        # flag, uv picks the **framework** Python already on the runner, whose
+        # prefix is hard-coded, and the bundle then imports `greffier` from
+        # /Library/Frameworks instead of from itself.
+        run: |
+          uv venv --python 3.13 --python-preference only-managed
+          .venv/bin/python3 -c "import sys; print('interpreter:', sys.base_prefix)"
+      - name: Build the bundle
+        # The target is given explicitly: with no argument the script picks
+        # /Applications or ~/Applications, and the next step would not know
+        # where to look.
+        run: bash macos/construire.sh "$RUNNER_TEMP/Greffier.app"
+      - name: Zip it
+        run: |
+          cd "$RUNNER_TEMP"
+          ditto -c -k --sequesterRsrc --keepParent Greffier.app \
+            "$GITHUB_WORKSPACE/Greffier-macos.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Greffier-macos
+          path: Greffier-macos.zip
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: ./.github/actions/attach-to-release
+        with:
+          file: Greffier-macos.zip
+          token: ${{ github.token }}
+
+  windows:
+    name: Windows executable
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Dependencies
+        run: |
+          python -m pip install -q -e ".[transcription]"
+          python -m pip install -q pyinstaller
+      - name: Build
+        # `--collect-all sherpa_onnx` because its native libraries are not
+        # Python modules: PyInstaller does not see them on its own.
+        run: |
+          pyinstaller --noconfirm --name Greffier --windowed `
+            --collect-all sherpa_onnx --collect-all soundfile `
+            --collect-submodules greffier `
+            outils/lanceur_windows.py
+      - name: It starts
+        # A `--windowed` executable detaches from the terminal and returns at
+        # once, so calling it directly reports its launcher's exit code and
+        # never its own. It has to be waited for to be read.
+        run: |
+          $p = Start-Process -FilePath dist\Greffier\Greffier.exe `
+            -ArgumentList '--version' -Wait -PassThru
+          if ($p.ExitCode -ne 0) {
+            throw "Greffier.exe --version returned $($p.ExitCode)"
+          }
+      - name: Zip it
+        run: Compress-Archive -Path dist\Greffier -DestinationPath Greffier-windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Greffier-windows
+          path: Greffier-windows.zip
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: ./.github/actions/attach-to-release
+        with:
+          file: Greffier-windows.zip
+          token: ${{ github.token }}
+
+  linux:
+    name: Linux archive
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Archive the sources and their installer
+        run: |
+          git archive --format=tar.gz --prefix=greffier/ -o Greffier-linux.tar.gz HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Greffier-linux
+          path: Greffier-linux.tar.gz
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: ./.github/actions/attach-to-release
+        with:
+          file: Greffier-linux.tar.gz
+          token: ${{ github.token }}
