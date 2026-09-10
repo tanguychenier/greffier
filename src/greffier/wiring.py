@@ -310,6 +310,14 @@ def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
     cerveau = assistant(config)
     if cerveau is not None and hasattr(cerveau, "consignes_propres"):
         cerveau.consignes_propres = lui.guidance()
-        cerveau.tools = ()  # type: ignore[attr-defined]
+        # The same setting as the conversation tab, and for the same reason:
+        # its guidance tells it that it may look something up and name the
+        # source aloud. Handed no tools, it answered "yes I can search" and
+        # "no I have no access" in turn, four times in one meeting.
+        from greffier.adapters.writer_claude import ClaudeWriter
+
+        cerveau.tools = (  # type: ignore[attr-defined]
+            ClaudeWriter.SEARCH_TOOLS if config.conversation.recherche_web else ()
+        )
     lui.cerveau = cerveau
     return lui
