@@ -29,20 +29,11 @@ import threading
 
 SYSTEME = platform.system()
 
-#: Dans l'ordre de préférence. Une voix marquée « (Premium) » ou « (Enhanced) »
-#: est une voix neuronale téléchargée ; les autres sont les voix compactes
-#: livrées d'office, qui s'entendent tout de suite.
 QUALITES = ("Premium", "Enhanced")
 
-#: À défaut de voix améliorée, ces deux-là sont les moins désagréables des
-#: compactes françaises de macOS. Les voix « eloquence » sont un synthétiseur
-#: des années 1980 remis au goût du jour : à éviter pour une réunion.
 COMPACTES_ACCEPTABLES = ("Thomas", "Amélie", "Audrey", "Aurelie")
 
-#: Mots par minute. La valeur par défaut de `say` (175) court trop pour une
-#: salle : on parle à quelqu'un qui écoute d'une oreille, en réunion.
 DEBIT = 165
-
 
 def _voix_de_say() -> list[tuple[str, str]]:
     """Les voix françaises que `say` connaît, avec leur nom exact."""
@@ -62,7 +53,6 @@ def _voix_de_say() -> list[tuple[str, str]]:
         if trouve and trouve.group(2).startswith("fr"):
             voix.append((trouve.group(1).strip(), trouve.group(2)))
     return voix
-
 
 def meilleure_voix() -> str | None:
     """Le nom de la meilleure voix française installée, ou rien.
@@ -87,7 +77,6 @@ def meilleure_voix() -> str | None:
                 return nom
     return voix[0][0]
 
-
 def voix_amelioree_disponible() -> bool:
     """Une voix neuronale est-elle installée ?
 
@@ -98,7 +87,6 @@ def voix_amelioree_disponible() -> bool:
     return any(
         f"({qualite})" in nom for nom, _ in _voix_de_say() for qualite in QUALITES
     )
-
 
 class VoixSysteme:
     """Prononce un texte par le synthétiseur du système, sans jamais bloquer.

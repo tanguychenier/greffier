@@ -10,9 +10,7 @@ from __future__ import annotations
 
 import re
 
-#: Le gras Markdown, retiré d'un titre : « # **Recette** » se lit « Recette ».
 _GRAS = re.compile(r"\*\*(.+?)\*\*")
-
 
 def titre(compte_rendu: str, defaut: str) -> str:
     """Sujet du courriel : le titre du compte rendu, pas le nom du fichier.

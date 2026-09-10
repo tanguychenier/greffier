@@ -32,8 +32,6 @@ class Faite:
     fichiers: int
     octets: int
     effacees: tuple[str, ...] = ()
-    #: Le dossier de données que cette archive sauvegarde, pour pouvoir dire si
-    #: la copie en est sortie.
     donnees: Path | None = None
 
     @property
@@ -56,7 +54,6 @@ class Faite:
         except (ValueError, OSError):
             return False
         return True
-
 
 def faire(
     donnees: Path,
@@ -119,7 +116,6 @@ def faire(
     return Faite(archive, tuple(pris), fichiers,
                  archive.stat().st_size, tuple(effacees), donnees=donnees)
 
-
 def restaurer(archive: Path, donnees: Path, ecraser: bool = False) -> list[str]:
     """Remet une sauvegarde en place. Rend les dossiers restaurés.
 
@@ -148,7 +144,6 @@ def restaurer(archive: Path, donnees: Path, ecraser: bool = False) -> list[str]:
         tar.extractall(donnees, filter="data")
     return racines
 
-
 def lister(destination: Path) -> list[tuple[str, int, datetime]]:
     """Les sauvegardes présentes, la plus récente d'abord."""
     trouvees: list[tuple[str, int, datetime]] = []
@@ -160,7 +155,6 @@ def lister(destination: Path) -> list[tuple[str, int, datetime]]:
             continue
         trouvees.append((chemin.name, chemin.stat().st_size, quand))
     return sorted(trouvees, key=lambda ligne: ligne[2], reverse=True)
-
 
 def place_disponible(destination: Path) -> int:
     """Octets libres là où l'on écrit. Zéro si on ne sait pas."""

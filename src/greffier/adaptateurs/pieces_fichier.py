@@ -18,21 +18,11 @@ import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
-#: Ce qu'on donne au plus à l'assistant, tous documents confondus. Au-delà, la
-#: matière chasse le fil de la réunion, qui est justement ce sur quoi porte la
-#: question. Mesuré : le fil d'une heure fait déjà 25 à 40 000 caractères.
 AU_PLUS = 24_000
 
-#: Ce qu'on garde d'un seul document. Sans cette borne, un cahier des charges
-#: de deux cents pages occupe toute la place et les trois autres documents
-#: déposés dans la même minute n'apparaissent pas du tout.
 PAR_PIECE = 8_000
 
-#: La première ligne du fichier gardé porte le nom d'origine : le nom de fichier
-#: est aplati pour tenir sur tous les systèmes, et « cahier des charges V3.pdf »
-#: est ce qu'il faut montrer à l'écran.
 ENTETE = "# "
-
 
 @dataclass(frozen=True, slots=True)
 class Piece:
@@ -45,10 +35,8 @@ class Piece:
     def dire(self) -> str:
         return f"{self.nom} ({self.caracteres // 1000 or 1} k caractères)"
 
-
 def dossier_des_pieces(base: Path, identifiant: str) -> Path:
     return base / identifiant
-
 
 def _aplatir(nom: str) -> str:
     """Un nom de fichier sûr, sans accent ni espace, jamais vide."""
@@ -58,7 +46,6 @@ def _aplatir(nom: str) -> str:
     )
     nu = re.sub(r"[^A-Za-z0-9]+", "-", sans_accent).strip("-").casefold()
     return nu[:60] or "document"
-
 
 def ecrire(base: Path, identifiant: str, nom: str, texte: str) -> Piece | None:
     """Garde le texte de ce document sous la réunion. None s'il n'y a rien à garder.
@@ -76,7 +63,6 @@ def ecrire(base: Path, identifiant: str, nom: str, texte: str) -> Piece | None:
     fichier.write_text(f"{ENTETE}{nom}\n{utile}", encoding="utf-8")
     return Piece(nom=nom, fichier=fichier, caracteres=len(utile))
 
-
 def lister(base: Path, identifiant: str) -> list[Piece]:
     """Les documents fournis pour cette réunion, du plus ancien au plus récent."""
     dossier = dossier_des_pieces(base, identifiant)
@@ -92,7 +78,6 @@ def lister(base: Path, identifiant: str) -> list[Piece]:
         nom = entete[len(ENTETE):].strip() if entete.startswith(ENTETE) else fichier.stem
         trouvees.append(Piece(nom=nom, fichier=fichier, caracteres=len(corps)))
     return trouvees
-
 
 def matiere(base: Path, identifiant: str, au_plus: int = AU_PLUS) -> str:
     """Le texte des documents, prêt à être donné à l'assistant. Vide s'il n'y en a pas.

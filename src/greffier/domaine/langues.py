@@ -16,8 +16,6 @@ les motifs français n'échouent pas, ils inventent des participants.
 
 from __future__ import annotations
 
-#: Code ISO, nom en français. Le vide vaut « reconnais-la toi-même », ce que
-#: whisper fait très bien et qui sert aux réunions qui changent de langue.
 LANGUES: tuple[tuple[str, str], ...] = (
     ("fr", "Français"), ("", "Détection automatique"), ("en", "Anglais"),
     ("es", "Espagnol"), ("de", "Allemand"), ("it", "Italien"),
@@ -28,11 +26,9 @@ LANGUES: tuple[tuple[str, str], ...] = (
 
 _NOMS = dict(LANGUES)
 
-
 def nom_de(code: str) -> str:
     """Le nom d'une langue, ou le code lui-même s'il n'est pas au catalogue."""
     return _NOMS.get(code, code)
-
 
 def eprouvee(code: str) -> bool:
     """Si la reconnaissance des prénoms est réellement servie dans cette langue.
@@ -45,7 +41,6 @@ def eprouvee(code: str) -> bool:
     from greffier.domaine import profils
 
     return profils.pour(code).eprouve
-
 
 def libelle(code: str) -> str:
     """Ce qu'il faut afficher à côté d'une langue, sans euphémisme.
