@@ -65,6 +65,34 @@ CONTEXTE_MAXIMAL = 6000
 #: serait prononcé à voix haute, ce qui est exactement ce qu'on veut éviter.
 RIEN = "RIEN"
 
+#: Ce qu'on lui demande quand on vient de répondre à sa question. Un échange
+#: est un aller-retour : poser une question puis rester muet quand on répond
+#: fait passer pour distrait, et laisse celui qui a répondu se demander s'il a
+#: été entendu. Mais deux répliques de plus feraient d'elle un participant de
+#: trop, d'où le silence encore proposé par défaut.
+CONSIGNES_SUITE = """Tu t'appelles {nom} et tu participes à une réunion. Tu as
+posé une question, on vient de te répondre.
+
+Si la réponse règle la question, dis-le en **une phrase courte** qui montre ce
+que tu en as retenu, et rends la parole. Une phrase du genre « très bien, donc
+c'est {exemple} qui s'en occupe » vaut mieux qu'un « merci » seul : elle prouve
+que tu as compris, et elle laisse une trace juste dans le compte rendu.
+
+Si la réponse ne règle rien et qu'une précision changerait le compte rendu,
+demande-la, toujours en une phrase.
+
+Sinon, réponds le mot {rien}, seul. C'est le cas si on t'a répondu à côté, si
+la conversation est déjà repartie ailleurs, ou si tu n'aurais rien à ajouter
+qu'une politesse : deux répliques de plus feraient de toi un participant de
+trop.
+
+Pas de liste, pas de titre, pas d'adresse web : ce sera prononcé tel quel.
+N'emploie ni tiret cadratin ni demi-cadratin.
+
+Ta question était : « {question} »
+Ce qu'on vient de te répondre :
+"""
+
 #: Ce qu'on lui demande quand personne ne lui a rien demandé. La consigne
 #: insiste sur le silence parce que c'est la réponse juste presque à chaque
 #: fois, et qu'un modèle à qui l'on demande « as-tu quelque chose à dire »
@@ -238,11 +266,20 @@ class Participant:
         """Traite la phrase qui répond à la question posée.
 
         Une question posée et jamais reprise vaut moins que pas de question :
-        elle a coûté une interruption pour rien.
+        elle a coûté une interruption pour rien, et celui qui a répondu ne sait
+        pas s'il a été entendu.
         """
         attendue, self.attente = self.attente, None
-        if attendue is None or attendue.raison is not Raison.VOIX_INDISTINCTE:
+        if attendue is None:
             return None
+        if attendue.raison is Raison.VOIX_INDISTINCTE:
+            return self._nommer_sur_reponse(attendue, texte, a)
+        return self._suivre_sa_question(attendue, texte, a)
+
+    def _nommer_sur_reponse(
+        self, attendue: Occasion, texte: str, a: float
+    ) -> Occasion | None:
+        """« C'est Hugo » devient un nom porté au compte rendu."""
         prenom = _prenom_dans(texte)
         voix = attendue.sujet.removeprefix("voix:")
         if prenom and self.nommer is not None and self.nommer(voix, prenom):
@@ -254,6 +291,34 @@ class Participant:
                 tel_quel=True,
             )
         return None
+
+    def _suivre_sa_question(
+        self, attendue: Occasion, texte: str, a: float
+    ) -> Occasion | None:
+        """Réagit à la réponse qu'on vient de lui faire, ou se tait.
+
+        C'est ce qui sépare un échange d'une question jetée : « très bien, donc
+        c'est Hugo qui s'en occupe » prouve qu'elle a compris et laisse une
+        trace juste dans le compte rendu. Le silence reste proposé par défaut :
+        deux répliques de plus feraient d'elle un participant de trop.
+        """
+        if self.cerveau is None:
+            return None
+        consignes = CONSIGNES_SUITE.format(
+            nom=self.nom, rien=RIEN, question=attendue.propos, exemple="Hugo")
+        try:
+            propos = self._interroger(consignes, texte)
+        except (RuntimeError, OSError):
+            return None
+        if not propos or propos.strip().upper().startswith(RIEN):
+            return None
+        return Occasion(
+            raison=Raison.APPELE,
+            propos=propos,
+            ne_le=a,
+            sujet=f"suite:{attendue.sujet or _empreinte_du_propos(attendue.propos)}",
+            tel_quel=True,
+        )
 
     # ---------------------------------------------------------------- parole
 
