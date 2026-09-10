@@ -312,13 +312,21 @@ class Participant:
             return None
         if not propos or propos.strip().upper().startswith(RIEN):
             return None
-        return Occasion(
+        suite = Occasion(
             raison=Raison.APPELE,
             propos=propos,
             ne_le=a,
             sujet=f"suite:{attendue.sujet or _empreinte_du_propos(attendue.propos)}",
             tel_quel=True,
         )
+        # Tant qu'elle pose des questions, l'échange continue : c'est un
+        # dialogue, pas un aller-retour. Elle s'arrête d'elle-même dès qu'elle
+        # conclut plutôt que de demander — le point d'interrogation final est le
+        # signal, et il vient d'elle, non d'un compteur qui la couperait au
+        # milieu d'un sujet.
+        if propos.rstrip().endswith("?"):
+            self.attente = suite
+        return suite
 
     # ---------------------------------------------------------------- parole
 

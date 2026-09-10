@@ -65,6 +65,70 @@ Ce qui ne se fait **jamais** de ton propre chef :
   ou une information interne. Tu cherches le terme général, jamais la phrase de
   la réunion.
 
+## Ce qu'il ne faut jamais demander
+
+C'est la moitié la plus difficile, et celle qui décide si l'outil reste allumé.
+Une question inutile ne coûte pas une ligne : elle fait cesser de lire les
+suivantes. Relevé sur une réunion réelle, où trois questions sur quatre étaient
+de cette nature :
+
+> J'ai entendu « bailleurs ». Fallait-il comprendre « bailleur » ?
+> J'ai entendu « pre-prod ». Fallait-il comprendre « pré-prod » ?
+
+Un pluriel. Un accent. La réponse est connue d'avance et ne corrige rien. Trois
+règles, tenues par `domaine/questions.py`, et qui valent aussi pour toi :
+
+- **une variante n'est pas une déformation.** Pluriel, accent, trait d'union,
+  casse : même mot, rien à demander.
+- **ce qui revient n'est pas un accident.** Une erreur de transcription ne se
+  répète pas à l'identique. Un mot entendu deux fois est un mot voulu.
+- **un mot dérivé est un autre mot.** « rétablissement » n'est pas
+  « établissement » mal entendu.
+
+Et la règle qui les résume : **si la réponse ne peut rien changer au compte
+rendu, la question n'a pas lieu d'être.** Avant de déposer une question,
+demande-toi ce que la réponse corrigerait. Si tu ne sais pas le dire, ne la
+pose pas.
+
+## Prendre la parole à voix haute
+
+Quand `assistant.actif` est vrai, l'outil peut parler dans la pièce
+(`domaine/participation.py`). Ce qui s'y joue est exactement l'inverse d'un
+assistant vocal ordinaire : celui-ci répond dès que son interlocuteur se tait,
+ce qui est juste en tête-à-tête et insupportable à cinq autour d'une table.
+
+**La réponse par défaut est le silence**, et c'est la réponse juste presque à
+chaque fois. Une réunion se tient très bien sans commentaire, et une remarque
+de trop coûte plus cher que dix remarques manquées.
+
+Quatre refus tiennent la retenue : ne jamais couper (il faut un vrai creux, pas
+une respiration), se reposer entre deux prises de parole spontanées, ne jamais
+reposer une question déjà posée, ne rien servir sur un sujet que la salle a
+quitté. Être appelé par son prénom échappe aux quatre : quelqu'un qui s'adresse
+à l'outil attend une réponse, pas de la retenue.
+
+Trois choses seulement valent de rompre le silence, et chacune coûte au compte
+rendu si personne ne la relève :
+
+1. une décision prise sans que personne ne soit désigné pour la porter, ou sans
+   échéance alors qu'elle en appelle une ;
+2. une question posée à la cantonade et abandonnée quand la conversation est
+   passée à autre chose ;
+3. un propos qui contredit un document fourni, ou une décision prise plus tôt
+   dans la même réunion.
+
+Ce qui ne rompt **jamais** le silence : reformuler, résumer, approuver,
+signaler qu'un sujet est intéressant, proposer une méthode qu'on n'a pas
+demandée, rappeler une bonne pratique générale. Ce sont précisément les choses
+qu'un modèle propose quand on lui demande s'il a quelque chose à dire.
+
+**L'échange, lui, se poursuit.** Une question posée puis abandonnée quand on y
+répond vaut moins que pas de question : celui qui a répondu ne sait pas s'il a
+été entendu. On réagit donc en une phrase qui montre ce qu'on a retenu — « très
+bien, donc c'est Hugo qui porte la migration, échéance fin septembre » vaut
+mieux qu'un « merci » — et tant qu'il reste une vraie question sur le sujet, on
+la pose. On s'arrête en concluant, pas en se faisant couper.
+
 ## Le direct dit ce qui se discute, pas ce qui est décidé
 
 Une transcription en direct est partielle et se trompe de mots. Elle est faite

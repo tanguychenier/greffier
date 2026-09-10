@@ -60,6 +60,31 @@ application = typer.Typer(
 )
 
 
+def _matiere_du_direct(
+    config: Config, identifiant: str, le_suivi: Any
+) -> Callable[[], str]:
+    """Ce que l'assistant a sous les yeux : le fil, et les documents fournis.
+
+    Relue à chaque appel plutôt que figée au démarrage : c'est en séance qu'on
+    dépose un document, et il doit servir à la question qui suit, pas à la
+    réunion d'après.
+    """
+    from greffier.adaptateurs import pieces_fichier
+
+    def matiere() -> str:
+        fil = str(le_suivi.fil.rendu())
+        try:
+            documents = pieces_fichier.matiere(config.chemins.pieces, identifiant)
+        except OSError:
+            documents = ""
+        if not documents:
+            return fil
+        return (f"{fil}\n\n--- Documents fournis pour cette réunion ---\n"
+                f"{documents}")
+
+    return matiere
+
+
 def _nommeur(
     le_suivi: Any, config: Config, identifiant: str
 ) -> Callable[[str, str], bool]:
@@ -873,9 +898,11 @@ def assister(
     lui = participant(config, etat.identifiant)
     if lui is not None and le_suivi is not None:
         lui.nommer = _nommeur(le_suivi, config, etat.identifiant)
-        # Ce qui s'est dit jusqu'ici, pour que sa réponse porte sur la réunion
-        # en cours et non sur des généralités.
-        lui.contexte = le_suivi.fil.rendu
+        # Ce qui s'est dit jusqu'ici **et** ce qu'on lui a donné à lire. Les
+        # documents comptent autant que le fil : un ordre du jour déposé en
+        # début de réunion nomme la moitié des sigles qu'on va entendre, et
+        # attendre la fin pour les lire les rend inutiles.
+        lui.contexte = _matiere_du_direct(config, etat.identifiant, le_suivi)
     veilleur = Veilleur(
         veille=Veille(mot_cle=mot_cle),
         journal=journal,
