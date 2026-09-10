@@ -48,21 +48,13 @@ class Transcrite(Protocol):
 
 SYSTEM = platform.system()
 
-# En deçà, un trou dans la transcription n'est qu'une respiration.
 TROU_SIGNIFICATIF = 8.0
-# Sous ce taux, la transcription a manifestement décroché quelque part.
 COUVERTURE_SUSPECTE = 0.60
 
-
-# La date est dans l'identifiant : sans elle, le rédacteur prend celle du jour
-# du traitement et date la réunion de la veille — constaté sur une réunion
-# réelle. La règle vit dans le domaine, qui s'en sert aussi pour ordonner les
-# réunions ; deux expressions pour la même convention finissaient par diverger.
 _HORODATAGE = HORODATAGE
 
 _MOIS = ("janvier", "février", "mars", "avril", "mai", "juin", "juillet",
          "août", "septembre", "octobre", "novembre", "décembre")
-
 
 def context_header(
     identifier: str,
@@ -103,7 +95,6 @@ def context_header(
         lines.append("Emploie cette date, jamais celle du jour.")
     return "\n".join(lines) + "\n\n"
 
-
 def _context_line(
     trouve: re.Match[str] | None,
     duration: float,
@@ -117,10 +108,6 @@ def _context_line(
         annee, mois, jour, heure, minute = trouve.groups()
         chunks.append(f"{int(jour)} {_MOIS[int(mois) - 1]} {annee}")
     if commencee_le is not None and terminee_le is not None:
-        # Les heures d'horloge, quand l'enregistrement les a retenues : ce sont
-        # les seules justes. Déduire la fin de la durée transcrite la plaçait au
-        # dernier mot prononcé — 10 h 32 pour un arrêt à 10 h 37, mesuré le
-        # 2026-09-09, parce que la réunion s'était terminée sur un silence.
         locale_debut, locale_fin = commencee_le.astimezone(), terminee_le.astimezone()
         chunks.append(
             f"de {locale_debut.hour} h {locale_debut.minute:02d} "
@@ -141,14 +128,12 @@ def _context_line(
     present_line = _present_line(names, voix_entendues)
     return f"{line} {present_line}" if present_line else line
 
-
 def _time_range(heure: int, minute: int, duration: float) -> str:
     """« de 16 h 46 à 17 h 03 » — l'heure de fin se déduit de la durée."""
     if duration <= 0:
         return f"à {heure} h {minute:02d}"
     end = (heure * 60 + minute + int(duration // 60)) % (24 * 60)
     return f"de {heure} h {minute:02d} à {end // 60} h {end % 60:02d}"
-
 
 def _present_line(names: Sequence[str], voix_entendues: int) -> str:
     known = [n for n in dict.fromkeys(names) if n]
@@ -160,14 +145,11 @@ def _present_line(names: Sequence[str], voix_entendues: int) -> str:
             return f"Participants : {listing}, et {reste} voix non nommée{pluriel}."
         return f"Participants : {listing}."
     if voix_entendues > 0:
-        # Le verbe s'accorde aussi : « 1 personne ont parlé » s'écrivait tel
-        # quel, en première ligne d'un compte rendu qu'on envoie par courriel.
         if voix_entendues == 1:
             return "Participants : 1 personne a parlé, non nommée."
         return (f"Participants : {voix_entendues} personnes ont parlé, "
                 "aucune nommée.")
     return ""
-
 
 def _readable_duration(seconds: float) -> str:
     heures, reste = divmod(int(seconds), 3600)
@@ -176,10 +158,7 @@ def _readable_duration(seconds: float) -> str:
         return f"{heures} h {minutes:02d}"
     if minutes:
         return f"{minutes} min"
-    # Sous la minute, « 0 min » serait faux : un extrait de trente secondes
-    # existe, et le rédacteur doit savoir qu'il n'a qu'un extrait.
     return f"{restantes} s"
-
 
 def disclosure_header(disclosure: str) -> str:
     """La mention sur l'enregistrement, dictée au rédacteur mot pour mot.
@@ -197,7 +176,6 @@ def disclosure_header(disclosure: str) -> str:
         "« ## Mention », sans rien y ajouter ni en retirer :\n"
         f"{mention(read(disclosure))}\n\n"
     )
-
 
 def hardware_header(events: list[str]) -> str:
     """Ce que la veille a constaté du matériel, dit au rédacteur.
@@ -217,7 +195,6 @@ def hardware_header(events: list[str]) -> str:
         "paraît n'avoir qu'un seul côté."
     )
     return "\n".join(lines) + "\n\n"
-
 
 def reliability_header(meeting: Transcrite) -> str:
     """Ce que la transcription a perdu, dit au rédacteur avant le texte.
@@ -255,7 +232,6 @@ def reliability_header(meeting: Transcrite) -> str:
         )
     return "\n".join(lines) + "\n\n"
 
-
 def render_transcript(meeting: Transcrite, header: str = "") -> str:
     """Transcription lisible, horodatée et attribuée.
 
@@ -275,7 +251,6 @@ def render_transcript(meeting: Transcrite, header: str = "") -> str:
         lines.append(f"{start // 60:02d}:{start % 60:02d}  {utterance.text}")
     return header + "\n".join(lines).strip() + "\n"
 
-
 def to_resume(store: Any, minutes_folder: Path, combien: int = 20) -> list[str]:
     """Les réunions transcrites dont le compte rendu manque encore.
 
@@ -291,14 +266,11 @@ def to_resume(store: Any, minutes_folder: Path, combien: int = 20) -> list[str]:
     """
     missing = []
     for identifier in store.lister()[:combien]:
-        # Seules les réunions datées : les jeux d'essai portent un nom libre et
-        # n'ont pas vocation à être rédigés.
         if not re.match(r"^\d{4}-\d{2}-\d{2}_", identifier):
             continue
         if not (minutes_folder / f"{identifier}.md").exists():
             missing.append(identifier)
     return missing
-
 
 def regenerate_minutes(
     meeting: StoredMeeting,
@@ -312,13 +284,6 @@ def regenerate_minutes(
     rédacteur doit refaire, c'est relire le même texte, avec les bonnes étiquettes.
     """
     duration = meeting.turns[-1].span.end if meeting.turns else 0.0
-    # Les participants et les heures viennent du fichier maître, comme pour une
-    # première rédaction. Sans eux, une régénération rendait un compte rendu qui
-    # n'annonçait plus personne — la ligne de contexte perdait les noms déjà
-    # attribués, alors que nommer une voix est justement ce qui déclenche une
-    # régénération.
-    # Les participants, pas toutes les voix : la traîne de fragments faisait
-    # annoncer « et 295 voix non nommées » sur une réunion de trois personnes.
     entendues = meeting.attendees()
     header = (
         context_header(
@@ -333,7 +298,6 @@ def regenerate_minutes(
         + disclosure_header(disclosure)
     )
     return writer.write_up(render_transcript(meeting, header))
-
 
 def notable_passages(
     meeting: Transcrite,
@@ -364,16 +328,11 @@ def notable_passages(
                 break
             if span.duration < duree_minimale:
                 continue
-            # Un tour très long est tronqué : on veut un échantillon, pas la
-            # réunion entière.
             end = min(span.end, span.start + max(duree_minimale, quota - cumul))
             retenus.append(Span(span.start, end))
             cumul += end - span.start
 
-    # Remis dans l'ordre chronologique : un montage qui saute dans le temps est
-    # incompréhensible.
     return sorted(retenus, key=lambda i: i.start)
-
 
 def assemble(audio: Path, passages: list[Span], destination: Path) -> Path:
     """Découpe et recolle les passages en un seul fichier.
@@ -408,7 +367,6 @@ def assemble(audio: Path, passages: list[Span], destination: Path) -> Path:
         )
     return destination
 
-
 def speak_aloud(text: str, destination: Path) -> Path:
     """Enregistre le compte rendu lu par la synthèse du système.
 
@@ -416,7 +374,6 @@ def speak_aloud(text: str, destination: Path) -> Path:
     quoi lire un texte.
     """
     destination.parent.mkdir(parents=True, exist_ok=True)
-    # Le Markdown se lit mal à voix haute : on retire ce qui n'est que mise en forme.
     propre = _sans_balisage(text)
 
     if SYSTEM == "Darwin":
@@ -439,7 +396,6 @@ def speak_aloud(text: str, destination: Path) -> Path:
         "Aucune synthèse vocale disponible. Sur Linux : « apt install espeak-ng »."
     )
 
-
 def _sans_balisage(text: str) -> str:
     """Débarrasse le Markdown de ce qui ne se prononce pas."""
     import re
@@ -449,7 +405,6 @@ def _sans_balisage(text: str) -> str:
     propre = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", propre)           # liens
     propre = re.sub(r"\n{3,}", "\n\n", propre)
     return propre.strip()
-
 
 def archiver(audio: Path, garder_original: bool = False) -> Path:
     """Compresse un enregistrement traité.
@@ -470,7 +425,6 @@ def archiver(audio: Path, garder_original: bool = False) -> Path:
         audio.unlink()
     return destination
 
-
 def voiceprints_per_voice(
     extractor: Any, audio: Path, per_voice: dict[str, list[Any]]
 ) -> dict[str, list[Any]]:
@@ -484,10 +438,6 @@ def voiceprints_per_voice(
     """
     tous = [(voice, i) for voice, intervalles in per_voice.items() for i in intervalles]
     voiceprints = extractor.extract_spans(audio, [i for _, i in tous])
-    # `extraire_intervalles` écarte les extraits trop courts sans le dire : la
-    # liste rendue est plus courte que celle demandée, et l'associer par rang
-    # attribuerait les empreintes à la mauvaise voix. On redemande donc voix par
-    # voix dès que le compte ne tombe pas juste.
     if len(voiceprints) != len(tous):
         return {
             voice: extractor.extract_spans(audio, intervalles)
@@ -497,7 +447,6 @@ def voiceprints_per_voice(
     for (voice, _), voiceprint in zip(tous, voiceprints, strict=True):
         groupees[voice].append(voiceprint)
     return groupees
-
 
 def review_voices(
     meeting: Any,
@@ -533,10 +482,6 @@ def review_voices(
     for utterance in meeting.utterances:
         if utterance.voice is not None:
             utterance.voice = membership.get(utterance.voice, utterance.voice)
-    # Les noms suivent les voix. Deux voix nommées pareil qui se retrouvent
-    # réunies ne posent pas de question ; deux noms différents sur une même voix
-    # sont un désaccord qu'on ne tranche pas en silence — on garde le nom de la
-    # voix qui a le plus parlé, et l'autre redevient une proposition.
     temps = meeting.speaking_time()
     names: dict[str, str] = {}
     for voice, name in sorted(meeting.names.items(), key=lambda x: -temps.get(x[0], 0.0)):
@@ -554,7 +499,6 @@ def review_voices(
         _reconnaitre_a_nouveau(meeting, voiceprints, membership, bank)
     _join_namesakes(meeting)
     return len(avant), len({t.voice for t in meeting.turns if t.voice})
-
 
 def _join_namesakes(meeting: Any) -> None:
     """Deux voix portant le même nom sont la même personne.
@@ -576,7 +520,6 @@ def _join_namesakes(meeting: Any) -> None:
             meeting.names[gardee] = next(
                 n for n in meeting.names.values() if n.casefold() == name
             ) if gardee in meeting.names else meeting.names.get(gardee, "")
-
 
 def _reconnaitre_a_nouveau(
     meeting: Any,

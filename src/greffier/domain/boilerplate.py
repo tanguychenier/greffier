@@ -66,13 +66,7 @@ def is_an_annotation(text: str) -> bool:
         if not (nu.startswith(ouvre) and nu.endswith(firm)):
             continue
         if ouvre != firm:
-            # Une seule paire : « (a) et (b) » n'est pas une annotation, c'est
-            # une phrase qui en contient deux.
             return firm not in nu[len(ouvre):-len(firm)]
-        # Bornes identiques : deux marques encadrent bien une annotation, et
-        # une ligne qui n'est que des marques en est une aussi — le modèle
-        # écrit « ♪ ♪ ♪ » sur de la musique. Au-delà, « *a* et *b* » est une
-        # phrase.
         return nu.count(ouvre) == 2 or not nu.replace(ouvre, "").strip()
     return False
 

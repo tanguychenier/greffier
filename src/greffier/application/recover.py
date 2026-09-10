@@ -86,9 +86,6 @@ def depuis_le_fil(
         propositions={},
         warnings=[WARNING],
         commencee_le=commencee,
-        # La fin déduite du dernier tour, faute de mieux : l'état
-        # d'enregistrement, seul à connaître l'heure d'arrêt, n'a pas été écrit
-        # puisque la réunion n'a jamais été finalisée.
         terminee_le=(
             commencee + timedelta(seconds=duration) if commencee and duration else None
         ),

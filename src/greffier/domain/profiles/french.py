@@ -18,23 +18,12 @@ import re
 from greffier.domain.language import Decoupage, Detection, LanguageProfile, Redaction
 from greffier.domain.models import MentionKind
 
-# Un nom propre commence par une majuscule — whisper les restitue ainsi. Les
-# mots déclencheurs, eux, sont insensibles à la casse : « Merci » en début de
-# phrase et « merci » au fil de l'eau désignent la même chose. D'où les
-# drapeaux locaux « (?i:…) », qui laissent la contrainte de majuscule intacte
-# sur le nom lui-même.
 _NAME = r"(?P<nom>[A-ZÉÈÊÀÂÎÔÛÇ][\w'’-]{1,19})"
 
-# Troisième membre : « confirmation seule ». Un tel motif est trop large pour
-# désigner un prénom à lui seul — il ne compte que si le nom a déjà été repéré
-# par un motif franc ailleurs dans la réunion.
 _MOTIFS: list[tuple[MentionKind, re.Pattern[str], bool]] = [
-    # --- le locuteur se nomme lui-même ---
     (MentionKind.AUTO_PRESENTATION, re.compile(
         r"(?i:\bje m['’]appelle|\bmoi,? c['’]est)\s+" + _NAME
     ), False),
-    # « c'est Marc » tout court désignerait n'importe qui : on exige la formule
-    # complète, sans quoi une phrase à propos d'un absent le ferait participant.
     (MentionKind.AUTO_PRESENTATION, re.compile(
         r"(?i:\bc['’]est)\s+" + _NAME + r"\s+(?i:qui\s+(?:vous\s+)?parle)"
     ), False),
@@ -44,10 +33,6 @@ _MOTIFS: list[tuple[MentionKind, re.Pattern[str], bool]] = [
     (MentionKind.AUTO_PRESENTATION, re.compile(
         _NAME + r"\s*,?\s*(?i:à l['’]appareil)"
     ), False),
-    # --- le locuteur passe la parole à quelqu'un ---
-    # « tu vois », « tu sais », « vous voyez » sont des tics de langage, pas des
-    # adresses : sans cette exception, « un macro Kanban, tu vois » ferait de
-    # Kanban un participant. Constaté sur une vraie réunion.
     (MentionKind.INTERPELLATION, re.compile(
         _NAME + r"\s*,\s*(?:(?i:tu|vous)\s+(?!(?i:vois|voyez|sais|savez)\b)"
         r"|(?i:est-ce que\b|peux-tu\b|pouvez-vous\b|qu['’]en penses|qu['’]en pensez))"
@@ -56,7 +41,6 @@ _MOTIFS: list[tuple[MentionKind, re.Pattern[str], bool]] = [
         r"(?i:\bvas-y|\ballez-y|\bà toi|\bje te laisse|\bje vous laisse"
         r"|\bje passe la parole à|\bla parole (?:est )?à)\s+" + _NAME + r"\b"
     ), False),
-    # --- le locuteur renvoie à celui qui vient de parler ---
     (MentionKind.RENVOI, re.compile(
         r"(?i:\bmerci)\s+" + _NAME + r"\b"
     ), False),
@@ -67,43 +51,27 @@ _MOTIFS: list[tuple[MentionKind, re.Pattern[str], bool]] = [
     (MentionKind.RENVOI, re.compile(
         _NAME + r"\s+(?i:a raison|vient de (?:le )?dire|l['’]a dit)\b"
     ), False),
-    # --- formulations relevées sur de vraies réunions ---
-    # « Mais pour ça, toi, Josiane, c'est pas besoin ? »
     (MentionKind.INTERPELLATION, re.compile(
         r"(?i:\btoi)\s*,\s*" + _NAME + r"\b"
     ), False),
-    # « Josiane, on a lu ensemble et tu nous diras » : un nom en tête de phrase
-    # n'est un appel que si une adresse suit. L'anticipation évite de prendre
-    # pour un prénom le premier mot capitalisé venu.
     (MentionKind.INTERPELLATION, re.compile(
         r"(?:^|(?<=[.?!]\s))" + _NAME + r"\s*,\s*(?=[^.?!]{0,60}?\b(?i:tu|vous|on)\b)"
     ), False),
-    # Un segment réduit au seul mot : « Josiane. » appelle quelqu'un, mais
-    # « Ouais. » et « Exact. » aussi passeraient. D'où la confirmation seule —
-    # relevé sur la réunion du 2026-08-20, où ce motif ramassait tous les
-    # acquiescements.
     (MentionKind.INTERPELLATION, re.compile(
         r"^" + _NAME + r"\s*[,.?!]?\s*$"
     ), True),
-    # « pour ce que présentait Josiane »
     (MentionKind.RENVOI, re.compile(
         r"(?i:\bqu[e\u2019']\s*(?:présentait|présente|disait|expliquait|proposait"
         r"|évoquait|montrait|a présenté|a dit))\s+" + _NAME + r"\b"
     ), False),
 ]
 
-# Mots qui passent les motifs sans être des noms de personne. Le vocabulaire
-# métier du projet s'y ajoute par configuration : sans quoi « merci Copernic »
-# créerait un participant.
 EXCLUS_PAR_DEFAUT: frozenset[str] = frozenset({
-    # Ouvertures de phrase : un mot capitalisé en tête n'est pas un prénom.
     "mais", "bon", "bref", "ensuite", "enfin", "ecoute", "ecoutez", "attends",
     "ok", "ah", "eh", "euh", "apres", "avant", "sinon", "sur", "dans", "les",
     "est", "peut", "parce", "pourquoi", "comment", "quand", "moi", "toi", "lui",
     "elle", "nous", "vous", "ils", "elles", "ca", "cela", "ceci", "celui",
     "effectivement", "exactement", "super", "parfait", "tres", "plus", "moins",
-    # Interjections et impératifs d'attention : « Tiens, tu as vu ? » a été pris
-    # pour un prénom sur une vraie réunion.
     "tiens", "tenez", "regarde", "regardez", "voyons", "allez", "vas",
     "dis", "dites", "figure", "imagine", "franchement", "honnetement",
     "petit", "grand", "aujourd'hui", "hier", "demain", "pareil", "pardon", "desole",
@@ -135,8 +103,6 @@ BOILERPLATE: frozenset[str] = frozenset({
     "n oubliez pas de vous abonner",
 })
 
-# Formulations qui annoncent une décision ou une suite à donner. Elles servent à
-# faire remonter les points à retenir pendant la réunion, pas à décider.
 _DECISIONS = [
     re.compile(r"(?i:\bon (?:décide|acte|valide|part sur|retient)\b)"),
     re.compile(r"(?i:\bil faut (?:qu[e']|absolument)\b)"),
@@ -153,10 +119,6 @@ FRENCH = LanguageProfile(
         motifs=tuple(_MOTIFS),
         exclus=EXCLUS_PAR_DEFAUT,
         longueur_minimale=3,
-        # Les adverbes en « -ment » ouvrent d'innombrables phrases —
-        # « Effectivement, tu as raison », « Normalement, on livre jeudi » — et
-        # aucun n'a moins de huit lettres. Le seuil épargne « Clément », à peu
-        # près le seul prénom français de cette forme.
         suffixe_adverbial="ment",
         longueur_du_suffixe=8,
     ),

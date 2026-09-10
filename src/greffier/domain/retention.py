@@ -34,7 +34,6 @@ class Geste(StrEnum):
     COMPRESSER = "compresser"
     EFFACER = "effacer"
 
-
 @dataclass(frozen=True, slots=True)
 class Regle:
     """Les délais, en jours. Zéro désactive le geste."""
@@ -45,9 +44,6 @@ class Regle:
     def __post_init__(self) -> None:
         if self.compresser_apres < 0 or self.effacer_apres < 0:
             raise ValueError("un délai de rétention ne peut pas être négatif")
-        # Effacer avant d'avoir compressé n'aurait aucun sens : le second geste
-        # englobe le premier. On l'interdit plutôt que de laisser une
-        # configuration qui se contredit.
         if self.effacer_apres and self.effacer_apres < self.compresser_apres:
             raise ValueError(
                 "« effacer_apres » doit venir après « compresser_apres », "

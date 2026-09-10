@@ -40,7 +40,6 @@ Transcription :
 _MENTION_DE_LANGUE = "Attendu, en français,"
 _MENTION_NUE = "Attendu, en"
 
-
 def guidance(language: str = "") -> str:
     """Les consignes, dictées dans la langue voulue.
 
@@ -66,8 +65,6 @@ def guidance(language: str = "") -> str:
         f"\n\nRappel : le compte rendu s'écrit en {name}.\n"
     )
 
-
-
 def available_models() -> list[str]:
     """Les modèles qu'Ollama a déjà sur ce poste.
 
@@ -85,7 +82,6 @@ def available_models() -> list[str]:
         return []
     return [line.split()[0] for line in output.splitlines()[1:] if line.strip()]
 
-
 class RedacteurOllama:
     def __init__(self, model: str, hote: str = "http://127.0.0.1:11434",
                  language: str = "") -> None:
@@ -98,8 +94,6 @@ class RedacteurOllama:
             "model": self.model,
             "prompt": guidance(self.language) + transcription,
             "stream": False,
-            # Température basse : un compte rendu doit coller à ce qui a été dit,
-            # pas explorer des tournures.
             "options": {"temperature": 0.2},
         }).encode("utf-8")
         requete = urllib.request.Request(
@@ -107,7 +101,6 @@ class RedacteurOllama:
             headers={"Content-Type": "application/json"}, method="POST",
         )
         try:
-            # Une heure de réunion peut demander plusieurs minutes de rédaction.
             with urllib.request.urlopen(requete, timeout=900) as response:
                 text = str(json.load(response).get("response", "")).strip()
         except urllib.error.URLError as erreur:

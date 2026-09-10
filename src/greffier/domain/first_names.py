@@ -1,15 +1,7 @@
-"""Ce qui peut porter le nom d'une personne, et ce qui ne le peut pas.
+"""What may carry a person's name, and what may not.
 
-Une entrée fautive dans la banque de voix ne se voit pas et ne se répare pas
-toute seule : elle est reconnue à chaque réunion suivante, affirmée plutôt que
-proposée, et elle confirme son erreur d'elle-même. Le contrôle doit donc se
-faire au moment où le nom est saisi, une fois, et non après coup.
-
-Le cas qui a motivé ce module est mesuré, pas imaginé : la banque du poste
-portait une personne nommée **« A nommer »**, c'est-à-dire le libellé que
-l'interface affiche dans la colonne « Nom » d'une voix qui n'en a pas encore.
-Personne ne s'appelle ainsi. Le tour qu'a pris le geste importe peu — la
-défense, elle, tient en une règle.
+The voice bank keeps voiceprints under a name: a label from the interface
+landing in there poisons the recognition of every later meeting.
 """
 
 from __future__ import annotations
@@ -32,12 +24,7 @@ def _strip_accents(mot: str) -> str:
     )
 
 def refusal(name: str) -> str:
-    """Pourquoi ce nom ne peut pas entrer en banque, ou une chaîne vide.
-
-    Rendre la raison plutôt qu'un booléen : elle s'affiche telle quelle, et
-    « ce n'est pas un prénom » sans explication ferait recommencer la même
-    saisie.
-    """
+    """Why this name cannot enter the bank, or an empty string."""
     propre = " ".join(name.split())
     if not propre:
         return "Saisis un prénom."
@@ -64,11 +51,6 @@ def acceptable(name: str) -> bool:
     return not refusal(name)
 
 def normalise(name: str) -> str:
-    """La forme sous laquelle un prénom est retenu.
-
-    Les espaces se réduisent et la première lettre se met en capitale : sans
-    cela, « marcel » et « Marcel » deviennent deux personnes distinctes dans la
-    banque, et chacune n'a que la moitié des empreintes.
-    """
+    """The form a first name is kept under."""
     propre = " ".join(name.split())
     return propre[:1].upper() + propre[1:] if propre else propre

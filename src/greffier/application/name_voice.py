@@ -22,11 +22,7 @@ from greffier.domain.models import Span
 from greffier.domain.voiceprints import aggregate
 from greffier.ports import outbound
 
-# Assez pour reconnaître une voix à l'oreille, assez court pour ne pas lasser
-# quand il y a cinq personnes à nommer.
 DUREE_EXTRAIT = 10.0
-# En deçà, un passage ne porte pas assez de voix : ni pour l'oreille, ni pour
-# l'empreinte.
 DUREE_UTILE = 3.0
 
 @dataclass
@@ -84,7 +80,6 @@ def best_excerpt(intervalles: list[Span]) -> Span | None:
     plus_long = max(utiles, key=lambda i: i.duration)
     if plus_long.duration <= DUREE_EXTRAIT:
         return plus_long
-    # Un peu après le début : on évite l'attaque, souvent hésitante.
     start = plus_long.start + min(1.0, (plus_long.duration - DUREE_EXTRAIT) / 2)
     return Span(start, start + DUREE_EXTRAIT)
 
@@ -134,14 +129,6 @@ class Naming:
                 f"La voix « {voice} » n'a aucun passage d'au moins {DUREE_UTILE:.0f} s : "
                 "trop peu de matière pour une empreinte fiable."
             )
-        # Une empreinte agrégée sur toute la réunion, et non un extrait unique :
-        # elle résiste mieux aux variations de posture et de distance au micro.
-        # Avant de verser : cette voix ressemble-t-elle à quelqu'un d'autre ?
-        # On ne refuse pas — deux collègues peuvent avoir des voix proches, et
-        # l'utilisateur a le droit d'avoir raison contre la machine — mais on
-        # ne laisse plus une entrée fausse entrer en silence.
-        # L'origine voyage avec l'empreinte : c'est ce qui permettra de
-        # défaire d'un geste ce qu'une réunion mal attribuée a versé.
         aggregate_of = replace(aggregate(voiceprints), origine=identifier)
         self.doute = empreintes_domaine.doubtful_entry(
             aggregate_of, name, self.bank.people())
@@ -149,9 +136,6 @@ class Naming:
 
         meeting.names[voice] = name
         meeting.propositions.pop(voice, None)
-        # Les voix qui portaient déjà ce nom rejoignent celle-ci. La plus
-        # fournie garde son identifiant : c'est celle dont l'extrait est le plus
-        # représentatif si quelqu'un veut réécouter.
         temps = meeting.speaking_time()
         homonymes = [v for v in meeting.voice_named(name) if v != voice]
         for autre in homonymes:

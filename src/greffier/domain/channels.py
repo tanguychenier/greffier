@@ -94,8 +94,6 @@ def who_speaks(
     mic = micro_db > r.plancher_db
     system = systeme_db > r.plancher_db
     if mic and system:
-        # Les deux canaux sont actifs : c'est un vrai chevauchement si le micro
-        # domine, sinon le micro ne fait que réentendre les haut-parleurs.
         return WhoSpeaks.LES_DEUX if micro_db > systeme_db + r.marge_db else WhoSpeaks.LES_AUTRES
     if mic:
         return WhoSpeaks.TOI

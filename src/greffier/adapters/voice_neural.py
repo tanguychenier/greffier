@@ -181,7 +181,6 @@ class NeuralVoice:
                 num_threads=self.fils,
             )
         else:
-            # Un VITS porte sa langue dans ses poids : rien à lui dire.
             model = sherpa_onnx.OfflineTtsModelConfig(
                 vits=sherpa_onnx.OfflineTtsVitsModelConfig(
                     model=str(self._network), **commun),
@@ -282,11 +281,6 @@ class NeuralVoice:
         finally:
             self._publish_the_gag(None)
         if code is not None and code < 0:
-            # Tué par un signal, donc coupé de l'extérieur : c'est le bouton de
-            # la fenêtre, et il ne demande pas de sauter une phrase, il demande
-            # le silence. Sans ce contrôle, la phrase en cours s'arrêtait et la
-            # suivante repartait aussitôt — « elle s'arrête puis elle reprend »,
-            # ce qui est pire que de ne pas s'arrêter.
             self._interrompu.set()
             return False
         return not self._interrompu.is_set()

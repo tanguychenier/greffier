@@ -1,26 +1,16 @@
-"""Le fil de la réunion, pendant qu'elle a lieu.
+"""The meeting thread, while the meeting is happening.
 
-Ce que la chaîne complète fait après coup — découper, regrouper les voix,
-reconnaître les personnes — se refait ici tranche par tranche, avec beaucoup
-moins de matière : quelques secondes d'audio au lieu d'une heure, une empreinte
-au lieu de huit. Les conclusions sont donc plus fragiles, et c'est le point
-central de ce module : **il propose, il n'affirme pas**, et il garde trace de ce
-qui distingue une certitude d'une hypothèse.
+What the full chain does afterwards — segment, group the voices, recognise the
+people — is redone here slice by slice, on far less material. Conclusions are
+therefore more fragile, and that is the point of this module: **it proposes, it
+does not assert**, and it keeps track of what separates a certainty from a
+guess.
 
-Trois sources de savoir, de la plus fiable à la moins :
+Three sources of knowledge, most reliable first: a human correction, the
+channel (a voice arriving on the mic belongs to whoever is recording), then the
+voiceprint — useful, never sure.
 
-1. **la correction humaine.** Quelqu'un a dit qui parlait ; plus rien ne
-   discute. C'est l'objet même de ce module : rendre corrigeable pendant la
-   réunion ce qui, sinon, ne se découvre faux qu'en relisant le compte rendu.
-2. **le canal.** Une voix qui arrive par le micro est celle de la personne qui
-   enregistre. Fait de câblage, pas déduction acoustique — voir `canaux`.
-3. **l'empreinte vocale.** Utile, jamais sûre : le seuil de 0,70 mesuré sur des
-   tours de parole entiers (`docs/calibrage.md`) s'applique ici à des extraits
-   de quelques secondes, donc avec moins de marge.
-
-Rien ici ne connaît whisper, sherpa, ni un fichier : le fil reçoit des répliques
-et des empreintes, et rend des tours attribués. C'est ce qui permet de tester
-l'attribution en direct, et les corrections, sans audio et sans modèle.
+Nothing here knows about whisper, sherpa or a file.
 """
 
 from __future__ import annotations
@@ -73,12 +63,7 @@ _MOT_DIRECT = re.compile(r"\S+")
 _PONCTUATION_MOT = ".,;:!?…\"'«»()[]-–—"
 
 def _content_words(text: str) -> list[tuple[str, int]]:
-    """Les mots qui portent du sens, chacun avec sa fin dans le texte.
-
-    La ponctuation seule est écartée : le modèle préfixe une réplique d'un
-    tiret de dialogue, et comparer « - » à « Qu'est-ce » faisait échouer la
-    comparaison au premier mot, donc ne coupait rien du tout.
-    """
+    """The words that carry meaning, each with where it ends in the text."""
     trouves: list[tuple[str, int]] = []
     for mot in _MOT_DIRECT.finditer(text):
         nu = mot.group().strip(_PONCTUATION_MOT).casefold()
@@ -87,11 +72,7 @@ def _content_words(text: str) -> list[tuple[str, int]]:
     return trouves
 
 def _same_word(un: str, autre: str) -> bool:
-    """Deux transcriptions du même mot : « l'ASIS » et « Oasis ».
-
-    Le seuil dépend de la longueur, comme pour les questions : sur trois
-    lettres, deux écarts font un autre mot.
-    """
+    """Two transcriptions of one word: "l'ASIS" and "Oasis"."""
     if un == autre:
         return True
     plus_court = min(len(un), len(autre))
@@ -100,33 +81,18 @@ def _same_word(un: str, autre: str) -> bool:
     return distance(un, autre) <= (2 if plus_court >= 5 else 1)
 
 def _overlap_each_other(gauche: list[str], droite: list[str]) -> bool:
-    """Vrai si ces deux suites de mots sont le même passage, dit deux fois."""
+    """True when these two word runs are the same passage, said twice."""
     if gauche == droite:
         return True
     if len(gauche) < MOTS_POUR_TOLERER:
         return False
-    # Tous les mots doivent au moins être des variantes l'un de l'autre : sans
-    # cela, « on va faire ça » et « on va faire autrement » se recouvriraient
-    # sur trois mots et la phrase neuve disparaîtrait.
     if not all(_same_word(a, b) for a, b in zip(gauche, droite, strict=True)):
         return False
     identiques = sum(1 for a, b in zip(gauche, droite, strict=True) if a == b)
     return identiques / len(gauche) >= PART_IDENTIQUE
 
 def drop_repetition(precedent: str, nouveau: str) -> str:
-    """Retire, en tête du nouveau texte, la fin déjà affichée par le précédent.
-
-    Les tranches se chevauchent dans le temps (`application.veiller.RECOUVREMENT`),
-    donc whisper retranscrit deux fois un passage à cheval : tronqué en fin de
-    tranche, entier dans la suivante. `retenir` garde à raison cette seconde
-    version — majoritairement neuve en temps — mais elle porte encore, en tête,
-    les derniers mots déjà affichés : « dernier. » puis « dernier. Sandy, tu
-    peux nous dire… ».
-
-    La comparaison tolère la variante : le même passage n'est pas transcrit
-    deux fois pareil, et exiger l'égalité mot pour mot laissait passer le
-    doublon dès qu'un mot changeait.
-    """
+    """Strips from the new text the tail the previous one already showed."""
     avant = _content_words(precedent)
     apres = _content_words(nouveau)
     if not avant or not apres:
@@ -143,11 +109,9 @@ def drop_repetition(precedent: str, nouveau: str) -> str:
 MARGE_LISIBLE = 0.06
 
 class Certainty(StrEnum):
-    """D'où vient le nom affiché. Détermine ce qu'on ose en faire.
+    """Where the displayed name comes from. Decides what may be done with it.
 
-    L'ordre compte : une source ne peut jamais être écrasée par une moins sûre.
-    Sans cette règle, l'empreinte de la tranche suivante défaisait la correction
-    qu'on venait de saisir.
+    The order matters: a source can never be overwritten by a weaker one.
     """
 
     HUMAINE = "humaine"        # quelqu'un l'a corrigé à la main
@@ -158,7 +122,7 @@ class Certainty(StrEnum):
 
     @property
     def firm(self) -> bool:
-        """Vrai quand le nom n'est plus une hypothèse."""
+        """True once the name is no longer a guess."""
         return self in {Certainty.HUMAINE, Certainty.CANAL}
 
 _WEIGHT = {
@@ -171,11 +135,10 @@ _WEIGHT = {
 
 @dataclass(frozen=True, slots=True)
 class Block:
-    """Des répliques consécutives venues de la même source.
+    """Consecutive utterances from one source.
 
-    On attribue par bloc et non par réplique : whisper coupe à la phrase, et une
-    empreinte tirée de six mots ne vaut rien. Regrouper ce qui se suit donne
-    assez de matière pour reconnaître une voix, sans attendre la fin du tour.
+    Attribution works on blocks rather than utterances: whisper cuts at the
+    sentence, and a voiceprint taken from six words is worth nothing.
     """
 
     utterances: tuple[Utterance, ...]
@@ -189,7 +152,7 @@ class Block:
 
 @dataclass(slots=True)
 class LiveVoice:
-    """Une voix telle que le fil la connaît à cet instant."""
+    """A voice as the thread knows it at this instant."""
 
     identifier: str
     name: str | None = None
@@ -202,43 +165,37 @@ class LiveVoice:
     _aggregate_of: Voiceprint | None = field(default=None, repr=False)
 
     def add(self, voiceprint: Voiceprint) -> None:
-        """Verse une empreinte, et périme l'agrégat.
-
-        Passer par ici plutôt que d'ajouter à la liste : c'est le seul endroit
-        qui sache que l'agrégat doit être refait, et un `append` oublié ailleurs
-        rendrait une voix reconnaissable à ce qu'elle était.
-        """
+        """Pours in a voiceprint, and stales the aggregate."""
         self.voiceprints.append(voiceprint)
         self._aggregate_of = None
 
     def absorb(self, autre: LiveVoice) -> None:
-        """Reprend les empreintes d'une autre voix."""
+        """Takes over another voice's voiceprints."""
         self.voiceprints.extend(autre.voiceprints)
         self._aggregate_of = None
 
     def forget_aggregate(self) -> None:
-        """Périme l'agrégat, quand la liste change sans passer par `ajouter`."""
+        """Stales the aggregate when the list changed without going through add."""
         self._aggregate_of = None
 
     @property
     def aggregate_of(self) -> Voiceprint:
-        """L'empreinte moyenne de cette voix, calculée une fois par ajout."""
+        """The mean voiceprint of this voice, computed once per addition."""
         if self._aggregate_of is None:
             self._aggregate_of = aggregate(self.voiceprints)
         return self._aggregate_of
 
     @property
     def seconds(self) -> float:
-        """Matière accumulée, pour savoir si l'empreinte vaut d'être gardée."""
+        """Material gathered, to tell whether the voiceprint is worth keeping."""
         return sum(e.source_duration for e in self.voiceprints)
 
     @property
     def label(self) -> str:
-        """Ce qui s'affiche à côté de la phrase.
+        """What shows next to the sentence.
 
-        Le point d'interrogation n'est pas décoratif : il dit que le nom vient
-        d'une empreinte et attend confirmation. Une réunion où tout s'affiche
-        sans nuance est une réunion où personne ne corrige rien.
+        The question mark is not decoration: it says the name comes from a voiceprint
+        and awaits confirmation.
         """
         if self.name is None:
             return NOM_INDETERMINE if self.identifier == VOIX_INDETERMINEE else (
@@ -248,13 +205,7 @@ class LiveVoice:
 
     @property
     def confidence(self) -> str:
-        """Ce que la reconnaissance vaut, en clair. Vide quand elle n'a pas joué.
-
-        Un chiffre nu ne se lit pas : 0,46 et 0,89 sont deux situations qui
-        appellent des gestes différents, et personne ne connaît par cœur le
-        seuil ni la marge. On dit donc ce qu'on en fait, et on donne le chiffre
-        entre parenthèses pour qui veut vérifier.
-        """
+        """What the recognition is worth, in plain words. Empty when it did not play."""
         if self.name is None or not self.likeness:
             return ""
         if self.certitude is Certainty.HUMAINE:
@@ -264,25 +215,18 @@ class LiveVoice:
         chiffres = f"ressemblance {self.likeness:.2f}, écart {self.gap:.2f}"
         if self.certitude is Certainty.RECONNUE:
             return f"reconnue nettement ({chiffres})"
-        # Sous le seuil, ou trop proche de quelqu'un d'autre : les deux cas se
-        # distinguent, et le second est le plus trompeur — le nom est peut-être
-        # celui du voisin.
         if self.gap < MARGE_LISIBLE:
             return f"proche d'une autre voix, à confirmer ({chiffres})"
         return f"probable, peu de matière ({chiffres})"
 
     @property
     def nameable(self) -> bool:
-        """Faux pour le fourre-tout des bribes : il mélange des personnes.
-
-        Y appliquer un nom d'un coup attribuerait à quelqu'un les « oui » de
-        tout le monde.
-        """
+        """False for the catch-all of scraps: it mixes several people."""
         return self.identifier != VOIX_INDETERMINEE
 
 @dataclass(slots=True)
 class LiveTurn:
-    """Une phrase affichée, et à qui le fil l'attribue."""
+    """A displayed sentence, and who the thread attributes it to."""
 
     number: int
     span: Span
@@ -291,8 +235,7 @@ class LiveTurn:
 
 @dataclass(frozen=True, slots=True)
 class Correction:
-    """Ce qu'une correction humaine a changé, pour que l'appelant en tire les
-    conséquences : réafficher, et verser l'empreinte à la banque de voix."""
+    """What a human correction changed, for the caller to act on."""
 
     name: str
     voice: str
@@ -301,13 +244,7 @@ class Correction:
     whole_voice: bool = True
 
 def blocks(utterances: list[Utterance], locaux: list[Span]) -> list[Block]:
-    """Regroupe les répliques en passages d'une même source.
-
-    `locaux` vient de `canaux.tours_locaux` : les moments où le micro domine, et
-    donc où c'est la personne qui enregistre qui parle. Une réplique est locale
-    quand un de ces moments couvre la moitié de sa durée — le même critère que
-    `canaux.retirer`, pour que les deux chemins ne se contredisent pas.
-    """
+    """Groups utterances into passages from one source."""
     groupes: list[Block] = []
     current: list[Utterance] = []
     courant_local = False
@@ -330,12 +267,10 @@ def _is_local(span: Span, locaux: list[Span]) -> bool:
 
 @dataclass(frozen=True, slots=True)
 class Join:
-    """Ce qu'il faut avoir gardé pour défaire une réunion de deux voix.
+    """What has to be kept in order to undo a join of two voices.
 
-    Réunir deux voix mélange leurs empreintes dans un même tas et supprime la
-    voix absorbée : sans cette trace, l'erreur est définitive. Elle l'a été
-    pendant une réunion entière, où deux personnes réunies à tort sont restées
-    une seule jusqu'au compte rendu.
+    Joining mixes the voiceprints into one heap and deletes the absorbed voice:
+    without this record the mistake is permanent.
     """
 
     source: str
@@ -352,12 +287,10 @@ class Join:
 
 @dataclass
 class LiveThread:
-    """Le fil de la réunion en cours : ce qui a été dit, et par qui.
+    """The thread of the meeting under way: what was said, and by whom.
 
-    Un seul objet, tenu par le processus qui écoute. La fenêtre n'en voit que le
-    journal qu'il publie, et lui renvoie les corrections : deux processus, parce
-    que faire tourner la transcription dans le fil de l'interface la gèle, et
-    qu'un modèle qui tombe ne doit pas emporter la fenêtre.
+    One object, held by the watching process. The window only sees the log it
+    publishes, and sends corrections back.
     """
 
     connues: list[Person] = field(default_factory=list)
@@ -379,24 +312,12 @@ class LiveThread:
         )
         self.voice.setdefault(VOIX_INDETERMINEE, LiveVoice(VOIX_INDETERMINEE))
 
-    # ------------------------------------------------------------- lecture
-
     def label(self, voice: str) -> str:
         connue = self.voice.get(voice)
         return connue.label if connue else f"Voix {voice}"
 
     def rendered(self, depuis: float = 0.0) -> str:
-        """Le fil en texte suivi, attribué, pour qu'on puisse l'interroger.
-
-        La conversation exigeait un compte rendu, donc une réunion **terminée** :
-        impossible de demander « qu'a-t-on décidé sur Oasis ? » pendant qu'on en
-        parle, alors que le fil, lui, est déjà là. Les tours consécutifs d'une
-        même voix sont regroupés, comme dans la transcription définitive : une
-        étiquette par phrase rend le texte illisible pour qui doit le résumer.
-
-        `depuis` coupe les premières secondes, pour n'interroger que la fin
-        d'une longue réunion sans tout renvoyer.
-        """
+        """The thread as flowing attributed text, so that it can be questioned."""
         lines: list[str] = []
         current: str | None = None
         for turn in self.turns:
@@ -411,11 +332,7 @@ class LiveThread:
         return "\n".join(lines).strip()
 
     def suggestable_names(self) -> list[str]:
-        """Les noms qu'un menu de correction peut offrir sans rien inventer.
-
-        Ceux de la réunion en cours d'abord — ce sont les plus probables — puis
-        la banque, dont les habitués reviennent d'une réunion à l'autre.
-        """
+        """The names a correction menu can offer without inventing anything."""
         vus = [v.name for v in self.voice.values() if v.name and v.name != NOM_LOCAL]
         for personne in self.connues:
             if personne.name not in vus:
@@ -423,19 +340,11 @@ class LiveThread:
         return [NOM_LOCAL, *vus]
 
     def retenir(self, utterances: list[Utterance]) -> list[Utterance]:
-        """Écarte ce qui a déjà été affiché lors de la tranche précédente.
-
-        Le critère est la matière neuve, non le point de départ : une phrase que
-        la tranche suivante fait commencer un peu plus tôt reste une phrase
-        nouvelle, et la jeter en perdait une sur six à l'essai.
-        """
+        """Discards what was already shown in the previous slice."""
         kept: list[Utterance] = []
         for utterance in utterances:
             if not utterance.text.strip():
                 continue
-            # Un générique inventé par le modèle n'a été prononcé par personne :
-            # affiché, il occupe une ligne du fil et se retrouve dans le compte
-            # rendu comme une prise de parole.
             if is_boilerplate(utterance.text, self.profil) or is_an_annotation(
                 utterance.text
             ):
@@ -449,22 +358,11 @@ class LiveThread:
             if neuf / duration >= PART_NEUVE_MINIMALE:
                 kept.append(utterance)
         if kept:
-            # Seule la première réplique retenue peut être la suite immédiate
-            # du dernier tour affiché : les suivantes viennent d'un peu plus
-            # tard dans la même tranche, sans recouvrement avec lui.
             kept[0].text = drop_repetition(self.dernier_texte, kept[0].text)
         return kept
 
-    # ------------------------------------------------------------ écriture
-
     def attach(self, voiceprint: Voiceprint | None, locale: bool) -> str:
-        """La voix à qui attribuer un bloc, en la créant s'il faut.
-
-        L'ordre des tentatives est celui de la fiabilité : le canal, puis les
-        voix déjà entendues dans cette réunion — enregistrées dans les mêmes
-        conditions, donc comparables avec exigence — puis la banque, dont les
-        empreintes viennent d'un autre jour et d'un autre matériel.
-        """
+        """The voice a block belongs to, founding one if need be."""
         if locale:
             return VOIX_LOCALE
         if voiceprint is None:
@@ -472,33 +370,12 @@ class LiveThread:
 
         proche = self._closest_voice(voiceprint)
         if proche is None and voiceprint.source_duration < MATIERE_MINIMALE_VOIX:
-            # Trop peu de matière pour fonder une personne. Mesuré sur une
-            # réunion réelle : les voix qui portaient la réunion sont nées sur
-            # 3 à 7 s de parole, celles qui n'existaient pas sur 1 à 1,5 s —
-            # « lui. », « C'est ça. », « Trop bien. ». Une bribe rejoint la voix
-            # la plus ressemblante ; s'il n'y en a aucune, elle attend qu'une
-            # vraie voix existe.
             proche = self._the_least_distant(voiceprint) or VOIX_INDETERMINEE
         if proche is None:
-            # Une voix déjà fournie l'emporte sur une voix de plus : c'est
-            # l'adoption du recollage final, appliquée pendant la réunion.
             proche = self._nearby_established_voice(voiceprint)
         if proche is None and len(self._nameable_ones()) >= VOIX_AU_PLUS:
-            # Le plafond est atteint : une phrase de plus est de quelqu'un qui
-            # est déjà là. Rejoindre la plus ressemblante vaut mieux que
-            # d'inventer un treizième participant, et le fourre-tout attend
-            # celles qui ne ressemblent à personne.
             proche = self._the_least_distant(voiceprint)
         if proche is None and self._in_full():
-            # Le nombre de participants est annoncé et toutes les voix
-            # existent : une empreinte qui ne franchit pas le seuil rejoint
-            # quand même la plus ressemblante, au lieu d'inventer une personne
-            # de plus. Mesuré en présentiel : phrase à phrase, deux prises de
-            # parole de la même personne se ressemblent à 0,69 en médiane, sous
-            # le seuil de 0,75 — d'où une voix par tour de parole, vingt et une
-            # pour trois personnes. Le nombre de participants est la seule
-            # chose que la machine ne peut pas déduire ; quand on le lui donne,
-            # elle n'a plus à deviner.
             proche = self._the_least_distant(voiceprint)
         if proche is not None:
             connue = self.voice[proche]
@@ -514,26 +391,22 @@ class LiveThread:
         return nouvelle.identifier
 
     def _nameable_ones(self) -> list[LiveVoice]:
-        """Les voix qui désignent une personne : ni « Toi », ni le fourre-tout."""
+        """The voices that name a person: neither "you" nor the catch-all."""
         return [
             voice for identifier, voice in self.voice.items()
             if identifier not in (VOIX_LOCALE, VOIX_INDETERMINEE) and voice.voiceprints
         ]
 
     def _in_full(self) -> bool:
-        """Vrai quand autant de voix existent que de participants annoncés."""
+        """True when as many voices exist as attendees were announced."""
         if not self.people:
             return False
-        # La personne qui enregistre compte parmi les participants, et son canal
-        # la désigne déjà : elle n'occupe pas une des voix à répartir. Sa
-        # présence se lit sur ses **tours**, pas sur ses empreintes : rien n'est
-        # jamais prélevé sur la voix locale, le micro l'ayant déjà identifiée.
         has_spoken = any(turn.voice == VOIX_LOCALE for turn in self.turns)
         distantes = self.people - (1 if has_spoken else 0)
         return len(self._nameable_ones()) >= max(1, distantes)
 
     def _the_least_distant(self, voiceprint: Voiceprint) -> str | None:
-        """La voix la plus ressemblante, seuil ou pas. Rien s'il n'y en a aucune."""
+        """The most alike voice, threshold or not. Nothing if there is none."""
         ranking = sorted(
             ((similarity(voiceprint, v.aggregate_of), v.identifier)
              for v in self._nameable_ones()),
@@ -542,22 +415,10 @@ class LiveThread:
         return ranking[0][1] if ranking else None
 
     def _nearby_established_voice(self, voiceprint: Voiceprint) -> str | None:
-        """Une voix **déjà fournie** que cette empreinte rejoint sans hésitation.
+        """An **already well fed** voice this voiceprint joins without hesitation.
 
-        C'est la question de l'adoption du recollage final, posée pendant la
-        réunion : « laquelle des voix établies ressemble le plus, et nettement
-        plus ». Elle vaut ici pour la même raison qu'après coup — comparer une
-        phrase à une voix qui porte une minute de parole est mieux posé que la
-        comparer à une autre phrase.
-
-        Ce qu'elle répare : sans nombre de participants annoncé, chaque prise de
-        parole fondait une voix, parce que deux phrases d'une même personne ne
-        se ressemblent qu'à 0,69 en médiane, sous le seuil de 0,75. Mesuré sur
-        une réunion réelle de trois personnes, **cent onze voix** dans le fil.
-
-        Le risque est borné par construction : seules les voix déjà fournies
-        peuvent adopter, il faut une marge nette avec la suivante, et un clic
-        défait l'attribution.
+        The threshold is not enough on its own: it also has to clearly outrun the next
+        best, otherwise the scrap belongs in the catch-all.
         """
         etablies = [
             (similarity(voiceprint, v.aggregate_of), v.identifier)
@@ -574,13 +435,7 @@ class LiveThread:
         return laquelle
 
     def _closest_voice(self, voiceprint: Voiceprint) -> str | None:
-        """La voix de cette réunion qui ressemble le plus, au-dessus du seuil.
-
-        Le seuil de fusion, plus exigeant que celui de reconnaissance : au sein
-        d'une même réunion les conditions d'enregistrement sont identiques, et
-        confondre deux participants coûte plus cher que d'en afficher un de trop
-        — celui-là, un clic le recolle.
-        """
+        """The voice of this meeting that most resembles, above the threshold."""
         ranking = sorted(
             (
                 (similarity(voiceprint, v.aggregate_of), v.identifier)
@@ -591,27 +446,16 @@ class LiveThread:
         )
         if not ranking or ranking[0][0] < self.seuil_fusion:
             return None
-        # La marge, et non le seuil seul : les deux distributions se chevauchent
-        # au décile, et c'est l'écart avec la deuxième voix qui rend ce
-        # chevauchement sans conséquence. Deux voix qui se disputent la phrase à
-        # égalité méritent le fourre-tout plutôt qu'un choix arbitraire.
         second = ranking[1][0] if len(ranking) > 1 else -1.0
         if ranking[0][0] - second < MARGE_ADOPTION_DIRECT:
             return None
         return ranking[0][1]
 
     def _retenter_le_nom(self, voice: LiveVoice) -> None:
-        """Redemande son nom à la banque, maintenant qu'il y a plus de matière.
-
-        Une voix reste souvent anonyme à sa première bribe et devient
-        reconnaissable trois phrases plus tard. Une correction humaine, elle,
-        n'est jamais rejouée : c'est la seule source que rien ne discute.
-        """
+        """Asks the bank for a name again, now that there is more material."""
         if voice.certitude.firm or not voice.voiceprints:
             return
         if voice.seconds < MATIERE_POUR_RECONNAITRE:
-            # Trop peu de matière pour croire un nom. On ne dit rien plutôt
-            # que d'afficher une étiquette fausse, que l'oeil croira.
             return
         match = recognise(voice.aggregate_of, self.connues)
         if match is None:
@@ -627,7 +471,7 @@ class LiveThread:
         voice.gap = match.marge
 
     def record_turn(self, bloc: Block, voice: str) -> list[LiveTurn]:
-        """Ajoute les phrases d'un bloc au fil, attribuées à une voix."""
+        """Adds a block's sentences to the thread, attributed to a voice."""
         nouveaux: list[LiveTurn] = []
         for utterance in bloc.utterances:
             turn = LiveTurn(
@@ -644,17 +488,10 @@ class LiveThread:
         return nouveaux
 
     def correct(self, number: int, name: str, whole_voice: bool = True) -> Correction:
-        """Impose un nom, contre ce que l'empreinte croyait.
+        """Imposes a name, against what the voiceprint believed.
 
-        Par défaut la correction porte sur **toute la voix** : quand l'outil se
-        trompe de personne, il se trompe pour tous les passages de cette voix,
-        et les reprendre un par un serait absurde. « Seulement cette phrase »
-        existe pour le cas inverse — deux personnes qui se coupent, un passage
-        tombé dans le mauvais groupe.
-
-        La voix fourre-tout ne se nomme jamais en entier : elle mélange les
-        bribes de tout le monde, et lui donner un nom d'un coup attribuerait à
-        quelqu'un les « oui » des autres.
+        By default the correction covers the **whole voice**: when the tool gets the
+        person wrong, it gets them wrong for every passage of that voice.
         """
         name = name.strip()
         if not name:
@@ -668,11 +505,6 @@ class LiveThread:
     def _correct_the_voice(self, voice: LiveVoice, name: str) -> Correction:
         fusion = self._voice_named(name)
         if fusion is not None and fusion.identifier != voice.identifier:
-            # Le nom est déjà porté par une autre voix : l'outil avait découpé
-            # une personne en deux. La correction les réunit.
-            #
-            # Y compris deux voix séparées à la main plus tôt : c'est un geste
-            # humain qui revient sur un geste humain, et le dernier tranche.
             self.split_apart.discard(
                 frozenset({voice.identifier, fusion.identifier})
             )
@@ -687,11 +519,9 @@ class LiveThread:
         )
 
     def _absorb(self, source: str, target: str) -> None:
-        """Verse une voix dans une autre : ses tours, puis ses empreintes.
+        """Pours one voice into another: its turns, then its voiceprints.
 
-        Consigne au passage de quoi défaire : les empreintes de la source et les
-        seuls tours qui changent d'étiquette. Sans cette trace, une réunion
-        fautive ne se répare pas — c'est arrivé en séance, sur deux personnes.
+        Records on the way what is needed to undo it.
         """
         avalee = self.voice[source]
         gardee = self.voice[target]
@@ -710,33 +540,23 @@ class LiveThread:
         del self.voice[source]
 
     def join_into(self, source: str, target: str) -> Join | None:
-        """Réunit deux voix en gardant de quoi défaire.
-
-        Publique parce que la fenêtre rejoue les réunions depuis le journal :
-        sans passer par ici, elles ne laissaient aucune trace de leur côté, et
-        une réunion automatique — le cas le plus fréquent — restait indéfaisable
-        depuis l'écran où on la voit.
-        """
+        """Joins two voices while keeping what it takes to undo it."""
         if source == target or source not in self.voice or target not in self.voice:
             return None
         self._absorb(source, target)
         return self.fusions[-1]
 
     def can_split(self, target: str) -> bool:
-        """Vrai quand cette voix a absorbé une autre qu'on peut lui reprendre."""
+        """True when this voice absorbed another one that can be taken back."""
         return any(
             f.target == target and f.source not in self.voice for f in self.fusions
         )
 
     def split(self, target: str) -> Join | None:
-        """Défait la dernière réunion qui a produit cette voix.
+        """Undoes the last join that produced this voice.
 
-        Le geste que la réunion réclamait : dire « ces deux-là ne sont pas la
-        même personne » après avoir dit le contraire, ou après que l'outil l'ait
-        dit tout seul. La voix absorbée reprend son identifiant, ses empreintes
-        et ses tours, et la paire est inscrite parmi celles qu'on ne réunit plus.
-
-        Rend la fusion défaite, ou rien s'il n'y en avait aucune à défaire.
+        The absorbed voice takes back its identifier, its voiceprints and its turns,
+        and the pair is held apart from then on.
         """
         fusion = next(
             (f for f in reversed(self.fusions) if f.target == target), None
@@ -752,14 +572,9 @@ class LiveThread:
             voiceprints=list(fusion.voiceprints),
             likeness=fusion.likeness, gap=fusion.gap,
         )
-        # Retirées par identité et non par valeur : deux extraits d'une même
-        # voix peuvent porter le même vecteur, et un `remove` par égalité
-        # emporterait celui de la cible.
         a_rendre = {id(e) for e in fusion.voiceprints}
         gardee.voiceprints = [e for e in gardee.voiceprints if id(e) not in a_rendre]
         gardee.forget_aggregate()
-        # La cible retrouve ce qu'elle portait avant, sauf si un humain l'a
-        # nommée depuis : sa décision est postérieure, elle l'emporte.
         if gardee.certitude is not Certainty.HUMAINE:
             gardee.name, gardee.certitude = fusion.nom_cible, fusion.certitude_cible
         for turn in self.turns:
@@ -771,37 +586,15 @@ class LiveThread:
         return fusion
 
     def _held_apart(self, une: str, autre: str) -> bool:
-        """Vrai quand un humain a déjà dit que ces deux voix ne sont pas la même."""
+        """True when a human already said these two voices are not the same."""
         return frozenset({une, autre}) in self.split_apart
 
     def stitch(self) -> list[tuple[str, str]]:
-        """Réunit les voix que la matière accumulée montre être la même personne.
+        """Joins the voices that accumulated material shows to be one person.
 
-        Le rattachement d'un bloc compare **une** empreinte, souvent courte, à
-        l'agrégat d'une voix, et cette comparaison n'est jamais refaite. Mesuré
-        sur une réunion en présentiel : phrase à phrase, deux prises de parole
-        de la même personne se ressemblent à 0,69 en médiane, sous le seuil de
-        0,75 — donc chaque reprise créait une voix. Sur les agrégats accumulés,
-        la même paire monte à 0,79, et deux personnes différentes restent à
-        0,63. Le seuil n'était pas en cause : il n'était pas rejoué.
-
-        C'est `fusionner_voix` qui décide, et **non** `recoller`, dont les trois
-        passes servent le traitement final. La tentation était forte — mêmes
-        seuils, rien de neuf à calibrer — et la mesure l'a écartée : rejoué sur
-        mille neuf cent dix phrases d'une réunion réelle, le recollage complet
-        appliqué toutes les dix secondes fait tomber la justesse des
-        attributions de **93 % à 79,6 %**, c'est-à-dire au niveau qu'on
-        obtiendrait en donnant tout à la voix la plus bavarde. Il fusionne tout.
-
-        La raison tient à ce qu'il compare. Après la réunion, l'adoption
-        rapproche des agrégats de plusieurs minutes ; ici, des agrégats de deux
-        ou trois phrases, où 0,45 de ressemblance ne veut plus rien dire. Ce qui
-        limite le nombre de voix en direct, c'est le plafond (`VOIX_AU_PLUS`) et
-        le seuil de rattachement mesuré, pas un recollage plus gourmand.
-
-        Deux voix nommées par un humain sous des noms différents ne sont jamais
-        réunies : une correction humaine ne se laisse pas défaire par une
-        mesure.
+        By pairs and not through the full stitching of the after-meeting chain: that
+        one was measured here and dropped accuracy from 93% to 79.6%, which amounts to
+        giving everything to the loudest voice.
         """
         faits: list[tuple[str, str]] = []
         faits += self._join_namesakes()
@@ -824,20 +617,11 @@ class LiveThread:
         return faits
 
     def _join_namesakes(self) -> list[tuple[str, str]]:
-        """Deux voix que la banque nomme pareil sont la même personne.
+        """Two voices the bank names alike are the same person.
 
-        L'auto-correction qui manquait, et elle ne coûte rien : quand la banque
-        répond « Tanguy » sur trois voix distinctes, elle a déjà dit que ces
-        trois voix sont de Tanguy. Attendre que leurs empreintes se ressemblent
-        assez pour être réunies, c'est refuser une information qu'on tient.
-
-        Mesuré en séance sur une réunion de trente-deux minutes : « Tanguy »
-        s'affichait sur trois voix à la fois, dont deux avec un point
-        d'interrogation. Le compte rendu en aurait annoncé trois.
-
-        Un nom posé **à la main** n'entre pas dans ce jeu : deux corrections
-        humaines de même nom sont déjà réunies par `corriger`, et deux noms
-        humains différents ne se laissent pas défaire par une mesure.
+        The self-correction that was missing, and it costs nothing: when the bank
+        answers "Tanguy" on three separate voices, it has already said those three are
+        Tanguy's.
         """
         by_name: dict[str, list[LiveVoice]] = {}
         for voice in self.voice.values():
@@ -847,8 +631,6 @@ class LiveThread:
         for portantes in by_name.values():
             if len(portantes) < 2:
                 continue
-            # La plus fournie garde son identifiant : c'est celle dont l'extrait
-            # est le plus représentatif, et celle que l'oeil a le plus vue.
             portantes.sort(key=lambda v: -v.seconds)
             gardee = portantes[0]
             for absorbee in portantes[1:]:
@@ -867,13 +649,7 @@ class LiveThread:
         )
 
     def _correct_the_sentence(self, turn: LiveTurn, name: str) -> Correction:
-        """Déplace une seule phrase, sans toucher au reste de la voix.
-
-        La phrase rejoint la voix qui porte déjà ce nom si elle existe, pour que
-        les tours de la même personne restent d'un seul tenant. Aucune empreinte
-        n'est versée à la banque : le passage vient d'un groupe dont on vient
-        justement de dire qu'il était mal formé.
-        """
+        """Moves a single sentence, without touching the rest of the voice."""
         target = self._voice_named(name)
         if target is None:
             target = LiveVoice(
@@ -886,13 +662,7 @@ class LiveThread:
                           numeros=(turn.number,), whole_voice=False)
 
     def voiceprint_to_learn(self, voice: LiveVoice) -> Voiceprint | None:
-        """L'empreinte à verser en banque pour cette voix, s'il y a de quoi.
-
-        Rien pour la personne qui enregistre : son micro la nomme, et ranger sa
-        voix parmi les participants ne servirait qu'à l'exposer. Rien non plus
-        sous le seuil de matière : une signature apprise sur trois secondes de
-        « d'accord » abîmerait la reconnaissance des réunions suivantes.
-        """
+        """The voiceprint to pour into the bank for this voice, if there is enough."""
         if voice.identifier == VOIX_LOCALE or not voice.voiceprints:
             return None
         if voice.seconds < DUREE_POUR_LA_BANQUE_S:
@@ -900,12 +670,10 @@ class LiveThread:
         return voice.aggregate_of
 
     def reserve_identifier(self, identifier: str) -> None:
-        """Avance le compteur au-delà d'un identifiant venu d'ailleurs.
+        """Advances the counter past an identifier that came from elsewhere.
 
-        Le journal nomme les voix « v1 », « v2 »… Les rejouer sans avancer le
-        compteur lui fait redistribuer « v1 », qui **écrase** alors la voix
-        existante : deux personnes sous un même identifiant, sans rien qui le
-        signale. Le cas se produit à chaque reprise de fil.
+        Replaying the log without this hands out "v1" again, which overwrites the
+        existing voice: two people under one identifier, with nothing to signal it.
         """
         if len(identifier) < 2 or identifier[0] != "v":
             return
@@ -915,18 +683,12 @@ class LiveThread:
 
     def _identifier(self) -> str:
         self.suite += 1
-        # La ceinture, en plus de `retenir_l_identifiant` : un identifiant déjà
-        # pris ne doit jamais ressortir, quelle que soit la façon dont la voix
-        # est entrée dans le fil.
         while f"v{self.suite}" in self.voice:
             self.suite += 1
         return f"v{self.suite}"
 
     def _rank(self) -> int:
-        """Numéro d'affichage d'une voix sans nom : « Voix 1 », « Voix 2 »…
-
-        La personne qui enregistre n'y figure pas : son micro la nomme déjà.
-        """
+        """Display number of an unnamed voice: "Voix 1", "Voix 2"…"""
         return sum(
             1 for v in self.voice.values()
             if v.nameable and v.identifier != VOIX_LOCALE

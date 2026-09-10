@@ -68,7 +68,6 @@ def separer_canaux(
     étiquette « moi ».
     """
     if data.ndim < 2 or data.shape[1] < 2:
-        # Un fichier mono, un enregistrement importé : rien à séparer.
         mono = data if data.ndim == 1 else data[:, 0]
         return Canaux(mic=None, system=mono, distante=False)
     boucle = data[:, 1:]
@@ -78,19 +77,12 @@ def separer_canaux(
     ]
     mic = data[:, 0]
     if not actifs:
-        # Boucle muette. En visio établie, cela veut dire que personne d'autre
-        # n'a parlé pendant ce passage : tout ce qui est sur le micro est local.
         if distante:
             return Canaux(mic=mic, system=boucle.mean(axis=1), distante=True)
         return Canaux(mic=mic, system=mic, distante=False)
-    # Un canal muet ne doit pas diviser l'amplitude des autres.
     system = boucle[:, actifs].mean(axis=1)
     if distante:
         return Canaux(mic=mic, system=system, distante=True)
-    # Une boucle non nulle ne suffit pas à conclure « visio » : sur une réunion
-    # de table, elle relevait -53 dB, du son y ayant fui. Ce qui tranche, c'est
-    # de savoir si les autres dominent le micro une part notable du temps, ce
-    # qui n'arrive jamais autour d'une table.
     if not over_video(
         levels_per_frame(mic, frequency), levels_per_frame(system, frequency)
     ):
@@ -125,8 +117,6 @@ class LecteurCanauxFichier:
         try:
             data, frequency = sf.read(audio, dtype="float32", always_2d=True)
         except (OSError, RuntimeError):
-            # Une tranche découpée pendant l'écriture peut être illisible : la
-            # réunion continue, la tranche suivante repassera dessus.
             return []
         channels = separer_canaux(data, frequency, distante=self.distante or None)
         self.distante = self.distante or channels.distante

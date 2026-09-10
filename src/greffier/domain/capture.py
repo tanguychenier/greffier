@@ -40,7 +40,6 @@ class SurveillanceDeCapture:
         if precedente is None:
             return ""
         if bytes_read > precedente:
-            # La capture avance : on oublie l'épisode précédent, alerte comprise.
             self.tours_immobiles = 0
             self.alertee = False
             return ""

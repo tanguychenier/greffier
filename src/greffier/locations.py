@@ -46,9 +46,6 @@ def config_folder(system: str | None = None) -> Path:
     if system == "Darwin" and "XDG_CONFIG_HOME" not in os.environ:
         natif = Path.home() / NATIF_MACOS
         former = former_config_folder()
-        # Jugé au fichier, pas au dossier : les données vivent déjà dans le
-        # même dossier natif, qui existe donc sans qu'aucune configuration n'y
-        # soit encore.
         if not _holds_configuration(natif) and _holds_configuration(former):
             return former
         return natif
@@ -96,13 +93,8 @@ def _move_contents(former: Path, natif: Path) -> list[tuple[Path, Path]]:
         target = natif / source.name
         if target.exists() or target.is_symlink():
             continue
-        # shutil.move et non rename : un XDG_DATA_HOME sur un autre volume
-        # n'est pas le cas courant, mais un déménagement ne doit pas échouer
-        # pour ça.
         shutil.move(str(source), str(target))
         faits.append((source, target))
-    # Le dossier vide ne doit pas rester : c'est son existence qui ferait
-    # croire à une ancienne installation.
     with contextlib.suppress(OSError):
         former.rmdir()
     return faits

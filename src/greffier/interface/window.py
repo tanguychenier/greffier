@@ -112,9 +112,6 @@ class Window:
         self.travaux: list[Job] = []
         self._phase_peinte: Phase | None = None
         self._micros_connus: tuple[tuple[str, str], ...] = ()
-        # Le fil de la réunion en cours, reconstruit depuis le journal que le
-        # processus d'écoute publie. La fenêtre y applique les corrections tout
-        # de suite, sans attendre la tranche suivante.
         self._thread = LiveThread()
         self._questions_vues: set[int] = set()
         self._questions_attente: list[Any] = []
@@ -129,20 +126,10 @@ class Window:
         locate_tcl()
         self.racine = tk.Tk()
         self.racine.title("Greffier")
-        # Sans cela, macOS affiche « python3 » dans la barre de menus et le Dock.
         with contextlib.suppress(tk.TclError):
             self.racine.tk.call("tk", "appname", "Greffier")
         self.racine.minsize(880, 660)
-        # Fermer la fenêtre doit être un acte volontaire : Tk quitte le
-        # processus dès que sa fenêtre disparaît, et la capture — portée par ce
-        # processus — meurt avec, net, sans recoller les morceaux ni prévenir.
-        # Constaté en réunion réelle : fenêtre disparue, enregistrement coupé.
         self.racine.protocol("WM_DELETE_WINDOW", self._close_window)
-        # Sans elle, la fenêtre se redimensionne à chaque changement d'onglet :
-        # `pack` calcule la taille du parent d'après celle du seul enfant
-        # affiché, et les onglets n'ont pas tous le même contenu. Une géométrie
-        # posée une fois pour toutes fixe la taille, laissée au choix de
-        # l'utilisateur ensuite.
         self.racine.geometry("880x660")
         self.racine.configure(bg=self.colours.ground)
         self._style_the_lists()
@@ -150,19 +137,12 @@ class Window:
         self._refresh()
         self._follow_the_mics()
 
-    # ------------------------------------------------------------- apparence
-
     def _style_the_lists(self) -> None:
         """Les listes restent des widgets Tk : au moins qu'elles suivent la palette."""
         c = self.colours
         style = ttk.Style()
         with contextlib.suppress(tk.TclError):
             style.theme_use("clam")
-        # `borderwidth=0` ne suffit pas : sous « clam », le cadre de la liste est
-        # peint par l'élément `Treeview.field`, qui tire ses trois couleurs de la
-        # configuration et non du relief. Sans les poser, la liste garde un
-        # liseré vert-de-gris à angles droits — la « pièce étrangère » déjà
-        # retirée aux listes déroulantes.
         style.configure(
             "Greffier.Treeview",
             background=c.board, fieldbackground=c.board, foreground=c.ink,
@@ -177,10 +157,6 @@ class Window:
         style.map("Greffier.Treeview",
                   background=[("selected", c.hover)], foreground=[("selected", c.ink)])
         style.map("Greffier.Treeview.Heading", background=[("active", c.board)])
-        # La liste déroulante de Tk arrive avec le bouton fléché carré et gris
-        # du thème « clam » : à côté des boutons dessinés, elle jure. On lui
-        # donne le fond des champs, une flèche à l'encre pâle, et un liseré
-        # plutôt qu'un relief.
         style.configure("Greffier.TCombobox", arrowsize=12, padding=6,
                         borderwidth=1, relief="flat", arrowcolor=c.ink_pale,
                         bordercolor=c.rule, lightcolor=c.ground, darkcolor=c.ground,
@@ -195,8 +171,6 @@ class Window:
             arrowcolor=[("active", c.ink), ("disabled", c.calm)],
             bordercolor=[("focus", c.ink_pale), ("hover", c.ink_pale)],
         )
-        # Le menu qui se déploie est une liste Tk classique, hors du thème ttk :
-        # elle ne s'atteint que par la base de données d'options.
         for option, value in (
             ("*TCombobox*Listbox.background", c.board),
             ("*TCombobox*Listbox.foreground", c.ink),
@@ -243,8 +217,6 @@ class Window:
         board.grid(row=0, column=0, sticky=sticky, padx=(0, 3), pady=(0, 3))
         return board
 
-    # ------------------------------------------------------------ assemblage
-
     def _construire(self) -> None:
         c = self.colours
         self.racine.columnconfigure(0, weight=1)
@@ -264,8 +236,6 @@ class Window:
         self._settings_tab()
         self.status_line = self._text(corps, "", taille=11, pale=True)
         self.status_line.grid(row=2, column=0, sticky="ew", pady=(14, 0))
-        # Après tous les onglets : l'annonce s'écrit dans la Conversation, qui
-        # n'existe pas encore quand l'onglet Réunions se construit.
         self._report_resumable_meetings()
         self._report_a_newer_bundle()
 
@@ -334,9 +304,6 @@ class Window:
         rest = tk.Frame(self.commands, bg=c.board)
         Button(rest, "Démarrer la réunion", self._start_recording, c,
                principal=True, width=192, height=38).pack(side="left")
-        # Aucun sujet à saisir : c'est le compte rendu qui le donnera, déduit de
-        # ce qui a été dit. Demander à l'avance obligerait à savoir de quoi une
-        # réunion va parler, et Greffier est là pour l'écouter.
         self._text(rest, "Micro", taille=11, pale=True).pack(side="left", padx=(20, 8))
         self.mic = Liste(rest, c, width=286, height=36)
         self.mic.pack(side="left")
@@ -387,8 +354,6 @@ class Window:
             style="Greffier.Treeview", selectmode="browse", takefocus=False,
         )
         for indice, (cle, caption, width) in enumerate(colonnes):
-            # Un nombre se lit aligné à droite, un intitulé à gauche, et
-            # l'en-tête suit son contenu plutôt que de rester centré.
             if cle in _NOMBRES:
                 arbre.heading(cle, text=caption, anchor="e")
                 arbre.column(cle, width=width, anchor="e", stretch=False)
@@ -396,16 +361,12 @@ class Window:
                 arbre.heading(cle, text=caption, anchor="w")
                 arbre.column(cle, width=width, anchor="w", stretch=indice == 0)
         arbre.grid(row=rank, column=0, sticky="nsew")
-        # Sans lui, une liste plus longue que la fenêtre n'a aucun moyen visible
-        # de se dérouler : ni ascenseur, ni indice qu'il en manque un.
         scrollbar = Defileur(parent, self.colours, arbre.yview)
         scrollbar.grid(row=rank, column=1, sticky="ns", padx=(4, 0))
         arbre.configure(yscrollcommand=scrollbar.set)
         parent.columnconfigure(1, minsize=12)
         parent.rowconfigure(rank, weight=1)
         return arbre
-
-    # ---------------------------------------------------------------- onglets
 
     def _meetings_tab(self) -> None:
         inside = self._page("Réunions")
@@ -417,17 +378,8 @@ class Window:
         actions.grid(row=1, column=0, sticky="ew", pady=(16, 0))
         for caption, action, width in (
             ("Traiter", self._process_selection, 100),
-            # Distinct de « Traiter », qui retranscrit tout : reprendre la seule
-            # rédaction prend quelques secondes là où la chaîne complète prend
-            # plusieurs minutes, et c'est le cas courant après un échec.
             ("Rédiger", self._write_up_selection, 100),
             ("Ouvrir", self._open_minutes, 96),
-            # « Envoyer par courriel » en entier. Le raccourcir à « Envoyer »
-            # gagnait une place qu'on n'a plus besoin de gagner — quatre
-            # colonnes de 187 px tiennent dans la largeur minimale — et créait
-            # une vraie ambiguïté : dans un onglet « Réunions », « Envoyer »
-            # sans complément peut se lire « envoyer quoi, à qui, comment ».
-            # Un bouton doit dire ce qui se passe quand on le presse.
             ("Envoyer par courriel", self._send_selection, 180),
             ("Déposer…", self._drop_files, 116),
             ("Renommer", self._rename_selection, 110),
@@ -461,19 +413,6 @@ class Window:
         )
         self.direct_etat.grid(row=0, column=0, sticky="ew", pady=(0, 10))
 
-        # Un seul réglage ici, et c'est la voix. L'assistant participe
-        # toujours : il écoute, il prend des notes, il pose ses questions dans
-        # la conversation, c'est son travail. Ce qui se décide, c'est s'il se
-        # fait **entendre** dans la pièce, parce que cela dépend de la réunion
-        # et de qui est là.
-        #
-        # Deux boutons dont l'un disait « Lucie participe » laissaient croire
-        # qu'elle pouvait ne pas participer, et ne se distinguaient pas d'un
-        # coup d'oeil.
-        #
-        # « Fournir un document » est ici et non seulement dans l'onglet
-        # Conversation : un document se fournit **pendant** la réunion, donc
-        # depuis l'onglet où l'on est pendant la réunion.
         bar = tk.Frame(inside, bg=c.board)
         bar.grid(row=1, column=0, sticky="ew", pady=(0, 6))
         self.bouton_voix = Button(
@@ -481,9 +420,6 @@ class Window:
             width=230, height=34,
             principal=self.config.assistant.voice != "aucun")
         self.bouton_voix.grid(row=0, column=0, sticky="w")
-        # L'initiative est l'autre chose qui dépend de la réunion, et elle est
-        # plus délicate que la voix : une intervention non sollicitée coupe
-        # quelqu'un. Elle était donc livrée éteinte, sans moyen de l'allumer.
         self.bouton_initiative = Button(
             bar, self._initiative_caption(), self._toggle_initiative,
             self.colours, width=250, height=34,
@@ -492,9 +428,6 @@ class Window:
         Button(bar, "Fournir un document", self._supply_a_document,
                self.colours, width=190, height=34).grid(
                    row=0, column=2, sticky="w", padx=(10, 0))
-        # Sur sa propre ligne, et non à côté des boutons : à côté, la place
-        # restante dépend de la largeur de la fenêtre, et le texte se faisait
-        # couper au milieu d'un mot, constaté à la capture.
         self.participation_line = self._text(
             inside, "", taille=11, pale=True, wraplength=740, justify="left")
         self.participation_line.grid(row=2, column=0, sticky="ew", pady=(0, 12))
@@ -516,14 +449,8 @@ class Window:
         scrollbar.grid(row=0, column=1, sticky="ns", padx=(4, 0))
         self.thread_widget.configure(yscrollcommand=scrollbar.set)
         self.thread_widget.tag_configure("heure", foreground=c.calm, font=font(10))
-        # Un nom sûr en encre, un nom deviné en ambre : la couleur dit où
-        # regarder, ce qu'une liste uniforme ne fait pas.
         self.thread_widget.tag_configure("sur", foreground=c.ink, font=font(11, gras=True))
         self.thread_widget.tag_configure("doute", foreground=c.amber, font=font(11, gras=True))
-        # `lmargin2` porte les lignes de continuation : sans lui, une réplique
-        # qui dépasse la largeur repart contre la marge, sous l'heure et le nom,
-        # et l'œil ne retrouve plus la colonne du texte. Mesuré à la capture :
-        # l'heure et le nom tiennent 90 px aux tailles de police d'ici.
         self.thread_widget.tag_configure("dit", foreground=c.ink, lmargin2=90)
 
     def _voice_caption(self) -> str:
@@ -544,15 +471,9 @@ class Window:
 
         avant = self.config.assistant.voice
         if avant != "aucun":
-            # Coupé ici, tout de suite, et non par le réglage : la veille est un
-            # autre processus et ne le relit qu'à la tranche suivante, soit
-            # jusqu'à quinze secondes plus tard. Mesuré en réunion — on appuie,
-            # elle continue de parler, et le bouton paraît cassé.
             silence(self.config.paths.gag)
             self.config.assistant.voice = "aucun"
         else:
-            # La meilleure voix disponible, sans demander : la neuronale si son
-            # modèle est là, celle du système sinon.
             self.config.assistant.voice = (
                 "kokoro"
                 if NeuralVoice(self.config.paths.synthetic_voice).installed
@@ -617,8 +538,6 @@ class Window:
                 else " Elle n'intervient jamais sans qu'on l'appelle.")
         self.participation_line.configure(text=mot)
 
-    # -------------------------------------------------------------- le direct
-
     def _follow_the_live_thread(self, state: Any) -> None:
         """Lit ce que le processus d'écoute a publié depuis la dernière fois.
 
@@ -637,14 +556,10 @@ class Window:
             if line.get("genre") == GENRE_ETAT:
                 self._fil_annonce = str(line.get("message", ""))
         deja = len(self._thread.turns)
-        # Une réunion de voix change l'attribution de tours déjà affichés : le
-        # fil se repeint en entier, comme pour une correction.
         remaniement = {GENRE_CORRECTION, GENRE_REUNION}
         corrige = any(line.get("genre") in remaniement for line in lines)
         replay(lines, self._thread)
         if corrige:
-            # Une correction touche des phrases déjà affichées : il faut reprendre
-            # le fil entier, l'ajout seul ne les corrigerait pas.
             self._repaint_the_live_tab()
         else:
             self._ajouter_au_direct(self._thread.turns[deja:])
@@ -685,8 +600,6 @@ class Window:
         self._questions_vues = set()
         self._questions_attente = []
         self.tabs.mark("Conversation", 0)
-        # Une autre réunion, une autre conversation : celle qui est à l'écran
-        # n'est plus la bonne.
         self._shown_conversation = ""
         self._load_the_conversation()
         self._empty_out(self.thread_widget)
@@ -713,8 +626,6 @@ class Window:
     def _ajouter_au_direct(self, turns: list[LiveTurn]) -> None:
         if not turns:
             return
-        # Le défilement ne suit que si l'on était déjà en bas : sinon on
-        # arracherait de l'écran le passage que quelqu'un est en train de relire.
         suivait = self.thread_widget.yview()[1] > 0.999
         self.thread_widget.configure(state="normal")
         for turn in turns:
@@ -762,11 +673,6 @@ class Window:
                 label=f"Toute la voix « {self._thread.label(turn.voice)} » est :",
                 state="disabled",
             )
-            # Pourquoi ce nom est proposé, à l'endroit où l'on décide de le
-            # garder ou non. « Sophie ? » ne dit pas s'il s'agit d'une quasi
-            # certitude ou d'une hypothèse fragile, et c'est exactement ce
-            # qu'il faut savoir avant de corriger — surtout dans le cas le plus
-            # trompeur, où le nom est peut-être celui du voisin.
             if voice.confidence:
                 menu.add_command(label=f"   {voice.confidence}", state="disabled")
                 menu.add_separator()
@@ -775,9 +681,6 @@ class Window:
             phrase = tk.Menu(menu, tearoff=0, font=font(12))
             self._fill_menu(phrase, names, number, whole_voice=False)
             menu.add_cascade(label="Seulement cette phrase…", menu=phrase)
-            # Le retour arrière qui manquait. Réunir deux voix se faisait d'un
-            # clic, se défaisait par rien : deux personnes réunies à tort le
-            # restaient jusqu'au compte rendu.
             if self._thread.can_split(turn.voice):
                 menu.add_separator()
                 menu.add_command(
@@ -785,12 +688,8 @@ class Window:
                     command=functools.partial(self._split_in_the_live_thread, turn.voice),
                 )
         else:
-            # Le fourre-tout des bribes mélange les personnes : le nommer en
-            # entier attribuerait à quelqu'un les « oui » de tout le monde.
             menu.add_command(label="Cette phrase est de :", state="disabled")
             self._fill_menu(menu, names, number, whole_voice=False)
-        # Gardée en attribut : un menu que Python ramasse pendant son affichage
-        # laisse une fenêtre fantôme, et le clic ne sert plus personne.
         self._menu = menu
         try:
             menu.tk_popup(event.x_root, event.y_root)
@@ -800,10 +699,6 @@ class Window:
     def _fill_menu(
         self, menu: tk.Menu, names: list[str], number: int, whole_voice: bool
     ) -> None:
-        # Un nom déjà porté par une autre voix de cette réunion **réunit** les
-        # deux : c'est exactement ce qu'il faut quand l'outil a découpé une
-        # personne en plusieurs voix, et ça marche pour autant de voix qu'il en
-        # a créées. Rien ne le disait, donc personne ne pouvait le deviner.
         elsewhere = self._names_held_elsewhere(number)
         for name in names:
             suffixe = "   ⟵ réunir les deux voix" if name in elsewhere else ""
@@ -900,9 +795,6 @@ class Window:
 
         entry = tk.Frame(inside, bg=self.colours.board)
         entry.grid(row=2, column=0, sticky="ew", pady=(16, 0))
-        # Le champ était un rectangle gris sans intitulé : rien ne disait ce
-        # qu'on y tape, et « Nommer » à côté ne suffit pas — on peut aussi
-        # croire qu'il faut y écrire le numéro de la voix.
         self._text(entry, "Prénom", taille=11, pale=True).pack(
             side="left", padx=(0, 9)
         )
@@ -913,9 +805,6 @@ class Window:
                width=110, height=34).pack(side="left", padx=(11, 9))
         Button(entry, "Écouter 10 s", self._listen, self.colours,
                width=140, height=34).pack(side="left")
-        # Se tromper de nom était sans retour : on ne pouvait que renommer
-        # par-dessus, ce qui ajoutait une empreinte fausse à la banque au lieu
-        # d'en retirer une.
         Button(entry, "Retirer le nom", self._forget_the_name, self.colours,
                width=150, height=34).pack(side="left", padx=(9, 0))
 
@@ -942,8 +831,6 @@ class Window:
                                font=font(11))
 
         entry = tk.Frame(inside, bg=c.board)
-        # Grille et non pack : un champ en « expand » suivi d'un bouton pousse
-        # ce bouton hors de la fenêtre dès qu'on la redimensionne.
         entry.grid(row=1, column=0, sticky="ew", pady=(14, 0))
         entry.columnconfigure(0, weight=1)
         self.question = self._champ(entry)
@@ -951,13 +838,9 @@ class Window:
         self.question.bind("<Return>", lambda _e: self._ask())
         Button(entry, "Demander", self._ask, self.colours, principal=True,
                width=124, height=36).grid(row=0, column=1, padx=(11, 0))
-        # Ici et pas dans « Réunions » : un document se fournit pendant qu'on
-        # en parle, et c'est la conversation qui répondra dessus.
         Button(entry, "Fournir un document", self._supply_a_document,
                self.colours, width=176, height=36).grid(
                    row=0, column=2, padx=(8, 0))
-        # L'accueil est peint et non « dit » : le garder reviendrait à écrire une
-        # ligne d'invite dans le journal de chaque réunion.
         self._paint_the_turn(
             "note",
             "Pose une question sur la réunion en cours, ou sur celle choisie dans "
@@ -970,8 +853,6 @@ class Window:
             "que FAST veut dire formulaire d'attestation » — ou me fournir un "
             "document : je réponds dessus et j'en propose le vocabulaire.",
         )
-
-    # ---------------------------------------------------------------- réglages
 
     MODELES_TRANSCRIPTION = (
         ("large-v3-turbo", "large-v3-turbo — le plus juste, conseillé"),
@@ -1006,12 +887,6 @@ class Window:
         `config.toml`, la source d'où le reste de la chaîne lit déjà.
         """
         page = self._page("Réglages")
-        # Aucun bouton « Enregistrer ». Chaque changement s'applique et
-        # s'enregistre de lui-même, comme dans les réglages du système : un
-        # bouton en pied de formulaire descend sous le bord de la fenêtre dès
-        # qu'on la réduit — constaté, on changeait un réglage, aucun bouton
-        # n'était visible, et rien n'était écrit. Un bouton qu'il faut aller
-        # chercher pour valider n'a pas sa place ici.
         header = tk.Frame(page, bg=self.colours.board)
         header.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
         header.columnconfigure(0, weight=1)
@@ -1023,8 +898,6 @@ class Window:
 
         rank = 0
         rank = self._bloc(inside, rank, "Micro", "Celui que Greffier prend au démarrage.")
-        # « Micro » sous un bloc déjà intitulé « Micro » ne dit rien de plus :
-        # l'intitulé de la ligne nomme ce qu'on choisit, l'appareil.
         self.reglage_micro = self._dropdown(inside, rank, "Appareil")
         rank += 1
 
@@ -1049,20 +922,9 @@ class Window:
         rank += 1
         buttons = tk.Frame(inside, bg=self.colours.board)
         buttons.grid(row=rank, column=0, columnspan=2, sticky="w", pady=(0, 2))
-        # Une seule action principale, dont l'intitulé suit l'état : proposer
-        # « Se connecter » à qui l'est déjà laisse croire que la session n'est
-        # pas vue. Aucun bouton « Actualiser » : l'état se relit tout seul
-        # chaque fois que l'onglet s'affiche.
-        # Deux boutons de même largeur, comme la barre de l'onglet Réunions :
-        # dans une même fenêtre, deux barres d'actions qui ne se ressemblent pas
-        # se remarquent.
         self.bouton_session = Button(buttons, "Se connecter", self._claude_session,
                                      self.colours, width=228, height=32)
         self.bouton_session.pack(side="left", padx=(0, 9))
-        # « Mettre à jour Claude Code » et non « Mettre à jour » : sous un bloc
-        # intitulé « Compte Claude », le libellé court se lit « mettre à jour le
-        # compte », ce qui n'est pas du tout ce qu'il fait. Un bouton doit dire
-        # ce qui se passe quand on le presse.
         self.bouton_maj = Button(buttons, "Mettre à jour Claude Code",
                                  self._update_claude,
                                  self.colours, width=228, height=32)
@@ -1087,8 +949,6 @@ class Window:
             activebackground=self.colours.board, activeforeground=self.colours.ink,
             selectcolor=self.colours.ground, font=font(12), anchor="w",
             highlightthickness=0, borderwidth=0,
-            # Sans ces deux-là, macOS dessine une case bleue système, seule
-            # touche de couleur de la fenêtre et hors de la palette.
             disabledforeground=self.colours.calm, cursor="arrow",
         )
         case.grid(row=rank, column=0, columnspan=2, sticky="w", pady=(1, 3))
@@ -1100,10 +960,6 @@ class Window:
             inside, rank, "Assistant",
             "Le prénom auquel il répond pendant la réunion, et sa voix. "
             "Sa participation s'allume dans l'onglet En direct.")
-        # Une liste et non une saisie : un prénom tapé au hasard n'est pas
-        # forcément rendu par le modèle de transcription, et rien ne le dirait à
-        # celui qui l'a tapé — il appellerait dans le vide. Ceux-ci ont été
-        # éprouvés, et chacun porte sa voix.
         self.reglage_nom_assistant = self._dropdown(
             inside, rank, "Prénom", width=392)
         rank += 1
@@ -1127,9 +983,6 @@ class Window:
         boutons_version = tk.Frame(inside, bg=self.colours.board)
         boutons_version.grid(row=rank, column=0, columnspan=2, sticky="w",
                              pady=(0, 2))
-        # « Chercher une mise à jour » et non un libellé plus court : c'est le
-        # seul bouton de sa ligne, donc il n'impose sa largeur à personne, et
-        # l'action mérite d'être dite en entier — elle interroge le réseau.
         self.bouton_maj_greffier = Button(
             boutons_version, "Chercher une mise à jour",
             self._look_for_an_update, self.colours, width=210, height=32,
@@ -1138,17 +991,8 @@ class Window:
         rank += 1
 
         self._wire_the_settings()
-        # Relire à l'affichage plutôt que d'offrir un bouton : la session peut
-        # avoir été ouverte dans le terminal entre-temps, et l'événement <Map>
-        # est justement émis quand la page revient au premier plan.
         page.bind("<Map>", lambda _e: self._say_the_count())
-        # Et au retour du navigateur : se connecter ouvre un terminal puis une
-        # page web, et l'on revient à Greffier **sans changer d'onglet** — aucun
-        # « Map » n'est alors émis, donc rien ne se relisait alors que le message
-        # promettait le contraire.
         self.racine.bind("<FocusIn>", self._au_retour, add="+")
-        # Les enfants interceptent la molette avant leur parent : sans cette
-        # passe, la roue ne fait rien dès que le curseur est sur une étiquette.
         self._listen_to_the_wheel(inside)
         self._fill_the_settings()
         self._say_the_count()
@@ -1295,9 +1139,6 @@ class Window:
                 messagebox.showerror("Greffier", f"Mise à jour impossible : {ou}")
                 return
             if not sur_mac:
-                # Dire où elle est plutôt que de prétendre l'installer :
-                # remplacer un exécutable Windows qui tourne demande autre
-                # chose, et une fausse promesse coûterait plus qu'un chemin.
                 self._paint_the_turn("greffier", (
                     f"La version {verdict.available} est téléchargée dans "
                     f"{ou}. Ferme Greffier, remplace le dossier de "
@@ -1323,13 +1164,8 @@ class Window:
         vingtaine de fichiers et autant de sauvegardes, dont la plupart avec une
         adresse incomplète.
         """
-        # Les listes préviennent elles-mêmes (`sur_choix`, posé à la création) :
-        # seul le rédacteur demande un traitement de plus, sa liste de modèles
-        # dépendant de lui.
         self.reglage_redacteur.on_choice = lambda _key: self._chosen_writer()
         self.case_direct.configure(command=self._save_settings)
-        # Le seul champ libre qui reste : une adresse courriel ne se choisit pas
-        # dans une liste. Il enregistre quand on le quitte ou qu'on valide.
         self.reglage_destinataire.bind("<FocusOut>", lambda _e: self._save_settings())
         self.reglage_destinataire.bind("<Return>", lambda _e: self._save_settings())
 
@@ -1340,8 +1176,6 @@ class Window:
 
     def _listen_to_the_wheel(self, parent: tk.Misc) -> None:
         for enfant in parent.winfo_children():
-            # Les listes déroulantes gardent la molette pour elles : elle y
-            # change la valeur, ce qui est le comportement attendu.
             if not isinstance(enfant, ttk.Combobox):
                 enfant.bind("<MouseWheel>", self._molette_reglages)
             self._listen_to_the_wheel(enfant)
@@ -1384,22 +1218,15 @@ class Window:
         toile.bind("<Configure>", a_la_toile)
 
         def wheel(event: Any) -> None:
-            # Rien à faire défiler : ne pas capturer la molette, sinon la
-            # fenêtre paraît figée alors que tout est déjà visible.
             haut, bas = toile.yview()
             if haut <= 0.0 and bas >= 1.0:
                 return
-            # macOS livre un delta par crans, X11 par boutons 4/5 (delta ±120).
             pas = -event.delta if platform.system() == "Darwin" else -event.delta // 120
             toile.yview_scroll(int(pas), "units")
 
-        # Liée à la toile et à ses descendants : la molette doit agir où qu'on
-        # ait le curseur dans le formulaire, pas seulement sur le fond.
         for target in (toile, content):
             target.bind("<MouseWheel>", wheel)
         self._molette_reglages = wheel
-        # Gardées : c'est par elles qu'on mesure ce que le formulaire demande et
-        # ce que la fenêtre offre, sans comparer des pixels à l'œil.
         self.reglages_toile = toile
         self.reglages_contenu = content
         return content
@@ -1442,8 +1269,6 @@ class Window:
 
         choix = [(first_name, f"{first_name} — {KINDS[speaker_index]}")
                  for first_name, speaker_index in FIRST_NAMES.items()]
-        # Un prénom réglé à la main hors de la liste reste choisi : le fichier
-        # de configuration l'autorise, la fenêtre n'a pas à l'effacer.
         actuel = self.config.assistant.name
         if actuel and actuel not in FIRST_NAMES:
             choix.insert(0, (actuel, f"{actuel} — réglé à la main"))
@@ -1510,8 +1335,6 @@ class Window:
                     and "blackhole" not in p.name.lower()]
         voulu = self.config.audio.mic
         if voulu and voulu not in names:
-            # Un micro réglé mais débranché doit rester visible et sélectionné,
-            # sinon enregistrer les réglages l'effacerait sans le dire.
             names.append(f"{voulu}")
         return (("", "Automatique — le mieux entendu"),
                 *((name, name) for name in names))
@@ -1524,8 +1347,6 @@ class Window:
         )
         if present_line:
             return present_line
-        # Rien sur le disque : ne pas rendre une liste vide, qui laisserait
-        # croire que le réglage est cassé plutôt qu'un modèle manquant.
         return ((self.config.transcription.model,
                  f"{self.config.transcription.model} — aucun modèle trouvé sur le disque"),)
 
@@ -1606,9 +1427,6 @@ class Window:
                 fg=self.colours.amber)
             return
         deja = diagnostic.claude_account() is not None
-        # « /login » ne sert qu'à changer de compte : sur une session absente,
-        # « claude » tout court propose déjà la connexion, et une commande
-        # passée à un outil non connecté serait avalée.
         appel = "claude /login" if deja else "claude"
         script = Path(tempfile.gettempdir()) / "greffier-session-claude.command"
         script.write_text(
@@ -1623,9 +1441,6 @@ class Window:
         self.mot_compte.configure(
             text="Un terminal s'ouvre. Reviens ensuite ici : l'état se relit tout seul.",
             fg=self.colours.ink_pale)
-        # Le retour de focus suffit dans le cas courant, mais la connexion se
-        # termine parfois pendant qu'on regarde le navigateur, Greffier n'ayant
-        # jamais reperdu le focus. On surveille donc quelques minutes.
         self._watch_the_session(turns=60)
 
     def _watch_the_session(self, turns: int) -> None:
@@ -1708,8 +1523,6 @@ class Window:
         self._fil_position = 0
         self._construire()
         self.tabs.reveal("Réglages")
-        # La ligne d'état est un composant neuf : sans cela, la confirmation
-        # écrite juste avant le repeint disparaîtrait avec l'ancienne.
         if mot:
             self.mot_reglages.configure(text=mot)
         with contextlib.suppress(OSError, ValueError, tk.TclError):
@@ -1732,8 +1545,6 @@ class Window:
         neuf.live.active = bool(self.direct_actif.get())
         neuf.live.period = float(self.reglage_periode.value())
         neuf.appearance.theme = self.reglage_theme.value()
-        # Le prénom pose sa voix du même geste : les choisir séparément
-        # permettrait « Martin » avec une voix féminine, ce que personne ne veut.
         from greffier.adapters.configuration import FIRST_NAMES
 
         neuf.assistant.name = (self.reglage_nom_assistant.value()
@@ -1744,9 +1555,6 @@ class Window:
         annonce = self.reglage_participants.value()
         neuf.speakers.people = int(annonce) if annonce else None
 
-        # `neuf` est une copie de la configuration en vigueur : le vocabulaire,
-        # les mots qui ne sont jamais des prénoms et les réglages SMTP — que la
-        # fenêtre ne propose pas — y sont déjà, et sont réécrits tels quels.
         try:
             reglages.save_settings(neuf)
         except OSError as trouble:
@@ -1760,14 +1568,7 @@ class Window:
         mot = " · ".join(words)
         self.mot_reglages.configure(text=mot)
         if neuf.appearance.theme != theme_avant:
-            # Repeindre tout de suite : un thème qui attend « le prochain
-            # lancement » donne l'impression que le réglage n'a rien fait.
-            # Après le retour de l'événement, jamais pendant : la liste
-            # déroulante qui vient d'être choisie serait détruite sous Tk, au
-            # milieu du traitement de son propre événement.
             self.racine.after(0, lambda: self._apply_the_theme(neuf.appearance.theme, mot))
-
-    # ------------------------------------------------------------------ micros
 
     def _load_mics(self) -> None:
         """Propose les micros réellement branchés, celui de la config en tête."""
@@ -1784,19 +1585,9 @@ class Window:
                 if not p.uid.startswith("com.reunions.")
                 and "blackhole" not in p.name.lower()
             ]
-        # « Automatique » ne nomme personne : le choix se fait au démarrage, en
-        # écoutant chaque micro. Nommer ici le candidat retenu par sa seule forme
-        # promettait un micro que l'écoute écarte ensuite — un casque branché
-        # dont le bouton de sourdine est enfoncé, par exemple.
-        # La clef vide veut dire « automatique » : le choix se fait au démarrage,
-        # en écoutant chaque micro. Nommer ici le candidat retenu sur sa seule
-        # forme promettait un micro que l'écoute écarte ensuite — un casque
-        # branché dont le bouton de sourdine est enfoncé, par exemple.
         propositions = (("", "Automatique — le mieux entendu"),
                         *((name, name) for name in names))
         if propositions == self._micros_connus:
-            # Rien n'a bougé : regarnir refermerait le menu sous le curseur de
-            # qui est en train d'y choisir.
             return
         self._micros_connus = propositions
         choisi = self.mic.value()
@@ -1805,10 +1596,7 @@ class Window:
         garde = choisi if choisi in known else (voulu if voulu in known else "")
         self.mic.fill_menu(list(propositions), garde)
 
-    # ---------------------------------------------------------- rafraîchissement
-
     def _refresh(self) -> None:
-        # L'état est illisible l'instant d'une écriture atomique : on repasse.
         with contextlib.suppress(OSError, ValueError):
             self._paint(self.recorder.read())
         self._clear_messages()
@@ -1845,18 +1633,13 @@ class Window:
             self._phase_peinte = state.phase
             self._show_commands(state.phase)
             if state.phase is Phase.REST:
-                # Le matériel a pu changer pendant la réunion précédente.
                 self._load_mics()
             if state.phase is Phase.RECORDING and precedente is not None:
-                # La réunion commence : c'est le fil qu'on veut sous les yeux,
-                # pas la liste des réunions passées.
                 self.tabs.reveal("En direct")
 
         active = state.phase is Phase.RECORDING
         en_pause = state.phase is Phase.PAUSE
         if not active:
-            # Pendant l'enregistrement, c'est « _respirer » qui tient le point :
-            # l'écraser ici quatre fois par seconde casserait son fondu.
             self.pastille.itemconfigure(
                 self._point, fill=c.amber if en_pause else c.calm
             )
@@ -1887,25 +1670,16 @@ class Window:
             while not job.messages.empty():
                 self.status_line.configure(text=job.messages.get_nowait())
 
-    # ------------------------------------------------------------------ actions
-
     def _start_recording(self) -> None:
         from greffier.cli import _lancer_direct, _lancer_veille, _prepare_capture
 
-        # La clef vide — « automatique » — laisse le domaine décider, et la
-        # veille suivre.
         choisi = self.mic.value()
         if choisi:
             self.config.audio.mic = choisi
         try:
-            # Le poste est mis dans le meilleur état possible sans rien demander :
-            # micro réellement branché, sortie système vers la boucle de capture,
-            # gain relevé s'il est trop bas.
             precedente = _prepare_capture(self.config)
             self.recorder.start_recording("reunion", sortie_precedente=precedente)
             _lancer_veille(self.config, None)
-            # Sans cet appel, l'onglet « En direct » reste vide : c'est lui qui
-            # lance le processus qui transcrit et publie au fil de l'eau.
             _lancer_direct(self.config, None)
         except (RuntimeError, FileNotFoundError) as trouble:
             messagebox.showerror("Greffier", str(trouble))
@@ -1928,8 +1702,6 @@ class Window:
             return
         with contextlib.suppress(Exception):
             sender = _sender(self.config)
-            # Tous les moyens d'envoi n'ont pas de sonde : écrire dans un
-            # fichier ne peut pas échouer pour une autorisation.
             sonde = getattr(sender, "eprouver", None)
             empeche = sonde() if callable(sonde) else None
             if empeche:
@@ -2004,7 +1776,6 @@ class Window:
             from greffier.wiring import recording, wire_up
 
             chaine = wire_up(self.config)
-            # Voir cli.traiter : le journal est propre à cette réunion.
             chaine.log = recording(self.config).pour(audio.stem)
             publisher = chaine.log
 
@@ -2015,9 +1786,6 @@ class Window:
                         publisher.publish(phase, message)
 
             chaine.log = type("Journal", (), {"publish": staticmethod(publish)})()
-            # Un destinataire renseigné *est* la demande d'envoi. Attendre un
-            # clic de plus, c'est demander deux fois la même chose, et le but de
-            # l'outil est bien de produire un compte rendu et de l'envoyer.
             return chaine.run_chain(
                 audio,
                 send=bool(self.config.minutes.recipient),
@@ -2066,8 +1834,6 @@ class Window:
             self._say("note", f"Sauvegarde impossible : {trouble}")
             return
         if faite.on_the_same_disk:
-            # Dit une fois, dans la conversation, plutôt qu'en fenêtre : c'est
-            # une information, pas une alerte, mais elle ne doit pas se perdre.
             self._say("note", (
                 f"Données sauvegardées ({faite.bytes_read / 1024**2:.1f} Mo), mais sur "
                 "le même disque : règle « sauvegarde.dossier » vers un disque "
@@ -2084,14 +1850,6 @@ class Window:
         croire que tout est perdu.
         """
         self.status_line.configure(text=f"Échec : {trouble}")
-        # Publiée et écrite **avant** toute boîte de dialogue, et c'est tout le
-        # correctif : l'échec n'était rapporté que par une fenêtre modale et la
-        # note n'était écrite qu'après le clic. Écran verrouillé, personne pour
-        # cliquer, et l'état restait figé sur la phase en cours — « envoi » pour
-        # une réunion de 1 h 42, le 2026-09-10. Tout ce qui relit cet état croit
-        # alors qu'une réunion se traite encore : la veille, la ligne de
-        # commande, et la reconstruction de l'application, qui refuse de se
-        # relancer pendant une réunion.
         self._publish_the_failure(audio.stem, trouble)
         self._say("note", f"La rédaction de « {audio.stem} » a échoué : {trouble} "
                            "La transcription est gardée, « Rédiger » la reprend.")
@@ -2184,8 +1942,6 @@ class Window:
                                    "reste sur le disque. Renseigne "
                                    "compte_rendu.destinataire pour qu'il puisse partir.")
 
-    # -------------------------------------------------------- fils d'exécution
-
     def _run_job(self, job: Job) -> None:
         self.travaux.append(job)
         self.status_line.configure(text=f"{job.caption} en cours…")
@@ -2197,7 +1953,6 @@ class Window:
                 outcome = job.do_it(job.messages.put)
             except Exception as attrape:  # noqa: BLE001 - remonté à l'interface
                 trouble = attrape
-            # Repasser sur le fil de l'interface : Tk n'est pas réentrant.
             self.racine.after(0, lambda: self._finish(job, outcome, trouble))
 
         threading.Thread(target=courir, daemon=True).start()
@@ -2205,17 +1960,9 @@ class Window:
     def _finish(self, job: Job, outcome: Any, trouble: Exception | None) -> None:
         if job in self.travaux:
             self.travaux.remove(job)
-        # La ligne du bas annonce « … en cours… » au lancement : plus rien ne
-        # l'effaçait. Constaté à l'usage, « Mise à jour de Claude Code en
-        # cours… » restait affiché indéfiniment après la fin de la mise à jour,
-        # laissant croire qu'elle tournait encore. Seule la dernière tâche
-        # efface : deux traitements simultanés ne doivent pas se couper la
-        # parole.
         if not self.travaux:
             self.status_line.configure(text="")
         job.done(outcome, trouble)
-
-    # ------------------------------------------------------------------ listes
 
     def _selection(self) -> str | None:
         """L'identifiant technique de la réunion choisie.
@@ -2245,8 +1992,6 @@ class Window:
             except (OSError, ValueError):
                 continue
             minutes = self.config.paths.minutes_folder / f"{identifier}.md"
-            # Les voix significatives, pas les groupes bruts de la segmentation :
-            # « 118 » ne dit rien à personne, « 4 » est un nombre de participants.
             self.listing.insert("", "end", iid=identifier, values=(
                 readable_subject(identifier, minutes, detail.subject),
                 len(voices_to_name(detail)),
@@ -2308,8 +2053,6 @@ class Window:
                 candidate.name
                 or (f"≈ {candidate.proposition}" if candidate.proposition else "à nommer"),
             ))
-
-    # ----------------------------------------------------------- actions liste
 
     def _process_selection(self) -> None:
         identifier = self._selection()
@@ -2502,8 +2245,6 @@ class Window:
             messagebox.showerror("Greffier", str(trouble))
             return
         self._load_meetings()
-        # Vidé, le sujet rend la main au titre du compte rendu : c'est le moyen
-        # d'annuler un renommage sans avoir à retrouver le titre d'origine.
         self.status_line.configure(
             text=f"Renommée : {gardee.caption}" if gardee.subject
             else "Sujet effacé : le titre du compte rendu reprend la main."
@@ -2620,8 +2361,6 @@ class Window:
         self.status_line.configure(text=f"Envoyé à {target}")
         self._say("greffier", f"Compte rendu envoyé à {target}.")
 
-    # ------------------------------------------------------------ actions voix
-
     def _selected_voice(self) -> str | None:
         choix = self.voice.selection()
         return str(self.voice.item(choix[0], "values")[0]) if choix else None
@@ -2651,8 +2390,6 @@ class Window:
         self.status_line.configure(text=f"{name} est en banque.")
         self._say("greffier", f"{name} est en banque, et sera reconnue seule aux "
                                "prochaines réunions.")
-        # Le seul moment où l'on peut encore se raviser sans effort : après, une
-        # empreinte fausse se confirme d'elle-même à chaque réunion.
         if acte.doute:
             self._say("greffier", acte.doute)
             messagebox.showwarning("Greffier", acte.doute)
@@ -2798,8 +2535,6 @@ class Window:
                      if player.endswith("ffplay") else [player, str(extrait)])
         subprocess.Popen(arguments)
 
-    # ---------------------------------------------------------- conversation
-
     def _say(self, qui: str, text: str) -> None:
         self._keep_the_turn(qui, text)
         self._paint_the_turn(qui, text)
@@ -2848,8 +2583,6 @@ class Window:
         elif dit is False:
             retenu = ""
         elif len(response.split()) <= 3:
-            # Une orthographe donnée à la main l'emporte : c'est le cas où
-            # l'outil s'est trompé de terme, pas seulement d'orthographe.
             retenu = response.strip()
         else:
             return False
@@ -2929,8 +2662,6 @@ class Window:
         if not pose:
             self._say("note", f"« {appris.subject} » était déjà dans le contexte.")
             return True
-        # Le direct relit le contexte à chaque tranche : ce qui est appris
-        # maintenant sert à la phrase suivante, pas à la réunion d'après.
         self._say("greffier", (
             f"« {appris.subject} » ajouté au contexte. La transcription en cours "
             "l'écrira juste dès la prochaine tranche."
@@ -3042,9 +2773,6 @@ class Window:
         question = self.question.get().strip()
         if not question:
             return
-        # Une question en attente prend la main sur la conversation : ce qu'on
-        # tape répond à ce qui vient d'être demandé, comme dans un dialogue.
-        # Autrement, il faudrait un second champ de saisie pour la même chose.
         if self._questions_attente and self._answer_the_question(question):
             return
         if self._apprentissage_attente is not None and self._confirm_the_learning(
@@ -3059,10 +2787,6 @@ class Window:
             self._say("note", "Aucun rédacteur configuré : « greffier configurer ».")
             return
 
-        # Le fil de la réunion en cours d'abord : demander « qu'a-t-on décidé
-        # sur Oasis ? » pendant qu'on en parle était impossible, la conversation
-        # exigeant un compte rendu, donc une réunion terminée. Le fil, lui, est
-        # déjà là.
         in_progress = self._thread.rendered() if self._fil_reunion else ""
         if in_progress:
             material, quoi, sur = in_progress, "la transcription en direct", self._fil_reunion
@@ -3085,8 +2809,6 @@ class Window:
 
         def do_it(say: Callable[[str], None]) -> Any:
             say("réflexion…")
-            # Les consignes viennent de l'assistant : les écrire ici les
-            # dupliquerait, et c'est lui qui sait s'il a le droit de chercher.
             return engine.write_up(
                 f"Question : {question}\n\n"
                 f"Ce qui a été dit — {quoi} de la réunion « {sur} » :\n{material}"
@@ -3100,11 +2822,7 @@ class Window:
             ),
         ))
 
-    # ------------------------------------------------------------------ boucle
-
     def spin(self) -> None:
-        # Après le premier tour de boucle : signaler avant que la fenêtre ne
-        # soit peinte n'afficherait rien.
         self.racine.after(600, self._report_missing_minutes)
         self.racine.after(900, self._remind_of_the_disclosure)
         self.racine.mainloop()
@@ -3137,10 +2855,6 @@ class Window:
             manquantes = [
                 identifier
                 for identifier in self.store.lister()[:20]
-                # Seules les réunions **datées** : les enregistrements d'essai
-                # fabriqués par « outils/fabriquer_reunion.py » n'ont pas de
-                # compte rendu et n'en attendent pas. Les signaler noyait le
-                # message sous cinq faux positifs, constaté à l'usage.
                 if held_on(identifier) is not None
                 and not (self.config.paths.minutes_folder / f"{identifier}.md").exists()
                 and bool(self.store.read(identifier).utterances)
@@ -3148,9 +2862,6 @@ class Window:
             if not manquantes:
                 return
             pluriel = "s" if len(manquantes) > 1 else ""
-            # Peint et non « dit » : un état général de l'outil n'appartient à
-            # la conversation d'aucune réunion, et s'y inscrire salissait le
-            # journal de celle qui se trouvait sélectionnée.
             self._paint_the_turn("greffier", (
                 f"{len(manquantes)} réunion{pluriel} transcrite{pluriel} sans compte "
                 f"rendu : {', '.join(manquantes[:3])}"

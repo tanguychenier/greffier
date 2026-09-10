@@ -46,8 +46,6 @@ class SherpaDiariser:
             ),
             embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(
                 model=str(self.voiceprints), num_threads=fils),
-            # Sans nombre imposé, le regroupement se fait au seuil : il sur-découpe,
-            # et c'est le recollage du domaine qui remet les voix ensemble.
             clustering=sherpa_onnx.FastClusteringConfig(
                 num_clusters=people if people else -1, threshold=self.seuil
             ),
@@ -66,10 +64,6 @@ class SherpaDiariser:
 
         channels = separer_canaux(data, frequency)
         mic, system, distante = channels.mic, channels.system, channels.distante
-        # En présentiel, tout le monde parle dans le même micro : la provenance
-        # ne distingue plus personne, et il n'y a pas de « moi » à isoler. C'est
-        # le cas d'un portable posé au milieu d'une table, où la boucle système
-        # ne porte rien.
         locaux = (
             local_turns(
                 levels_per_frame(mic, frequency),
@@ -89,9 +83,6 @@ class SherpaDiariser:
             )
             for s in engine.process(a_segmenter).sort_by_start_time()
         ]
-        # La segmentation ne voit que la boucle, mais un participant qui parle en
-        # même temps laisse un tour à cheval sur un tour local. Le canal ne se
-        # trompe pas sur la provenance : c'est lui qui tranche.
         gardes = remove([t.span for t in distants], locaux)
         distants = [t for t in distants if t.span in gardes]
 

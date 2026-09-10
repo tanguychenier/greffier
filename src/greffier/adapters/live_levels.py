@@ -95,7 +95,6 @@ def lire_forme(audio: Path) -> Forme | None:
                 channels=channels, frequency=frequency,
                 octets_par_echantillon=bits // 8, debut_donnees=corps,
             )
-        # Un chunk de taille impaire est suivi d'un octet de bourrage.
         position = corps + taille + (taille % 2)
     return None
 
@@ -107,8 +106,6 @@ def read_level(audio: Path, fenetre_s: float = FENETRE_S) -> LevelReading | None
     """
     forme = lire_forme(audio)
     if forme is None or forme.octets_par_echantillon != 2:
-        # Seul le PCM 16 bits est produit par la chaîne ; le reste n'est pas
-        # deviné, il est ignoré.
         return None
     voulu = int(forme.frequency * fenetre_s) * forme.bytes_per_frame
     try:
@@ -117,9 +114,6 @@ def read_level(audio: Path, fenetre_s: float = FENETRE_S) -> LevelReading | None
             return None
         with audio.open("rb") as file:
             depart = max(forme.debut_donnees, taille - voulu)
-            # Se recaler sur une frontière de trame, comptée depuis le début
-            # réel des données : lire à l'octet près entrelace les canaux et
-            # inverse micro et système.
             depart -= (depart - forme.debut_donnees) % forme.bytes_per_frame
             file.seek(depart)
             brut = file.read(voulu)

@@ -102,9 +102,6 @@ def lire_le_texte(document: Path) -> str:
             return document.read_text(encoding="utf-8", errors="replace")
         except OSError:
             return ""
-    # Restreint aux formats connus : tout envoyer à `textutil` lui faisait
-    # avaler une archive ou une image et rendre des octets illisibles, qu'on
-    # aurait ensuite donnés au rédacteur comme s'il s'agissait d'un document.
     if suffixe not in TEXTES_OUTILLES:
         return ""
     command = (
@@ -189,9 +186,6 @@ def run_chain(
             return Fait(proposition, trouble=str(trouble))
 
     if proposition.destin is Destin.MEETING:
-        # Copié dans les enregistrements : la chaîne travaille là, et un fichier
-        # déposé depuis le bureau ou une clé USB ne doit pas rester la seule
-        # copie de la réunion.
         target = recordings / proposition.file.name
         try:
             if target.resolve() != proposition.file.resolve():

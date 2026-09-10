@@ -95,8 +95,6 @@ class Contexte:
         gens.update({i.name.casefold(): i for i in autre.intervenants})
         return Contexte(tuple(termes.values()), tuple(gens.values()))
 
-    # ------------------------------------------------------ vers les étages
-
     def prompt_seed(self) -> str:
         """L'amorce du transcripteur : des écritures, sans leur sens.
 

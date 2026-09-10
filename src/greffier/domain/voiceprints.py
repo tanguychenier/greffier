@@ -1,14 +1,8 @@
-"""Reconnaître une voix d'une réunion à l'autre.
+"""Recognising a voice from one meeting to the next.
 
-Le modèle acoustique rend, pour chaque extrait de parole, un vecteur de
-quelques centaines de nombres. Deux extraits de la même personne donnent des
-vecteurs proches ; de deux personnes différentes, des vecteurs éloignés. Tout
-ce module tient dans cette phrase — et dans la prudence qu'elle impose : la
-proximité n'est jamais une preuve, seulement un degré de confiance.
-
-Volontairement sans numpy. Les vecteurs font quelques centaines de nombres et
-les comparaisons se comptent en dizaines : le calcul est instantané en Python
-pur, et le domaine reste testable sans rien installer.
+A voiceprint is a vector; the whole file is cosines and thresholds, and every
+threshold here was measured on real meetings rather than chosen. See
+docs/calibrage.md and docs/rex-2026-09-10.md for the figures.
 """
 
 from __future__ import annotations
@@ -19,126 +13,34 @@ from dataclasses import dataclass
 
 from greffier.domain.models import Person, Voiceprint
 
-# Seuils mesurés sur une réunion réelle en salle (2026-08-20, 11,8 min, ~6
-# personnes, micro de portable). Sur les segments exacts de la diarisation, en
-# ne gardant que les extraits d'au moins 3 s :
-#
-#   deux extraits d'une même voix     médiane 0,74   (0,62 à 0,79)
-#   deux voix différentes             médiane 0,41   (jusqu'à 0,66)
-#
-# D'où 0,70 pendant longtemps : au-dessus du pire cas de voix distinctes, au
-# niveau du cas courant d'une même voix. La valeur de 0,55 initialement retenue
-# au jugé laissait passer des confusions.
-#
-# **0,45 depuis le 2026-09-09**, et c'est une mesure qui l'a décidé. Les deux
-# chiffres ci-dessus comparent des paires d'extraits deux à deux, or ce n'est
-# pas la question que l'outil pose : il demande « laquelle des personnes
-# connues ressemble le plus, et **nettement** plus », seuil **et** marge. Sur
-# le corpus AMI, quatre séries, en interrogeant la séance b contre une banque
-# constituée de la séance a :
-#
-#   seuil 0,70 → 3 personnes reconnues sur 7, 0 confusion
-#   seuil 0,45 → 4 personnes reconnues sur 7, 0 confusion
-#   seuil 0,30 → 5 reconnues, mais 1 confusion
-#
-# 0,45 reconnaît donc une personne de plus sans jamais se tromper. Les deux
-# rapprochements faux du corpus sont écartés, l'un par le seuil (0,338), l'autre
-# par la marge (0,041). `outils/calibrer_sur_corpus.py` rejoue la mesure.
 SEUIL_RECONNAISSANCE = 0.45
-# Un écart minimal avec le second : deux collègues aux voix proches doivent
-# produire une hésitation, pas un choix arbitraire. C'est cette marge qui rend
-# le seuil abaissé sans danger — elle écarte le rapprochement à 0,482 dont la
-# marge n'était que de 0,041.
 MARGE_MINIMALE = 0.06
-# Déclarer qu'une **entrée de la banque porte la voix d'un autre** est une autre
-# question, et elle exige davantage. Un conflit fait taire un nom : le déclarer
-# à la légère revient à ne plus reconnaître personne. Deux personnes différentes
-# se mesurent jusqu'à 0,652 sur le corpus, donc un seuil de conflit à 0,45
-# aurait mis en conflit des collègues parfaitement distincts.
 SEUIL_CONFLIT = 0.70
-# Au sein d'une même réunion, les conditions d'enregistrement sont identiques :
-# on peut donc exiger davantage pour décider que deux groupes de segments sont
-# la même personne. La segmentation automatique sur-découpe beaucoup — 27 voix
-# relevées pour 6 participants réels — et sans ce recollage le compte rendu
-# invente des participants.
 SEUIL_FUSION = 0.75
-# Au-delà, garder des empreintes supplémentaires n'apporte plus rien et fige la
-# banque sur les premières réunions enregistrées.
 EMPREINTES_PAR_PERSONNE = 8
-# Un agrégat tiré de peu de matière est bruité : sur un jeu d'essai à trois
-# locuteurs synthétiques, deux petits groupes récents ont franchi SEUIL_FUSION
-# par accident statistique, ramenant trois voix à deux. La garde ne s'applique
-# qu'au plus grand des deux groupes candidats : une voix déjà établie continue
-# d'absorber des fragments minces sans contrainte nouvelle, seuls deux petits
-# groupes encore fragiles ne peuvent plus se fondre entre eux sur ce hasard.
 MATIERE_MINIMALE_FUSION = 6.0
-# Au-delà de cette durée cumulée, un groupe cesse d'être un fragment : son
-# agrégat repose sur des minutes de parole et non sur deux phrases, et il peut
-# servir de point d'attache aux fragments comme se comparer à ses semblables.
 MATIERE_ETABLIE = 30.0
-# Le recollage par paires s'arrête dès qu'aucune paire ne franchit son seuil, et
-# laisse alors des centaines de fragments isolés : **298 voix pour trois
-# personnes autour d'une table**, mesuré sur une réunion réelle de 92 minutes.
-# La question à poser à un fragment n'est pas « ressemble-t-il à un autre
-# fragment » mais celle que pose déjà la banque de voix : « lequel des groupes
-# établis lui ressemble le plus ». Rejoué sur cette réunion, en notant contre
-# les noms posés à la main (`outils/rejouer_recollage.py`) :
-#
-#   paires seules, 0,75   172 voix   Florent en 5 morceaux, Tanguy en 20
-#   + adoption 0,50        34 voix   Florent et Tanguy entiers
-#   + adoption 0,45        24 voix   Florent et Tanguy entiers
-#
-# et aucun mélange de deux personnes dans un même groupe, à aucun seuil essayé
-# jusqu'à 0,30. C'est plus bas que `SEUIL_FUSION` en toute logique : comparer un
-# fragment à un groupe établi est une question mieux posée que comparer deux
-# fragments entre eux, donc elle supporte un seuil plus tolérant.
 SEUIL_ADOPTION = 0.45
-# Aucune marge : mesurée sur la même réunion, elle ne protège de rien ici — 0
-# comme 0,10 ne produisent aucun mélange — et elle coûte cher, 24 voix contre
-# 81. La raison tient à la question posée : un fragment est *forcément* de
-# quelqu'un qui est dans la pièce, et le laisser seul n'est pas un choix neutre,
-# c'est inventer un participant. La marge garde tout son sens pour la banque de
-# voix, où « personne de connue » est une réponse juste et fréquente.
 MARGE_ADOPTION = 0.0
-# Une fois les fragments rattachés, deux groupes établis peuvent encore être la
-# même personne — quelqu'un qui change de place à mi-réunion. Leurs agrégats
-# sont désormais fiables, donc la comparaison vaut. Le seuil est celui du
-# conflit de banque, et pour la même raison : deux personnes différentes montent
-# jusqu'à 0,652 sur le corpus AMI, jamais au-delà. Mesuré, cette passe ramène
-# les 24 voix à 23, dont **3 significatives — le nombre exact de personnes
-# présentes** — sans jamais réunir deux personnes.
 SEUIL_CONSOLIDATION = 0.70
 
-
 def normalise(vector: Sequence[float], source_duration: float = 0.0) -> Voiceprint:
-    """Ramène le vecteur à une longueur de 1.
-
-    La comparaison se réduit alors à un produit scalaire, et deux extraits
-    enregistrés à des volumes différents ne passent plus pour deux personnes.
-    """
+    """Brings the vector to length 1, so that a cosine is a dot product."""
     norme = math.sqrt(math.fsum(x * x for x in vector))
     if norme == 0:
         raise ValueError("vecteur nul : extrait sans parole ?")
     return Voiceprint(vector=tuple(x / norme for x in vector), source_duration=source_duration)
 
-
 def similarity(a: Voiceprint, b: Voiceprint) -> float:
-    """Cosinus entre deux empreintes normalisées, dans [-1, 1]."""
+    """Cosine between two normalised voiceprints, in [-1, 1]."""
     if len(a.vector) != len(b.vector):
         raise ValueError(
             f"empreintes de tailles différentes : {len(a.vector)} et {len(b.vector)}"
         )
     return math.fsum(x * y for x, y in zip(a.vector, b.vector, strict=True))
 
-
 def aggregate(voiceprints: Iterable[Voiceprint]) -> Voiceprint:
-    """Empreinte moyenne d'une même voix, pondérée par la durée des extraits.
-
-    Une voix parle par bribes tout au long de la réunion. Moyenner ces extraits
-    en tenant compte de leur durée donne une signature plus stable qu'un seul
-    passage — trois secondes de « oui, d'accord » ne pèsent pas autant qu'une
-    minute d'explication.
-    """
+    """Mean voiceprint of one voice, weighted by how long each excerpt lasted."""
     listing = list(voiceprints)
     if not listing:
         raise ValueError("aucune empreinte à agréger")
@@ -150,10 +52,9 @@ def aggregate(voiceprints: Iterable[Voiceprint]) -> Voiceprint:
     ]
     return normalise(somme, source_duration=math.fsum(e.source_duration for e in listing))
 
-
 @dataclass(frozen=True, slots=True)
 class Correspondance:
-    """Ce que la banque de voix croit reconnaître, et à quel point."""
+    """What the voice bank believes it recognises, and how firmly."""
 
     name: str
     similarity: float
@@ -163,31 +64,12 @@ class Correspondance:
     def sure(self) -> bool:
         return self.similarity >= SEUIL_RECONNAISSANCE and self.marge >= MARGE_MINIMALE
 
-
 def _score(voiceprint: Voiceprint, personne: Person) -> float:
-    """Proximité d'une empreinte avec une personne connue.
-
-    On retient le meilleur de ses extraits, pas la moyenne : quelqu'un enregistré
-    une fois au casque et une fois en salle a deux signatures assez différentes,
-    et la moyenne des deux ne ressemblerait à aucune des deux.
-    """
+    """How close a voiceprint sits to a known person."""
     return max((similarity(voiceprint, connue) for connue in personne.voiceprints), default=-1.0)
 
-
 def conflicting_names(bank: Iterable[Person]) -> dict[str, set[str]]:
-    """Les noms de la banque qui portent la même voix, deux à deux.
-
-    Un nommage erroné entre en banque comme un autre, et rien ne le distingue
-    ensuite : la voix ainsi classée est reconnue sous ce nom à chaque réunion,
-    affirmée plutôt que proposée, et l'erreur se confirme d'elle-même. Mesuré
-    sur une banque réelle : deux entrées à **0,77** de ressemblance alors que
-    deux personnes différentes s'y mesurent entre 0,22 et 0,53 — l'une des deux
-    portait la voix de l'autre.
-
-    Deux personnes distinctes ne peuvent pas franchir le seuil de
-    reconnaissance : si elles le font, c'est qu'un nom est faux, et on ne sait
-    pas lequel. Le savoir permet de se taire au lieu de choisir.
-    """
+    """Names in the bank that carry the same voice, pair by pair."""
     people = [p for p in bank if p.voiceprints]
     agregats = {p.name: aggregate(p.voiceprints) if len(p.voiceprints) > 1 else p.voiceprints[0]
                 for p in people}
@@ -199,21 +81,13 @@ def conflicting_names(bank: Iterable[Person]) -> dict[str, set[str]]:
                 conflits.setdefault(autre.name, set()).add(un.name)
     return conflits
 
-
 def recognise(
     voiceprint: Voiceprint,
     bank: Iterable[Person],
     seuil: float = SEUIL_RECONNAISSANCE,
     marge_minimale: float = MARGE_MINIMALE,
 ) -> Correspondance | None:
-    """La personne de la banque qui correspond, ou rien si le doute subsiste.
-
-    Renvoyer « rien » est un résultat normal et fréquent : une voix inconnue,
-    un extrait trop court, deux voisins de timbre. L'appelant demandera alors
-    à l'utilisateur, ce qui vaut mieux qu'un nom inventé dans un compte rendu.
-    """
-    # Matérialisée d'abord : la banque est parfois un générateur, et elle est
-    # parcourue deux fois — le classement, puis le contrôle des conflits.
+    """The person in the bank that matches, or nothing if doubt remains."""
     connues = [p for p in bank if p.voiceprints]
     ranking = sorted(
         ((_score(voiceprint, p), p.name) for p in connues),
@@ -226,32 +100,15 @@ def recognise(
     marge = best - second
     if best < seuil or marge < marge_minimale:
         return None
-    # Un nom que la banque confond avec un autre ne vaut pas mieux qu'aucun nom.
-    # La marge ne protège pas de ce cas : elle compare l'empreinte du jour aux
-    # personnes connues, alors que le défaut est **entre** deux personnes
-    # connues, et il rend justement la marge confortable.
     if name in conflicting_names(connues):
         return None
     return Correspondance(name=name, similarity=best, marge=marge)
-
 
 def join_voices(
     per_voice: dict[str, list[Voiceprint]],
     seuil: float = SEUIL_FUSION,
 ) -> dict[str, str]:
-    """Recolle les groupes de segments qui sont en réalité la même personne.
-
-    La segmentation acoustique éclate volontiers une voix en plusieurs groupes :
-    la personne change de posture, s'éloigne du micro, hausse le ton. On compare
-    donc les empreintes agrégées de chaque groupe et on réunit les plus proches,
-    de la paire la plus évidente à la moins évidente, en recalculant l'agrégat
-    après chaque réunion — sans quoi une chaîne de rapprochements successifs
-    finirait par rassembler des voix qui n'ont rien à voir.
-
-    Renvoie la correspondance ancien groupe → groupe retenu. Les groupes non
-    fusionnés s'y trouvent aussi, associés à eux-mêmes : l'appelant applique la
-    correspondance sans avoir à distinguer les cas.
-    """
+    """Stitches back together the segment groups that are one person."""
     groupes = {voice: list(voiceprints) for voice, voiceprints in per_voice.items() if voiceprints}
     membership = {voice: voice for voice in per_voice}
 
@@ -275,8 +132,6 @@ def join_voices(
         if meilleure is None:
             break
         _, garde, absorbe = meilleure
-        # Le groupe le plus fourni garde son nom : c'est celui que l'utilisateur
-        # aura entendu le plus souvent s'il écoute un extrait.
         if sum(e.source_duration for e in groupes[absorbe]) > sum(
             e.source_duration for e in groupes[garde]
         ):
@@ -288,11 +143,10 @@ def join_voices(
 
     return membership
 
-
 def _groupes(
     per_voice: dict[str, list[Voiceprint]], membership: dict[str, str]
 ) -> dict[str, list[Voiceprint]]:
-    """Les empreintes rassemblées sous le groupe qui les porte."""
+    """The voiceprints gathered under the group that holds them."""
     groupes: dict[str, list[Voiceprint]] = {}
     for voice, vers in membership.items():
         voiceprints = per_voice.get(voice)
@@ -300,10 +154,8 @@ def _groupes(
             groupes.setdefault(vers, []).extend(voiceprints)
     return groupes
 
-
 def _material(voiceprints: Iterable[Voiceprint]) -> float:
     return math.fsum(e.source_duration for e in voiceprints)
-
 
 def adopt_fragments(
     per_voice: dict[str, list[Voiceprint]],
@@ -312,18 +164,7 @@ def adopt_fragments(
     marge_minimale: float = MARGE_ADOPTION,
     matiere_etablie: float = MATIERE_ETABLIE,
 ) -> dict[str, str]:
-    """Rattache chaque fragment au groupe établi qui lui ressemble le plus.
-
-    Un fragment de six secondes est de quelqu'un qui est dans la pièce. Le
-    laisser seul n'est pas une prudence : c'est annoncer un participant de plus
-    dans le compte rendu. On lui pose donc la question de la banque de voix —
-    « lequel des groupes établis, et est-ce net » — au lieu de le comparer à
-    d'autres fragments aussi bruités que lui.
-
-    Les fragments sont traités du plus fourni au plus mince, et un fragment
-    adopté grossit son hôte : ce qui vient d'être rattaché sert à rattacher la
-    suite, et l'ordre cesse d'être arbitraire.
-    """
+    """Attaches each fragment to the established group it most resembles."""
     groupes = _groupes(per_voice, membership)
     etablis = {g: e for g, e in groupes.items() if _material(e) >= matiere_etablie}
     if not etablis:
@@ -350,21 +191,13 @@ def adopt_fragments(
                 retenue[voice] = hote
     return retenue
 
-
 def consolidate(
     per_voice: dict[str, list[Voiceprint]],
     membership: dict[str, str],
     seuil: float = SEUIL_CONSOLIDATION,
     matiere_etablie: float = MATIERE_ETABLIE,
 ) -> dict[str, str]:
-    """Réunit deux groupes établis qui sont en réalité la même personne.
-
-    Quelqu'un qui change de place à mi-réunion laisse deux groupes que rien ne
-    rapprochait tant qu'ils étaient minces. Une fois les fragments rattachés,
-    leurs agrégats reposent sur des minutes de parole : la comparaison devient
-    fiable, et elle se fait au seuil du conflit de banque — deux personnes
-    différentes ne montent jamais au-delà de 0,652 sur le corpus AMI.
-    """
+    """Joins two established groups that are in fact the same person."""
     retenue = dict(membership)
     while True:
         groupes = _groupes(per_voice, retenue)
@@ -386,36 +219,21 @@ def consolidate(
             if vers == absorbe:
                 retenue[voice] = garde
 
-
 def stitch(
     per_voice: dict[str, list[Voiceprint]],
     seuil_paires: float = SEUIL_FUSION,
     seuil_adoption: float = SEUIL_ADOPTION,
     seuil_consolidation: float = SEUIL_CONSOLIDATION,
 ) -> dict[str, str]:
-    """Ramène les groupes de la segmentation au nombre de personnes réelles.
+    """Brings the segmenter's groups down to the number of real people.
 
-    Trois passes, dans cet ordre, chacune posant une question que la précédente
-    a rendue possible :
-
-    1. **les paires** — deux groupes manifestement identiques se réunissent, ce
-       qui fait émerger des groupes fournis là où il n'y avait que des miettes ;
-    2. **l'adoption** — chaque miette rejoint le groupe établi qui lui ressemble
-       le plus, question qu'on ne pouvait pas poser avant qu'un groupe soit
-       établi ;
-    3. **la consolidation** — les groupes établis se comparent entre eux, ce que
-       leurs agrégats ne méritaient pas tant qu'ils étaient minces.
-
-    Mesuré sur une réunion réelle de 92 minutes à trois personnes autour d'une
-    table : **298 groupes rendus par la segmentation, 23 après recollage, dont
-    3 portent plus de dix secondes** — le compte exact des personnes présentes.
-    Aucun groupe ne réunit deux personnes, contrôlé contre les noms posés à la
-    main. La première passe seule en laissait 172.
+    Three passes, in this order: pairs, then adoption of the fragments, then
+    consolidation of what has grown. Over-segmenting and stitching back is
+    reversible; under-segmenting is not.
     """
     membership = join_voices(per_voice, seuil=seuil_paires)
     membership = adopt_fragments(per_voice, membership, seuil=seuil_adoption)
     return consolidate(per_voice, membership, seuil=seuil_consolidation)
-
 
 def doubtful_entry(
     nouvelle: Voiceprint,
@@ -423,22 +241,7 @@ def doubtful_entry(
     bank: Iterable[Person],
     marge: float = MARGE_MINIMALE,
 ) -> str:
-    """Cette empreinte a-t-elle l'air d'être de quelqu'un d'autre ?
-
-    Une entrée fausse en banque est le défaut le plus coûteux de l'outil : elle
-    ne se voit pas, elle est reconnue à chaque réunion suivante, et deux entrées
-    trop ressemblantes finissent par se mettre mutuellement en conflit — après
-    quoi plus personne n'est reconnu. C'est ce qui est arrivé sur ce poste :
-    trois paires en conflit, et « Pascal » portant une empreinte de trente et une
-    minutes prise à une réunion où il n'était pas.
-
-    Le contrôle est celui du bon sens, et il ne coûte rien : si l'empreinte
-    ressemble **nettement plus** à quelqu'un d'autre qu'à la personne qu'on
-    nomme, on le dit. On ne refuse pas — l'utilisateur a le droit d'avoir
-    raison contre la machine, deux collègues peuvent avoir des voix proches, et
-    une personne peut n'avoir aucune empreinte en banque. Mais on ne le laisse
-    plus se produire en silence.
-    """
+    """Does this voiceprint look like it belongs to someone else?"""
     connues = {p.name: p for p in bank if p.voiceprints}
     elsewhere = [(_score(nouvelle, p), name) for name, p in connues.items() if name != vise]
     if not elsewhere:
@@ -460,10 +263,9 @@ def doubtful_entry(
         "fausse est reconnue à chaque réunion suivante."
     )
 
-
 @dataclass(frozen=True, slots=True)
 class Intruder:
-    """Une empreinte qui ressemble davantage à quelqu'un d'autre qu'aux siennes."""
+    """A voiceprint that resembles someone else more than its own owner."""
 
     rank: int
     at_home: float
@@ -475,28 +277,12 @@ class Intruder:
     def gap(self) -> float:
         return self.elsewhere - self.at_home
 
-
 def intruding_voiceprints(
     personne: Person,
     bank: Iterable[Person],
     ecart_minimal: float = 0.05,
 ) -> list[Intruder]:
-    """Les empreintes de cette personne qui sont probablement d'une autre.
-
-    Savoir que deux entrées sont en conflit ne dit pas laquelle réparer, et
-    effacer une personne entière pour une empreinte fautive perd tout le reste.
-    La question se pose empreinte par empreinte, et elle a une réponse : une
-    empreinte de Kilian qui ressemble à 0,78 à Pascal et à 0,55 au reste de Kilian
-    n'est pas de Kilian.
-
-    Mesuré sur la banque de ce poste : deux des trois empreintes de « Kilian »
-    et deux des quatre de « Pascal » désignaient quelqu'un d'autre, ce que le
-    contrôle de conflit signalait sans jamais dire quoi enlever.
-
-    Une personne d'une seule empreinte n'est jamais mise en cause : il n'y a
-    rien à quoi la comparer chez elle, et se tromper coûterait la personne
-    entière.
-    """
+    """This person's voiceprints that probably belong to another."""
     if len(personne.voiceprints) < 2:
         return []
     autres = [p for p in bank if p.name != personne.name and p.voiceprints]
@@ -512,21 +298,14 @@ def intruding_voiceprints(
                 rank=rank, at_home=at_home, elsewhere=elsewhere, qui=qui,
                 duration=voiceprint.source_duration,
             ))
-    # De la plus flagrante à la moins : c'est l'ordre dans lequel on veut les
-    # traiter, et souvent la première suffit à lever le conflit.
     return sorted(suspectes, key=lambda x: -x.gap)
-
 
 def enrichir(
     personne: Person,
     nouvelle: Voiceprint,
     maximum: int = EMPREINTES_PAR_PERSONNE,
 ) -> Person:
-    """Ajoute une empreinte à une personne connue, en bornant l'accumulation.
-
-    Quand le quota est atteint, l'empreinte issue du plus court extrait cède sa
-    place : ce sont les passages longs qui portent le mieux le timbre d'une voix.
-    """
+    """Adds a voiceprint to a known person, capping how much accumulates."""
     personne.voiceprints.append(nouvelle)
     if len(personne.voiceprints) > maximum:
         personne.voiceprints.sort(key=lambda e: -e.source_duration)
