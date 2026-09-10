@@ -12,7 +12,7 @@ def meeting(identifier: str) -> StoredMeeting:
     return StoredMeeting(
         identifier=identifier,
         audio=Path(f"/tmp/{identifier}.wav"),
-        traitee_le=datetime.now(UTC),
+        processed_at=datetime.now(UTC),
         duration=60.0,
         utterances=[Utterance(Span(0, 5), "Bonjour.")],
         turns=[SpeakerTurn(Span(0, 5), "1")],
@@ -121,7 +121,7 @@ def reunie(identifier: str = "2026-09-10_10h10_reunion") -> StoredMeeting:
     detail = StoredMeeting(
         identifier=identifier,
         audio=Path(f"/tmp/{identifier}.wav"),
-        traitee_le=datetime.now(UTC),
+        processed_at=datetime.now(UTC),
         duration=60.0,
         utterances=[
             Utterance(Span(0, 5), "on cale la recette jeudi", voice="v1"),

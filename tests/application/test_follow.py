@@ -23,7 +23,7 @@ from greffier.application.follow import (
     replay,
     request_a_split,
 )
-from greffier.domain.channels import VOIX_LOCALE
+from greffier.domain.channels import LOCAL_VOICE
 from greffier.domain.live import NOM_LOCAL, Certainty, LiveThread
 from greffier.domain.models import Person, Span, Utterance, Voiceprint
 from greffier.domain.voiceprints import normalise
@@ -163,8 +163,8 @@ class TestPublication:
             extractor=extractor,
         )
         instance.take_in(tmp_path / "tranche.wav", [utterance(0, 4)], decalage=0.0)
-        assert instance.thread.turns[0].voice == VOIX_LOCALE
-        assert instance.thread.label(VOIX_LOCALE) == NOM_LOCAL
+        assert instance.thread.turns[0].voice == LOCAL_VOICE
+        assert instance.thread.label(LOCAL_VOICE) == NOM_LOCAL
         # Aucune empreinte prélevée : dépenser du calcul pour confirmer ce que le
         # câblage établit n'apporte rien.
         assert extractor.requests == []

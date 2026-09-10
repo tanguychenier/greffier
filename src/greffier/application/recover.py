@@ -60,15 +60,15 @@ def depuis_le_fil(
     return StoredMeeting(
         identifier=identifier,
         audio=audio if audio is not None else Path(""),
-        traitee_le=datetime.now(UTC),
+        processed_at=datetime.now(UTC),
         duration=duration,
         utterances=utterances,
         turns=turns,
         names=names,
         propositions={},
         warnings=[WARNING],
-        commencee_le=commencee,
-        terminee_le=(
+        started_at=commencee,
+        ended_at=(
             commencee + timedelta(seconds=duration) if commencee and duration else None
         ),
     )

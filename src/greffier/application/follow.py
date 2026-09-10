@@ -402,7 +402,7 @@ class Follower:
                 continue
             with contextlib.suppress(OSError):
                 self.bank.record(
-                    voice.name, replace(voiceprint, origine=self.identifier))
+                    voice.name, replace(voiceprint, origin=self.identifier))
                 self._appris[voice.identifier] = voice.name
                 appris.append(voice.name)
         return appris

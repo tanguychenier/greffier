@@ -17,7 +17,7 @@ from pathlib import Path
 from greffier.adapters import system_diagnostic as diagnostic
 from greffier.adapters.configuration import MODELES_CLAUDE, Config, save_settings
 from greffier.adapters.writer_ollama import available_models
-from greffier.domain.languages import LANGUAGES, eprouvee, label_text, nom_de
+from greffier.domain.languages import LANGUAGES, eprouvee, label_text, name_of
 from greffier.domain.recorder import Diagnostic
 from greffier.locations import config_folder, data_folder
 
@@ -70,7 +70,7 @@ def language_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
 
     if language and not eprouvee(language):
         dialogue.show(
-            f"\n{nom_de(language)} se transcrit et son compte rendu s'écrit, mais la\n"
+            f"\n{name_of(language)} se transcrit et son compte rendu s'écrit, mais la\n"
             "reconnaissance des prénoms n'y est pas éprouvée : elle reste éteinte,\n"
             "et les voix se nomment une fois dans l'onglet Voix. Les motifs\n"
             "français, laissés actifs, n'échoueraient pas — ils inventeraient des\n"
@@ -79,7 +79,7 @@ def language_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
 
     document = dialogue.choose(
         "Langue du compte rendu",
-        [("", "La même que la réunion")] + [(code, nom_de(code)) for code, _ in LANGUAGES if code],
+        [("", "La même que la réunion")] + [(code, name_of(code)) for code, _ in LANGUAGES if code],
         0,
     )
     answers.set_up("compte_rendu", "langue", document)

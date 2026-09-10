@@ -33,12 +33,12 @@ def _kill_tree(pid: int) -> None:
     import subprocess
 
     try:
-        enfants = subprocess.run(
+        children = subprocess.run(
             ["pgrep", "-P", str(pid)], capture_output=True, text=True, check=False
         ).stdout.split()
     except (OSError, subprocess.SubprocessError):
-        enfants = []
-    for enfant in enfants:
+        children = []
+    for enfant in children:
         _kill_tree(int(enfant))
     with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
         os.kill(pid, signal.SIGTERM)
@@ -67,7 +67,7 @@ class RecorderState:
     events: list[str] = field(default_factory=list)
     suspendu_le: datetime | None = None
     pause_totale: float = 0.0
-    terminee_le: datetime | None = None
+    ended_at: datetime | None = None
     sortie_precedente: str = ""
 
     @property
@@ -131,7 +131,7 @@ class Recording:
                 if content.get("suspendu_le") else None
             ),
             pause_totale=float(content.get("pause_totale", 0.0)),
-            terminee_le=(
+            ended_at=(
                 datetime.fromisoformat(content["terminee_le"])
                 if content.get("terminee_le") else None
             ),
@@ -162,7 +162,7 @@ class Recording:
             "evenements": state.events,
             "suspendu_le": state.suspendu_le.isoformat() if state.suspendu_le else "",
             "pause_totale": state.pause_totale,
-            "terminee_le": state.terminee_le.isoformat() if state.terminee_le else "",
+            "terminee_le": state.ended_at.isoformat() if state.ended_at else "",
             "sortie_precedente": state.sortie_precedente,
         }
         temporary = self.fichier_etat.with_suffix(".json.partiel")
@@ -283,7 +283,7 @@ class Recording:
         state.phase = Phase.FINALISATION
         state.message = "Enregistrement arrêté."
         state.pid = None
-        state.terminee_le = datetime.now(UTC)
+        state.ended_at = datetime.now(UTC)
         self.write(state)
         chunks = [m for m in (state.chunks or [state.audio]) if m is not None]
         utiles = [m for m in chunks if m.exists() and m.stat().st_size > 0]

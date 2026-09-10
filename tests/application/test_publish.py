@@ -103,7 +103,7 @@ class TestExecution:
     def test_un_fichier_bloque_est_rapporte_et_non_tente(self, tmp_path):
         proposition = Suggestion(
             tmp_path / "x.mp4", Destination.VIDEO, "vidéo",
-            bloque_par="ffmpeg est introuvable",
+            blocked_by="ffmpeg est introuvable",
         )
         fait = run_chain(proposition, tmp_path / "enregistrements")
         assert "ffmpeg" in fait.trouble

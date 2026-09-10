@@ -51,10 +51,10 @@ class FileVoiceBank:
             name=content["nom"],
             voiceprints=[
                 Voiceprint(vector=tuple(e["vecteur"]), source_duration=e.get("duree", 0.0),
-                          origine=e.get("origine", ""))
+                          origin=e.get("origine", ""))
                 for e in content.get("empreintes", [])
             ],
-            vu_le=(
+            seen_at=(
                 datetime.fromisoformat(content["vu_le"]) if content.get("vu_le") else None
             ),
             meetings=content.get("reunions", 0),
@@ -70,7 +70,7 @@ class FileVoiceBank:
         for personne in self.people():
             rangs = [
                 rank for rank, voiceprint in enumerate(personne.voiceprints)
-                if voiceprint.origine == identifier
+                if voiceprint.origin == identifier
             ]
             if rangs:
                 retires[personne.name] = self.remove_voiceprints(personne.name, rangs)
@@ -80,7 +80,7 @@ class FileVoiceBank:
         """Adds a voiceprint to someone, creating them if needed."""
         personne = self.find(name) or Person(name=name)
         enrichir(personne, voiceprint, maximum=self.maximum)
-        personne.vu_le = datetime.now(UTC)
+        personne.seen_at = datetime.now(UTC)
         self._write(personne)
         return personne
 
@@ -90,11 +90,11 @@ class FileVoiceBank:
         content = {
             "format": FORMAT,
             "nom": personne.name,
-            "vu_le": personne.vu_le.isoformat() if personne.vu_le else None,
+            "vu_le": personne.seen_at.isoformat() if personne.seen_at else None,
             "reunions": personne.meetings,
             "empreintes": [
                 {"vecteur": list(e.vector), "duree": e.source_duration,
-                 "origine": e.origine}
+                 "origine": e.origin}
                 for e in personne.voiceprints
             ],
         }

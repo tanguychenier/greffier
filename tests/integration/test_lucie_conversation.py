@@ -190,7 +190,7 @@ def transcriber():
 def _veilleur(reunion: Reunion, assistante: AssistantSettings,
               transcriber, dossier: Path) -> Watcher:
     return Watcher(
-        watch_rules=WatchRules(mot_cle="greffier"),
+        watch_rules=WatchRules(keyword="greffier"),
         log=dossier / "propositions.jsonl",
         transcriber=transcriber,
         situer=lambda: Position(

@@ -35,7 +35,7 @@ AVEC_CASQUE = Hardware((BLACKHOLE, HP_INTEGRES, JABRA_MICRO, JABRA_SORTIE, MICRO
 
 @pytest.fixture
 def watch_rules() -> WatchRules:
-    return WatchRules(micro_voulu="Jabra EVOLVE 30 II")
+    return WatchRules(wanted_mic="Jabra EVOLVE 30 II")
 
 
 class TestLeScenarioDu25Aout:
@@ -103,7 +103,7 @@ class TestBranchementsSuccessifs:
         assert len(watch_rules.events) == 6
 
     def test_un_second_casque_branche_est_pris_si_le_premier_manque(self) -> None:
-        watch_rules = WatchRules(micro_voulu="Casque absent")
+        watch_rules = WatchRules(wanted_mic="Casque absent")
         autre = Device("Poly Blackwire", "poly:1", entrees=1)
         apres = Hardware((BLACKHOLE, MICRO_INTEGRE, autre, AGREGE))
         decision = watch_rules.examine(SANS_CASQUE, apres)
@@ -115,11 +115,11 @@ class TestBranchementsSuccessifs:
 
 class TestChangementsSansEffet:
     def test_un_materiel_identique_ne_declenche_rien(self, watch_rules: WatchRules) -> None:
-        assert watch_rules.examine(AVEC_CASQUE, AVEC_CASQUE).action is Action.RIEN
+        assert watch_rules.examine(AVEC_CASQUE, AVEC_CASQUE).action is Action.NOTHING
 
     def test_brancher_un_ecran_ne_touche_pas_a_la_capture(self, watch_rules: WatchRules) -> None:
         apres = Hardware((*AVEC_CASQUE.devices, ECRAN))
-        assert watch_rules.examine(AVEC_CASQUE, apres).action is Action.RIEN
+        assert watch_rules.examine(AVEC_CASQUE, apres).action is Action.NOTHING
 
     def test_le_casque_reste_present_quand_seule_la_sortie_bouge(
         self, watch_rules: WatchRules
@@ -129,7 +129,7 @@ class TestChangementsSansEffet:
         sans_sortie = Hardware(
             tuple(p for p in AVEC_CASQUE.devices if p != JABRA_SORTIE)
         )
-        assert watch_rules.examine(AVEC_CASQUE, sans_sortie).action is Action.RIEN
+        assert watch_rules.examine(AVEC_CASQUE, sans_sortie).action is Action.NOTHING
 
     def test_aucun_evenement_n_est_note_sans_changement(self, watch_rules: WatchRules) -> None:
         watch_rules.examine(AVEC_CASQUE, AVEC_CASQUE)
@@ -201,7 +201,7 @@ class TestChoixParEcoute:
         )
         assert choix is not None
         assert choix.name == "Micro MacBook Pro"
-        assert not choix.tous_muets
+        assert not choix.all_silent
 
     def test_le_micro_ecarte_est_conserve_pour_l_expliquer(self) -> None:
         from greffier.domain.devices import choose_by_listening
@@ -217,7 +217,7 @@ class TestChoixParEcoute:
         from greffier.domain.devices import choose_by_listening
 
         choix = choose_by_listening({"Jabra": -78.5, "Micro MacBook Pro": -80.0})
-        assert choix is not None and choix.tous_muets
+        assert choix is not None and choix.all_silent
 
     def test_sans_candidat_rien_n_est_choisi(self) -> None:
         from greffier.domain.devices import choose_by_listening
@@ -231,7 +231,7 @@ class TestChoixParEcoute:
 
         choix = choose_by_listening({"A": -40.0, "B": -35.0})
         assert choix is not None
-        assert choix.name == "B" and not choix.tous_muets
+        assert choix.name == "B" and not choix.all_silent
 
     def test_blackhole_et_l_agrege_ne_sont_jamais_ecoutes(self) -> None:
         from greffier.domain.devices import candidates_to_listen_to
@@ -299,7 +299,7 @@ class TestUnCasqueLEmporte:
         choix = choose_by_listening(essais, headsets_among(self.MATERIEL))
         assert choix is not None
         assert choix.name == "Jabra EVOLVE 30 II"
-        assert choix.casque_prefere is True
+        assert choix.preferred_headset is True
 
     def test_un_casque_mute_ne_l_emporte_pas(self):
         """C'était tout l'objet de l'écoute : un casque coupé rend -78 dB."""
@@ -307,7 +307,7 @@ class TestUnCasqueLEmporte:
         choix = choose_by_listening(essais, headsets_among(self.MATERIEL))
         assert choix is not None
         assert choix.name == "Micro MacBook Pro"
-        assert choix.casque_prefere is False
+        assert choix.preferred_headset is False
 
     def test_sans_casque_le_plus_fort_gagne(self):
         essais = {"Micro MacBook Pro": -49.0, "Micro de table": -62.0}
@@ -327,4 +327,4 @@ class TestUnCasqueLEmporte:
         essais = {"Micro MacBook Pro": -90.0, "Jabra EVOLVE 30 II": -95.0}
         choix = choose_by_listening(essais, headsets_among(self.MATERIEL))
         assert choix is not None
-        assert choix.tous_muets is True
+        assert choix.all_silent is True

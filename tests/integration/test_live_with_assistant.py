@@ -89,7 +89,7 @@ def test_appele_pendant_la_reunion_il_repond(meeting, tmp_path):
 
     duration = soundfile.info(str(meeting)).duration
     watcher = Watcher(
-        watch_rules=WatchRules(mot_cle="greffier"),
+        watch_rules=WatchRules(keyword="greffier"),
         log=tmp_path / "propositions.jsonl",
         transcriber=transcriber,
         situer=lambda: Position(morceau=meeting, ecrit=duration, decalage=0.0),
@@ -135,7 +135,7 @@ def test_la_transcription_n_attend_pas_la_reponse(meeting, tmp_path):
 
     duration = soundfile.info(str(meeting)).duration
     watcher = Watcher(
-        watch_rules=WatchRules(mot_cle="greffier"),
+        watch_rules=WatchRules(keyword="greffier"),
         log=tmp_path / "propositions.jsonl",
         transcriber=transcriber,
         situer=lambda: Position(morceau=meeting, ecrit=duration, decalage=0.0),
@@ -172,7 +172,7 @@ def test_une_phrase_ordinaire_ne_le_fait_pas_parler(tmp_path):
     import soundfile
 
     watcher = Watcher(
-        watch_rules=WatchRules(mot_cle="greffier"),
+        watch_rules=WatchRules(keyword="greffier"),
         log=tmp_path / "propositions.jsonl",
         transcriber=transcriber,
         situer=lambda: Position(morceau=audio, ecrit=soundfile.info(str(audio)).duration,
@@ -191,7 +191,7 @@ def test_l_assistant_absent_ne_change_rien(meeting, tmp_path):
     import soundfile
 
     watcher = Watcher(
-        watch_rules=WatchRules(mot_cle="greffier"),
+        watch_rules=WatchRules(keyword="greffier"),
         log=tmp_path / "propositions.jsonl",
         transcriber=transcriber,
         situer=lambda: Position(morceau=meeting,
@@ -335,7 +335,7 @@ initiative = false
             context=lambda: "Réunion d'équipe sur la recette.",
         )
         watcher = Watcher(
-            watch_rules=WatchRules(mot_cle="greffier"),
+            watch_rules=WatchRules(keyword="greffier"),
             log=tmp_path / "propositions.jsonl",
             transcriber=transcriber,
             situer=lambda: Position(
