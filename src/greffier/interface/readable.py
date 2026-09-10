@@ -1,8 +1,4 @@
-"""Ce que la fenêtre calcule avant d'afficher, sans une ligne de Tk.
-
-Séparé pour la même raison que `style` : ces fonctions se testent sans écran, et
-l'image d'intégration continue n'embarque pas Tk.
-"""
+"""What the window computes before showing, testable without a screen."""
 
 from __future__ import annotations
 
@@ -11,11 +7,7 @@ from pathlib import Path
 
 
 def clock(seconds: float) -> str:
-    """Le chronomètre de la réunion.
-
-    Jamais négatif : la durée est calculée en retirant le temps de pause, et un
-    état incohérent affichait « -1:59:55 » en gros au milieu de la fenêtre.
-    """
+    """The meeting's stopwatch."""
     entier = max(0, int(seconds))
     heures, reste = divmod(entier, 3600)
     minutes, restantes = divmod(reste, 60)
@@ -24,15 +16,7 @@ def clock(seconds: float) -> str:
     return f"{minutes}:{restantes:02d}"
 
 def readable_subject(identifier: str, minutes: Path, subject: str = "") -> str:
-    """Le sujet de la réunion : celui qu'on a choisi, sinon celui du compte rendu.
-
-    « 2026-08-25_14h33_reunion » ne dit rien de ce qui s'est passé. Le titre du
-    compte rendu, lui, a été écrit après avoir écouté : c'est lui qu'on montre,
-    l'horodatage restant en réserve tant qu'aucun compte rendu n'existe.
-
-    Un sujet saisi à la main passe devant les deux : c'est une correction, et
-    une correction qu'un retraitement écraserait ne servirait à rien.
-    """
+    """The meeting's subject: the chosen one, else what was written."""
     if subject.strip():
         return subject.strip()
     if minutes.exists():

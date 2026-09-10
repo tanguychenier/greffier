@@ -83,7 +83,7 @@ def read(file: Path) -> Registry:
     return Registry(sources)
 
 def lay_the_template(file: Path) -> bool:
-    """Écrit le fichier d'exemple s'il n'existe pas. Vrai s'il a été créé."""
+    """Writes the example file when it does not exist."""
     if file.exists():
         return False
     file.parent.mkdir(parents=True, exist_ok=True)
@@ -91,12 +91,7 @@ def lay_the_template(file: Path) -> bool:
     return True
 
 def token_for(source: Source) -> str:
-    """Le secret de cette source, lu là où le registre dit qu'il est.
-
-    Rend une chaîne vide plutôt que de lever : l'appelant sait dire « cette
-    source n'a pas de jeton utilisable » mieux qu'une exception ne le dirait, et
-    un jeton absent n'est pas une panne mais un réglage à finir.
-    """
+    """This source's secret, read where the registry says."""
     if not source.token:
         return ""
     if source.token.startswith(PREFIXE_TROUSSEAU):
@@ -104,12 +99,7 @@ def token_for(source: Source) -> str:
     return os.environ.get(source.token, "").strip()
 
 def _from_the_keychain(service: str) -> str:
-    """Le mot de passe générique du trousseau macOS, ou rien.
-
-    Le trousseau plutôt qu'une variable : il survit aux sauvegardes du dossier
-    de configuration sans y figurer, et macOS demande l'autorisation la première
-    fois — ce qui est une trace de plus qu'un fichier n'offre pas.
-    """
+    """The generic password from the macOS keychain."""
     if platform.system() != "Darwin" or shutil.which("security") is None:
         return ""
     fait = subprocess.run(
