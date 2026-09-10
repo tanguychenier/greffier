@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fabrique les réunions sur lesquelles la chaîne s'est déjà trompée.
 
-`fabriquer_reunion.py` produit une réunion propre : deux voix nettes, des
+`make_meeting.py` produit une réunion propre : deux voix nettes, des
 prénoms prononcés dans les trois formes attendues. Elle prouve que la chaîne
 fonctionne quand tout va bien.
 
@@ -17,8 +17,8 @@ une réunion réelle, ou un piège que la conception rend possible :
     proposition-breve une voix courte est nommée par un renvoi, la proposition
                       ne doit pas se perdre avec le fragment qui la porte
 
-    python3 outils/fabriquer_cas_difficiles.py sortie/            # tous
-    python3 outils/fabriquer_cas_difficiles.py sortie/ --cas absent
+    python3 tools/make_hard_cases.py sortie/            # tous
+    python3 tools/make_hard_cases.py sortie/ --cas absent
 
 macOS uniquement : « say » est le seul moteur de synthèse disponible sans rien
 installer.
@@ -29,7 +29,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from fabriquer_reunion import fabriquer  # noqa: E402
+from make_meeting import fabriquer  # noqa: E402
 
 # Voix nettement distinctes, pour que le test mesure la chaîne et non la
 # capacité de la synthèse vocale à faire deux timbres différents.

@@ -173,16 +173,16 @@ N'emploie ni tiret cadratin ni demi-cadratin.
 class ClaudeWriter:
     """Writes the minutes by calling Claude Code."""
 
-    OUTILS_DE_RECHERCHE: ClassVar[tuple[str, ...]] = ("WebSearch", "WebFetch")
+    SEARCH_TOOLS: ClassVar[tuple[str, ...]] = ("WebSearch", "WebFetch")
 
     def __init__(self, model: str = "", command: str = "claude",
                  timeout: int = 900, language: str = "",
-                 outils: tuple[str, ...] = (), consignes_propres: str = "") -> None:
+                 tools: tuple[str, ...] = (), consignes_propres: str = "") -> None:
         self.model = model
         self.command = command
         self.timeout = timeout
         self.language = language
-        self.outils = outils
+        self.tools = tools
         self.consignes_propres = consignes_propres
 
     def write_up(self, transcription: str) -> str:
@@ -192,7 +192,7 @@ class ClaudeWriter:
                 "Installe Claude Code, ou bascule « compte_rendu.moteur » sur « ollama »."
             )
         command = [self.command, "-p", "--output-format", "text",
-                    "--allowed-tools", ",".join(self.outils)]
+                    "--allowed-tools", ",".join(self.tools)]
         if self.model:
             command += ["--model", self.model]
         header = self.consignes_propres or guidance(self.language)

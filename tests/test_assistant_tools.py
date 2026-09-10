@@ -19,31 +19,31 @@ def config(**conversation) -> Config:
 
 class TestLeRedacteurNaJamaisDOutil:
     def test_aucun_outil_par_defaut(self):
-        assert ClaudeWriter().outils == ()
+        assert ClaudeWriter().tools == ()
 
     def test_le_redacteur_du_compte_rendu_n_en_recoit_aucun(self):
         engine = writer(config())
         assert isinstance(engine, ClaudeWriter)
-        assert engine.outils == ()
+        assert engine.tools == ()
 
     def test_meme_si_la_recherche_est_activee(self):
         """Le réglage de la conversation ne doit pas fuir vers le compte rendu."""
         engine = writer(config(recherche_web=True))
         assert isinstance(engine, ClaudeWriter)
-        assert engine.outils == ()
+        assert engine.tools == ()
 
 
 class TestLAssistantPeutChercher:
     def test_la_recherche_est_accordee_quand_elle_est_activee(self):
         engine = assistant(config(recherche_web=True))
         assert isinstance(engine, ClaudeWriter)
-        assert engine.outils == ClaudeWriter.OUTILS_DE_RECHERCHE
+        assert engine.tools == ClaudeWriter.SEARCH_TOOLS
 
     def test_elle_s_eteint_depuis_les_reglages(self):
         """Il y a des réunions où même le terme cherché ne doit pas sortir."""
         engine = assistant(config(recherche_web=False))
         assert isinstance(engine, ClaudeWriter)
-        assert engine.outils == ()
+        assert engine.tools == ()
 
     def test_l_assistant_ne_recite_pas_le_plan_du_compte_rendu(self):
         """Répondre « qui est Morgane ? » n'appelle pas Décisions / Actions."""
