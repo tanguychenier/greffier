@@ -156,7 +156,19 @@ class VoixNeuronale:
     """
 
     def __init__(self, dossier: Path, langue: str = "fr", voix: int = VOIX_FRANCAISE,
-                 vitesse: float = VITESSE, fils: int = 4) -> None:
+                 vitesse: float = VITESSE, fils: int = 4,
+                 baillon: Path | None = None) -> None:
+        #: Où déposer le numéro du processus qui joue le son.
+        #:
+        #: La fenêtre et la veille sont deux processus, et le bouton « couper »
+        #: est dans la fenêtre : elle écrit un réglage que la veille ne relit
+        #: qu'à la tranche suivante, soit jusqu'à quinze secondes plus tard.
+        #: Mesuré en réunion — on appuie, elle continue de parler, et le bouton
+        #: paraît cassé. Il l'était, du point de vue de qui appuie.
+        #:
+        #: Avec ce fichier, la fenêtre coupe le son elle-même, tout de suite, et
+        #: le réglage suit à son rythme pour la suite.
+        self.baillon = Path(baillon) if baillon else None
         self.dossier = Path(dossier)
         self.langue = langue
         self.voix = voix
@@ -296,10 +308,29 @@ class VoixNeuronale:
                 self._lecture = subprocess.Popen(
                     commande, stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                self._publier_le_baillon(self._lecture.pid)
             self._lecture.wait()
         except OSError:
             return False
+        finally:
+            self._publier_le_baillon(None)
         return not self._interrompu.is_set()
+
+    def _publier_le_baillon(self, pid: int | None) -> None:
+        """Dit à qui veut couper quel processus joue le son.
+
+        Écrit et effacé : un numéro qui traîne ferait tuer un processus qui
+        n'est plus le nôtre, et sur un système qui recycle les numéros ce
+        serait n'importe lequel.
+        """
+        if self.baillon is None:
+            return
+        with contextlib.suppress(OSError):
+            if pid is None:
+                self.baillon.unlink(missing_ok=True)
+            else:
+                self.baillon.parent.mkdir(parents=True, exist_ok=True)
+                self.baillon.write_text(str(pid), encoding="utf-8")
 
     def parle(self) -> bool:
         with self._verrou:
@@ -316,3 +347,25 @@ class VoixNeuronale:
                 lecture.wait(timeout=2)
             except subprocess.TimeoutExpired:
                 lecture.kill()
+
+
+def faire_taire(baillon: Path) -> bool:
+    """Coupe le son en cours, depuis n'importe quel processus.
+
+    Sert au bouton de la fenêtre, qui ne peut pas attendre que la veille relise
+    son réglage. Rend faux quand il n'y avait rien à couper, ce qui est le cas
+    courant.
+    """
+    import signal
+
+    try:
+        pid = int(baillon.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return False
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except (OSError, ProcessLookupError):
+        return False
+    with contextlib.suppress(OSError):
+        baillon.unlink(missing_ok=True)
+    return True

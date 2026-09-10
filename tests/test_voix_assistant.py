@@ -132,3 +132,78 @@ class TestChoixDeLaVoix:
     def test_aucune_voix_francaise_laisse_choisir_le_systeme(self, monkeypatch):
         self._voix(monkeypatch, "Daniel               en_GB    # Hello\n")
         assert voix_systeme.meilleure_voix() is None
+
+
+class TestCouperLeSonDepuisUnAutreProcessus:
+    """Le bouton « couper » est dans la fenêtre, la voix dans la veille.
+
+    Le bouton écrivait un réglage que la veille ne relit qu'à la tranche
+    suivante, soit jusqu'à quinze secondes plus tard. Mesuré en réunion : on
+    appuie, elle continue de parler, et le bouton paraît cassé. Il l'était, du
+    point de vue de qui appuie.
+    """
+
+    def test_le_baillon_porte_le_numero_du_lecteur(self, tmp_path):
+        from greffier.adaptateurs.voix_neuronale import VoixNeuronale
+
+        baillon = tmp_path / "parole.pid"
+        voix = VoixNeuronale(tmp_path, baillon=baillon)
+        voix._publier_le_baillon(4242)
+        assert baillon.read_text() == "4242"
+
+    def test_il_est_effacé_quand_le_son_s_arrête(self, tmp_path):
+        """Un numéro qui traîne ferait tuer un processus qui n'est plus le nôtre.
+
+        Sur un système qui recycle les numéros, ce serait n'importe lequel.
+        """
+        from greffier.adaptateurs.voix_neuronale import VoixNeuronale
+
+        baillon = tmp_path / "parole.pid"
+        voix = VoixNeuronale(tmp_path, baillon=baillon)
+        voix._publier_le_baillon(4242)
+        voix._publier_le_baillon(None)
+        assert not baillon.exists()
+
+    def test_sans_baillon_rien_n_est_ecrit(self, tmp_path):
+        """La ligne de commande n'a personne à qui parler."""
+        from greffier.adaptateurs.voix_neuronale import VoixNeuronale
+
+        VoixNeuronale(tmp_path)._publier_le_baillon(4242)
+        assert list(tmp_path.iterdir()) == []
+
+    def test_faire_taire_coupe_le_processus_designe(self, tmp_path):
+        import subprocess
+        import time
+
+        from greffier.adaptateurs.voix_neuronale import faire_taire
+
+        dormeur = subprocess.Popen(["sleep", "30"])
+        baillon = tmp_path / "parole.pid"
+        baillon.write_text(str(dormeur.pid))
+        assert faire_taire(baillon)
+        for _ in range(20):
+            if dormeur.poll() is not None:
+                break
+            time.sleep(0.1)
+        assert dormeur.poll() is not None, "le processus n'a pas été coupé"
+        assert not baillon.exists()
+
+    def test_faire_taire_sans_rien_a_couper_ne_leve_pas(self, tmp_path):
+        """Le cas courant : personne ne parle."""
+        from greffier.adaptateurs.voix_neuronale import faire_taire
+
+        assert not faire_taire(tmp_path / "absent.pid")
+
+    def test_un_numero_mort_ne_leve_pas(self, tmp_path):
+        from greffier.adaptateurs.voix_neuronale import faire_taire
+
+        baillon = tmp_path / "parole.pid"
+        baillon.write_text("999999")
+        assert not faire_taire(baillon)
+
+    def test_un_baillon_illisible_ne_leve_pas(self, tmp_path):
+        from greffier.adaptateurs.voix_neuronale import faire_taire
+
+        baillon = tmp_path / "parole.pid"
+        baillon.write_text("ce n'est pas un numéro")
+        assert not faire_taire(baillon)
