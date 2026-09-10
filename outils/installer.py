@@ -536,6 +536,18 @@ def _installer_la_segmentation(ctx):
     ok("modèle de segmentation")
 
 
+def voix_presente(dossier):
+    """Un réseau et son vocabulaire, quel que soit le nom du fichier.
+
+    Chercher « model.onnx » ne valait que pour Kokoro : un VITS nomme ses poids
+    d'après sa voix (« fr_FR-upmc-medium.onnx »). L'installation annonçait donc
+    la voix manquante alors qu'elle était en place, et proposait de la
+    retélécharger à chaque passage. Même critère que l'adaptateur, pour que les
+    deux ne puissent pas se contredire.
+    """
+    return any(dossier.glob("*.onnx")) and (dossier / "tokens.txt").exists()
+
+
 def _installer_la_voix(ctx):
     """La voix de l'assistant. Facultative : son absence n'arrête rien.
 
@@ -544,7 +556,7 @@ def _installer_la_voix(ctx):
     bouche, et c'est même son mode par défaut.
     """
     dossier = ctx.modeles / "voix"
-    if (dossier / "model.onnx").exists():
+    if voix_presente(dossier):
         ok("voix de l'assistant")
         return
     if ctx.verifier_seulement:
