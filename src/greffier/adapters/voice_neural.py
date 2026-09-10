@@ -169,11 +169,18 @@ class NeuralVoice:
         return destination
 
     def say(self, text: str) -> bool:
-        """Pronounces the text, sentence by sentence, handing back in between."""
+        """Pronounces the text, sentence by sentence, handing back in between.
+
+        Refuses while it is already speaking, and that is the fix: it used to
+        cut itself here. A second remark arriving mid-sentence killed the first
+        one — "sometimes she starts talking and it cuts". Interrupting oneself
+        is never what was wanted; the room already got an answer.
+        """
         chunks = sentences(text)
         if not chunks or not self.available:
             return False
-        self.go_quiet()
+        if self.is_speaking():
+            return False
         self._interrompu.clear()
         threading.Thread(target=self._pronounce, args=(chunks,), daemon=True).start()
         return True
