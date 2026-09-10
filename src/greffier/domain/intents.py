@@ -1,19 +1,4 @@
-"""Reconnaître, dans une phrase ordinaire, une demande d'apprendre quelque chose.
-
-Alimenter le contexte demandait d'ouvrir un fichier. Dire « retiens que OTP veut
-dire mot de passe à usage unique » est ce qu'on fait naturellement, et c'est ce
-qu'il faut comprendre.
-
-Le choix assumé : on reconnaît par **motifs** et non en interrogeant un modèle.
-Faire analyser chaque message par le rédacteur pour savoir s'il contient une
-intention coûterait un appel distant à chaque phrase tapée, y compris pour
-« qu'a-t-on décidé sur Oasis ? ». Les motifs se trompent parfois — d'où la
-confirmation, qui rend un faux positif inoffensif : il coûte une question, pas
-une écriture.
-
-Rien n'est jamais écrit ici. Ce module lit une phrase et rend ce qu'il croit
-comprendre ; c'est l'appelant qui demande confirmation, puis qui écrit.
-"""
+"""Recognising, in an ordinary sentence, a request to remember something."""
 
 from __future__ import annotations
 
@@ -28,7 +13,7 @@ class What(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class Learning:
-    """Ce qu'une phrase demande de retenir."""
+    """What a sentence asks to be remembered."""
 
     quoi: What
     subject: str
@@ -39,7 +24,7 @@ class Learning:
             raise ValueError("un apprentissage sans sujet ne sert à rien")
 
     def say(self) -> str:
-        """La confirmation à poser, qui montre exactement ce qui sera écrit."""
+        """The confirmation to show, spelling out exactly what will be written."""
         if self.quoi is What.PERSONNE:
             qui = f"« {self.subject} »"
             role = f", {self.precision}" if self.precision else ""
@@ -94,12 +79,7 @@ REFUSAL = frozenset({
 })
 
 def agreement(response: str) -> bool | None:
-    """Vrai si la phrase confirme, Faux si elle refuse, None si elle fait autre chose.
-
-    None est le cas important : une phrase qui n'est ni l'un ni l'autre est une
-    nouvelle demande, pas une confirmation. La prendre pour un « non » perdrait
-    la demande ; la prendre pour un « oui » écrirait sans accord.
-    """
+    """True when the sentence confirms, False when it refuses, None otherwise."""
     nu = response.strip().casefold().rstrip(".!… ")
     if nu in ACCORDS:
         return True
@@ -108,13 +88,7 @@ def agreement(response: str) -> bool | None:
     return None
 
 def understand(phrase: str) -> Learning | None:
-    """Ce que cette phrase demande de retenir, ou None si ce n'en est pas une.
-
-    On refuse plutôt que de deviner à moitié : une phrase qui commence par un
-    verbe d'apprentissage mais dont on n'extrait pas de sujet propre ne donne
-    rien. Mieux vaut la traiter comme une question — l'assistant répondra — que
-    d'écrire une entrée bancale dans le contexte.
-    """
+    """What this sentence asks to remember, or None if it asks nothing."""
     personne = _MOTIF_PERSONNE.match(phrase)
     if personne is not None:
         role = _clean(personne.group("precision"))
@@ -140,12 +114,12 @@ def understand(phrase: str) -> Learning | None:
     return None
 
 def _clean(brut: str) -> str:
-    """Retire les articles et la ponctuation qui traînent autour d'un extrait."""
+    """Removes the articles and punctuation left around a term."""
     nu = brut.strip().strip("\"'«»").strip()
     nu = re.sub(r"^(?:le|la|les|l'|un|une|des|du|de)\s+", "", nu, flags=re.IGNORECASE)
     return nu.strip(" .,;:!?")
 
 def _is_a_role(precision: str) -> bool:
-    """Vrai si la précision décrit une fonction plutôt qu'une définition."""
+    """True when the detail describes a role rather than a definition."""
     nu = precision.casefold()
     return any(re.search(rf"\b{role}", nu) for role in _ROLES)

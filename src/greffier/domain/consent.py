@@ -1,19 +1,7 @@
-"""Ce que les participants d'une réunion doivent pouvoir savoir.
+"""What a meeting's attendees must be able to know.
 
-Un enregistrement de voix est une donnée biométrique. Dans un organisme public,
-la base légale et l'information des personnes se documentent — et l'outil ne
-portait rien de tout cela : ni mention au démarrage, ni trace dans le compte
-rendu, ni moyen de savoir après coup si quelqu'un avait été prévenu.
-
-Ce module ne décide pas de la politique : ce n'est pas au code de dire s'il faut
-un consentement explicite, une information simple ou rien du tout — cela dépend
-de la base légale retenue, qui est une décision d'organisation. Il fournit de
-quoi **tracer** ce qui a été fait, pour que la réponse à « les participants
-étaient-ils au courant ? » existe, quelle qu'elle soit.
-
-Le principe retenu : ce qui n'est pas écrit n'a pas eu lieu. Une mention orale
-faite en réunion ne se retrouve pas six mois plus tard ; une ligne dans le
-compte rendu, oui.
+A voice is biometric data. The minutes carry the matching statement, and the
+tool refuses to pretend that was settled when it was not.
 """
 
 from __future__ import annotations
@@ -22,7 +10,7 @@ from enum import StrEnum
 
 
 class Disclosure(StrEnum):
-    """Ce qui a été fait vis-à-vis des participants."""
+    """What was done towards the attendees."""
 
     RIEN = "rien"
     ANNONCE = "annoncé"
@@ -50,19 +38,15 @@ RAPPEL = (
 )
 
 def mention(disclosure: Disclosure) -> str:
-    """La phrase à porter au compte rendu."""
+    """The sentence to carry into the minutes."""
     return MENTIONS[disclosure]
 
 def to_draw(disclosure: Disclosure) -> bool:
-    """Vrai s'il reste quelque chose à faire pour être en règle avec soi-même."""
+    """True when something is still owed to the attendees."""
     return disclosure is Disclosure.RIEN
 
 def read(brut: str) -> Disclosure:
-    """Ce que dit la configuration, ou « rien » si elle ne dit rien de valable.
-
-    On retombe sur l'état le plus prudent : une valeur mal orthographiée ne doit
-    pas faire écrire au compte rendu que les participants ont donné leur accord.
-    """
+    """What the configuration says, or "nothing" when it says nothing."""
     nu = brut.strip().casefold()
     for value in Disclosure:
         if nu == str(value).casefold():

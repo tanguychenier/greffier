@@ -1,16 +1,4 @@
-"""Ce que la machine permet, et ce qu'on en déduit — sans rien lui demander.
-
-La règle qui choisit le modèle de transcription est du métier : elle décide de
-la qualité du compte rendu et du confort pendant la réunion. Elle vivait au
-milieu de `sysctl`, `wmic`, `system_profiler` et `/proc/meminfo`, si bien qu'on
-ne pouvait pas l'éprouver sans débrancher une machine — alors que le fichier
-d'origine promettait le contraire dans sa propre docstring : « séparer le
-constat de la décision permet de tester les deux ».
-
-Ici, le constat entre en paramètre et la décision en sort. Rien n'est lu du
-système : `Machine.systeme` doit être renseigné par l'appelant, faute de quoi
-la valeur par défaut serait une lecture du monde figée au chargement du module.
-"""
+"""What the machine allows, and what follows from it."""
 
 from __future__ import annotations
 
@@ -21,7 +9,7 @@ DISQUE_NECESSAIRE_GO = 3.0
 
 @dataclass
 class Reading:
-    """Un point vérifié, et quoi faire s'il manque."""
+    """A checked point, and what to do when it is missing."""
 
     name: str
     present: bool
@@ -31,7 +19,7 @@ class Reading:
 
 @dataclass
 class Recorder:
-    """Ce qu'un poste offre. Rempli par l'adaptateur, jamais deviné ici."""
+    """What a machine offers. Filled by the adapter, never guessed."""
 
     system: str = ""
     architecture: str = ""
@@ -45,7 +33,7 @@ class Recorder:
 
     @property
     def advised_model(self) -> str:
-        """Le meilleur modèle que cette machine fasse tourner sans souffrir."""
+        """The best model this machine runs without trouble."""
         if self.supports_large_model:
             return "large-v3-turbo" if self.system == "Darwin" else "large-v3"
         if self.memory_gb >= 4:
@@ -54,7 +42,7 @@ class Recorder:
 
 @dataclass
 class Diagnostic:
-    """Le verdict d'ensemble : ce qui manque, et si l'on peut tout de même y aller."""
+    """The overall verdict: what is missing, and whether it can be fixed."""
 
     recorder: Recorder
     constats: list[Reading] = field(default_factory=list)

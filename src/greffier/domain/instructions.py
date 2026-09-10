@@ -1,21 +1,4 @@
-"""Repérer, pendant la réunion, ce qui appelle une action.
-
-Deux sources, et elles n'ont pas la même fiabilité :
-
-- **le presse-papier** — quand quelqu'un colle un lien dans le chat, le texte
-  est exact. C'est de loin la source la plus sûre.
-- **la parole** — après un mot d'activation, la phrase qui suit est prise pour
-  une instruction. Utile, mais transcrite, donc faillible.
-
-Un lien *dicté à l'oral* n'est presque jamais transcrit correctement — « miro
-point com slash board slash b n 7 x » ne donnera pas une adresse valable. On ne
-prétend donc pas en extraire : ce qui est repéré dans la parole, ce sont des
-intentions, pas des adresses.
-
-Rien n'est exécuté ici. Ce module produit des propositions ; c'est un humain qui
-déclenche. Une action lancée seule sur une phrase mal transcrite, au milieu
-d'une réunion confidentielle, se retourne vite contre son auteur.
-"""
+"""Spotting, during the meeting, what calls for an action."""
 
 from __future__ import annotations
 
@@ -41,7 +24,7 @@ _LIEN = re.compile(r"https?://[^\s<>\"'()\[\]]{4,}")
 
 @dataclass(frozen=True, slots=True)
 class Suggestion:
-    """Quelque chose à faire, soumis à validation."""
+    """Something to do, subject to approval."""
 
     kind: Kind
     text: str
@@ -51,15 +34,11 @@ class Suggestion:
 
     @property
     def key(self) -> str:
-        """De quoi reconnaître un doublon.
-
-        Le presse-papier est relu en boucle : sans cela, un lien copié une fois
-        serait proposé à chaque tour.
-        """
+        """What identifies a duplicate."""
         return f"{self.kind}:{self.text.strip().lower()}"
 
 def liens_dans(text: str) -> list[str]:
-    """Adresses présentes dans un texte, sans doublon et dans l'ordre."""
+    """Addresses present in a text, deduplicated and in order."""
     vus: list[str] = []
     for trouve in _LIEN.finditer(text):
         lien = trouve.group(0).rstrip(".,;:!?")
@@ -68,11 +47,7 @@ def liens_dans(text: str) -> list[str]:
     return vus
 
 def instruction_after(text: str, mot_cle: str) -> str | None:
-    """Ce qui suit le mot d'activation, s'il est prononcé.
-
-    On coupe à la fin de la phrase : au-delà, la personne est passée à autre
-    chose et l'instruction se noierait dans la suite de la réunion.
-    """
+    """What follows the wake word, when it is spoken."""
     motif = re.compile(rf"(?i:\b{re.escape(mot_cle)}\b)[\s,:—-]*(?P<suite>[^.?!]{{3,240}})")
     trouve = motif.search(text)
     if not trouve:
@@ -81,16 +56,12 @@ def instruction_after(text: str, mot_cle: str) -> str | None:
     return suite or None
 
 def decisions_in(text: str, profil: LanguageProfile) -> bool:
-    """Le passage annonce-t-il une décision ou une suite à donner ?
-
-    Les tournures appartiennent à la langue. Une langue sans tournures relevées
-    n'en trouve aucune : la veille se tait plutôt que de proposer au hasard.
-    """
+    """Does the passage announce a decision or a follow-up?"""
     return any(motif.search(text) for motif in profil.redaction.motifs_de_decision)
 
 @dataclass
 class WatchRules:
-    """Accumule les propositions d'une réunion, sans jamais rien répéter."""
+    """Gathers a meeting's suggestions, never acting on its own."""
 
     mot_cle: str = "greffier"
     profil: LanguageProfile = NEUTRAL
@@ -105,7 +76,7 @@ class WatchRules:
         return True
 
     def listen(self, utterances: list[Utterance]) -> list[Suggestion]:
-        """Relève ce qui, dans la parole, appelle une action."""
+        """Picks up what, in the speech, calls for an action."""
         nouvelles: list[Suggestion] = []
         for utterance in utterances:
             at_instant = utterance.span.start
@@ -128,11 +99,7 @@ class WatchRules:
         return nouvelles
 
     def paste(self, content: str, at_instant: float) -> list[Suggestion]:
-        """Relève les liens passés par le presse-papier.
-
-        C'est la source fiable : le texte est exact, il n'a pas transité par la
-        transcription.
-        """
+        """Picks up the links passed through the clipboard."""
         nouvelles: list[Suggestion] = []
         for lien in liens_dans(content):
             candidate = Suggestion(
