@@ -413,3 +413,30 @@ class TestEnvironnementHerite:
                                     "demander": lambda self, _q: False})()
         with pytest.raises(SystemExit):
             installeur.etape_environnement(contexte, "whisper.cpp")
+
+
+class TestPresenceDeLaVoix:
+    """Chercher « model.onnx » ne valait que pour Kokoro.
+
+    Un VITS nomme ses poids d'après sa voix. L'installation annonçait donc la
+    voix manquante alors qu'elle était en place, et proposait de retélécharger
+    quatre-vingts mégaoctets à chaque passage.
+    """
+
+    def test_un_vits_est_reconnu(self, installeur, tmp_path):
+        (tmp_path / "fr_FR-upmc-medium.onnx").write_text("")
+        (tmp_path / "tokens.txt").write_text("")
+        assert installeur.voix_presente(tmp_path)
+
+    def test_un_kokoro_est_reconnu_aussi(self, installeur, tmp_path):
+        (tmp_path / "model.onnx").write_text("")
+        (tmp_path / "tokens.txt").write_text("")
+        assert installeur.voix_presente(tmp_path)
+
+    def test_un_reseau_sans_vocabulaire_ne_suffit_pas(self, installeur, tmp_path):
+        """Le modèle ne se monte pas sans ses jetons : autant le dire avant."""
+        (tmp_path / "fr_FR-upmc-medium.onnx").write_text("")
+        assert not installeur.voix_presente(tmp_path)
+
+    def test_un_dossier_vide_n_est_pas_une_voix(self, installeur, tmp_path):
+        assert not installeur.voix_presente(tmp_path)
