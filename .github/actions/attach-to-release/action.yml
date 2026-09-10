@@ -1,0 +1,30 @@
+# Every system attaches its own file as soon as it is ready, rather than waiting
+# for the other two: on the first release macOS took fifty minutes and nothing
+# was downloadable meanwhile. The release is created by whoever gets there first.
+name: Attach to the release
+description: Creates the release if it does not exist yet, then uploads one file.
+
+inputs:
+  file:
+    description: The file to attach.
+    required: true
+  token:
+    description: A token allowed to write contents.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # bash explicitly: `run` is PowerShell on the Windows runner, and this step
+    # is written in bash.
+    - shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" \
+            >/dev/null 2>&1 \
+          || gh release create "${GITHUB_REF_NAME}" \
+               --repo "${GITHUB_REPOSITORY}" \
+               --title "Greffier ${GITHUB_REF_NAME}" --generate-notes
+        gh release upload "${GITHUB_REF_NAME}" "${{ inputs.file }}" \
+          --repo "${GITHUB_REPOSITORY}" --clobber
