@@ -87,9 +87,9 @@ class TestSurveillancePendantLaReunion:
     """
 
     def monitoring(self):
-        from greffier.domain.level import SurveillanceDeNiveau
+        from greffier.domain.level import LevelWatch
 
-        return SurveillanceDeNiveau()
+        return LevelWatch()
 
     def test_elle_ne_conclut_pas_tout_de_suite(self):
         """Personne ne parle en continu : conclure au premier relevé

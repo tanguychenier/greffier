@@ -27,7 +27,7 @@ AMORCE_MAXIMUM = 850
 _PREAMBULE = "Réunion de travail."
 
 @dataclass(frozen=True, slots=True)
-class Terme:
+class Term:
     """Un mot que le modèle ne peut pas deviner : sigle, produit, nom propre.
 
     `sens` n'aide pas la transcription — le transcripteur ne raisonne pas — mais
@@ -49,7 +49,7 @@ class Terme:
         return f"{self.ecriture} ({self.sens})" if self.sens else self.ecriture
 
 @dataclass(frozen=True, slots=True)
-class Intervenant:
+class Speaker_:
     """Quelqu'un dont le nom se prononce en réunion.
 
     Le rôle sert le rédacteur : « Sophie, cheffe de projet » lui permet de
@@ -69,21 +69,21 @@ class Intervenant:
         return f"{self.name} ({self.role})" if self.role else self.name
 
 @dataclass(frozen=True, slots=True)
-class Contexte:
+class Context:
     """Le glossaire et l'annuaire d'un milieu de travail.
 
     Immuable et fusionnable : le contexte du poste se complète de celui qu'on
     fournit pour une réunion précise, sans que l'un écrase l'autre.
     """
 
-    termes: tuple[Terme, ...] = ()
-    intervenants: tuple[Intervenant, ...] = ()
+    termes: tuple[Term, ...] = ()
+    intervenants: tuple[Speaker_, ...] = ()
 
     @property
     def empty(self) -> bool:
         return not self.termes and not self.intervenants
 
-    def join(self, autre: Contexte) -> Contexte:
+    def join(self, autre: Context) -> Context:
         """Ce contexte, complété par `autre`, qui l'emporte à égalité de nom.
 
         L'ordre compte : ce qui est fourni pour une réunion précise est plus
@@ -93,7 +93,7 @@ class Contexte:
         termes.update({t.ecriture.casefold(): t for t in autre.termes})
         gens = {i.name.casefold(): i for i in self.intervenants}
         gens.update({i.name.casefold(): i for i in autre.intervenants})
-        return Contexte(tuple(termes.values()), tuple(gens.values()))
+        return Context(tuple(termes.values()), tuple(gens.values()))
 
     def prompt_seed(self) -> str:
         """L'amorce du transcripteur : des écritures, sans leur sens.

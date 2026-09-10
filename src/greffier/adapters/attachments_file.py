@@ -25,7 +25,7 @@ PAR_PIECE = 8_000
 HEADER = "# "
 
 @dataclass(frozen=True, slots=True)
-class Piece:
+class Attachment:
     """Un document fourni, réduit à son texte."""
 
     name: str
@@ -47,7 +47,7 @@ def _aplatir(name: str) -> str:
     nu = re.sub(r"[^A-Za-z0-9]+", "-", without_accents).strip("-").casefold()
     return nu[:60] or "document"
 
-def write(base: Path, identifier: str, name: str, text: str) -> Piece | None:
+def write(base: Path, identifier: str, name: str, text: str) -> Attachment | None:
     """Garde le texte de ce document sous la réunion. None s'il n'y a rien à garder.
 
     Écrase une pièce du même nom : redéposer un document est ce qu'on fait
@@ -61,14 +61,14 @@ def write(base: Path, identifier: str, name: str, text: str) -> Piece | None:
     folder.mkdir(parents=True, exist_ok=True)
     file = folder / f"{_aplatir(name)}.txt"
     file.write_text(f"{HEADER}{name}\n{utile}", encoding="utf-8")
-    return Piece(name=name, file=file, caracteres=len(utile))
+    return Attachment(name=name, file=file, caracteres=len(utile))
 
-def lister(base: Path, identifier: str) -> list[Piece]:
+def lister(base: Path, identifier: str) -> list[Attachment]:
     """Les documents fournis pour cette réunion, du plus ancien au plus récent."""
     folder = attachments_folder(base, identifier)
     if not identifier.strip() or not folder.is_dir():
         return []
-    trouvees: list[Piece] = []
+    trouvees: list[Attachment] = []
     for file in sorted(folder.glob("*.txt"), key=lambda f: f.stat().st_mtime):
         try:
             content = file.read_text(encoding="utf-8", errors="replace")
@@ -76,7 +76,7 @@ def lister(base: Path, identifier: str) -> list[Piece]:
             continue
         header, _, corps = content.partition("\n")
         name = header[len(HEADER):].strip() if header.startswith(HEADER) else file.stem
-        trouvees.append(Piece(name=name, file=file, caracteres=len(corps)))
+        trouvees.append(Attachment(name=name, file=file, caracteres=len(corps)))
     return trouvees
 
 def material(base: Path, identifier: str, au_plus: int = AU_PLUS) -> str:

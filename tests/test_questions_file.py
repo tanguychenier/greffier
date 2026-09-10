@@ -7,14 +7,14 @@ from greffier.adapters.questions_file import (
     questions_file,
     read,
 )
-from greffier.domain.questions import Motif, Question
+from greffier.domain.questions import Question, Reason
 
 
 def question(number: int = 1, entendu: str = "bakclog", attendu: str = "backlog") -> Question:
     return Question(
         number=number,
         text=f"J'ai entendu « {entendu} ». Fallait-il comprendre « {attendu} » ?",
-        motif=Motif.NEAR_TERM,
+        motif=Reason.NEAR_TERM,
         entendu=entendu,
         attendu=attendu,
     )

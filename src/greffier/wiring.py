@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from greffier.adapters.audio_ffmpeg import FfmpegRecorder
-from greffier.adapters.channels_file import LecteurCanauxFichier
+from greffier.adapters.channels_file import FileChannelReader
 from greffier.adapters.configuration import Config
 from greffier.adapters.devices_coreaudio import CoreAudioLister
 from greffier.adapters.diarisation_sherpa import SherpaDiariser
@@ -22,17 +22,17 @@ from greffier.adapters.email import (
     OutlookSender,
     SmtpSender,
 )
-from greffier.adapters.notifications import NotificateurSysteme
-from greffier.adapters.store_files import DepotFichiers
-from greffier.adapters.voice_bank_files import BanqueFichiers
-from greffier.adapters.voiceprints_titanet import ExtracteurTitaNet
-from greffier.adapters.writer_ollama import RedacteurOllama
+from greffier.adapters.notifications import SystemNotifier
+from greffier.adapters.store_files import FileStore
+from greffier.adapters.voice_bank_files import FileVoiceBank
+from greffier.adapters.voiceprints_titanet import TitaNetExtractor
+from greffier.adapters.writer_ollama import OllamaWriter
 from greffier.application.follow import Follower, files, known_people
 from greffier.application.name_voice import Naming
 from greffier.application.process import Chain
 from greffier.application.record import Recording
 from greffier.application.take_part import AssistantSettings
-from greffier.domain.context import Contexte as WorkContext
+from greffier.domain.context import Context as WorkContext
 from greffier.domain.live import LiveThread
 from greffier.domain.participation import Manners
 from greffier.ports import outbound
@@ -41,15 +41,15 @@ from greffier.ports import outbound
 def _transcriber(config: Config) -> outbound.Transcriber:
     models = config.paths.models
     if config.transcription.engine == "whisper.cpp":
-        from greffier.adapters.transcription_whisper_cpp import TranscripteurWhisperCpp
+        from greffier.adapters.transcription_whisper_cpp import WhisperCppTranscriber
 
-        return TranscripteurWhisperCpp(
+        return WhisperCppTranscriber(
             model=models / "ggml-large-v3-turbo.bin",
             vad=models / "ggml-silero-v5.1.2.bin",
         )
-    from greffier.adapters.transcription_faster_whisper import TranscripteurFasterWhisper
+    from greffier.adapters.transcription_faster_whisper import FasterWhisperTranscriber
 
-    return TranscripteurFasterWhisper(taille=config.transcription.model)
+    return FasterWhisperTranscriber(taille=config.transcription.model)
 
 def _live_model(config: Config) -> str:
     """Le modèle que cette machine fait tourner dans le budget d'une tranche.
@@ -83,12 +83,12 @@ def light_transcriber(config: Config) -> outbound.Transcriber | None:
         model = next((m for m in candidats if m.exists()), None)
         if model is None:
             return None
-        from greffier.adapters.transcription_whisper_cpp import TranscripteurWhisperCpp
+        from greffier.adapters.transcription_whisper_cpp import WhisperCppTranscriber
 
-        return TranscripteurWhisperCpp(model=model, vad=None)
-    from greffier.adapters.transcription_faster_whisper import TranscripteurFasterWhisper
+        return WhisperCppTranscriber(model=model, vad=None)
+    from greffier.adapters.transcription_faster_whisper import FasterWhisperTranscriber
 
-    return TranscripteurFasterWhisper(taille=taille)
+    return FasterWhisperTranscriber(taille=taille)
 
 def follower(config: Config, identifier: str) -> Follower:
     """Le fil affiché pendant la réunion, et ce qui le corrige.
@@ -99,10 +99,10 @@ def follower(config: Config, identifier: str) -> Follower:
     qu'un modèle manque serait le pire des deux mondes.
     """
     log, requests = files(config.paths.live, identifier)
-    bank = BanqueFichiers(config.paths.voice_bank)
+    bank = FileVoiceBank(config.paths.voice_bank)
     extractor: outbound.VoiceprintExtractor | None = None
     try:
-        extractor = ExtracteurTitaNet(
+        extractor = TitaNetExtractor(
             config.paths.models / "diarisation" / "nemo_en_titanet_large.onnx"
         )
     except FileNotFoundError:
@@ -112,7 +112,7 @@ def follower(config: Config, identifier: str) -> Follower:
                 people=config.speakers.people),
         log=log,
         requests=requests,
-        channels=LecteurCanauxFichier(),
+        channels=FileChannelReader(),
         extractor=extractor,
         bank=bank,
         identifier=identifier,
@@ -123,11 +123,11 @@ def writer(config: Config) -> outbound.Writer | None:
     engine = config.minutes.engine
     language = config.minutes.language or config.transcription.language
     if engine == "ollama":
-        return RedacteurOllama(config.minutes.effective_model, language=language)
+        return OllamaWriter(config.minutes.effective_model, language=language)
     if engine == "claude":
-        from greffier.adapters.writer_claude import RedacteurClaude
+        from greffier.adapters.writer_claude import ClaudeWriter
 
-        return RedacteurClaude(
+        return ClaudeWriter(
             config.minutes.effective_model,
             timeout=config.minutes.timeout,
             language=language,
@@ -149,20 +149,20 @@ def assistant(config: Config) -> outbound.Writer | None:
     """
     engine = config.minutes.engine
     if engine == "ollama":
-        return RedacteurOllama(config.minutes.effective_model,
+        return OllamaWriter(config.minutes.effective_model,
                                language=config.minutes.language)
     if engine != "claude":
         return None
     from greffier.adapters.writer_claude import (
         CONSIGNES_CONVERSATION,
-        RedacteurClaude,
+        ClaudeWriter,
     )
 
-    return RedacteurClaude(
+    return ClaudeWriter(
         config.minutes.effective_model,
         timeout=config.minutes.timeout,
         language=config.minutes.language,
-        outils=(RedacteurClaude.OUTILS_DE_RECHERCHE
+        outils=(ClaudeWriter.OUTILS_DE_RECHERCHE
                 if config.conversation.recherche_web else ()),
         consignes_propres=CONSIGNES_CONVERSATION,
     )
@@ -183,31 +183,31 @@ def cartographe(config: Config) -> outbound.Writer | None:
     """
     engine = config.minutes.engine
     if engine == "ollama":
-        return RedacteurOllama(config.minutes.effective_model,
+        return OllamaWriter(config.minutes.effective_model,
                                language=config.minutes.language)
     if engine != "claude":
         return None
-    from greffier.adapters.writer_claude import RedacteurClaude
+    from greffier.adapters.writer_claude import ClaudeWriter
     from greffier.application.map_subjects import GUIDANCE
 
-    return RedacteurClaude(
+    return ClaudeWriter(
         config.minutes.effective_model,
         timeout=config.minutes.timeout,
         language=config.minutes.language,
         consignes_propres=GUIDANCE,
     )
 
-def store(config: Config) -> DepotFichiers:
+def store(config: Config) -> FileStore:
     """Les fichiers maîtres, source de vérité d'une réunion traitée."""
-    return DepotFichiers(config.paths.data / "reunions")
+    return FileStore(config.paths.data / "reunions")
 
 def naming(config: Config) -> Naming:
     """Le cas d'usage « donner un nom à une voix », après la réunion."""
     diarisation = config.paths.models / "diarisation"
     return Naming(
         store=store(config),
-        bank=BanqueFichiers(config.paths.voice_bank),
-        extractor=ExtracteurTitaNet(diarisation / "nemo_en_titanet_large.onnx"),
+        bank=FileVoiceBank(config.paths.voice_bank),
+        extractor=TitaNetExtractor(diarisation / "nemo_en_titanet_large.onnx"),
     )
 
 def context(config: Config) -> WorkContext:
@@ -226,7 +226,7 @@ def context(config: Config) -> WorkContext:
     from greffier.adapters import context_file
 
     fondu = context_file.from_vocabulary(config.transcription.vocabulary)
-    names = [p.name for p in known_people(BanqueFichiers(config.paths.voice_bank))]
+    names = [p.name for p in known_people(FileVoiceBank(config.paths.voice_bank))]
     fondu = fondu.join(context_file.from_the_bank(names))
     return fondu.join(context_file.read(config.paths.context))
 
@@ -285,12 +285,12 @@ def wire_up(config: Config) -> Chain:
             segmentation=diarisation / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx",
             voiceprints=diarisation / "nemo_en_titanet_large.onnx",
         ),
-        extractor=ExtracteurTitaNet(diarisation / "nemo_en_titanet_large.onnx"),
-        bank=BanqueFichiers(config.paths.voice_bank),
+        extractor=TitaNetExtractor(diarisation / "nemo_en_titanet_large.onnx"),
+        bank=FileVoiceBank(config.paths.voice_bank),
         writer=writer(config),
         sender=_sender(config),
         log=None,
-        notificateur=NotificateurSysteme(),
+        notificateur=SystemNotifier(),
         store=store(config),
         dossier_transcriptions=config.paths.transcripts,
         dossier_comptes_rendus=config.paths.minutes_folder,

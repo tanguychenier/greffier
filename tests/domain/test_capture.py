@@ -1,18 +1,18 @@
 """La capture avance-t-elle ? La seule question qui compte pendant la réunion."""
 
-from greffier.domain.capture import TOURS_AVANT_ALERTE, SurveillanceDeCapture
+from greffier.domain.capture import TOURS_AVANT_ALERTE, CaptureWatch
 
 
 class TestQuandLaCaptureAvance:
     def test_un_fichier_qui_grossit_ne_dit_rien(self):
-        monitoring = SurveillanceDeCapture()
+        monitoring = CaptureWatch()
         assert monitoring.observe(1000) == ""
         assert monitoring.observe(2000) == ""
         assert monitoring.observe(3000) == ""
 
     def test_le_premier_constat_ne_conclut_rien(self):
         """Sans point de comparaison, on ne sait rien : se taire est juste."""
-        assert SurveillanceDeCapture().observe(0) == ""
+        assert CaptureWatch().observe(0) == ""
 
 
 class TestQuandLaCaptureSArrete:
@@ -24,7 +24,7 @@ class TestQuandLaCaptureSArrete:
     """
 
     def test_l_immobilite_finit_par_alerter(self):
-        monitoring = SurveillanceDeCapture()
+        monitoring = CaptureWatch()
         monitoring.observe(5000)
         raisons = [monitoring.observe(5000) for _ in range(TOURS_AVANT_ALERTE)]
         assert raisons[-1], "l'alerte doit finir par sortir"
@@ -32,19 +32,19 @@ class TestQuandLaCaptureSArrete:
 
     def test_elle_ne_crie_pas_au_premier_tour_immobile(self):
         """Un tampon d'écriture qui se vide n'est pas une panne."""
-        monitoring = SurveillanceDeCapture()
+        monitoring = CaptureWatch()
         monitoring.observe(5000)
         assert monitoring.observe(5000) == ""
 
     def test_elle_ne_le_dit_qu_une_fois(self):
-        monitoring = SurveillanceDeCapture()
+        monitoring = CaptureWatch()
         monitoring.observe(5000)
         dites = [r for _ in range(10) if (r := monitoring.observe(5000))]
         assert len(dites) == 1, "répéter à chaque tour noierait le message"
 
     def test_une_reprise_rearme_la_surveillance(self):
         """Un changement de matériel peut interrompre la capture le temps d'un morceau."""
-        monitoring = SurveillanceDeCapture()
+        monitoring = CaptureWatch()
         monitoring.observe(5000)
         for _ in range(TOURS_AVANT_ALERTE):
             monitoring.observe(5000)
@@ -55,7 +55,7 @@ class TestQuandLaCaptureSArrete:
 
     def test_un_fichier_qui_retrecit_compte_comme_immobile(self):
         """Ça n'arrive pas normalement, et ne doit donc pas passer inaperçu."""
-        monitoring = SurveillanceDeCapture()
+        monitoring = CaptureWatch()
         monitoring.observe(9000)
         raisons = [monitoring.observe(1000) for _ in range(TOURS_AVANT_ALERTE)]
         assert raisons[-1]

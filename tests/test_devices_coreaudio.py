@@ -8,7 +8,7 @@ sorties ci-dessous viennent d'un vrai Mac, avant et après branchement du casque
 from __future__ import annotations
 
 from greffier.adapters.devices_coreaudio import analyser
-from greffier.domain.devices import Materiel, WatchRules, advised_mic
+from greffier.domain.devices import Hardware, WatchRules, advised_mic
 
 # Relevé réel, casque et station débranchés.
 SEUL = """Périphériques audio :
@@ -113,7 +113,7 @@ class TestDecisionSurDuReel:
         # Station branchée, casque non : l'entrée ligne du Realtek est presque
         # toujours vide, le micro du portable capte au moins quelque chose.
         materiel = analyser(BRANCHE)
-        sans_casque = Materiel(
+        sans_casque = Hardware(
             tuple(p for p in materiel.devices if not p.name.startswith("Jabra"))
         )
         assert sans_casque.by_name("Realtek USB2.0 Audio") is not None

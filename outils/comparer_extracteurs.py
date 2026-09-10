@@ -83,9 +83,9 @@ def voiceprints(model: Path, meeting: dict, key: str) -> list:
     import numpy as np
     import soundfile as sf
 
-    from greffier.adapters.voiceprints_titanet import DUREE_MINIMALE, ExtracteurTitaNet
+    from greffier.adapters.voiceprints_titanet import DUREE_MINIMALE, TitaNetExtractor
 
-    extractor = ExtracteurTitaNet(model)
+    extractor = TitaNetExtractor(model)
     rendered = []
     with sf.SoundFile(str(meeting["audio"])) as flux:
         frequency = flux.samplerate

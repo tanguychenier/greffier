@@ -20,11 +20,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from greffier.domain.backup import CONTENT, KEPT, Nom, to_erase
+from greffier.domain.backup import CONTENT, KEPT, BackupName, to_erase
 
 
 @dataclass(frozen=True, slots=True)
-class Faite:
+class Made:
     """Ce qu'une sauvegarde a emporté."""
 
     archive: Path
@@ -61,13 +61,13 @@ def do_it(
     destination: Path,
     kept: int = KEPT,
     quand: datetime | None = None,
-) -> Faite:
+) -> Made:
     """Écrit l'archive et applique la rotation. Rend ce qui a été fait.
 
     Les dossiers absents sont sautés sans bruit : une installation neuve n'a ni
     conversations ni questions, et ce n'est pas une anomalie.
     """
-    name = Nom(quand or datetime.now(UTC).astimezone())
+    name = BackupName(quand or datetime.now(UTC).astimezone())
     destination.mkdir(parents=True, exist_ok=True)
     archive = destination / f"{name}.tar.gz"
 
@@ -108,7 +108,7 @@ def do_it(
         except OSError:
             continue
 
-    return Faite(archive, tuple(pris), files,
+    return Made(archive, tuple(pris), files,
                  archive.stat().st_size, tuple(effacees), data=data)
 
 def restore(archive: Path, data: Path, ecraser: bool = False) -> list[str]:
@@ -143,7 +143,7 @@ def lister(destination: Path) -> list[tuple[str, int, datetime]]:
     if not destination.exists():
         return trouvees
     for path in destination.glob("greffier-*.tar.gz"):
-        quand = Nom.read(path.name.removesuffix(".tar.gz"))
+        quand = BackupName.read(path.name.removesuffix(".tar.gz"))
         if quand is None:
             continue
         trouvees.append((path.name, path.stat().st_size, quand))

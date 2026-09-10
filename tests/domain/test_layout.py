@@ -1,6 +1,6 @@
 """Disposer un arbre sans que rien ne se recouvre."""
 
-from greffier.domain.board import Apport, Carte, join
+from greffier.domain.board import Board, Contribution, join
 from greffier.domain.layout import (
     ENTRE_COLONNES,
     ENTRE_LIGNES,
@@ -9,11 +9,11 @@ from greffier.domain.layout import (
 )
 
 
-def carte_type() -> Carte:
-    board = Carte("Oasis")
-    join(board, [Apport("Problème A"), Apport("Problème B")])
-    join(board, [Apport("Piste A1", sous="Problème A"),
-                      Apport("Piste A2", sous="Problème A")])
+def carte_type() -> Board:
+    board = Board("Oasis")
+    join(board, [Contribution("Problème A"), Contribution("Problème B")])
+    join(board, [Contribution("Piste A1", sous="Problème A"),
+                      Contribution("Piste A2", sous="Problème A")])
     return board
 
 
@@ -54,5 +54,5 @@ class TestDisposition:
         assert places["Problème A"].y == sum(enfants) / 2
 
     def test_une_carte_d_un_seul_noeud_tient(self):
-        places = disposer(Carte("Oasis"))
+        places = disposer(Board("Oasis"))
         assert len(places) == 1 and places[0].x == 0 and places[0].y == 0

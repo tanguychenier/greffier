@@ -22,7 +22,7 @@ from dataclasses import dataclass
 TOURS_AVANT_ALERTE = 3
 
 @dataclass
-class SurveillanceDeCapture:
+class CaptureWatch:
     """Suit la taille du fichier en cours et dit quand la capture a cessé.
 
     Alerte **une seule fois** par épisode : répéter à chaque tour noierait le

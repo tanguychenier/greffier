@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from greffier.adapters.store_files import FORMAT, DepotFichiers, StoredMeeting
-from greffier.adapters.voice_bank_files import BanqueFichiers, _file_at
+from greffier.adapters.store_files import FORMAT, FileStore, StoredMeeting
+from greffier.adapters.voice_bank_files import FileVoiceBank, _file_at
 from greffier.domain.models import Span, SpeakerTurn, Utterance
 from greffier.domain.voiceprints import normalise, recognise
 
@@ -17,7 +17,7 @@ def voice(*composantes, duration=10.0):
 
 @pytest.fixture
 def bank(tmp_path):
-    return BanqueFichiers(tmp_path / "banque-de-voix")
+    return FileVoiceBank(tmp_path / "banque-de-voix")
 
 
 class TestBanqueDeVoix:
@@ -40,7 +40,7 @@ class TestBanqueDeVoix:
         assert len(bank.find("Josiane").voiceprints) == 3
 
     def test_l_accumulation_reste_bornee(self, tmp_path):
-        bank = BanqueFichiers(tmp_path / "b", maximum=2)
+        bank = FileVoiceBank(tmp_path / "b", maximum=2)
         for i in range(6):
             bank.record("Josiane", voice(1.0, 0.0, duration=float(i)))
         assert len(bank.find("Josiane").voiceprints) == 2
@@ -86,7 +86,7 @@ class TestBanqueDeVoix:
         assert [p.name for p in bank.people()] == ["Josiane"]
 
     def test_une_banque_absente_n_est_pas_une_erreur(self, tmp_path):
-        assert BanqueFichiers(tmp_path / "jamais-creee").people() == []
+        assert FileVoiceBank(tmp_path / "jamais-creee").people() == []
 
 
 def reunion_type(**overrides):
@@ -108,7 +108,7 @@ def reunion_type(**overrides):
 
 class TestFichierMaitre:
     def test_ce_qui_est_ecrit_est_relu_identique(self, tmp_path):
-        magasin = DepotFichiers(tmp_path)
+        magasin = FileStore(tmp_path)
         magasin.record(reunion_type())
         relue = magasin.read("2026-08-24_reunion")
         assert relue.names == {"1": "Josiane"}
@@ -118,7 +118,7 @@ class TestFichierMaitre:
 
     def test_les_horodatages_survivent(self, tmp_path):
         """Ils permettent de citer un passage et d'y revenir."""
-        magasin = DepotFichiers(tmp_path)
+        magasin = FileStore(tmp_path)
         magasin.record(reunion_type())
         assert magasin.read("2026-08-24_reunion").turns[1].span.start == 60
 
@@ -135,7 +135,7 @@ class TestFichierMaitre:
 
     def test_une_reunion_inconnue_le_dit_clairement(self, tmp_path):
         with pytest.raises(FileNotFoundError, match="inconnue"):
-            DepotFichiers(tmp_path).read("jamais-vue")
+            FileStore(tmp_path).read("jamais-vue")
 
     def test_un_format_plus_recent_est_refuse(self, tmp_path):
         """Mieux vaut refuser que lire de travers un fichier d'une version future.
@@ -145,7 +145,7 @@ class TestFichierMaitre:
         au format 2 ne cassait pas le test — il ne remplaçait plus rien et
         vérifiait qu'un fichier valide lève une erreur, ce qu'il ne fait pas.
         """
-        magasin = DepotFichiers(tmp_path)
+        magasin = FileStore(tmp_path)
         magasin.record(reunion_type())
         path = tmp_path / "2026-08-24_reunion.json"
         content = json.loads(path.read_text(encoding="utf-8"))
@@ -160,7 +160,7 @@ class TestFichierMaitre:
         Les réunions déjà sur le disque n'ont pas à être retraitées pour que
         l'outil sache encore les ouvrir.
         """
-        magasin = DepotFichiers(tmp_path)
+        magasin = FileStore(tmp_path)
         magasin.record(reunion_type())
         path = tmp_path / "2026-08-24_reunion.json"
         content = json.loads(path.read_text(encoding="utf-8"))
@@ -174,7 +174,7 @@ class TestFichierMaitre:
         assert relue.utterances, "le reste du fichier se lit normalement"
 
     def test_les_plus_recentes_d_abord(self, tmp_path):
-        magasin = DepotFichiers(tmp_path)
+        magasin = FileStore(tmp_path)
         for identifier in ("2026-08-01_a", "2026-08-24_b", "2026-08-12_c"):
             magasin.record(reunion_type(identifier=identifier))
         assert magasin.lister()[0] == "2026-08-24_b"
@@ -182,7 +182,7 @@ class TestFichierMaitre:
     def test_les_evenements_materiel_survivent(self, tmp_path):
         """Nécessaire pour régénérer la rédaction plus tard sans perdre ce que
         la veille du matériel avait constaté."""
-        magasin = DepotFichiers(tmp_path)
+        magasin = FileStore(tmp_path)
         magasin.record(reunion_type(
             hardware_events=["casque branché à 12:03"]
         ))
@@ -192,7 +192,7 @@ class TestFichierMaitre:
     def test_un_fichier_maitre_sans_evenements_materiel_se_relit(self, tmp_path):
         """Un fichier maître écrit avant l'ajout de ce champ n'a pas la clé :
         elle doit se relire vide, pas planter."""
-        magasin = DepotFichiers(tmp_path)
+        magasin = FileStore(tmp_path)
         magasin.record(reunion_type())
         path = tmp_path / "2026-08-24_reunion.json"
         content = json.loads(path.read_text())
@@ -246,7 +246,7 @@ class TestReparerUneBanque:
         Ce qui décide de la reconnaissance est l'empreinte : c'est donc à ce
         grain qu'on doit pouvoir corriger.
         """
-        bank = BanqueFichiers(tmp_path)
+        bank = FileVoiceBank(tmp_path)
         for vector in ([1.0, 0.0], [0.0, 1.0], [0.5, 0.5]):
             bank.record("Pascal", normalise(vector, source_duration=10.0))
         assert bank.remove_voiceprints("Pascal", [1]) == 1
@@ -255,19 +255,19 @@ class TestReparerUneBanque:
 
     def test_tout_retirer_efface_la_personne(self, tmp_path):
         """Une entrée sans empreinte ne reconnaît rien et encombre la liste."""
-        bank = BanqueFichiers(tmp_path)
+        bank = FileVoiceBank(tmp_path)
         bank.record("Pascal", normalise([1.0, 0.0], source_duration=10.0))
         assert bank.remove_voiceprints("Pascal", [0]) == 1
         assert bank.find("Pascal") is None
 
     def test_un_rang_hors_limite_ne_casse_rien(self, tmp_path):
-        bank = BanqueFichiers(tmp_path)
+        bank = FileVoiceBank(tmp_path)
         bank.record("Pascal", normalise([1.0, 0.0], source_duration=10.0))
         assert bank.remove_voiceprints("Pascal", [7]) == 0
         assert bank.find("Pascal") is not None
 
     def test_une_personne_inconnue_ne_leve_pas(self, tmp_path):
-        assert BanqueFichiers(tmp_path).remove_voiceprints("Absent", [0]) == 0
+        assert FileVoiceBank(tmp_path).remove_voiceprints("Absent", [0]) == 0
 
 
 class TestOublierUneReunion:
@@ -282,7 +282,7 @@ class TestOublierUneReunion:
         """
         from dataclasses import replace
 
-        bank = BanqueFichiers(tmp_path)
+        bank = FileVoiceBank(tmp_path)
         bonne = normalise([1.0, 0.0], source_duration=10.0)
         fautive = replace(normalise([0.0, 1.0], source_duration=900.0),
                           origine="2026-09-09_reunion")
@@ -299,7 +299,7 @@ class TestOublierUneReunion:
         assert bank.find("Kilian") is None
 
     def test_une_reunion_inconnue_ne_touche_a_rien(self, tmp_path):
-        bank = BanqueFichiers(tmp_path)
+        bank = FileVoiceBank(tmp_path)
         bank.record("Pascal", normalise([1.0, 0.0], source_duration=10.0))
         assert bank.forget_a_meeting("jamais-tenue") == {}
         assert bank.find("Pascal") is not None
@@ -308,9 +308,9 @@ class TestOublierUneReunion:
         """Sans persistance, la trace ne servirait qu'au processus qui l'a posée."""
         from dataclasses import replace
 
-        bank = BanqueFichiers(tmp_path)
+        bank = FileVoiceBank(tmp_path)
         bank.record("Pascal", replace(
             normalise([1.0, 0.0], source_duration=10.0), origine="2026-09-09_reunion"))
-        relue = BanqueFichiers(tmp_path).find("Pascal")
+        relue = FileVoiceBank(tmp_path).find("Pascal")
         assert relue is not None
         assert relue.voiceprints[0].origine == "2026-09-09_reunion"

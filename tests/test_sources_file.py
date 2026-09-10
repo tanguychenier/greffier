@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from greffier.adapters import sources_file
-from greffier.domain.sources import Droit, Genre, Source
+from greffier.domain.sources import Kind, Right, Source
 
 
 @pytest.fixture
@@ -60,7 +60,7 @@ jeton = "GREFFIER_GITLAB_JETON"
 """)
         source = sources_file.read(file).sources[0]
         assert source.name == "recherche"
-        assert source.kind is Genre.GITLAB
+        assert source.kind is Kind.GITLAB
         assert source.projet == "equipe/outil"
 
     def test_la_lecture_seule_est_le_defaut_du_fichier(self, file):
@@ -82,7 +82,7 @@ adresse = "https://x.atlassian.net"
 projet = "PROJ"
 droit = "écriture"
 """)
-        assert sources_file.read(file).sources[0].droit is Droit.ECRITURE
+        assert sources_file.read(file).sources[0].droit is Right.ECRITURE
 
     def test_la_barre_finale_de_l_adresse_est_retiree(self, file):
         """Sinon l'appel vise « …fr//api/v4 », que GitLab refuse."""
@@ -126,19 +126,19 @@ projet = "a/b"
 class TestJeton:
     def test_une_variable_d_environnement_est_lue(self, monkeypatch):
         monkeypatch.setenv("GREFFIER_ESSAI_JETON", "glpat-secret")
-        source = Source(name="x", kind=Genre.GITLAB, adresse="https://x.fr",
+        source = Source(name="x", kind=Kind.GITLAB, adresse="https://x.fr",
                         projet="a/b", token="GREFFIER_ESSAI_JETON")
         assert sources_file.token_for(source) == "glpat-secret"
 
     def test_une_variable_absente_ne_leve_pas(self, monkeypatch):
         """Un jeton absent est un réglage à finir, pas une panne."""
         monkeypatch.delenv("GREFFIER_ABSENT", raising=False)
-        source = Source(name="x", kind=Genre.GITLAB, adresse="https://x.fr",
+        source = Source(name="x", kind=Kind.GITLAB, adresse="https://x.fr",
                         projet="a/b", token="GREFFIER_ABSENT")
         assert sources_file.token_for(source) == ""
 
     def test_une_source_sans_jeton_declare_rend_rien(self):
-        source = Source(name="x", kind=Genre.GITLAB, adresse="https://x.fr",
+        source = Source(name="x", kind=Kind.GITLAB, adresse="https://x.fr",
                         projet="a/b")
         assert sources_file.token_for(source) == ""
 
@@ -152,7 +152,7 @@ class TestJeton:
         monkeypatch.setattr(sources_file.platform, "system", lambda: "Darwin")
         monkeypatch.setattr(sources_file.shutil, "which", lambda _n: "/usr/bin/security")
         monkeypatch.setattr(sources_file.subprocess, "run", render)
-        source = Source(name="x", kind=Genre.GITLAB, adresse="https://x.fr",
+        source = Source(name="x", kind=Kind.GITLAB, adresse="https://x.fr",
                         projet="a/b", token="trousseau:greffier-gitlab")
         assert sources_file.token_for(source) == "du-trousseau"
         assert "greffier-gitlab" in appels[0]
@@ -164,7 +164,7 @@ class TestJeton:
             sources_file.subprocess, "run",
             lambda *_a, **_k: type("Fait", (), {"returncode": 44, "stdout": ""})(),
         )
-        source = Source(name="x", kind=Genre.GITLAB, adresse="https://x.fr",
+        source = Source(name="x", kind=Kind.GITLAB, adresse="https://x.fr",
                         projet="a/b", token="trousseau:absent")
         assert sources_file.token_for(source) == ""
 
@@ -174,6 +174,6 @@ class TestJeton:
 
         monkeypatch.setattr(sources_file.platform, "system", lambda: "Linux")
         monkeypatch.setattr(sources_file.subprocess, "run", jamais)
-        source = Source(name="x", kind=Genre.GITLAB, adresse="https://x.fr",
+        source = Source(name="x", kind=Kind.GITLAB, adresse="https://x.fr",
                         projet="a/b", token="trousseau:x")
         assert sources_file.token_for(source) == ""

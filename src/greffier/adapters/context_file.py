@@ -24,7 +24,7 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from greffier.domain.context import Contexte, Intervenant, Terme
+from greffier.domain.context import Context, Speaker_, Term
 
 GABARIT = '''# Ce que Greffier doit savoir de votre milieu de travail.
 #
@@ -52,7 +52,7 @@ sens = "mot de passe à usage unique"
 '''
 
 
-def read(file: Path) -> Contexte:
+def read(file: Path) -> Context:
     """Le contexte écrit à la main. Vide si le fichier n'existe pas.
 
     Une entrée mal formée est écartée sans faire échouer la lecture : un
@@ -60,41 +60,41 @@ def read(file: Path) -> Contexte:
     parce qu'une ligne manque son « ecriture ».
     """
     if not file.exists():
-        return Contexte()
+        return Context()
     try:
         content = tomllib.loads(file.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError):
-        return Contexte()
+        return Context()
 
     termes = []
     for input in content.get("termes", []):
         if isinstance(input, dict) and str(input.get("ecriture", "")).strip():
-            termes.append(Terme(str(input["ecriture"]).strip(),
+            termes.append(Term(str(input["ecriture"]).strip(),
                                 str(input.get("sens", "")).strip()))
     gens = []
     for input in content.get("personnes", []):
         if isinstance(input, dict) and str(input.get("nom", "")).strip():
-            gens.append(Intervenant(str(input["nom"]).strip(),
+            gens.append(Speaker_(str(input["nom"]).strip(),
                                     str(input.get("role", "")).strip()))
-    return Contexte(tuple(termes), tuple(gens))
+    return Context(tuple(termes), tuple(gens))
 
 
-def from_vocabulary(words: list[str]) -> Contexte:
+def from_vocabulary(words: list[str]) -> Context:
     """Le vocabulaire de `config.toml`, en termes sans sens.
 
     Gardé pour que les postes déjà réglés ne perdent rien le jour où le fichier
     de contexte apparaît.
     """
-    return Contexte(tuple(Terme(mot.strip()) for mot in words if mot.strip()))
+    return Context(tuple(Term(mot.strip()) for mot in words if mot.strip()))
 
 
-def from_the_bank(names: list[str]) -> Contexte:
+def from_the_bank(names: list[str]) -> Context:
     """Les habitués, en intervenants sans rôle.
 
     La banque de voix les connaît parce qu'on les a nommés une fois : les
     reprendre ici évite d'avoir à les réécrire dans le vocabulaire.
     """
-    return Contexte(intervenants=tuple(Intervenant(name.strip())
+    return Context(intervenants=tuple(Speaker_(name.strip())
                                        for name in names if name.strip()))
 
 

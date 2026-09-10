@@ -2,8 +2,8 @@
 
 import pytest
 
-from greffier.application.map_subjects import RenduIllisible, analyser, extract
-from greffier.domain.board import Genre, RecorderState
+from greffier.application.map_subjects import UnreadableOutput, analyser, extract
+from greffier.domain.board import Kind, Standing
 
 
 class RedacteurFactice:
@@ -23,8 +23,8 @@ class TestAnalyse:
             '"etat": "en discussion", "sous": ""}]'
         )
         assert len(apports) == 1
-        assert apports[0].kind is Genre.PROBLEME
-        assert apports[0].state is RecorderState.EN_DISCUSSION
+        assert apports[0].kind is Kind.PROBLEME
+        assert apports[0].state is Standing.EN_DISCUSSION
 
     def test_un_bloc_de_code_est_accepte(self):
         """Le rédacteur enrobe volontiers, malgré la consigne."""
@@ -41,16 +41,16 @@ class TestAnalyse:
         Mesuré : le modèle a répondu en prose, en demandant si c'était bien le
         tableau attendu, et la commande a annoncé « rien à ajouter ».
         """
-        with pytest.raises(RenduIllisible, match="aucun tableau"):
+        with pytest.raises(UnreadableOutput, match="aucun tableau"):
             analyser("Je n'ai rien trouvé sur ce sujet.")
 
     def test_un_json_casse_leve(self):
         """Des crochets présents mais un contenu invalide."""
-        with pytest.raises(RenduIllisible, match="invalide"):
+        with pytest.raises(UnreadableOutput, match="invalide"):
             analyser('[{"texte": "incomplet", }]')
 
     def test_une_reponse_tronquee_avant_le_crochet_fermant_leve(self):
-        with pytest.raises(RenduIllisible, match="aucun tableau"):
+        with pytest.raises(UnreadableOutput, match="aucun tableau"):
             analyser('[{"texte": "incomplet"')
 
     def test_un_tableau_vide_est_un_resultat_et_non_une_panne(self):
@@ -73,23 +73,23 @@ class TestPrudenceSurLEtat:
     """Présenter une idée orale comme une décision est le pire défaut ici."""
 
     def test_le_defaut_est_en_discussion(self):
-        assert analyser('[{"texte": "Une idée"}]')[0].state is RecorderState.EN_DISCUSSION
+        assert analyser('[{"texte": "Une idée"}]')[0].state is Standing.EN_DISCUSSION
 
     def test_un_etat_non_reconnu_retombe_en_discussion(self):
         apports = analyser('[{"texte": "Une idée", "etat": "peut-être"}]')
-        assert apports[0].state is RecorderState.EN_DISCUSSION
+        assert apports[0].state is Standing.EN_DISCUSSION
 
     def test_depasse_ne_peut_pas_venir_d_une_extraction(self):
         """Seul un humain marque une piste comme dépassée."""
         apports = analyser('[{"texte": "Une piste", "etat": "dépassé"}]')
-        assert apports[0].state is RecorderState.EN_DISCUSSION
+        assert apports[0].state is Standing.EN_DISCUSSION
 
     def test_acte_est_respecte_quand_il_est_explicite(self):
         apports = analyser('[{"texte": "Monter la recette", "etat": "acté"}]')
-        assert apports[0].state is RecorderState.ACTE
+        assert apports[0].state is Standing.ACTE
 
     def test_un_genre_non_reconnu_devient_un_constat(self):
-        assert analyser('[{"texte": "X", "genre": "truc"}]')[0].kind is Genre.CONSTAT
+        assert analyser('[{"texte": "X", "genre": "truc"}]')[0].kind is Kind.CONSTAT
 
 
 class TestExtraction:

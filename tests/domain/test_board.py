@@ -1,11 +1,11 @@
 """La carte d'un sujet : on ajoute, on ne détruit pas."""
 
 from greffier.domain.board import (
-    Apport,
-    Carte,
-    Genre,
-    Noeud,
-    RecorderState,
+    Board,
+    Contribution,
+    Kind,
+    Node,
+    Standing,
     join,
     key,
     mark_overdue,
@@ -39,22 +39,22 @@ class TestReconnaissanceDeFormulation:
 
 class TestFusion:
     def test_un_point_nouveau_s_ajoute(self):
-        board = Carte("Oasis")
-        bilan = join(board, [Apport("Le PDF ne se régénère pas")])
+        board = Board("Oasis")
+        bilan = join(board, [Contribution("Le PDF ne se régénère pas")])
         assert bilan.ajoutes == ("Le PDF ne se régénère pas",)
         assert board.count == 2
 
     def test_un_point_deja_present_ne_se_duplique_pas(self):
-        board = Carte("Oasis")
-        join(board, [Apport("Le PDF ne se régénère pas")])
-        bilan = join(board, [Apport("le pdf ne se regenere pas")])
+        board = Board("Oasis")
+        join(board, [Contribution("Le PDF ne se régénère pas")])
+        bilan = join(board, [Contribution("le pdf ne se regenere pas")])
         assert bilan.ajoutes == ()
         assert board.count == 2, "la reformulation ne crée pas une seconde branche"
 
     def test_une_piste_s_accroche_sous_son_probleme(self):
-        board = Carte("Oasis")
-        join(board, [Apport("Le PDF ne se régénère pas", kind=Genre.PROBLEME)])
-        join(board, [Apport("Forcer la régénération", kind=Genre.PISTE,
+        board = Board("Oasis")
+        join(board, [Contribution("Le PDF ne se régénère pas", kind=Kind.PROBLEME)])
+        join(board, [Contribution("Forcer la régénération", kind=Kind.PISTE,
                                  sous="Le PDF ne se régénère pas")])
         assert board.racine is not None
         probleme = board.racine.enfant("Le PDF ne se régénère pas")
@@ -63,54 +63,54 @@ class TestFusion:
 
     def test_un_parent_introuvable_ne_perd_pas_l_apport(self):
         """Mal placé, il reste corrigeable ; perdu, il faut réécouter la réunion."""
-        board = Carte("Oasis")
-        join(board, [Apport("Une piste", sous="un parent qui n'existe pas")])
+        board = Board("Oasis")
+        join(board, [Contribution("Une piste", sous="un parent qui n'existe pas")])
         assert board.racine is not None
         assert board.racine.enfant("Une piste") is not None
 
     def test_la_reunion_d_origine_est_notee(self):
-        board = Carte("Oasis")
-        join(board, [Apport("Un point")], meeting="2026-09-09_10h05_reunion")
+        board = Board("Oasis")
+        join(board, [Contribution("Un point")], meeting="2026-09-09_10h05_reunion")
         assert board.racine is not None
         noeud = board.racine.enfant("Un point")
         assert noeud is not None
         assert noeud.meetings == ["2026-09-09_10h05_reunion"]
 
     def test_deux_reunions_sur_le_meme_point_sont_toutes_deux_notees(self):
-        board = Carte("Oasis")
-        join(board, [Apport("Un point")], meeting="premiere")
-        join(board, [Apport("Un point")], meeting="seconde")
+        board = Board("Oasis")
+        join(board, [Contribution("Un point")], meeting="premiere")
+        join(board, [Contribution("Un point")], meeting="seconde")
         assert board.racine is not None
         noeud = board.racine.enfant("Un point")
         assert noeud is not None
         assert noeud.meetings == ["premiere", "seconde"]
 
     def test_un_apport_vide_est_ignore(self):
-        board = Carte("Oasis")
-        assert join(board, [Apport("   ")]).empty
+        board = Board("Oasis")
+        assert join(board, [Contribution("   ")]).empty
 
 
 class TestEtats:
     """Ce qui est en discussion ne doit pas passer pour une décision."""
 
     def test_le_defaut_est_en_discussion(self):
-        board = Carte("Oasis")
-        join(board, [Apport("Une idée lancée à l'oral")])
+        board = Board("Oasis")
+        join(board, [Contribution("Une idée lancée à l'oral")])
         assert board.racine is not None
         noeud = board.racine.enfant("Une idée lancée à l'oral")
         assert noeud is not None
-        assert noeud.state is RecorderState.EN_DISCUSSION
+        assert noeud.state is Standing.EN_DISCUSSION
 
     def test_une_decision_releve_l_etat(self):
-        board = Carte("Oasis")
-        join(board, [Apport("Monter la recette en interne", kind=Genre.PISTE)])
-        bilan = join(board, [Apport("Monter la recette en interne",
-                                         kind=Genre.PISTE, state=RecorderState.ACTE)])
+        board = Board("Oasis")
+        join(board, [Contribution("Monter la recette en interne", kind=Kind.PISTE)])
+        bilan = join(board, [Contribution("Monter la recette en interne",
+                                         kind=Kind.PISTE, state=Standing.ACTE)])
         assert bilan.actes == ("Monter la recette en interne",)
         assert board.racine is not None
         noeud = board.racine.enfant("Monter la recette en interne")
         assert noeud is not None
-        assert noeud.state is RecorderState.ACTE
+        assert noeud.state is Standing.ACTE
 
     def test_un_probleme_ne_peut_pas_etre_acte(self):
         """« Acté » se lirait « le groupe a décidé ce problème ».
@@ -118,74 +118,74 @@ class TestEtats:
         Mesuré sur une extraction réelle : sept problèmes sur douze revenaient
         marqués « acté », le rédacteur ayant lu « acté » comme « établi ».
         """
-        board = Carte("Oasis")
-        join(board, [Apport("Le PDF ne se régénère pas",
-                                 kind=Genre.PROBLEME, state=RecorderState.ACTE)])
+        board = Board("Oasis")
+        join(board, [Contribution("Le PDF ne se régénère pas",
+                                 kind=Kind.PROBLEME, state=Standing.ACTE)])
         assert board.racine is not None
         noeud = board.racine.enfant("Le PDF ne se régénère pas")
         assert noeud is not None
-        assert noeud.state is RecorderState.EN_DISCUSSION
+        assert noeud.state is Standing.EN_DISCUSSION
 
     def test_une_piste_et_une_action_peuvent_etre_actees(self):
-        board = Carte("Oasis")
-        join(board, [Apport("Monter la recette", kind=Genre.PISTE, state=RecorderState.ACTE),
-                          Apport("Chiffrer le coût", kind=Genre.ACTION, state=RecorderState.ACTE)])
+        board = Board("Oasis")
+        join(board, [Contribution("Monter la recette", kind=Kind.PISTE, state=Standing.ACTE),
+                          Contribution("Chiffrer le coût", kind=Kind.ACTION, state=Standing.ACTE)])
         assert board.racine is not None
         for text in ("Monter la recette", "Chiffrer le coût"):
             noeud = board.racine.enfant(text)
-            assert noeud is not None and noeud.state is RecorderState.ACTE
+            assert noeud is not None and noeud.state is Standing.ACTE
 
     def test_un_probleme_peut_etre_depasse(self):
         """Un problème peut avoir cessé d'en être un."""
-        board = Carte("Oasis")
-        join(board, [Apport("Un souci", kind=Genre.PROBLEME)])
+        board = Board("Oasis")
+        join(board, [Contribution("Un souci", kind=Kind.PROBLEME)])
         assert mark_overdue(board, "Un souci") is True
 
     def test_une_decision_ne_redevient_pas_une_discussion(self):
         """« Acté » qui redeviendrait « en discussion » ferait douter de tout."""
-        board = Carte("Oasis")
-        join(board, [Apport("Monter la recette", kind=Genre.PISTE, state=RecorderState.ACTE)])
-        join(board, [Apport("Monter la recette", kind=Genre.PISTE,
-                                 state=RecorderState.EN_DISCUSSION)])
+        board = Board("Oasis")
+        join(board, [Contribution("Monter la recette", kind=Kind.PISTE, state=Standing.ACTE)])
+        join(board, [Contribution("Monter la recette", kind=Kind.PISTE,
+                                 state=Standing.EN_DISCUSSION)])
         assert board.racine is not None
         noeud = board.racine.enfant("Monter la recette")
         assert noeud is not None
-        assert noeud.state is RecorderState.ACTE
+        assert noeud.state is Standing.ACTE
 
 
 class TestRienNeDisparait:
     """Une carte partagée porte le travail de plusieurs personnes."""
 
     def test_marquer_depasse_garde_le_noeud(self):
-        board = Carte("Oasis")
-        join(board, [Apport("Une piste écartée")])
+        board = Board("Oasis")
+        join(board, [Contribution("Une piste écartée")])
         assert mark_overdue(board, "Une piste écartée") is True
         assert board.count == 2, "le nœud reste"
         assert board.racine is not None
         noeud = board.racine.enfant("Une piste écartée")
         assert noeud is not None
-        assert noeud.state is RecorderState.DEPASSE
+        assert noeud.state is Standing.DEPASSE
 
     def test_la_racine_ne_se_marque_pas(self):
-        assert mark_overdue(Carte("Oasis"), "Oasis") is False
+        assert mark_overdue(Board("Oasis"), "Oasis") is False
 
     def test_marquer_ce_qui_n_existe_pas_le_dit(self):
-        assert mark_overdue(Carte("Oasis"), "jamais évoqué") is False
+        assert mark_overdue(Board("Oasis"), "jamais évoqué") is False
 
     def test_une_fusion_ne_retire_aucun_noeud_existant(self):
-        board = Carte("Oasis")
-        join(board, [Apport("A"), Apport("B"), Apport("C")])
+        board = Board("Oasis")
+        join(board, [Contribution("A"), Contribution("B"), Contribution("C")])
         avant = board.count
-        join(board, [Apport("D")])
+        join(board, [Contribution("D")])
         assert board.count == avant + 1, "rien n'a été remplacé"
 
 
 class TestComptage:
     def test_un_noeud_seul_compte_pour_un(self):
-        assert Noeud("seul").count() == 1
+        assert Node("seul").count() == 1
 
     def test_les_enfants_comptent(self):
-        racine = Noeud("racine", enfants=[Noeud("a"), Noeud("b", enfants=[Noeud("c")])])
+        racine = Node("racine", enfants=[Node("a"), Node("b", enfants=[Node("c")])])
         assert racine.count() == 4
 
 
@@ -240,9 +240,9 @@ class TestReformulations:
         )
 
     def test_la_fusion_ne_cree_plus_de_doublon_de_reformulation(self):
-        board = Carte("Oasis")
-        join(board, [Apport("Pré-production du client en retard de deux versions")])
-        bilan = join(board, [Apport("Pré-prod cliente en retard de deux versions")])
+        board = Board("Oasis")
+        join(board, [Contribution("Pré-production du client en retard de deux versions")])
+        bilan = join(board, [Contribution("Pré-prod cliente en retard de deux versions")])
         assert bilan.ajoutes == ()
         assert board.count == 2
 

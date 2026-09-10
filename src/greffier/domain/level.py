@@ -76,7 +76,7 @@ def sufficient(db: float) -> bool:
 RELEVES_AVANT_ALERTE = 8
 
 @dataclass
-class SurveillanceDeNiveau:
+class LevelWatch:
     """Suit le niveau capté pendant la réunion et dit s'il ne suffit pas.
 
     Le **maximum** et non la moyenne : entre deux phrases il y a du silence, et

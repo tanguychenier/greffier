@@ -21,11 +21,11 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from greffier.domain.retention import Geste, Regle
+from greffier.domain.retention import Gesture, Rule
 
 
 @dataclass(frozen=True, slots=True)
-class Emplacements:
+class Places:
     """Où vivent les morceaux d'une réunion.
 
     Repris de la configuration par l'appelant plutôt que lu ici : le cas d'usage
@@ -43,7 +43,7 @@ class Emplacements:
     pieces: Path | None = None
 
 @dataclass(frozen=True, slots=True)
-class Piece:
+class Attachment:
     path: Path
     quoi: str
 
@@ -54,7 +54,7 @@ class Piece:
         except OSError:
             return 0
 
-def pieces_de(ou: Emplacements, identifier: str) -> list[Piece]:
+def pieces_de(ou: Places, identifier: str) -> list[Attachment]:
     """Tout ce qui existe pour cette réunion, du plus lourd au plus léger.
 
     L'audio d'abord parce que c'est lui qui pèse, et c'est le seul qu'on ne
@@ -72,32 +72,32 @@ def pieces_de(ou: Emplacements, identifier: str) -> list[Piece]:
         (ou.conversations, ("jsonl",), "conversation avec l'assistant"),
     ]
     trouvees = [
-        Piece(path, quoi)
+        Attachment(path, quoi)
         for folder, suffixes, quoi in candidats
         if folder is not None
         for suffixe in suffixes
         if (path := folder / f"{identifier}.{suffixe}").exists()
     ]
     trouvees += [
-        Piece(document, f"document fourni ({document.stem})")
+        Attachment(document, f"document fourni ({document.stem})")
         for document in _supplied_documents(ou, identifier)
     ]
     return sorted(trouvees, key=lambda p: -p.bytes_read)
 
-def _supplied_documents(ou: Emplacements, identifier: str) -> list[Path]:
+def _supplied_documents(ou: Places, identifier: str) -> list[Path]:
     """Les documents déposés pendant la réunion. Un dossier, pas un fichier."""
     if ou.pieces is None:
         return []
     folder = ou.pieces / identifier
     return sorted(folder.glob("*.txt")) if folder.is_dir() else []
 
-def forget(ou: Emplacements, identifier: str) -> list[Piece]:
+def forget(ou: Places, identifier: str) -> list[Attachment]:
     """Efface la réunion, et rend ce qui a été effacé.
 
     Ce qui résiste est laissé sans faire échouer le reste : un compte rendu
     ouvert dans un éditeur ne doit pas empêcher de libérer l'audio.
     """
-    effacees: list[Piece] = []
+    effacees: list[Attachment] = []
     for piece in pieces_de(ou, identifier):
         try:
             piece.path.unlink()
@@ -110,7 +110,7 @@ def forget(ou: Emplacements, identifier: str) -> list[Piece]:
     return effacees
 
 @dataclass(frozen=True, slots=True)
-class Rangement:
+class Tidying:
     """Ce qu'un tour de rangement a fait, ou ferait."""
 
     identifier: str
@@ -118,7 +118,7 @@ class Rangement:
     gagne: int = 0
     trouble: str = ""
 
-def audio_de(ou: Emplacements, identifier: str) -> Path | None:
+def audio_de(ou: Places, identifier: str) -> Path | None:
     """L'enregistrement de cette réunion, compressé ou non."""
     for suffixe in ("wav", "opus", "m4a", "mp3"):
         path = ou.recordings / f"{identifier}.{suffixe}"
@@ -127,12 +127,12 @@ def audio_de(ou: Emplacements, identifier: str) -> Path | None:
     return None
 
 def tidy(
-    ou: Emplacements,
-    regle: Regle,
+    ou: Places,
+    regle: Rule,
     meetings: Sequence[tuple[str, float, bool]],
     compresser: Callable[[Path], Path],
     for_real: bool = False,
-) -> list[Rangement]:
+) -> list[Tidying]:
     """Applique la règle de rétention, ou dit seulement ce qu'elle ferait.
 
     `reunions` porte, pour chacune, son identifiant, son âge en jours et si elle
@@ -143,29 +143,29 @@ def tidy(
     montrer ce qu'un rangement emporterait avant de le lancer. Effacer un
     enregistrement ne se rattrape pas.
     """
-    faits: list[Rangement] = []
+    faits: list[Tidying] = []
     for identifier, jours, transcrite in meetings:
         audio = audio_de(ou, identifier)
         if audio is None:
             continue
         geste = regle.decide(jours, transcrite, audio.suffix == ".opus")
-        if geste is Geste.RIEN:
+        if geste is Gesture.RIEN:
             continue
         avant = audio.stat().st_size if audio.exists() else 0
         if not for_real:
-            gagne = avant if geste is Geste.EFFACER else int(avant * 0.9)
-            faits.append(Rangement(identifier, str(geste), gagne))
+            gagne = avant if geste is Gesture.EFFACER else int(avant * 0.9)
+            faits.append(Tidying(identifier, str(geste), gagne))
             continue
         try:
-            if geste is Geste.EFFACER:
+            if geste is Gesture.EFFACER:
                 audio.unlink()
-                faits.append(Rangement(identifier, str(geste), avant))
+                faits.append(Tidying(identifier, str(geste), avant))
             else:
                 produit = compresser(audio)
                 apres = produit.stat().st_size if produit.exists() else 0
-                faits.append(Rangement(identifier, str(geste), max(0, avant - apres)))
+                faits.append(Tidying(identifier, str(geste), max(0, avant - apres)))
         except (OSError, RuntimeError) as trouble:
-            faits.append(Rangement(identifier, str(geste), 0, str(trouble)))
+            faits.append(Tidying(identifier, str(geste), 0, str(trouble)))
     return faits
 
 def readable(bytes_read: int) -> str:

@@ -27,11 +27,11 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 
-class Genre(StrEnum):
+class Kind(StrEnum):
     GITLAB = "gitlab"
     JIRA = "jira"
 
-class Droit(StrEnum):
+class Right(StrEnum):
     LECTURE = "lecture"
     ECRITURE = "écriture"
 
@@ -40,10 +40,10 @@ class Source:
     """Une source extérieure inscrite, et ce qu'on peut en faire."""
 
     name: str
-    kind: Genre
+    kind: Kind
     adresse: str
     projet: str
-    droit: Droit = Droit.LECTURE
+    droit: Right = Right.LECTURE
     token: str = ""
 
     def __post_init__(self) -> None:
@@ -59,14 +59,14 @@ class Source:
 
     @property
     def can_write(self) -> bool:
-        return self.droit is Droit.ECRITURE
+        return self.droit is Right.ECRITURE
 
     def say(self) -> str:
         """Une ligne pour l'écran, qui montre la portée réelle."""
         return f"{self.name} — {self.kind} {self.projet} sur {self.adresse} ({self.droit})"
 
 @dataclass
-class Registre:
+class Registry:
     """Les sources inscrites. Ce qui n'y est pas n'existe pas."""
 
     sources: list[Source]
@@ -75,10 +75,10 @@ class Registre:
         nu = name.strip().casefold()
         return next((s for s in self.sources if s.name.casefold() == nu), None)
 
-    def of_gender(self, kind: Genre) -> list[Source]:
+    def of_gender(self, kind: Kind) -> list[Source]:
         return [s for s in self.sources if s.kind is kind]
 
-    def recorded(self, kind: Genre | None = None) -> list[str]:
+    def recorded(self, kind: Kind | None = None) -> list[str]:
         """Les noms disponibles, pour pouvoir les proposer plutôt que deviner."""
         choisies = self.sources if kind is None else self.of_gender(kind)
         return [s.name for s in choisies]

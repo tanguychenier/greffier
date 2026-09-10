@@ -14,7 +14,7 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from greffier.domain.subjects import Registre, Subject
+from greffier.domain.subjects import Registry, Subject
 
 GABARIT = '''# Les sujets que Greffier suit, et où vit la carte de chacun.
 #
@@ -32,18 +32,18 @@ GABARIT = '''# Les sujets que Greffier suit, et où vit la carte de chacun.
 # carte = ""
 '''
 
-def read(file: Path) -> Registre:
+def read(file: Path) -> Registry:
     """Le registre écrit à la main. Vide si le fichier n'existe pas.
 
     Une entrée mal formée est écartée sans faire échouer la lecture : un
     registre à moitié valable vaut mieux qu'une réunion qui refuse de démarrer.
     """
     if not file.exists():
-        return Registre()
+        return Registry()
     try:
         content = tomllib.loads(file.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError):
-        return Registre()
+        return Registry()
 
     fondus: dict[str, Subject] = {}
     for input in content.get("sujets", []):
@@ -64,7 +64,7 @@ def read(file: Path) -> Registre:
             board=str(input.get("carte", "")).strip()
             or (precedent.board if precedent else ""),
         )
-    return Registre(list(fondus.values()))
+    return Registry(list(fondus.values()))
 
 def lay_the_template(file: Path) -> bool:
     """Écrit le fichier d'exemple s'il n'existe pas. Vrai s'il a été créé."""

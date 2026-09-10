@@ -204,7 +204,7 @@ class TestSkillDeDepannage:
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         monkeypatch.setattr(module.shutil, "which", lambda outil: "/usr/local/bin/claude")
 
-        class Contexte:
+        class Context:
             oui = True
             check_only = False
             to_do: list[str] = []
@@ -212,7 +212,7 @@ class TestSkillDeDepannage:
             def ask(self, _question):
                 return True
 
-        module.etape_skill(Contexte())
+        module.etape_skill(Context())
         pose = tmp_path / ".claude/skills/greffier/SKILL.md"
         assert pose.is_file() and not pose.is_symlink()
         assert pose.read_text(encoding="utf-8") == (
@@ -223,7 +223,7 @@ class TestSkillDeDepannage:
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         monkeypatch.setattr(module.shutil, "which", lambda outil: None)
 
-        class Contexte:
+        class Context:
             oui = True
             check_only = False
             to_do: list[str] = []
@@ -231,7 +231,7 @@ class TestSkillDeDepannage:
             def ask(self, _question):
                 return True
 
-        module.etape_skill(Contexte())
+        module.etape_skill(Context())
         assert not (tmp_path / ".claude").exists()
 
 

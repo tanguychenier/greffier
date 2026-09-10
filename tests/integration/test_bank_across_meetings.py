@@ -16,8 +16,8 @@ from pathlib import Path
 import pytest
 
 from greffier.adapters.configuration import Config
-from greffier.adapters.store_files import DepotFichiers
-from greffier.adapters.voice_bank_files import BanqueFichiers
+from greffier.adapters.store_files import FileStore
+from greffier.adapters.voice_bank_files import FileVoiceBank
 from greffier.application.name_voice import Naming, voices_to_name
 from greffier.application.process import _as_stored_meeting as depuis_resultat
 
@@ -58,7 +58,7 @@ def process(config, audio):
     chaine.writer = None
     outcome = chaine.run_chain(audio, send=False)
     duration = outcome.turns[-1].span.end if outcome.turns else 0.0
-    store = DepotFichiers(config.paths.data / "reunions")
+    store = FileStore(config.paths.data / "reunions")
     store.record(depuis_resultat(outcome, duration))
     return outcome
 
@@ -67,8 +67,8 @@ class TestReconnaissanceEntreReunions:
     def test_le_parcours_complet(self, atelier):
         """Première réunion → nommage → seconde réunion reconnue toute seule."""
         config, premiere, seconde = atelier
-        bank = BanqueFichiers(config.paths.voice_bank)
-        store = DepotFichiers(config.paths.data / "reunions")
+        bank = FileVoiceBank(config.paths.voice_bank)
+        store = FileStore(config.paths.data / "reunions")
 
         # 1. La première réunion : les prénoms viennent de ce qui est dit.
         outcome = process(config, premiere)
@@ -76,12 +76,12 @@ class TestReconnaissanceEntreReunions:
 
         # 2. L'utilisateur valide — c'est lui qui décide, rien n'entre en banque
         #    sans ce geste.
-        from greffier.adapters.voiceprints_titanet import ExtracteurTitaNet
+        from greffier.adapters.voiceprints_titanet import TitaNetExtractor
 
         namer = Naming(
             store=store,
             bank=bank,
-            extractor=ExtracteurTitaNet(
+            extractor=TitaNetExtractor(
                 config.paths.models / "diarisation" / "nemo_en_titanet_large.onnx"
             ),
         )
@@ -103,7 +103,7 @@ class TestReconnaissanceEntreReunions:
         from greffier.domain.voiceprints import normalise
         from greffier.wiring import wire_up
 
-        etrangere = BanqueFichiers(tmp_path / "banque-etrangere")
+        etrangere = FileVoiceBank(tmp_path / "banque-etrangere")
         etrangere.record("Personne d'autre", normalise([1.0] + [0.0] * 191))
 
         chaine = wire_up(config)
@@ -115,7 +115,7 @@ class TestReconnaissanceEntreReunions:
     def test_les_voix_a_nommer_sont_presentees_avec_un_extrait(self, atelier):
         """Le parcours réel : écouter dix secondes, taper un nom."""
         config, premiere, _ = atelier
-        meeting = DepotFichiers(config.paths.data / "reunions").read(premiere.stem)
+        meeting = FileStore(config.paths.data / "reunions").read(premiere.stem)
         candidates = voices_to_name(meeting)
         assert len(candidates) == 2
         assert all(c.extrait is not None and c.extrait.duration >= 3 for c in candidates)

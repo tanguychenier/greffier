@@ -20,7 +20,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from greffier.domain.store import Destin, Proposition
+from greffier.domain.store import Destination, Suggestion
 
 CONSIGNES_DOCUMENT = """Tu lis un document de travail pour en extraire le
 vocabulaire qu'une transcription automatique ne pourrait pas deviner.
@@ -48,10 +48,10 @@ Document :
 LU_AU_PLUS = 40_000
 
 @dataclass(frozen=True, slots=True)
-class Fait:
+class Done:
     """Ce qu'un dépôt a produit."""
 
-    proposition: Proposition
+    proposition: Suggestion
     produit: Path | None = None
     appris: tuple[tuple[str, str, str], ...] = ()
     trouble: str = ""
@@ -165,10 +165,10 @@ def learn_from_text(
     return tuple(retenus)
 
 def run_chain(
-    proposition: Proposition,
+    proposition: Suggestion,
     recordings: Path,
     writer: object | None = None,
-) -> Fait:
+) -> Done:
     """Fait ce que la proposition annonce. Ne lève pas : rapporte.
 
     Un fichier qui échoue ne doit pas interrompre le dépôt des autres — on
@@ -176,34 +176,34 @@ def run_chain(
     serait absurde.
     """
     if not proposition.feasible:
-        return Fait(proposition, trouble=proposition.bloque_par or "rien à en faire")
+        return Done(proposition, trouble=proposition.bloque_par or "rien à en faire")
 
-    if proposition.destin is Destin.VIDEO:
+    if proposition.destin is Destination.VIDEO:
         target = recordings / f"{proposition.file.stem}.wav"
         try:
-            return Fait(proposition, produit=extract_sound(proposition.file, target))
+            return Done(proposition, produit=extract_sound(proposition.file, target))
         except (RuntimeError, OSError) as trouble:
-            return Fait(proposition, trouble=str(trouble))
+            return Done(proposition, trouble=str(trouble))
 
-    if proposition.destin is Destin.MEETING:
+    if proposition.destin is Destination.MEETING:
         target = recordings / proposition.file.name
         try:
             if target.resolve() != proposition.file.resolve():
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(proposition.file, target)
-            return Fait(proposition, produit=target)
+            return Done(proposition, produit=target)
         except OSError as trouble:
-            return Fait(proposition, trouble=str(trouble))
+            return Done(proposition, trouble=str(trouble))
 
-    if proposition.destin is Destin.CONTEXT:
+    if proposition.destin is Destination.CONTEXT:
         if writer is None:
-            return Fait(proposition, trouble="aucun rédacteur pour lire le document")
+            return Done(proposition, trouble="aucun rédacteur pour lire le document")
         try:
-            return Fait(
+            return Done(
                 proposition,
                 appris=learn_from_document(proposition.file, writer),
             )
         except (RuntimeError, OSError) as trouble:
-            return Fait(proposition, trouble=str(trouble))
+            return Done(proposition, trouble=str(trouble))
 
-    return Fait(proposition, trouble="rien à en faire")
+    return Done(proposition, trouble="rien à en faire")

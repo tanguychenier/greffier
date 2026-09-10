@@ -30,7 +30,7 @@ TIMEOUT = 15.0
 
 AU_PLUS = 20
 
-class GitLabRefuse(RuntimeError):
+class GitLabRefused(RuntimeError):
     """L'appel n'a pas eu lieu, et pour une raison présentable."""
 
 @dataclass(frozen=True, slots=True)
@@ -71,21 +71,21 @@ def _appeler(
     except urllib.error.HTTPError as trouble:
         detail = trouble.read().decode("utf-8", "replace")[:200]
         if trouble.code in (401, 403):
-            raise GitLabRefuse(
+            raise GitLabRefused(
                 f"jeton refusé sur « {source.name} » ({trouble.code}). Vérifie sa "
                 "portée : lire les tickets demande « read_api », en créer "
                 "demande « api »."
             ) from trouble
         if trouble.code == 404:
-            raise GitLabRefuse(
+            raise GitLabRefused(
                 f"projet « {source.projet} » introuvable sur {source.adresse}. "
                 "Un projet privé invisible du jeton rend aussi 404."
             ) from trouble
-        raise GitLabRefuse(f"GitLab a répondu {trouble.code} : {detail}") from trouble
+        raise GitLabRefused(f"GitLab a répondu {trouble.code} : {detail}") from trouble
     except (urllib.error.URLError, TimeoutError) as trouble:
-        raise GitLabRefuse(f"{source.adresse} est injoignable : {trouble}") from trouble
+        raise GitLabRefused(f"{source.adresse} est injoignable : {trouble}") from trouble
     except (ValueError, OSError) as trouble:
-        raise GitLabRefuse(str(trouble)) from trouble
+        raise GitLabRefused(str(trouble)) from trouble
 
 def _as_ticket(brut: dict[str, Any]) -> Ticket:
     assigne = (brut.get("assignee") or {}).get("name", "") or ""
@@ -109,7 +109,7 @@ def tickets(
         parametres["search"] = cherche.strip()
     rendered = _appeler(source, token, f"/issues?{urllib.parse.urlencode(parametres)}")
     if not isinstance(rendered, list):
-        raise GitLabRefuse("réponse inattendue de GitLab")
+        raise GitLabRefused("réponse inattendue de GitLab")
     return [_as_ticket(brut) for brut in rendered if isinstance(brut, dict)]
 
 def join_requests(source: Source, token: str, ouvertes: bool = True) -> list[Ticket]:
@@ -121,7 +121,7 @@ def join_requests(source: Source, token: str, ouvertes: bool = True) -> list[Tic
         source, token, f"/merge_requests?{urllib.parse.urlencode(parametres)}"
     )
     if not isinstance(rendered, list):
-        raise GitLabRefuse("réponse inattendue de GitLab")
+        raise GitLabRefused("réponse inattendue de GitLab")
     return [_as_ticket(brut) for brut in rendered if isinstance(brut, dict)]
 
 def creer_un_ticket(
@@ -135,17 +135,17 @@ def creer_un_ticket(
     l'un ni l'autre ne suffit.
     """
     if not source.can_write:
-        raise GitLabRefuse(
+        raise GitLabRefused(
             f"« {source.name} » est en lecture seule : aucun ticket n'a été créé"
         )
     if not title.strip():
-        raise GitLabRefuse("un ticket sans titre ne sert à personne")
+        raise GitLabRefused("un ticket sans titre ne sert à personne")
     rendered = _appeler(
         source, token, "/issues", "POST",
         {"title": title.strip(), "description": description},
     )
     if not isinstance(rendered, dict) or not rendered.get("iid"):
-        raise GitLabRefuse("GitLab n'a pas rendu le ticket créé")
+        raise GitLabRefused("GitLab n'a pas rendu le ticket créé")
     return _as_ticket(rendered)
 
 def comment(source: Source, token: str, number: int, text: str) -> str:
@@ -155,12 +155,12 @@ def comment(source: Source, token: str, number: int, text: str) -> str:
     notifie des gens et reste attaché à leur travail.
     """
     if not source.can_write:
-        raise GitLabRefuse(f"« {source.name} » est en lecture seule")
+        raise GitLabRefused(f"« {source.name} » est en lecture seule")
     if not text.strip():
-        raise GitLabRefuse("un commentaire vide n'apporte rien")
+        raise GitLabRefused("un commentaire vide n'apporte rien")
     rendered = _appeler(
         source, token, f"/issues/{number}/notes", "POST", {"body": text}
     )
     if not isinstance(rendered, dict):
-        raise GitLabRefuse("réponse inattendue de GitLab")
+        raise GitLabRefused("réponse inattendue de GitLab")
     return f"{source.adresse}/{source.projet}/-/issues/{number}"

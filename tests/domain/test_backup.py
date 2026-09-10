@@ -6,7 +6,7 @@ from greffier.domain.backup import (
     CONTENT,
     ECARTES,
     KEPT,
-    Nom,
+    BackupName,
     to_erase,
 )
 
@@ -41,21 +41,21 @@ class TestContenu:
 class TestNom:
     def test_le_nom_porte_la_date_a_la_minute(self):
         """Deux sauvegardes du même jour doivent pouvoir coexister."""
-        name = Nom(datetime(2026, 9, 9, 14, 5))
+        name = BackupName(datetime(2026, 9, 9, 14, 5))
         assert str(name) == "greffier-2026-09-09_14h05"
 
     def test_le_nom_se_relit(self):
         quand = datetime(2026, 9, 9, 14, 5)
-        assert Nom.read(str(Nom(quand))) == quand
+        assert BackupName.read(str(BackupName(quand))) == quand
 
     def test_ce_qui_n_est_pas_une_sauvegarde_est_refuse(self):
-        assert Nom.read("mes-documents") is None
-        assert Nom.read("greffier-pas-une-date") is None
+        assert BackupName.read("mes-documents") is None
+        assert BackupName.read("greffier-pas-une-date") is None
 
 
 class TestRotation:
     def names(self, combien: int) -> list[str]:
-        return [str(Nom(datetime(2026, 9, jour, 12, 0))) for jour in range(1, combien + 1)]
+        return [str(BackupName(datetime(2026, 9, jour, 12, 0))) for jour in range(1, combien + 1)]
 
     def test_sous_le_compte_rien_n_est_efface(self):
         assert to_erase(self.names(3), kept=7) == []

@@ -58,7 +58,7 @@ def derived_word(mot: str, terme: str) -> bool:
             return True
     return False
 
-class Motif(StrEnum):
+class Reason(StrEnum):
     """Why the tool is asking. Shown on screen: a question without a reason
     reads as noise.
     """
@@ -69,7 +69,7 @@ class Motif(StrEnum):
 class Question:
     number: int
     text: str
-    motif: Motif
+    motif: Reason
     entendu: str = ""
     attendu: str = ""
 
@@ -149,7 +149,7 @@ class Questioner:
                     f"J'ai entendu « {mot} ». Fallait-il comprendre "
                     f"« {candidat} » ?"
                 ),
-                motif=Motif.NEAR_TERM,
+                motif=Reason.NEAR_TERM,
                 entendu=mot,
                 attendu=candidat,
             )
