@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import platform
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -164,6 +165,25 @@ def naming(config: Config) -> Naming:
         extractor=TitaNetExtractor(diarisation / "nemo_en_titanet_large.onnx"),
     )
 
+def _instructions_of(config: Config) -> Callable[[str], list[str]]:
+    """Reads what was asked of the tool during a meeting, for the writer.
+
+    Only the human's own turns: the notes and the assistant's answers are not
+    instructions. Read at run time and not wired once, because the file belongs
+    to the meeting being processed.
+    """
+    from greffier.adapters import conversations_file
+
+    def lire(identifier: str) -> list[str]:
+        turns = conversations_file.read(
+            conversations_file.file_for(config.paths.conversations, identifier),
+            derniers=0,
+        )
+        return [x.text.strip() for x in turns if x.qui == "moi" and x.text.strip()]
+
+    return lire
+
+
 def context(config: Config) -> WorkContext:
     """What the tool knows of the setting, blended from its three sources.
 
@@ -235,6 +255,7 @@ def wire_up(config: Config) -> Chain:
         language=config.transcription.language,
         prompt_seed=_the_context.prompt_seed(),
         context_header=_the_context.header(),
+        instructions=_instructions_of(config),
         people=config.speakers.people,
         not_first_names=frozenset(m.lower() for m in config.speakers.not_first_names),
         recipient=config.minutes.recipient,
