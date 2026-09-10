@@ -192,6 +192,25 @@ def sound_server_present():
 #: recopiées : trois copies d'une même liste, c'est trois occasions qu'elles se
 #: contredisent. Chargement par chemin, comme les emplacements, parce que
 #: l'installeur tourne avant que quoi que ce soit ne soit installé.
+def _charger_catalogue():
+    """Le catalogue des modèles, lu dans le paquet.
+
+    Une seule liste : l'application le lit pour proposer les téléchargements
+    manquants, l'installeur pour les poser. Deux copies auraient divergé au
+    premier modèle changé.
+    """
+    nom = "greffier_model_files"
+    specification = importlib.util.spec_from_file_location(
+        nom, ROOT / "src/greffier/adapters/model_files.py"
+    )
+    module = importlib.util.module_from_spec(specification)
+    # Inscrit avant exécution : un dataclass en `slots` va chercher son propre
+    # module dans sys.modules pendant qu'il se construit, et échoue sinon.
+    sys.modules[nom] = module
+    specification.loader.exec_module(module)
+    return module
+
+
 def _charger_langues():
     specification = importlib.util.spec_from_file_location(
         "greffier_langues", ROOT / "src/greffier/domain/languages.py"
