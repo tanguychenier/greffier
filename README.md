@@ -162,7 +162,7 @@ To let nothing out at all, **Ollama** replaces it without changing anything
 else, at the price of a coarser summary:
 
 ```sh
-GREFFIER_COMPTE_RENDU__MOTEUR=ollama greffier traiter reunion.wav
+GREFFIER_MINUTES__ENGINE=ollama greffier traiter reunion.wav
 ```
 
 The assistant writes with the **second model in the range**, not the first. That
@@ -172,7 +172,7 @@ the range produces the same document while eating through a quota far faster —
 one meeting a day is enough to feel it. The model is requested **explicitly** at
 call time, so that the minutes do not change author according to the machine's
 personal setting. It can be changed in the Settings tab, or through
-`GREFFIER_COMPTE_RENDU__MODELE`.
+`GREFFIER_MINUTES__MODEL`.
 
 With neither one nor the other, transcription and voice identification still
 work; only the minutes are missing.
@@ -212,16 +212,16 @@ stay in the file: they are lists, and a form would truncate them.
 
 | Variable | Role |
 |---|---|
-| `GREFFIER_COMPTE_RENDU__MOTEUR` | `claude`, `ollama` or `aucun` |
-| `GREFFIER_COMPTE_RENDU__MODELE` | the writer's model — the second of the range by default |
-| `GREFFIER_COMPTE_RENDU__DESTINATAIRE` | who to send the minutes to |
-| `GREFFIER_TRANSCRIPTION__LANGUE` | two-letter code; **left empty, the model works it out itself** |
-| `GREFFIER_TRANSCRIPTION__VOCABULAIRE` | proper nouns from the context — the setting that most improves the transcription of rare terms |
-| `GREFFIER_LOCUTEURS__PAS_DES_PRENOMS` | words never to mistake for first names |
-| `GREFFIER_LOCUTEURS__PERSONNES` | how many people are in the room, when you know — without it the clustering over-splits |
-| `GREFFIER_DIRECT__ACTIF` | `false` turns off live transcription, and its compute cost |
-| `GREFFIER_DIRECT__PERIODE` | seconds between two transcribed slices (10 by default) |
-| `GREFFIER_APPARENCE__THEME` | `systeme`, `clair` or `sombre` |
+| `GREFFIER_MINUTES__ENGINE` | `claude`, `ollama` or `aucun` |
+| `GREFFIER_MINUTES__MODEL` | the writer's model — the second of the range by default |
+| `GREFFIER_MINUTES__RECIPIENT` | who to send the minutes to |
+| `GREFFIER_TRANSCRIPTION__LANGUAGE` | two-letter code; **left empty, the model works it out itself** |
+| `GREFFIER_TRANSCRIPTION__VOCABULARY` | proper nouns from the context — the setting that most improves the transcription of rare terms |
+| `GREFFIER_SPEAKERS__NOT_FIRST_NAMES` | words never to mistake for first names |
+| `GREFFIER_SPEAKERS__PEOPLE` | how many people are in the room, when you know — without it the clustering over-splits |
+| `GREFFIER_LIVE__ACTIVE` | `false` turns off live transcription, and its compute cost |
+| `GREFFIER_LIVE__PERIOD` | seconds between two transcribed slices (10 by default) |
+| `GREFFIER_APPEARANCE__THEME` | `systeme`, `clair` or `sombre` |
 
 The double underscore separates the section from the field. None of this lives
 in the repository: mail address, domain vocabulary and project names belong to

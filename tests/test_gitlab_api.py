@@ -6,15 +6,15 @@ from io import BytesIO
 
 import pytest
 
-from greffier.adaptateurs import gitlab_api
-from greffier.domaine.sources import Droit, Genre, Source
+from greffier.adapters import gitlab_api
+from greffier.domain.sources import Droit, Genre, Source
 
 
 def source(droit: Droit = Droit.LECTURE) -> Source:
     return Source(
-        nom="recherche", genre=Genre.GITLAB,
+        name="recherche", kind=Genre.GITLAB,
         adresse="https://gitlab.example.fr", projet="equipe/outil",
-        droit=droit, jeton="GREFFIER_GITLAB_JETON",
+        droit=droit, token="GREFFIER_GITLAB_JETON",
     )
 
 
@@ -78,7 +78,7 @@ class TestLecture:
     def test_les_tickets_sont_rendus_utilisables(self, gitlab):
         gitlab.charge = [UN_TICKET]
         trouves = gitlab_api.tickets(source(), "glpat-x")
-        assert trouves[0].numero == 42
+        assert trouves[0].number == 42
         assert trouves[0].assigne == "Sophie"
         assert trouves[0].etiquettes == ("recette",)
 
@@ -89,7 +89,7 @@ class TestLecture:
 
     def test_la_ligne_montre_le_ticket_d_un_coup(self, gitlab):
         gitlab.charge = [UN_TICKET]
-        dit = gitlab_api.tickets(source(), "glpat-x")[0].dire()
+        dit = gitlab_api.tickets(source(), "glpat-x")[0].say()
         assert "#42" in dit and "Sophie" in dit and "recette" in dit
 
     def test_le_projet_du_registre_borne_l_appel(self, gitlab):
@@ -115,9 +115,9 @@ class TestLecture:
 
     def test_les_demandes_de_fusion_se_lisent_aussi(self, gitlab):
         gitlab.charge = [UN_TICKET]
-        trouvees = gitlab_api.demandes_de_fusion(source(), "glpat-x")
+        trouvees = gitlab_api.join_requests(source(), "glpat-x")
         assert "merge_requests" in gitlab.premier.full_url
-        assert trouvees[0].numero == 42
+        assert trouvees[0].number == 42
 
 
 class TestEcriture:
@@ -128,7 +128,7 @@ class TestEcriture:
     def test_commenter_est_une_ecriture(self, muet):
         """Un commentaire notifie des gens et reste attaché à leur travail."""
         with pytest.raises(gitlab_api.GitLabRefuse, match="lecture seule"):
-            gitlab_api.commenter(source(), "glpat-x", 42, "vu")
+            gitlab_api.comment(source(), "glpat-x", 42, "vu")
 
     def test_un_titre_vide_est_refuse(self, muet):
         with pytest.raises(gitlab_api.GitLabRefuse):
@@ -136,7 +136,7 @@ class TestEcriture:
 
     def test_un_commentaire_vide_est_refuse(self, muet):
         with pytest.raises(gitlab_api.GitLabRefuse):
-            gitlab_api.commenter(source(Droit.ECRITURE), "glpat-x", 42, "   ")
+            gitlab_api.comment(source(Droit.ECRITURE), "glpat-x", 42, "   ")
 
     def test_le_ticket_cree_est_rendu_avec_son_adresse(self, gitlab):
         """Une écriture dont on ne montre pas le résultat n'est pas vérifiable."""
@@ -144,7 +144,7 @@ class TestEcriture:
         cree = gitlab_api.creer_un_ticket(
             source(Droit.ECRITURE), "glpat-x", "Corriger l'envoi"
         )
-        assert cree.numero == 42
+        assert cree.number == 42
         assert cree.adresse.endswith("/issues/42")
         assert gitlab.premier.method == "POST"
 
@@ -155,8 +155,8 @@ class TestEcriture:
 
     def test_un_commentaire_rend_l_adresse_du_ticket(self, gitlab):
         gitlab.charge = {"id": 7}
-        rendu = gitlab_api.commenter(source(Droit.ECRITURE), "glpat-x", 42, "vu")
-        assert rendu.endswith("/equipe/outil/-/issues/42")
+        rendered = gitlab_api.comment(source(Droit.ECRITURE), "glpat-x", 42, "vu")
+        assert rendered.endswith("/equipe/outil/-/issues/42")
         assert gitlab.premier.method == "POST"
 
 

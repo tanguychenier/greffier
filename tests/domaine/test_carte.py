@@ -1,27 +1,27 @@
 """La carte d'un sujet : on ajoute, on ne détruit pas."""
 
-from greffier.domaine.carte import (
+from greffier.domain.board import (
     Apport,
     Carte,
-    Etat,
     Genre,
     Noeud,
-    clef,
-    fusionner,
-    marquer_depasse,
+    RecorderState,
+    join,
+    key,
+    mark_overdue,
 )
 
 
 class TestReconnaissanceDeFormulation:
     def test_les_accents_et_la_casse_ne_comptent_pas(self):
-        assert clef("L'accès au SI") == clef("acces au si")
+        assert key("L'accès au SI") == key("acces au si")
 
     def test_l_ordre_des_mots_ne_compte_pas(self):
         """« recette externalisée » et « externalisée, la recette » : un point."""
-        assert clef("recette externalisée") == clef("externalisée recette")
+        assert key("recette externalisée") == key("externalisée recette")
 
     def test_deux_points_distincts_restent_distincts(self):
-        assert clef("monter la recette") != clef("monter la production")
+        assert key("monter la recette") != key("monter la production")
 
     def test_un_libelle_fait_de_mots_vides_garde_son_identite(self):
         """« A » et « D » sont deux mots vides français.
@@ -30,87 +30,87 @@ class TestReconnaissanceDeFormulation:
         et la seconde écrasait la première. Fusionner à tort perd de
         l'information, ce qui est pire que d'en dupliquer.
         """
-        assert clef("A") != clef("D")
-        assert clef("A") != ""
+        assert key("A") != key("D")
+        assert key("A") != ""
 
     def test_les_mots_vides_sont_bien_retires_quand_il_reste_du_sens(self):
-        assert clef("le déploiement") == clef("déploiement")
+        assert key("le déploiement") == key("déploiement")
 
 
 class TestFusion:
     def test_un_point_nouveau_s_ajoute(self):
-        carte = Carte("Oasis")
-        bilan = fusionner(carte, [Apport("Le PDF ne se régénère pas")])
+        board = Carte("Oasis")
+        bilan = join(board, [Apport("Le PDF ne se régénère pas")])
         assert bilan.ajoutes == ("Le PDF ne se régénère pas",)
-        assert carte.compte == 2
+        assert board.count == 2
 
     def test_un_point_deja_present_ne_se_duplique_pas(self):
-        carte = Carte("Oasis")
-        fusionner(carte, [Apport("Le PDF ne se régénère pas")])
-        bilan = fusionner(carte, [Apport("le pdf ne se regenere pas")])
+        board = Carte("Oasis")
+        join(board, [Apport("Le PDF ne se régénère pas")])
+        bilan = join(board, [Apport("le pdf ne se regenere pas")])
         assert bilan.ajoutes == ()
-        assert carte.compte == 2, "la reformulation ne crée pas une seconde branche"
+        assert board.count == 2, "la reformulation ne crée pas une seconde branche"
 
     def test_une_piste_s_accroche_sous_son_probleme(self):
-        carte = Carte("Oasis")
-        fusionner(carte, [Apport("Le PDF ne se régénère pas", genre=Genre.PROBLEME)])
-        fusionner(carte, [Apport("Forcer la régénération", genre=Genre.PISTE,
+        board = Carte("Oasis")
+        join(board, [Apport("Le PDF ne se régénère pas", kind=Genre.PROBLEME)])
+        join(board, [Apport("Forcer la régénération", kind=Genre.PISTE,
                                  sous="Le PDF ne se régénère pas")])
-        assert carte.racine is not None
-        probleme = carte.racine.enfant("Le PDF ne se régénère pas")
+        assert board.racine is not None
+        probleme = board.racine.enfant("Le PDF ne se régénère pas")
         assert probleme is not None
-        assert [enfant.texte for enfant in probleme.enfants] == ["Forcer la régénération"]
+        assert [enfant.text for enfant in probleme.enfants] == ["Forcer la régénération"]
 
     def test_un_parent_introuvable_ne_perd_pas_l_apport(self):
         """Mal placé, il reste corrigeable ; perdu, il faut réécouter la réunion."""
-        carte = Carte("Oasis")
-        fusionner(carte, [Apport("Une piste", sous="un parent qui n'existe pas")])
-        assert carte.racine is not None
-        assert carte.racine.enfant("Une piste") is not None
+        board = Carte("Oasis")
+        join(board, [Apport("Une piste", sous="un parent qui n'existe pas")])
+        assert board.racine is not None
+        assert board.racine.enfant("Une piste") is not None
 
     def test_la_reunion_d_origine_est_notee(self):
-        carte = Carte("Oasis")
-        fusionner(carte, [Apport("Un point")], reunion="2026-09-09_10h05_reunion")
-        assert carte.racine is not None
-        noeud = carte.racine.enfant("Un point")
+        board = Carte("Oasis")
+        join(board, [Apport("Un point")], meeting="2026-09-09_10h05_reunion")
+        assert board.racine is not None
+        noeud = board.racine.enfant("Un point")
         assert noeud is not None
-        assert noeud.reunions == ["2026-09-09_10h05_reunion"]
+        assert noeud.meetings == ["2026-09-09_10h05_reunion"]
 
     def test_deux_reunions_sur_le_meme_point_sont_toutes_deux_notees(self):
-        carte = Carte("Oasis")
-        fusionner(carte, [Apport("Un point")], reunion="premiere")
-        fusionner(carte, [Apport("Un point")], reunion="seconde")
-        assert carte.racine is not None
-        noeud = carte.racine.enfant("Un point")
+        board = Carte("Oasis")
+        join(board, [Apport("Un point")], meeting="premiere")
+        join(board, [Apport("Un point")], meeting="seconde")
+        assert board.racine is not None
+        noeud = board.racine.enfant("Un point")
         assert noeud is not None
-        assert noeud.reunions == ["premiere", "seconde"]
+        assert noeud.meetings == ["premiere", "seconde"]
 
     def test_un_apport_vide_est_ignore(self):
-        carte = Carte("Oasis")
-        assert fusionner(carte, [Apport("   ")]).vide
+        board = Carte("Oasis")
+        assert join(board, [Apport("   ")]).empty
 
 
 class TestEtats:
     """Ce qui est en discussion ne doit pas passer pour une décision."""
 
     def test_le_defaut_est_en_discussion(self):
-        carte = Carte("Oasis")
-        fusionner(carte, [Apport("Une idée lancée à l'oral")])
-        assert carte.racine is not None
-        noeud = carte.racine.enfant("Une idée lancée à l'oral")
+        board = Carte("Oasis")
+        join(board, [Apport("Une idée lancée à l'oral")])
+        assert board.racine is not None
+        noeud = board.racine.enfant("Une idée lancée à l'oral")
         assert noeud is not None
-        assert noeud.etat is Etat.EN_DISCUSSION
+        assert noeud.state is RecorderState.EN_DISCUSSION
 
     def test_une_decision_releve_l_etat(self):
-        carte = Carte("Oasis")
-        fusionner(carte, [Apport("Monter la recette en interne", genre=Genre.PISTE)])
-        bilan = fusionner(carte, [Apport("Monter la recette en interne",
-                                         genre=Genre.PISTE, etat=Etat.ACTE)])
+        board = Carte("Oasis")
+        join(board, [Apport("Monter la recette en interne", kind=Genre.PISTE)])
+        bilan = join(board, [Apport("Monter la recette en interne",
+                                         kind=Genre.PISTE, state=RecorderState.ACTE)])
         assert bilan.actes == ("Monter la recette en interne",)
-        assert carte.racine is not None
-        noeud = carte.racine.enfant("Monter la recette en interne")
+        assert board.racine is not None
+        noeud = board.racine.enfant("Monter la recette en interne")
         assert noeud is not None
-        assert noeud.etat is Etat.ACTE
+        assert noeud.state is RecorderState.ACTE
 
     def test_un_probleme_ne_peut_pas_etre_acte(self):
         """« Acté » se lirait « le groupe a décidé ce problème ».
@@ -118,75 +118,75 @@ class TestEtats:
         Mesuré sur une extraction réelle : sept problèmes sur douze revenaient
         marqués « acté », le rédacteur ayant lu « acté » comme « établi ».
         """
-        carte = Carte("Oasis")
-        fusionner(carte, [Apport("Le PDF ne se régénère pas",
-                                 genre=Genre.PROBLEME, etat=Etat.ACTE)])
-        assert carte.racine is not None
-        noeud = carte.racine.enfant("Le PDF ne se régénère pas")
+        board = Carte("Oasis")
+        join(board, [Apport("Le PDF ne se régénère pas",
+                                 kind=Genre.PROBLEME, state=RecorderState.ACTE)])
+        assert board.racine is not None
+        noeud = board.racine.enfant("Le PDF ne se régénère pas")
         assert noeud is not None
-        assert noeud.etat is Etat.EN_DISCUSSION
+        assert noeud.state is RecorderState.EN_DISCUSSION
 
     def test_une_piste_et_une_action_peuvent_etre_actees(self):
-        carte = Carte("Oasis")
-        fusionner(carte, [Apport("Monter la recette", genre=Genre.PISTE, etat=Etat.ACTE),
-                          Apport("Chiffrer le coût", genre=Genre.ACTION, etat=Etat.ACTE)])
-        assert carte.racine is not None
-        for texte in ("Monter la recette", "Chiffrer le coût"):
-            noeud = carte.racine.enfant(texte)
-            assert noeud is not None and noeud.etat is Etat.ACTE
+        board = Carte("Oasis")
+        join(board, [Apport("Monter la recette", kind=Genre.PISTE, state=RecorderState.ACTE),
+                          Apport("Chiffrer le coût", kind=Genre.ACTION, state=RecorderState.ACTE)])
+        assert board.racine is not None
+        for text in ("Monter la recette", "Chiffrer le coût"):
+            noeud = board.racine.enfant(text)
+            assert noeud is not None and noeud.state is RecorderState.ACTE
 
     def test_un_probleme_peut_etre_depasse(self):
         """Un problème peut avoir cessé d'en être un."""
-        carte = Carte("Oasis")
-        fusionner(carte, [Apport("Un souci", genre=Genre.PROBLEME)])
-        assert marquer_depasse(carte, "Un souci") is True
+        board = Carte("Oasis")
+        join(board, [Apport("Un souci", kind=Genre.PROBLEME)])
+        assert mark_overdue(board, "Un souci") is True
 
     def test_une_decision_ne_redevient_pas_une_discussion(self):
         """« Acté » qui redeviendrait « en discussion » ferait douter de tout."""
-        carte = Carte("Oasis")
-        fusionner(carte, [Apport("Monter la recette", genre=Genre.PISTE, etat=Etat.ACTE)])
-        fusionner(carte, [Apport("Monter la recette", genre=Genre.PISTE,
-                                 etat=Etat.EN_DISCUSSION)])
-        assert carte.racine is not None
-        noeud = carte.racine.enfant("Monter la recette")
+        board = Carte("Oasis")
+        join(board, [Apport("Monter la recette", kind=Genre.PISTE, state=RecorderState.ACTE)])
+        join(board, [Apport("Monter la recette", kind=Genre.PISTE,
+                                 state=RecorderState.EN_DISCUSSION)])
+        assert board.racine is not None
+        noeud = board.racine.enfant("Monter la recette")
         assert noeud is not None
-        assert noeud.etat is Etat.ACTE
+        assert noeud.state is RecorderState.ACTE
 
 
 class TestRienNeDisparait:
     """Une carte partagée porte le travail de plusieurs personnes."""
 
     def test_marquer_depasse_garde_le_noeud(self):
-        carte = Carte("Oasis")
-        fusionner(carte, [Apport("Une piste écartée")])
-        assert marquer_depasse(carte, "Une piste écartée") is True
-        assert carte.compte == 2, "le nœud reste"
-        assert carte.racine is not None
-        noeud = carte.racine.enfant("Une piste écartée")
+        board = Carte("Oasis")
+        join(board, [Apport("Une piste écartée")])
+        assert mark_overdue(board, "Une piste écartée") is True
+        assert board.count == 2, "le nœud reste"
+        assert board.racine is not None
+        noeud = board.racine.enfant("Une piste écartée")
         assert noeud is not None
-        assert noeud.etat is Etat.DEPASSE
+        assert noeud.state is RecorderState.DEPASSE
 
     def test_la_racine_ne_se_marque_pas(self):
-        assert marquer_depasse(Carte("Oasis"), "Oasis") is False
+        assert mark_overdue(Carte("Oasis"), "Oasis") is False
 
     def test_marquer_ce_qui_n_existe_pas_le_dit(self):
-        assert marquer_depasse(Carte("Oasis"), "jamais évoqué") is False
+        assert mark_overdue(Carte("Oasis"), "jamais évoqué") is False
 
     def test_une_fusion_ne_retire_aucun_noeud_existant(self):
-        carte = Carte("Oasis")
-        fusionner(carte, [Apport("A"), Apport("B"), Apport("C")])
-        avant = carte.compte
-        fusionner(carte, [Apport("D")])
-        assert carte.compte == avant + 1, "rien n'a été remplacé"
+        board = Carte("Oasis")
+        join(board, [Apport("A"), Apport("B"), Apport("C")])
+        avant = board.count
+        join(board, [Apport("D")])
+        assert board.count == avant + 1, "rien n'a été remplacé"
 
 
 class TestComptage:
     def test_un_noeud_seul_compte_pour_un(self):
-        assert Noeud("seul").compte() == 1
+        assert Noeud("seul").count() == 1
 
     def test_les_enfants_comptent(self):
         racine = Noeud("racine", enfants=[Noeud("a"), Noeud("b", enfants=[Noeud("c")])])
-        assert racine.compte() == 4
+        assert racine.count() == 4
 
 
 class TestReformulations:
@@ -196,34 +196,34 @@ class TestReformulations:
     """
 
     def test_une_reformulation_reelle_est_rattrapee(self):
-        from greffier.domaine.carte import meme_point
+        from greffier.domain.board import same_point
 
-        assert meme_point(
+        assert same_point(
             "Pré-production du client en retard de deux versions",
             "Pré-prod cliente en retard de deux versions",
         )
 
     def test_une_autre_formulation_du_meme_point(self):
-        from greffier.domaine.carte import meme_point
+        from greffier.domain.board import same_point
 
-        assert meme_point(
+        assert same_point(
             "Monter un environnement de recette chez nous",
             "Monter un environnement de recette de notre côté",
         )
 
     def test_deux_points_distincts_ne_fusionnent_pas(self):
         """Fusionner à tort perd de l'information : c'est le pire défaut ici."""
-        from greffier.domaine.carte import meme_point
+        from greffier.domain.board import same_point
 
-        assert not meme_point(
+        assert not same_point(
             "Recette impossible sur l'environnement du client",
             "Pré-prod du client en retard de deux versions",
         )
 
     def test_un_fragment_n_absorbe_pas_le_tout(self):
-        from greffier.domaine.carte import meme_point
+        from greffier.domain.board import same_point
 
-        assert not meme_point(
+        assert not same_point(
             "la recette",
             "la recette d'Oasis bloquée faute d'environnement à jour",
         )
@@ -232,22 +232,22 @@ class TestReformulations:
         """Limite assumée : la rattraper demanderait un seuil qui fusionnerait
         des points distincts. Le rédacteur reçoit les libellés existants, le
         rapprochement n'est qu'un filet."""
-        from greffier.domaine.carte import meme_point
+        from greffier.domain.board import same_point
 
-        assert not meme_point(
+        assert not same_point(
             "Questionnaires alimentés par des fixtures écrites à la main",
             "Questionnaires construits avec des fixtures fragiles",
         )
 
     def test_la_fusion_ne_cree_plus_de_doublon_de_reformulation(self):
-        carte = Carte("Oasis")
-        fusionner(carte, [Apport("Pré-production du client en retard de deux versions")])
-        bilan = fusionner(carte, [Apport("Pré-prod cliente en retard de deux versions")])
+        board = Carte("Oasis")
+        join(board, [Apport("Pré-production du client en retard de deux versions")])
+        bilan = join(board, [Apport("Pré-prod cliente en retard de deux versions")])
         assert bilan.ajoutes == ()
-        assert carte.compte == 2
+        assert board.count == 2
 
     def test_un_mot_court_ne_rapproche_pas(self):
         """« prod » et « prof » sont à un écart et n'ont aucun rapport."""
-        from greffier.domaine.carte import meme_point
+        from greffier.domain.board import same_point
 
-        assert not meme_point("prod", "prof")
+        assert not same_point("prod", "prof")

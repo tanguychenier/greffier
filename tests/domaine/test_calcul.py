@@ -7,21 +7,21 @@ attendaient. Mesuré sur un entretien de cent cinq secondes : 287 s sur un fil,
 que la moitié, et ce test fige ce constat.
 """
 
-from greffier.domaine.calcul import fils_de_calcul
+from greffier.domain.arithmetic import compute_threads
 
 
 class TestFilsDeCalcul:
     def test_la_moitie_des_coeurs(self):
-        assert fils_de_calcul(8) == 4
+        assert compute_threads(8) == 4
 
     def test_jamais_moins_d_un_fil(self):
         """Un cœur unique donnerait zéro fil, et le modèle refuserait."""
-        assert fils_de_calcul(1) == 1
-        assert fils_de_calcul(0) == 1
+        assert compute_threads(1) == 1
+        assert compute_threads(0) == 1
 
     def test_un_gros_poste_en_prend_davantage(self):
-        assert fils_de_calcul(16) == 8
+        assert compute_threads(16) == 8
 
     def test_la_moitie_laisse_de_quoi_travailler(self):
         """La veille tourne pendant la réunion : tout prendre la gênerait."""
-        assert fils_de_calcul(8) < 8
+        assert compute_threads(8) < 8

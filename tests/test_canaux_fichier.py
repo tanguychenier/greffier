@@ -11,15 +11,15 @@ from __future__ import annotations
 
 import numpy as np
 
-from greffier.adaptateurs.canaux_fichier import (
+from greffier.adapters.channels_file import (
     LecteurCanauxFichier,
-    niveaux_par_trame,
+    levels_per_frame,
     separer_canaux,
 )
 
 
-def signal(canaux: list[list[float]]) -> np.ndarray:
-    return np.array(canaux, dtype="float32").T
+def signal(channels: list[list[float]]) -> np.ndarray:
+    return np.array(channels, dtype="float32").T
 
 
 class TestVisioOuPresentiel:
@@ -27,33 +27,33 @@ class TestVisioOuPresentiel:
         # Les autres passent par les haut-parleurs et couvrent le micro : c'est
         # ce qui distingue une visio, pas la simple présence d'un signal.
         fort, faible = [0.2] * 16000, [0.001] * 16000
-        canaux = separer_canaux(signal([faible, fort, fort]))
-        assert canaux.distante
-        assert canaux.micro is not None
+        channels = separer_canaux(signal([faible, fort, fort]))
+        assert channels.distante
+        assert channels.mic is not None
 
     def test_une_boucle_active_mais_jamais_dominante_reste_du_presentiel(self) -> None:
         # Le cas qui avait échoué : une boucle à -53 dB, du son y ayant fui,
         # mais qui ne couvre jamais le micro. Conclure « visio » attribuait
         # trente minutes de réunion à la seule personne qui enregistrait.
-        canaux = separer_canaux(signal([[0.2] * 16000, [0.002] * 16000, [0.002] * 16000]))
-        assert not canaux.distante
+        channels = separer_canaux(signal([[0.2] * 16000, [0.002] * 16000, [0.002] * 16000]))
+        assert not channels.distante
         # Et c'est le micro qu'il faut segmenter, là où tout le monde parle.
-        assert float(abs(canaux.systeme).max()) > 0.1
+        assert float(abs(channels.system).max()) > 0.1
 
     def test_une_boucle_muette_signifie_presentiel(self) -> None:
         # Le portable posé au milieu d'une table.
-        canaux = separer_canaux(signal([[0.1] * 16000, [0.0] * 16000, [0.0] * 16000]))
-        assert not canaux.distante
-        assert float(abs(canaux.systeme).max()) > 0
+        channels = separer_canaux(signal([[0.1] * 16000, [0.0] * 16000, [0.0] * 16000]))
+        assert not channels.distante
+        assert float(abs(channels.system).max()) > 0
 
     def test_un_canal_muet_ne_divise_pas_l_amplitude_des_autres(self) -> None:
-        canaux = separer_canaux(signal([[0.001] * 16000, [0.0] * 16000, [0.2] * 16000]))
-        assert canaux.distante
-        assert float(abs(canaux.systeme).max()) > 0.15
+        channels = separer_canaux(signal([[0.001] * 16000, [0.0] * 16000, [0.2] * 16000]))
+        assert channels.distante
+        assert float(abs(channels.system).max()) > 0.15
 
     def test_un_fichier_mono_ne_permet_aucune_separation(self) -> None:
-        canaux = separer_canaux(signal([[0.1] * 100]))
-        assert canaux.micro is None and not canaux.distante
+        channels = separer_canaux(signal([[0.1] * 100]))
+        assert channels.mic is None and not channels.distante
 
 
 class TestUneVisioResteUneVisio:
@@ -72,38 +72,38 @@ class TestUneVisioResteUneVisio:
     def test_une_boucle_muette_imposee_visio_laisse_la_parole_au_micro(self) -> None:
         # C'est ce qui permet de continuer à afficher « Toi » quand personne
         # d'autre ne parle pendant une tranche entière.
-        canaux = separer_canaux(
+        channels = separer_canaux(
             signal([[0.2] * 16000, [0.0] * 16000, [0.0] * 16000]), distante=True
         )
-        assert canaux.micro is not None
-        assert float(abs(canaux.systeme).max()) == 0.0
+        assert channels.mic is not None
+        assert float(abs(channels.system).max()) == 0.0
 
     def test_le_lecteur_retient_le_verdict_d_une_tranche_a_l_autre(
         self, tmp_path
     ) -> None:
         import soundfile as sf
 
-        lecteur = LecteurCanauxFichier()
-        assert not lecteur.distante
+        player = LecteurCanauxFichier()
+        assert not player.distante
         # Une tranche de visio : la boucle couvre le micro.
         visio = tmp_path / "visio.wav"
         sf.write(visio, signal([[0.001] * 16000, [0.2] * 16000, [0.2] * 16000]), 16000)
-        lecteur.passages_locaux(visio)
-        assert lecteur.distante
+        player.local_passages(visio)
+        assert player.distante
         # La tranche suivante ne porte que ma voix : le verdict tient, et ce
         # passage m'est attribué au lieu de créer une voix distante.
         seul = tmp_path / "seul.wav"
         sf.write(seul, signal([[0.2] * 32000, [0.0] * 32000, [0.0] * 32000]), 16000)
-        assert lecteur.passages_locaux(seul) != []
+        assert player.local_passages(seul) != []
 
 
 class TestNiveaux:
     def test_un_silence_numerique_ne_donne_pas_moins_l_infini(self) -> None:
-        niveaux = niveaux_par_trame(np.zeros(16000, dtype="float32"), 16000)
-        assert niveaux and all(n < -200 for n in niveaux)
+        levels = levels_per_frame(np.zeros(16000, dtype="float32"), 16000)
+        assert levels and all(n < -200 for n in levels)
 
     def test_un_signal_trop_court_pour_une_trame_ne_donne_rien(self) -> None:
-        assert niveaux_par_trame(np.zeros(10, dtype="float32"), 16000) == []
+        assert levels_per_frame(np.zeros(10, dtype="float32"), 16000) == []
 
 
 class TestLecture:
@@ -111,4 +111,4 @@ class TestLecture:
         # Une tranche découpée pendant l'écriture peut arriver tronquée : le
         # direct affiche alors la phrase sans « Toi », il ne s'arrête pas.
         absent = tmp_path / "rien.wav"
-        assert LecteurCanauxFichier().passages_locaux(absent) == []
+        assert LecteurCanauxFichier().local_passages(absent) == []

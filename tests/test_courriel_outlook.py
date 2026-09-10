@@ -17,7 +17,7 @@ from typing import Any
 
 import pytest
 
-from greffier.adaptateurs.courriel import ExpediteurOutlook
+from greffier.adapters.email import OutlookSender
 
 
 class Sortie:
@@ -27,14 +27,14 @@ class Sortie:
         self.stdout = stdout
 
 
-def _repondre(monkeypatch: pytest.MonkeyPatch, sortie: Any) -> list[list[str]]:
+def _answer(monkeypatch: pytest.MonkeyPatch, output: Any) -> list[list[str]]:
     appels: list[list[str]] = []
 
-    def faux_run(commande: list[str], **_options: Any) -> Any:
-        appels.append(commande)
-        if isinstance(sortie, Exception):
-            raise sortie
-        return sortie
+    def faux_run(command: list[str], **_options: Any) -> Any:
+        appels.append(command)
+        if isinstance(output, Exception):
+            raise output
+        return output
 
     monkeypatch.setattr(subprocess, "run", faux_run)
     return appels
@@ -42,13 +42,13 @@ def _repondre(monkeypatch: pytest.MonkeyPatch, sortie: Any) -> list[list[str]]:
 
 class TestSondeDEnvoi:
     def test_la_voie_libre_ne_dit_rien(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        _repondre(monkeypatch, Sortie(0, stdout="Microsoft Outlook"))
-        assert ExpediteurOutlook().eprouver() is None
+        _answer(monkeypatch, Sortie(0, stdout="Microsoft Outlook"))
+        assert OutlookSender().probe() is None
 
     def test_la_sonde_n_envoie_rien(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Elle demande son nom à Outlook, et rien de plus."""
-        appels = _repondre(monkeypatch, Sortie(0))
-        ExpediteurOutlook().eprouver()
+        appels = _answer(monkeypatch, Sortie(0))
+        OutlookSender().probe()
         script = " ".join(appels[0])
         assert "get name" in script
         assert "send" not in script
@@ -58,8 +58,8 @@ class TestSondeDEnvoi:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Un message qui ne dit pas quoi faire fait croire que tout est perdu."""
-        _repondre(monkeypatch, Sortie(1, stderr="execution error: ... (-1743)"))
-        empeche = ExpediteurOutlook().eprouver()
+        _answer(monkeypatch, Sortie(1, stderr="execution error: ... (-1743)"))
+        empeche = OutlookSender().probe()
         assert empeche is not None
         assert "Automatisation" in empeche
         assert "ne partira pas" in empeche
@@ -67,16 +67,16 @@ class TestSondeDEnvoi:
     def test_outlook_ferme_est_dit_autrement(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        _repondre(monkeypatch, Sortie(1, stderr="Application isn't running (-1728)"))
-        empeche = ExpediteurOutlook().eprouver()
+        _answer(monkeypatch, Sortie(1, stderr="Application isn't running (-1728)"))
+        empeche = OutlookSender().probe()
         assert empeche is not None
         assert "lancé" in empeche
 
     def test_une_erreur_inconnue_est_rapportée_telle_quelle(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        _repondre(monkeypatch, Sortie(1, stderr="quelque chose d'inédit"))
-        empeche = ExpediteurOutlook().eprouver()
+        _answer(monkeypatch, Sortie(1, stderr="quelque chose d'inédit"))
+        empeche = OutlookSender().probe()
         assert empeche is not None
         assert "inédit" in empeche
 
@@ -84,11 +84,11 @@ class TestSondeDEnvoi:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Elle est appelée au démarrage d'une réunion : elle doit rendre la main."""
-        _repondre(monkeypatch, subprocess.TimeoutExpired(cmd="osascript", timeout=20))
-        assert ExpediteurOutlook().eprouver() == "Outlook ne répond pas."
+        _answer(monkeypatch, subprocess.TimeoutExpired(cmd="osascript", timeout=20))
+        assert OutlookSender().probe() == "Outlook ne répond pas."
 
     def test_osascript_absent_ne_releve_rien(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        _repondre(monkeypatch, FileNotFoundError("osascript"))
-        assert ExpediteurOutlook().eprouver() == "Outlook ne répond pas."
+        _answer(monkeypatch, FileNotFoundError("osascript"))
+        assert OutlookSender().probe() == "Outlook ne répond pas."

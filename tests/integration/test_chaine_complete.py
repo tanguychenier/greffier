@@ -26,8 +26,8 @@ from pathlib import Path
 
 import pytest
 
-from greffier.adaptateurs.configuration import Config
-from greffier.application.traiter import Traitement
+from greffier.adapters.configuration import Config
+from greffier.application.process import Chain
 
 RACINE = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(RACINE / "outils"))
@@ -35,10 +35,10 @@ sys.path.insert(0, str(RACINE / "outils"))
 pytestmark = pytest.mark.integration
 
 
-def modeles_presents(config: Config) -> bool:
-    diarisation = config.chemins.modeles / "diarisation"
+def models_present(config: Config) -> bool:
+    diarisation = config.paths.models / "diarisation"
     return (
-        (config.chemins.modeles / "ggml-large-v3-turbo.bin").exists()
+        (config.paths.models / "ggml-large-v3-turbo.bin").exists()
         and (diarisation / "nemo_en_titanet_large.onnx").exists()
         and (diarisation / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx").exists()
     )
@@ -47,7 +47,7 @@ def modeles_presents(config: Config) -> bool:
 @pytest.fixture(scope="session")
 def config() -> Config:
     configuration = Config()
-    if not modeles_presents(configuration):
+    if not models_present(configuration):
         pytest.skip("modèles absents — lance outils/installer.py")
     if not shutil.which("whisper-cli"):
         pytest.skip("whisper.cpp absent")
@@ -55,7 +55,7 @@ def config() -> Config:
 
 
 @pytest.fixture(scope="session")
-def reunion(tmp_path_factory) -> Path:
+def meeting(tmp_path_factory) -> Path:
     """Fabrique une fois la fausse réunion, réutilisée par tous les tests."""
     if platform.system() != "Darwin":
         pytest.skip("la synthèse vocale « say » n'existe que sur macOS")
@@ -65,50 +65,50 @@ def reunion(tmp_path_factory) -> Path:
 
 
 @pytest.fixture(scope="session")
-def resultat(config: Config, reunion: Path):
+def outcome(config: Config, meeting: Path):
     """Passe la fausse réunion dans la vraie chaîne, sans rédaction.
 
     Le rédacteur est débranché : appeler Claude ou Ollama depuis un test le
     rendrait lent, coûteux et dépendant du réseau. Ce que ce test doit prouver,
     c'est que l'audio arrive jusqu'à une transcription attribuée.
     """
-    from greffier.composition import assembler
+    from greffier.wiring import wire_up
 
-    config.compte_rendu.moteur = "aucun"
-    chaine: Traitement = assembler(config)
-    chaine.redacteur = None
-    return chaine.executer(reunion, envoyer=False)
+    config.minutes.engine = "aucun"
+    chaine: Chain = wire_up(config)
+    chaine.writer = None
+    return chaine.run_chain(meeting, send=False)
 
 
 class TestChaineReelle:
-    def test_l_audio_synthetise_est_bien_transcrit(self, resultat):
-        assert resultat.mots > 60, "la transcription a perdu l'essentiel du dialogue"
+    def test_l_audio_synthetise_est_bien_transcrit(self, outcome):
+        assert outcome.words > 60, "la transcription a perdu l'essentiel du dialogue"
 
-    def test_les_deux_voix_sont_separees(self, resultat):
+    def test_les_deux_voix_sont_separees(self, outcome):
         """Cinq répliques alternées, deux voix : ni fusion, ni sur-découpage."""
-        assert len(resultat.voix_significatives()) == 2
+        assert len(outcome.significant_voices()) == 2
 
-    def test_les_fragments_ne_comptent_pas_comme_des_participants(self, resultat):
-        significatives = resultat.voix_significatives()
-        assert all(duree >= 10 for duree in significatives.values())
+    def test_les_fragments_ne_comptent_pas_comme_des_participants(self, outcome):
+        significatives = outcome.significant_voices()
+        assert all(duration >= 10 for duration in significatives.values())
 
-    def test_les_deux_prenoms_sont_retrouves(self, resultat):
+    def test_les_deux_prenoms_sont_retrouves(self, outcome):
         """Le cœur du besoin : « Jacques » et « Sandy », pas « Personne 1 ».
 
         Chaque prénom est prononcé deux fois, de deux façons différentes — le
         cumul d'indices doit suffire à trancher sans demander à l'utilisateur.
         """
-        assert set(resultat.noms.values()) == {"Jacques", "Sandy"}
+        assert set(outcome.names.values()) == {"Jacques", "Sandy"}
 
-    def test_chaque_prenom_va_a_une_voix_differente(self, resultat):
-        assert len(set(resultat.noms)) == 2
+    def test_chaque_prenom_va_a_une_voix_differente(self, outcome):
+        assert len(set(outcome.names)) == 2
 
-    def test_l_auto_presentation_gagne_sur_le_reste(self, resultat):
+    def test_l_auto_presentation_gagne_sur_le_reste(self, outcome):
         """Celui qui dit « moi c'est Jacques » est Jacques, quoi qu'il arrive."""
-        premiere = resultat.repliques[0]
-        assert resultat.nom_de(premiere.voix) == "Jacques"
+        premiere = outcome.utterances[0]
+        assert outcome.nom_de(premiere.voice) == "Jacques"
 
-    def test_un_enregistrement_mono_ne_declenche_pas_de_fausse_alerte(self, resultat):
+    def test_un_enregistrement_mono_ne_declenche_pas_de_fausse_alerte(self, outcome):
         """Un fichier à un seul canal n'a pas de second canal manquant.
 
         L'alerte « aucun son système capté » n'a de sens que sur un
@@ -116,12 +116,12 @@ class TestChaineReelle:
         La déclencher sur du mono reviendrait à crier au loup à chaque
         enregistrement fait au simple micro.
         """
-        assert resultat.avertissements == []
+        assert outcome.warnings == []
 
-    def test_la_transcription_rendue_est_attribuee_et_horodatee(self, resultat):
-        from greffier.application.restituer import rendre_transcription
+    def test_la_transcription_rendue_est_attribuee_et_horodatee(self, outcome):
+        from greffier.application.render import render_transcript
 
-        texte = rendre_transcription(resultat)
-        assert "[Jacques]" in texte and "[Sandy]" in texte
-        assert "00:0" in texte
-        assert "Personne" not in texte, "aucune voix ne devrait rester anonyme"
+        text = render_transcript(outcome)
+        assert "[Jacques]" in text and "[Sandy]" in text
+        assert "00:0" in text
+        assert "Personne" not in text, "aucune voix ne devrait rester anonyme"

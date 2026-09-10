@@ -11,18 +11,18 @@ from pathlib import Path
 
 import pytest
 
-from greffier.adaptateurs.transcription_faster_whisper import TranscripteurFasterWhisper
+from greffier.adapters.transcription_faster_whisper import TranscripteurFasterWhisper
 
 
 class FauxSegment:
-    def __init__(self, texte: str) -> None:
+    def __init__(self, text: str) -> None:
         self.start = 0.0
         self.end = 1.0
-        self.text = texte
+        self.text = text
 
 
 class TestRepliSurLeProcesseur:
-    def _transcripteur(self, monkeypatch, refuse):
+    def _transcriber(self, monkeypatch, refuse):
         """Un modèle qui échoue là où échoue une carte sans cuBLAS.
 
         L'échec ne survient ni à la construction ni à l'appel, mais au parcours
@@ -30,7 +30,7 @@ class TestRepliSurLeProcesseur:
         calcul a lieu. Un double qui échouerait plus tôt éprouverait un cas qui
         n'arrive pas.
         """
-        demandes: list[str] = []
+        requests: list[str] = []
 
         class FauxModele:
             def __init__(self, peripherique: str) -> None:
@@ -44,36 +44,36 @@ class TestRepliSurLeProcesseur:
 
                 return segments(), None
 
-        transcripteur = TranscripteurFasterWhisper()
+        transcriber = TranscripteurFasterWhisper()
 
-        def charger():
-            demandes.append(transcripteur.peripherique)
-            return FauxModele(transcripteur.peripherique)
+        def load():
+            requests.append(transcriber.peripherique)
+            return FauxModele(transcriber.peripherique)
 
-        monkeypatch.setattr(transcripteur, "_charger", charger, raising=False)
-        return transcripteur, demandes
+        monkeypatch.setattr(transcriber, "_load", load, raising=False)
+        return transcriber, requests
 
     def test_le_processeur_prend_le_relais(self, monkeypatch):
-        transcripteur, demandes = self._transcripteur(monkeypatch, refuse={"auto"})
+        transcriber, requests = self._transcriber(monkeypatch, refuse={"auto"})
 
-        repliques = transcripteur.transcrire(Path("reunion.wav"), "fr", "")
+        utterances = transcriber.transcribe(Path("reunion.wav"), "fr", "")
 
-        assert [replique.texte for replique in repliques] == ["Bonjour à tous"]
-        assert demandes == ["auto", "cpu"]
+        assert [utterance.text for utterance in utterances] == ["Bonjour à tous"]
+        assert requests == ["auto", "cpu"]
 
     def test_le_modele_est_recharge_pour_le_processeur(self, monkeypatch):
         """Le modèle chargé porte la carte : le garder rejouerait la panne."""
-        transcripteur, _ = self._transcripteur(monkeypatch, refuse={"auto"})
+        transcriber, _ = self._transcriber(monkeypatch, refuse={"auto"})
 
-        transcripteur.transcrire(Path("reunion.wav"), "fr", "")
+        transcriber.transcribe(Path("reunion.wav"), "fr", "")
 
-        assert transcripteur.peripherique == "cpu"
+        assert transcriber.peripherique == "cpu"
 
     def test_une_panne_du_processeur_n_est_pas_masquee(self, monkeypatch):
         """Sinon le repli tournerait en rond et cacherait la vraie cause."""
-        transcripteur, demandes = self._transcripteur(monkeypatch, refuse={"auto", "cpu"})
+        transcriber, requests = self._transcriber(monkeypatch, refuse={"auto", "cpu"})
 
         with pytest.raises(RuntimeError):
-            transcripteur.transcrire(Path("reunion.wav"), "fr", "")
+            transcriber.transcribe(Path("reunion.wav"), "fr", "")
 
-        assert demandes == ["auto", "cpu"]
+        assert requests == ["auto", "cpu"]

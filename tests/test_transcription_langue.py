@@ -11,44 +11,44 @@ from pathlib import Path
 
 import pytest
 
-from greffier.adaptateurs.transcription_whisper_cpp import TranscripteurWhisperCpp
+from greffier.adapters.transcription_whisper_cpp import TranscripteurWhisperCpp
 
 
 @pytest.fixture
-def modele(tmp_path):
-    fichier = tmp_path / "ggml-small.bin"
-    fichier.write_bytes(b"\0" * 16)
-    return fichier
+def model(tmp_path):
+    file = tmp_path / "ggml-small.bin"
+    file.write_bytes(b"\0" * 16)
+    return file
 
 
 class TestWhisperCpp:
-    def _commande(self, monkeypatch, modele, langue):
+    def _command(self, monkeypatch, model, language):
         vue: dict[str, list[str]] = {}
 
-        def faux_run(commande, **_options):
-            vue["commande"] = list(commande)
+        def faux_run(command, **_options):
+            vue["commande"] = list(command)
             # Un .srt vide suffit : c'est la commande qui est éprouvée.
-            Path(commande[commande.index("-of") + 1] + ".srt").write_text("", encoding="utf-8")
-            return subprocess.CompletedProcess(commande, 0, stdout="", stderr="")
+            Path(command[command.index("-of") + 1] + ".srt").write_text("", encoding="utf-8")
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
         monkeypatch.setattr(
-            "greffier.adaptateurs.transcription_whisper_cpp.subprocess.run", faux_run)
-        TranscripteurWhisperCpp(modele).transcrire(modele, langue, "")
+            "greffier.adapters.transcription_whisper_cpp.subprocess.run", faux_run)
+        TranscripteurWhisperCpp(model).transcribe(model, language, "")
         return vue["commande"]
 
-    def test_une_langue_donnee_est_transmise(self, monkeypatch, modele):
-        commande = self._commande(monkeypatch, modele, "en")
-        assert commande[commande.index("-l") + 1] == "en"
+    def test_une_langue_donnee_est_transmise(self, monkeypatch, model):
+        command = self._command(monkeypatch, model, "en")
+        assert command[command.index("-l") + 1] == "en"
 
-    def test_une_langue_vide_devient_auto(self, monkeypatch, modele):
+    def test_une_langue_vide_devient_auto(self, monkeypatch, model):
         """« -l » attend une valeur : sans elle, l'option suivante serait avalée."""
-        commande = self._commande(monkeypatch, modele, "")
-        assert commande[commande.index("-l") + 1] == "auto"
+        command = self._command(monkeypatch, model, "")
+        assert command[command.index("-l") + 1] == "auto"
 
 
 class TestFasterWhisper:
-    def _langue_recue(self, monkeypatch, langue):
-        from greffier.adaptateurs import transcription_faster_whisper as adaptateur
+    def _langue_recue(self, monkeypatch, language):
+        from greffier.adapters import transcription_faster_whisper as adaptateur
 
         vue: dict[str, object] = {}
 
@@ -57,10 +57,10 @@ class TestFasterWhisper:
                 vue["language"] = options.get("language")
                 return iter(()), None
 
-        transcripteur = adaptateur.TranscripteurFasterWhisper.__new__(
+        transcriber = adaptateur.TranscripteurFasterWhisper.__new__(
             adaptateur.TranscripteurFasterWhisper)
-        monkeypatch.setattr(transcripteur, "_charger", lambda: FauxModele(), raising=False)
-        transcripteur.transcrire(Path("essai.wav"), langue, "")
+        monkeypatch.setattr(transcriber, "_load", lambda: FauxModele(), raising=False)
+        transcriber.transcribe(Path("essai.wav"), language, "")
         return vue["language"]
 
     def test_une_langue_donnee_est_transmise(self, monkeypatch):
