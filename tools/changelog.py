@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Engendre CHANGELOG.md depuis l'historique git.
+"""Generates CHANGELOG.md from the git history.
 
-Les messages suivent la convention Angular : « type(portée): sujet ». C'est
-précisément ce qui permet de produire ce fichier sans le tenir à la main — et
-donc sans qu'il finisse périmé.
+The messages follow the Angular convention, `type(scope): subject`, which is
+exactly what makes it possible to produce this file without keeping it by hand,
+and so without it going stale.
 
     python3 tools/changelog.py > CHANGELOG.md
 """
@@ -13,16 +13,17 @@ import subprocess
 import sys
 from collections import defaultdict
 
-# Seuls les types qui intéressent un lecteur. Un « style » ou un « chore » ne
-# change rien pour qui utilise l'outil.
-TITRES = {
-    "feat": "Nouveautés",
-    "fix": "Corrections",
+# Only the types a reader cares about. A `style` or a `chore` changes nothing
+# for whoever uses the tool.
+TITLES = {
+    "feat": "New",
+    "fix": "Fixed",
     "perf": "Performance",
     "docs": "Documentation",
-    "refactor": "Remaniements",
+    "refactor": "Refactored",
 }
-MOTIF = re.compile(r"^(?P<type>\w+)(?:\((?P<portee>[^)]+)\))?(?P<casse>!)?: (?P<sujet>.+)$")
+PATTERN = re.compile(
+    r"^(?P<type>\w+)(?:\((?P<scope>[^)]+)\))?(?P<breaks>!)?: (?P<subject>.+)$")
 
 
 def commits() -> list[tuple[str, str]]:
@@ -30,38 +31,39 @@ def commits() -> list[tuple[str, str]]:
         ["git", "log", "--no-merges", "--pretty=format:%h\t%s"],
         capture_output=True, text=True, check=True,
     ).stdout
-    couples = []
+    pairs = []
     for line in output.splitlines():
         if "\t" in line:
-            voiceprint, subject = line.split("\t", 1)
-            couples.append((voiceprint, subject))
-    return couples
+            short_hash, subject = line.split("\t", 1)
+            pairs.append((short_hash, subject))
+    return pairs
 
 
 def main() -> int:
-    par_type: dict[str, list[str]] = defaultdict(list)
-    ruptures: list[str] = []
-    for voiceprint, subject in commits():
-        trouve = MOTIF.match(subject)
-        if not trouve:
+    by_type: dict[str, list[str]] = defaultdict(list)
+    breaks: list[str] = []
+    for short_hash, subject in commits():
+        found = PATTERN.match(subject)
+        if not found:
             continue
-        portee = trouve.group("portee")
-        prefixe = f"**{portee}** — " if portee else ""
-        line = f"- {prefixe}{trouve.group('sujet')} (`{voiceprint}`)"
-        if trouve.group("casse"):
-            ruptures.append(line)
-        par_type[trouve.group("type")].append(line)
+        scope = found.group("scope")
+        prefix = f"**{scope}** — " if scope else ""
+        line = f"- {prefix}{found.group('subject')} (`{short_hash}`)"
+        if found.group("breaks"):
+            breaks.append(line)
+        by_type[found.group("type")].append(line)
 
-    print("# Journal des modifications\n")
-    print("Engendré depuis les messages de commit (convention Angular) :\n")
+    print("# Changelog\n")
+    print("Generated from the commit messages, which follow the Angular"
+          " convention:\n")
     print("    python3 tools/changelog.py > CHANGELOG.md\n")
-    if ruptures:
-        print("## Ruptures de compatibilité\n")
-        print("\n".join(ruptures) + "\n")
-    for type_, title in TITRES.items():
-        if par_type.get(type_):
+    if breaks:
+        print("## Breaking changes\n")
+        print("\n".join(breaks) + "\n")
+    for type_, title in TITLES.items():
+        if by_type.get(type_):
             print(f"## {title}\n")
-            print("\n".join(par_type[type_]) + "\n")
+            print("\n".join(by_type[type_]) + "\n")
     return 0
 
 
