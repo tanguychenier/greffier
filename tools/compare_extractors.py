@@ -114,7 +114,12 @@ def verite(meeting: dict) -> list:
             "La vérité terrain manque : lance d'abord "
             "« tools/replay_stitching.py » sur cette réunion."
         )
-    per_voice = pickle.loads(cache.read_bytes())
+    try:
+        per_voice = pickle.loads(cache.read_bytes())
+    except (pickle.UnpicklingError, ModuleNotFoundError, AttributeError, EOFError):
+        print("Cache illisible : relance « tools/replay_stitching.py » "
+              "sur cette réunion, il le refera.", file=sys.stderr)
+        return 1
     membership = stitch(per_voice)
     return sorted(
         (t["debut"], t["fin"], membership.get(str(t["voix"]), str(t["voix"])))
@@ -158,7 +163,7 @@ def grade(etiquetees: list) -> dict:
 
 def main() -> int:
     parseur = argparse.ArgumentParser(description=__doc__)
-    parseur.add_argument("reunion")
+    parseur.add_argument("meeting")
     arguments = parseur.parse_args()
 
     path = data_folder() / "reunions" / f"{arguments.meeting}.json"

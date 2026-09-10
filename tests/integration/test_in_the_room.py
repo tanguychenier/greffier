@@ -62,9 +62,9 @@ def config() -> Config:
 def table(tmp_path_factory) -> Path:
     if platform.system() != "Darwin":
         pytest.skip("la synthèse vocale « say » n'existe que sur macOS")
-    from make_meeting import fabriquer_presentiel
+    from make_meeting import make_in_the_room
 
-    return fabriquer_presentiel(tmp_path_factory.mktemp("audio") / "table.wav")
+    return make_in_the_room(tmp_path_factory.mktemp("audio") / "table.wav")
 
 
 @pytest.fixture(scope="session")

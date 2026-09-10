@@ -59,9 +59,9 @@ def meeting(tmp_path_factory) -> Path:
     """Fabrique une fois la fausse réunion, réutilisée par tous les tests."""
     if platform.system() != "Darwin":
         pytest.skip("la synthèse vocale « say » n'existe que sur macOS")
-    from make_meeting import fabriquer
+    from make_meeting import make
 
-    return fabriquer(tmp_path_factory.mktemp("audio") / "reunion.wav")
+    return make(tmp_path_factory.mktemp("audio") / "reunion.wav")
 
 
 @pytest.fixture(scope="session")

@@ -30,9 +30,18 @@ from greffier.locations import data_folder  # noqa: E402
 
 
 def voiceprints_per_voice(meeting: dict, cache: Path) -> dict[str, list[Voiceprint]]:
-    """Une liste d'empreintes par voix, calculée une fois et gardée."""
+    """One list of voiceprints per voice, computed once and kept.
+
+    A cache written by an older version does not stop the run: a rename of a
+    module makes it unreadable, and recomputing costs minutes where a crash
+    costs the measurement.
+    """
     if cache.exists():
-        return pickle.loads(cache.read_bytes())
+        try:
+            return pickle.loads(cache.read_bytes())
+        except (pickle.UnpicklingError, ModuleNotFoundError, AttributeError, EOFError):
+            print(f"Cache illisible ({cache.name}), il est refait.", file=sys.stderr)
+            cache.unlink(missing_ok=True)
 
     import numpy as np
     import soundfile as sf
@@ -188,7 +197,7 @@ def significatives(membership, meeting, minimum=10.0) -> int:
 
 def main() -> int:
     parseur = argparse.ArgumentParser(description=__doc__)
-    parseur.add_argument("reunion")
+    parseur.add_argument("meeting")
     arguments = parseur.parse_args()
 
     path = data_folder() / "reunions" / f"{arguments.meeting}.json"
@@ -200,26 +209,26 @@ def main() -> int:
 
     print("== recollage actuel, par seuil ==")
     for threshold in (0.75, 0.70, 0.65, 0.60, 0.55, 0.50, 0.45):
-        note = note(domain.join_voices(per_voice, threshold=threshold), meeting, per_voice)
-        print(f"seuil {threshold:.2f} → {note['voix']:4d} voix, "
-              f"éclats {note['eclats']}, mélanges {len(note['melanges'])}")
+        mesure = note(domain.join_voices(per_voice, threshold=threshold), meeting, per_voice)
+        print(f"seuil {threshold:.2f} → {mesure['voix']:4d} voix, "
+              f"éclats {mesure['eclats']}, mélanges {len(mesure['melanges'])}")
 
     print("\n== recollage puis adoption des petits groupes ==")
     for threshold in (0.60, 0.55, 0.50, 0.45, 0.40, 0.35, 0.30):
         for margin in (0.0, 0.05, 0.10):
-            note = note(adoption(per_voice, threshold, margin, 30.0), meeting, per_voice)
-            print(f"seuil {threshold:.2f} marge {margin:.2f} → {note['voix']:4d} voix, "
-                  f"éclats {note['eclats']}, mélanges {len(note['melanges'])}, "
-                  f"gros {note['gros'][:4]}")
+            mesure = note(adoption(per_voice, threshold, margin, 30.0), meeting, per_voice)
+            print(f"seuil {threshold:.2f} marge {margin:.2f} → {mesure['voix']:4d} voix, "
+                  f"éclats {mesure['eclats']}, mélanges {len(mesure['melanges'])}, "
+                  f"gros {mesure['gros'][:4]}")
     print("\n== adoption puis consolidation des établis ==")
     for adopt in (0.45, 0.40, 0.35):
         for final in (0.70, 0.65, 0.60, 0.55, 0.50):
             a = consolidation(per_voice, adopt, 0.0, 30.0, final)
-            note = note(a, meeting, per_voice)
+            mesure = note(a, meeting, per_voice)
             print(f"adoption {adopt:.2f} / consolidation {final:.2f} → "
-                  f"{note['voix']:4d} voix ({significatives(a, meeting)} significatives), "
-                  f"éclats {note['eclats']}, mélanges {len(note['melanges'])}, "
-                  f"gros {note['gros'][:5]}")
+                  f"{mesure['voix']:4d} voix ({significatives(a, meeting)} significatives), "
+                  f"éclats {mesure['eclats']}, mélanges {len(mesure['melanges'])}, "
+                  f"gros {mesure['gros'][:5]}")
     return 0
 
 
