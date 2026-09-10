@@ -1060,7 +1060,12 @@ class Fenetre:
             dedans, rang, "Assistant",
             "Le prénom auquel il répond pendant la réunion, et sa voix. "
             "Sa participation s'allume dans l'onglet En direct.")
-        self.reglage_nom_assistant = self._saisie(dedans, rang, "Prénom", 20)
+        # Une liste et non une saisie : un prénom tapé au hasard n'est pas
+        # forcément rendu par le modèle de transcription, et rien ne le dirait à
+        # celui qui l'a tapé — il appellerait dans le vide. Ceux-ci ont été
+        # éprouvés, et chacun porte sa voix.
+        self.reglage_nom_assistant = self._liste_deroulante(
+            dedans, rang, "Prénom", largeur=392)
         rang += 1
         self.reglage_voix_assistant = self._liste_deroulante(
             dedans, rang, "Voix", largeur=392)
@@ -1214,10 +1219,7 @@ class Fenetre:
         # dans une liste. Il enregistre quand on le quitte ou qu'on valide.
         self.reglage_destinataire.bind("<FocusOut>", lambda _e: self._enregistrer_reglages())
         self.reglage_destinataire.bind("<Return>", lambda _e: self._enregistrer_reglages())
-        self.reglage_nom_assistant.bind(
-            "<FocusOut>", lambda _e: self._enregistrer_reglages())
-        self.reglage_nom_assistant.bind(
-            "<Return>", lambda _e: self._enregistrer_reglages())
+
 
     def _redacteur_choisi(self, _evenement: Any = None) -> None:
         """Changer de rédacteur change la liste des modèles, puis enregistre."""
@@ -1317,6 +1319,24 @@ class Fenetre:
         champ.grid(row=rang, column=1, sticky="w", ipady=4, ipadx=4, pady=2)
         return champ
 
+    def _prenoms_reglables(self) -> list[tuple[str, str]]:
+        """Les prénoms éprouvés, chacun avec le genre de sa voix.
+
+        Le genre est dit parce qu'il est imposé par le prénom : on choisit
+        « Martin » et on obtient une voix masculine, sans réglage de plus à
+        accorder.
+        """
+        from greffier.adaptateurs.configuration import GENRES, PRENOMS
+
+        choix = [(prenom, f"{prenom} — {GENRES[locuteur]}")
+                 for prenom, locuteur in PRENOMS.items()]
+        # Un prénom réglé à la main hors de la liste reste choisi : le fichier
+        # de configuration l'autorise, la fenêtre n'a pas à l'effacer.
+        actuel = self.config.assistant.nom
+        if actuel and actuel not in PRENOMS:
+            choix.insert(0, (actuel, f"{actuel} — réglé à la main"))
+        return choix
+
     def _voix_reglables(self) -> list[tuple[str, str]]:
         """Les voix proposées, en disant laquelle est installée.
 
@@ -1350,8 +1370,8 @@ class Fenetre:
         self.reglage_periode.garnir(list(self.PERIODES_DIRECT),
                                     f"{self.config.direct.periode:.1f}")
         self.reglage_theme.garnir(list(self.THEMES), self.config.apparence.theme)
-        self.reglage_nom_assistant.delete(0, "end")
-        self.reglage_nom_assistant.insert(0, self.config.assistant.nom)
+        self.reglage_nom_assistant.garnir(self._prenoms_reglables(),
+                                          self.config.assistant.nom)
         self.reglage_voix_assistant.garnir(self._voix_reglables(),
                                            self.config.assistant.voix)
         personnes = self.config.locuteurs.personnes
@@ -1598,10 +1618,14 @@ class Fenetre:
         neuf.direct.actif = bool(self.direct_actif.get())
         neuf.direct.periode = float(self.reglage_periode.valeur())
         neuf.apparence.theme = self.reglage_theme.valeur()
-        # Un prénom vide laisserait l'assistant sans nom auquel répondre : on
-        # garde alors celui d'avant plutôt que de le rendre sourd en silence.
-        nom_assistant = self.reglage_nom_assistant.get().strip()
-        neuf.assistant.nom = nom_assistant or self.config.assistant.nom
+        # Le prénom pose sa voix du même geste : les choisir séparément
+        # permettrait « Martin » avec une voix féminine, ce que personne ne veut.
+        from greffier.adaptateurs.configuration import PRENOMS
+
+        neuf.assistant.nom = (self.reglage_nom_assistant.valeur()
+                              or self.config.assistant.nom)
+        neuf.assistant.locuteur = PRENOMS.get(neuf.assistant.nom,
+                                              self.config.assistant.locuteur)
         neuf.assistant.voix = self.reglage_voix_assistant.valeur()
         annonce = self.reglage_participants.valeur()
         neuf.locuteurs.personnes = int(annonce) if annonce else None

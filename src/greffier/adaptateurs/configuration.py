@@ -362,6 +362,44 @@ class Conversation(BaseModel):
     information: str = "rien"
 
 
+#: Les prénoms auxquels l'assistant peut répondre, et la voix de chacun.
+#:
+#: Une liste et non un champ libre, parce qu'un prénom saisi au hasard n'est pas
+#: forcément rendu par le modèle de transcription — et que rien ne le dirait.
+#: Chacun de ceux-ci a été soumis à quatre épreuves (deux tournures, deux voix
+#: de synthèse) puis transcrit par le vrai modèle, et à cinq pièges : des
+#: phrases sans le prénom, pour vérifier qu'il ne s'y déclenche pas.
+#:
+#: Retenus : quatre appels sur quatre, zéro faux positif sur cinq.
+#: Écartés : « Élise », que « elle a lu ci et ça » réveille — et « Greffier »
+#: lui-même, que « le greffe du tribunal » suffisait à appeler.
+#:
+#: La valeur est le locuteur du modèle de voix installé, dont le genre a été
+#: relevé à la fréquence fondamentale : 237 Hz pour le premier, 129 Hz pour le
+#: second. Choisir le prénom pose donc la voix du même geste, et aucune
+#: combinaison incohérente n'est possible.
+#:
+#: Ce que cette épreuve ne dit pas : ce qu'un prénom devient prononcé par une
+#: vraie voix, à trois mètres d'un micro de table. C'est un plancher, pas une
+#: garantie.
+PRENOMS: dict[str, int] = {
+    "Lucie": 0,
+    "Camille": 0,
+    "Alice": 0,
+    "Manon": 0,
+    "Louise": 0,
+    "Martin": 1,
+    "Julien": 1,
+    "Antoine": 1,
+    "Nicolas": 1,
+    "Marius": 1,
+    "Léon": 1,
+}
+
+#: Comment nommer la voix d'un prénom, à l'écran.
+GENRES = {0: "voix féminine", 1: "voix masculine"}
+
+
 class Assistant(BaseModel):
     """L'assistant en tant que participant : son nom, sa voix, sa retenue.
 
@@ -394,9 +432,16 @@ class Assistant(BaseModel):
     #: Le débit. En dessous de 1, on parle à des gens occupés ; au-dessus, on
     #: parle à quelqu'un qui écoute.
     vitesse: float = 0.95
-    #: Le locuteur, quand le modèle en porte plusieurs. Celui qui est installé
-    #: en a deux, et c'est le premier qui a été retenu à l'écoute.
+    #: Le locuteur du modèle de voix, quand il en porte plusieurs. Déduit du
+    #: prénom par `PRENOMS` : les choisir séparément permettrait « Martin » avec
+    #: une voix féminine, ce que personne ne veut et que rien ne rattrape.
+    #: Réglable tout de même, pour un prénom hors liste.
     locuteur: int = 0
+
+    @property
+    def locuteur_effectif(self) -> int:
+        """La voix qui va avec ce prénom, quand il est de la liste."""
+        return PRENOMS.get(self.nom, self.locuteur)
     #: Secondes entre deux prises de parole **spontanées**. Être appelé ne compte
     #: pas : on répond tout de suite, quel que soit le repos restant.
     repos: float = 180.0
