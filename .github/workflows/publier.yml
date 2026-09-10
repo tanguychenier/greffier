@@ -68,6 +68,23 @@ jobs:
         with:
           name: Greffier-macos
           path: Greffier-macos.zip
+      - name: Attacher à la publication
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Chaque système attache le sien dès qu'il est prêt, plutôt que
+          # d'attendre les deux autres : sur la première publication, macOS a
+          # mis cinquante minutes et rien n'était téléchargeable pendant ce
+          # temps. La publication est créée par le premier arrivé.
+          gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" \
+              >/dev/null 2>&1 \
+            || gh release create "${GITHUB_REF_NAME}" \
+                 --repo "${GITHUB_REPOSITORY}" \
+                 --title "Greffier ${GITHUB_REF_NAME}" --generate-notes
+          gh release upload "${GITHUB_REF_NAME}" Greffier-macos.zip \
+            --repo "${GITHUB_REPOSITORY}" --clobber
+
 
   windows:
     name: Exécutable Windows
@@ -109,6 +126,23 @@ jobs:
         with:
           name: Greffier-windows
           path: Greffier-windows.zip
+      - name: Attacher à la publication
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Chaque système attache le sien dès qu'il est prêt, plutôt que
+          # d'attendre les deux autres : sur la première publication, macOS a
+          # mis cinquante minutes et rien n'était téléchargeable pendant ce
+          # temps. La publication est créée par le premier arrivé.
+          gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" \
+              >/dev/null 2>&1 \
+            || gh release create "${GITHUB_REF_NAME}" \
+                 --repo "${GITHUB_REPOSITORY}" \
+                 --title "Greffier ${GITHUB_REF_NAME}" --generate-notes
+          gh release upload "${GITHUB_REF_NAME}" Greffier-windows.zip \
+            --repo "${GITHUB_REPOSITORY}" --clobber
+
 
   linux:
     name: Archive Linux
@@ -122,29 +156,19 @@ jobs:
         with:
           name: Greffier-linux
           path: Greffier-linux.tar.gz
-
-  attacher:
-    name: Attacher à la publication
-    needs: [macos, windows, linux]
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          merge-multiple: true
-      - name: Attacher
+      - name: Attacher à la publication
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Poser une étiquette ne crée pas de publication : sans cette
-          # création, « upload » échoue sur une publication qui n'existe pas, et
-          # les trois artefacts restent dans l'exécution au lieu d'être
-          # téléchargeables.
+          # Chaque système attache le sien dès qu'il est prêt, plutôt que
+          # d'attendre les deux autres : sur la première publication, macOS a
+          # mis cinquante minutes et rien n'était téléchargeable pendant ce
+          # temps. La publication est créée par le premier arrivé.
           gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" \
               >/dev/null 2>&1 \
             || gh release create "${GITHUB_REF_NAME}" \
                  --repo "${GITHUB_REPOSITORY}" \
                  --title "Greffier ${GITHUB_REF_NAME}" --generate-notes
-          gh release upload "${GITHUB_REF_NAME}" \
-            Greffier-macos.zip Greffier-windows.zip Greffier-linux.tar.gz \
+          gh release upload "${GITHUB_REF_NAME}" Greffier-linux.tar.gz \
             --repo "${GITHUB_REPOSITORY}" --clobber
