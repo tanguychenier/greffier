@@ -36,14 +36,14 @@ def publish(file: Path, question: Question) -> None:
         "entendu": question.heard,
         "attendu": question.expected,
     }
-    with file.open("a", encoding="utf-8") as flux:
-        flux.write(json.dumps(line, ensure_ascii=False) + "\n")
+    with file.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(line, ensure_ascii=False) + "\n")
 
 def answer(file: Path, number: int, response: str) -> None:
     """Publishes an answer. The question stays, with its answer."""
     file.parent.mkdir(parents=True, exist_ok=True)
-    with file.open("a", encoding="utf-8") as flux:
-        flux.write(json.dumps(
+    with file.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(
             {"genre": GENRE_REPONSE, "numero": number, "reponse": response},
             ensure_ascii=False,
         ) + "\n")

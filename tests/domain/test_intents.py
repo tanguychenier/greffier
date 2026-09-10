@@ -14,7 +14,7 @@ class TestCeQuiEstCompris:
     def test_un_sigle_avec_son_sens(self):
         appris = understand("retiens que OTP veut dire mot de passe à usage unique")
         assert appris is not None
-        assert appris.quoi is What.TERME
+        assert appris.what is What.TERME
         assert appris.subject == "OTP"
         assert appris.precision == "mot de passe à usage unique"
 
@@ -34,7 +34,7 @@ class TestCeQuiEstCompris:
     def test_une_personne_et_son_role(self):
         appris = understand("note que Maud est cheffe de projet Oasis")
         assert appris is not None
-        assert appris.quoi is What.NOBODY
+        assert appris.what is What.NOBODY
         assert appris.subject == "Maud"
         assert "cheffe de projet" in appris.precision
 
@@ -81,14 +81,14 @@ class TestLaConfirmation:
     """On propose et on n'écrit pas : la phrase doit montrer ce qui sera écrit."""
 
     def test_elle_montre_le_terme_et_son_sens(self):
-        phrase = understand("retiens que OTP veut dire mot de passe").say()
-        assert "OTP" in phrase
-        assert "mot de passe" in phrase
-        assert "Confirme" in phrase
+        sentence = understand("retiens que OTP veut dire mot de passe").say()
+        assert "OTP" in sentence
+        assert "mot de passe" in sentence
+        assert "Confirme" in sentence
 
     def test_elle_distingue_une_personne(self):
-        phrase = understand("note que Maud est cheffe de projet").say()
-        assert "personnes du contexte" in phrase
+        sentence = understand("note que Maud est cheffe de projet").say()
+        assert "personnes du contexte" in sentence
 
     def test_un_apprentissage_sans_sujet_est_refuse(self):
         with pytest.raises(ValueError, match="sans sujet"):

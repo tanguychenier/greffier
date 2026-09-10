@@ -39,8 +39,8 @@ class TestCeQuiVaPartir:
     def test_toutes_les_pieces_sont_trouvees(self, tmp_path):
         ou = locations(tmp_path)
         poser_une_reunion(ou)
-        quoi = {p.quoi for p in pieces_de(ou, "2026-09-09_10h05_reunion")}
-        assert quoi == {
+        what = {p.what for p in pieces_de(ou, "2026-09-09_10h05_reunion")}
+        assert what == {
             "enregistrement audio", "réunion transcrite", "transcription lisible",
             "compte rendu", "fil du direct", "propositions de noms",
         }
@@ -48,7 +48,7 @@ class TestCeQuiVaPartir:
     def test_l_audio_vient_en_tete_parce_qu_il_pese(self, tmp_path):
         ou = locations(tmp_path)
         poser_une_reunion(ou)
-        assert pieces_de(ou, "2026-09-09_10h05_reunion")[0].quoi == "enregistrement audio"
+        assert pieces_de(ou, "2026-09-09_10h05_reunion")[0].what == "enregistrement audio"
 
     def test_une_reunion_inconnue_ne_rend_rien(self, tmp_path):
         assert pieces_de(locations(tmp_path), "jamais-vue") == []
@@ -57,7 +57,7 @@ class TestCeQuiVaPartir:
         """« greffier archiver » remplace le WAV par un Opus : il compte aussi."""
         ou = locations(tmp_path)
         (ou.recordings / "2026-09-09_x.opus").write_bytes(b"x" * 10)
-        assert [p.quoi for p in pieces_de(ou, "2026-09-09_x")] == ["enregistrement audio"]
+        assert [p.what for p in pieces_de(ou, "2026-09-09_x")] == ["enregistrement audio"]
 
 
 class TestOubli:
@@ -216,15 +216,15 @@ class TestToutCeQuiAppartientALaReunion:
     def test_les_questions_et_la_conversation_sont_comptees(self, tmp_path):
         from greffier.application.tidy import pieces_de
 
-        quoi = {p.quoi for p in pieces_de(self.place(tmp_path), "reunion-1")}
-        assert "questions posées" in quoi
-        assert "conversation avec l'assistant" in quoi
+        what = {p.what for p in pieces_de(self.place(tmp_path), "reunion-1")}
+        assert "questions posées" in what
+        assert "conversation avec l'assistant" in what
 
     def test_les_documents_fournis_sont_comptes(self, tmp_path):
         from greffier.application.tidy import pieces_de
 
-        trouvees = pieces_de(self.place(tmp_path), "reunion-1")
-        assert any("document fourni" in p.quoi for p in trouvees)
+        found = pieces_de(self.place(tmp_path), "reunion-1")
+        assert any("document fourni" in p.what for p in found)
 
     def test_oublier_retire_aussi_le_dossier_des_documents(self, tmp_path):
         """Un dossier vide laisse croire qu'il reste quelque chose."""

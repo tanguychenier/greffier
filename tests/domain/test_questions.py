@@ -88,8 +88,8 @@ class TestCeQuiNeDoitRienDeclencher:
         """Au-delà d'un certain nombre, il noierait qui travaille."""
         known = tuple(f"terme{n:03d}" for n in range(40))
         questioner = Questioner(known=known)
-        phrase = " ".join(f"terme{n:03d}x" for n in range(40))
-        assert len(questioner.examine(phrase)) <= QUESTIONS_MAXIMUM
+        sentence = " ".join(f"terme{n:03d}x" for n in range(40))
+        assert len(questioner.examine(sentence)) <= QUESTIONS_MAXIMUM
 
 
 class TestUnPlurielNEstPasUneDeformation:

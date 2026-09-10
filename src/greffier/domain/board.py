@@ -31,9 +31,9 @@ def content_words(text: str) -> list[str]:
     """The words that carry meaning, **in order**, without accents."""
     nu = unicodedata.normalize("NFKD", text.casefold())
     nu = "".join(lettre for lettre in nu if not unicodedata.combining(lettre))
-    tous = [mot for mot in re.split(r"[^a-z0-9]+", nu) if mot]
-    carriers = [mot for mot in tous if mot not in _EMPTY]
-    return carriers or tous
+    all_of_them = [word for word in re.split(r"[^a-z0-9]+", nu) if word]
+    carriers = [word for word in all_of_them if word not in _EMPTY]
+    return carriers or all_of_them
 
 def key(text: str) -> str:
     """What identifies two wordings of the same point."""
@@ -64,25 +64,25 @@ WORD_GAP = 2
 
 COMPARABLE_LENGTH = 5
 
-def _near_ones(un: str, autre: str) -> bool:
+def _near_ones(one: str, other: str) -> bool:
     """Do two words name the same thing, give or take an ending?"""
-    if un == autre:
+    if one == other:
         return True
-    if len(un) < COMPARABLE_LENGTH or len(autre) < COMPARABLE_LENGTH:
+    if len(one) < COMPARABLE_LENGTH or len(other) < COMPARABLE_LENGTH:
         return False
     from greffier.domain.questions import distance
 
-    return distance(un, autre) <= WORD_GAP
+    return distance(one, other) <= WORD_GAP
 
-def same_point(un: str, autre: str) -> bool:
+def same_point(one: str, other: str) -> bool:
     """True when these two labels name the same point of the board."""
-    one_words, other_words = set(content_words(un)), set(content_words(autre))
+    one_words, other_words = set(content_words(one)), set(content_words(other))
     if not one_words or not other_words:
         return False
     if one_words == other_words:
         return True
     communs = sum(
-        1 for mot in one_words if any(_near_ones(mot, target) for target in other_words)
+        1 for word in one_words if any(_near_ones(word, target) for target in other_words)
     )
     return communs / max(len(one_words), len(other_words)) >= COMMON_SHARE
 
@@ -133,7 +133,7 @@ class Contribution:
     text: str
     kind: Kind = Kind.OBSERVATION
     state: Standing = Standing.UNDER_DISCUSSION
-    sous: str = ""
+    under: str = ""
 
 @dataclass(frozen=True, slots=True)
 class Summary:
@@ -157,7 +157,7 @@ def join(board: Board, apports: list[Contribution], meeting: str = "") -> Summar
     for contribution in apports:
         if not contribution.text.strip():
             continue
-        parent = _find(board.root, contribution.sous) if contribution.sous else board.root
+        parent = _find(board.root, contribution.under) if contribution.under else board.root
         if parent is None:
             parent = board.root
         existant = parent.enfant(contribution.text)
@@ -186,16 +186,16 @@ def _find(noeud: Node, text: str) -> Node | None:
     if same_point(noeud.text, text):
         return noeud
     for enfant in noeud.children:
-        trouve = _find(enfant, text)
-        if trouve is not None:
-            return trouve
+        found = _find(enfant, text)
+        if found is not None:
+            return found
     return None
 
 def mark_overdue(board: Board, text: str) -> bool:
     """Marks a point as overdue. The node stays on the board."""
     assert board.root is not None
-    trouve = _find(board.root, text)
-    if trouve is None or trouve is board.root:
+    found = _find(board.root, text)
+    if found is None or found is board.root:
         return False
-    trouve.state = Standing.OVERTAKEN
+    found.state = Standing.OVERTAKEN
     return True

@@ -17,9 +17,9 @@ SILENCE_NUMERIQUE = -120.0
 _LEVEL = re.compile(r"RMS level dB: (-?[\d.]+|-inf)")
 
 class FfmpegRecorder:
-    def __init__(self, peripherique: str, duree_maximale: int = 14_400) -> None:
+    def __init__(self, peripherique: str, maximum_length: int = 14_400) -> None:
         self.peripherique = peripherique
-        self.duree_maximale = duree_maximale
+        self.maximum_length = maximum_length
 
     def _input(self) -> list[str]:
         if SYSTEM == "Darwin":
@@ -36,9 +36,9 @@ class FfmpegRecorder:
         ).stderr
         audio = output.split("AVFoundation audio devices")[-1]
         for line in audio.splitlines():
-            trouve = re.search(r"\[(\d+)\] (.+)$", line)
-            if trouve and trouve.group(2).strip() == peripherique:
-                return trouve.group(1)
+            found = re.search(r"\[(\d+)\] (.+)$", line)
+            if found and found.group(2).strip() == peripherique:
+                return found.group(1)
         raise RuntimeError(f"Périphérique « {peripherique} » introuvable.")
 
     def _avfoundation_index(self) -> str:
@@ -49,9 +49,9 @@ class FfmpegRecorder:
         ).stderr
         audio = output.split("AVFoundation audio devices")[-1]
         for line in audio.splitlines():
-            trouve = re.search(r"\[(\d+)\] (.+)$", line)
-            if trouve and trouve.group(2).strip() == self.peripherique:
-                return trouve.group(1)
+            found = re.search(r"\[(\d+)\] (.+)$", line)
+            if found and found.group(2).strip() == self.peripherique:
+                return found.group(1)
         raise RuntimeError(
             f"Périphérique « {self.peripherique} » introuvable. "
             "Crée-le dans Configuration audio et MIDI, ou change « audio.entree »."
@@ -61,7 +61,7 @@ class FfmpegRecorder:
         destination.parent.mkdir(parents=True, exist_ok=True)
         processus = subprocess.Popen(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin",
-             *self._input(), "-t", str(self.duree_maximale),
+             *self._input(), "-t", str(self.maximum_length),
              "-ar", "16000", "-c:a", "pcm_s16le", str(destination)],
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
@@ -102,13 +102,13 @@ class FfmpegRecorder:
             filtre = f"{parts}{entrees}amix=inputs={channels}:normalize=0,loudnorm=I=-20:TP=-1.5"
         destination.parent.mkdir(parents=True, exist_ok=True)
         drapeau = "-filter_complex" if channels > 1 else "-af"
-        fait = subprocess.run(
+        done = subprocess.run(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(audio),
              drapeau, filtre, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le",
              str(destination)],
             capture_output=True, text=True, check=False,
         )
-        if fait.returncode != 0 or not destination.exists():
+        if done.returncode != 0 or not destination.exists():
             return audio
         return destination
 
@@ -153,22 +153,22 @@ class FfmpegRecorder:
         return destination
 
     def _run_chain(self, arguments: list[str], echec: str) -> None:
-        fait = subprocess.run(
+        done = subprocess.run(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", *arguments],
             capture_output=True, text=True, check=False,
         )
-        if fait.returncode != 0:
-            latest = (fait.stderr or fait.stdout).strip().splitlines()
+        if done.returncode != 0:
+            latest = (done.stderr or done.stdout).strip().splitlines()
             raise RuntimeError(echec + (f" : {latest[-1]}" if latest else ""))
 
     def _channels(self, audio: Path) -> int:
-        fait = subprocess.run(
+        done = subprocess.run(
             ["ffprobe", "-v", "error", "-select_streams", "a:0",
              "-show_entries", "stream=channels", "-of", "csv=p=0", str(audio)],
             capture_output=True, text=True, check=False,
         )
         try:
-            return int(fait.stdout.strip().split(",")[0])
+            return int(done.stdout.strip().split(",")[0])
         except (ValueError, IndexError):
             return 0
 
@@ -182,13 +182,13 @@ class FfmpegRecorder:
             return SILENCE_NUMERIQUE
         with tempfile.TemporaryDirectory() as folder:
             essai = Path(folder) / "essai.wav"
-            fait = subprocess.run(
+            done = subprocess.run(
                 ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
                  "-f", "avfoundation", "-i", f":{index}", "-t", f"{seconds}",
                  "-ar", "16000", str(essai)],
                 capture_output=True, text=True, check=False,
             )
-            if fait.returncode != 0 or not essai.exists():
+            if done.returncode != 0 or not essai.exists():
                 return SILENCE_NUMERIQUE
             mesures = self.levels(essai)
         return max(mesures) if mesures else SILENCE_NUMERIQUE

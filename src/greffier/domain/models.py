@@ -61,9 +61,9 @@ class Span:
     def duration(self) -> float:
         return self.end - self.start
 
-    def overlap(self, autre: Span) -> float:
+    def overlap(self, other: Span) -> float:
         """Time common to both spans, 0 when they are disjoint."""
-        return max(0.0, min(self.end, autre.end) - max(self.start, autre.start))
+        return max(0.0, min(self.end, other.end) - max(self.start, other.start))
 
 @dataclass(frozen=True, slots=True)
 class SpeakerTurn:
@@ -116,7 +116,7 @@ class Meeting:
     utterances: list[Utterance] = field(default_factory=list)
     turns: list[SpeakerTurn] = field(default_factory=list)
     names: dict[str, str] = field(default_factory=dict)
-    personnes_en_salle: int | None = None
+    people_in_the_room: int | None = None
 
     def name_of(self, voice: str | None) -> str:
         if voice is None:

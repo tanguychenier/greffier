@@ -34,7 +34,7 @@ class TestValeursParDefaut:
     def test_un_poste_sans_configuration_fonctionne(self):
         config = Config()
         assert config.transcription.language == "fr"
-        assert config.audio.duree_maximale == 14_400
+        assert config.audio.maximum_length == 14_400
         assert config.speakers.people is None
 
     def test_le_vocabulaire_vide_ne_produit_pas_d_amorce(self):

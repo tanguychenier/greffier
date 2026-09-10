@@ -29,32 +29,32 @@ _WORD = re.compile(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*", re.UNICODE)
 
 _PLURAL = re.compile(r"(?:s|x)$")
 
-def canonical_form(mot: str) -> str:
+def canonical_form(word: str) -> str:
     """What is left of a word once what does not change it is removed."""
     import unicodedata
 
-    depouille = unicodedata.normalize("NFD", mot.casefold())
+    depouille = unicodedata.normalize("NFD", word.casefold())
     without_accents = "".join(c for c in depouille if unicodedata.category(c) != "Mn")
     without_elision = re.sub(r"[-'’\s]", "", without_accents)
     return _PLURAL.sub("", without_elision)
 
-def same_word(un: str, autre: str) -> bool:
+def same_word(one: str, other: str) -> bool:
     """Do the two differ only by plural, accent or case?"""
-    return canonical_form(un) == canonical_form(autre)
+    return canonical_form(one) == canonical_form(other)
 
 PREFIXES = ("re", "ré", "de", "dé", "in", "im", "non", "anti", "pre", "pré",
             "sur", "sous", "mal", "co")
 
-def derived_word(mot: str, term: str) -> bool:
+def derived_word(word: str, term: str) -> bool:
     """Is the word the term with a French prefix in front of it?"""
-    court, long = canonical_form(term), canonical_form(mot)
+    court, long = canonical_form(term), canonical_form(word)
     if len(long) <= len(court) or not court:
         return False
     for prefixe in (canonical_form(p) for p in PREFIXES):
         if not long.startswith(prefixe):
             continue
-        reste = long[len(prefixe):]
-        if reste == court or (court[0] in "aeiouy" and reste == court[1:]):
+        remaining = long[len(prefixe):]
+        if remaining == court or (court[0] in "aeiouy" and remaining == court[1:]):
             return True
     return False
 
@@ -78,17 +78,17 @@ class Question:
         """What identifies an already asked question, without leaning on the text."""
         return f"{self.motif}:{self.heard.casefold()}:{self.expected.casefold()}"
 
-def distance(un: str, autre: str) -> int:
+def distance(one: str, other: str) -> int:
     """Edit distance **with transposition** (Damerau-Levenshtein)."""
-    if un == autre:
+    if one == other:
         return 0
-    if abs(len(un) - len(autre)) > DISTANCE_MAXIMUM:
+    if abs(len(one) - len(other)) > DISTANCE_MAXIMUM:
         return DISTANCE_MAXIMUM + 1
     before_previous: list[int] = []
-    precedente = list(range(len(autre) + 1))
-    for i, one_letter in enumerate(un, start=1):
+    precedente = list(range(len(other) + 1))
+    for i, one_letter in enumerate(one, start=1):
         courante = [i]
-        for j, other_letter in enumerate(autre, start=1):
+        for j, other_letter in enumerate(other, start=1):
             cout = min(
                 precedente[j] + 1,
                 courante[j - 1] + 1,
@@ -96,8 +96,8 @@ def distance(un: str, autre: str) -> int:
             )
             if (
                 i > 1 and j > 1
-                and one_letter == autre[j - 2]
-                and un[i - 2] == other_letter
+                and one_letter == other[j - 2]
+                and one[i - 2] == other_letter
             ):
                 cout = min(cout, before_previous[j - 2] + 1)
             courante.append(cout)
@@ -133,11 +133,11 @@ class Questioner:
         self._retenir(text)
         if len(self.asked) >= QUESTIONS_MAXIMUM:
             return []
-        trouvees: list[Question] = []
-        for mot in _words(text):
-            if len(mot) < MINIMUM_LENGTH:
+        found: list[Question] = []
+        for word in _words(text):
+            if len(word) < MINIMUM_LENGTH:
                 continue
-            nu = mot.casefold()
+            nu = word.casefold()
             candidat = self._near_term(nu)
             if candidat is None:
                 continue
@@ -146,28 +146,28 @@ class Questioner:
             question = Question(
                 number=self._number + 1,
                 text=(
-                    f"J'ai entendu « {mot} ». Fallait-il comprendre "
+                    f"J'ai entendu « {word} ». Fallait-il comprendre "
                     f"« {candidat} » ?"
                 ),
                 motif=Reason.NEAR_TERM,
-                heard=mot,
+                heard=word,
                 expected=candidat,
             )
             if question.key in self.asked:
                 continue
             self.asked.add(question.key)
             self._number += 1
-            trouvees.append(question)
+            found.append(question)
             if len(self.asked) >= QUESTIONS_MAXIMUM:
                 break
-        return trouvees
+        return found
 
     def _retenir(self, text: str) -> None:
         """Counts what was heard, before judging anything."""
-        for mot in _words(text):
-            if len(mot) < MINIMUM_LENGTH:
+        for word in _words(text):
+            if len(word) < MINIMUM_LENGTH:
                 continue
-            key = canonical_form(mot)
+            key = canonical_form(word)
             self._heard[key] = self._heard.get(key, 0) + 1
 
     def _established(self, bare_word: str) -> bool:

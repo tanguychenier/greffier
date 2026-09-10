@@ -18,9 +18,9 @@ from greffier.domain.arithmetic import compute_threads
 from greffier.domain.models import Span, Voiceprint
 from greffier.domain.voiceprints import normalise
 
-DUREE_MINIMALE = 1.5
+MINIMUM_LENGTH = 1.5
 
-DUREE_MAXIMALE = 60.0
+MAXIMUM_LENGTH = 60.0
 
 class TitaNetExtractor:
     """Turns an excerpt of speech into a voiceprint."""
@@ -35,14 +35,14 @@ class TitaNetExtractor:
 
     def extract(self, echantillons: np.ndarray, frequency: int) -> Voiceprint:
         """The voiceprint of an excerpt, capped in duration."""
-        borne = int(DUREE_MAXIMALE * frequency)
+        borne = int(MAXIMUM_LENGTH * frequency)
         if len(echantillons) > borne:
             milieu = len(echantillons) // 2
             echantillons = echantillons[milieu - borne // 2 : milieu + borne // 2]
-        flux = self._extractor.create_stream()
-        flux.accept_waveform(sample_rate=frequency, waveform=echantillons)
-        flux.input_finished()
-        vector = self._extractor.compute(flux)
+        stream = self._extractor.create_stream()
+        stream.accept_waveform(sample_rate=frequency, waveform=echantillons)
+        stream.input_finished()
+        vector = self._extractor.compute(stream)
         return normalise(vector, source_duration=len(echantillons) / frequency)
 
     def extract_spans(
@@ -55,11 +55,11 @@ class TitaNetExtractor:
         signal = data.mean(axis=1)
         voiceprints: list[Voiceprint] = []
         for span in intervalles:
-            if span.duration < DUREE_MINIMALE:
+            if span.duration < MINIMUM_LENGTH:
                 continue
             start = int(span.start * frequency)
             end = min(int(span.end * frequency), len(signal))
-            if end - start < DUREE_MINIMALE * frequency:
+            if end - start < MINIMUM_LENGTH * frequency:
                 continue
             voiceprints.append(self.extract(signal[start:end], frequency))
         return voiceprints

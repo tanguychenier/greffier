@@ -42,10 +42,10 @@ def do_it(
     config: Path | None,
     destination: Path,
     kept: int = KEPT,
-    quand: datetime | None = None,
+    when: datetime | None = None,
 ) -> Made:
     """Writes the archive and applies the rotation."""
-    name = BackupName(quand or datetime.now(UTC).astimezone())
+    name = BackupName(when or datetime.now(UTC).astimezone())
     destination.mkdir(parents=True, exist_ok=True)
     archive = destination / f"{name}.tar.gz"
 
@@ -99,11 +99,11 @@ def restore(archive: Path, data: Path, ecraser: bool = False) -> list[str]:
             if "/" in membre.name or membre.isdir()
         })
         if not ecraser:
-            deja = [name for name in racines if (data / name).exists()]
-            if deja:
+            already = [name for name in racines if (data / name).exists()]
+            if already:
                 raise FileExistsError(
                     "déjà présent, et rien n'a été touché : "
-                    + ", ".join(deja)
+                    + ", ".join(already)
                     + ". Relance en demandant explicitement d'écraser."
                 )
         data.mkdir(parents=True, exist_ok=True)
@@ -112,15 +112,15 @@ def restore(archive: Path, data: Path, ecraser: bool = False) -> list[str]:
 
 def lister(destination: Path) -> list[tuple[str, int, datetime]]:
     """The backups present, most recent first."""
-    trouvees: list[tuple[str, int, datetime]] = []
+    found: list[tuple[str, int, datetime]] = []
     if not destination.exists():
-        return trouvees
+        return found
     for path in destination.glob("greffier-*.tar.gz"):
-        quand = BackupName.read(path.name.removesuffix(".tar.gz"))
-        if quand is None:
+        when = BackupName.read(path.name.removesuffix(".tar.gz"))
+        if when is None:
             continue
-        trouvees.append((path.name, path.stat().st_size, quand))
-    return sorted(trouvees, key=lambda line: line[2], reverse=True)
+        found.append((path.name, path.stat().st_size, when))
+    return sorted(found, key=lambda line: line[2], reverse=True)
 
 def space_available(destination: Path) -> int:
     """Free bytes where writing happens. Zero when unknown."""

@@ -77,12 +77,12 @@ end run
 
     def send(self, recipient: str, subject: str, corps: str, pieces: list[Path]) -> None:
         with tempfile.TemporaryDirectory() as folder:
-            fichier_corps = Path(folder) / "corps.html"
-            fichier_sujet = Path(folder) / "sujet.txt"
-            fichier_corps.write_text(email_template.email(corps), encoding="utf-8")
-            fichier_sujet.write_text(subject, encoding="utf-8")
+            body_file = Path(folder) / "corps.html"
+            subject_file = Path(folder) / "sujet.txt"
+            body_file.write_text(email_template.email(corps), encoding="utf-8")
+            subject_file.write_text(subject, encoding="utf-8")
             outcome = subprocess.run(
-                ["osascript", "-", str(fichier_corps), str(fichier_sujet), recipient,
+                ["osascript", "-", str(body_file), str(subject_file), recipient,
                  *[str(p) for p in pieces]],
                 input=self.SOURCE, capture_output=True, text=True, check=False,
             )
@@ -116,13 +116,13 @@ class SmtpSender:
         port: int = 587,
         user: str = "",
         sender: str = "",
-        mot_de_passe: str = "",
+        password: str = "",
     ) -> None:
         self.server = server
         self.port = port
         self.user = user
         self.sender = sender or user
-        self.mot_de_passe = mot_de_passe or os.environ.get("GREFFIER_SMTP_MOT_DE_PASSE", "")
+        self.password = password or os.environ.get("GREFFIER_SMTP_MOT_DE_PASSE", "")
 
     def message(
         self, recipient: str, subject: str, corps: str, pieces: list[Path]
@@ -151,8 +151,8 @@ class SmtpSender:
             if classe is smtplib.SMTP:
                 session.starttls()
             session.ehlo()
-            if self.user and self.mot_de_passe:
-                session.login(self.user, self.mot_de_passe)
+            if self.user and self.password:
+                session.login(self.user, self.password)
             yield session
 
     def send(self, recipient: str, subject: str, corps: str, pieces: list[Path]) -> None:

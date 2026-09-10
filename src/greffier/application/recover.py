@@ -51,10 +51,10 @@ def depuis_le_fil(
         if connue.name and connue.certainty.name != "INCONNUE"
     }
     duration = turns[-1].span.end if turns else 0.0
-    quand = held_on(identifier)
+    when = held_on(identifier)
     commencee = None
-    if quand is not None:
-        annee, mois, jour, heure, minute = quand
+    if when is not None:
+        annee, mois, jour, heure, minute = when
         commencee = datetime(annee, mois, jour, heure, minute).astimezone()
 
     return StoredMeeting(

@@ -28,7 +28,7 @@ class Answers:
     """What the assistant retained, ready to become a configuration."""
 
     values: dict[str, str] = field(default_factory=dict)
-    reglages: dict[str, dict[str, str]] = field(default_factory=dict)
+    settings: dict[str, dict[str, str]] = field(default_factory=dict)
     to_do: list[str] = field(default_factory=list)
     installations: list[str] = field(default_factory=list)
 
@@ -37,7 +37,7 @@ class Answers:
 
     def set_up(self, section: str, champ: str, value: str) -> None:
         """A setting the window must be able to change afterwards."""
-        self.reglages.setdefault(section, {})[champ] = value
+        self.settings.setdefault(section, {})[champ] = value
 
     def render_env(self) -> str:
         lines = [
@@ -262,10 +262,10 @@ def write(answers: Answers, file: Path | None = None) -> Path:
 
 def apply_settings(answers: Answers) -> None:
     """Writes into config.toml what the window changed."""
-    if not answers.reglages:
+    if not answers.settings:
         return
     config = Config.load()
-    for section, champs in answers.reglages.items():
+    for section, champs in answers.settings.items():
         objet = getattr(config, section, None)
         if objet is None:
             continue

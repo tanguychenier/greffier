@@ -34,16 +34,16 @@ def watcher(tmp_path, **overrides):
     return Watcher(**defauts)
 
 
-def ou(tmp_path, ecrit, decalage=0.0):
+def ou(tmp_path, written, offset=0.0):
     """La position dans l'audio réellement écrit, telle que la lit le direct."""
-    return Position(morceau=tmp_path / "r-01.wav", ecrit=ecrit, decalage=decalage)
+    return Position(morceau=tmp_path / "r-01.wav", written=written, offset=offset)
 
 
 class TestPressePapier:
     def test_un_lien_colle_devient_une_proposition(self, tmp_path, monkeypatch):
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "voir https://miro.com/x")
-        nouvelles = watcher(tmp_path).clipboard_turn(12.0)
-        assert [p.text for p in nouvelles] == ["https://miro.com/x"]
+        fresh = watcher(tmp_path).clipboard_turn(12.0)
+        assert [p.text for p in fresh] == ["https://miro.com/x"]
 
     def test_le_meme_lien_n_est_pas_proposé_a_chaque_tour(self, tmp_path, monkeypatch):
         """Le presse-papier est relu toutes les deux secondes."""
@@ -89,9 +89,9 @@ class TestTranscriptionAuFilDeLEau:
             [[utterance(watch.CONTEXTE_S + 3, "Greffier, ouvre le tableau")]]
         )
         instance = watcher(tmp_path, transcriber=transcriber, traite=120.0)
-        nouvelles = instance.transcription_turn(ou(tmp_path, ecrit=150.0), tmp_path)
+        fresh = instance.transcription_turn(ou(tmp_path, written=150.0), tmp_path)
         # 120 s déjà lues, 5 s de recouvrement : la tranche part de 115 s.
-        assert nouvelles[0].at_instant == 118.0
+        assert fresh[0].at_instant == 118.0
 
     def test_l_horodatage_suit_les_morceaux_et_non_l_horloge(self, tmp_path, monkeypatch):
         """Après une pause, l'audio écrit et l'horloge ont divergé.
@@ -107,11 +107,11 @@ class TestTranscriptionAuFilDeLEau:
         # Le morceau ne porte que 20 s : la fenêtre ne peut pas remonter plus
         # haut que son début, donc les temps sont ceux de la tranche.
         instance = watcher(tmp_path, transcriber=transcriber, traite=1800.0)
-        nouvelles = instance.transcription_turn(
-            ou(tmp_path, ecrit=20.0, decalage=1800.0), tmp_path
+        fresh = instance.transcription_turn(
+            ou(tmp_path, written=20.0, offset=1800.0), tmp_path
         )
         # Une demi-heure déjà enregistrée avant ce morceau, plus 2 s dedans.
-        assert nouvelles[0].at_instant == 1802.0
+        assert fresh[0].at_instant == 1802.0
 
     def test_une_tranche_trop_courte_n_est_pas_transcrite(self, tmp_path, monkeypatch):
         # Le modèle invente plus qu'il n'entend sur deux secondes d'audio.
@@ -119,7 +119,7 @@ class TestTranscriptionAuFilDeLEau:
                             lambda audio, start, end, dest: dest)
         transcriber = SliceTranscriber([[utterance(0, "à peine un mot")]])
         instance = watcher(tmp_path, transcriber=transcriber)
-        assert instance.transcription_turn(ou(tmp_path, ecrit=2.0), tmp_path) == []
+        assert instance.transcription_turn(ou(tmp_path, written=2.0), tmp_path) == []
         assert transcriber.appels == 0
 
     def test_le_recouvrement_de_texte_entre_deux_tranches_est_retire(
@@ -141,8 +141,8 @@ class TestTranscriptionAuFilDeLEau:
         follower = Follower(thread=LiveThread(), log=tmp_path / "direct.jsonl",
                        requests=tmp_path / "demandes.jsonl")
         instance = watcher(tmp_path, transcriber=transcriber, follower=follower)
-        instance.transcription_turn(ou(tmp_path, ecrit=10.0), tmp_path)
-        instance.transcription_turn(ou(tmp_path, ecrit=20.0), tmp_path)
+        instance.transcription_turn(ou(tmp_path, written=10.0), tmp_path)
+        instance.transcription_turn(ou(tmp_path, written=20.0), tmp_path)
         assert follower.thread.turns[-1].text == "Sandy, tu peux nous dire où on en est ?"
 
     def test_une_tranche_ratee_ne_grandit_pas_sans_fin(self, tmp_path, monkeypatch):
@@ -153,17 +153,17 @@ class TestTranscriptionAuFilDeLEau:
             lambda audio, start, end, dest: demandees.append((start, end)) or None,
         )
         instance = watcher(tmp_path, transcriber=SliceTranscriber([]))
-        instance.transcription_turn(ou(tmp_path, ecrit=600.0), tmp_path)
+        instance.transcription_turn(ou(tmp_path, written=600.0), tmp_path)
         start, end = demandees[0]
         assert end - start == watch.TRANCHE_MAXIMALE
 
     def test_une_tranche_illisible_n_interrompt_pas_la_veille(self, tmp_path, monkeypatch):
         monkeypatch.setattr(watch, "extract_slice", lambda *args: None)
         instance = watcher(tmp_path, transcriber=SliceTranscriber([]))
-        assert instance.transcription_turn(ou(tmp_path, ecrit=30.0), tmp_path) == []
+        assert instance.transcription_turn(ou(tmp_path, written=30.0), tmp_path) == []
 
     def test_sans_transcripteur_seule_la_veille_du_presse_papier_tourne(self, tmp_path):
-        assert watcher(tmp_path).transcription_turn(ou(tmp_path, ecrit=30.0), tmp_path) == []
+        assert watcher(tmp_path).transcription_turn(ou(tmp_path, written=30.0), tmp_path) == []
 
 
 class TestFinDeReunion:
@@ -181,7 +181,7 @@ class TestFinDeReunion:
                             lambda audio, start, end, dest: dest)
         transcriber = SliceTranscriber([[utterance(1, "Greffier, ouvre le ticket")]])
         instance = watcher(tmp_path, transcriber=transcriber, slice_period=30.0)
-        fige = ou(tmp_path, ecrit=6.0)
+        fige = ou(tmp_path, written=6.0)
         # Premier passage : on ne sait pas encore si la capture avance.
         assert not instance._is_time(fige)
         # Second : la taille n'a pas bougé, il reste 6 s à dire.
@@ -194,11 +194,11 @@ class TestFinDeReunion:
         transcriber = SliceTranscriber([[utterance(1, "Greffier, ouvre le ticket")]])
         instance = watcher(
             tmp_path, transcriber=transcriber, slice_period=30.0,
-            situer=lambda: ou(tmp_path, ecrit=12.0),
+            situer=lambda: ou(tmp_path, written=12.0),
         )
         # La réunion s'arrête tout de suite : rien n'a atteint la période.
         propositions = instance.loop(
-            still_running=lambda: False, depuis=lambda: 0.0, job=tmp_path,
+            still_running=lambda: False, since=lambda: 0.0, job=tmp_path,
             pause=lambda _: None,
         )
         assert transcriber.appels == 1
@@ -206,7 +206,7 @@ class TestFinDeReunion:
 
     def test_un_reste_trop_court_ne_declenche_rien(self, tmp_path):
         instance = watcher(tmp_path, slice_period=30.0)
-        fige = ou(tmp_path, ecrit=1.5)
+        fige = ou(tmp_path, written=1.5)
         instance._is_time(fige)
         assert not instance._is_time(fige)
 
@@ -219,11 +219,11 @@ class TestBoucle:
         monkeypatch.setattr(watch, "extract_slice",
                             lambda audio, start, end, dest: dest)
         transcriber = SliceTranscriber([[], [], []])
-        ecrit = {"s": 0.0}
+        written = {"s": 0.0}
         instance = watcher(
             tmp_path,
             transcriber=transcriber,
-            situer=lambda: ou(tmp_path, ecrit=ecrit["s"]),
+            situer=lambda: ou(tmp_path, written=written["s"]),
         )
 
         turns = {"n": 0}
@@ -234,10 +234,10 @@ class TestBoucle:
 
         instance.loop(
             still_running=still_running,
-            depuis=lambda: ecrit["s"],
+            since=lambda: written["s"],
             job=tmp_path,
             # Chaque pause de deux secondes ajoute deux secondes d'audio écrit.
-            pause=lambda _: ecrit.__setitem__("s", ecrit["s"] + 2.0),
+            pause=lambda _: written.__setitem__("s", written["s"] + 2.0),
         )
         # 40 tours × 2 s = 80 s : deux tranches de 30 s, pas quarante — plus la
         # passe de fin, qui rattrape les vingt dernières secondes.
@@ -260,7 +260,7 @@ class TestBoucle:
             tmp_path,
             transcriber=transcriber,
             # L'audio reste figé : l'enregistrement est suspendu.
-            situer=lambda: ou(tmp_path, ecrit=4.0),
+            situer=lambda: ou(tmp_path, written=4.0),
         )
         turns = {"n": 0}
 
@@ -269,7 +269,7 @@ class TestBoucle:
             return turns["n"] <= 40
 
         instance.loop(
-            still_running=still_running, depuis=lambda: clock["t"], job=tmp_path,
+            still_running=still_running, since=lambda: clock["t"], job=tmp_path,
             pause=lambda _: clock.__setitem__("t", clock["t"] + 2.0),
         )
         assert transcriber.appels == 1
@@ -277,7 +277,7 @@ class TestBoucle:
     def test_la_boucle_s_arrete_avec_l_enregistrement(self, tmp_path, monkeypatch):
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         instance = watcher(tmp_path)
-        assert instance.loop(still_running=lambda: False, depuis=lambda: 0.0,
+        assert instance.loop(still_running=lambda: False, since=lambda: 0.0,
                                 job=tmp_path, pause=lambda _: None) == []
 
 
@@ -401,9 +401,9 @@ class TestLaFenetreDeContexte:
         monkeypatch.setattr(watch, "extract_slice", extract)
         transcriber = SliceTranscriber([[]])
         instance = watcher(tmp_path, transcriber=transcriber, traite=120.0)
-        instance.transcription_turn(ou(tmp_path, ecrit=150.0), tmp_path)
-        tranche, window = demandees
-        assert tranche == (115.0, 150.0)
+        instance.transcription_turn(ou(tmp_path, written=150.0), tmp_path)
+        slice_, window = demandees
+        assert slice_ == (115.0, 150.0)
         assert window == (115.0 - watch.CONTEXTE_S, 150.0)
 
     def test_ce_qui_est_dans_le_contexte_n_est_pas_reaffiche(self, tmp_path, monkeypatch):
@@ -415,8 +415,8 @@ class TestLaFenetreDeContexte:
             utterance(watch.CONTEXTE_S + 1, "phrase neuve, dans la tranche"),
         ]])
         instance = watcher(tmp_path, transcriber=transcriber, traite=120.0)
-        nouvelles = instance.transcription_turn(ou(tmp_path, ecrit=150.0), tmp_path)
-        instance_veille = [p.text for p in nouvelles]
+        fresh = instance.transcription_turn(ou(tmp_path, written=150.0), tmp_path)
+        instance_veille = [p.text for p in fresh]
         assert not any("déjà affichée" in t for t in instance_veille)
 
     def test_au_debut_de_la_reunion_la_fenetre_ne_remonte_pas_avant_zero(
@@ -429,7 +429,7 @@ class TestLaFenetreDeContexte:
         )
         transcriber = SliceTranscriber([[]])
         instance = watcher(tmp_path, transcriber=transcriber)
-        instance.transcription_turn(ou(tmp_path, ecrit=12.0), tmp_path)
+        instance.transcription_turn(ou(tmp_path, written=12.0), tmp_path)
         assert all(start >= 0.0 for start in demandees)
 
     def test_une_replique_a_cheval_est_gardee_entiere(self):
@@ -586,14 +586,14 @@ class TestOnceTheMeetingEnds:
             name="Lucie", voice=self.FakeVoice(), manners=Manners(active=True),
         )
 
-    def _watcher(self, tmp_path, monkeypatch, ecrit, lui):
+    def _watcher(self, tmp_path, monkeypatch, written, lui):
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         monkeypatch.setattr(watch, "extract_slice",
                             lambda audio, start, end, dest: dest)
         return watcher(
             tmp_path,
             transcriber=SliceTranscriber([[utterance(0.0, "Lucie, tu en penses quoi ?")]]),
-            situer=lambda: ou(tmp_path, ecrit=ecrit),
+            situer=lambda: ou(tmp_path, written=written),
             assistant_of=lui,
         )
 
@@ -618,7 +618,7 @@ class TestOnceTheMeetingEnds:
         appels = []
         lui.answer_aside = lambda opening, now: appels.append(opening)
         instance = self._watcher(tmp_path, monkeypatch, 20.0, lui)
-        instance.transcription_turn(ou(tmp_path, ecrit=20.0), tmp_path)
+        instance.transcription_turn(ou(tmp_path, written=20.0), tmp_path)
         assert len(appels) == 1
 
     def test_the_voice_is_cut_when_the_loop_ends(self, tmp_path, monkeypatch):
@@ -626,7 +626,7 @@ class TestOnceTheMeetingEnds:
         lui = self._assistant()
         voice = lui.voice
         watcher(tmp_path, assistant_of=lui).loop(
-            still_running=lambda: False, depuis=lambda: 0.0, job=tmp_path,
+            still_running=lambda: False, since=lambda: 0.0, job=tmp_path,
             pause=lambda _: None,
         )
         assert voice.tue, "a sentence under way stops with the meeting"
@@ -634,5 +634,5 @@ class TestOnceTheMeetingEnds:
 
     def test_a_watch_without_an_assistant_ends_quietly(self, tmp_path, monkeypatch):
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
-        watcher(tmp_path).loop(still_running=lambda: False, depuis=lambda: 0.0,
+        watcher(tmp_path).loop(still_running=lambda: False, since=lambda: 0.0,
                                job=tmp_path, pause=lambda _: None)

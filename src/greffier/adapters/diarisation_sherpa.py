@@ -56,7 +56,7 @@ class SherpaDiariser:
 
         channels = separer_canaux(data, frequency)
         mic, system, distante = channels.mic, channels.system, channels.distante
-        locaux = (
+        local_spans = (
             local_turns(
                 levels_per_frame(mic, frequency),
                 levels_per_frame(system, frequency),
@@ -75,11 +75,11 @@ class SherpaDiariser:
             )
             for s in engine.process(a_segmenter).sort_by_start_time()
         ]
-        gardes = remove([t.span for t in distants], locaux)
+        gardes = remove([t.span for t in distants], local_spans)
         distants = [t for t in distants if t.span in gardes]
 
         turns = distants + [
             SpeakerTurn(span=x, voice=LOCAL_VOICE, source=Source.MIC)
-            for x in locaux
+            for x in local_spans
         ]
         return sorted(turns, key=lambda t: t.span.start)

@@ -28,7 +28,7 @@ class TestLaLangueNAtterritJamaisDansLeEnv:
         answers = Answers()
         answers.set_up("transcription", "langue", "de")
 
-        assert answers.reglages == {"transcription": {"langue": "de"}}
+        assert answers.settings == {"transcription": {"langue": "de"}}
 
     def test_et_pas_dans_le_env(self):
         """Sinon la liste déroulante des Réglages ne pourrait plus rien changer."""

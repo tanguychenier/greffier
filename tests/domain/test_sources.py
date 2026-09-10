@@ -8,7 +8,7 @@ from greffier.domain.sources import Kind, Registry, Right, Source
 def gitlab(name: str = "recherche", droit: Right = Right.LECTURE) -> Source:
     return Source(
         name=name, kind=Kind.GITLAB, adresse="https://gitlab.example.fr",
-        projet="equipe/outil", droit=droit, token="GREFFIER_GITLAB_JETON",
+        project="equipe/outil", droit=droit, token="GREFFIER_GITLAB_JETON",
     )
 
 
@@ -16,18 +16,18 @@ class TestSourceImpossible:
     def test_une_source_sans_nom_est_refusee(self):
         with pytest.raises(ValueError, match="sans nom"):
             Source(name=" ", kind=Kind.GITLAB,
-                   adresse="https://x.fr", projet="a/b")
+                   adresse="https://x.fr", project="a/b")
 
     def test_une_source_sans_projet_est_refusee(self):
         """Autoriser « tout GitLab » ne bornerait rien."""
         with pytest.raises(ValueError, match="sans projet"):
             Source(name="x", kind=Kind.GITLAB,
-                   adresse="https://x.fr", projet="  ")
+                   adresse="https://x.fr", project="  ")
 
     def test_une_adresse_qui_n_en_est_pas_une_est_refusee(self):
         with pytest.raises(ValueError, match="adresse"):
             Source(name="x", kind=Kind.GITLAB, adresse="gitlab.example.fr",
-                   projet="a/b")
+                   project="a/b")
 
 
 class TestDroits:
@@ -69,7 +69,7 @@ class TestAutorisation:
 
     def test_une_source_sans_jeton_est_refusee(self):
         sans = Source(name="x", kind=Kind.JIRA, adresse="https://x.fr",
-                      projet="PROJ", token="")
+                      project="PROJ", token="")
         permis, because = Registry([sans]).allowed("x", ecriture=False)
         assert not permis
         assert "jeton" in because
@@ -92,5 +92,5 @@ class TestLecture:
         assert registre.of_gender(Kind.JIRA) == []
 
     def test_la_portee_reelle_est_affichable(self):
-        phrase = gitlab().say()
-        assert "equipe/outil" in phrase and "lecture" in phrase
+        sentence = gitlab().say()
+        assert "equipe/outil" in sentence and "lecture" in sentence

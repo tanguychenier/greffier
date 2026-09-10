@@ -75,9 +75,9 @@ class TestPublicationSansReseau:
         board = Board("Oasis")
         join(board, [Contribution("Déjà là"), Contribution("Nouveau")])
         self.mark(monkeypatch, present_line=("Oasis", "Déjà là"))
-        ecrit = board_miro.publish(board, "uXjVtest=")
-        assert ecrit.poses == ("Nouveau",)
-        assert set(ecrit.deja) == {"Oasis", "Déjà là"}
+        written = board_miro.publish(board, "uXjVtest=")
+        assert written.poses == ("Nouveau",)
+        assert set(written.already) == {"Oasis", "Déjà là"}
 
     def test_rien_n_est_supprime_ni_modifie(self, monkeypatch):
         """Ce que quelqu'un a posé reste tel quel."""
@@ -170,9 +170,9 @@ class TestConnecteurs:
         board = Board("Oasis")
         join(board, [Contribution("A"), Contribution("B")])
         self.mark(monkeypatch)
-        ecrit = board_miro.publish(board, "uXjVtest=")
-        assert ecrit.liens == 2
-        assert ecrit.liens_manques == 0
+        written = board_miro.publish(board, "uXjVtest=")
+        assert written.liens == 2
+        assert written.liens_manques == 0
 
     def test_les_liens_echoues_sont_comptes_et_non_avales(self, monkeypatch):
         from greffier.domain.board import Board, Contribution, join
@@ -189,9 +189,9 @@ class TestConnecteurs:
 
         monkeypatch.setattr(board_miro, "_appeler", faux)
         monkeypatch.setenv("GREFFIER_MIRO_JETON", "essai")
-        ecrit = board_miro.publish(board, "uXjVtest=")
-        assert ecrit.liens == 0
-        assert ecrit.liens_manques == 1, "l'échec doit se compter"
+        written = board_miro.publish(board, "uXjVtest=")
+        assert written.liens == 0
+        assert written.liens_manques == 1, "l'échec doit se compter"
 
 
 class TestLaRacine:

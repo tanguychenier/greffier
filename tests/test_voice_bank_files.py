@@ -31,8 +31,8 @@ class TestBanqueDeVoix:
         """Le vrai but : reconnue d'une réunion à l'autre."""
         bank.record("Josiane", voice(1.0, 0.02, 0.0))
         bank.record("Marc", voice(0.0, 0.0, 1.0))
-        trouve = recognise(voice(0.99, 0.05, 0.0), bank.people())
-        assert trouve is not None and trouve.name == "Josiane"
+        found = recognise(voice(0.99, 0.05, 0.0), bank.people())
+        assert found is not None and found.name == "Josiane"
 
     def test_les_empreintes_s_accumulent_pour_une_meme_personne(self, bank):
         for i in range(3):
@@ -250,8 +250,8 @@ class TestReparerUneBanque:
         for vector in ([1.0, 0.0], [0.0, 1.0], [0.5, 0.5]):
             bank.record("Pascal", normalise(vector, source_duration=10.0))
         assert bank.remove_voiceprints("Pascal", [1]) == 1
-        reste = bank.find("Pascal")
-        assert reste is not None and len(reste.voiceprints) == 2
+        remaining = bank.find("Pascal")
+        assert remaining is not None and len(remaining.voiceprints) == 2
 
     def test_tout_retirer_efface_la_personne(self, tmp_path):
         """Une entrée sans empreinte ne reconnaît rien et encombre la liste."""

@@ -166,8 +166,8 @@ def choose_by_listening(
     name, level = ranking[0]
     if casques:
         vivants = [
-            (autre, db) for autre, db in ranking
-            if autre in casques and db >= PLANCHER_MUET_DB
+            (other, db) for other, db in ranking
+            if other in casques and db >= PLANCHER_MUET_DB
         ]
         if vivants and vivants[0][0] != name:
             name, level = vivants[0]
