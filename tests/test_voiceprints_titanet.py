@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from greffier.adapters.voiceprints_titanet import DUREE_MAXIMALE, DUREE_MINIMALE
+from greffier.adapters.voiceprints_titanet import MAXIMUM_LENGTH, MINIMUM_LENGTH
 
 
 class Recorded:
@@ -26,7 +26,7 @@ class Recorded:
 
     def borner(self, echantillons: np.ndarray, frequency: int) -> np.ndarray:
         # Reproduit le bornage de l'adaptateur, la seule règle en jeu.
-        borne = int(DUREE_MAXIMALE * frequency)
+        borne = int(MAXIMUM_LENGTH * frequency)
         if len(echantillons) > borne:
             milieu = len(echantillons) // 2
             echantillons = echantillons[milieu - borne // 2 : milieu + borne // 2]
@@ -37,8 +37,8 @@ class Recorded:
 class TestBornes:
     def test_la_borne_reste_sous_la_limite_mesuree(self) -> None:
         # 120 s passent, 150 s échouent : la borne doit être franchement en deçà.
-        assert DUREE_MAXIMALE <= 120.0
-        assert DUREE_MAXIMALE >= DUREE_MINIMALE
+        assert MAXIMUM_LENGTH <= 120.0
+        assert MAXIMUM_LENGTH >= MINIMUM_LENGTH
 
     def test_un_extrait_court_passe_entier(self) -> None:
         garde = Recorded()
@@ -48,14 +48,14 @@ class TestBornes:
     def test_un_extrait_trop_long_est_ramene_a_la_borne(self) -> None:
         garde = Recorded()
         garde.borner(np.zeros(16000 * 600, dtype="float32"), 16000)
-        assert garde.recus == [int(16000 * DUREE_MAXIMALE)]
+        assert garde.recus == [int(16000 * MAXIMUM_LENGTH)]
 
     def test_c_est_le_milieu_du_passage_qui_est_gardé(self) -> None:
         # Le début d'un long tour de parole porte volontiers une hésitation ou
         # un « alors » qui ne dit rien du timbre.
         frequency = 16000
         signal = np.arange(frequency * 600, dtype="float32")
-        borne = int(DUREE_MAXIMALE * frequency)
+        borne = int(MAXIMUM_LENGTH * frequency)
         milieu = len(signal) // 2
         expected = signal[milieu - borne // 2 : milieu + borne // 2]
         assert expected[0] > 0, "le début du signal n'est pas retenu"

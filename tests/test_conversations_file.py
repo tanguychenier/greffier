@@ -1,7 +1,7 @@
 """La conversation gardée : elle doit survivre à une fermeture de la fenêtre."""
 
 from greffier.adapters.conversations_file import (
-    TOURS_RELUS,
+    TURNS_REREAD,
     add,
     file_for,
     read,
@@ -13,20 +13,20 @@ class TestCeQuiEstGarde:
         file = file_for(tmp_path, "2026-09-09_10h05_reunion")
         add(file, "moi", "Qu'a-t-on décidé sur le déploiement ?")
         turns = read(file)
-        assert [(t.qui, t.text) for t in turns] == [
+        assert [(t.who, t.text) for t in turns] == [
             ("moi", "Qu'a-t-on décidé sur le déploiement ?")
         ]
 
     def test_l_ordre_est_celui_de_la_conversation(self, tmp_path):
         file = file_for(tmp_path, "essai")
-        for qui, text in (("moi", "première"), ("greffier", "réponse"), ("moi", "seconde")):
-            add(file, qui, text)
+        for who, text in (("moi", "première"), ("greffier", "réponse"), ("moi", "seconde")):
+            add(file, who, text)
         assert [t.text for t in read(file)] == ["première", "réponse", "seconde"]
 
     def test_l_horodatage_est_conserve(self, tmp_path):
         file = file_for(tmp_path, "essai")
         add(file, "moi", "question")
-        assert read(file)[0].quand is not None
+        assert read(file)[0].when is not None
 
     def test_une_conversation_absente_n_est_pas_une_erreur(self, tmp_path):
         assert read(file_for(tmp_path, "jamais")) == []
@@ -39,17 +39,17 @@ class TestCeQuiEstGarde:
     def test_seuls_les_derniers_tours_sont_relus(self, tmp_path):
         """Au-delà, on ne relit plus une conversation, on la parcourt."""
         file = file_for(tmp_path, "essai")
-        for number in range(TOURS_RELUS + 20):
+        for number in range(TURNS_REREAD + 20):
             add(file, "moi", f"tour {number}")
         turns = read(file)
-        assert len(turns) == TOURS_RELUS
-        assert turns[-1].text == f"tour {TOURS_RELUS + 19}", "les plus récents"
+        assert len(turns) == TURNS_REREAD
+        assert turns[-1].text == f"tour {TURNS_REREAD + 19}", "les plus récents"
 
     def test_une_ligne_illisible_ne_perd_pas_le_reste(self, tmp_path):
         file = file_for(tmp_path, "essai")
         add(file, "moi", "avant")
-        with file.open("a", encoding="utf-8") as flux:
-            flux.write("ceci n'est pas du JSON\n")
+        with file.open("a", encoding="utf-8") as stream:
+            stream.write("ceci n'est pas du JSON\n")
         add(file, "moi", "après")
         assert [t.text for t in read(file)] == ["avant", "après"]
 

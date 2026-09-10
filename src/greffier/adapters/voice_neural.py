@@ -32,21 +32,21 @@ TIRETS = re.compile(r"\s*[—–-]\s*")
 
 def clean(text: str) -> str:
     """What is pronounced, stripped of what is not."""
-    sans_tirets = TIRETS.sub(", ", text)
-    return re.sub(r"\s+", " ", sans_tirets).strip()
+    without_dashes = TIRETS.sub(", ", text)
+    return re.sub(r"\s+", " ", without_dashes).strip()
 
 def sentences(text: str, maximum: int = 240) -> list[str]:
     """Cuts into pronounceable pieces, earliest first."""
     chunks: list[str] = []
-    for phrase in FINS_DE_PHRASE.split(clean(text)):
-        phrase = phrase.strip()
-        if not phrase:
+    for sentence in FINS_DE_PHRASE.split(clean(text)):
+        sentence = sentence.strip()
+        if not sentence:
             continue
-        if len(phrase) <= maximum:
-            chunks.append(phrase)
+        if len(sentence) <= maximum:
+            chunks.append(sentence)
             continue
         current = ""
-        for bout in phrase.split(", "):
+        for bout in sentence.split(", "):
             if current and len(current) + len(bout) + 2 > maximum:
                 chunks.append(current)
                 current = bout

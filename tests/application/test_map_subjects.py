@@ -138,12 +138,12 @@ class TestCompleterSansDupliquer:
     def test_les_libelles_existants_sont_donnes_au_redacteur(self):
         writer = FakeWriter('[{"texte": "Un point"}]')
         extract(writer, "Oasis", "matière",
-                 deja=("Pré-production du client en retard de deux versions",))
+                 already=("Pré-production du client en retard de deux versions",))
         assert "Pré-production du client en retard" in writer.recu
 
     def test_il_lui_est_demande_de_les_reprendre_mot_pour_mot(self):
         writer = FakeWriter("[]")
-        extract(writer, "Oasis", "matière", deja=("Un point existant",))
+        extract(writer, "Oasis", "matière", already=("Un point existant",))
         assert "mot pour mot" in writer.recu
 
     def test_sans_carte_existante_rien_n_est_ajoute_a_l_invite(self):

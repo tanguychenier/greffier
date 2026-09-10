@@ -20,12 +20,12 @@ class Shape:
 
     channels: int
     frequency: int
-    octets_par_echantillon: int
+    bytes_per_sample: int
     debut_donnees: int
 
     @property
     def bytes_per_frame(self) -> int:
-        return self.channels * self.octets_par_echantillon
+        return self.channels * self.bytes_per_sample
 
 @dataclass(frozen=True)
 class LevelReading:
@@ -33,10 +33,10 @@ class LevelReading:
 
     mic_db: float
     system_db: float
-    qui: WhoSpeaks
+    who: WhoSpeaks
 
     @property
-    def micro_part(self) -> float:
+    def mic_share(self) -> float:
         """The mic level brought between 0 and 1, for a meter."""
         return _part(self.mic_db)
 
@@ -72,7 +72,7 @@ def lire_forme(audio: Path) -> Shape | None:
                 return None
             return Shape(
                 channels=channels, frequency=frequency,
-                octets_par_echantillon=bits // 8, debut_donnees=corps,
+                bytes_per_sample=bits // 8, debut_donnees=corps,
             )
         position = corps + taille + (taille % 2)
     return None
@@ -80,7 +80,7 @@ def lire_forme(audio: Path) -> Shape | None:
 def read_level(audio: Path, fenetre_s: float = FENETRE_S) -> LevelReading | None:
     """The levels of the last fractions of a second written."""
     forme = lire_forme(audio)
-    if forme is None or forme.octets_par_echantillon != 2:
+    if forme is None or forme.bytes_per_sample != 2:
         return None
     voulu = int(forme.frequency * fenetre_s) * forme.bytes_per_frame
     try:
@@ -107,7 +107,7 @@ def read_level(audio: Path, fenetre_s: float = FENETRE_S) -> LevelReading | None
     return LevelReading(
         mic_db=mic_db,
         system_db=system_db,
-        qui=who_speaks(mic_db, system_db),
+        who=who_speaks(mic_db, system_db),
     )
 
 def _decibels(signal: np.ndarray) -> float:

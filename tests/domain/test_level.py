@@ -49,9 +49,9 @@ class TestCeQueLOnDit:
     """Un niveau sans quoi-faire ne sert à personne."""
 
     def test_muet_dit_ou_chercher(self):
-        phrase = say(-90.0)
-        assert "sourdine" in phrase
-        assert "autorisation micro" in phrase
+        sentence = say(-90.0)
+        assert "sourdine" in sentence
+        assert "autorisation micro" in sentence
 
     def test_insuffisant_dit_que_le_modele_invente(self):
         """C'est le fait contre-intuitif : moins de signal, pas moins de texte."""

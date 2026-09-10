@@ -228,7 +228,7 @@ class AssistantSettings:
         transcription came back too mangled to recognise.
         """
         self._oublier_ses_vieux_mots(now or utterance.span.end)
-        if is_own(utterance.text, [mots for _quand, mots in self.its_own_words]):
+        if is_own(utterance.text, [words for _when, words in self.its_own_words]):
             return True
         if len(own_words(utterance.text)) >= WORDS_TO_JUDGE:
             # Assez de mots pour trancher : ils l'ont fait, et la fenêtre de
@@ -248,8 +248,8 @@ class AssistantSettings:
     def _oublier_ses_vieux_mots(self, now: float) -> None:
         """Drops what it said long enough ago to belong to the room again."""
         self.its_own_words = [
-            (quand, mots) for quand, mots in self.its_own_words
-            if now - quand <= MEMORY_OF_ITS_WORDS
+            (when, words) for when, words in self.its_own_words
+            if now - when <= MEMORY_OF_ITS_WORDS
         ]
 
     def _lull(self, utterances: list[Utterance], now: float) -> float:

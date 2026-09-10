@@ -61,7 +61,7 @@ def main() -> int:
     per_voice: dict[str, list[Voiceprint]] = pickle.loads(cache.read_bytes())
     grosses = sorted(
         per_voice.items(), key=lambda kv: -sum(e.source_duration for e in kv[1])
-    )[: arguments.combien]
+    )[: arguments.how_many]
 
     print("== cohérence interne : chaque extrait contre l'agrégat de sa voix ==")
     print(f"{'voix':>6} {'extraits':>9} {'secondes':>9} "
@@ -81,9 +81,9 @@ def main() -> int:
     print("\n== repère : les grosses voix entre elles ==")
     agregats = {v: aggregate(e) for v, e in grosses}
     identifiers = [v for v, _ in grosses]
-    for i, un in enumerate(identifiers):
-        for autre in identifiers[i + 1:]:
-            print(f"  {un:>6} ↔ {autre:<6} {similarity(agregats[un], agregats[autre]):.3f}")
+    for i, one in enumerate(identifiers):
+        for other in identifiers[i + 1:]:
+            print(f"  {one:>6} ↔ {other:<6} {similarity(agregats[one], agregats[other]):.3f}")
 
     print("\nUne voix moins cohérente que ses voisines mélange probablement deux")
     print("personnes. Plus cohérente qu'elles, c'est une seule personne bavarde.")

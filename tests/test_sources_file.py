@@ -61,7 +61,7 @@ jeton = "GREFFIER_GITLAB_JETON"
         source = sources_file.read(file).sources[0]
         assert source.name == "recherche"
         assert source.kind is Kind.GITLAB
-        assert source.projet == "equipe/outil"
+        assert source.project == "equipe/outil"
 
     def test_la_lecture_seule_est_le_defaut_du_fichier(self, file):
         write(file, """
@@ -127,19 +127,19 @@ class TestJeton:
     def test_une_variable_d_environnement_est_lue(self, monkeypatch):
         monkeypatch.setenv("GREFFIER_ESSAI_JETON", "glpat-secret")
         source = Source(name="x", kind=Kind.GITLAB, adresse="https://x.fr",
-                        projet="a/b", token="GREFFIER_ESSAI_JETON")
+                        project="a/b", token="GREFFIER_ESSAI_JETON")
         assert sources_file.token_for(source) == "glpat-secret"
 
     def test_une_variable_absente_ne_leve_pas(self, monkeypatch):
         """Un jeton absent est un réglage à finir, pas une panne."""
         monkeypatch.delenv("GREFFIER_ABSENT", raising=False)
         source = Source(name="x", kind=Kind.GITLAB, adresse="https://x.fr",
-                        projet="a/b", token="GREFFIER_ABSENT")
+                        project="a/b", token="GREFFIER_ABSENT")
         assert sources_file.token_for(source) == ""
 
     def test_une_source_sans_jeton_declare_rend_rien(self):
         source = Source(name="x", kind=Kind.GITLAB, adresse="https://x.fr",
-                        projet="a/b")
+                        project="a/b")
         assert sources_file.token_for(source) == ""
 
     def test_le_trousseau_est_interroge_pour_le_prefixe(self, monkeypatch):
@@ -153,7 +153,7 @@ class TestJeton:
         monkeypatch.setattr(sources_file.shutil, "which", lambda _n: "/usr/bin/security")
         monkeypatch.setattr(sources_file.subprocess, "run", render)
         source = Source(name="x", kind=Kind.GITLAB, adresse="https://x.fr",
-                        projet="a/b", token="trousseau:greffier-gitlab")
+                        project="a/b", token="trousseau:greffier-gitlab")
         assert sources_file.token_for(source) == "du-trousseau"
         assert "greffier-gitlab" in appels[0]
 
@@ -165,7 +165,7 @@ class TestJeton:
             lambda *_a, **_k: type("Fait", (), {"returncode": 44, "stdout": ""})(),
         )
         source = Source(name="x", kind=Kind.GITLAB, adresse="https://x.fr",
-                        projet="a/b", token="trousseau:absent")
+                        project="a/b", token="trousseau:absent")
         assert sources_file.token_for(source) == ""
 
     def test_hors_macos_le_trousseau_n_est_pas_appele(self, monkeypatch):
@@ -175,5 +175,5 @@ class TestJeton:
         monkeypatch.setattr(sources_file.platform, "system", lambda: "Linux")
         monkeypatch.setattr(sources_file.subprocess, "run", jamais)
         source = Source(name="x", kind=Kind.GITLAB, adresse="https://x.fr",
-                        projet="a/b", token="trousseau:x")
+                        project="a/b", token="trousseau:x")
         assert sources_file.token_for(source) == ""

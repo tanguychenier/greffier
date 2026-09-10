@@ -64,47 +64,47 @@ _WORD_PUNCTUATION = ".,;:!?…\"'«»()[]-–—"
 
 def _content_words(text: str) -> list[tuple[str, int]]:
     """The words that carry meaning, each with where it ends in the text."""
-    trouves: list[tuple[str, int]] = []
-    for mot in _LIVE_WORD.finditer(text):
-        nu = mot.group().strip(_WORD_PUNCTUATION).casefold()
+    found: list[tuple[str, int]] = []
+    for word in _LIVE_WORD.finditer(text):
+        nu = word.group().strip(_WORD_PUNCTUATION).casefold()
         if nu:
-            trouves.append((nu, mot.end()))
-    return trouves
+            found.append((nu, word.end()))
+    return found
 
-def _same_word(un: str, autre: str) -> bool:
+def _same_word(one: str, other: str) -> bool:
     """Two transcriptions of one word: "l'ASIS" and "Oasis"."""
-    if un == autre:
+    if one == other:
         return True
-    plus_court = min(len(un), len(autre))
-    if plus_court < 4:
+    shorter = min(len(one), len(other))
+    if shorter < 4:
         return False
-    return distance(un, autre) <= (2 if plus_court >= 5 else 1)
+    return distance(one, other) <= (2 if shorter >= 5 else 1)
 
-def _overlap_each_other(gauche: list[str], droite: list[str]) -> bool:
+def _overlap_each_other(left: list[str], right: list[str]) -> bool:
     """True when these two word runs are the same passage, said twice."""
-    if gauche == droite:
+    if left == right:
         return True
-    if len(gauche) < WORDS_TO_TOLERATE:
+    if len(left) < WORDS_TO_TOLERATE:
         return False
-    if not all(_same_word(a, b) for a, b in zip(gauche, droite, strict=True)):
+    if not all(_same_word(a, b) for a, b in zip(left, right, strict=True)):
         return False
-    identiques = sum(1 for a, b in zip(gauche, droite, strict=True) if a == b)
-    return identiques / len(gauche) >= IDENTICAL_SHARE
+    identiques = sum(1 for a, b in zip(left, right, strict=True) if a == b)
+    return identiques / len(left) >= IDENTICAL_SHARE
 
-def drop_repetition(precedent: str, nouveau: str) -> str:
+def drop_repetition(previous: str, fresh: str) -> str:
     """Strips from the new text the tail the previous one already showed."""
-    avant = _content_words(precedent)
-    apres = _content_words(nouveau)
+    avant = _content_words(previous)
+    apres = _content_words(fresh)
     if not avant or not apres:
-        return nouveau
-    suffixe = [mot for mot, _ in avant]
-    prefixe = [mot for mot, _ in apres]
+        return fresh
+    suffixe = [word for word, _ in avant]
+    prefixe = [word for word, _ in apres]
     for length in range(min(len(suffixe), len(prefixe)), 0, -1):
         if not _overlap_each_other(suffixe[-length:], prefixe[:length]):
             continue
         if len(" ".join(prefixe[:length])) >= MINIMUM_OVERLAP_CHARACTERS:
-            return nouveau[apres[length - 1][1]:].lstrip(" ,.;:!?-–—")
-    return nouveau
+            return fresh[apres[length - 1][1]:].lstrip(" ,.;:!?-–—")
+    return fresh
 
 READABLE_MARGIN = 0.06
 
@@ -142,7 +142,7 @@ class Block:
     """
 
     utterances: tuple[Utterance, ...]
-    locale: bool
+    local: bool
 
     @property
     def span(self) -> Span:
@@ -169,9 +169,9 @@ class LiveVoice:
         self.voiceprints.append(voiceprint)
         self._aggregate_of = None
 
-    def absorb(self, autre: LiveVoice) -> None:
+    def absorb(self, other: LiveVoice) -> None:
         """Takes over another voice's voiceprints."""
-        self.voiceprints.extend(autre.voiceprints)
+        self.voiceprints.extend(other.voiceprints)
         self._aggregate_of = None
 
     def forget_aggregate(self) -> None:
@@ -243,26 +243,26 @@ class Correction:
     voiceprint: Voiceprint | None = None
     whole_voice: bool = True
 
-def blocks(utterances: list[Utterance], locaux: list[Span]) -> list[Block]:
+def blocks(utterances: list[Utterance], local_spans: list[Span]) -> list[Block]:
     """Groups utterances into passages from one source."""
-    groupes: list[Block] = []
+    groups: list[Block] = []
     current: list[Utterance] = []
     courant_local = False
     for utterance in sorted(utterances, key=lambda r: r.span.start):
-        locale = _is_local(utterance.span, locaux)
-        if current and locale != courant_local:
-            groupes.append(Block(tuple(current), courant_local))
+        local = _is_local(utterance.span, local_spans)
+        if current and local != courant_local:
+            groups.append(Block(tuple(current), courant_local))
             current = []
         current.append(utterance)
-        courant_local = locale
+        courant_local = local
     if current:
-        groupes.append(Block(tuple(current), courant_local))
-    return groupes
+        groups.append(Block(tuple(current), courant_local))
+    return groups
 
-def _is_local(span: Span, locaux: list[Span]) -> bool:
+def _is_local(span: Span, local_spans: list[Span]) -> bool:
     if span.duration <= 0:
-        return any(local.overlap(span) > 0 for local in locaux)
-    couvert = sum(local.overlap(span) for local in locaux)
+        return any(local.overlap(span) > 0 for local in local_spans)
+    couvert = sum(local.overlap(span) for local in local_spans)
     return couvert / span.duration >= 0.5
 
 @dataclass(frozen=True, slots=True)
@@ -316,17 +316,17 @@ class LiveThread:
         connue = self.voice.get(voice)
         return connue.label if connue else f"Voix {voice}"
 
-    def rendered(self, depuis: float = 0.0) -> str:
+    def rendered(self, since: float = 0.0) -> str:
         """The thread as flowing attributed text, so that it can be questioned."""
         lines: list[str] = []
         current: str | None = None
         for turn in self.turns:
-            if turn.span.end < depuis or not turn.text.strip():
+            if turn.span.end < since or not turn.text.strip():
                 continue
-            qui = self.label(turn.voice)
-            if qui != current:
-                lines.append(f"\n[{qui}]")
-                current = qui
+            who = self.label(turn.voice)
+            if who != current:
+                lines.append(f"\n[{who}]")
+                current = who
             minutes, seconds = divmod(int(turn.span.start), 60)
             lines.append(f"{minutes:02d}:{seconds:02d}  {turn.text.strip()}")
         return "\n".join(lines).strip()
@@ -334,9 +334,9 @@ class LiveThread:
     def suggestable_names(self) -> list[str]:
         """The names a correction menu can offer without inventing anything."""
         vus = [v.name for v in self.voice.values() if v.name and v.name != LOCAL_NAME]
-        for personne in self.known:
-            if personne.name not in vus:
-                vus.append(personne.name)
+        for person in self.known:
+            if person.name not in vus:
+                vus.append(person.name)
         return [LOCAL_NAME, *vus]
 
     def hold(self, utterances: list[Utterance]) -> list[Utterance]:
@@ -361,9 +361,9 @@ class LiveThread:
             kept[0].text = drop_repetition(self.last_text, kept[0].text)
         return kept
 
-    def attach(self, voiceprint: Voiceprint | None, locale: bool) -> str:
+    def attach(self, voiceprint: Voiceprint | None, local: bool) -> str:
         """The voice a block belongs to, founding one if need be."""
-        if locale:
+        if local:
             return LOCAL_VOICE
         if voiceprint is None:
             return UNDETERMINED_VOICE
@@ -470,10 +470,10 @@ class LiveThread:
         voice.likeness = match.similarity
         voice.gap = match.margin
 
-    def record_turn(self, bloc: Block, voice: str) -> list[LiveTurn]:
+    def record_turn(self, block: Block, voice: str) -> list[LiveTurn]:
         """Adds a block's sentences to the thread, attributed to a voice."""
         nouveaux: list[LiveTurn] = []
-        for utterance in bloc.utterances:
+        for utterance in block.utterances:
             turn = LiveTurn(
                 number=len(self.turns) + 1,
                 span=utterance.span,
@@ -572,8 +572,8 @@ class LiveThread:
             voiceprints=list(fusion.voiceprints),
             likeness=fusion.likeness, gap=fusion.gap,
         )
-        a_rendre = {id(e) for e in fusion.voiceprints}
-        gardee.voiceprints = [e for e in gardee.voiceprints if id(e) not in a_rendre]
+        to_render = {id(e) for e in fusion.voiceprints}
+        gardee.voiceprints = [e for e in gardee.voiceprints if id(e) not in to_render]
         gardee.forget_aggregate()
         if gardee.certainty is not Certainty.HUMAINE:
             gardee.name, gardee.certainty = fusion.target_name, fusion.target_certainty
@@ -585,9 +585,9 @@ class LiveThread:
         self.split_apart.add(frozenset({fusion.source, target}))
         return fusion
 
-    def _held_apart(self, une: str, autre: str) -> bool:
+    def _held_apart(self, one_of: str, other: str) -> bool:
         """True when a human already said these two voices are not the same."""
-        return frozenset({une, autre}) in self.split_apart
+        return frozenset({one_of, other}) in self.split_apart
 
     def stitch(self) -> list[tuple[str, str]]:
         """Joins the voices that accumulated material shows to be one person.
@@ -640,8 +640,8 @@ class LiveThread:
                 faits.append((absorbee.identifier, gardee.identifier))
         return faits
 
-    def _different_human_names(self, un: str, autre: str) -> bool:
-        premier, second = self.voice[un], self.voice[autre]
+    def _different_human_names(self, one: str, other: str) -> bool:
+        premier, second = self.voice[one], self.voice[other]
         return (
             premier.certainty is Certainty.HUMAINE
             and second.certainty is Certainty.HUMAINE

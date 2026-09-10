@@ -27,7 +27,7 @@ class Places:
 @dataclass(frozen=True, slots=True)
 class Attachment:
     path: Path
-    quoi: str
+    what: str
 
     @property
     def bytes_read(self) -> int:
@@ -48,18 +48,18 @@ def pieces_de(ou: Places, identifier: str) -> list[Attachment]:
         (ou.questions, ("jsonl",), "questions posées"),
         (ou.conversations, ("jsonl",), "conversation avec l'assistant"),
     ]
-    trouvees = [
-        Attachment(path, quoi)
-        for folder, suffixes, quoi in candidats
+    found = [
+        Attachment(path, what)
+        for folder, suffixes, what in candidats
         if folder is not None
         for suffixe in suffixes
         if (path := folder / f"{identifier}.{suffixe}").exists()
     ]
-    trouvees += [
+    found += [
         Attachment(document, f"document fourni ({document.stem})")
         for document in _supplied_documents(ou, identifier)
     ]
-    return sorted(trouvees, key=lambda p: -p.bytes_read)
+    return sorted(found, key=lambda p: -p.bytes_read)
 
 def _supplied_documents(ou: Places, identifier: str) -> list[Path]:
     """The documents dropped during the meeting."""

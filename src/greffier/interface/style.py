@@ -90,11 +90,11 @@ def system_is_dark() -> bool:
 def _output(command: list[str]) -> str:
     """What a command writes, or nothing when it is missing."""
     try:
-        fait = subprocess.run(command, capture_output=True, text=True,
+        done = subprocess.run(command, capture_output=True, text=True,
                               check=False, timeout=2)
     except (OSError, subprocess.SubprocessError):
         return ""
-    return fait.stdout.strip() if fait.returncode == 0 else ""
+    return done.stdout.strip() if done.returncode == 0 else ""
 
 def palette(theme: str = "systeme") -> Palette:
     """The palette asked for, or the system's when following it."""
@@ -113,10 +113,10 @@ def font(taille: int, gras: bool = False) -> tuple[str, int, str]:
     famille = familles.get(platform.system(), "Helvetica")
     return (famille, -taille, "bold" if gras else "normal")
 
-def blend(depuis: str, vers: str, part: float) -> str:
+def blend(since: str, into: str, part: float) -> str:
     """A colour between two others, in hexadecimal."""
-    a = tuple(int(depuis[i : i + 2], 16) for i in (1, 3, 5))
-    b = tuple(int(vers[i : i + 2], 16) for i in (1, 3, 5))
+    a = tuple(int(since[i : i + 2], 16) for i in (1, 3, 5))
+    b = tuple(int(into[i : i + 2], 16) for i in (1, 3, 5))
     return "#" + "".join(f"{round(x + (y - x) * part):02x}" for x, y in zip(a, b, strict=True))
 
 def title_font(taille: int) -> tuple[str, int, str]:

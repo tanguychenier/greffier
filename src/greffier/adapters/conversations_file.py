@@ -8,33 +8,33 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-TOURS_RELUS = 60
+TURNS_REREAD = 60
 
 @dataclass(frozen=True, slots=True)
 class Exchange:
     """One turn of the conversation, as it was kept."""
 
-    qui: str
+    who: str
     text: str
-    quand: datetime | None = None
+    when: datetime | None = None
 
 def file_for(folder: Path, identifier: str) -> Path:
     return folder / f"{identifier}.jsonl"
 
-def add(file: Path, qui: str, text: str) -> None:
+def add(file: Path, who: str, text: str) -> None:
     """Appends a turn. Never fails loudly."""
     if not text.strip():
         return
     with contextlib.suppress(OSError):
         file.parent.mkdir(parents=True, exist_ok=True)
-        with file.open("a", encoding="utf-8") as flux:
-            flux.write(json.dumps(
-                {"qui": qui, "texte": text,
+        with file.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(
+                {"qui": who, "texte": text,
                  "quand": datetime.now(UTC).isoformat()},
                 ensure_ascii=False,
             ) + "\n")
 
-def read(file: Path, derniers: int = TOURS_RELUS) -> list[Exchange]:
+def read(file: Path, derniers: int = TURNS_REREAD) -> list[Exchange]:
     """The last turns of the conversation, oldest first."""
     if not file.exists():
         return []
@@ -49,12 +49,12 @@ def read(file: Path, derniers: int = TOURS_RELUS) -> list[Exchange]:
                 continue
             if not isinstance(line, dict) or not str(line.get("texte", "")).strip():
                 continue
-            quand = None
+            when = None
             with contextlib.suppress(ValueError, TypeError):
-                quand = datetime.fromisoformat(str(line.get("quand", "")))
+                when = datetime.fromisoformat(str(line.get("quand", "")))
             turns.append(Exchange(
-                qui=str(line.get("qui", "note")),
+                who=str(line.get("qui", "note")),
                 text=str(line["texte"]),
-                quand=quand,
+                when=when,
             ))
     return turns[-derniers:] if derniers > 0 else turns

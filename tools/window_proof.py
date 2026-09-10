@@ -70,11 +70,11 @@ def capturer(window: object, target: Path) -> bool:
     width = root.winfo_width() + 2 * margin
     height = root.winfo_height() + 2 * margin
     target.parent.mkdir(parents=True, exist_ok=True)
-    fait = subprocess.run(
+    done = subprocess.run(
         ["screencapture", "-x", "-o", f"-R{x},{y},{width},{height}", str(target)],
         check=False, capture_output=True,
     )
-    return fait.returncode == 0 and target.exists()
+    return done.returncode == 0 and target.exists()
 
 
 def main() -> int:

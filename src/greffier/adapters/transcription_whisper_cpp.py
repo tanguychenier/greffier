@@ -22,8 +22,8 @@ def lire_srt(path: Path) -> list[Utterance]:
     content = path.read_text(encoding="utf-8").strip()
     if not content:
         return utterances
-    for bloc in re.split(r"\n\s*\n", content):
-        lines = [line for line in bloc.splitlines() if line.strip()]
+    for block in re.split(r"\n\s*\n", content):
+        lines = [line for line in block.splitlines() if line.strip()]
         horaire = next(
             (_HORAIRE.search(line) for line in lines if _HORAIRE.search(line)), None
         )

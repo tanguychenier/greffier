@@ -41,16 +41,16 @@ class TestMention:
         assert "n'a pas été tracée" in mention(Disclosure.NOTHING)
 
     def test_annonce_ne_pretend_pas_a_un_accord(self):
-        phrase = mention(Disclosure.ANNONCE)
-        assert "informés" in phrase
-        assert "accord" not in phrase
+        sentence = mention(Disclosure.ANNONCE)
+        assert "informés" in sentence
+        assert "accord" not in sentence
 
     def test_l_accord_est_distingue_de_l_annonce(self):
         assert "accord" in mention(Disclosure.AGREEMENT)
 
     def test_toutes_disent_que_la_reunion_est_enregistree(self):
-        for phrase in MENTIONS.values():
-            assert "enregistrée" in phrase
+        for sentence in MENTIONS.values():
+            assert "enregistrée" in sentence
 
 
 class TestCeQuiResteAFaire:
