@@ -18,7 +18,9 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -189,6 +191,37 @@ def installer(app: str = "Greffier") -> tuple[bool, str]:
     except OSError as souci:
         return (False, str(souci))
     return (True, str(journal))
+
+
+def paquet_plus_recent(argv0: str = "") -> bool:
+    """Le paquet sur le disque est-il plus récent que le processus qui tourne ?
+
+    Un paquet reconstruit ne remplace pas l'application déjà lancée, et rien ne
+    le disait. Coût mesuré : deux heures passées à chercher trois boutons dans
+    une fenêtre ouverte la veille, alors qu'ils étaient dans le paquet depuis le
+    matin. La fenêtre a maintenant de quoi le dire.
+
+    Rend faux hors du paquet — depuis la ligne de commande, le code suit le
+    dépôt et la question ne se pose pas.
+    """
+
+    executable = Path(argv0 or sys.executable)
+    if "/Contents/MacOS/" not in str(executable):
+        return False
+    try:
+        pose = executable.stat().st_mtime
+        # `psutil` n'est pas là et n'a pas à l'être : l'heure de démarrage du
+        # processus se lit dans son propre dossier de travail sous /proc sur
+        # Linux, et par `ps` sur macOS. Plus simple et portable : l'heure à
+        # laquelle **ce** module a été chargé approche celle du démarrage à
+        # quelques secondes près, et quelques secondes ne décident rien ici.
+        return pose > _CHARGE_LE
+    except OSError:
+        return False
+
+
+#: L'heure à laquelle l'application a démarré, à quelques secondes près.
+_CHARGE_LE = time.time()
 
 
 def verifier(depot: str = DEPOT, delai: float = DELAI) -> Verdict:
