@@ -23,16 +23,10 @@ from dataclasses import dataclass
 
 from greffier.domaine.carte import Carte, Noeud
 
-#: Largeur d'un pense-bête et distance entre deux colonnes. La seconde est
-#: généreuse : un texte de deux lignes déborde de la boîte annoncée, et un
-#: débordement qui recouvre la colonne voisine rend les deux illisibles.
 LARGEUR = 220
 ENTRE_COLONNES = 380
 
-#: Hauteur réservée par nœud. Trois lignes de texte tiennent dans 120 ; on prend
-#: davantage pour que deux nœuds voisins ne se touchent jamais.
 ENTRE_LIGNES = 170
-
 
 @dataclass(frozen=True, slots=True)
 class Place:
@@ -41,9 +35,7 @@ class Place:
     noeud: Noeud
     x: int
     y: int
-    #: Le texte du parent, pour tracer le lien. Vide pour la racine.
     parent: str = ""
-
 
 def disposer(carte: Carte) -> list[Place]:
     """Les places de tous les nœuds, racine comprise.
@@ -58,13 +50,11 @@ def disposer(carte: Carte) -> list[Place]:
     _poser(carte.racine, profondeur=0, haut=0, places=places, parent="")
     return places
 
-
 def _feuilles(noeud: Noeud) -> int:
     """Nombre de lignes que ce sous-arbre occupe. Au moins une."""
     if not noeud.enfants:
         return 1
     return sum(_feuilles(enfant) for enfant in noeud.enfants)
-
 
 def _poser(
     noeud: Noeud, profondeur: int, haut: int, places: list[Place], parent: str

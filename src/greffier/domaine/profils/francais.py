@@ -116,12 +116,6 @@ EXCLUS_PAR_DEFAUT: frozenset[str] = frozenset({
     "france", "paris", "universite",
 })
 
-#: Les formes rencontrées, à la casse, aux accents et à la ponctuation près.
-#: Ajouter une entrée demande de l'avoir **vue** dans un fil réel : une liste
-#: enflée finirait par retirer de la parole. La comparaison est **exacte** après
-#: normalisation, jamais par préfixe : « Merci d'avoir regardé le ticket, il est
-#: passé en recette » commence comme un générique et n'en est pas un — essayé,
-#: et cette phrase-là disparaissait.
 GENERIQUES: frozenset[str] = frozenset({
     "sous titrage",
     "sous titrage realise par",
@@ -150,7 +144,6 @@ _DECISIONS = [
     re.compile(r"(?i:\b(?:action|à faire|suite à donner)\s*:)"),
     re.compile(r"(?i:\bd'ici (?:lundi|mardi|mercredi|jeudi|vendredi|la semaine|le)\b)"),
 ]
-
 
 FRANCAIS = ProfilLinguistique(
     code="fr",

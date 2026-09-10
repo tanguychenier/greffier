@@ -4,7 +4,6 @@ C'est le rédacteur par défaut : la qualité de synthèse d'un compte rendu de
 réunion — distinguer une décision d'une hypothèse, rattacher une position à une
 personne — reste hors de portée des modèles qu'on fait tourner sur un portable.
 
-
 Choix assumé et documenté : **la transcription sort du poste** vers l'API
 Anthropic. Tout le reste de la chaîne — enregistrement, transcription,
 identification des voix — demeure local. Pour ne rien laisser sortir du tout,
@@ -126,7 +125,6 @@ Transcription :
 _MENTION_DE_LANGUE = "Structure attendue, en français,"
 _MENTION_NUE = "Structure attendue, en"
 
-
 def consignes(langue: str = "") -> str:
     """Les consignes, dictées dans la langue voulue.
 
@@ -151,8 +149,6 @@ def consignes(langue: str = "") -> str:
     return entete + CONSIGNES.replace(_MENTION_DE_LANGUE, f"{_MENTION_NUE} {nom}") + (
         f"\n\nRappel : le compte rendu s'écrit en {nom}.\n"
     )
-
-
 
 CONSIGNES_CONVERSATION = """Tu assistes quelqu'un pendant ou après une réunion de
 travail. On te donne ce qui s'est dit, puis une question.
@@ -191,7 +187,6 @@ Ce que tu ne fais jamais :
 N'emploie ni tiret cadratin ni demi-cadratin.
 """
 
-
 class RedacteurClaude:
     """Rédige le compte rendu en appelant Claude Code en ligne de commande.
 
@@ -202,11 +197,6 @@ class RedacteurClaude:
     (voir `CompteRendu.CLAUDE_PAR_DEFAUT`).
     """
 
-    #: Les outils accordés pour **chercher**, jamais pour rédiger. Le compte
-    #: rendu se compose de ce qui a été dit et de rien d'autre : lui ouvrir un
-    #: navigateur reviendrait à lui permettre de compléter une décision par ce
-    #: qu'il a trouvé ailleurs, ce qu'un compte rendu ne doit jamais faire.
-    #: La conversation, elle, sert précisément à aller chercher.
     OUTILS_DE_RECHERCHE: ClassVar[tuple[str, ...]] = ("WebSearch", "WebFetch")
 
     def __init__(self, modele: str = "", commande: str = "claude",
@@ -216,12 +206,7 @@ class RedacteurClaude:
         self.commande = commande
         self.delai = delai
         self.langue = langue
-        #: Vide par défaut : le rédacteur du compte rendu n'a aucun outil, et ce
-        #: défaut est ce qui garantit qu'on ne le lui ouvre pas par distraction.
         self.outils = outils
-        #: Remplace les consignes de rédaction. La conversation ne rédige pas un
-        #: compte rendu : lui imposer le plan « Décisions / Actions / Points
-        #: ouverts » pour répondre à « qui est Morgane ? » n'a aucun sens.
         self.consignes_propres = consignes_propres
 
     def rediger(self, transcription: str) -> str:

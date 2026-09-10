@@ -24,13 +24,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-#: Au-dessus, la parole est captée franchement.
 BON_DB = -30.0
 
-#: En dessous, la transcription **invente** : mesuré à -43 dB sur une phrase de
-#: test rendue en générique de vidéo.
 INSUFFISANT_DB = -43.0
-
 
 class Verdict(StrEnum):
     BON = "bon"
@@ -38,12 +34,7 @@ class Verdict(StrEnum):
     INSUFFISANT = "insuffisant"
     MUET = "muet"
 
-
-#: Sous ce niveau, rien n'est capté du tout. Même valeur que le contrôle de la
-#: chaîne de traitement : deux seuils différents pour la même question
-#: finiraient par se contredire.
 MUET_DB = -70.0
-
 
 def juger(db: float) -> Verdict:
     """Ce que vaut ce niveau de parole."""
@@ -54,7 +45,6 @@ def juger(db: float) -> Verdict:
     if db < BON_DB:
         return Verdict.FAIBLE
     return Verdict.BON
-
 
 def dire(db: float) -> str:
     """Une phrase pour l'écran, qui dit le niveau **et** quoi en faire."""
@@ -79,18 +69,11 @@ def dire(db: float) -> str:
         )
     return f"Bon niveau ({db:.0f} dB)."
 
-
 def suffisant(db: float) -> bool:
     """Vrai si on peut démarrer sans avertir."""
     return juger(db) in (Verdict.BON, Verdict.FAIBLE)
 
-
-#: Combien de relevés avant de conclure. À quatre secondes par tour de veille,
-#: huit relèvent une demi-minute : personne ne parle en continu, mais tout le
-#: monde parle une fois en trente secondes. Conclure plus tôt reviendrait à
-#: alerter parce que quelqu'un écoutait.
 RELEVES_AVANT_ALERTE = 8
-
 
 @dataclass
 class SurveillanceDeNiveau:

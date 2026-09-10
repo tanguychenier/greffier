@@ -23,27 +23,15 @@ from enum import StrEnum
 
 from greffier.domaine.modeles import Intervalle
 
-#: Étiquette de la voix locale. Distincte des identifiants de la segmentation,
-#: qui sont numériques, pour qu'aucune confusion ne soit possible.
 VOIX_LOCALE = "moi"
 
-#: De combien le micro doit dépasser la boucle système pour qu'on tienne la
-#: parole pour locale. Une marge est nécessaire quand on écoute par
-#: haut-parleurs : le micro réentend alors ce que jouent les enceintes.
 MARGE_DB = 6.0
 
-#: Sous ce niveau, le micro ne porte que le bruit de la pièce. Mesuré sur une
-#: réunion réelle : ventilation et clavier tiennent entre -55 et -45 dB.
 PLANCHER_DB = -45.0
 
-#: Deux passages séparés de moins de cela appartiennent à la même prise de
-#: parole : ce sont les silences d'une phrase, pas des tours différents.
 RECOLLAGE_S = 0.7
 
-#: En deçà, c'est un « oui », un « d'accord » ou un bruit. Les garder ferait
-#: passer une réunion pour une succession de centaines de micro-tours.
 DUREE_MINIMALE_S = 0.8
-
 
 @dataclass(frozen=True)
 class Reglages:
@@ -53,7 +41,6 @@ class Reglages:
     plancher_db: float = PLANCHER_DB
     recollage_s: float = RECOLLAGE_S
     duree_minimale_s: float = DUREE_MINIMALE_S
-
 
 class QuiParle(StrEnum):
     """Ce qu'une interface peut afficher pendant la réunion, sans modèle.
@@ -67,13 +54,7 @@ class QuiParle(StrEnum):
     LES_AUTRES = "les autres"
     LES_DEUX = "les deux"
 
-
-#: Part des trames où la boucle système doit dominer le micro pour qu'on tienne
-#: la réunion pour distante. Mesuré : 57,7 % sur une visio d'une heure, 0,0 % sur
-#: une réunion tenue autour d'une table. Cinq pour cent séparent les deux sans
-#: la moindre ambiguïté.
 PART_VISIO = 0.05
-
 
 def en_visio(
     micro_db: list[float],
@@ -103,7 +84,6 @@ def en_visio(
     )
     return domine / utiles >= PART_VISIO
 
-
 def qui_parle(
     micro_db: float,
     systeme_db: float,
@@ -122,7 +102,6 @@ def qui_parle(
     if systeme:
         return QuiParle.LES_AUTRES
     return QuiParle.PERSONNE
-
 
 def tours_locaux(
     micro_db: list[float],
@@ -151,7 +130,6 @@ def tours_locaux(
     ]
     return _regrouper(locales, pas_s, r)
 
-
 def _regrouper(locales: list[bool], pas_s: float, r: Reglages) -> list[Intervalle]:
     """Assemble les trames en intervalles, en recollant les silences courts."""
     plages: list[tuple[int, int]] = []
@@ -173,7 +151,6 @@ def _regrouper(locales: list[bool], pas_s: float, r: Reglages) -> list[Intervall
         for a, b in plages
         if (b - a) * pas_s >= r.duree_minimale_s
     ]
-
 
 def soustraire(intervalle: Intervalle, autres: list[Intervalle]) -> list[Intervalle]:
     """Ce qui reste d'un intervalle quand on en ôte les autres.
@@ -197,7 +174,6 @@ def soustraire(intervalle: Intervalle, autres: list[Intervalle]) -> list[Interva
                 suivants.append(Intervalle(autre.fin, reste.fin))
         restes = suivants
     return restes
-
 
 def retirer(tours: list[Intervalle], locaux: list[Intervalle]) -> list[Intervalle]:
     """Ôte des tours distants ce qui recouvre un tour local.

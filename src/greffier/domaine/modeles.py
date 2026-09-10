@@ -26,15 +26,11 @@ class TypeMention(StrEnum):
     INTERPELLATION = "interpellation"         # le locuteur suivant
     RENVOI = "renvoi"                         # le locuteur précédent
 
-
 class Phase(StrEnum):
     """États traversés par une réunion, de l'enregistrement à l'envoi."""
 
     REPOS = "repos"
     ENREGISTREMENT = "enregistrement"
-    #: Enregistrement suspendu. Ce qui a déjà été capté est conservé, et
-    #: reprendre ouvre simplement un morceau de plus : le mécanisme existe déjà
-    #: pour les changements de matériel.
     PAUSE = "pause"
     FINALISATION = "finalisation"
     TRANSCRIPTION = "transcription"
@@ -52,7 +48,6 @@ class Phase(StrEnum):
             Phase.LOCUTEURS, Phase.REDACTION, Phase.ENVOI,
         }
 
-
 class Source(StrEnum):
     """D'où vient le son d'une réplique.
 
@@ -64,7 +59,6 @@ class Source(StrEnum):
     MICRO = "micro"          # la personne qui tient le Mac
     SYSTEME = "systeme"      # les participants distants
     INCONNUE = "inconnue"    # présentiel : une seule source pour tout le monde
-
 
 @dataclass(frozen=True, slots=True)
 class Intervalle:
@@ -83,7 +77,6 @@ class Intervalle:
         """Durée commune aux deux intervalles, 0 s'ils sont disjoints."""
         return max(0.0, min(self.fin, autre.fin) - max(self.debut, autre.debut))
 
-
 @dataclass(frozen=True, slots=True)
 class TourDeParole:
     """Un segment où une même voix parle, tel que le rend la diarisation."""
@@ -91,7 +84,6 @@ class TourDeParole:
     intervalle: Intervalle
     voix: str          # identifiant acoustique, pas un nom : « v1 », « v2 »…
     source: Source = Source.INCONNUE
-
 
 @dataclass(slots=True)
 class Replique:
@@ -107,7 +99,6 @@ class Replique:
     voix: str | None = None
     source: Source = Source.INCONNUE
 
-
 @dataclass(frozen=True, slots=True)
 class Empreinte:
     """Signature vocale d'une personne, telle que la produit le modèle.
@@ -119,19 +110,11 @@ class Empreinte:
 
     vecteur: tuple[float, ...]
     duree_source: float = 0.0
-    #: La réunion d'où elle vient. Vide pour les empreintes déposées avant que
-    #: cette trace n'existe, ce qui est un état normal et non une anomalie.
-    #:
-    #: Sans elle, réparer une banque abîmée par une seule réunion revient à
-    #: deviner : sur ce poste, il a fallu lire les durées — treize et trente et
-    #: une minutes — pour comprendre que deux empreintes de « Paul » venaient
-    #: d'une réunion où il n'était pas. Avec elle, c'est une commande.
     origine: str = ""
 
     def __post_init__(self) -> None:
         if not self.vecteur:
             raise ValueError("empreinte vide")
-
 
 @dataclass(slots=True)
 class Personne:
@@ -141,7 +124,6 @@ class Personne:
     empreintes: list[Empreinte] = field(default_factory=list)
     vu_le: datetime | None = None
     reunions: int = 0
-
 
 @dataclass(slots=True)
 class Reunion:

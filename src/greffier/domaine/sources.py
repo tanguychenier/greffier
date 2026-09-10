@@ -31,14 +31,9 @@ class Genre(StrEnum):
     GITLAB = "gitlab"
     JIRA = "jira"
 
-
 class Droit(StrEnum):
-    #: Consulter seulement. Le défaut, et le cas qui rend service sans risque.
     LECTURE = "lecture"
-    #: Consulter et modifier. Chaque écriture demande confirmation, quoi qu'il
-    #: arrive : le droit ouvre la possibilité, il ne la rend pas automatique.
     ECRITURE = "écriture"
-
 
 @dataclass(frozen=True, slots=True)
 class Source:
@@ -46,14 +41,9 @@ class Source:
 
     nom: str
     genre: Genre
-    #: L'adresse du service, sans chemin : « https://gitlab.example.fr ».
     adresse: str
-    #: Le projet ou l'espace visé. Un registre qui autoriserait « tout GitLab »
-    #: ne bornerait rien : c'est le projet nommé qui limite la portée.
     projet: str
     droit: Droit = Droit.LECTURE
-    #: Où trouver le jeton : nom d'une variable d'environnement, ou entrée de
-    #: trousseau préfixée « trousseau: ». Jamais le jeton lui-même.
     jeton: str = ""
 
     def __post_init__(self) -> None:
@@ -74,7 +64,6 @@ class Source:
     def dire(self) -> str:
         """Une ligne pour l'écran, qui montre la portée réelle."""
         return f"{self.nom} — {self.genre} {self.projet} sur {self.adresse} ({self.droit})"
-
 
 @dataclass
 class Registre:

@@ -60,7 +60,6 @@ application = typer.Typer(
     add_completion=False, help="Enregistre, transcrit et résume tes réunions."
 )
 
-
 def _reprendre_le_fil(config: Config, identifiant: str, le_suivi: Any) -> float:
     """Rejoue le fil déjà publié, et dit jusqu'où il va.
 
@@ -90,7 +89,6 @@ def _reprendre_le_fil(config: Config, identifiant: str, le_suivi: Any) -> float:
                f"transcription reprise à {jusqu_ou / 60:.0f} min")
     return jusqu_ou
 
-
 def _relire_les_boutons() -> tuple[bool, bool]:
     """Où en sont les deux boutons de l'onglet En direct : la voix, l'initiative.
 
@@ -107,7 +105,6 @@ def _relire_les_boutons() -> tuple[bool, bool]:
     """
     reglages = Config().assistant
     return reglages.voix != "aucun", reglages.initiative
-
 
 def _matiere_du_direct(
     config: Config, identifiant: str, le_suivi: Any
@@ -132,7 +129,6 @@ def _matiere_du_direct(
                 f"{documents}")
 
     return matiere
-
 
 def _nommeur(
     le_suivi: Any, config: Config, identifiant: str
@@ -161,7 +157,6 @@ def _nommeur(
 
     return nommer
 
-
 def _reunion_visee(config: Config, demandee: str | None) -> str:
     """La réunion nommée, ou la dernière traitée.
 
@@ -178,7 +173,6 @@ def _reunion_visee(config: Config, demandee: str | None) -> str:
         raise typer.Exit(1)
     return connues[0]
 
-
 def _heures_de(config: Config, audio: Path) -> tuple[datetime | None, datetime | None]:
     """Les heures d'horloge de cette réunion, si l'état les a retenues.
 
@@ -194,7 +188,6 @@ def _heures_de(config: Config, audio: Path) -> tuple[datetime | None, datetime |
         return (None, None)
     return (etat.debut, etat.terminee_le)
 
-
 def _emplacements(config: Config) -> ranger_module.Emplacements:
     """Où vivent les morceaux d'une réunion, d'après la configuration."""
     return ranger_module.Emplacements(
@@ -208,7 +201,6 @@ def _emplacements(config: Config) -> ranger_module.Emplacements:
         conversations=config.chemins.conversations,
         pieces=config.chemins.pieces,
     )
-
 
 def _refuser_pendant_une_reunion(config: Config, quand_meme: bool) -> None:
     """Refuse de traiter tant qu'une réunion s'enregistre.
@@ -246,7 +238,6 @@ def _refuser_pendant_une_reunion(config: Config, quand_meme: bool) -> None:
                "traitement n'arrêtera plus la capture, mais il lui prendra du "
                "processeur.")
     raise typer.Exit(1)
-
 
 @application.command()
 def traiter(
@@ -355,7 +346,6 @@ def traiter(
     if resultat.envoye:
         typer.secho("Envoyé par mail.", fg=typer.colors.GREEN)
 
-
 def _demander_les_noms(config: Config, identifiant: str) -> bool:
     """Réclame les noms manquants, tout de suite. Faux si on ne peut pas demander.
 
@@ -420,7 +410,6 @@ def _demander_les_noms(config: Config, identifiant: str) -> bool:
         _regenerer(config, identifiant)
     return True
 
-
 def _ecouter(config: Config, identifiant: str, candidate: VoixANommer) -> None:
     """Joue l'extrait d'une voix, quand le système sait le faire."""
     lecteur = shutil.which("afplay") or shutil.which("aplay") or shutil.which("ffplay")
@@ -441,7 +430,6 @@ def _ecouter(config: Config, identifiant: str, candidate: VoixANommer) -> None:
     if lecteur.endswith("ffplay"):
         arguments = [lecteur, "-nodisp", "-autoexit", "-loglevel", "error", str(extrait)]
     subprocess.run(arguments, check=False)
-
 
 def _regenerer(config: Config, identifiant: str) -> bool:
     """Rejoue la rédaction si un compte rendu existait déjà pour cette réunion.
@@ -464,7 +452,6 @@ def _regenerer(config: Config, identifiant: str) -> bool:
     typer.secho(f"Compte rendu régénéré : {chemin}", fg=typer.colors.GREEN)
     return True
 
-
 @application.command()
 def verifier(
     config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
@@ -482,10 +469,8 @@ def verifier(
         raise typer.Exit(1) from manque
     typer.secho("✓ chaîne assemblée, tout est en place", fg=typer.colors.GREEN)
 
-
 if __name__ == "__main__":
     application()
-
 
 @application.command()
 def configurer(
@@ -531,7 +516,6 @@ def configurer(
             typer.echo(f"  • {action}")
     typer.echo("\n« greffier diagnostic » pour vérifier, « greffier enregistrer » pour commencer.")
 
-
 @application.command(name="diagnostic")
 def diagnostic_(
     config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
@@ -558,7 +542,6 @@ def diagnostic_(
                     fg=typer.colors.RED)
         raise typer.Exit(1)
     typer.secho("\nTout est en place.", fg=typer.colors.GREEN)
-
 
 @application.command()
 def peripheriques(
@@ -591,7 +574,6 @@ def peripheriques(
         arguments += ["--casque", casque]
     raise typer.Exit(subprocess.run(arguments, check=False).returncode)
 
-
 @application.command()
 def enregistrer(
     nom: str = typer.Argument("reunion", help="Sujet de la réunion"),
@@ -618,11 +600,9 @@ def enregistrer(
         typer.echo("  Ce qui se dit s'affiche dans la fenêtre, et s'y corrige.")
     typer.echo("  « greffier arreter » pour arrêter et traiter.")
 
-
 def _peripheriques_swift() -> Path | None:
     source = Path(__file__).resolve().parent.parent.parent / "macos/creer-peripheriques.swift"
     return source if source.exists() else None
-
 
 def _swift(*arguments: str) -> subprocess.CompletedProcess[str]:
     """Appelle l'utilitaire CoreAudio du dépôt."""
@@ -633,11 +613,7 @@ def _swift(*arguments: str) -> subprocess.CompletedProcess[str]:
         ["swift", str(source), *arguments], capture_output=True, text=True, check=False
     )
 
-
-#: En dessous, un micro donne un signal que la transcription n'entend pas. Sur un
-#: poste réel réglé à 0,59, la voix arrivait 12 dB sous celle des autres.
 _GAIN_MINIMAL = 0.85
-
 
 def _preparer_capture(config: Config) -> str:
     """Met le poste dans le meilleur état possible, sans rien demander.
@@ -690,7 +666,6 @@ def _preparer_capture(config: Config) -> str:
             return ""
     return precedente
 
-
 def _sortie_ecoute(materiel: object) -> str:
     """Par où la personne écoute la réunion, à dupliquer vers la boucle.
 
@@ -706,7 +681,6 @@ def _sortie_ecoute(materiel: object) -> str:
         return "BlackHole 2ch"
     externes = [nom for nom in utiles if "macbook" not in nom.lower()]
     return str((externes or utiles)[0])
-
 
 def _micro_par_ecoute(config: Config, materiel: object) -> str:
     """Écoute les micros disponibles et retient celui qui capte le mieux.
@@ -759,7 +733,6 @@ def _micro_par_ecoute(config: Config, materiel: object) -> str:
                         f"{choix.niveau_db:.0f} dB", fg=typer.colors.YELLOW)
     return choix.nom
 
-
 def _relever_le_gain(micro: str) -> None:
     """Monte le gain du micro s'il est trop bas pour la transcription."""
     lecture = _swift("--get-gain", micro)
@@ -780,13 +753,11 @@ def _relever_le_gain(micro: str) -> None:
             fg=typer.colors.YELLOW,
         )
 
-
 def _rendre_la_sortie(precedente: str) -> None:
     """Remet la sortie système d'avant la réunion."""
     if not precedente or platform.system() != "Darwin":
         return
     _swift("--set-output", precedente)
-
 
 def _lancer_veille(config: Config, config_fichier: Path | None) -> bool:
     """Lance la veille du matériel, détachée. Faux si elle n'a pas pu partir.
@@ -812,7 +783,6 @@ def _lancer_veille(config: Config, config_fichier: Path | None) -> bool:
         return False
     return True
 
-
 def _lancer_direct(config: Config, config_fichier: Path | None) -> bool:
     """Lance la transcription en direct, détachée. Faux si elle ne part pas.
 
@@ -837,7 +807,6 @@ def _lancer_direct(config: Config, config_fichier: Path | None) -> bool:
     except OSError:
         return False
     return True
-
 
 @application.command()
 def arreter(
@@ -871,7 +840,6 @@ def arreter(
         config_fichier=config_fichier, evenements=etat.evenements,
     )
 
-
 @application.command()
 def annuler(
     config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
@@ -883,7 +851,6 @@ def annuler(
         typer.secho(f"✗ {souci}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1) from souci
     typer.secho("■ Traitement interrompu, l'audio est conservé.", fg=typer.colors.YELLOW)
-
 
 @application.command()
 def assister(
@@ -1016,7 +983,6 @@ def assister(
         fg=typer.colors.GREEN,
     )
 
-
 @application.command()
 def propositions(
     reunion: str = typer.Argument(None, help="Réunion (défaut : la dernière)"),
@@ -1044,7 +1010,6 @@ def propositions(
             fg=couleurs.get(item["genre"]),
         )
 
-
 @application.command()
 def statut(
     config_fichier: Path = typer.Option(None, "--config", help="Fichier de configuration"),
@@ -1060,7 +1025,6 @@ def statut(
         typer.echo(f"  réunion : {etat.nom}")
     if etat.message:
         typer.echo(f"  {etat.message}")
-
 
 @application.command()
 def reunions(
@@ -1082,7 +1046,6 @@ def reunions(
             f"{identifiant:<44} {reunion.duree / 60:5.1f} min  "
             f"{nommees}/{total} voix nommées  couverture {couverture}"
         )
-
 
 @application.command()
 def voix(
@@ -1157,7 +1120,6 @@ def voix(
     if detail.propositions:
         typer.echo(f"  valider : greffier voix {identifiant} --accepter-propositions")
 
-
 @application.command()
 def connus(
     oublier: str = typer.Option(None, "--oublier", help="Effacer une personne de la banque"),
@@ -1228,7 +1190,6 @@ def connus(
 
     _dire_la_sante_de_la_banque(personnes)
 
-
 def _nettoyer_une_entree(banque: BanqueFichiers, nom: str) -> None:
     """Retire d'une personne les empreintes qui désignent quelqu'un d'autre.
 
@@ -1263,7 +1224,6 @@ def _nettoyer_une_entree(banque: BanqueFichiers, nom: str) -> None:
     typer.secho(f"✓ {combien} empreinte(s) retirée(s) de {cette.nom}",
                 fg=typer.colors.GREEN)
     _dire_la_sante_de_la_banque(banque.personnes())
-
 
 def _dire_la_sante_de_la_banque(personnes: list) -> None:  # type: ignore[type-arg]
     """Dit quelles entrées se ressemblent trop, et ce que ça coûte.
@@ -1333,7 +1293,6 @@ def _dire_la_sante_de_la_banque(personnes: list) -> None:  # type: ignore[type-a
             f"{', '.join(maigres)}"
         )
 
-
 def _dire_les_intruses(personnes: list) -> None:  # type: ignore[type-arg]
     """Nomme les empreintes fautives, une par une.
 
@@ -1367,7 +1326,6 @@ def _dire_les_intruses(personnes: list) -> None:  # type: ignore[type-arg]
         "le reste."
     )
 
-
 @application.command()
 def montage(
     reunion: str = typer.Argument(None, help="Réunion (défaut : la dernière)"),
@@ -1395,7 +1353,6 @@ def montage(
     total = sum(p.duree for p in passages)
     typer.secho(f"✓ {len(passages)} passages, {total / 60:.1f} min : {sortie}",
                 fg=typer.colors.GREEN)
-
 
 @application.command(name="contexte")
 def contexte_(
@@ -1447,7 +1404,6 @@ def contexte_(
         ouvreur = {"darwin": "open", "win32": "start"}.get(sys.platform, "xdg-open")
         subprocess.run([ouvreur, str(fichier)], check=False)
 
-
 @application.command()
 def renommer(
     sujet: str = typer.Argument(..., help="Le sujet de la réunion, en clair"),
@@ -1471,7 +1427,6 @@ def renommer(
     gardee.sujet = sujet.strip()
     magasin.enregistrer(gardee)
     typer.secho(f"✓ {identifiant} → « {gardee.intitule} »", fg=typer.colors.GREEN)
-
 
 @application.command()
 def carte(
@@ -1549,7 +1504,6 @@ def carte(
             continue
         _publier_la_carte(config, registre, nom, la_carte, identifiant)
 
-
 def _libelles_de_la_carte(registre: object, nom: str) -> tuple[str, ...]:
     """Les libellés déjà sur la carte de ce sujet, s'il en a une."""
     from greffier.adaptateurs import carte_miro
@@ -1564,7 +1518,6 @@ def _libelles_de_la_carte(registre: object, nom: str) -> tuple[str, ...]:
         # des doublons, ce qui se corrige, là où ne rien produire ne se corrige
         # pas.
         return ()
-
 
 def _textes_actes(carte: object) -> list[str]:
     """Les libellés des points que le groupe a tranchés.
@@ -1586,7 +1539,6 @@ def _textes_actes(carte: object) -> list[str]:
         parcourir(racine)
     return trouves
 
-
 def _apports_des_autres(registre: object, nom: str) -> tuple[str, ...]:
     """Ce que des humains ont écrit sur la carte, et que l'outil n'a pas posé."""
     from greffier.adaptateurs import carte_miro
@@ -1598,7 +1550,6 @@ def _apports_des_autres(registre: object, nom: str) -> tuple[str, ...]:
         return tuple(carte_miro.apports_des_autres(connu.carte))
     except carte_miro.MiroRefuse:
         return ()
-
 
 def _publier_la_carte(
     config: Config, registre: object, nom: str, la_carte: object, identifiant: str
@@ -1637,7 +1588,6 @@ def _publier_la_carte(
             f"  ⚠ {ecrit.liens_manques} lien(s) n'ont pas pu être tracés",
             fg=typer.colors.YELLOW,
         )
-
 
 @application.command(name="sources")
 def sources_(
@@ -1683,7 +1633,6 @@ def sources_(
         )
     typer.echo(f"\n  registre  {config.chemins.sources}")
 
-
 def _essayer_la_source(source: object, jeton: str) -> None:
     """Un appel de lecture, pour dire si l'accès fonctionne vraiment.
 
@@ -1704,7 +1653,6 @@ def _essayer_la_source(source: object, jeton: str) -> None:
 
     trouvees = demandes(source, jeton)
     typer.echo(f"      {len(trouvees)} demande(s) lisible(s)")
-
 
 @application.command(name="niveau")
 def niveau_(
@@ -1741,7 +1689,6 @@ def niveau_(
     typer.secho(f"\n{dire(db)}", fg=couleur)
     if verdict in (Verdict.INSUFFISANT, Verdict.MUET):
         raise typer.Exit(1)
-
 
 @application.command()
 def deposer(
@@ -1829,7 +1776,6 @@ def deposer(
         for chemin in a_traiter:
             typer.echo(f"  greffier traiter {chemin}")
 
-
 def _proposer_au_contexte(
     config: Config, appris: tuple[tuple[str, str, str], ...]
 ) -> None:
@@ -1853,7 +1799,6 @@ def _proposer_au_contexte(
             poses += 1
     typer.secho(f"  ✓ {poses} ajoutée(s), {len(appris) - poses} déjà connue(s)",
                 fg=typer.colors.GREEN)
-
 
 @application.command()
 def recuperer(
@@ -1919,7 +1864,6 @@ def recuperer(
                    "donnera un bien meilleur résultat.")
     else:
         typer.echo("\n« greffier rediger » écrit le compte rendu.")
-
 
 @application.command()
 def sauvegarder(
@@ -2002,7 +1946,6 @@ def sauvegarder(
             fg=typer.colors.YELLOW,
         )
 
-
 @application.command()
 def ranger(
     pour_de_vrai: bool = typer.Option(
@@ -2065,7 +2008,6 @@ def ranger(
     else:
         typer.echo(f"\n{total} seraient libérés. « greffier ranger --faire » pour le faire.")
 
-
 @application.command()
 def oublier(
     reunion: str = typer.Argument(None, help="Réunion (défaut : la dernière)"),
@@ -2108,7 +2050,6 @@ def oublier(
     reste = ranger.pieces_de(ou, identifiant)
     for piece in reste:
         typer.secho(f"⚠ {piece.chemin} n'a pas pu être effacé", fg=typer.colors.YELLOW)
-
 
 @application.command()
 def revoir(
@@ -2171,7 +2112,6 @@ def revoir(
     chemin.write_text(texte, encoding="utf-8")
     typer.secho(f"✓ {chemin}", fg=typer.colors.GREEN)
 
-
 @application.command()
 def rediger(
     reunion: str = typer.Argument(None, help="Réunion (défaut : la dernière)"),
@@ -2219,7 +2159,6 @@ def rediger(
     typer.secho(f"✓ {chemin}", fg=typer.colors.GREEN)
     typer.echo("« greffier envoyer » pour l'expédier.")
 
-
 @application.command(name="lire")
 def lire_cr(
     reunion: str = typer.Argument(None, help="Réunion (défaut : la dernière)"),
@@ -2241,7 +2180,6 @@ def lire_cr(
         typer.secho(f"✗ {souci}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1) from souci
     typer.secho(f"✓ {produit}", fg=typer.colors.GREEN)
-
 
 @application.command()
 def tickets(
@@ -2281,7 +2219,6 @@ def tickets(
         typer.echo("Aucune action décidée dans ce compte rendu.")
     typer.echo(f"\n{sortie}")
 
-
 @application.command()
 def archiver(
     tout: bool = typer.Option(False, "--tout", help="Tous les enregistrements traités"),
@@ -2310,7 +2247,6 @@ def archiver(
         typer.secho(f"✓ {gagne / 1024**2:.0f} Mo libérés", fg=typer.colors.GREEN)
     else:
         typer.echo("Rien à compresser.")
-
 
 @application.command()
 def envoyer(
@@ -2391,7 +2327,6 @@ def envoyer(
         typer.secho(f"✗ Envoi impossible : {echec}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1) from echec
     typer.secho(f"✓ Envoyé à {cible}", fg=typer.colors.GREEN)
-
 
 @application.command(hidden=True)
 def veiller(
@@ -2481,7 +2416,6 @@ def veiller(
     )
     tours = veilleuse.boucler()
     typer.echo(f"Veille terminée après {tours} tours.")
-
 
 @application.command()
 def fenetre(

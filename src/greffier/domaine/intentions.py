@@ -26,17 +26,12 @@ class Quoi(StrEnum):
     TERME = "terme"
     PERSONNE = "personne"
 
-
 @dataclass(frozen=True, slots=True)
 class Apprentissage:
     """Ce qu'une phrase demande de retenir."""
 
     quoi: Quoi
-    #: L'écriture du terme, ou le nom de la personne.
     sujet: str
-    #: Le sens du terme, ou le rôle de la personne. Peut être vide : « retiens
-    #: le mot CASA » est une demande légitime, l'orthographe suffit à servir la
-    #: transcription.
     precision: str = ""
 
     def __post_init__(self) -> None:
@@ -52,17 +47,10 @@ class Apprentissage:
         sens = f" ({self.precision})" if self.precision else ""
         return f"J'ajoute « {self.sujet} »{sens} au contexte. Confirme ?"
 
-
-#: Ce qui annonce une demande d'apprendre. Le verbe d'abord : c'est lui qui
-#: distingue « retiens que X est Y » d'une question ordinaire sur X.
 _AMORCES = r"(?:retiens|note|apprends|souviens[- ]toi|garde)"
 
-#: Ce qui relie un sujet à sa précision. « c'est » est exclu volontairement :
-#: « OTP c'est quoi ? » est une question, pas une définition.
 _LIENS = r"(?:veut dire|signifie|c'est[- ]à[- ]dire|=|:|désigne|correspond à)"
 
-#: Un rôle de personne. Reconnaître la personne à son rôle plutôt qu'au verbe
-#: évite de prendre « retiens que Morgane part jeudi » pour un rôle.
 _ROLES = (
     "chef", "cheffe", "responsable", "directeur", "directrice", "président",
     "présidente", "développeur", "développeuse", "architecte", "gestionnaire",
@@ -70,10 +58,6 @@ _ROLES = (
     "chargée", "consultant", "consultante", "ingénieur", "ingénieure",
 )
 
-#: Un motif à part pour les personnes, parce que « est » ne peut pas entrer
-#: dans les liens généraux : « retiens que la réunion est annulée » n'est pas
-#: une définition. Ici le rôle est **exigé** dans la précision, ce qui suffit à
-#: séparer « Morgane est cheffe de projet » de « la réunion est annulée ».
 _MOTIF_PERSONNE = re.compile(
     rf"^\s*{_AMORCES}\b[^:]*?\bque\s+(?P<sujet>[A-ZÉÈÀÂÎÔÛ][\w'’-]{{1,30}}"
     rf"(?:\s+[A-ZÉÈÀÂÎÔÛ][\w'’-]{{1,30}})?)\s+(?:est|était|sera)\s+"
@@ -102,11 +86,6 @@ _MOTIFS = (
     ),
 )
 
-
-#: Ce qui vaut « oui » et ce qui vaut « non » quand l'outil demande confirmation.
-#: Ici et non dans la fenêtre : la même réponse sert à confirmer un
-#: apprentissage et à répondre à une question sur un terme, et deux listes qui
-#: divergent feraient accepter dans un cas ce qui est refusé dans l'autre.
 ACCORDS = frozenset({
     "oui", "o", "ok", "d'accord", "daccord", "yes", "y", "exact", "exactement",
     "c'est ça", "cest ça", "c'est ca", "voilà", "voila", "tout à fait",
@@ -116,7 +95,6 @@ REFUS = frozenset({
     "non", "n", "no", "pas du tout", "annule", "laisse", "laisse tomber",
     "surtout pas", "oublie",
 })
-
 
 def accord(reponse: str) -> bool | None:
     """Vrai si la phrase confirme, Faux si elle refuse, None si elle fait autre chose.
@@ -131,7 +109,6 @@ def accord(reponse: str) -> bool | None:
     if nu in REFUS:
         return False
     return None
-
 
 def comprendre(phrase: str) -> Apprentissage | None:
     """Ce que cette phrase demande de retenir, ou None si ce n'en est pas une.
@@ -169,13 +146,11 @@ def comprendre(phrase: str) -> Apprentissage | None:
             continue
     return None
 
-
 def _nettoyer(brut: str) -> str:
     """Retire les articles et la ponctuation qui traînent autour d'un extrait."""
     nu = brut.strip().strip("\"'«»").strip()
     nu = re.sub(r"^(?:le|la|les|l'|un|une|des|du|de)\s+", "", nu, flags=re.IGNORECASE)
     return nu.strip(" .,;:!?")
-
 
 def _est_un_role(precision: str) -> bool:
     """Vrai si la précision décrit une fonction plutôt qu'une définition."""
