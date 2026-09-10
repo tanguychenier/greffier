@@ -910,3 +910,49 @@ class TestUnEnvoiQuiEchoue:
 
     def test_le_compte_rendu_est_bien_la(self):
         assert self._resultat(JournalFactice()).compte_rendu
+
+
+class TestLigneDesParticipants:
+    """La première ligne du compte rendu, celle que tout le monde lit.
+
+    Les deux défauts, sur la réunion du 2026-09-10 : « et 9 voix non nommées »
+    là où huit de ces neuf étaient la même personne — corrigé par la réunion
+    des homonymes — et un accord de verbe qui écrivait « 1 personne ont parlé »
+    en tête d'un compte rendu envoyé par courriel.
+    """
+
+    def _ligne(self, noms, entendues: int) -> str:
+        from greffier.application.restituer import entete_contexte
+
+        return entete_contexte(
+            "2026-09-10_10h10_reunion", 6120.0, noms=noms, voix_entendues=entendues
+        )
+
+    def test_une_seule_voix_anonyme_est_dite_au_singulier(self):
+        ligne = self._ligne(["Pascal", "Bastien"], 3)
+        assert "et 1 voix non nommée." in ligne
+        assert "non nommées" not in ligne
+
+    def test_plusieurs_voix_anonymes_au_pluriel(self):
+        assert "et 3 voix non nommées." in self._ligne(["Pascal"], 4)
+
+    def test_toutes_nommees_ne_laisse_aucune_traine(self):
+        ligne = self._ligne(["Pascal", "Bastien"], 2)
+        assert "Participants : Pascal, Bastien." in ligne
+        assert "non nomm" not in ligne
+
+    def test_une_seule_personne_sans_nom_accorde_le_verbe(self):
+        """« 1 personne ont parlé » s'écrivait tel quel."""
+        ligne = self._ligne([], 1)
+        assert "1 personne a parlé, non nommée." in ligne
+        assert "ont parlé" not in ligne
+
+    def test_plusieurs_personnes_sans_nom_accordent_le_verbe(self):
+        ligne = self._ligne([], 4)
+        assert "4 personnes ont parlé" in ligne
+
+    def test_un_nom_repete_ne_compte_qu_une_fois(self):
+        """La réunion des homonymes le fait en amont ; la ligne ne doit pas
+        le défaire si un nom arrive deux fois."""
+        ligne = self._ligne(["Lise", "Lise", "Pascal"], 3)
+        assert "Participants : Lise, Pascal, et 1 voix non nommée." in ligne
