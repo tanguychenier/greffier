@@ -70,6 +70,20 @@ PYTHON="$DEPOT/.venv/bin/python3"
 [ -x "$PYTHON" ] || { echo "❌ Pas d'environnement dans $DEPOT/.venv : lance outils/installer.py." >&2; exit 1; }
 VERSION="$("$PYTHON" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
 BASE_PREFIX="$("$PYTHON" -c 'import sys; print(sys.base_prefix)')"
+# Un framework porte aussi lib/libpython3.13.dylib et bin/python3.13 : il
+# passait donc le controle, et le paquet se construisait a moitie — il gardait
+# son prefixe en dur, donc importait greffier depuis /Library/Frameworks/… et
+# non depuis lui-meme. Constate sur l'executeur d'integration continue, ou le
+# dylib d'onnxruntime manquait au paquet alors qu'il etait bien installe.
+case "$BASE_PREFIX" in
+  *Python.framework*|/usr/*|*/Cellar/*)
+    echo "❌ L'interpréteur de $BASE_PREFIX est un framework : il ne se copie pas." >&2
+    echo "   Il faut un Python installé par uv : rm -rf .venv" >&2
+    echo "   && uv venv --python 3.13 --python-preference only-managed," >&2
+    echo "   puis relance l'installeur." >&2
+    exit 1
+    ;;
+esac
 if [ ! -f "$BASE_PREFIX/lib/libpython$VERSION.dylib" ] || [ ! -x "$BASE_PREFIX/bin/python$VERSION" ]; then
   echo "❌ L'interpréteur de $BASE_PREFIX n'est pas relogeable." >&2
   echo "   Il faut un Python installé par uv : rm -rf .venv && uv venv --python 3.13, puis relance l'installeur." >&2
