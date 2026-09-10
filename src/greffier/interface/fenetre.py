@@ -1982,22 +1982,43 @@ class Fenetre:
         croire que tout est perdu.
         """
         self.etat_bas.configure(text=f"Échec : {souci}")
+        # Publiée et écrite **avant** toute boîte de dialogue, et c'est tout le
+        # correctif : l'échec n'était rapporté que par une fenêtre modale et la
+        # note n'était écrite qu'après le clic. Écran verrouillé, personne pour
+        # cliquer, et l'état restait figé sur la phase en cours — « envoi » pour
+        # une réunion de 1 h 42, le 2026-09-10. Tout ce qui relit cet état croit
+        # alors qu'une réunion se traite encore : la veille, la ligne de
+        # commande, et la reconstruction de l'application, qui refuse de se
+        # relancer pendant une réunion.
+        self._publier_l_echec(audio.stem, souci)
+        self._dire("note", f"La rédaction de « {audio.stem} » a échoué : {souci} "
+                           "La transcription est gardée, « Rédiger » la reprend.")
         transcrite = False
         with contextlib.suppress(OSError, ValueError):
             transcrite = bool(self.depot.lire(audio.stem).repliques)
         if not transcrite:
             messagebox.showerror("Greffier", str(souci))
             return
-        reprendre = messagebox.askyesno(
+        if messagebox.askyesno(
             "Greffier",
             f"{souci}\n\nLa transcription et les voix sont gardées : rien n'est "
             "perdu. Seule la rédaction a échoué.\n\nReprendre la rédaction "
             "maintenant ?",
-        )
-        self._dire("note", f"La rédaction de « {audio.stem} » a échoué : {souci} "
-                           "La transcription est gardée, « Rédiger » la reprend.")
-        if reprendre:
+        ):
             self._rediger_seulement(audio.stem)
+
+    def _publier_l_echec(self, identifiant: str, souci: Exception) -> None:
+        """Écrit l'échec dans l'état de la réunion, pour les autres processus.
+
+        Sans rien lever : on est déjà dans le traitement d'une erreur, et une
+        seconde erreur ici ferait perdre le message de la première.
+        """
+        from greffier.composition import enregistrement
+
+        with contextlib.suppress(Exception):
+            journal = enregistrement(self.config).pour(identifiant)
+            if journal is not None:
+                journal.publier(Phase.ECHEC.value, f"Échec : {souci}")
 
     def _rediger_seulement(self, identifiant: str) -> None:
         """Rejoue la seule rédaction, sans réécouter ni retranscrire."""
