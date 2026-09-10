@@ -6,7 +6,7 @@ from greffier.domain.instructions import (
     WatchRules,
     decisions_in,
     instruction_after,
-    liens_dans,
+    links_in,
 )
 from greffier.domain.models import Span, Utterance
 from greffier.domain.profiles.french import FRENCH
@@ -18,22 +18,22 @@ def utterance(start, text):
 
 class TestLiens:
     def test_une_adresse_collee_est_relevee(self):
-        assert liens_dans("voir https://miro.com/board/abc123") == ["https://miro.com/board/abc123"]
+        assert links_in("voir https://miro.com/board/abc123") == ["https://miro.com/board/abc123"]
 
     def test_la_ponctuation_finale_ne_fait_pas_partie_du_lien(self):
-        assert liens_dans("c'est ici : https://exemple.fr/page.") == ["https://exemple.fr/page"]
+        assert links_in("c'est ici : https://exemple.fr/page.") == ["https://exemple.fr/page"]
 
     def test_plusieurs_adresses_sans_doublon_et_dans_l_ordre(self):
         text = "https://a.fr puis https://b.fr et encore https://a.fr"
-        assert liens_dans(text) == ["https://a.fr", "https://b.fr"]
+        assert links_in(text) == ["https://a.fr", "https://b.fr"]
 
     def test_un_lien_dicte_a_l_oral_n_est_pas_pretendu_reconnu(self):
         """« miro point com slash board » ne donne pas une adresse valable :
         mieux vaut ne rien proposer que proposer n'importe quoi."""
-        assert liens_dans("va voir sur miro point com slash board slash b n 7 x") == []
+        assert links_in("va voir sur miro point com slash board slash b n 7 x") == []
 
     def test_un_texte_sans_lien_ne_produit_rien(self):
-        assert liens_dans("on se revoit jeudi pour la recette") == []
+        assert links_in("on se revoit jeudi pour la recette") == []
 
 
 class TestMotDActivation:
@@ -86,8 +86,8 @@ class TestVeille:
         watch_rules = WatchRules(profil=FRENCH)
         watch_rules.paste("https://a.fr", 1)
         watch_rules.listen([utterance(2, "Greffier, note le sujet")])
-        origines = {p.origine for p in watch_rules.propositions}
-        assert origines == {Origin.PRESSE_PAPIER, Origin.PAROLE}
+        origines = {p.origin for p in watch_rules.propositions}
+        assert origines == {Origin.CLIPBOARD, Origin.SPEECH}
 
     def test_une_instruction_n_est_pas_reclassee_en_decision(self):
         watch_rules = WatchRules(profil=FRENCH)
@@ -100,7 +100,7 @@ class TestVeille:
         assert "Bon," in watch_rules.propositions[0].context
 
     def test_on_peut_choisir_un_autre_mot_d_activation(self):
-        watch_rules = WatchRules(mot_cle="assistant", profil=FRENCH)
+        watch_rules = WatchRules(keyword="assistant", profil=FRENCH)
         watch_rules.listen([utterance(1, "Assistant, note ce point")])
         assert watch_rules.propositions[0].text == "note ce point"
 
@@ -108,5 +108,5 @@ class TestVeille:
         watch_rules = WatchRules(profil=FRENCH)
         watch_rules.paste("https://a.fr https://b.fr", 1)
         watch_rules.listen([utterance(2, "on décide de reporter la mise en production")])
-        assert len(watch_rules.by_gender(Kind.LIEN)) == 2
+        assert len(watch_rules.by_gender(Kind.LINK)) == 2
         assert len(watch_rules.by_gender(Kind.DECISION)) == 1

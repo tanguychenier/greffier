@@ -88,7 +88,7 @@ class Voiceprint:
 
     vector: tuple[float, ...]
     source_duration: float = 0.0
-    origine: str = ""
+    origin: str = ""
 
     def __post_init__(self) -> None:
         if not self.vector:
@@ -100,7 +100,7 @@ class Person:
 
     name: str
     voiceprints: list[Voiceprint] = field(default_factory=list)
-    vu_le: datetime | None = None
+    seen_at: datetime | None = None
     meetings: int = 0
 
 @dataclass(slots=True)
@@ -118,7 +118,7 @@ class Meeting:
     names: dict[str, str] = field(default_factory=dict)
     personnes_en_salle: int | None = None
 
-    def nom_de(self, voice: str | None) -> str:
+    def name_of(self, voice: str | None) -> str:
         if voice is None:
             return "Indéterminé"
         return self.names.get(voice, voice)

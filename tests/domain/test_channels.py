@@ -45,7 +45,7 @@ class TestVoixFaibleMaisLocale:
         assert local_turns(mic, system, PAS) == []
         # Avec une marge nulle, la même entrée est retenue : c'est bien la marge
         # qui décide, pas un autre effet.
-        souple = ChannelSettings(marge_db=0.0)
+        souple = ChannelSettings(margin_db=0.0)
         assert local_turns(mic, system, PAS, souple) != []
 
 
@@ -58,7 +58,7 @@ class TestBruitDeFond:
 
     def test_le_plancher_se_regle(self) -> None:
         mic, system = levels([(-52, -75, 400)])
-        bas = ChannelSettings(plancher_db=-60.0)
+        bas = ChannelSettings(floor_db=-60.0)
         assert local_turns(mic, system, PAS, bas) != []
 
 
@@ -142,22 +142,22 @@ class TestQuiParle:
     def test_le_silence(self) -> None:
         from greffier.domain.channels import WhoSpeaks, who_speaks
 
-        assert who_speaks(-70, -70) is WhoSpeaks.PERSONNE
+        assert who_speaks(-70, -70) is WhoSpeaks.NOBODY
 
     def test_toi_seul(self) -> None:
         from greffier.domain.channels import WhoSpeaks, who_speaks
 
-        assert who_speaks(-30, -70) is WhoSpeaks.TOI
+        assert who_speaks(-30, -70) is WhoSpeaks.YOU
 
     def test_les_autres_seuls(self) -> None:
         from greffier.domain.channels import WhoSpeaks, who_speaks
 
-        assert who_speaks(-70, -25) is WhoSpeaks.LES_AUTRES
+        assert who_speaks(-70, -25) is WhoSpeaks.THE_OTHERS
 
     def test_un_vrai_chevauchement(self) -> None:
         from greffier.domain.channels import WhoSpeaks, who_speaks
 
-        assert who_speaks(-20, -35) is WhoSpeaks.LES_DEUX
+        assert who_speaks(-20, -35) is WhoSpeaks.BOTH
 
     def test_le_micro_qui_reentend_les_enceintes_n_est_pas_toi(self) -> None:
         # Écoute par haut-parleurs : les deux canaux sont actifs, mais le micro
@@ -165,7 +165,7 @@ class TestQuiParle:
         # chaque phrase des autres.
         from greffier.domain.channels import WhoSpeaks, who_speaks
 
-        assert who_speaks(-28, -25) is WhoSpeaks.LES_AUTRES
+        assert who_speaks(-28, -25) is WhoSpeaks.THE_OTHERS
 
 
 class TestPresentielContreVisio:

@@ -43,32 +43,32 @@ def capturer(window: object, target: Path) -> bool:
 
     if _sys.platform != "darwin" or shutil.which("screencapture") is None:
         return False
-    racine = window.racine  # type: ignore[attr-defined]
+    root = window.root  # type: ignore[attr-defined]
     # Devant, et devant tout le reste. `screencapture -R` photographie une
     # **région de l'écran**, pas une fenêtre : la première version de cet outil
     # a rendu une capture de la messagerie qui se trouvait à cet endroit, la
     # fenêtre de Greffier étant passée derrière pendant l'attente. On ne
     # regardait donc pas ce qu'on croyait regarder, ce qui est pire que de ne
     # pas regarder.
-    racine.lift()
-    racine.attributes("-topmost", True)
+    root.lift()
+    root.attributes("-topmost", True)
     # Deux passes et une pause : `update` vide la file d'événements de Tk, mais
     # macOS composite ensuite, de façon asynchrone. Une capture prise juste
     # après un redimensionnement montrait la fenêtre à moitié redessinée —
     # barre de boutons absente alors qu'elle était bien placée, ce qui envoie
     # chercher un défaut d'interface qui n'existe pas.
-    racine.update()
+    root.update()
     time.sleep(0.4)
-    racine.update()
+    root.update()
     # Les coordonnées **après** la pause : prises avant, elles datent d'avant
     # le redimensionnement et la capture cadre à côté.
     # Un peu large : l'ombre portée de la fenêtre déborde de sa géométrie, et
     # une capture au pixel près coupe le bord droit, celui qui pose problème.
     marge = 24
-    x = racine.winfo_rootx() - marge
-    y = racine.winfo_rooty() - marge
-    width = racine.winfo_width() + 2 * marge
-    height = racine.winfo_height() + 2 * marge
+    x = root.winfo_rootx() - marge
+    y = root.winfo_rooty() - marge
+    width = root.winfo_width() + 2 * marge
+    height = root.winfo_height() + 2 * marge
     target.parent.mkdir(parents=True, exist_ok=True)
     fait = subprocess.run(
         ["screencapture", "-x", "-o", f"-R{x},{y},{width},{height}", str(target)],
@@ -88,15 +88,15 @@ def main() -> int:
     window = Window(Config())
     # Une passe de boucle d'événements : sans elle, rien n'est encore peint et
     # une exception de peinture passerait inaperçue.
-    window.racine.update()
-    width = window.racine.winfo_width()
-    height = window.racine.winfo_height()
+    window.root.update()
+    width = window.root.winfo_width()
+    height = window.root.winfo_height()
     print(f"fenêtre ouverte : {width}x{height}")
 
     intitules = list(window.tabs._pages)
     for caption in intitules:
         window.tabs.reveal(caption)
-        window.racine.update()
+        window.root.update()
         page = window.tabs._pages[caption]
         print(f"  onglet « {caption} » peint — {len(page.winfo_children())} éléments")
 
@@ -108,7 +108,7 @@ def main() -> int:
     segment = window.tabs._segments[target]
     nue = int(segment.cget("width"))
     window.tabs.mark(target, 3)
-    window.racine.update()
+    window.root.update()
     avec = int(segment.cget("width"))
     marques = [
         segment.itemcget(item, "text")
@@ -117,14 +117,14 @@ def main() -> int:
     ]
     if avec <= nue or "3" not in marques:
         print(f"  ✗ pastille non dessinée sur « {target} » ({nue} → {avec}, {marques})")
-        window.racine.destroy()
+        window.root.destroy()
         return 1
     print(f"  pastille sur « {target} » : {nue} → {avec} px, marque {marques[-1]}")
     window.tabs.reveal(target)
-    window.racine.update()
+    window.root.update()
     if int(segment.cget("width")) != nue:
         print("  ✗ la pastille survit à l'ouverture de son onglet")
-        window.racine.destroy()
+        window.root.destroy()
         return 1
     print("  pastille effacée à l'ouverture de l'onglet")
 
@@ -145,9 +145,9 @@ def main() -> int:
                 # boucle, elle valait encore pour la première capture et plus
                 # pour les suivantes — des images tronquées, dont on cherche le
                 # défaut dans l'interface au lieu de l'outil.
-                window.racine.geometry(f"{width}x760")
+                window.root.geometry(f"{width}x760")
                 window.tabs.reveal(caption)
-                window.racine.update()
+                window.root.update()
                 without_accents = (
                     caption.lower().replace(" ", "-").replace("é", "e")
                 )
@@ -158,7 +158,7 @@ def main() -> int:
                     print("  capture indisponible sur ce système")
                     break
 
-    window.racine.destroy()
+    window.root.destroy()
     print(f"{len(intitules)} onglets peints sans exception")
     return 0
 

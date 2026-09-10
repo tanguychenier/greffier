@@ -21,11 +21,11 @@ def cuda_libraries() -> list[Path]:
     paquet = importlib.util.find_spec("nvidia")
     if paquet is None or not paquet.submodule_search_locations:
         return []
-    racine = Path(next(iter(paquet.submodule_search_locations)))
+    root = Path(next(iter(paquet.submodule_search_locations)))
     return [
         path
         for motif in _CUDA_LIBRARIES
-        for path in sorted(racine.glob(motif))
+        for path in sorted(root.glob(motif))
     ]
 
 def _show_cuda_to_the_loader() -> None:

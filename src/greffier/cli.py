@@ -141,7 +141,7 @@ def _hours_of(config: Config, audio: Path) -> tuple[datetime | None, datetime | 
         return (None, None)
     if state.identifier != audio.stem:
         return (None, None)
-    return (state.start, state.terminee_le)
+    return (state.start, state.ended_at)
 
 def _locations(config: Config) -> ranger_module.Places:
     """Where a meeting's pieces live, according to the configuration."""
@@ -216,13 +216,13 @@ def process(
     chaine.log = type("Journal", (), {"publish": staticmethod(progress)})()
 
     try:
-        commencee_le, terminee_le = _hours_of(config, audio)
+        started_at, ended_at = _hours_of(config, audio)
         outcome = chaine.run_chain(
             audio,
             send=not without_sending and bool(config.minutes.recipient),
             hardware_events=events,
-            commencee_le=commencee_le,
-            terminee_le=terminee_le,
+            started_at=started_at,
+            ended_at=ended_at,
         )
     except ChainStopped as arret:
         typer.secho(f"✗ {arret.because}", fg=typer.colors.RED, err=True)
@@ -586,15 +586,15 @@ def _mic_by_listening(config: Config, materiel: object) -> str:
     )
     if choix is None:
         return ""
-    if choix.tous_muets:
+    if choix.all_silent:
         typer.secho(
             f"⚠ Aucun micro ne capte : le meilleur, « {choix.name} », rend "
-            f"{choix.niveau_db:.0f} dB. Vérifie le bouton de sourdine de ton "
+            f"{choix.level_db:.0f} dB. Vérifie le bouton de sourdine de ton "
             "casque, puis l'autorisation micro dans Réglages Système.",
             fg=typer.colors.YELLOW,
         )
-    if choix.casque_prefere:
-        plus_fort = [name for name, db in choix.ecartes if db > choix.niveau_db]
+    if choix.preferred_headset:
+        plus_fort = [name for name, db in choix.ecartes if db > choix.level_db]
         if plus_fort:
             typer.secho(
                 f"  « {choix.name} » retenu bien que « {plus_fort[0]} » capte plus "
@@ -603,9 +603,9 @@ def _mic_by_listening(config: Config, materiel: object) -> str:
                 fg=typer.colors.BLUE,
             )
     for name, level in choix.ecartes:
-        if level < choix.niveau_db - 10:
+        if level < choix.level_db - 10:
             typer.secho(f"  « {name} » écarté : {level:.0f} dB contre "
-                        f"{choix.niveau_db:.0f} dB", fg=typer.colors.YELLOW)
+                        f"{choix.level_db:.0f} dB", fg=typer.colors.YELLOW)
     return choix.name
 
 def _raise_the_gain(mic: str) -> None:
@@ -718,7 +718,7 @@ def cancel(
 
 @application.command("assister")
 def assist(
-    mot_cle: str = typer.Option("greffier", "--mot-cle", help="Mot d'activation"),
+    keyword: str = typer.Option("greffier", "--mot-cle", help="Mot d'activation"),
     sans_transcription: bool = typer.Option(
         False, "--sans-transcription", help="Ne surveiller que le presse-papier"),
     config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
@@ -778,7 +778,7 @@ def assist(
         lui.name_voice = _namer(the_follower, config, state.identifier)
         lui.context = _live_material(config, state.identifier, the_follower)
     watcher = Watcher(
-        watch_rules=WatchRules(mot_cle=mot_cle),
+        watch_rules=WatchRules(keyword=keyword),
         log=log,
         transcriber=transcriber,
         situer=lambda: position(recorder.read().chunks, written_duration),
@@ -802,7 +802,7 @@ def assist(
             active=transcriber is not None,
         )
     typer.secho(f"Veille sur « {state.name} ». Ctrl+C pour arrêter.", fg=typer.colors.BLUE)
-    typer.echo(f"  mot d'activation : « {mot_cle} »")
+    typer.echo(f"  mot d'activation : « {keyword} »")
     if lui is not None:
         comment = "à voix haute" if lui.voice is not None else "par écrit"
         typer.echo(f"  assistant        : « {lui.name} », {comment}")
@@ -1042,7 +1042,7 @@ def known(
         typer.echo("Banque de voix vide. « greffier voix » pour nommer une première voix.")
         return
     for personne in people:
-        vue = personne.vu_le.strftime("%Y-%m-%d") if personne.vu_le else "—"
+        vue = personne.seen_at.strftime("%Y-%m-%d") if personne.seen_at else "—"
         typer.echo(
             f"  {personne.name:<20} {len(personne.voiceprints)} empreinte(s)  "
             f"vue le {vue}"
@@ -1360,14 +1360,14 @@ def _action_texts(board: object) -> list[str]:
     trouves: list[str] = []
 
     def walk(noeud: Node) -> None:
-        if noeud.state is Standing.ACTE and noeud.kind is not Kind.SUBJECT:
+        if noeud.state is Standing.AGREED and noeud.kind is not Kind.SUBJECT:
             trouves.append(noeud.text)
-        for enfant in noeud.enfants:
+        for enfant in noeud.children:
             walk(enfant)
 
-    racine = getattr(board, "racine", None)
-    if racine is not None:
-        walk(racine)
+    root = getattr(board, "racine", None)
+    if root is not None:
+        walk(root)
     return trouves
 
 def _contributions_of_others(registre: object, name: str) -> tuple[str, ...]:
@@ -1547,15 +1547,15 @@ def publish(
     for proposition in propositions:
         colour = (
             typer.colors.GREEN if proposition.feasible
-            else (typer.colors.YELLOW if proposition.bloque_par else typer.colors.BRIGHT_BLACK)
+            else (typer.colors.YELLOW if proposition.blocked_by else typer.colors.BRIGHT_BLACK)
         )
         typer.secho(
-            f"  {str(proposition.destin):9} {proposition.file.name}",
+            f"  {str(proposition.destination):9} {proposition.file.name}",
             fg=colour,
         )
-        typer.echo(f"            {proposition.parce_que}")
-        if proposition.bloque_par:
-            typer.secho(f"            ⚠ {proposition.bloque_par}", fg=typer.colors.YELLOW)
+        typer.echo(f"            {proposition.because}")
+        if proposition.blocked_by:
+            typer.secho(f"            ⚠ {proposition.blocked_by}", fg=typer.colors.YELLOW)
     typer.echo(f"\n  {summarise(propositions)}")
 
     if not do_it:
@@ -1563,7 +1563,7 @@ def publish(
         return
 
     redacteur_document = cartographe(config)
-    if any(p.destin is Destination.CONTEXT and p.feasible for p in propositions):
+    if any(p.destination is Destination.CONTEXT and p.feasible for p in propositions):
         from greffier.adapters.writer_claude import ClaudeWriter
         from greffier.application.publish import CONSIGNES_DOCUMENT
 
@@ -1798,7 +1798,7 @@ def tidy(
             detail = magasin.read(identifier)
         except (OSError, ValueError):
             continue
-        reference = detail.commencee_le or detail.traitee_le
+        reference = detail.started_at or detail.processed_at
         jours = (now - reference).total_seconds() / 86400
         meetings.append((identifier, jours, bool(detail.utterances)))
 
@@ -2202,12 +2202,12 @@ def watch(
         if not chunks:
             return None
         releve = read_level(chunks[-1])
-        return None if releve is None else releve.micro_db
+        return None if releve is None else releve.mic_db
 
     veilleuse = HardwareWatch(
         recorder=recorder,
         lister=player,
-        watch_rules=WatchRules(micro_voulu=voulu, agrege=config.audio.input),
+        watch_rules=WatchRules(wanted_mic=voulu, agrege=config.audio.input),
         reconstruire=reconstruire,
         notify_user=notify_user,
         captured_size=captured_size,

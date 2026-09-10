@@ -95,7 +95,7 @@ class TestPublicationSansReseau:
 
         board = Board("Oasis")
         # Une piste : seuls une piste et une action peuvent être actées.
-        join(board, [Contribution("Décidé", kind=Kind.PISTE, state=Standing.ACTE)])
+        join(board, [Contribution("Décidé", kind=Kind.LEAD, state=Standing.AGREED)])
         appels = self.mark(monkeypatch)
         board_miro.publish(board, "uXjVtest=")
         colours = [
@@ -103,7 +103,7 @@ class TestPublicationSansReseau:
             for methode, path, corps in appels
             if methode == "POST" and "sticky_notes" in path and corps
         ]
-        assert board_miro.COLOURS[Standing.ACTE] in colours
+        assert board_miro.COLOURS[Standing.AGREED] in colours
 
     def test_le_texte_est_echappe(self, monkeypatch):
         """Un « < » dans un libellé ne doit pas casser le contenu HTML."""
@@ -200,8 +200,8 @@ class TestLaRacine:
         from greffier.domain.board import Board
 
         board = Board("Oasis")
-        assert board.racine is not None
-        html = board_miro._as_html(board.racine, "")
+        assert board.root is not None
+        html = board_miro._as_html(board.root, "")
         assert "en discussion" not in html
 
     def test_le_sujet_a_sa_propre_couleur(self):
@@ -209,4 +209,4 @@ class TestLaRacine:
 
         assert Kind.SUBJECT in __import__(
             "greffier.domain.board", fromlist=["SANS_ETAT"]
-        ).SANS_ETAT
+        ).WITHOUT_STANDING

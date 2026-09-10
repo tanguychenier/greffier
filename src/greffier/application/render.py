@@ -31,7 +31,7 @@ class Transcribed(Protocol):
 
     def gaps(self, minimum: float = ...) -> list[Span]: ...
     def speaking_time(self) -> dict[str, float]: ...
-    def nom_de(self, voice: str | None) -> str: ...
+    def name_of(self, voice: str | None) -> str: ...
 
 SYSTEM = platform.system()
 
@@ -48,14 +48,14 @@ def context_header(
     duration: float = 0.0,
     names: Sequence[str] = (),
     voix_entendues: int = 0,
-    commencee_le: datetime | None = None,
-    terminee_le: datetime | None = None,
+    started_at: datetime | None = None,
+    ended_at: datetime | None = None,
 ) -> str:
     """The meeting's context, dictated to the writer word for word."""
     trouve = _HORODATAGE.match(identifier)
     lines = ["[Contexte de la réunion]"]
     context = _context_line(trouve, duration, names, voix_entendues,
-                                  commencee_le, terminee_le)
+                                  started_at, ended_at)
     if not context:
         return ""
     lines.append(
@@ -72,20 +72,20 @@ def _context_line(
     duration: float,
     names: Sequence[str],
     voix_entendues: int,
-    commencee_le: datetime | None = None,
-    terminee_le: datetime | None = None,
+    started_at: datetime | None = None,
+    ended_at: datetime | None = None,
 ) -> str:
     chunks: list[str] = []
     if trouve:
         annee, mois, jour, heure, minute = trouve.groups()
         chunks.append(f"{int(jour)} {_MOIS[int(mois) - 1]} {annee}")
-    if commencee_le is not None and terminee_le is not None:
-        locale_debut, locale_fin = commencee_le.astimezone(), terminee_le.astimezone()
+    if started_at is not None and ended_at is not None:
+        locale_debut, locale_fin = started_at.astimezone(), ended_at.astimezone()
         chunks.append(
             f"de {locale_debut.hour} h {locale_debut.minute:02d} "
             f"à {locale_fin.hour} h {locale_fin.minute:02d}"
         )
-        ecoule = (terminee_le - commencee_le).total_seconds()
+        ecoule = (ended_at - started_at).total_seconds()
         if ecoule > 0:
             chunks.append(f"durée {_readable_duration(ecoule)}")
     elif trouve and trouve.group(4):
@@ -218,7 +218,7 @@ def render_transcript(meeting: Transcribed, header: str = "") -> str:
     lines: list[str] = []
     current: str | None = None
     for utterance in meeting.utterances:
-        name = meeting.nom_de(utterance.voice)
+        name = meeting.name_of(utterance.voice)
         if name != current:
             lines.append(f"\n[{name}]")
             current = name
@@ -249,8 +249,8 @@ def regenerate_minutes(
             meeting.identifier, duration,
             names=[meeting.names[v] for v in entendues if v in meeting.names],
             voix_entendues=len(entendues),
-            commencee_le=meeting.commencee_le,
-            terminee_le=meeting.terminee_le,
+            started_at=meeting.started_at,
+            ended_at=meeting.ended_at,
         )
         + hardware_header(meeting.hardware_events)
         + reliability_header(meeting)

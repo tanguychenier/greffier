@@ -101,7 +101,7 @@ class Naming:
                 f"La voix « {voice} » n'a aucun passage d'au moins {DUREE_UTILE:.0f} s : "
                 "trop peu de matière pour une empreinte fiable."
             )
-        aggregate_of = replace(aggregate(voiceprints), origine=identifier)
+        aggregate_of = replace(aggregate(voiceprints), origin=identifier)
         self.doute = empreintes_domaine.doubtful_entry(
             aggregate_of, name, self.bank.people())
         self.bank.record(name, aggregate_of)

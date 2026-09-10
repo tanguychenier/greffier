@@ -11,107 +11,107 @@ from enum import StrEnum
 
 from greffier.domain.models import Span
 
-VOIX_LOCALE = "moi"
+LOCAL_VOICE = "moi"
 
-MARGE_DB = 6.0
+MARGIN_DB = 6.0
 
-PLANCHER_DB = -45.0
+FLOOR_DB = -45.0
 
-RECOLLAGE_S = 0.7
+STITCH_S = 0.7
 
-DUREE_MINIMALE_S = 0.8
+MINIMUM_LENGTH_S = 0.8
 
 @dataclass(frozen=True)
 class ChannelSettings:
     """What can be tuned without touching the code."""
 
-    marge_db: float = MARGE_DB
-    plancher_db: float = PLANCHER_DB
-    recollage_s: float = RECOLLAGE_S
-    duree_minimale_s: float = DUREE_MINIMALE_S
+    margin_db: float = MARGIN_DB
+    floor_db: float = FLOOR_DB
+    stitch_s: float = STITCH_S
+    minimum_length_s: float = MINIMUM_LENGTH_S
 
 class WhoSpeaks(StrEnum):
     """What an interface may show during the meeting, without a model."""
 
-    PERSONNE = "personne"
-    TOI = "toi"
-    LES_AUTRES = "les autres"
-    LES_DEUX = "les deux"
+    NOBODY = "personne"
+    YOU = "toi"
+    THE_OTHERS = "les autres"
+    BOTH = "les deux"
 
-PART_VISIO = 0.05
+VIDEO_SHARE = 0.05
 
 def over_video(
-    micro_db: list[float],
-    systeme_db: list[float],
+    mic_db: list[float],
+    system_db: list[float],
     reglages: ChannelSettings | None = None,
 ) -> bool:
     """Whether the meeting was held remotely, from the two channels."""
     r = reglages or ChannelSettings()
-    utiles = min(len(micro_db), len(systeme_db))
+    utiles = min(len(mic_db), len(system_db))
     if utiles == 0:
         return False
     domine = sum(
         1
         for i in range(utiles)
-        if systeme_db[i] > micro_db[i] + r.marge_db and systeme_db[i] > r.plancher_db
+        if system_db[i] > mic_db[i] + r.margin_db and system_db[i] > r.floor_db
     )
-    return domine / utiles >= PART_VISIO
+    return domine / utiles >= VIDEO_SHARE
 
 def who_speaks(
-    micro_db: float,
-    systeme_db: float,
+    mic_db: float,
+    system_db: float,
     reglages: ChannelSettings | None = None,
 ) -> WhoSpeaks:
     """Who holds the floor at this instant, from the two channels."""
     r = reglages or ChannelSettings()
-    mic = micro_db > r.plancher_db
-    system = systeme_db > r.plancher_db
+    mic = mic_db > r.floor_db
+    system = system_db > r.floor_db
     if mic and system:
-        return WhoSpeaks.LES_DEUX if micro_db > systeme_db + r.marge_db else WhoSpeaks.LES_AUTRES
+        return WhoSpeaks.BOTH if mic_db > system_db + r.margin_db else WhoSpeaks.THE_OTHERS
     if mic:
-        return WhoSpeaks.TOI
+        return WhoSpeaks.YOU
     if system:
-        return WhoSpeaks.LES_AUTRES
-    return WhoSpeaks.PERSONNE
+        return WhoSpeaks.THE_OTHERS
+    return WhoSpeaks.NOBODY
 
 def local_turns(
-    micro_db: list[float],
-    systeme_db: list[float],
-    pas_s: float,
+    mic_db: list[float],
+    system_db: list[float],
+    step_s: float,
     reglages: ChannelSettings | None = None,
 ) -> list[Span]:
     """The moments when the person recording speaks themselves."""
     r = reglages or ChannelSettings()
-    if pas_s <= 0:
+    if step_s <= 0:
         raise ValueError("le pas des trames doit être positif")
 
-    utiles = min(len(micro_db), len(systeme_db))
-    locales = [
-        micro_db[i] > systeme_db[i] + r.marge_db and micro_db[i] > r.plancher_db
+    utiles = min(len(mic_db), len(system_db))
+    local_ones = [
+        mic_db[i] > system_db[i] + r.margin_db and mic_db[i] > r.floor_db
         for i in range(utiles)
     ]
-    return _regrouper(locales, pas_s, r)
+    return _regroup(local_ones, step_s, r)
 
-def _regrouper(locales: list[bool], pas_s: float, r: ChannelSettings) -> list[Span]:
+def _regroup(local_ones: list[bool], step_s: float, r: ChannelSettings) -> list[Span]:
     """Assembles frames into spans, closing the short silences."""
     plages: list[tuple[int, int]] = []
     start: int | None = None
     dernier = 0
-    for i, active in enumerate(locales):
+    for i, active in enumerate(local_ones):
         if active:
             if start is None:
                 start = i
             dernier = i
-        elif start is not None and (i - dernier) * pas_s > r.recollage_s:
+        elif start is not None and (i - dernier) * step_s > r.stitch_s:
             plages.append((start, dernier + 1))
             start = None
     if start is not None:
         plages.append((start, dernier + 1))
 
     return [
-        Span(a * pas_s, b * pas_s)
+        Span(a * step_s, b * step_s)
         for a, b in plages
-        if (b - a) * pas_s >= r.duree_minimale_s
+        if (b - a) * step_s >= r.minimum_length_s
     ]
 
 def subtract(span: Span, autres: list[Span]) -> list[Span]:

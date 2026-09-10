@@ -416,8 +416,8 @@ class TestEnteteContexte:
         header = context_header(
             "2026-09-09_10h05_reunion",
             1620.0,  # la transcription s'arrête à 10 h 32
-            commencee_le=datetime(2026, 9, 9, 10, 5).astimezone(),
-            terminee_le=datetime(2026, 9, 9, 10, 37).astimezone(),
+            started_at=datetime(2026, 9, 9, 10, 5).astimezone(),
+            ended_at=datetime(2026, 9, 9, 10, 37).astimezone(),
         )
         assert "de 10 h 05 à 10 h 37" in header
         assert "10 h 32" not in header
@@ -697,7 +697,7 @@ class TestLaChaineGardeLaReunion:
             def read(self, identifier):
                 return StoredMeeting(
                     identifier=identifier, audio=AUDIO,
-                    traitee_le=datetime.now(UTC), duration=1.0,
+                    processed_at=datetime.now(UTC), duration=1.0,
                     utterances=[], turns=[], names={}, propositions={},
                     warnings=[], subject="Point Oasis",
                 )

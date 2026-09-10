@@ -26,10 +26,10 @@ class FileStore:
             "format": FORMAT,
             "identifiant": meeting.identifier,
             "audio": str(meeting.audio),
-            "traitee_le": meeting.traitee_le.isoformat(),
+            "traitee_le": meeting.processed_at.isoformat(),
             "sujet": meeting.subject,
-            "commencee_le": meeting.commencee_le.isoformat() if meeting.commencee_le else "",
-            "terminee_le": meeting.terminee_le.isoformat() if meeting.terminee_le else "",
+            "commencee_le": meeting.started_at.isoformat() if meeting.started_at else "",
+            "terminee_le": meeting.ended_at.isoformat() if meeting.ended_at else "",
             "duree": meeting.duration,
             "noms": meeting.names,
             "propositions": meeting.propositions,
@@ -76,13 +76,13 @@ class FileStore:
         return StoredMeeting(
             identifier=content["identifiant"],
             audio=Path(content["audio"]),
-            traitee_le=datetime.fromisoformat(content["traitee_le"]),
+            processed_at=datetime.fromisoformat(content["traitee_le"]),
             subject=content.get("sujet", ""),
-            commencee_le=(
+            started_at=(
                 datetime.fromisoformat(content["commencee_le"])
                 if content.get("commencee_le") else None
             ),
-            terminee_le=(
+            ended_at=(
                 datetime.fromisoformat(content["terminee_le"])
                 if content.get("terminee_le") else None
             ),

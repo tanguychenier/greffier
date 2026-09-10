@@ -70,7 +70,7 @@ class HardwareWatch:
 
         decision = self.watch_rules.examine(self._precedent, current)
         self._precedent = current
-        if decision.action is Action.RIEN:
+        if decision.action is Action.NOTHING:
             return
 
         if decision.action is Action.ALERTER:

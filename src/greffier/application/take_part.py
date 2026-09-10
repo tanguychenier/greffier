@@ -55,7 +55,7 @@ N'emploie ni tiret cadratin ni demi-cadratin.
 
 CONTEXTE_MAXIMAL = 6000
 
-RIEN = "RIEN"
+NOTHING = "RIEN"
 
 CONSIGNES_SUITE = """Tu t'appelles {name} et tu participes à une réunion. Tu as
 posé une question, on vient de te répondre.
@@ -293,12 +293,12 @@ class AssistantSettings:
         if self.cerveau is None:
             return None
         guidance = CONSIGNES_SUITE.format(
-            name=self.name, rien=RIEN, question=attendue.remark, exemple="Hugo")
+            name=self.name, rien=NOTHING, question=attendue.remark, exemple="Hugo")
         try:
             remark = self._interrogate(guidance, text)
         except (RuntimeError, OSError):
             return None
-        if not remark or remark.strip().upper().startswith(RIEN):
+        if not remark or remark.strip().upper().startswith(NOTHING):
             return None
         suite = Opening(
             because=Because.APPELE,
@@ -382,12 +382,12 @@ class AssistantSettings:
             return None
         if not material.strip():
             return None
-        guidance = CONSIGNES_APPORT.format(name=self.name, rien=RIEN)
+        guidance = CONSIGNES_APPORT.format(name=self.name, rien=NOTHING)
         try:
             remark = self._interrogate(guidance, material)
         except (RuntimeError, OSError):
             return None
-        if not remark or remark.strip().upper().startswith(RIEN):
+        if not remark or remark.strip().upper().startswith(NOTHING):
             return None
         return Opening(
             because=Because.CONTRIBUTION,

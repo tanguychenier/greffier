@@ -113,7 +113,7 @@ def tidy(
         if audio is None:
             continue
         geste = regle.decide(jours, transcrite, audio.suffix == ".opus")
-        if geste is Gesture.RIEN:
+        if geste is Gesture.NOTHING:
             continue
         avant = audio.stat().st_size if audio.exists() else 0
         if not for_real:
