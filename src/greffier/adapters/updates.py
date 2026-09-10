@@ -1,16 +1,4 @@
-"""Demander à GitHub s'il existe une version postérieure à celle installée.
-
-Le seul appel réseau de l'outil en dehors de la rédaction, et il est
-facultatif : rien ne dépend de lui, une panne de réseau ne coûte que
-l'information. Il vise l'API publique des releases, sans jeton — le dépôt est
-public, et demander une authentification pour savoir s'il existe une mise à
-jour serait absurde.
-
-Ce module ne décide de rien : il rapporte ce que le service répond, et la
-comparaison appartient au domaine. Il n'installe rien non plus : remplacer une
-application pendant qu'elle tourne est un problème distinct, qui mérite d'être
-traité séparément et non en effet de bord d'une vérification.
-"""
+"""Asking GitHub whether a version later than the installed one exists."""
 
 from __future__ import annotations
 
@@ -47,7 +35,7 @@ ARTEFACTS = {
 
 @dataclass(frozen=True, slots=True)
 class Verdict:
-    """Ce que la vérification a appris. `souci` renseigné, rien n'est sûr."""
+    """What the check learned. With `trouble` filled in, nothing is certain."""
 
     installed: str
     available: str = ""
@@ -58,7 +46,7 @@ class Verdict:
 
     @property
     def downloadable(self) -> bool:
-        """Vrai quand il existe un binaire à installer pour ce poste."""
+        """True when there is a binary to install for this machine."""
         return bool(self.available and self.artefact)
 
     @property
@@ -70,7 +58,7 @@ class Verdict:
         return bool(self.available)
 
     def say(self) -> str:
-        """Une phrase pour l'écran, en français, sans jargon."""
+        """One sentence for the screen, in French, without jargon."""
         if self.trouble:
             return f"Vérification impossible : {self.trouble}"
         if self.available:
@@ -78,12 +66,7 @@ class Verdict:
         return f"À jour : version {self.installed}."
 
 def installed_version() -> str:
-    """La version du paquet en place, ou une chaîne vide si elle est illisible.
-
-    Lue depuis les métadonnées du paquet plutôt qu'écrite en dur : deux
-    endroits qui portent un numéro finissent par se contredire, et c'est
-    justement ce qu'on cherche à comparer.
-    """
+    """The version of the bundle in place, or an empty string."""
     try:
         installed = version_du_paquet("greffier")
     except PackageNotFoundError:
@@ -92,11 +75,7 @@ def installed_version() -> str:
     return depuis_les_sources or installed
 
 def _version_du_projet() -> str:
-    """La version écrite dans `pyproject.toml`, si on tourne depuis les sources.
-
-    Vide dès que le fichier n'est pas là, ce qui est le cas dans le paquet
-    construit : la question ne se pose alors pas.
-    """
+    """The version written in pyproject.toml, when it can be reached."""
     projet = Path(__file__).resolve().parents[3] / "pyproject.toml"
     if not projet.exists():
         return ""
@@ -109,12 +88,7 @@ def _version_du_projet() -> str:
         return ""
 
 def build_repository() -> Path | None:
-    """Le dépôt d'où ce paquet a été fabriqué, s'il est encore là.
-
-    Gravé par `construire.sh`. L'application n'en dépend pas pour fonctionner :
-    on ne s'en sert que pour installer une mise à jour, et son absence ne coûte
-    que ce bouton.
-    """
+    """The repository this bundle was built from, if it is still there."""
     grave = os.environ.get("GREFFIER_DEPOT_SOURCE", "").strip()
     if not grave:
         return None
@@ -122,12 +96,7 @@ def build_repository() -> Path | None:
     return path if (path / "macos" / "construire.sh").exists() else None
 
 def installable() -> tuple[bool, str]:
-    """Peut-on installer d'ici ? Sinon, pourquoi.
-
-    Refuse dès que l'arbre du dépôt porte des modifications non validées : une
-    mise à jour n'a pas à emporter le travail en cours de qui développe, et un
-    « git pull » sur un arbre sale échoue de toute façon, à moitié.
-    """
+    """Can it install from here? If not, why."""
     store = build_repository()
     if store is None:
         return (False, "le dépôt d'origine est introuvable")
@@ -163,11 +132,10 @@ open -a "$4"
 """
 
 def install(app: str = "Greffier") -> tuple[bool, str]:
-    """Lance le relais de mise à jour, puis rend la main pour qu'on se ferme.
+    """Starts the update relay, then hands back so we can close.
 
-    Ne met rien à jour par elle-même : elle prépare, et c'est l'appelant qui
-    doit quitter juste après. Le relais attend la fin du processus avant de
-    toucher au paquet.
+    Updates nothing by itself: it prepares, and the caller has to quit right after.
+    The relay waits for this process to end before touching the bundle.
     """
     possible, because = installable()
     if not possible:
@@ -189,11 +157,7 @@ def install(app: str = "Greffier") -> tuple[bool, str]:
     return (True, str(log))
 
 def bundle_of_this_process(argv0: str = "") -> Path | None:
-    """Le paquet .app depuis lequel ce processus tourne, s'il y en a un.
-
-    Rend rien hors du paquet : depuis la ligne de commande, il n'y a pas
-    d'application à remplacer.
-    """
+    """The .app bundle this process runs from, if there is one."""
     executable = Path(argv0 or sys.executable).resolve()
     for parent in executable.parents:
         if parent.suffix == ".app":
@@ -204,11 +168,10 @@ def download(
     url: str, target: Path, timeout: float = DELAI_TELECHARGEMENT,
     progress: Callable[[int, int], None] | None = None,
 ) -> tuple[bool, str]:
-    """Écrit l'artefact sur le disque. Ne lève jamais.
+    """Writes the artifact to disk. Never raises.
 
-    Par morceaux, et en rapportant l'avancement : on télécharge cent cinquante
-    mégaoctets, et une fenêtre qui se figeait sans rien dire pendant deux
-    minutes passait pour cassée.
+    In chunks, reporting progress: this is a hundred and fifty megabytes, and a
+    window that froze silently for two minutes passed for broken.
     """
     requete = urllib.request.Request(url, headers={"User-Agent": "Greffier"})
     try:
@@ -231,11 +194,7 @@ def download(
     return (True, str(target))
 
 def unpack(archive: Path, folder: Path) -> tuple[bool, str]:
-    """Ouvre l'archive dans un dossier. Rend le chemin de ce qu'elle contient.
-
-    Zip pour macOS et Windows, tar pour Linux : le format vient du nom, pas
-    d'une devinette sur le contenu.
-    """
+    """Opens the archive into a folder. Returns the path of what it holds."""
     import tarfile
     import zipfile
 
@@ -298,16 +257,10 @@ def install_from_release(
     verdict: Verdict, argv0: str = "",
     progress: Callable[[int, int], None] | None = None,
 ) -> tuple[bool, str]:
-    """Télécharge l'artefact de ce système et le met en place.
+    """Downloads this system's artifact and puts it in place.
 
-    C'est le chemin de qui n'a pas le dépôt : la très grande majorité. Rien
-    n'est compilé, rien n'est cloné — on prend l'archive publiée pour ce
-    système, on l'ouvre, et un relais remplace le paquet après la fermeture.
-
-    Hors macOS, l'archive est téléchargée et son chemin rendu : remplacer un
-    exécutable Windows qui tourne, ou réinstaller des sources sous Linux,
-    demande autre chose qu'un `mv`, et prétendre le faire serait pire que le
-    dire.
+    This is the path for whoever does not have the repository: the vast majority.
+    Nothing is compiled, nothing is cloned.
     """
     if not verdict.downloadable:
         return (False, "aucun binaire publié pour ce système")
@@ -347,16 +300,7 @@ def install_from_release(
     return (True, str(log))
 
 def bundle_is_newer(argv0: str = "") -> bool:
-    """Le paquet sur le disque est-il plus récent que le processus qui tourne ?
-
-    Un paquet reconstruit ne remplace pas l'application déjà lancée, et rien ne
-    le disait. Coût mesuré : deux heures passées à chercher trois boutons dans
-    une fenêtre ouverte la veille, alors qu'ils étaient dans le paquet depuis le
-    matin. La fenêtre a maintenant de quoi le dire.
-
-    Rend faux hors du paquet — depuis la ligne de commande, le code suit le
-    dépôt et la question ne se pose pas.
-    """
+    """Is the bundle on disk newer than the running process?"""
 
     executable = Path(argv0 or sys.executable)
     if "/Contents/MacOS/" not in str(executable):
@@ -370,11 +314,7 @@ def bundle_is_newer(argv0: str = "") -> bool:
 _CHARGE_LE = time.time()
 
 def check(store: str = REPOSITORY, timeout: float = TIMEOUT) -> Verdict:
-    """Interroge la dernière release publiée. Ne lève jamais.
-
-    Une vérification de mise à jour qui fait tomber la fenêtre serait un très
-    mauvais échange : tout ce qui peut échouer est rapporté dans `souci`.
-    """
+    """Asks about the latest published release. Never raises."""
     installed = installed_version()
     if not installed:
         return Verdict(installed="", trouble="version installée inconnue")
@@ -413,10 +353,10 @@ def check(store: str = REPOSITORY, timeout: float = TIMEOUT) -> Verdict:
     )
 
 def _artifact_for_this_system(publication: dict[str, Any]) -> tuple[str, str]:
-    """Le nom et l'adresse de l'artefact qui convient à ce système.
+    """The name and address of the artifact that suits this system.
 
-    Le bon et aucun autre : les trois sont attachés à la même version, et une
-    archive Windows installée sur un Mac ne produirait rien de lançable.
+    The right one and no other: all three hang off the same release, and a Windows
+    archive installed on a Mac would produce nothing that launches.
     """
     attendu = ARTEFACTS.get(platform.system(), "")
     if not attendu:

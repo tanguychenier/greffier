@@ -1,26 +1,14 @@
-"""Écrire la carte d'un sujet sur un tableau Miro, en objets natifs.
+"""Writing a subject's board on a Miro board, as native objects.
 
-**Pas dans un widget « Mindmap ».** C'est le piège de ce sujet, et il a déjà été
-payé : le widget est une application tierce, ses nœuds ne sont ni créables ni
-modifiables par l'API REST, et la seule voie qui reste est la souris. Cette voie
-a été essayée le 2026-08-20 et a produit des textes mélangés et des objets
-parasites, parce qu'elle n'est ni reproductible ni relisible. La carte est donc
-faite de **pense-bêtes et de connecteurs**, que l'API sait écrire *et relire* —
-et c'est la relecture qui permet de compléter une carte au lieu d'en créer une
-seconde.
+**Not in a mindmap widget.** The widget is a third-party app whose nodes the
+REST API can neither create nor modify, leaving only the mouse — tried once and
+it produced mixed-up texts and stray objects. The board is therefore made of
+sticky notes and connectors, which the API can write *and read back*, and
+reading back is what allows a board to be completed rather than duplicated.
 
-Trois garde-fous, dans le code et non dans une consigne :
-
-1. **Une liste de tableaux interdits.** Un tableau documente un circuit de
-   signature et n'appartient pas à cet outil ; écrire dessus a été explicitement
-   défendu. Un identifiant y figurant fait échouer l'appel, pas un
-   avertissement.
-2. **On n'écrit que sur un tableau que Greffier a créé**, ou qu'un humain a
-   inscrit dans le registre des sujets. Découvrir un tableau et s'y mettre
-   n'arrive jamais.
-3. **On lit avant d'écrire, et on n'écrit que ce qui manque.** Aucune
-   suppression, aucune modification de texte existant : ce que quelqu'un a posé
-   reste tel quel.
+Three guardrails, in the code rather than in a note: a list of forbidden
+boards, writing only to a board the tool created or a human registered, and
+reading before writing.
 """
 
 from __future__ import annotations
@@ -53,11 +41,11 @@ COLOURS = {
 COULEUR_SUJET = "light_blue"
 
 class MiroRefused(RuntimeError):
-    """L'appel n'a pas eu lieu, et pour une raison présentable."""
+    """The call did not happen, and for a reason worth showing."""
 
 @dataclass(frozen=True, slots=True)
 class Written:
-    """Ce qu'une publication a fait. Rien n'est jamais supprimé."""
+    """What a publication did. Nothing is ever deleted."""
 
     tableau: str
     poses: tuple[str, ...] = ()
@@ -67,12 +55,7 @@ class Written:
     liens_manques: int = 0
 
 def token() -> str:
-    """Le jeton d'accès, depuis l'environnement ou un fichier désigné par lui.
-
-    Jamais un chemin en dur : le jeton d'un poste n'a pas à être deviné par le
-    code, et un outil public ne doit pas aller chercher dans le dossier de
-    travail d'un projet.
-    """
+    """The access token, from the environment or the keychain."""
     live = os.environ.get("GREFFIER_MIRO_JETON", "").strip()
     if live:
         return live
@@ -109,7 +92,7 @@ def _appeler(path: str, methode: str = "GET",
         raise MiroRefused(f"Miro est injoignable : {trouble}") from trouble
 
 def _keep(tableau: str) -> str:
-    """Refuse tout de suite un tableau interdit."""
+    """Refuses a forbidden board at once."""
     if tableau in INTERDITS:
         raise MiroRefused(
             f"le tableau {tableau} est sur la liste des tableaux interdits : "
@@ -118,7 +101,7 @@ def _keep(tableau: str) -> str:
     return tableau
 
 def creer_le_tableau(subject: str) -> tuple[str, str]:
-    """Crée le tableau d'un sujet. Rend son identifiant et son adresse."""
+    """Creates a subject's board. Returns its identifier."""
     response = _appeler("/boards", "POST", {
         "name": f"{PREFIXE} — {subject}",
         "description": (
@@ -134,7 +117,7 @@ def creer_le_tableau(subject: str) -> tuple[str, str]:
 
 @dataclass(frozen=True, slots=True)
 class Placement:
-    """Un point déjà sur le tableau, et ce qu'on en sait."""
+    """A point already on the board, and what can be done with it."""
 
     identifier: str
     x: int
@@ -142,14 +125,7 @@ class Placement:
     de_l_outil: bool = False
 
 def objets_presents(tableau: str) -> dict[str, str]:
-    """Les points déjà sur le tableau : libellé en clair → identifiant d'objet.
-
-    L'identifiant sert à **rattacher** un point ajouté plus tard à un parent qui
-    existait déjà. Sans lui, les branches des publications suivantes flottaient
-    sans lien : la première passe traçait douze traits, la seconde aucun, et la
-    carte se dégradait à mesure qu'on la complétait — exactement ce qu'elle est
-    censée éviter.
-    """
+    """The points already on the board: label and identifier."""
     _keep(tableau)
     trouves: dict[str, str] = {}
     cursor = ""
@@ -175,12 +151,7 @@ def objets_presents(tableau: str) -> dict[str, str]:
 _PROVENANCE = re.compile(r"\d{4}-\d{2}-\d{2}_\d{2}h\d{2}")
 
 def placements_present(tableau: str) -> dict[str, Placement]:
-    """Les points du tableau, avec leur place et leur origine.
-
-    L'origine sert à deux choses : poser une pastille à côté d'un point sans le
-    modifier, et savoir ce qu'un humain a ajouté depuis la dernière réunion —
-    c'est tout l'intérêt d'une carte partagée, et cela n'était jamais relu.
-    """
+    """The points of the board, with their place and their size."""
     _keep(tableau)
     trouves: dict[str, Placement] = {}
     cursor = ""
@@ -211,23 +182,14 @@ def placements_present(tableau: str) -> dict[str, Placement]:
             return trouves
 
 def contributions_of_others(tableau: str) -> list[str]:
-    """Ce que des humains ont écrit sur la carte, et que l'outil n'a pas posé.
-
-    À donner au rédacteur au début de la réunion suivante : c'est le moment où
-    cette information vaut le plus, et c'est ce qui fait qu'une carte partagée
-    sert à quelque chose plutôt que d'être un affichage.
-    """
+    """What humans wrote on the board, and the tool did not."""
     return [
         label_text for label_text, pose in placements_present(tableau).items()
         if not pose.de_l_outil
     ]
 
 def labels_present(tableau: str) -> list[str]:
-    """Les libellés déjà sur le tableau, dans leur forme d'origine.
-
-    Donnés au rédacteur pour qu'il les reprenne mot pour mot au lieu de
-    reformuler — une reformulation ouvre une branche de plus.
-    """
+    """The labels already on the board, in their own wording."""
     return list(placements_present(tableau))
 
 MARQUE_ACTE = "acté"
@@ -237,7 +199,7 @@ DECALAGE_PASTILLE = (150, -60)
 TOLERANCE_PASTILLE = 40
 
 def _dots_placed(tableau: str) -> set[tuple[int, int]]:
-    """Les positions de toutes les pastilles « acté » du tableau."""
+    """The positions of every "settled" dot."""
     positions: set[tuple[int, int]] = set()
     cursor = ""
     while True:
@@ -266,13 +228,7 @@ def _dots_placed(tableau: str) -> set[tuple[int, int]]:
 def mark_actions(
     tableau: str, texts: list[str], meeting: str = ""
 ) -> tuple[str, ...]:
-    """Pose une pastille « acté » à côté des points tranchés. Rend les marqués.
-
-    À côté et non dessus : un point déjà sur la carte n'est jamais modifié,
-    parce qu'un humain a peut-être déplacé ou réécrit cet objet et que l'API ne
-    dit pas qui l'a touché. Mais sans cette pastille, la couleur devenait fausse
-    avec le temps — une piste retenue restait jaune indéfiniment.
-    """
+    """Places a "settled" dot next to the points that are settled."""
     from greffier.domain.board import same_point
 
     _keep(tableau)
@@ -313,36 +269,19 @@ def mark_actions(
     return tuple(marques)
 
 def textes_presents(tableau: str) -> set[str]:
-    """Les clefs de comparaison des points déjà sur le tableau.
-
-    Calculées sur le **seul libellé**, comme celles de la carte. La version
-    précédente les calculait sur tout le contenu de l'objet — libellé, état et
-    réunion d'origine — de sorte qu'elles portaient « discussion » et
-    « 2026-09-09_10h05_reunion » et ne pouvaient jamais correspondre. Résultat :
-    chaque publication reposait les treize mêmes points, la carte doublait à
-    chaque passage, et le compte annonçait « 0 déjà présent ».
-
-    Inclut ce qu'un humain a posé à la main : c'est voulu — un point déjà écrit
-    par quelqu'un ne doit pas se voir doublé par l'outil.
-    """
+    """The comparison keys of the points already on the board."""
     from greffier.domain.board import key
 
     return {key(label_text) for label_text in labels_present(tableau)}
 
 def _sans_balises(html: str) -> str:
-    """Miro rend le contenu en HTML léger ; on ne compare que le texte."""
+    """Miro returns content as light HTML; only the text is compared."""
     import re
 
     return re.sub(r"<[^>]+>", " ", html).replace("&nbsp;", " ").strip()
 
 def publish(board: Board, tableau: str, meeting: str = "") -> Written:
-    """Pose sur le tableau les nœuds qui n'y sont pas encore.
-
-    Ne supprime rien, ne modifie rien. Un nœud déjà présent est laissé tel
-    quel, même si son état a changé dans la carte : changer un objet qu'un
-    humain a peut-être déplacé ou réécrit demanderait de savoir qui l'a touché,
-    ce que l'API ne dit pas.
-    """
+    """Places on the board the nodes that are not on it yet."""
     from greffier.domain.board import same_point
 
     _keep(tableau)
@@ -383,12 +322,7 @@ def publish(board: Board, tableau: str, meeting: str = "") -> Written:
     return Written(tableau, tuple(poses), tuple(known), liens=liens, liens_manques=manques)
 
 def _as_html(noeud: Node, meeting: str) -> str:
-    """Le texte du pense-bête : le point, puis d'où il vient.
-
-    La provenance en petit dessous : « d'où vient cette branche » est la
-    première question de qui découvre une carte, et y répondre dans l'objet
-    évite d'avoir à ouvrir un compte rendu pour le savoir.
-    """
+    """The sticky note's text: the point, then where it comes from."""
     from greffier.domain.board import SANS_ETAT
 
     lines = [f"<p>{_echapper(noeud.text)}</p>"]
@@ -400,7 +334,7 @@ def _as_html(noeud: Node, meeting: str) -> str:
     return "".join(lines)
 
 def _liens_existants(tableau: str) -> set[tuple[str, str]]:
-    """Les couples déjà reliés, pour ne pas superposer les traits."""
+    """The pairs already connected, so as not to draw twice."""
     couples: set[tuple[str, str]] = set()
     cursor = ""
     while True:
@@ -429,17 +363,7 @@ def _echapper(text: str) -> str:
 def _relier(
     tableau: str, board: Board, identifiers: dict[str, str]
 ) -> tuple[int, int]:
-    """Trace les liens entre les nœuds qu'on vient de poser. Rend (tracés, échoués).
-
-    Seulement ceux dont **les deux** extrémités viennent d'être créées : relier
-    à un objet qu'on n'a pas posé supposerait de l'avoir retrouvé, et un lien
-    tracé vers le mauvais objet est plus trompeur qu'un lien absent.
-
-    Les identifiants partent en **nombres** et non en chaînes : l'API les refuse
-    autrement (« expected of type [Number] »). Une première carte a été publiée
-    sans un seul trait pour cette raison, et l'échec était avalé — d'où le
-    compte rendu ici plutôt qu'un « continue » muet.
-    """
+    """Draws the links between the nodes just placed."""
     traces = 0
     manques = 0
     deja_reliees = _liens_existants(tableau)

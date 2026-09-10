@@ -1,9 +1,4 @@
-"""Enregistrement et mesure du son, par ffmpeg.
-
-Le seul adaptateur vraiment différent d'un système à l'autre : macOS passe par
-avfoundation, Linux par PulseAudio, Windows par dshow. Le reste — mesurer les
-niveaux, arrêter proprement — est commun.
-"""
+"""Recording and measuring sound, through ffmpeg."""
 
 from __future__ import annotations
 
@@ -34,7 +29,7 @@ class FfmpegRecorder:
         return ["-f", "dshow", "-i", f"audio={self.peripherique}"]
 
     def _index_of(self, peripherique: str) -> str:
-        """Index avfoundation d'une entrée nommée."""
+        """The avfoundation index of a named input."""
         output = subprocess.run(
             ["ffmpeg", "-hide_banner", "-f", "avfoundation", "-list_devices", "true", "-i", ""],
             capture_output=True, text=True, check=False,
@@ -47,12 +42,7 @@ class FfmpegRecorder:
         raise RuntimeError(f"Périphérique « {peripherique} » introuvable.")
 
     def _avfoundation_index(self) -> str:
-        """Index du périphérique dans la liste d'avfoundation, qui varie.
-
-        ffmpeg ne sait pas ouvrir une entrée par son nom sur macOS : il faut
-        traduire le nom en numéro, et ce numéro change dès qu'on branche ou
-        débranche un appareil.
-        """
+        """The device's index in avfoundation's list."""
         output = subprocess.run(
             ["ffmpeg", "-hide_banner", "-f", "avfoundation", "-list_devices", "true", "-i", ""],
             capture_output=True, text=True, check=False,
@@ -78,10 +68,10 @@ class FfmpegRecorder:
         return processus.pid
 
     def stop_recording(self, processus: int) -> None:
-        """Arrête par SIGINT, jamais par SIGKILL.
+        """Stops with SIGINT, never with SIGKILL.
 
-        ffmpeg écrit l'en-tête du fichier WAV en sortant : le tuer brutalement
-        laisse un fichier que rien ne sait relire.
+        SIGKILL leaves the file's header unwritten, and a wav without a header is an
+        unreadable meeting.
         """
         import os
         import time
@@ -99,21 +89,7 @@ class FfmpegRecorder:
         os.kill(processus, signal.SIGKILL)
 
     def prepare_transcript(self, audio: Path, destination: Path) -> Path:
-        """Normalise chaque canal, puis les mélange, pour la transcription.
-
-        Mesuré sur un enregistrement réel de treize secondes, micro à -43 dB :
-        whisper rendait « Merci d'avoir regardé cette vidéo ! », une phrase qui
-        n'a jamais été prononcée. Normalisé à -20 LUFS, il rend « Test, test de
-        réunion, test, test, test. »
-
-        Canal par canal, parce que le déséquilibre entre le micro et la boucle
-        système atteint 12 dB en usage réel : normaliser le mélange laisserait
-        la voix faible aussi faible, relativement, et c'est celle-là que le
-        modèle invente.
-
-        -20 LUFS et non -14 : à -14, la même phrase devenait « Teste au
-        réunion ». Pousser trop haut écrase les transitoires.
-        """
+        """Normalises each channel, then mixes them."""
         channels = self._channels(audio) or 1
         if channels == 1:
             filtre = "loudnorm=I=-20:TP=-1.5:LRA=11"
@@ -137,19 +113,7 @@ class FfmpegRecorder:
         return destination
 
     def wire_up(self, chunks: list[Path], destination: Path) -> Path:
-        """Recolle les morceaux, en uniformisant le nombre de canaux.
-
-        Changer de micro change le nombre de canaux du périphérique agrégé : un
-        micro mono plus BlackHole en donne trois, une entrée ligne stéréo en
-        donne quatre. On ramène tout au plus petit compte commun, perte assumée
-        et bien inférieure à celle de jeter les morceaux qui ne correspondent pas.
-
-        **Chaque morceau est converti avant** d'être recollé. Le démultiplexeur
-        « concat » ne convertit rien : il enchaîne les paquets bruts. Trois
-        secondes de quatre canaux relues comme trois canaux en donnent quatre,
-        et toute la réunion se retrouve dilatée — horodatages décalés, tours de
-        parole faux. Mesuré : 6 s là où 5 étaient attendues.
-        """
+        """Stitches the chunks, making the channel counts uniform."""
         present_line = [m for m in chunks if m.exists() and m.stat().st_size > 0]
         if not present_line:
             raise RuntimeError("aucun morceau exploitable à recoller")
@@ -209,13 +173,7 @@ class FfmpegRecorder:
             return 0
 
     def try_it(self, peripherique: str, seconds: float = 1.5) -> float:
-        """Écoute brièvement une entrée et rend son niveau, en décibels.
-
-        Mesuré sur un poste réel : un casque Jabra branché, reconnu, gain à 1,0,
-        rendait -71,9 dB, tandis que le micro intégré rendait -48,8 dB. Le micro
-        du casque était coupé par le bouton de son boîtier. Sans cette écoute,
-        Greffier retenait le casque et enregistrait une heure de silence.
-        """
+        """Listens briefly to an input and returns its level."""
         if SYSTEM != "Darwin":
             return 0.0
         try:
@@ -236,10 +194,7 @@ class FfmpegRecorder:
         return max(mesures) if mesures else SILENCE_NUMERIQUE
 
     def levels(self, audio: Path) -> list[float]:
-        """Niveau RMS de chaque canal, en dB.
-
-        Sert au garde-fou : deux canaux muets, et il n'y a rien à transcrire.
-        """
+        """RMS level of each channel, in dB."""
         output = subprocess.run(
             ["ffmpeg", "-hide_banner", "-nostats", "-v", "info", "-i", str(audio),
              "-af", "astats=measure_overall=none:measure_perchannel=RMS_level",

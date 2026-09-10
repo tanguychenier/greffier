@@ -1,13 +1,4 @@
-"""Envoi du compte rendu par courriel.
-
-Deux implémentations : Outlook déjà authentifié sur le poste (macOS), et SMTP
-partout ailleurs. La première ne demande aucun mot de passe, ce qui explique
-qu'elle soit préférée là où elle existe.
-
-Le compte rendu part **en HTML** (`gabarit_courriel`), avec le Markdown d'origine
-en repli texte. Envoyé en Markdown brut, il arrivait comme un mur de dièses et de
-barres verticales, tableaux compris.
-"""
+"""Sending the minutes by email."""
 
 from __future__ import annotations
 
@@ -24,11 +15,10 @@ from greffier.adapters import email_template
 
 
 class OutlookSender:
-    """Passe par Microsoft Outlook déjà ouvert et authentifié.
+    """Goes through Microsoft Outlook, already open and signed in.
 
-    Aucun mot de passe ni serveur à configurer. En contrepartie, macOS exige une
-    autorisation d'automatisation, dont la boîte de dialogue n'apparaît pas
-    toujours quand le traitement tourne détaché — d'où le message explicite.
+    No password and no server to configure. In exchange macOS requires automation
+    consent, whose dialog does not always appear when the processing runs detached.
     """
 
     SOURCE = """on run argv
@@ -51,16 +41,11 @@ end run
     SONDE = 'tell application "Microsoft Outlook" to get name'
 
     def probe(self) -> str | None:
-        """Ce qui empêcherait l'envoi, ou rien si la voie est libre.
+        """What would stop the send, or nothing when the way is clear.
 
-        Appelée au début de la réunion et non à la fin, et c'est tout l'objet :
-        macOS demande une autorisation d'automatisation la première fois, et sa
-        boîte de dialogue n'apparaît pas toujours quand le traitement tourne
-        détaché. Le 2026-09-10, l'envoi d'une réunion de 1 h 42 a échoué à
-        12 h 17, écran verrouillé, deux heures après qu'on aurait pu régler la
-        question en un clic.
-
-        Ne lève rien et n'envoie rien : elle demande son nom à Outlook.
+        Called at the start of the meeting and not at the end, and that is the whole
+        point: on 2026-09-10 a send failed at 12:17 in front of a locked screen, two
+        hours after the question could have been settled with one click.
         """
         try:
             outcome = subprocess.run(
@@ -106,10 +91,7 @@ end run
         raise RuntimeError(f"Envoi impossible : {output.strip().splitlines()[-1:] or output}")
 
 class SmtpSender:
-    """Envoi direct, pour les postes sans Outlook.
-
-    Le mot de passe vient de l'environnement, jamais d'un fichier du dépôt.
-    """
+    """Direct sending, for machines without Outlook."""
 
     def __init__(
         self,
@@ -128,12 +110,7 @@ class SmtpSender:
     def message(
         self, recipient: str, subject: str, corps: str, pieces: list[Path]
     ) -> EmailMessage:
-        """Le courriel à envoyer, sans rien ouvrir.
-
-        Séparé de l'envoi pour être vérifiable seul : ce qu'un destinataire
-        reçoit — accents, double version du corps, pièce jointe — se contrôle
-        sans serveur, et ne doit pas dépendre du réseau pour l'être.
-        """
+        """The email to send, without opening anything."""
         message = EmailMessage()
         message["From"] = self.sender
         message["To"] = recipient
@@ -151,17 +128,7 @@ class SmtpSender:
 
     @contextlib.contextmanager
     def session(self) -> Iterator[smtplib.SMTP]:
-        """Une session ouverte, chiffrée, et authentifiée s'il y a de quoi.
-
-        465 est le port du TLS implicite (la connexion est chiffrée dès
-        l'ouverture) ; STARTTLS — la convention de `smtplib.SMTP` — vaut pour
-        587 et le reste. Confondre les deux échoue au premier octet : le serveur
-        attend un client qui parle déjà TLS, ou l'inverse.
-
-        Séparé de l'envoi pour que le choix de la convention s'éprouve contre
-        de **vrais** serveurs, sans qu'un mot de passe soit nécessaire : ouvrir
-        la session et la refermer se fait sans authentifier ni expédier.
-        """
+        """A session, opened, encrypted and authenticated."""
         classe = smtplib.SMTP_SSL if self.port == 465 else smtplib.SMTP
         with classe(self.server, self.port, timeout=60) as session:
             if classe is smtplib.SMTP:
@@ -176,7 +143,7 @@ class SmtpSender:
             session.send_message(self.message(recipient, subject, corps, pieces))
 
 class FileSender:
-    """N'envoie rien, écrit à côté. Repli quand aucun envoi n'est configuré."""
+    """Sends nothing, writes alongside. Fallback when nothing else is set."""
 
     def __init__(self, folder: Path) -> None:
         self.folder = folder

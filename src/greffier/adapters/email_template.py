@@ -1,16 +1,6 @@
-"""Mise en forme du compte rendu pour l'envoi par courriel.
+"""Formatting the minutes for sending by email.
 
-Un compte rendu part en Markdown : titres, tableaux, puces. Envoyé tel quel, il
-arrive comme un mur de dièses et de barres verticales — c'est ce qui rendait le
-courriel illisible. On le convertit donc en HTML avant l'envoi.
-
-Pas de bibliothèque Markdown : la structure produite par le rédacteur est connue
-et fermée (six niveaux de titres, tableaux, puces, gras, citations, code en
-ligne). Une soixantaine de lignes suffisent, sans ajouter une dépendance pour de
-la mise en forme — et le résultat se teste, ce qu'un moteur externe ne donne pas.
-
-Les styles sont **en ligne, sur chaque balise** : les clients de messagerie
-suppriment volontiers une feuille de style, y compris dans l'en-tête du document.
+Every style is inline: mail clients drop stylesheets.
 """
 
 from __future__ import annotations
@@ -60,8 +50,7 @@ _LIEN = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
 _SEPARATEUR_TABLEAU = re.compile(r"^\s*\|?[\s:|-]+\|[\s:|-]*$")
 
 def _balise(style: str, content: str, extra: str = "", name: str = "") -> str:
-    """Balise HTML stylée. `nom` diffère de `style` quand plusieurs styles
-    s'appliquent à la même balise, comme les variantes de cellule."""
+    """A styled HTML tag."""
     return f'<{name or style} style="{_STYLES[style]}"{extra}>{content}</{name or style}>'
 
 _ABSENCES = frozenset({"non dit", "à attribuer", "a attribuer", "non précisé", "sans objet"})
@@ -72,7 +61,7 @@ def _cell_style(content: str, rank: int) -> str:
     return "td_premiere" if rank == 0 else "td"
 
 def _as_line(text: str) -> str:
-    """Échappe le texte, puis rend gras, italique, code et liens."""
+    """Escapes the text, then renders bold, italic and code."""
     output = html.escape(text, quote=False)
     output = _CODE.sub(lambda m: _balise("code", m.group(1)), output)
     output = _GRAS.sub(r"<strong>\1</strong>", output)
@@ -82,20 +71,13 @@ def _as_line(text: str) -> str:
     )
 
 def _ancre(title: str) -> str:
-    """Identifiant stable pour une section, sans accent ni espace.
-
-    Un titre sans lettre ASCII se réduisait au seul préfixe : toutes les
-    sections partageaient alors l'ancre « s- », le document portait des
-    identifiants en double et le sommaire renvoyait toujours à la première.
-    La fonction est appelée depuis le sommaire et depuis les titres : elle doit
-    rendre la même valeur des deux côtés, donc dépendre du seul titre.
-    """
+    """A stable identifier for a section, without accents."""
     without_accents = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode()
     reduit = re.sub(r"[^a-z0-9]+", "-", without_accents.lower()).strip("-")
     return "s-" + (reduit or short_voiceprint(title))
 
 def sections(minutes: str) -> list[str]:
-    """Intitulés des sections de deuxième niveau, dans l'ordre du document."""
+    """The titles of the second-level sections, in order."""
     return [
         line.strip().lstrip("#").strip()
         for line in minutes.splitlines()
@@ -103,16 +85,7 @@ def sections(minutes: str) -> list[str]:
     ]
 
 def _summary(minutes: str) -> str:
-    """Sommaire en tête du courriel, sur toute la largeur.
-
-    Les entrées se suivent en ligne plutôt qu'en colonne : une liste verticale
-    de cinq intitulés courts occupait un quart de la largeur et laissait le
-    reste vide, ce qui donnait au document l'air d'être mal cadré.
-
-    Les liens internes ne fonctionnent pas dans tous les logiciels de
-    messagerie. Le sommaire garde sa valeur même inerte : il dit d'un coup
-    d'œil ce que le document contient et dans quel ordre.
-    """
+    """A table of contents at the top of the email."""
     titres = sections(minutes)
     if len(titres) < 3:
         return ""
@@ -136,7 +109,7 @@ def _cellules(line: str) -> list[str]:
     return [c.strip() for c in line.strip().strip("|").split("|")]
 
 def as_html(markdown: str) -> str:
-    """Convertit le compte rendu en fragment HTML, styles en ligne compris."""
+    """Converts the minutes into an HTML fragment, styles included."""
     lines = markdown.splitlines()
     output: list[str] = []
     i = 0
@@ -220,11 +193,7 @@ def as_html(markdown: str) -> str:
     return "\n".join(output)
 
 def _header(minutes: str) -> tuple[str, str]:
-    """Sépare le titre et la ligne de contexte du reste du document.
-
-    Les deux forment l'en-tête du courriel : un titre lisible et, dessous, la
-    date et les participants. Le reste suit le sommaire.
-    """
+    """Separates the title and the context line from the rest."""
     lines = minutes.splitlines()
     title = context = ""
     reste = 0
@@ -254,7 +223,7 @@ def _header(minutes: str) -> tuple[str, str]:
     return bloc, "\n".join(lines[reste:])
 
 def email(minutes: str, pied: str = "") -> str:
-    """Enveloppe le compte rendu dans un document complet, prêt à envoyer."""
+    """Wraps the minutes in a complete document."""
     header, suite = _header(minutes)
     corps = header + _summary(minutes) + as_html(suite)
     signature = (

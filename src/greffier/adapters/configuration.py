@@ -1,16 +1,8 @@
-"""Configuration de Greffier.
+"""Configuration.
 
-Trois sources, de la plus forte à la plus faible :
-
-1. les variables d'environnement, préfixées `GREFFIER_` ;
-2. un fichier `.env` — celui du dossier courant, sinon celui de la configuration ;
-3. un fichier `config.toml`, pour qui préfère un format structuré.
-
-Tout est facultatif. Un poste sans aucun de ces fichiers doit fonctionner avec
-des valeurs par défaut raisonnables, sinon la première utilisation devient une
-séance de réglages. Rien de tout cela ne vit dans le dépôt : l'adresse mail, le
-vocabulaire métier et les noms de projets sont propres à chacun, et les avoir
-eus en dur est précisément ce qui rendait la chaîne d'origine impubliable.
+One file per machine, in TOML, written back with its comments. Every field
+carries the key the file already uses as a validation alias: the Python name can
+be in English without a single machine's settings breaking.
 """
 
 from __future__ import annotations
@@ -52,21 +44,12 @@ class Paths(BaseModel):
 
     @property
     def gag(self) -> Path:
-        """Où la voix dit quel processus joue le son, pour qu'on puisse le couper.
-
-        À la racine des données et non dans un sous-dossier : deux processus
-        doivent le trouver sans se concerter, et il ne survit pas à la phrase
-        qu'il désigne.
-        """
+        """Where the voice says which process is playing sound, so it can be cut."""
         return self.data / "parole.pid"
 
     @property
     def synthetic_voice(self) -> Path:
-        """Le modèle qui donne une voix à l'assistant.
-
-        Sous « modeles » comme les autres : c'est un modèle, il pèse trois cent
-        vingt mégaoctets, et l'installeur le pose là comme il pose whisper.
-        """
+        """The model that gives the assistant a voice."""
         return self.models / "voix"
 
     @property
@@ -75,89 +58,47 @@ class Paths(BaseModel):
 
     @property
     def live(self) -> Path:
-        """Le fil de ce qui se dit, réunion par réunion.
-
-        Conservé après la réunion : c'est la trace de qui a corrigé quoi, et le
-        seul endroit où l'on peut vérifier qu'une attribution vient d'un humain
-        et non d'une empreinte.
-        """
+        """The thread of what is being said, meeting by meeting."""
         return self.data / "direct"
 
     @property
     def propositions(self) -> Path:
-        """Ce que la veille a proposé pendant la réunion, réunion par réunion.
-
-        Défini ici et non à l'endroit qui l'ouvre : le chemin était écrit en
-        dur à deux endroits de la ligne de commande, donc invisible pour qui
-        veut ranger ou effacer une réunion.
-        """
+        """What the watch suggested during the meeting, meeting by meeting."""
         return self.data / "propositions"
 
     @property
     def context(self) -> Path:
-        """Le glossaire du milieu de travail : sigles, produits, personnes.
-
-        Hors de `config.toml` : il grossit, se partage entre collègues et se
-        relit à la main, ce qu'un fichier régénéré à chaque changement dans la
-        fenêtre supporte mal.
-        """
+        """The glossary of the working setting: acronyms, products, people."""
         return config_folder() / "contexte.toml"
 
     @property
     def subjects(self) -> Path:
-        """Les sujets suivis, leurs appellations et où vit la carte de chacun.
-
-        À côté du contexte : deux registres tenus par un humain, qui
-        grossissent et se relisent.
-        """
+        """The tracked subjects, their aliases and where their boards live."""
         return config_folder() / "sujets.toml"
 
     @property
     def sources(self) -> Path:
-        """Les sources extérieures que l'outil a le droit de consulter.
-
-        Ce qui n'y figure pas est inatteignable : le registre est la borne, et
-        c'est un humain qui l'écrit. Aucun jeton n'y vit — seulement le nom de
-        la variable ou de l'entrée de trousseau qui le porte.
-        """
+        """The outside sources the tool may consult."""
         return config_folder() / "sources.toml"
 
     @property
     def pieces(self) -> Path:
-        """Le texte des documents fournis pour une réunion.
-
-        Sous les données et non dans le dossier de configuration : ce sont des
-        pièces de réunion, elles suivent la rétention et la sauvegarde du
-        reste.
-        """
+        """The text of the documents supplied for a meeting."""
         return self.data / "pieces"
 
     @property
     def questions(self) -> Path:
-        """Ce que l'outil a demandé pendant la réunion, et ce qu'on a répondu.
-
-        Dans les données et non dans la configuration : c'est la trace d'une
-        réunion, elle vit et meurt avec elle.
-        """
+        """What the tool asked during the meeting, and what was answered."""
         return self.data / "questions"
 
     @property
     def conversations(self) -> Path:
-        """Ce qu'on s'est dit avec l'assistant, réunion par réunion.
-
-        Gardé comme le reste : une conversation qui disparaît au redémarrage
-        n'est pas une conversation, c'est un brouillon.
-        """
+        """What was said with the assistant, meeting by meeting."""
         return self.data / "conversations"
 
     @property
     def backups(self) -> Path:
-        """Où atterrissent les archives quand aucun dossier n'est réglé.
-
-        Sous les données, donc sur le même disque : c'est un défaut de repli, et
-        l'outil le dit à chaque sauvegarde plutôt que de laisser croire que le
-        travail est à l'abri.
-        """
+        """Where the archives land when no folder is set."""
         return self.data / "sauvegardes"
 
 class Audio(BaseModel):
@@ -192,12 +133,11 @@ class Transcription(BaseModel):
         return "Réunion de travail. Vocabulaire : " + ", ".join(self.vocabulary) + "."
 
 class Live(BaseModel):
-    """La transcription affichée pendant que la réunion a lieu.
+    """The transcript shown while the meeting is happening.
 
-    Elle a un coût : un second modèle de transcription tourne en parallèle de la
-    capture, et une empreinte vocale est calculée à chaque tranche. C'est le prix
-    de pouvoir corriger un locuteur **pendant** la réunion plutôt que de
-    découvrir l'erreur dans le compte rendu.
+    It has a cost: a second transcription model runs alongside capture. That is the
+    price of being able to correct a speaker **during** the meeting rather than
+    finding the mistake in the minutes.
     """
 
     model_config = ConfigDict(populate_by_name=True)
@@ -220,14 +160,7 @@ MODELES_CLAUDE: list[tuple[str, str]] = [
 ]
 
 class Minutes(BaseModel):
-    """Qui rédige, et où va le résultat.
-
-    Claude Code par défaut : distinguer une décision d'une hypothèse et
-    rattacher une position à une personne reste hors de portée des modèles qui
-    tournent sur un portable. C'est le seul maillon de la chaîne qui sort du
-    poste, et c'est un choix assumé — `ollama` le remplace pour qui veut du
-    100 % local, au prix d'une synthèse plus grossière.
-    """
+    """Who writes, and where the result goes."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -242,7 +175,7 @@ class Minutes(BaseModel):
 
     @property
     def effective_model(self) -> str:
-        """Le modèle à passer au moteur, réglage vide compris."""
+        """The model to hand the engine, empty setting included."""
         if self.model:
             return self.model
         if self.engine == "claude":
@@ -252,11 +185,7 @@ class Minutes(BaseModel):
         return ""
 
 class Backup(BaseModel):
-    """Où sont copiées les données, et combien de copies on garde.
-
-    L'audio n'y est jamais : 1,1 Go contre 3 Mo pour tout le reste, et une
-    réunion transcrite reste utilisable sans son enregistrement.
-    """
+    """Where the data is copied, and how many copies are kept."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -265,12 +194,7 @@ class Backup(BaseModel):
     kept: int = Field(default=7, validation_alias="gardees")
 
 class Retention(BaseModel):
-    """Combien de temps les enregistrements restent, et sous quelle forme.
-
-    Ne concerne que l'audio : mesuré sur un poste après deux semaines, 1,1 Go
-    d'enregistrements contre 3 Mo pour les transcriptions, les comptes rendus et
-    la banque de voix réunis.
-    """
+    """How long recordings stay, and when they are compressed."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -278,12 +202,7 @@ class Retention(BaseModel):
     effacer_apres_jours: int = Field(default=0, validation_alias="effacer_apres_jours")
 
 class Conversation(BaseModel):
-    """Ce que l'assistant a le droit de faire quand on lui parle.
-
-    Distinct du compte rendu : celui-ci n'a jamais d'outil, quoi qu'on règle
-    ici. Chercher pour répondre à une question et chercher pour rédiger un
-    document ne sont pas la même chose.
-    """
+    """What the assistant may do when it is asked something."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -307,12 +226,7 @@ FIRST_NAMES: dict[str, int] = {
 KINDS = {0: "voix féminine", 1: "voix masculine"}
 
 class AssistantSettings(BaseModel):
-    """L'assistant en tant que participant : son nom, sa voix, sa retenue.
-
-    Distinct de `conversation`, qui règle ce qu'il a le droit de faire quand on
-    lui écrit. Ici il s'agit de ce qu'il fait **de lui-même** pendant la
-    réunion, et de la façon dont il se fait entendre.
-    """
+    """The assistant as a participant: its name, its voice, its restraint."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -324,7 +238,7 @@ class AssistantSettings(BaseModel):
 
     @property
     def effective_speaker(self) -> int:
-        """La voix qui va avec ce prénom, quand il est de la liste."""
+        """The voice that goes with this first name, when it is on the list."""
         return FIRST_NAMES.get(self.name, self.speaker_index)
     rest: float = Field(default=180.0, validation_alias="repos")
     creux_minimal: float = Field(default=2.0, validation_alias="creux_minimal")
@@ -332,23 +246,16 @@ class AssistantSettings(BaseModel):
     initiative: bool = Field(default=False, validation_alias="initiative")
 
 class Appearance(BaseModel):
-    """Ce que la fenêtre montre, indépendamment de ce qu'elle fait.
-
-    « systeme » suit le réglage clair/sombre du poste : c'est le défaut, parce
-    qu'une application qui impose son goût jure avec tout le reste de l'écran.
-    Les deux autres valeurs forcent, pour qui préfère.
-    """
+    """What the window shows, independently of what it does."""
 
     model_config = ConfigDict(populate_by_name=True)
 
     theme: str = Field(default="systeme", validation_alias="theme")       # systeme | clair | sombre
 
 class Email(BaseModel):
-    """Envoi par SMTP, pour les postes sans Outlook.
+    """Sending over SMTP, for machines without Outlook.
 
-    Le mot de passe ne figure jamais ici : il vient de la variable
-    `GREFFIER_SMTP_MOT_DE_PASSE`, qu'on peut fournir par un gestionnaire de
-    secrets plutôt que par un fichier.
+    The password comes from the environment, never from a file in the repository.
     """
 
     model_config = ConfigDict(populate_by_name=True)
@@ -408,18 +315,13 @@ class Config(BaseSettings):
 
     @classmethod
     def load(cls, file: Path | None = None) -> Config:
-        """Lit la configuration, ou rend les valeurs par défaut si elle manque."""
+        """Reads the configuration, or returns the defaults when it is missing."""
         if file is not None:
             return cls.model_validate(_read_toml(file))
         return cls()
 
 def _read_toml(path: Path) -> dict[str, object]:
-    """Contenu d'un fichier TOML, vide s'il n'existe pas.
-
-    Un fichier absent n'est pas une erreur : c'est le cas d'un poste qui vient
-    d'installer. Un fichier illisible en est une — mieux vaut le dire que
-    d'appliquer silencieusement autre chose que ce qui y est écrit.
-    """
+    """Contents of a TOML file, empty when it does not exist."""
     if not path.exists():
         return {}
     try:
@@ -428,7 +330,7 @@ def _read_toml(path: Path) -> dict[str, object]:
         raise ValueError(f"{path} est illisible : {erreur}") from erreur
 
 class _TomlSource(PydanticBaseSettingsSource):
-    """Lit `config.toml` s'il existe, en dernier recours."""
+    """Reads config.toml when it exists, as a last resort."""
 
     def get_field_value(  # pragma: no cover - la source ne lit jamais champ par champ
         self, field: object, field_name: str
@@ -514,11 +416,11 @@ SOUS_MODELE: dict[str, str] = {
 }
 
 def _attribut(model: BaseModel, key: str) -> str:
-    """Le nom du champ qui porte cette clef de fichier.
+    """The name of the field that carries this file key.
 
-    Les clefs du fichier restent celles que les postes ont déjà écrites, les
-    champs sont en anglais : c'est l'alias de validation qui fait le lien, et le
-    lire ici évite de tenir une seconde table à jour à la main.
+    The file keys stay the ones machines have already written, the fields are in
+    English: the validation alias is the link, and reading it here avoids keeping a
+    second table up to date by hand.
     """
     for name, champ in type(model).model_fields.items():
         if champ.validation_alias == key or name == key:
@@ -526,7 +428,7 @@ def _attribut(model: BaseModel, key: str) -> str:
     return key
 
 def render(config: Config) -> str:
-    """Le contenu TOML de cette configuration. Fonction pure, éprouvable seule."""
+    """The TOML contents of this configuration. Pure function, testable alone."""
     chunks = [_HEADER]
     for section, champs in SECTIONS.items():
         model = getattr(config, SOUS_MODELE.get(section, section))
@@ -543,12 +445,7 @@ def render(config: Config) -> str:
     return "\n\n".join(chunks) + "\n"
 
 def _value(value: object) -> str:
-    """Un scalaire ou une liste, en TOML.
-
-    Pas de `json.dumps` : il rendrait bien `True` en `true` par chance, mais
-    aussi les chemins en objets et les caractères accentués en séquences
-    d'échappement, là où TOML attend de l'UTF-8 tel quel.
-    """
+    """A scalar or a list, in TOML."""
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, (int, float)):
@@ -561,12 +458,11 @@ def _value(value: object) -> str:
     return f'"{text}"'
 
 def save_settings(config: Config, folder: Path | None = None) -> Path:
-    """Écrit la configuration, en gardant une copie de la précédente.
+    """Writes the configuration, keeping a copy of the previous one.
 
-    Écriture atomique : un remplacement, jamais un fichier tronqué. La fenêtre
-    enregistre pendant qu'une réunion peut tourner, et un processus auxiliaire
-    qui relirait un fichier à moitié écrit s'arrêterait sur une erreur de
-    syntaxe.
+    Atomic: one replacement, never a truncated file. The window saves while a
+    meeting may be running, and a helper process reading a half-written file would
+    stop on a syntax error.
     """
     target = config_path(folder)
     target.parent.mkdir(parents=True, exist_ok=True)

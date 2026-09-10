@@ -1,12 +1,7 @@
-"""La banque de voix : un fichier par personne, sur le disque.
+"""The voice bank: one file per person, on this machine only.
 
-C'est ce qui fait qu'une réunion sur deux n'a plus besoin d'être annotée. Une
-fois qu'une voix porte un nom, elle est reconnue les fois suivantes.
-
-Format volontairement lisible — du JSON, un fichier par personne — plutôt qu'une
-base de données : on doit pouvoir supprimer quelqu'un de la banque en effaçant
-un fichier, sans outil ni requête. Pour des données biométriques, savoir
-exactement où elles sont et pouvoir les détruire d'un geste n'est pas un détail.
+A voiceprint is biometric data. It never leaves the machine, and every gesture
+here — forget, rename, remove — exists so that it can be taken back.
 """
 
 from __future__ import annotations
@@ -24,17 +19,7 @@ from greffier.domain.voiceprints import EMPREINTES_PAR_PERSONNE, enrichir
 FORMAT = 1
 
 def _file_at(name: str) -> str:
-    """Nom de fichier sûr, dérivé du nom de la personne.
-
-    Sans accents ni espaces : les systèmes de fichiers ne les normalisent pas
-    tous de la même façon, et « Josiane » retrouvée sous deux orthographes
-    créerait deux personnes.
-
-    Quand la réduction ne laisse rien — un nom cyrillique, grec, arabe ou
-    idéographique n'a aucune lettre ASCII — c'est l'écueil inverse qui guettait :
-    « sans-nom » pour tout le monde faisait de deux personnes une seule, dans le
-    fichier même qui doit les tenir séparées.
-    """
+    """A safe file name, derived from the person's name."""
     depouille = unicodedata.normalize("NFD", name)
     without_accents = "".join(c for c in depouille if unicodedata.category(c) != "Mn")
     reduit = re.sub(r"[^a-zA-Z0-9]+", "-", without_accents).strip("-").lower()
@@ -80,13 +65,7 @@ class FileVoiceBank:
         return self._read(file) if file.exists() else None
 
     def forget_a_meeting(self, identifier: str) -> dict[str, int]:
-        """Retire de toute la banque les empreintes venues d'une réunion.
-
-        Le geste qui manquait. Une réunion mal attribuée verse des empreintes
-        fausses sous plusieurs noms d'un coup, et il fallait ensuite les
-        retrouver une par une, à la durée, en devinant. Ici on nomme la réunion
-        fautive et la banque revient à ce qu'elle était avant.
-        """
+        """Removes from the whole bank the voiceprints from one meeting."""
         retires: dict[str, int] = {}
         for personne in self.people():
             rangs = [
@@ -98,7 +77,7 @@ class FileVoiceBank:
         return retires
 
     def record(self, name: str, voiceprint: Voiceprint) -> Person:
-        """Ajoute une empreinte à quelqu'un, en le créant au besoin."""
+        """Adds a voiceprint to someone, creating them if needed."""
         personne = self.find(name) or Person(name=name)
         enrichir(personne, voiceprint, maximum=self.maximum)
         personne.vu_le = datetime.now(UTC)
@@ -125,7 +104,7 @@ class FileVoiceBank:
         return path
 
     def rename(self, former: str, nouveau: str) -> Person:
-        """Corrige un nom mal saisi, sans perdre les empreintes accumulées."""
+        """Fixes a mistyped name, without losing the voiceprints."""
         personne = self.find(former)
         if personne is None:
             raise KeyError(f"« {former} » n'est pas dans la banque de voix.")
@@ -135,7 +114,7 @@ class FileVoiceBank:
         return personne
 
     def join(self, garde: str, absorbe: str) -> Person:
-        """Réunit deux entrées qui désignaient la même personne."""
+        """Joins two entries that named the same person."""
         principal = self.find(garde)
         secondaire = self.find(absorbe)
         if principal is None or secondaire is None:
@@ -148,16 +127,7 @@ class FileVoiceBank:
         return principal
 
     def remove_voiceprints(self, name: str, rangs: list[int]) -> int:
-        """Enlève des empreintes précises, sans effacer la personne.
-
-        Effacer quelqu'un pour une seule empreinte fautive perd tout le reste,
-        y compris les empreintes justes accumulées sur plusieurs réunions. Ce
-        qui décide de la reconnaissance, c'est l'empreinte, pas la personne :
-        c'est donc à ce grain qu'on doit pouvoir corriger.
-
-        La personne disparaît si l'on retire tout : une entrée sans empreinte
-        ne reconnaîtrait plus rien et resterait à traîner dans la liste.
-        """
+        """Removes specific voiceprints, without erasing the person."""
         personne = self.find(name)
         if personne is None:
             return 0
@@ -174,8 +144,7 @@ class FileVoiceBank:
         return len(a_retirer)
 
     def forget(self, name: str) -> bool:
-        """Efface une personne. Une empreinte vocale est une donnée biométrique :
-        il doit être possible de la supprimer, simplement et complètement."""
+        """Erases a person, voiceprints included."""
         file = self.folder / f"{_file_at(name)}.json"
         if not file.exists():
             return False
