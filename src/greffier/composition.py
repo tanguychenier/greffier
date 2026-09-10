@@ -352,6 +352,7 @@ def voix_de_l_assistant(config: Config) -> Any | None:
             langue=config.transcription.langue or "fr",
             voix=config.assistant.locuteur,
             vitesse=config.assistant.vitesse,
+            baillon=config.chemins.baillon,
         )
         if neuronale.disponible:
             return neuronale
