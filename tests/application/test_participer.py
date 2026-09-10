@@ -26,12 +26,24 @@ class VoixFactice:
 
 
 class CerveauFactice:
+    """Comme `RedacteurClaude` : il porte des consignes qu'on remplace.
+
+    L'attribut compte : `_interroger` s'en sert pour poser des consignes le
+    temps d'un appel, et retombe sur un préfixe quand il n'existe pas. Une
+    doublure sans lui n'éprouverait pas le chemin réel.
+    """
+
     def __init__(self, reponse="Oui, je vous entends très bien."):
         self.reponse = reponse
+        self.consignes_propres = ""
         self.demandes = []
+        #: Les consignes en vigueur à chaque appel, et non à la fin : elles sont
+        #: reposées après coup, donc les lire ensuite ne dit rien.
+        self.consignes_vues = []
 
     def rediger(self, texte):
         self.demandes.append(texte)
+        self.consignes_vues.append(self.consignes_propres)
         return self.reponse
 
 
@@ -221,3 +233,52 @@ class TestUnProposDejaEcritNeRepasseParPersonne:
             Occasion(raison=Raison.APPELE, propos="tu nous entends ?", ne_le=1.0),
             maintenant=2.0)
         assert rendu.propos == "Oui, je vous entends." and len(cerveau.demandes) == 1
+
+
+class TestLEchangeSePoursuit:
+    """Poser une question puis rester muet quand on répond fait passer pour
+    distrait, et laisse celui qui a répondu se demander s'il a été entendu."""
+
+    def test_elle_reagit_a_la_reponse_qu_on_lui_fait(self):
+        cerveau = CerveauFactice("Très bien, donc c'est Hubert qui s'en occupe.")
+        assistant = Participant(nom="Lucie", voix=VoixFactice(), cerveau=cerveau)
+        assistant.attente = Occasion(
+            raison=Raison.APPORT, propos="Qui porte la migration ?", ne_le=100.0)
+        suite = assistant.tour([dit("c'est Hubert qui prend", 104.0, 106.0)],
+                               maintenant=109.0)
+        assert suite is not None
+        assert suite.propos == "Très bien, donc c'est Hubert qui s'en occupe."
+        assert suite.tel_quel, "une suite déjà formulée ne repasse pas par le modèle"
+
+    def test_la_question_posee_est_donnee_au_modele(self):
+        """Sans elle, il réagirait à une réponse dont il ignore la question."""
+        cerveau = CerveauFactice("…")
+        assistant = Participant(nom="Lucie", voix=VoixFactice(), cerveau=cerveau)
+        assistant.attente = Occasion(
+            raison=Raison.APPORT, propos="Qui porte la migration ?", ne_le=100.0)
+        assistant.tour([dit("Hubert", 104.0, 106.0)], maintenant=109.0)
+        assert any("Qui porte la migration ?" in c for c in cerveau.consignes_vues)
+
+    def test_un_rien_la_fait_se_taire(self):
+        """Deux répliques de plus feraient d'elle un participant de trop."""
+        assistant = Participant(nom="Lucie", voix=VoixFactice(),
+                                cerveau=CerveauFactice("RIEN"))
+        assistant.attente = Occasion(
+            raison=Raison.APPORT, propos="Qui porte la migration ?", ne_le=100.0)
+        assert assistant.tour([dit("bon, on passe", 104.0, 106.0)],
+                              maintenant=109.0) is None
+
+    def test_sans_cerveau_elle_ne_poursuit_pas(self):
+        assistant = Participant(nom="Lucie", voix=VoixFactice())
+        assistant.attente = Occasion(
+            raison=Raison.APPORT, propos="Qui porte ça ?", ne_le=100.0)
+        assert assistant.tour([dit("Hubert", 104.0, 106.0)], maintenant=109.0) is None
+
+    def test_elle_n_attend_pas_indefiniment(self):
+        """Une phrase quelconque referme l'attente : on ne guette pas sans fin."""
+        assistant = Participant(nom="Lucie", voix=VoixFactice(),
+                                cerveau=CerveauFactice("RIEN"))
+        assistant.attente = Occasion(
+            raison=Raison.APPORT, propos="Qui porte ça ?", ne_le=100.0)
+        assistant.tour([dit("autre chose", 104.0, 106.0)], maintenant=109.0)
+        assert assistant.attente is None

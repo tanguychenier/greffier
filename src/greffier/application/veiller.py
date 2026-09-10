@@ -30,6 +30,18 @@ from greffier.ports import sortants
 
 SYSTEME = platform.system()
 
+#: Les raisons de parler qui appellent une réponse. Répondre à quelqu'un
+#: n'attend rien en retour, et un remerciement clôt l'échange ; poser une
+#: question de soi-même laisse une phrase en suspens, et rester muet quand on y
+#: répond fait passer pour distrait.
+ATTENDENT_UNE_REPONSE = frozenset({
+    Raison.VOIX_INDISTINCTE,
+    Raison.DECISION_SANS_SUITE,
+    Raison.QUESTION_SANS_REPONSE,
+    Raison.ECART_AVEC_UN_DOCUMENT,
+    Raison.APPORT,
+})
+
 # Le presse-papier est gratuit à relire : on le fait souvent, pour que le lien
 # collé apparaisse pendant qu'on en parle encore.
 PERIODE_PRESSE_PAPIER = 2.0
@@ -328,9 +340,11 @@ class Veilleur:
             # tranche suivante.
             self.participant.chercher_un_apport_a_part(maintenant)
             return
-        if retenue.raison is Raison.VOIX_INDISTINCTE:
+        if retenue.raison in ATTENDENT_UNE_REPONSE:
             # On retient la question posée : c'est ce qui permet à la réponse
             # d'être comprise comme une réponse, et pas comme une phrase de plus.
+            # Répondre à quelqu'un n'attend rien en retour ; poser une question
+            # de soi-même, si.
             self.participant.attente = retenue
         self.participant.repondre_a_part(retenue, maintenant)
 
