@@ -15,12 +15,16 @@ from typing import Any, Protocol
 
 from greffier.domain.models import Utterance
 from greffier.domain.participation import (
+    MEMOIRE_DE_SES_MOTS,
     Because,
     Manners,
     Opening,
     called_by_name,
+    is_own,
+    own_words,
     question_asked,
     speech_density,
+    without_own_name,
 )
 
 CONSIGNES_ORALES = """Tu t'appelles {name} et tu participes à une réunion de
@@ -31,9 +35,19 @@ Réponds en **une à deux phrases**. Jamais de liste, de titre, de tableau, de
 Markdown, d'URL ni de parenthèse : rien de tout cela ne s'entend. Pas de
 préambule, pas de « bien sûr », pas de formule d'attente.
 
-Tu parles à des gens qui sont en train de travailler. Si tu n'as pas la réponse
-dans ce qui a été dit, dis-le en une phrase plutôt que de meubler. Si on ne te
-posait pas vraiment de question, dis-le brièvement et rends la parole.
+Tu parles à des gens qui sont en train de travailler. Si on ne te posait pas
+vraiment de question, dis-le brièvement et rends la parole.
+
+Deux sources, dans cet ordre. **Ce qui a été dit** fait autorité sur cette
+réunion. Et **tu peux chercher en ligne** quand la question porte sur un fait
+extérieur : une définition, une version, une norme, l'état d'un service, une
+documentation. Cherche de ton propre chef quand cela répond mieux, sans
+attendre qu'on te le demande, et sans annoncer que tu vas chercher.
+
+Quand tu as cherché, **nomme la source à voix haute** — « d'après la
+documentation de Symfony », « d'après le site de l'éditeur » — et jamais son
+adresse : une URL ne s'entend pas. Si tu n'as trouvé nulle part, dis-le en une
+phrase plutôt que de meubler.
 
 N'emploie ni tiret cadratin ni demi-cadratin.
 """
@@ -129,6 +143,7 @@ class AssistantSettings:
     name_voice: Callable[[str, str], bool] | None = None
     in_reserve: Opening | None = None
     its_own_turns: list[tuple[float, float]] = field(default_factory=list)
+    its_own_words: list[tuple[float, frozenset[str]]] = field(default_factory=list)
     _job: threading.Thread | None = None
     _search: threading.Thread | None = None
 
@@ -143,7 +158,7 @@ class AssistantSettings:
         proposees = list(occasions or [])
         for utterance in utterances:
             text = utterance.text.strip()
-            if not text or self._is_his_own(utterance):
+            if not text or self._is_his_own(utterance, now):
                 continue
             if self.awaiting is not None:
                 accuse = self._acknowledge(text, utterance.span.end)
@@ -181,13 +196,36 @@ class AssistantSettings:
         self._search = threading.Thread(target=chercher, daemon=True)
         self._search.start()
 
-    def _is_his_own(self, utterance: Utterance) -> bool:
-        """Does the utterance fall where the assistant itself was speaking?"""
+    def _is_his_own(self, utterance: Utterance, now: float = 0.0) -> bool:
+        """Is this utterance the assistant hearing itself?
+
+        By the **words** first. It speaks through the loudspeakers, the tool
+        records the system output on purpose, so its own voice comes back on
+        the channel meant for everybody else — and it then reads its own name
+        in its own answer and answers again, for ever. Judged on the words
+        because it answers late and in a separate thread: no window of time can
+        be trusted.
+
+        The time window is kept as a second net, for a remark whose
+        transcription came back too mangled to recognise.
+        """
+        self._oublier_ses_vieux_mots(now or utterance.span.end)
+        if is_own(utterance.text, [mots for _quand, mots in self.its_own_words]):
+            return True
         start, end = utterance.span.start, utterance.span.end
+        if end <= start:
+            return False
         return any(
             min(end, sa_fin) - max(start, son_debut) > 0.5 * (end - start)
             for son_debut, sa_fin in self.its_own_turns
         )
+
+    def _oublier_ses_vieux_mots(self, now: float) -> None:
+        """Drops what it said long enough ago to belong to the room again."""
+        self.its_own_words = [
+            (quand, mots) for quand, mots in self.its_own_words
+            if now - quand <= MEMOIRE_DE_SES_MOTS
+        ]
 
     def _lull(self, utterances: list[Utterance], now: float) -> float:
         """How long since anyone last spoke."""
@@ -249,10 +287,19 @@ class AssistantSettings:
         return suite
 
     def answer(self, opening: Opening, now: float) -> Remark:
-        """Phrases it, then says it. Blocking: see answer_aside."""
-        remark = self._phrase_it(opening)
+        """Phrases it, then says it. Blocking: see answer_aside.
+
+        Its own name is taken out of whatever it is about to say, and that is a
+        hard guarantee: what it says comes back through the capture loop, and a
+        remark carrying its own name calls it again.
+        """
+        remark = without_own_name(self._phrase_it(opening), self.name)
         if not remark:
             return Remark(remark="", because=opening.because, a=now)
+        # Retenu **avant** de parler : le fil de transcription tourne pendant
+        # qu'elle prononce, et une tranche peut lui revenir avant que « say »
+        # ait rendu la main.
+        self.its_own_words.append((now, own_words(remark)))
         prononce = bool(self.voice and self.voice.say(remark))
         if prononce:
             self.its_own_turns.append((now, now + 1.0 + len(remark) / 15.0))
@@ -272,11 +319,18 @@ class AssistantSettings:
         self._job.start()
 
     def _phrase_it(self, opening: Opening) -> str:
-        """The exact remark to pronounce."""
+        """The exact remark to pronounce.
+
+        Called by name with no brain to answer with, it says **nothing**. It
+        used to return the remark it had been handed, which for a question is
+        the question itself: it repeated what it had just been asked, its own
+        name included, then heard itself and answered again. Fifteen times in
+        fifteen seconds, in a real meeting. Echoing is worse than silence.
+        """
         if opening.as_is or opening.because is not Because.APPELE:
             return opening.remark
         if self.cerveau is None:
-            return opening.remark
+            return ""
         material = ""
         if self.context is not None:
             with contextlib.suppress(OSError):

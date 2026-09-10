@@ -103,7 +103,11 @@ class SystemVoice:
         command = self._command(remark)
         if not command:
             return False
-        self.go_quiet()
+        # Le même défaut que la voix neuronale : couper avant de parler
+        # coupait la phrase en cours quand une réponse arrivait pendant
+        # qu'elle parlait.
+        if self.is_speaking():
+            return False
         with self._verrou:
             try:
                 self._in_progress = subprocess.Popen(
