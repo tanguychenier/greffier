@@ -2,7 +2,7 @@
 
 from greffier.application.take_part import AssistantSettings, Remark
 from greffier.domain.models import Span, Utterance
-from greffier.domain.participation import Because, Manners, Opening
+from greffier.domain.participation import Because, Manners, Opening, own_words
 
 
 def dit(text, start=10.0, end=12.0):
@@ -84,23 +84,47 @@ class TestEtreAppele:
 
 
 class TestNePasSEntendreSoiMeme:
-    def test_ce_qu_il_vient_de_dire_ne_lui_revient_pas(self):
-        """Sa voix sort par le haut-parleur et rentre par le micro.
+    """Sa voix sort par le haut-parleur et rentre par la boucle de capture.
 
-        Sans cette garde, il se répond à lui-même, et il gagne au passage une
-        empreinte vocale dans le compte rendu.
-        """
+    Jugé sur ses **mots**, et non sur une fenêtre de temps. La fenêtre était
+    estimée d'après la longueur du texte, et le harnais de conversation a
+    montré ce qu'elle coûtait : elle englobait la question suivante, si bien
+    que la salle se retrouvait ignorée. Elle ne tranche plus que pour un propos
+    trop court pour être jugé sur ses mots.
+    """
+
+    def test_ce_qu_il_vient_de_dire_ne_lui_revient_pas(self):
         assistant = AssistantSettings(name="Lucie")
-        assistant.its_own_turns.append((9.0, 15.0))
-        retenue = assistant.turn([dit("Lucie, tu peux répéter ?", 10.0, 12.0)],
-                                 now=16.0)
+        assistant.its_own_words.append(
+            (9.0, own_words("Oui, je peux répéter ce qui vient d'être décidé."))
+        )
+        retenue = assistant.turn(
+            [dit("oui je peux répéter ce qui vient d'être décidé", 10.0, 12.0)],
+            now=16.0,
+        )
         assert retenue is None
 
-    def test_une_phrase_hors_de_sa_prise_lui_parvient(self):
+    def test_une_question_de_la_salle_lui_parvient(self):
+        """Même juste après qu'il a parlé : c'est l'autre moitié du problème."""
         assistant = AssistantSettings(name="Lucie")
-        assistant.its_own_turns.append((0.0, 5.0))
+        assistant.its_own_words.append((9.0, own_words("Oui, je vous entends.")))
         assert assistant.turn([dit("Lucie, tu peux répéter ?", 10.0, 12.0)],
                               now=13.0) is not None
+
+    def test_un_echo_trop_court_est_rattrape_par_le_temps(self):
+        """« Oui » n'a pas assez de mots pour être jugé : la fenêtre sert là."""
+        assistant = AssistantSettings(name="Lucie")
+        assistant.its_own_turns.append((9.0, 15.0))
+        assert assistant._is_his_own(dit("oui", 10.0, 12.0), 16.0)
+
+    def test_la_fenetre_ne_decide_plus_quand_les_mots_suffisent(self):
+        """Le défaut mesuré : elle englobait la question suivante."""
+        assistant = AssistantSettings(name="Lucie")
+        assistant.its_own_turns.append((9.0, 15.0))
+        assert not assistant._is_his_own(
+            dit("Lucie, et où en est la migration en Symfony sept ?", 10.0, 14.0),
+            16.0,
+        )
 
 
 class TestLeCycleQuiVautDExister:
