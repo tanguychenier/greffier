@@ -110,7 +110,7 @@ def replay(suite: list) -> tuple[LiveThread, list[tuple[str, int]], list[bool]]:
 
 def main() -> int:
     analyse = argparse.ArgumentParser(description=__doc__)
-    analyse.add_argument("reunion")
+    analyse.add_argument("meeting")
     arguments = analyse.parse_args()
 
     path = data_folder() / "reunions" / f"{arguments.meeting}.json"
