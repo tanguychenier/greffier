@@ -53,6 +53,16 @@ class Chemins(BaseModel):
         return self.donnees / "comptes-rendus"
 
     @property
+    def baillon(self) -> Path:
+        """Où la voix dit quel processus joue le son, pour qu'on puisse le couper.
+
+        À la racine des données et non dans un sous-dossier : deux processus
+        doivent le trouver sans se concerter, et il ne survit pas à la phrase
+        qu'il désigne.
+        """
+        return self.donnees / "parole.pid"
+
+    @property
     def voix_de_synthese(self) -> Path:
         """Le modèle qui donne une voix à l'assistant.
 
