@@ -49,6 +49,7 @@ from greffier.application.suivre import (
     GENRE_ETAT,
     GENRE_REUNION,
     demander,
+    demander_une_separation,
     fichiers,
     lire_depuis,
     rejouer,
@@ -757,6 +758,15 @@ class Fenetre:
             phrase = tk.Menu(menu, tearoff=0, font=police(12))
             self._garnir(phrase, noms, numero, toute_la_voix=False)
             menu.add_cascade(label="Seulement cette phrase…", menu=phrase)
+            # Le retour arrière qui manquait. Réunir deux voix se faisait d'un
+            # clic, se défaisait par rien : deux personnes réunies à tort le
+            # restaient jusqu'au compte rendu.
+            if self._fil.peut_separer(tour.voix):
+                menu.add_separator()
+                menu.add_command(
+                    label="Ce n'est pas la même personne : séparer les deux voix",
+                    command=functools.partial(self._separer_le_direct, tour.voix),
+                )
         else:
             # Le fourre-tout des bribes mélange les personnes : le nommer en
             # entier attribuerait à quelqu'un les « oui » de tout le monde.
@@ -807,6 +817,33 @@ class Fenetre:
         )
         if nom and nom.strip():
             self._corriger_le_direct(numero, nom.strip(), toute_la_voix)
+
+    def _separer_le_direct(self, identifiant: str) -> None:
+        """Défait la dernière réunion qui a produit cette voix.
+
+        Ici d'abord, comme la correction : un clic doit se voir tout de suite.
+        Le processus d'écoute rend ensuite chaque empreinte à sa voix — lui seul
+        les tient, et c'est de ça que dépend ce qui entrera en banque.
+        """
+        defaite = self._fil.separer(identifiant)
+        if defaite is None:
+            messagebox.showinfo(
+                "Greffier", "Cette voix n'a absorbé aucune autre voix."
+            )
+            return
+        _, demandes = fichiers(self.config.chemins.direct, self._fil_reunion)
+        try:
+            demander_une_separation(demandes, identifiant)
+        except OSError as souci:
+            messagebox.showerror(
+                "Greffier",
+                f"La séparation est affichée mais n'a pas pu être transmise : {souci}",
+            )
+        self._repeindre_le_direct()
+        rendue = self._fil.etiquette(defaite.source)
+        self.etat_bas.configure(
+            text=f"Les deux voix sont séparées. « {rendue} » attend un nom."
+        )
 
     def _corriger_le_direct(self, numero: int, nom: str, toute_la_voix: bool) -> None:
         """Applique la correction ici, et la transmet à qui écoute.
