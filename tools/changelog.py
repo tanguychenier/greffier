@@ -5,7 +5,7 @@ Les messages suivent la convention Angular : « type(portée): sujet ». C'est
 précisément ce qui permet de produire ce fichier sans le tenir à la main — et
 donc sans qu'il finisse périmé.
 
-    python3 outils/journal_des_modifications.py > CHANGELOG.md
+    python3 tools/changelog.py > CHANGELOG.md
 """
 
 import re
@@ -54,7 +54,7 @@ def main() -> int:
 
     print("# Journal des modifications\n")
     print("Engendré depuis les messages de commit (convention Angular) :\n")
-    print("    python3 outils/journal_des_modifications.py > CHANGELOG.md\n")
+    print("    python3 tools/changelog.py > CHANGELOG.md\n")
     if ruptures:
         print("## Ruptures de compatibilité\n")
         print("\n".join(ruptures) + "\n")

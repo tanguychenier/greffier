@@ -10,9 +10,9 @@ contredit l'intuition : aucun gradient de démarrage, le creux est au milieu.
 La chronologie vient des tours de la réunion et non de l'ordre du cache : sans
 elle, le chiffre ne mesure rien.
 
-    python3 outils/rejouer_le_direct.py 2026-09-10_10h10_reunion
+    python3 tools/replay_live.py 2026-09-10_10h10_reunion
 
-Les empreintes viennent du cache de « rejouer_recollage.py » : lance-le d'abord.
+Les empreintes viennent du cache de « replay_stitching.py » : lance-le d'abord.
 """
 
 from __future__ import annotations
@@ -117,7 +117,7 @@ def main() -> int:
     cache = Path("/tmp/greffier-empreintes") / f"{arguments.meeting}.pickle"
     if not cache.exists():
         print("Les empreintes manquent : lance d'abord "
-              "« outils/rejouer_recollage.py » sur cette réunion.", file=sys.stderr)
+              "« tools/replay_stitching.py » sur cette réunion.", file=sys.stderr)
         return 1
     meeting = json.loads(path.read_text())
     per_voice = pickle.loads(cache.read_bytes())
