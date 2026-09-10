@@ -1,12 +1,4 @@
-"""Ce qu'on fait d'une réunion une fois qu'elle est transcrite.
-
-Trois restitutions à partir du même fichier maître : le texte envoyé au
-rédacteur, un montage des passages marquants avec les vraies voix, et la lecture
-du compte rendu à voix haute.
-
-Aucune ne réinvente la transcription : elles partent toutes des horodatages
-conservés, ce qui permet de revenir sur une réunion des semaines plus tard.
-"""
+"""What is done with a meeting once it is transcribed."""
 
 from __future__ import annotations
 
@@ -26,12 +18,7 @@ from greffier.ports import outbound
 
 
 class Transcribed(Protocol):
-    """Ce qu'il faut savoir d'une réunion pour la restituer.
-
-    Un `Protocol` plutôt qu'un type concret : le résultat d'un traitement en
-    cours et une réunion relue du disque ont la même forme utile ici, sans
-    partager de hiérarchie.
-    """
+    """What has to be known about a meeting in order to render it."""
 
     @property
     def coverage(self) -> float: ...
@@ -64,22 +51,7 @@ def context_header(
     commencee_le: datetime | None = None,
     terminee_le: datetime | None = None,
 ) -> str:
-    """Le contexte de la réunion, dicté au rédacteur mot pour mot.
-
-    Rien n'est deviné : ce qui n'est pas dans le nom du fichier n'est pas écrit.
-    Un compte rendu mal daté se retrouve mal classé, et une échéance « jeudi »
-    devient fausse d'une semaine.
-
-    La ligne est **composée ici**, pas laissée au rédacteur. Constaté sur deux
-    comptes rendus du même jour : l'un annonçait « 2 septembre 2026, 15 h 50,
-    durée 2 minutes », l'autre « 2 septembre 2026, 3 min » — sans heure et sans
-    participants. Une date et une heure ne sont pas matière à style.
-
-    Quand aucune voix n'a été nommée, on dit **combien** de personnes ont parlé
-    plutôt que de taire la question : un compte rendu qui ne dit pas qui était
-    là laisse son lecteur sans réponse, et l'absence de nom se corrige d'un clic
-    dans l'onglet Voix.
-    """
+    """The meeting's context, dictated to the writer word for word."""
     trouve = _HORODATAGE.match(identifier)
     lines = ["[Contexte de la réunion]"]
     context = _context_line(trouve, duration, names, voix_entendues,
@@ -129,7 +101,7 @@ def _context_line(
     return f"{line} {present_line}" if present_line else line
 
 def _time_range(heure: int, minute: int, duration: float) -> str:
-    """« de 16 h 46 à 17 h 03 » — l'heure de fin se déduit de la durée."""
+    """"from 16:46 to 17:03" — the end time follows from the duration."""
     if duration <= 0:
         return f"à {heure} h {minute:02d}"
     end = (heure * 60 + minute + int(duration // 60)) % (24 * 60)
@@ -161,13 +133,7 @@ def _readable_duration(seconds: float) -> str:
     return f"{restantes} s"
 
 def disclosure_header(disclosure: str) -> str:
-    """La mention sur l'enregistrement, dictée au rédacteur mot pour mot.
-
-    Comme la ligne de contexte : composée ici et non laissée au rédacteur. Une
-    mention légale n'est pas matière à style, et un modèle qui la reformule à
-    chaque fois la rend inexploitable — on ne peut plus la chercher dans
-    d'anciens comptes rendus.
-    """
+    """The recording statement, dictated to the writer word for word."""
     from greffier.domain.consent import mention, read
 
     return (
@@ -178,12 +144,7 @@ def disclosure_header(disclosure: str) -> str:
     )
 
 def hardware_header(events: list[str]) -> str:
-    """Ce que la veille a constaté du matériel, dit au rédacteur.
-
-    Un casque branché après le début veut dire que la voix de la personne qui
-    enregistrait manque au commencement. Sans cette ligne, le compte rendu
-    présente comme complet un échange dont il n'a entendu qu'un côté.
-    """
+    """What the watch observed of the hardware, told to the writer."""
     if not events:
         return ""
     lines = ["[Matériel audio pendant la réunion]"]
@@ -197,12 +158,7 @@ def hardware_header(events: list[str]) -> str:
     return "\n".join(lines) + "\n\n"
 
 def reliability_header(meeting: Transcribed) -> str:
-    """Ce que la transcription a perdu, dit au rédacteur avant le texte.
-
-    Sans cela, le compte rendu présente comme complet un texte qui ne l'est pas.
-    Mieux vaut un document qui signale ses angles morts qu'un document qui a
-    l'air sûr de lui.
-    """
+    """What the transcription lost, told to the writer before it writes."""
     gaps = [t for t in meeting.gaps(TROU_SIGNIFICATIF) if t.duration >= TROU_SIGNIFICATIF]
     if not gaps and meeting.coverage >= COUVERTURE_SUSPECTE:
         return ""
@@ -233,13 +189,7 @@ def reliability_header(meeting: Transcribed) -> str:
     return "\n".join(lines) + "\n\n"
 
 def render_transcript(meeting: Transcribed, header: str = "") -> str:
-    """Transcription lisible, horodatée et attribuée.
-
-    C'est ce texte qui part au rédacteur : les horodatages y restent, pour que
-    le compte rendu puisse citer un passage et qu'on puisse y revenir. L'en-tête,
-    quand il existe, dit ce que la transcription a perdu — sans lui, le compte
-    rendu présenterait comme complet un texte qui ne l'est pas.
-    """
+    """Readable transcript, timestamped and attributed."""
     lines: list[str] = []
     current: str | None = None
     for utterance in meeting.utterances:
@@ -252,18 +202,7 @@ def render_transcript(meeting: Transcribed, header: str = "") -> str:
     return header + "\n".join(lines).strip() + "\n"
 
 def to_resume(store: Any, minutes_folder: Path, combien: int = 20) -> list[str]:
-    """Les réunions transcrites dont le compte rendu manque encore.
-
-    Une rédaction interrompue ne laissait aucune trace exploitable : la
-    transcription était bien sur le disque, le compte rendu n'existait pas, et
-    rien ne le remarquait jamais. Mesuré sur ce poste — une réunion d'une heure
-    quarante transcrite à 18 h 47, son fichier d'état figé sur « Rédaction… »
-    avec un processus mort, et personne ne s'en est aperçu avant le lendemain.
-
-    Le contrôle est trivial et c'est justement pour cela qu'il manquait : la
-    liste des réunions existe, le dossier des comptes rendus aussi, il suffit
-    de les comparer. Rien n'est relancé ici — on constate, l'appelant propose.
-    """
+    """The transcribed meetings whose minutes are still missing."""
     missing = []
     for identifier in store.lister()[:combien]:
         if not re.match(r"^\d{4}-\d{2}-\d{2}_", identifier):
@@ -277,12 +216,7 @@ def regenerate_minutes(
     writer: outbound.Writer,
     disclosure: str = "rien",
 ) -> str:
-    """Rejoue uniquement la rédaction, depuis ce qui est déjà transcrit.
-
-    Nommer une voix ne change ni la segmentation ni la transcription : rejouer
-    toute la chaîne pour ça gâche des minutes de calcul et de modèle. Ce que le
-    rédacteur doit refaire, c'est relire le même texte, avec les bonnes étiquettes.
-    """
+    """Replays the writing only, from what is already kept."""
     duration = meeting.turns[-1].span.end if meeting.turns else 0.0
     entendues = meeting.attendees()
     header = (
@@ -304,12 +238,7 @@ def notable_passages(
     duree_visee: float = 300.0,
     duree_minimale: float = 8.0,
 ) -> list[Span]:
-    """Les passages à monter bout à bout pour réécouter l'essentiel.
-
-    On prend les plus longs tours de parole, **en répartissant entre les voix
-    proportionnellement à leur temps de parole** : un montage qui ne ferait
-    entendre que la personne la plus bavarde ne restituerait pas la réunion.
-    """
+    """The passages to splice together to hear the essentials again."""
     temps = meeting.speaking_time()
     total = sum(temps.values()) or 1.0
     retenus: list[Span] = []
@@ -335,11 +264,7 @@ def notable_passages(
     return sorted(retenus, key=lambda i: i.start)
 
 def assemble(audio: Path, passages: list[Span], destination: Path) -> Path:
-    """Découpe et recolle les passages en un seul fichier.
-
-    Ce sont les **vraies voix**, jamais une synthèse : un compte rendu audio ne
-    doit pas faire dire à quelqu'un ce qu'il n'a pas prononcé.
-    """
+    """Cuts and stitches the passages into a single file."""
     if not passages:
         raise ValueError("aucun passage à monter")
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -368,11 +293,7 @@ def assemble(audio: Path, passages: list[Span], destination: Path) -> Path:
     return destination
 
 def speak_aloud(text: str, destination: Path) -> Path:
-    """Enregistre le compte rendu lu par la synthèse du système.
-
-    Pour l'écouter en voiture. Aucune installation : chaque système a déjà de
-    quoi lire un texte.
-    """
+    """Records the minutes read out by the system's synthesiser."""
     destination.parent.mkdir(parents=True, exist_ok=True)
     propre = _sans_balisage(text)
 
@@ -397,7 +318,7 @@ def speak_aloud(text: str, destination: Path) -> Path:
     )
 
 def _sans_balisage(text: str) -> str:
-    """Débarrasse le Markdown de ce qui ne se prononce pas."""
+    """Strips the Markdown of what is not pronounced."""
     import re
 
     propre = re.sub(r"^\s*\|.*\|\s*$", "", text, flags=re.MULTILINE)  # tableaux
@@ -407,12 +328,7 @@ def _sans_balisage(text: str) -> str:
     return propre.strip()
 
 def archiver(audio: Path, garder_original: bool = False) -> Path:
-    """Compresse un enregistrement traité.
-
-    Un WAV de réunion pèse 115 Mo par heure ; en Opus, une dizaine. La
-    transcription est faite, l'audio ne sert plus qu'à réécouter un passage ou
-    à réenrôler une voix — la qualité d'un codec vocal suffit largement.
-    """
+    """Compresses a processed recording."""
     if audio.suffix == ".opus":
         return audio
     destination = audio.with_suffix(".opus")
@@ -428,14 +344,7 @@ def archiver(audio: Path, garder_original: bool = False) -> Path:
 def voiceprints_per_voice(
     extractor: Any, audio: Path, per_voice: dict[str, list[Any]]
 ) -> dict[str, list[Any]]:
-    """Les empreintes de chaque voix, en ne lisant l'enregistrement qu'une fois.
-
-    `extraire_intervalles` rouvre et relit le fichier entier à chaque appel. Une
-    voix par appel, sur une réunion de quatre-vingt-douze minutes qui en produit
-    deux cent quatre-vingt-dix-huit et pèse cinq cent trente et un mégaoctets,
-    demandait cent cinquante-huit gigaoctets de lecture pour un travail qui en
-    vaut un.
-    """
+    """The voiceprints of each voice, reading the recording only once."""
     tous = [(voice, i) for voice, intervalles in per_voice.items() for i in intervalles]
     voiceprints = extractor.extract_spans(audio, [i for _, i in tous])
     if len(voiceprints) != len(tous):
@@ -453,18 +362,7 @@ def review_voices(
     extractor: Any,
     bank: Any = None,
 ) -> tuple[int, int]:
-    """Rejoue le recollage des voix sur une réunion déjà traitée.
-
-    Le recollage décide combien de personnes le compte rendu annonce, et ses
-    seuils bougent quand on les mesure. Sans cette reprise, en profiter demandait
-    de retranscrire toute la réunion — une heure quarante d'audio pour un calcul
-    qui en prend trois minutes, et un compte rendu qui repart de zéro alors que
-    la transcription était bonne.
-
-    Rend le nombre de voix avant et après. Le fichier maître est modifié sur
-    place : les répliques suivent leurs tours, et les noms déjà posés suivent
-    les voix qu'ils désignaient.
-    """
+    """Replays voice stitching on an already processed meeting."""
     from dataclasses import replace as _remplacer
 
     from greffier.domain import voiceprints as voix_domaine
@@ -501,12 +399,7 @@ def review_voices(
     return len(avant), len({t.voice for t in meeting.turns if t.voice})
 
 def _join_namesakes(meeting: Any) -> None:
-    """Deux voix portant le même nom sont la même personne.
-
-    Le nommage le fait déjà quand on nomme ; ici, ce sont des noms posés avant
-    le recollage qui se retrouvent côte à côte. Sans cela, une réunion dont
-    quinze voix avaient été nommées à la main à l'identique en annonçait quinze.
-    """
+    """Two voices carrying the same name are one person."""
     temps = meeting.speaking_time()
     for name in {n.casefold() for n in meeting.names.values()}:
         portantes = sorted(
@@ -527,12 +420,7 @@ def _reconnaitre_a_nouveau(
     membership: dict[str, str],
     bank: Any,
 ) -> None:
-    """Redemande à la banque qui sont les voix, une fois recollées.
-
-    C'est le moment où cela vaut le plus : une voix recollée porte des minutes
-    de parole là où ses morceaux n'en portaient que des secondes, et la banque
-    reconnaît sur la matière. Une voix déjà nommée à la main n'est pas touchée.
-    """
+    """Asks the bank again who the voices are, once stitched."""
     from greffier.domain import voiceprints as voix_domaine
 
     connues = bank.people()

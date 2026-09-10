@@ -1,13 +1,4 @@
-"""Donner un nom à une voix, après la réunion.
-
-C'est le chemin principal, et il est délibéré : **personne n'est prié de se
-présenter**. On laisse la réunion se dérouler, puis on écoute dix secondes et on
-tape un nom. Une seule fois par personne — ensuite l'empreinte est en banque et
-la reconnaissance se fait seule.
-
-Les noms prononcés pendant la réunion viennent en renfort, jamais en
-remplacement : ils proposent, l'utilisateur tranche.
-"""
+"""Giving a voice a name, after the meeting."""
 
 from __future__ import annotations
 
@@ -27,7 +18,7 @@ DUREE_UTILE = 3.0
 
 @dataclass
 class VoiceToName:
-    """Une voix de la réunion, telle qu'elle est présentée à l'utilisateur."""
+    """A voice of the meeting, as it is presented for naming."""
 
     voice: str
     duration: float
@@ -41,15 +32,7 @@ class VoiceToName:
         return self.name is None
 
 def voices_to_name(meeting: StoredMeeting, minimum: float = 10.0) -> list[VoiceToName]:
-    """Les voix de la réunion, de la plus bavarde à la moins, avec un extrait.
-
-    Les fragments d'une seconde laissés par la segmentation sont écartés : les
-    proposer à nommer ferait passer une réunion de cinq personnes pour une
-    assemblée de vingt. Une voix courte qui porte déjà un nom ou une
-    proposition détectée dans les mentions échappe à ce filtre : c'est
-    justement le prénom prononcé dans une réponse brève qui se perdait sinon,
-    jeté avec le fragment qui le portait.
-    """
+    """The meeting's voices, most talkative first."""
     temps = meeting.speaking_time()
     total = sum(d for d in temps.values() if d >= minimum) or 1.0
     outcome = []
@@ -67,11 +50,7 @@ def voices_to_name(meeting: StoredMeeting, minimum: float = 10.0) -> list[VoiceT
     return outcome
 
 def best_excerpt(intervalles: list[Span]) -> Span | None:
-    """Le passage le plus représentatif à faire écouter.
-
-    Le plus long tour de parole plutôt que le premier : un début de réunion
-    commence souvent par un « oui, bonjour » qui ne dit rien du timbre.
-    """
+    """The most representative passage to play back."""
     utiles = [i for i in intervalles if i.duration >= DUREE_UTILE]
     if not utiles:
         utiles = intervalles
@@ -84,7 +63,7 @@ def best_excerpt(intervalles: list[Span]) -> Span | None:
     return Span(start, start + DUREE_EXTRAIT)
 
 def extract_audio(audio: Path, span: Span, destination: Path) -> Path:
-    """Découpe un extrait, pour l'écouter."""
+    """Cuts an excerpt out, to listen to it."""
     destination.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(
         ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
@@ -96,7 +75,7 @@ def extract_audio(audio: Path, span: Span, destination: Path) -> Path:
 
 @dataclass
 class Naming:
-    """Associe une voix à un nom, et fait entrer l'empreinte en banque."""
+    """Ties a voice to a name, and puts the voiceprint into the bank."""
 
     store: outbound.MeetingStore
     bank: outbound.VoiceBank
@@ -104,14 +83,7 @@ class Naming:
     doute: str = ""
 
     def name_voice(self, identifier: str, voice: str, name: str) -> StoredMeeting:
-        """Pose un nom sur une voix, et réunit celles qui portent déjà ce nom.
-
-        Réunir, parce que c'est le geste qu'on fait sans le savoir : nommer
-        « Marcel » une deuxième voix, c'est dire qu'elle est de Marcel, donc de
-        la même personne. Sans cela, chaque voix gardait son identifiant et le
-        compte rendu annonçait deux Marcel — sur une réunion réelle, trente-six
-        voix ont été nommées à la main pour trois personnes présentes.
-        """
+        """Puts a name on a voice, and joins those that carry the same one."""
         refuse = first_names.refusal(name)
         if refuse:
             raise ValueError(refuse)
@@ -150,14 +122,7 @@ class Naming:
         return meeting
 
     def forget(self, identifier: str, voice: str) -> StoredMeeting:
-        """Retire le nom d'une voix, dans la réunion.
-
-        Une erreur de nommage est le geste le plus coûteux de l'outil, et il
-        n'était pas défaisable : on ne pouvait que renommer par-dessus, ce qui
-        ajoutait une empreinte fausse à la banque au lieu d'en retirer une.
-        Ici, la réunion oublie ; la banque se corrige avec `greffier connus`,
-        qui montre déjà les entrées douteuses.
-        """
+        """Removes a voice's name, within the meeting."""
         meeting = self.store.read(identifier)
         if voice not in meeting.names and voice not in meeting.propositions:
             raise KeyError(f"La voix « {voice} » ne porte aucun nom.")
@@ -167,11 +132,7 @@ class Naming:
         return meeting
 
     def accepter_propositions(self, identifier: str) -> dict[str, str]:
-        """Valide d'un coup tous les noms devinés pendant la réunion.
-
-        Pratique quand les propositions sont manifestement justes, mais c'est
-        bien l'utilisateur qui décide : rien n'est validé sans ce geste.
-        """
+        """Approves in one go every name guessed during the meeting."""
         meeting = self.store.read(identifier)
         acceptes = dict(meeting.propositions)
         for voice, name in acceptes.items():

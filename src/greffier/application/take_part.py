@@ -1,24 +1,8 @@
-"""Faire de l'assistant un participant, et non un micro posé sur la table.
+"""Making the assistant a participant rather than a passive mic.
 
-Ce module assemble trois choses que le reste du projet fournit déjà : ce qui se
-dit (le fil du direct), une règle qui décide s'il vaut la peine de parler
-(`domaine.participation`), et de quoi formuler puis prononcer. Il n'en connaît
-aucune : tout arrive par des ports, ce qui permet d'éprouver le comportement
-sans lancer de réunion, sans modèle et sans son.
-
-Le tour de force n'est pas de parler, c'est de se taire. Un assistant vocal
-ordinaire répond dès qu'on lui laisse un blanc ; en réunion, cela revient à
-couper la parole toutes les dix secondes. La règle de `Politique` fait le tri,
-et ce module ne fait qu'appliquer sa décision.
-
-Un cycle complet, celui qui vaut d'exister :
-
-    l'assistant   « Je n'arrive plus à distinguer deux voix. Qui vient de parler ? »
-    quelqu'un     « c'est Marcel »
-    l'assistant   « Merci, c'est noté : je mets Marcel sur cette voix. »
-
-La réponse ne se perd pas dans le fil : elle **nomme la voix**, donc elle sert
-au compte rendu et à la banque, ce qui est tout l'intérêt d'avoir demandé.
+The hard half is the silence: what it refuses to say is what makes it bearable
+in a room. The manners live in the domain; here is the wiring — the brain, the
+voice, the context.
 """
 
 from __future__ import annotations
@@ -111,7 +95,7 @@ Ce qui vient de se dire :
 """
 
 class Speaker(Protocol):
-    """Ce qui prononce. `VoixNeuronale` et `VoixSysteme` s'y conforment."""
+    """Whatever pronounces. NeuralVoice and SystemVoice both fit."""
 
     def say(self, text: str) -> bool:
         ...
@@ -124,7 +108,7 @@ class Speaker(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class Remark:
-    """Ce que l'assistant a dit, et pourquoi."""
+    """What the assistant said, and why."""
 
     remark: str
     because: Because
@@ -133,7 +117,7 @@ class Remark:
 
 @dataclass
 class AssistantSettings:
-    """Écoute la réunion, et y prend la parole quand cela vaut la peine."""
+    """Listens to the meeting, and speaks in it when that is worth doing."""
 
     name: str = "Greffier"
     manners: Manners = field(default_factory=Manners)
@@ -155,11 +139,7 @@ class AssistantSettings:
         turns: list[tuple[float, float]] | None = None,
         occasions: list[Opening] | None = None,
     ) -> Opening | None:
-        """Ce que l'assistant retient de cette tranche, ou rien.
-
-        Rien est le cas courant et c'est voulu : sur une réunion d'une heure,
-        cette fonction rendra `None` la quasi-totalité du temps.
-        """
+        """What the assistant takes from this slice, or nothing."""
         proposees = list(occasions or [])
         for utterance in utterances:
             text = utterance.text.strip()
@@ -185,11 +165,10 @@ class AssistantSettings:
         return retenue
 
     def look_for_a_contribution_aside(self, now: float) -> None:
-        """Cherche, dans un fil séparé, s'il y a lieu de dire quelque chose.
+        """Looks, in a separate thread, for whether there is anything to say.
 
-        À côté de la boucle qui transcrit : l'appel au modèle prend plusieurs
-        secondes, et les passer à attendre coûterait autant d'audio non
-        transcrit. Le résultat attend en réserve et sert à la tranche suivante.
+        The search costs a call to the model, so it happens aside and its result serves
+        the following slice.
         """
         if self.in_reserve is not None or not self.manners.active:
             return
@@ -203,12 +182,7 @@ class AssistantSettings:
         self._search.start()
 
     def _is_his_own(self, utterance: Utterance) -> bool:
-        """La réplique tombe-t-elle sur un moment où l'assistant parlait ?
-
-        Il s'entend par le micro de la salle comme tout le monde. Se relire
-        soi-même, c'est se répondre, et c'est aussi se donner une voix dans le
-        compte rendu.
-        """
+        """Does the utterance fall where the assistant itself was speaking?"""
         start, end = utterance.span.start, utterance.span.end
         return any(
             min(end, sa_fin) - max(start, son_debut) > 0.5 * (end - start)
@@ -216,18 +190,13 @@ class AssistantSettings:
         )
 
     def _lull(self, utterances: list[Utterance], now: float) -> float:
-        """Depuis combien de temps plus personne ne parle."""
+        """How long since anyone last spoke."""
         if not utterances:
             return now
         return max(0.0, now - max(r.span.end for r in utterances))
 
     def _acknowledge(self, text: str, a: float) -> Opening | None:
-        """Traite la phrase qui répond à la question posée.
-
-        Une question posée et jamais reprise vaut moins que pas de question :
-        elle a coûté une interruption pour rien, et celui qui a répondu ne sait
-        pas s'il a été entendu.
-        """
+        """Handles the sentence that answers the question asked."""
         attendue, self.awaiting = self.awaiting, None
         if attendue is None:
             return None
@@ -238,7 +207,10 @@ class AssistantSettings:
     def _name_from_answer(
         self, attendue: Opening, text: str, a: float
     ) -> Opening | None:
-        """« C'est Hubert » devient un nom porté au compte rendu."""
+        """"It's Hubert" becomes a name carried into the minutes.
+
+        That is what separates an exchange from a question thrown into the air.
+        """
         first_name = _first_name_in(text)
         voice = attendue.subject.removeprefix("voix:")
         if first_name and self.name_voice is not None and self.name_voice(voice, first_name):
@@ -254,13 +226,7 @@ class AssistantSettings:
     def _follow_up_its_question(
         self, attendue: Opening, text: str, a: float
     ) -> Opening | None:
-        """Réagit à la réponse qu'on vient de lui faire, ou se tait.
-
-        C'est ce qui sépare un échange d'une question jetée : « très bien, donc
-        c'est Hubert qui s'en occupe » prouve qu'elle a compris et laisse une
-        trace juste dans le compte rendu. Le silence reste proposé par défaut :
-        deux répliques de plus feraient d'elle un participant de trop.
-        """
+        """Reacts to the answer just given, or keeps quiet."""
         if self.cerveau is None:
             return None
         guidance = CONSIGNES_SUITE.format(
@@ -283,7 +249,7 @@ class AssistantSettings:
         return suite
 
     def answer(self, opening: Opening, now: float) -> Remark:
-        """Formule puis prononce. Bloquant : voir `repondre_a_part`."""
+        """Phrases it, then says it. Blocking: see answer_aside."""
         remark = self._phrase_it(opening)
         if not remark:
             return Remark(remark="", because=opening.because, a=now)
@@ -298,12 +264,7 @@ class AssistantSettings:
                             prononce=prononce)
 
     def answer_aside(self, opening: Opening, now: float) -> None:
-        """Répond dans un fil séparé, pour ne pas retarder la transcription.
-
-        Formuler demande un appel au modèle, donc plusieurs secondes. Les passer
-        à attendre, c'est autant d'audio non transcrit, et le direct ne rattrape
-        jamais son retard.
-        """
+        """Answers in a separate thread, so as not to hold up transcription."""
         if self._job is not None and self._job.is_alive():
             return
         self._job = threading.Thread(
@@ -311,12 +272,7 @@ class AssistantSettings:
         self._job.start()
 
     def _phrase_it(self, opening: Opening) -> str:
-        """Le propos exact à prononcer.
-
-        Ce que l'assistant sait dire seul, il le dit seul : demander qui parle
-        n'a pas besoin d'un modèle, et faire dépendre cette question d'un appel
-        distant la rendrait lente et faillible là où elle doit être immédiate.
-        """
+        """The exact remark to pronounce."""
         if opening.as_is or opening.because is not Because.APPELE:
             return opening.remark
         if self.cerveau is None:
@@ -335,17 +291,7 @@ class AssistantSettings:
             return ""
 
     def contribution(self, now: float) -> Opening | None:
-        """Ce que l'assistant aurait à ajouter de lui-même, ou rien.
-
-        Rien est le cas courant, et la consigne le dit crûment : un modèle à
-        qui l'on demande « as-tu quelque chose à dire » trouve toujours quelque
-        chose à dire, et c'est exactement le défaut qu'on cherche à éviter.
-        La politique décidera ensuite si le moment s'y prête ; ici on décide
-        seulement s'il y a matière.
-
-        L'appel n'a lieu que quand le repos est écoulé : le demander à chaque
-        tranche coûterait un appel toutes les dix secondes pour un silence.
-        """
+        """What the assistant would have to add of its own, or nothing."""
         if self.cerveau is None or self.context is None:
             return None
         if self.manners.parle_le is not None and (
@@ -372,12 +318,7 @@ class AssistantSettings:
         )
 
     def _interrogate(self, guidance: str, material: str) -> str:
-        """Un appel au cerveau, avec des consignes qui ne sont pas les siennes.
-
-        Le rédacteur porte les consignes de l'oral ; celles de l'apport sont
-        différentes, et il ne faut pas que les poser laisse le rédacteur changé
-        pour l'appel suivant.
-        """
+        """A call to the brain, with guidance that is not the writer's."""
         cerveau = self.cerveau
         if cerveau is None:
             return ""
@@ -392,11 +333,10 @@ class AssistantSettings:
                 cerveau.consignes_propres = avant
 
     def ask_who_is_speaking(self, voice: str, now: float) -> Opening:
-        """La question qui règle le problème le plus coûteux de l'outil.
+        """The question that settles the tool's most expensive problem.
 
-        Une voix non identifiée devient « Personne 12 » dans le compte rendu, et
-        personne ne la reconnaîtra après coup. La demander sur le moment coûte
-        une phrase et vaut un nom.
+        An unnamed voice becomes "Personne 12" in the minutes and nobody can recognise
+        it afterwards. Asking on the spot costs one sentence and earns a name.
         """
         return Opening(
             because=Because.VOIX_INDISTINCTE,
@@ -411,7 +351,7 @@ class AssistantSettings:
         return CONSIGNES_ORALES.format(name=self.name)
 
 def _empreinte_du_propos(remark: str) -> str:
-    """De quoi reconnaître une remarque déjà faite, aux mots près."""
+    """What identifies an already made remark, words aside."""
     import hashlib
     import re
 
@@ -419,12 +359,7 @@ def _empreinte_du_propos(remark: str) -> str:
     return hashlib.sha256(words.encode("utf-8")).hexdigest()[:12]
 
 def _first_name_in(text: str) -> str:
-    """Le prénom d'une réponse du genre « c'est Marcel » ou « Marcel ».
-
-    Volontairement simple : la réponse à « qui vient de parler » est courte, et
-    tout mot qui n'est pas un mot-outil y est un prénom. Une réponse alambiquée
-    ne donnera rien, ce qui vaut mieux que de nommer une voix « Alors ».
-    """
+    """The first name in an answer of the form "it's Marcel"."""
     import re
 
     outils = {
