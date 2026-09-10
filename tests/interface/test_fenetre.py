@@ -184,3 +184,74 @@ class TestBarreDeBoutons:
 
     def test_sans_bouton_le_calcul_ne_leve_pas(self) -> None:
         assert _grille([], 800) == (1, 0)
+
+
+class TestEchecPublie:
+    """Un échec de traitement doit s'écrire dans l'état, pas seulement à l'écran.
+
+    Le défaut, constaté le 2026-09-10 sur une réunion de 1 h 42 : la chaîne a
+    échoué à l'envoi, l'échec n'était rapporté que par une boîte de dialogue
+    modale, et l'état est resté figé sur « envoi ». Écran verrouillé, personne
+    pour cliquer. Tout ce qui relit cet état — la veille, la ligne de commande,
+    la reconstruction de l'application — croyait qu'une réunion se traitait
+    encore, deux heures après la fin de la réunion.
+    """
+
+    def _config(self, tmp_path: Path):
+        from greffier.adaptateurs.configuration import Config
+
+        return Config(chemins={"donnees": tmp_path, "modeles": tmp_path / "modeles"})
+
+    def _etat_en_cours(self, tmp_path: Path, identifiant: str) -> Path:
+        import json
+
+        etat = tmp_path / "etat.json"
+        etat.write_text(json.dumps({
+            "phase": "envoi", "message": "Envoi du compte rendu…",
+            "nom": "reunion", "identifiant": identifiant,
+            "audio": str(tmp_path / f"{identifiant}.wav"),
+        }), encoding="utf-8")
+        return etat
+
+    def _publier(
+        self, tmp_path: Path, identifiant: str, souci: Exception,
+        dans_l_etat: str | None = None,
+    ) -> dict:
+        import json
+
+        from greffier.interface.fenetre import Fenetre
+
+        etat = self._etat_en_cours(tmp_path, dans_l_etat or identifiant)
+        # Sans Tk : la méthode ne lit que `self.config`, et c'est justement ce
+        # qui la rend éprouvable sans écran.
+        sans_ecran = type("SansEcran", (), {"config": self._config(tmp_path)})()
+        Fenetre._publier_l_echec(sans_ecran, identifiant, souci)
+        return json.loads(etat.read_text(encoding="utf-8"))
+
+    def test_la_phase_cesse_de_mentir(self, tmp_path: Path) -> None:
+        etat = self._publier(tmp_path, "2026-09-10_10h10_reunion", RuntimeError("boum"))
+        assert etat["phase"] == "echec", etat
+
+    def test_la_raison_est_gardee(self, tmp_path: Path) -> None:
+        """Pour la lire après coup, quand la fenêtre modale est passée."""
+        etat = self._publier(
+            tmp_path, "2026-09-10_10h10_reunion", RuntimeError("Outlook refuse")
+        )
+        assert "Outlook refuse" in etat["message"]
+
+    def test_l_etat_d_une_autre_reunion_n_est_pas_touche(self, tmp_path: Path) -> None:
+        """La règle du journal : il n'écrit que si l'état porte cette réunion."""
+        etat = self._publier(
+            tmp_path, "2026-09-10_11h00_autre", RuntimeError("boum"),
+            dans_l_etat="2026-09-10_10h10_reunion",
+        )
+        assert etat["phase"] == "envoi"
+
+    def test_un_etat_illisible_ne_releve_rien(self, tmp_path: Path) -> None:
+        """On est déjà dans le traitement d'une erreur : une seconde erreur ici
+        ferait perdre le message de la première."""
+        from greffier.interface.fenetre import Fenetre
+
+        (tmp_path / "etat.json").write_text("{ ceci n'est pas du json", encoding="utf-8")
+        sans_ecran = type("SansEcran", (), {"config": self._config(tmp_path)})()
+        Fenetre._publier_l_echec(sans_ecran, "peu-importe", RuntimeError("boum"))
