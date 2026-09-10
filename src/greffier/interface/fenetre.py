@@ -1832,6 +1832,31 @@ class Fenetre:
             _lancer_direct(self.config, None)
         except (RuntimeError, FileNotFoundError) as souci:
             messagebox.showerror("Greffier", str(souci))
+            return
+        self._eprouver_l_envoi()
+
+    def _eprouver_l_envoi(self) -> None:
+        """Vérifie maintenant que le compte rendu pourra partir.
+
+        Maintenant et non à la fin, et c'est tout l'objet : le 2026-09-10,
+        l'envoi d'une réunion de 1 h 42 a échoué à 12 h 17 devant un écran
+        verrouillé, deux heures après le moment où quelqu'un était au clavier
+        et où un clic suffisait. Une sonde sans effet, dite dans la
+        conversation et non en fenêtre : c'est une information sur le poste,
+        pas une raison d'interrompre le démarrage d'une réunion.
+        """
+        from greffier.composition import _expediteur
+
+        if not self.config.compte_rendu.destinataire:
+            return
+        with contextlib.suppress(Exception):
+            expediteur = _expediteur(self.config)
+            # Tous les moyens d'envoi n'ont pas de sonde : écrire dans un
+            # fichier ne peut pas échouer pour une autorisation.
+            sonde = getattr(expediteur, "eprouver", None)
+            empeche = sonde() if callable(sonde) else None
+            if empeche:
+                self._dire("note", f"Avant la fin de la réunion : {empeche}")
 
     def _suspendre(self) -> None:
         try:

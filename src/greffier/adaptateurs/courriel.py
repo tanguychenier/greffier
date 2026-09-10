@@ -53,6 +53,44 @@ class ExpediteurOutlook:
 end run
 """
 
+    #: Sonde sans effet : demande son nom à Outlook, et rien de plus. Le seul
+    #: but est de déclencher l'autorisation d'automatisation **maintenant**.
+    SONDE = 'tell application "Microsoft Outlook" to get name'
+
+    def eprouver(self) -> str | None:
+        """Ce qui empêcherait l'envoi, ou rien si la voie est libre.
+
+        Appelée au début de la réunion et non à la fin, et c'est tout l'objet :
+        macOS demande une autorisation d'automatisation la première fois, et sa
+        boîte de dialogue n'apparaît pas toujours quand le traitement tourne
+        détaché. Le 2026-09-10, l'envoi d'une réunion de 1 h 42 a échoué à
+        12 h 17, écran verrouillé, deux heures après qu'on aurait pu régler la
+        question en un clic.
+
+        Ne lève rien et n'envoie rien : elle demande son nom à Outlook.
+        """
+        try:
+            resultat = subprocess.run(
+                ["osascript", "-e", self.SONDE],
+                capture_output=True, text=True, check=False, timeout=20,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return "Outlook ne répond pas."
+        if resultat.returncode == 0:
+            return None
+        sortie = (resultat.stderr or "") + (resultat.stdout or "")
+        if "-1743" in sortie or "not authorized" in sortie.lower():
+            return (
+                "macOS n'autorise pas encore Greffier à piloter Outlook. "
+                "Réglages Système ▸ Confidentialité et sécurité ▸ Automatisation, "
+                "coche Outlook sous Greffier. Sans cela, le compte rendu ne "
+                "partira pas."
+            )
+        if "-1728" in sortie or "not running" in sortie.lower():
+            return "Outlook n'est pas lancé : ouvre-le avant la fin de la réunion."
+        derniere = sortie.strip().splitlines()[-1:] or [sortie.strip()]
+        return f"Outlook ne répond pas comme prévu : {derniere[0]}"
+
     def envoyer(self, destinataire: str, sujet: str, corps: str, pieces: list[Path]) -> None:
         with tempfile.TemporaryDirectory() as dossier:
             fichier_corps = Path(dossier) / "corps.html"
