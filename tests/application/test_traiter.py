@@ -594,8 +594,13 @@ class TestLaChaineGardeLaReunion:
         assert resultat.compte_rendu_ecrit.read_text(encoding="utf-8")
 
     def test_garde_avant_envoi(self, tmp_path):
-        """Un serveur de courriel indisponible ne doit pas faire perdre
-        une heure de transcription et sa rédaction."""
+        """Un serveur de courriel indisponible ne doit rien faire perdre.
+
+        L'exception remontait autrefois : les fichiers étaient bien gardés,
+        mais la chaîne s'arrêtait là et la dernière phase publiée restait
+        « envoi ». Elle va désormais jusqu'au bout et dit pourquoi — voir
+        `TestUnEnvoiQuiEchoue`.
+        """
 
         class ExpediteurQuiTombe:
             def envoyer(self, *_args, **_options):
@@ -607,9 +612,10 @@ class TestLaChaineGardeLaReunion:
             expediteur=ExpediteurQuiTombe(),
             destinataire="moi@exemple.fr",
         )
-        with pytest.raises(Exception, match="injoignable"):
-            traitement.executer(AUDIO)
+        resultat = traitement.executer(AUDIO)
         assert (tmp_path / "comptes-rendus").exists(), "le compte rendu survit à l'envoi"
+        assert resultat.envoye is False
+        assert any("injoignable" in a for a in resultat.avertissements)
 
     def test_garde_avant_de_rediger(self, tmp_path):
         """Un rédacteur qui expire ne doit pas faire perdre la transcription.
@@ -857,3 +863,50 @@ class TestHomonymesApresReunion:
             extracteur=ExtracteurFactice(vecteurs), banque=banque
         ).executer(AUDIO)
         assert sorted(resultat.noms.values()) == ["Josiane", "Michel"]
+
+
+class TestUnEnvoiQuiEchoue:
+    """Un envoi qui échoue ne doit pas emporter la chaîne.
+
+    Le 2026-09-10, une réunion de 1 h 42 est restée figée sur la phase
+    « envoi » deux heures durant. Tout était déjà sur le disque — la
+    transcription, les voix, le compte rendu, gardés avant l'envoi
+    justement pour cela — mais l'exception remontait, la phase suivante
+    n'était jamais publiée, et l'échec ne se rapportait que par une fenêtre
+    modale que personne n'a vue.
+    """
+
+    class ExpediteurQuiTombe:
+        def envoyer(self, destinataire, sujet, corps, pieces):
+            raise PermissionError("macOS refuse de piloter Outlook.")
+
+    def _resultat(self, journal):
+        traitement = chaine(
+            expediteur=self.ExpediteurQuiTombe(),
+            destinataire="tanguy@example.org",
+            journal=journal,
+        )
+        return traitement.executer(AUDIO)
+
+    def test_la_chaine_va_jusqu_au_bout(self):
+        journal = JournalFactice()
+        self._resultat(journal)
+        assert journal.phases[-1] == Phase.TERMINE.value, journal.phases
+
+    def test_la_phase_envoi_ne_reste_pas_la_derniere(self):
+        """C'est elle qui mentait : « Envoi du compte rendu… », pour toujours."""
+        journal = JournalFactice()
+        self._resultat(journal)
+        assert Phase.ENVOI.value in journal.phases
+        assert journal.phases[-1] != Phase.ENVOI.value
+
+    def test_la_raison_est_dite(self):
+        resultat = self._resultat(JournalFactice())
+        assert any("Outlook" in a for a in resultat.avertissements), resultat.avertissements
+        assert any("greffier envoyer" in a for a in resultat.avertissements)
+
+    def test_le_compte_rendu_n_est_pas_annonce_comme_parti(self):
+        assert self._resultat(JournalFactice()).envoye is False
+
+    def test_le_compte_rendu_est_bien_la(self):
+        assert self._resultat(JournalFactice()).compte_rendu
