@@ -50,8 +50,8 @@ class TestFile:
         """La file est écrite par un autre processus, qui peut être interrompu."""
         file = questions_file(tmp_path, "essai")
         publish(file, question())
-        with file.open("a", encoding="utf-8") as flux:
-            flux.write('{"genre": "question", "nume')
+        with file.open("a", encoding="utf-8") as stream:
+            stream.write('{"genre": "question", "nume')
         awaiting, _ = read(file)
         assert len(awaiting) == 1
 

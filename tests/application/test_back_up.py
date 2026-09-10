@@ -108,7 +108,7 @@ class TestRotation:
         copies = tmp_path / "copies"
         for jour in range(1, 6):
             do_it(data, None, copies, kept=3,
-                  quand=datetime(2026, 9, jour, 12, 0, tzinfo=UTC))
+                  when=datetime(2026, 9, jour, 12, 0, tzinfo=UTC))
         assert len(lister(copies)) == 3
 
     def test_la_plus_recente_survit_toujours(self, tmp_path):
@@ -116,7 +116,7 @@ class TestRotation:
         copies = tmp_path / "copies"
         for jour in (1, 2):
             do_it(data, None, copies, kept=0,
-                  quand=datetime(2026, 9, jour, 12, 0, tzinfo=UTC))
+                  when=datetime(2026, 9, jour, 12, 0, tzinfo=UTC))
         restantes = lister(copies)
         assert len(restantes) == 1
         assert "2026-09-02" in restantes[0][0]

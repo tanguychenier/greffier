@@ -22,10 +22,10 @@ POIDS: dict[MentionKind, int] = {
 }
 
 FENETRE_SUIVANT = 30.0
-FENETRE_PRECEDENT = 60.0
+PREVIOUS_WINDOW = 60.0
 
-def _without_accents(mot: str) -> str:
-    depouille = unicodedata.normalize("NFD", mot.replace("’", "'"))
+def _without_accents(word: str) -> str:
+    depouille = unicodedata.normalize("NFD", word.replace("’", "'"))
     return "".join(c for c in depouille if unicodedata.category(c) != "Mn").lower()
 
 @dataclass(frozen=True, slots=True)
@@ -76,9 +76,9 @@ def _common_words(utterances: list[Utterance]) -> frozenset[str]:
     """Words the meeting also uses in lower case: never first names."""
     minuscules: set[str] = set()
     for utterance in utterances:
-        for mot in _WORD.findall(utterance.text):
-            if mot[:1].islower():
-                minuscules.add(_without_accents(mot))
+        for word in _WORD.findall(utterance.text):
+            if word[:1].islower():
+                minuscules.add(_without_accents(word))
     return frozenset(minuscules)
 
 def spot_mentions(
@@ -107,10 +107,10 @@ def _passe(
 ) -> list[Mention]:
     mentions: list[Mention] = []
     for utterance in utterances:
-        vues: dict[tuple[int, str], Mention] = {}
+        seen: dict[tuple[int, str], Mention] = {}
         for type_mention, motif in motifs:
-            for trouve in motif.finditer(utterance.text):
-                name = trouve.group("nom")
+            for found in motif.finditer(utterance.text):
+                name = found.group("nom")
                 if (_without_accents(name) in interdits
                 or len(name) < profil.detection.minimum_length):
                     continue
@@ -124,7 +124,7 @@ def _passe(
                     continue
                 if known is not None and _without_accents(name) not in known:
                     continue
-                position = trouve.start("nom")
+                position = found.start("nom")
                 key = (position, _without_accents(name))
                 candidate = Mention(
                     name=name,
@@ -132,10 +132,10 @@ def _passe(
                     type=type_mention,
                     extrait=utterance.text.strip(),
                 )
-                ancienne = vues.get(key)
+                ancienne = seen.get(key)
                 if ancienne is None or POIDS[type_mention] > POIDS[ancienne.type]:
-                    vues[key] = candidate
-        mentions.extend(vues.values())
+                    seen[key] = candidate
+        mentions.extend(seen.values())
     return mentions
 
 ECART_TOLERE = 3.0
@@ -176,7 +176,7 @@ def _previous_voice(
             candidat = turn
     if candidat is None:
         return None
-    return candidat.voice if at_instant - candidat.span.end <= FENETRE_PRECEDENT else None
+    return candidat.voice if at_instant - candidat.span.end <= PREVIOUS_WINDOW else None
 
 def target(mention: Mention, turns: list[SpeakerTurn]) -> str | None:
     """The voice this mention points at, according to its kind."""
@@ -242,10 +242,10 @@ def join_namesakes(
         if replie:
             portantes.setdefault(replie, []).append(voice)
     membership = {voice: voice for voice in names}
-    for ensemble in portantes.values():
-        if len(ensemble) < 2:
+    for group in portantes.values():
+        if len(group) < 2:
             continue
-        gardee = max(ensemble, key=lambda v: (poids.get(v, 0.0), v))
-        for voice in ensemble:
+        gardee = max(group, key=lambda v: (poids.get(v, 0.0), v))
+        for voice in group:
             membership[voice] = gardee
     return membership

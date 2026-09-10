@@ -43,10 +43,10 @@ VIDEO_SHARE = 0.05
 def over_video(
     mic_db: list[float],
     system_db: list[float],
-    reglages: ChannelSettings | None = None,
+    settings: ChannelSettings | None = None,
 ) -> bool:
     """Whether the meeting was held remotely, from the two channels."""
-    r = reglages or ChannelSettings()
+    r = settings or ChannelSettings()
     utiles = min(len(mic_db), len(system_db))
     if utiles == 0:
         return False
@@ -60,10 +60,10 @@ def over_video(
 def who_speaks(
     mic_db: float,
     system_db: float,
-    reglages: ChannelSettings | None = None,
+    settings: ChannelSettings | None = None,
 ) -> WhoSpeaks:
     """Who holds the floor at this instant, from the two channels."""
-    r = reglages or ChannelSettings()
+    r = settings or ChannelSettings()
     mic = mic_db > r.floor_db
     system = system_db > r.floor_db
     if mic and system:
@@ -78,10 +78,10 @@ def local_turns(
     mic_db: list[float],
     system_db: list[float],
     step_s: float,
-    reglages: ChannelSettings | None = None,
+    settings: ChannelSettings | None = None,
 ) -> list[Span]:
     """The moments when the person recording speaks themselves."""
-    r = reglages or ChannelSettings()
+    r = settings or ChannelSettings()
     if step_s <= 0:
         raise ValueError("le pas des trames doit être positif")
 
@@ -114,31 +114,31 @@ def _regroup(local_ones: list[bool], step_s: float, r: ChannelSettings) -> list[
         if (b - a) * step_s >= r.minimum_length_s
     ]
 
-def subtract(span: Span, autres: list[Span]) -> list[Span]:
+def subtract(span: Span, others: list[Span]) -> list[Span]:
     """What is left of a span once the others are taken out of it."""
-    restes = [span]
-    for autre in autres:
-        suivants: list[Span] = []
-        for reste in restes:
-            if autre.end <= reste.start or autre.start >= reste.end:
-                suivants.append(reste)
+    remainders = [span]
+    for other in others:
+        next_ones: list[Span] = []
+        for remaining in remainders:
+            if other.end <= remaining.start or other.start >= remaining.end:
+                next_ones.append(remaining)
                 continue
-            if autre.start > reste.start:
-                suivants.append(Span(reste.start, autre.start))
-            if autre.end < reste.end:
-                suivants.append(Span(autre.end, reste.end))
-        restes = suivants
-    return restes
+            if other.start > remaining.start:
+                next_ones.append(Span(remaining.start, other.start))
+            if other.end < remaining.end:
+                next_ones.append(Span(other.end, remaining.end))
+        remainders = next_ones
+    return remainders
 
-def remove(turns: list[Span], locaux: list[Span]) -> list[Span]:
+def remove(turns: list[Span], local_spans: list[Span]) -> list[Span]:
     """Takes out of the remote turns whatever a local turn covers."""
-    if not locaux:
+    if not local_spans:
         return turns
     restants: list[Span] = []
     for turn in turns:
         couvert = sum(
             max(0.0, min(turn.end, local.end) - max(turn.start, local.start))
-            for local in locaux
+            for local in local_spans
         )
         if turn.duration <= 0 or couvert / turn.duration < 0.5:
             restants.append(turn)

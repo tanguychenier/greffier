@@ -187,8 +187,8 @@ class TestUneSeuleListe:
         import sys
 
         nom = "greffier_catalogue_essai"
-        chemin = Path("src/greffier/adapters/model_files.py")
-        specification = importlib.util.spec_from_file_location(nom, chemin)
+        path = Path("src/greffier/adapters/model_files.py")
+        specification = importlib.util.spec_from_file_location(nom, path)
         assert specification is not None and specification.loader is not None
         module = importlib.util.module_from_spec(specification)
         sys.modules[nom] = module

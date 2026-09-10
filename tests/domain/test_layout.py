@@ -12,8 +12,8 @@ from greffier.domain.layout import (
 def carte_type() -> Board:
     board = Board("Oasis")
     join(board, [Contribution("Problème A"), Contribution("Problème B")])
-    join(board, [Contribution("Piste A1", sous="Problème A"),
-                      Contribution("Piste A2", sous="Problème A")])
+    join(board, [Contribution("Piste A1", under="Problème A"),
+                      Contribution("Piste A2", under="Problème A")])
     return board
 
 

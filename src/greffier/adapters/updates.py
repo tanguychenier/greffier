@@ -76,14 +76,14 @@ def installed_version() -> str:
 
 def _version_du_projet() -> str:
     """The version written in pyproject.toml, when it can be reached."""
-    projet = Path(__file__).resolve().parents[3] / "pyproject.toml"
-    if not projet.exists():
+    project = Path(__file__).resolve().parents[3] / "pyproject.toml"
+    if not project.exists():
         return ""
     try:
         import tomllib
 
-        with projet.open("rb") as flux:
-            return str(tomllib.load(flux).get("project", {}).get("version", ""))
+        with project.open("rb") as stream:
+            return str(tomllib.load(stream).get("project", {}).get("version", ""))
     except (OSError, ValueError):
         return ""
 

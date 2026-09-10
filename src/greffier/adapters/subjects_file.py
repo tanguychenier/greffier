@@ -38,18 +38,18 @@ def read(file: Path) -> Registry:
             continue
         name = str(input["nom"]).strip()
         alias = input.get("alias", [])
-        nouvelles = (
+        fresh = (
             tuple(str(x).strip() for x in alias if str(x).strip())
             if isinstance(alias, list) else ()
         )
-        precedent = fondus.get(name.casefold())
-        if precedent is not None:
-            nouvelles = tuple(dict.fromkeys(precedent.alias + nouvelles))
+        previous = fondus.get(name.casefold())
+        if previous is not None:
+            fresh = tuple(dict.fromkeys(previous.alias + fresh))
         fondus[name.casefold()] = Subject(
             name=name,
-            alias=nouvelles,
+            alias=fresh,
             board=str(input.get("carte", "")).strip()
-            or (precedent.board if precedent else ""),
+            or (previous.board if previous else ""),
         )
     return Registry(list(fondus.values()))
 
@@ -68,11 +68,11 @@ def noter_la_carte(file: Path, subject: str, board: str) -> bool:
     if connu is not None and connu.board:
         return False
     lay_the_template(file)
-    with file.open("a", encoding="utf-8") as flux:
+    with file.open("a", encoding="utf-8") as stream:
         if connu is None:
-            flux.write(f'\n[[sujets]]\nnom = "{subject}"\ncarte = "{board}"\n')
+            stream.write(f'\n[[sujets]]\nnom = "{subject}"\ncarte = "{board}"\n')
         else:
-            flux.write(
+            stream.write(
                 f'\n[[sujets]]\nnom = "{connu.name}"\n'
                 f'alias = {list(connu.alias)!r}\ncarte = "{board}"\n'
             )

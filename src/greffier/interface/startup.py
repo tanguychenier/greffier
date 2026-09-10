@@ -43,10 +43,10 @@ def preparer() -> dict[str, str]:
     for variable, motif in (("TCL_LIBRARY", "tcl[0-9]*"), ("TK_LIBRARY", "tk[0-9]*")):
         if os.environ.get(variable):
             continue
-        trouve = _find(motif, prefixes)
-        if trouve is not None:
-            os.environ[variable] = str(trouve)
-            pose[variable] = str(trouve)
+        found = _find(motif, prefixes)
+        if found is not None:
+            os.environ[variable] = str(found)
+            pose[variable] = str(found)
     return pose
 
 def available() -> tuple[bool, str]:
@@ -71,8 +71,8 @@ def available() -> tuple[bool, str]:
             "les fichiers de bibliothèque Tcl sont introuvables. "
             "Renseigne TCL_LIBRARY, ou installe Tcl/Tk pour ce Python."
         )
-    trouve = " (chemins Tcl résolus)" if pose else ""
-    return True, f"Tkinter {tkinter.TkVersion}{trouve}"
+    found = " (chemins Tcl résolus)" if pose else ""
+    return True, f"Tkinter {tkinter.TkVersion}{found}"
 
 def _default_tcl() -> bool:
     """Vrai quand Tcl trouvera ses fichiers sans qu'on l'aide.

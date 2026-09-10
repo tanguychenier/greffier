@@ -77,7 +77,7 @@ def collapse_loops(
     """
     if len(utterances) < repeats:
         return list(utterances)
-    sortie: list[Utterance] = []
+    output: list[Utterance] = []
     i = 0
     while i < len(utterances):
         j = i + 1
@@ -87,13 +87,13 @@ def collapse_loops(
             and utterances[j].span.start - utterances[j - 1].span.end <= gap
         ):
             j += 1
-        combien = j - i
-        if combien >= repeats:
-            sortie.append(replace(
+        how_many = j - i
+        if how_many >= repeats:
+            output.append(replace(
                 utterances[i],
                 span=Span(utterances[i].span.start, utterances[j - 1].span.end),
             ))
         else:
-            sortie.extend(utterances[i:j])
+            output.extend(utterances[i:j])
         i = j
-    return sortie
+    return output

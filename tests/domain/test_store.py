@@ -92,12 +92,12 @@ class TestResume:
             offer(Path("b.mp4"), 50_000_000, TOUS),
             offer(Path("c.md"), 4_000, TOUS),
         ]
-        phrase = summarise(propositions)
-        assert "réunion" in phrase and "vidéo" in phrase and "contexte" in phrase
+        sentence = summarise(propositions)
+        assert "réunion" in sentence and "vidéo" in sentence and "contexte" in sentence
 
     def test_il_signale_ce_qui_attend_un_outil(self):
-        phrase = summarise([offer(Path("a.mp4"), 50_000_000, frozenset())])
-        assert "attente d'un outil" in phrase
+        sentence = summarise([offer(Path("a.mp4"), 50_000_000, frozenset())])
+        assert "attente d'un outil" in sentence
 
     def test_un_lot_vide_le_dit(self):
         assert summarise([]) == "Aucun fichier."

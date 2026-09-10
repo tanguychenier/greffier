@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 NATIF_MACOS = "Library/Application Support/Greffier"
-FICHIERS_CONFIG = ("config.toml", ".env")
+CONFIG_FILES = ("config.toml", ".env")
 
 def _system(system: str | None) -> str:
     return system or platform.system()
@@ -50,7 +50,7 @@ def data_folder(system: str | None = None) -> Path:
     return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "greffier"
 
 def _holds_configuration(folder: Path) -> bool:
-    return any((folder / name).exists() for name in FICHIERS_CONFIG)
+    return any((folder / name).exists() for name in CONFIG_FILES)
 
 def relocate(system: str | None = None) -> list[tuple[Path, Path]]:
     """Brings out of hidden folders what an earlier version put there."""

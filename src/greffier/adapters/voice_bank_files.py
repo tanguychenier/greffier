@@ -35,9 +35,9 @@ class FileVoiceBank:
             return []
         known = []
         for file in sorted(self.folder.glob("*.json")):
-            personne = self._read(file)
-            if personne is not None:
-                known.append(personne)
+            person = self._read(file)
+            if person is not None:
+                known.append(person)
         return known
 
     def _read(self, file: Path) -> Person | None:
@@ -67,35 +67,35 @@ class FileVoiceBank:
     def forget_a_meeting(self, identifier: str) -> dict[str, int]:
         """Removes from the whole bank the voiceprints from one meeting."""
         retires: dict[str, int] = {}
-        for personne in self.people():
+        for person in self.people():
             rangs = [
-                rank for rank, voiceprint in enumerate(personne.voiceprints)
+                rank for rank, voiceprint in enumerate(person.voiceprints)
                 if voiceprint.origin == identifier
             ]
             if rangs:
-                retires[personne.name] = self.remove_voiceprints(personne.name, rangs)
+                retires[person.name] = self.remove_voiceprints(person.name, rangs)
         return retires
 
     def record(self, name: str, voiceprint: Voiceprint) -> Person:
         """Adds a voiceprint to someone, creating them if needed."""
-        personne = self.find(name) or Person(name=name)
-        enrichir(personne, voiceprint, maximum=self.maximum)
-        personne.seen_at = datetime.now(UTC)
-        self._write(personne)
-        return personne
+        person = self.find(name) or Person(name=name)
+        enrichir(person, voiceprint, maximum=self.maximum)
+        person.seen_at = datetime.now(UTC)
+        self._write(person)
+        return person
 
-    def _write(self, personne: Person) -> Path:
+    def _write(self, person: Person) -> Path:
         self.folder.mkdir(parents=True, exist_ok=True)
-        path = self.folder / f"{_file_at(personne.name)}.json"
+        path = self.folder / f"{_file_at(person.name)}.json"
         content = {
             "format": FORMAT,
-            "nom": personne.name,
-            "vu_le": personne.seen_at.isoformat() if personne.seen_at else None,
-            "reunions": personne.meetings,
+            "nom": person.name,
+            "vu_le": person.seen_at.isoformat() if person.seen_at else None,
+            "reunions": person.meetings,
             "empreintes": [
                 {"vecteur": list(e.vector), "duree": e.source_duration,
                  "origine": e.origin}
-                for e in personne.voiceprints
+                for e in person.voiceprints
             ],
         }
         temporary = path.with_suffix(".json.partiel")
@@ -103,15 +103,15 @@ class FileVoiceBank:
         temporary.replace(path)
         return path
 
-    def rename(self, former: str, nouveau: str) -> Person:
+    def rename(self, former: str, fresh: str) -> Person:
         """Fixes a mistyped name, without losing the voiceprints."""
-        personne = self.find(former)
-        if personne is None:
+        person = self.find(former)
+        if person is None:
             raise KeyError(f"« {former} » n'est pas dans la banque de voix.")
         (self.folder / f"{_file_at(former)}.json").unlink()
-        personne.name = nouveau
-        self._write(personne)
-        return personne
+        person.name = fresh
+        self._write(person)
+        return person
 
     def join(self, garde: str, absorbe: str) -> Person:
         """Joins two entries that named the same person."""
@@ -128,19 +128,19 @@ class FileVoiceBank:
 
     def remove_voiceprints(self, name: str, rangs: list[int]) -> int:
         """Removes specific voiceprints, without erasing the person."""
-        personne = self.find(name)
-        if personne is None:
+        person = self.find(name)
+        if person is None:
             return 0
-        a_retirer = {r for r in rangs if 0 <= r < len(personne.voiceprints)}
+        a_retirer = {r for r in rangs if 0 <= r < len(person.voiceprints)}
         if not a_retirer:
             return 0
-        personne.voiceprints = [
-            e for i, e in enumerate(personne.voiceprints) if i not in a_retirer
+        person.voiceprints = [
+            e for i, e in enumerate(person.voiceprints) if i not in a_retirer
         ]
-        if not personne.voiceprints:
+        if not person.voiceprints:
             self.forget(name)
             return len(a_retirer)
-        self._write(personne)
+        self._write(person)
         return len(a_retirer)
 
     def forget(self, name: str) -> bool:

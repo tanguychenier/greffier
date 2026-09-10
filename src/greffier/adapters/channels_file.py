@@ -27,11 +27,11 @@ class Channels:
 
 def levels_per_frame(signal: np.ndarray, frequency: int) -> list[float]:
     """The level of each frame, in decibels."""
-    pas = int(frequency * TRAME_S) or 1
-    utiles = len(signal) // pas
+    step = int(frequency * TRAME_S) or 1
+    utiles = len(signal) // step
     if utiles == 0:
         return []
-    trames = signal[: utiles * pas].reshape(utiles, pas)
+    trames = signal[: utiles * step].reshape(utiles, step)
     rms = np.sqrt(np.mean(trames.astype(np.float64) ** 2, axis=1))
     return [float(x) for x in 20 * np.log10(np.maximum(rms, _PLANCHER_LOG))]
 
