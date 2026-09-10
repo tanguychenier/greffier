@@ -25,7 +25,7 @@ from greffier.domain.models import Span, SpeakerTurn, Utterance
 from greffier.ports import outbound
 
 
-class Transcrite(Protocol):
+class Transcribed(Protocol):
     """Ce qu'il faut savoir d'une réunion pour la restituer.
 
     Un `Protocol` plutôt qu'un type concret : le résultat d'un traitement en
@@ -196,7 +196,7 @@ def hardware_header(events: list[str]) -> str:
     )
     return "\n".join(lines) + "\n\n"
 
-def reliability_header(meeting: Transcrite) -> str:
+def reliability_header(meeting: Transcribed) -> str:
     """Ce que la transcription a perdu, dit au rédacteur avant le texte.
 
     Sans cela, le compte rendu présente comme complet un texte qui ne l'est pas.
@@ -232,7 +232,7 @@ def reliability_header(meeting: Transcrite) -> str:
         )
     return "\n".join(lines) + "\n\n"
 
-def render_transcript(meeting: Transcrite, header: str = "") -> str:
+def render_transcript(meeting: Transcribed, header: str = "") -> str:
     """Transcription lisible, horodatée et attribuée.
 
     C'est ce texte qui part au rédacteur : les horodatages y restent, pour que
@@ -300,7 +300,7 @@ def regenerate_minutes(
     return writer.write_up(render_transcript(meeting, header))
 
 def notable_passages(
-    meeting: Transcrite,
+    meeting: Transcribed,
     duree_visee: float = 300.0,
     duree_minimale: float = 8.0,
 ) -> list[Span]:

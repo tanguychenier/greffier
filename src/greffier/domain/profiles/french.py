@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 
-from greffier.domain.language import Decoupage, Detection, LanguageProfile, Redaction
+from greffier.domain.language import Detection, LanguageProfile, Splitting, Wording
 from greffier.domain.models import MentionKind
 
 _NAME = r"(?P<nom>[A-ZÉÈÊÀÂÎÔÛÇ][\w'’-]{1,19})"
@@ -122,6 +122,6 @@ FRENCH = LanguageProfile(
         suffixe_adverbial="ment",
         longueur_du_suffixe=8,
     ),
-    decoupage=Decoupage(mots_separes_par_des_espaces=True),
-    redaction=Redaction(boilerplate=BOILERPLATE, motifs_de_decision=tuple(_DECISIONS)),
+    decoupage=Splitting(mots_separes_par_des_espaces=True),
+    redaction=Wording(boilerplate=BOILERPLATE, motifs_de_decision=tuple(_DECISIONS)),
 )

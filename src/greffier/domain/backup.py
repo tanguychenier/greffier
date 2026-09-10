@@ -49,7 +49,7 @@ ECARTES = {
 KEPT = 7
 
 @dataclass(frozen=True, slots=True)
-class Nom:
+class BackupName:
     """Le nom d'une sauvegarde : sa date, jusqu'à la minute.
 
     À la minute et non au jour : on sauvegarde avant une opération risquée, et
@@ -77,7 +77,7 @@ def to_erase(names: list[str], kept: int = KEPT) -> list[str]:
     Ne rend jamais la plus récente, quel que soit le compte demandé : une
     rotation qui peut tout effacer n'est pas une rotation, c'est une purge.
     """
-    datees = [(Nom.read(name), name) for name in names]
+    datees = [(BackupName.read(name), name) for name in names]
     connues = sorted(
         ((quand, name) for quand, name in datees if quand is not None),
         reverse=True,

@@ -90,7 +90,7 @@ class Abandon(Exception):
 
 # ----------------------------------------------------------------- décisions
 
-class Contexte:
+class Context:
     def __init__(self, args):
         self.oui = args.oui
         self.check_only = args.check
@@ -1037,7 +1037,7 @@ def main():
     # continuerait d'y écrire.
     if not args.check:
         etape_emplacements()
-    ctx = Contexte(args)
+    ctx = Context(args)
 
     try:
         engine = etape_outils(ctx)

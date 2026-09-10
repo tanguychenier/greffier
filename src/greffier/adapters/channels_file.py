@@ -29,7 +29,7 @@ _PLANCHER_RMS = 1e-5
 _PLANCHER_LOG = 1e-12
 
 @dataclass(frozen=True)
-class Canaux:
+class Channels:
     """Les deux provenances, séparées, et ce qu'elles impliquent."""
 
     mic: np.ndarray | None
@@ -48,7 +48,7 @@ def levels_per_frame(signal: np.ndarray, frequency: int) -> list[float]:
 
 def separer_canaux(
     data: np.ndarray, frequency: int = 16000, distante: bool | None = None
-) -> Canaux:
+) -> Channels:
     """Sépare le micro de la boucle, et dit si la réunion était à distance.
 
     `distante` impose la réponse au lieu de la chercher. C'est ce dont le direct
@@ -69,7 +69,7 @@ def separer_canaux(
     """
     if data.ndim < 2 or data.shape[1] < 2:
         mono = data if data.ndim == 1 else data[:, 0]
-        return Canaux(mic=None, system=mono, distante=False)
+        return Channels(mic=None, system=mono, distante=False)
     boucle = data[:, 1:]
     actifs = [
         i for i in range(boucle.shape[1])
@@ -78,18 +78,18 @@ def separer_canaux(
     mic = data[:, 0]
     if not actifs:
         if distante:
-            return Canaux(mic=mic, system=boucle.mean(axis=1), distante=True)
-        return Canaux(mic=mic, system=mic, distante=False)
+            return Channels(mic=mic, system=boucle.mean(axis=1), distante=True)
+        return Channels(mic=mic, system=mic, distante=False)
     system = boucle[:, actifs].mean(axis=1)
     if distante:
-        return Canaux(mic=mic, system=system, distante=True)
+        return Channels(mic=mic, system=system, distante=True)
     if not over_video(
         levels_per_frame(mic, frequency), levels_per_frame(system, frequency)
     ):
-        return Canaux(mic=mic, system=mic, distante=False)
-    return Canaux(mic=mic, system=system, distante=True)
+        return Channels(mic=mic, system=mic, distante=False)
+    return Channels(mic=mic, system=system, distante=True)
 
-class LecteurCanauxFichier:
+class FileChannelReader:
     """Lit un enregistrement et rend les passages venus du micro.
 
     Sert le port `LecteurDeCanaux` : le direct a besoin de savoir, pour chaque

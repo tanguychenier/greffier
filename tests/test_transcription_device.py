@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from greffier.adapters.transcription_faster_whisper import TranscripteurFasterWhisper
+from greffier.adapters.transcription_faster_whisper import FasterWhisperTranscriber
 
 
 class FauxSegment:
@@ -44,7 +44,7 @@ class TestRepliSurLeProcesseur:
 
                 return segments(), None
 
-        transcriber = TranscripteurFasterWhisper()
+        transcriber = FasterWhisperTranscriber()
 
         def load():
             requests.append(transcriber.peripherique)

@@ -46,7 +46,7 @@ def lire_srt(path: Path) -> list[Utterance]:
             ))
     return utterances
 
-class TranscripteurWhisperCpp:
+class WhisperCppTranscriber:
     def __init__(self, model: Path, vad: Path | None = None, fils: int = 8) -> None:
         if not model.exists():
             raise FileNotFoundError(f"modèle de transcription introuvable : {model}")

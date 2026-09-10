@@ -20,8 +20,8 @@ from pathlib import Path
 
 from greffier.domain.recorder import (
     DISQUE_NECESSAIRE_GO,
-    Constat,
     Diagnostic,
+    Reading,
     Recorder,
 )
 
@@ -113,7 +113,7 @@ def claude_signed_in() -> bool:
     return bool(content.get("oauthAccount") or content.get("userID"))
 
 @dataclass(frozen=True)
-class CompteClaude:
+class ClaudeAccount:
     """Qui rédige, vu du poste. Lu du fichier de session, jamais du réseau."""
 
     adresse: str
@@ -124,7 +124,7 @@ class CompteClaude:
         chunks = [m for m in (self.adresse, self.organisation) if m]
         return " · ".join(chunks) if chunks else "session ouverte"
 
-def claude_account() -> CompteClaude | None:
+def claude_account() -> ClaudeAccount | None:
     """Le compte Claude Code connecté, ou None si aucune session.
 
     On lit le marqueur de session plutôt que d'interroger l'API : la fenêtre
@@ -140,7 +140,7 @@ def claude_account() -> CompteClaude | None:
     count = content.get("oauthAccount") or {}
     if not (count or content.get("userID")):
         return None
-    return CompteClaude(
+    return ClaudeAccount(
         adresse=str(count.get("emailAddress") or ""),
         organisation=str(count.get("organizationName") or ""),
         formule=str(count.get("seatTier") or count.get("billingType") or ""),
@@ -157,7 +157,7 @@ def outlook_present() -> bool:
         return False
     return Path("/Applications/Microsoft Outlook.app").exists()
 
-def system_capture() -> Constat:
+def system_capture() -> Reading:
     """De quoi réenregistrer ce que jouent les haut-parleurs.
 
     C'est ce qui permet d'entendre les autres participants d'une visio. Le seul
@@ -167,7 +167,7 @@ def system_capture() -> Constat:
         output = subprocess.run(["system_profiler", "SPAudioDataType"],
                                 capture_output=True, text=True, check=False).stdout
         present = "BlackHole" in output
-        return Constat(
+        return Reading(
             name="Capture du son des autres participants",
             present=present,
             detail="BlackHole installé" if present else "BlackHole absent",
@@ -175,19 +175,19 @@ def system_capture() -> Constat:
         )
     if SYSTEM == "Linux":
         present = sound_server_present()
-        return Constat(
+        return Reading(
             name="Capture du son des autres participants",
             present=present,
             detail="moniteur PipeWire/PulseAudio" if present else "aucun serveur de son",
             remede="installe « pipewire-pulse » ou « pulseaudio »",
         )
-    return Constat(
+    return Reading(
         name="Capture du son des autres participants",
         present=True,
         detail="boucle WASAPI intégrée à Windows",
     )
 
-def mic_present() -> Constat:
+def mic_present() -> Reading:
     detail = ""
     present = False
     if SYSTEM == "Darwin":
@@ -201,14 +201,14 @@ def mic_present() -> Constat:
     else:
         present = True
         detail = "supposé présent"
-    return Constat(name="Micro", present=present, detail=detail,
+    return Reading(name="Micro", present=present, detail=detail,
                    remede="branche un micro ou un casque", bloquant=True)
 
 def examine(data_folder: Path | None = None) -> Diagnostic:
     """Tout ce qu'il faut savoir avant de configurer quoi que ce soit."""
     infos = recorder(data_folder)
     constats = [
-        Constat(
+        Reading(
             name="ffmpeg", present=shutil.which("ffmpeg") is not None,
             detail="enregistrement et conversion audio",
             remede="brew install ffmpeg" if SYSTEM == "Darwin" else "installe ffmpeg",
@@ -216,22 +216,22 @@ def examine(data_folder: Path | None = None) -> Diagnostic:
         ),
         mic_present(),
         system_capture(),
-        Constat(
+        Reading(
             name="Claude Code", present=claude_installed(),
             detail=claude_version() or "absent",
             remede=COMMANDE_INSTALLER_CLAUDE.get(SYSTEM, ""),
         ),
-        Constat(
+        Reading(
             name="Session Claude", present=claude_signed_in(),
             detail="authentifiée" if claude_signed_in() else "jamais connectée",
             remede="lance « claude » une fois et connecte-toi",
         ),
-        Constat(
+        Reading(
             name="Mémoire vive", present=infos.supports_large_model,
             detail=f"{infos.memory_gb:.0f} Go — modèle conseillé : {infos.advised_model}",
             remede="un modèle plus petit sera utilisé, la transcription sera moins fine",
         ),
-        Constat(
+        Reading(
             name="Espace disque", present=infos.disque_libre_go >= DISQUE_NECESSAIRE_GO,
             detail=(f"{infos.disque_libre_go:.0f} Go libres, "
                     f"{DISQUE_NECESSAIRE_GO:.0f} Go nécessaires"),

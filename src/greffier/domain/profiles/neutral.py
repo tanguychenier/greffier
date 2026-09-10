@@ -21,11 +21,11 @@ valable passerait pour vide.
 
 from __future__ import annotations
 
-from greffier.domain.language import Decoupage, Detection, LanguageProfile
+from greffier.domain.language import Detection, LanguageProfile, Splitting
 
 NEUTRAL = LanguageProfile(
     code="",
     name="",
     detection=Detection(active=False),
-    decoupage=Decoupage(mots_separes_par_des_espaces=False),
+    decoupage=Splitting(mots_separes_par_des_espaces=False),
 )

@@ -2,11 +2,11 @@
 
 from pathlib import Path
 
-from greffier.application.tidy import Emplacements, forget, pieces_de, readable
+from greffier.application.tidy import Places, forget, pieces_de, readable
 
 
-def locations(racine: Path) -> Emplacements:
-    ou = Emplacements(
+def locations(racine: Path) -> Places:
+    ou = Places(
         meetings=racine / "reunions",
         recordings=racine / "enregistrements",
         transcripts=racine / "transcriptions",
@@ -20,7 +20,7 @@ def locations(racine: Path) -> Emplacements:
     return ou
 
 
-def poser_une_reunion(ou: Emplacements, identifier: str = "2026-09-09_10h05_reunion") -> None:
+def poser_une_reunion(ou: Places, identifier: str = "2026-09-09_10h05_reunion") -> None:
     (ou.recordings / f"{identifier}.wav").write_bytes(b"x" * 5000)
     (ou.meetings / f"{identifier}.json").write_text("{}", encoding="utf-8")
     (ou.transcripts / f"{identifier}.txt").write_text("bonjour", encoding="utf-8")
@@ -94,9 +94,9 @@ class TestRangementSelonLaRetention:
     """Constater d'abord : effacer un enregistrement ne se rattrape pas."""
 
     def regle_courante(self):
-        from greffier.domain.retention import Regle
+        from greffier.domain.retention import Rule
 
-        return Regle(compresser_apres=7, effacer_apres=0)
+        return Rule(compresser_apres=7, effacer_apres=0)
 
     def test_constater_ne_touche_a_rien(self, tmp_path):
         from greffier.application.tidy import tidy
@@ -167,12 +167,12 @@ class TestRangementSelonLaRetention:
 
     def test_l_effacement_libere_tout_l_audio(self, tmp_path):
         from greffier.application.tidy import tidy
-        from greffier.domain.retention import Regle
+        from greffier.domain.retention import Rule
 
         ou = locations(tmp_path)
         poser_une_reunion(ou, "2026-01-01_09h00_ancienne")
         audio = ou.recordings / "2026-01-01_09h00_ancienne.wav"
-        faits = tidy(ou, Regle(compresser_apres=7, effacer_apres=90),
+        faits = tidy(ou, Rule(compresser_apres=7, effacer_apres=90),
                        [("2026-01-01_09h00_ancienne", 200.0, True)],
                        compresser=lambda c: c, for_real=True)
         assert faits[0].geste == "effacer"
@@ -191,7 +191,7 @@ class TestToutCeQuiAppartientALaReunion:
     """
 
     def place(self, tmp_path, identifier="reunion-1"):
-        from greffier.application.tidy import Emplacements
+        from greffier.application.tidy import Places
 
         for name in ("enregistrements", "reunions", "transcriptions",
                     "comptes-rendus", "direct", "propositions", "questions",
@@ -201,7 +201,7 @@ class TestToutCeQuiAppartientALaReunion:
         (tmp_path / "conversations" / f"{identifier}.jsonl").write_text("{}\n")
         (tmp_path / "pieces" / identifier).mkdir()
         (tmp_path / "pieces" / identifier / "ordre-du-jour.txt").write_text("x")
-        return Emplacements(
+        return Places(
             meetings=tmp_path / "reunions",
             recordings=tmp_path / "enregistrements",
             transcripts=tmp_path / "transcriptions",
@@ -237,9 +237,9 @@ class TestToutCeQuiAppartientALaReunion:
 
     def test_les_emplacements_facultatifs_restent_facultatifs(self, tmp_path):
         """Les appels existants construisent six champs, pas neuf."""
-        from greffier.application.tidy import Emplacements, pieces_de
+        from greffier.application.tidy import Places, pieces_de
 
-        ou = Emplacements(
+        ou = Places(
             meetings=tmp_path, recordings=tmp_path, transcripts=tmp_path,
             minutes_folder=tmp_path, live=tmp_path, propositions=tmp_path,
         )

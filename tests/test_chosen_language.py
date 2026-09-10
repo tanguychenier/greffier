@@ -15,7 +15,7 @@ Le troisième : les consignes de rédaction. Cent lignes d'ajustements gagnés s
 de vraies réunions — le français doit en ressortir caractère pour caractère.
 """
 
-from greffier.adapters.assistant_terminal import Reponses
+from greffier.adapters.assistant_terminal import Answers
 from greffier.adapters.configuration import SECTIONS, Config, render
 from greffier.adapters.writer_claude import GUIDANCE, guidance
 from greffier.adapters.writer_ollama import GUIDANCE as CONSIGNES_OLLAMA
@@ -25,14 +25,14 @@ from greffier.domain.languages import LANGUAGES, eprouvee, label_text, nom_de
 
 class TestLaLangueNAtterritJamaisDansLeEnv:
     def test_elle_va_dans_les_reglages(self):
-        answers = Reponses()
+        answers = Answers()
         answers.set_up("transcription", "langue", "de")
 
         assert answers.reglages == {"transcription": {"langue": "de"}}
 
     def test_et_pas_dans_le_env(self):
         """Sinon la liste déroulante des Réglages ne pourrait plus rien changer."""
-        answers = Reponses()
+        answers = Answers()
         answers.set_up("transcription", "langue", "de")
         answers.set_up("compte_rendu", "langue", "fr")
 

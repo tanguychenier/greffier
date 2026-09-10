@@ -61,7 +61,7 @@ class Ticket:
 
 
 @dataclass
-class Proposition:
+class Suggestion:
     tickets: list[Ticket] = field(default_factory=list)
     brut: str = ""
 
@@ -100,7 +100,7 @@ def extract_json(response: str) -> list[object]:
     return charge if isinstance(charge, list) else []
 
 
-def depuis_reponse(response: str) -> Proposition:
+def depuis_reponse(response: str) -> Suggestion:
     """Construit les tickets à partir de ce que le rédacteur a rendu."""
     tickets = []
     for item in extract_json(response):
@@ -116,9 +116,9 @@ def depuis_reponse(response: str) -> Proposition:
             echeance=str(item.get("echeance", "")).strip(),
             extrait=str(item.get("extrait", "")).strip(),
         ))
-    return Proposition(tickets=tickets, brut=response)
+    return Suggestion(tickets=tickets, brut=response)
 
 
-def offer(minutes: str, writer: Writer) -> Proposition:
+def offer(minutes: str, writer: Writer) -> Suggestion:
     """Demande les tickets au même rédacteur que le compte rendu."""
     return depuis_reponse(writer.write_up(GUIDANCE + minutes))

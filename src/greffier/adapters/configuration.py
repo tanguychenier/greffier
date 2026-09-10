@@ -404,7 +404,7 @@ class Config(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        return (init_settings, env_settings, dotenv_settings, _SourceToml(settings_cls))
+        return (init_settings, env_settings, dotenv_settings, _TomlSource(settings_cls))
 
     @classmethod
     def load(cls, file: Path | None = None) -> Config:
@@ -427,7 +427,7 @@ def _read_toml(path: Path) -> dict[str, object]:
     except tomllib.TOMLDecodeError as erreur:
         raise ValueError(f"{path} est illisible : {erreur}") from erreur
 
-class _SourceToml(PydanticBaseSettingsSource):
+class _TomlSource(PydanticBaseSettingsSource):
     """Lit `config.toml` s'il existe, en dernier recours."""
 
     def get_field_value(  # pragma: no cover - la source ne lit jamais champ par champ

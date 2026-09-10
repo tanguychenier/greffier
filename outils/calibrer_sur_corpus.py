@@ -100,7 +100,7 @@ def empreinte_de(file: Path, extractor) -> object | None:
 
 def main() -> int:
     from greffier.adapters.configuration import Config
-    from greffier.adapters.voiceprints_titanet import ExtracteurTitaNet
+    from greffier.adapters.voiceprints_titanet import TitaNetExtractor
     from greffier.domain.voiceprints import (
         MARGE_MINIMALE,
         SEUIL_RECONNAISSANCE,
@@ -120,7 +120,7 @@ def main() -> int:
     if not model.exists():
         print(f"Modèle d'empreintes absent : {model}")
         return 1
-    extractor = ExtracteurTitaNet(model)
+    extractor = TitaNetExtractor(model)
 
     print(f"{len(files)} enregistrement(s), {DURATION:.0f} s lus au milieu, "
           f"les {PART_RETENUE:.0%} de fenêtres les plus fortes retenues\n")

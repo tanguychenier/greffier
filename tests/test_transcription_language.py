@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from greffier.adapters.transcription_whisper_cpp import TranscripteurWhisperCpp
+from greffier.adapters.transcription_whisper_cpp import WhisperCppTranscriber
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ class TestWhisperCpp:
 
         monkeypatch.setattr(
             "greffier.adapters.transcription_whisper_cpp.subprocess.run", faux_run)
-        TranscripteurWhisperCpp(model).transcribe(model, language, "")
+        WhisperCppTranscriber(model).transcribe(model, language, "")
         return vue["commande"]
 
     def test_une_langue_donnee_est_transmise(self, monkeypatch, model):
@@ -57,8 +57,8 @@ class TestFasterWhisper:
                 vue["language"] = options.get("language")
                 return iter(()), None
 
-        transcriber = adaptateur.TranscripteurFasterWhisper.__new__(
-            adaptateur.TranscripteurFasterWhisper)
+        transcriber = adaptateur.FasterWhisperTranscriber.__new__(
+            adaptateur.FasterWhisperTranscriber)
         monkeypatch.setattr(transcriber, "_load", lambda: FauxModele(), raising=False)
         transcriber.transcribe(Path("essai.wav"), language, "")
         return vue["language"]

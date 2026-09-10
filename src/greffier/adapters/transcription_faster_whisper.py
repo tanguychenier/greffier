@@ -53,7 +53,7 @@ def _show_cuda_to_the_loader() -> None:
         with contextlib.suppress(OSError):
             ctypes.CDLL(str(path), mode=ctypes.RTLD_GLOBAL)
 
-class TranscripteurFasterWhisper:
+class FasterWhisperTranscriber:
     def __init__(self, taille: str = "large-v3", peripherique: str = "auto") -> None:
         self.taille = taille
         self.peripherique = peripherique

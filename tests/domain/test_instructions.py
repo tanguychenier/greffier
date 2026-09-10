@@ -1,8 +1,8 @@
 """Ce qui, pendant la réunion, appelle une action."""
 
 from greffier.domain.instructions import (
-    Genre,
-    Origine,
+    Kind,
+    Origin,
     WatchRules,
     decisions_in,
     instruction_after,
@@ -87,12 +87,12 @@ class TestVeille:
         watch_rules.paste("https://a.fr", 1)
         watch_rules.listen([utterance(2, "Greffier, note le sujet")])
         origines = {p.origine for p in watch_rules.propositions}
-        assert origines == {Origine.PRESSE_PAPIER, Origine.PAROLE}
+        assert origines == {Origin.PRESSE_PAPIER, Origin.PAROLE}
 
     def test_une_instruction_n_est_pas_reclassee_en_decision(self):
         watch_rules = WatchRules(profil=FRENCH)
         watch_rules.listen([utterance(3, "Greffier, note qu'il faut qu'on relance")])
-        assert [p.kind for p in watch_rules.propositions] == [Genre.INSTRUCTION]
+        assert [p.kind for p in watch_rules.propositions] == [Kind.INSTRUCTION]
 
     def test_le_contexte_de_l_instruction_est_gardé(self):
         watch_rules = WatchRules(profil=FRENCH)
@@ -108,5 +108,5 @@ class TestVeille:
         watch_rules = WatchRules(profil=FRENCH)
         watch_rules.paste("https://a.fr https://b.fr", 1)
         watch_rules.listen([utterance(2, "on décide de reporter la mise en production")])
-        assert len(watch_rules.by_gender(Genre.LIEN)) == 2
-        assert len(watch_rules.by_gender(Genre.DECISION)) == 1
+        assert len(watch_rules.by_gender(Kind.LIEN)) == 2
+        assert len(watch_rules.by_gender(Kind.DECISION)) == 1

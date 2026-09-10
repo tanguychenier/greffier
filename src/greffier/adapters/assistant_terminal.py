@@ -34,7 +34,7 @@ from greffier.locations import config_folder, data_folder
 SYSTEM = platform.system()
 
 @dataclass
-class Reponses:
+class Answers:
     """Ce que l'assistant a retenu, prêt à devenir un `.env`."""
 
     values: dict[str, str] = field(default_factory=dict)
@@ -68,7 +68,7 @@ class Dialogue:
     show: Callable[[str], None]
     choose: Callable[[str, list[tuple[str, str]], int], str]
 
-def language_step(dialogue: Dialogue, state: Diagnostic, answers: Reponses) -> None:
+def language_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
     """Dans quelle langue se tiennent les réunions, et s'écrivent les comptes rendus.
 
     Première question, parce qu'elle change ce que tout le reste sait faire : la
@@ -116,7 +116,7 @@ def _system_language() -> str:
                 return code
     return "fr"
 
-def hardware_step(dialogue: Dialogue, state: Diagnostic, answers: Reponses) -> None:
+def hardware_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
     """Constate la machine et annonce ce qui en découle."""
     recorder = state.recorder
     dialogue.show(
@@ -139,7 +139,7 @@ def hardware_step(dialogue: Dialogue, state: Diagnostic, answers: Reponses) -> N
         "whisper.cpp" if recorder.system == "Darwin" else "faster-whisper",
     )
 
-def writer_step(dialogue: Dialogue, state: Diagnostic, answers: Reponses) -> None:
+def writer_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
     """Claude Code : installé ? authentifié ? sinon rien ne pourra être rédigé."""
     dialogue.show("\n— Qui rédige le compte rendu —")
 
@@ -199,7 +199,7 @@ def _ollama_usable() -> bool:
 
     return shutil.which("ollama") is not None
 
-def _ollama_model(dialogue: Dialogue, answers: Reponses) -> str:
+def _ollama_model(dialogue: Dialogue, answers: Answers) -> str:
     present_line = available_models()
     if present_line:
         dialogue.show(f"Modèles déjà présents : {', '.join(present_line[:5])}")
@@ -207,7 +207,7 @@ def _ollama_model(dialogue: Dialogue, answers: Reponses) -> str:
     answers.to_do.append("ollama pull qwen3:8b")
     return "qwen3:8b"
 
-def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Reponses) -> None:
+def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
     """Par courriel, ou dans un dossier ?"""
     dialogue.show("\n— Où arrive le compte rendu —")
 
@@ -254,7 +254,7 @@ def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Reponses) -> N
     )
     answers.to_do.append("export GREFFIER_SMTP_MOT_DE_PASSE='…'")
 
-def vocabulary_step(dialogue: Dialogue, state: Diagnostic, answers: Reponses) -> None:
+def vocabulary_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
     """Le réglage qui change le plus la qualité de la transcription."""
     dialogue.show("\n— Vocabulaire de tes réunions —")
     dialogue.show(
@@ -270,15 +270,15 @@ def vocabulary_step(dialogue: Dialogue, state: Diagnostic, answers: Reponses) ->
 
 ETAPES = [language_step, hardware_step, writer_step, delivery_step, vocabulary_step]
 
-def run_chain(dialogue: Dialogue, state: Diagnostic | None = None) -> Reponses:
+def run_chain(dialogue: Dialogue, state: Diagnostic | None = None) -> Answers:
     """Déroule l'assistant et rend ce qu'il a retenu."""
     state = state or diagnostic.examine(data_folder())
-    answers = Reponses()
+    answers = Answers()
     for etape in ETAPES:
         etape(dialogue, state, answers)
     return answers
 
-def write(answers: Reponses, file: Path | None = None) -> Path:
+def write(answers: Answers, file: Path | None = None) -> Path:
     """Range la configuration là où toutes les commandes la liront."""
     target = file or config_folder() / ".env"
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -288,7 +288,7 @@ def write(answers: Reponses, file: Path | None = None) -> Path:
     apply_settings(answers)
     return target
 
-def apply_settings(answers: Reponses) -> None:
+def apply_settings(answers: Answers) -> None:
     """Écrit dans `config.toml` ce que la fenêtre doit pouvoir rechanger.
 
     Séparé du `.env` à dessein : l'ordre de priorité est environnement, puis

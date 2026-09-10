@@ -40,11 +40,11 @@ def voiceprints_per_voice(meeting: dict, cache: Path) -> dict[str, list[Voicepri
     from greffier.adapters.voiceprints_titanet import (
         DUREE_MAXIMALE,
         DUREE_MINIMALE,
-        ExtracteurTitaNet,
+        TitaNetExtractor,
     )
 
     model = data_folder() / "modeles/diarisation/nemo_en_titanet_large.onnx"
-    extractor = ExtracteurTitaNet(model)
+    extractor = TitaNetExtractor(model)
 
     per_voice: dict[str, list[Span]] = defaultdict(list)
     for turn in meeting["tours"]:

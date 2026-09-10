@@ -187,7 +187,7 @@ Ce que tu ne fais jamais :
 N'emploie ni tiret cadratin ni demi-cadratin.
 """
 
-class RedacteurClaude:
+class ClaudeWriter:
     """Rédige le compte rendu en appelant Claude Code en ligne de commande.
 
     Le modèle est **demandé explicitement** plutôt que laissé au défaut de

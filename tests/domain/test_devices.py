@@ -11,8 +11,8 @@ import pytest
 
 from greffier.domain.devices import (
     Action,
-    Materiel,
-    Peripherique,
+    Device,
+    Hardware,
     WatchRules,
     advised_mic,
     choose_by_listening,
@@ -20,17 +20,17 @@ from greffier.domain.devices import (
     headsets_among,
 )
 
-JABRA_MICRO = Peripherique("Jabra EVOLVE 30 II", "jabra:1", entrees=1)
-JABRA_SORTIE = Peripherique("Jabra EVOLVE 30 II", "jabra:2", sorties=2)
-MICRO_INTEGRE = Peripherique("Micro MacBook Pro", "BuiltInMicrophoneDevice", entrees=1)
-HP_INTEGRES = Peripherique("Haut-parleurs MacBook Pro", "BuiltInSpeakerDevice", sorties=2)
-BLACKHOLE = Peripherique("BlackHole 2ch", "BlackHole2ch_UID", entrees=2, sorties=2)
-ECRAN = Peripherique("HP E273m", "220E6E34", sorties=2)
-REALTEK = Peripherique("Realtek USB2.0 Audio", "realtek:1", entrees=2)
-AGREGE = Peripherique("Reunion Entree", "com.reunions.entree", entrees=3, sorties=2)
+JABRA_MICRO = Device("Jabra EVOLVE 30 II", "jabra:1", entrees=1)
+JABRA_SORTIE = Device("Jabra EVOLVE 30 II", "jabra:2", sorties=2)
+MICRO_INTEGRE = Device("Micro MacBook Pro", "BuiltInMicrophoneDevice", entrees=1)
+HP_INTEGRES = Device("Haut-parleurs MacBook Pro", "BuiltInSpeakerDevice", sorties=2)
+BLACKHOLE = Device("BlackHole 2ch", "BlackHole2ch_UID", entrees=2, sorties=2)
+ECRAN = Device("HP E273m", "220E6E34", sorties=2)
+REALTEK = Device("Realtek USB2.0 Audio", "realtek:1", entrees=2)
+AGREGE = Device("Reunion Entree", "com.reunions.entree", entrees=3, sorties=2)
 
-SANS_CASQUE = Materiel((BLACKHOLE, HP_INTEGRES, MICRO_INTEGRE, AGREGE))
-AVEC_CASQUE = Materiel((BLACKHOLE, HP_INTEGRES, JABRA_MICRO, JABRA_SORTIE, MICRO_INTEGRE, AGREGE))
+SANS_CASQUE = Hardware((BLACKHOLE, HP_INTEGRES, MICRO_INTEGRE, AGREGE))
+AVEC_CASQUE = Hardware((BLACKHOLE, HP_INTEGRES, JABRA_MICRO, JABRA_SORTIE, MICRO_INTEGRE, AGREGE))
 
 
 @pytest.fixture
@@ -76,7 +76,7 @@ class TestCasqueDebranche:
         # Débrancher le casque quand il n'y a rien d'autre : couper
         # l'enregistrement perdrait aussi la voix des autres, qui arrive par
         # BlackHole. On prévient, on continue.
-        rien = Materiel((BLACKHOLE, HP_INTEGRES, AGREGE))
+        rien = Hardware((BLACKHOLE, HP_INTEGRES, AGREGE))
         decision = watch_rules.examine(AVEC_CASQUE, rien)
         assert decision.action is Action.ALERTER
         assert "ta voix n'est plus enregistrée" in decision.because
@@ -84,7 +84,7 @@ class TestCasqueDebranche:
     def test_blackhole_n_est_jamais_choisi_comme_micro(self, watch_rules: WatchRules) -> None:
         # BlackHole capte la sortie du système, jamais une bouche. Le prendre
         # pour micro produirait une réunion où personne n'est enregistré.
-        rien = Materiel((BLACKHOLE, HP_INTEGRES, AGREGE))
+        rien = Hardware((BLACKHOLE, HP_INTEGRES, AGREGE))
         assert watch_rules.examine(AVEC_CASQUE, rien).mic == ""
 
 
@@ -104,8 +104,8 @@ class TestBranchementsSuccessifs:
 
     def test_un_second_casque_branche_est_pris_si_le_premier_manque(self) -> None:
         watch_rules = WatchRules(micro_voulu="Casque absent")
-        autre = Peripherique("Poly Blackwire", "poly:1", entrees=1)
-        apres = Materiel((BLACKHOLE, MICRO_INTEGRE, autre, AGREGE))
+        autre = Device("Poly Blackwire", "poly:1", entrees=1)
+        apres = Hardware((BLACKHOLE, MICRO_INTEGRE, autre, AGREGE))
         decision = watch_rules.examine(SANS_CASQUE, apres)
         assert decision.action is Action.RECONSTRUIRE
         # Un micro externe mono passe devant le micro intégré : c'est la forme
@@ -118,7 +118,7 @@ class TestChangementsSansEffet:
         assert watch_rules.examine(AVEC_CASQUE, AVEC_CASQUE).action is Action.RIEN
 
     def test_brancher_un_ecran_ne_touche_pas_a_la_capture(self, watch_rules: WatchRules) -> None:
-        apres = Materiel((*AVEC_CASQUE.devices, ECRAN))
+        apres = Hardware((*AVEC_CASQUE.devices, ECRAN))
         assert watch_rules.examine(AVEC_CASQUE, apres).action is Action.RIEN
 
     def test_le_casque_reste_present_quand_seule_la_sortie_bouge(
@@ -126,14 +126,14 @@ class TestChangementsSansEffet:
     ) -> None:
         # Le Jabra expose micro et écouteurs séparément : perdre la sortie ne
         # doit pas faire croire que le micro a disparu.
-        sans_sortie = Materiel(
+        sans_sortie = Hardware(
             tuple(p for p in AVEC_CASQUE.devices if p != JABRA_SORTIE)
         )
         assert watch_rules.examine(AVEC_CASQUE, sans_sortie).action is Action.RIEN
 
     def test_aucun_evenement_n_est_note_sans_changement(self, watch_rules: WatchRules) -> None:
         watch_rules.examine(AVEC_CASQUE, AVEC_CASQUE)
-        apres = Materiel((*AVEC_CASQUE.devices, ECRAN))
+        apres = Hardware((*AVEC_CASQUE.devices, ECRAN))
         watch_rules.examine(AVEC_CASQUE, apres)
         assert watch_rules.events == []
 
@@ -148,14 +148,14 @@ class TestAvantDeDemarrer:
         assert advised_mic(SANS_CASQUE, "Jabra EVOLVE 30 II") == "Micro MacBook Pro"
 
     def test_sans_le_moindre_micro_rien_n_est_conseille(self) -> None:
-        assert advised_mic(Materiel((BLACKHOLE, HP_INTEGRES)), "Jabra") == ""
+        assert advised_mic(Hardware((BLACKHOLE, HP_INTEGRES)), "Jabra") == ""
 
     def test_la_presence_du_casque_se_verifie_sur_son_entree(self) -> None:
         assert headset_present(AVEC_CASQUE, "Jabra EVOLVE 30 II")
         assert not headset_present(SANS_CASQUE, "Jabra EVOLVE 30 II")
 
     def test_un_peripherique_de_sortie_seule_n_est_pas_un_casque(self) -> None:
-        sortie_seule = Materiel((JABRA_SORTIE, HP_INTEGRES))
+        sortie_seule = Hardware((JABRA_SORTIE, HP_INTEGRES))
         assert not headset_present(sortie_seule, "Jabra EVOLVE 30 II")
 
 
@@ -167,21 +167,21 @@ class TestChoixDuMicroDeRepli:
         # station d'accueil ou d'un écran, sur laquelle rien n'est branché.
         # La préférer au micro du portable donnait un enregistrement muet.
         # Constaté en débranchant un casque sur un poste réel.
-        materiel = Materiel((BLACKHOLE, MICRO_INTEGRE, REALTEK, AGREGE))
+        materiel = Hardware((BLACKHOLE, MICRO_INTEGRE, REALTEK, AGREGE))
         assert advised_mic(materiel, "Casque absent") == "Micro MacBook Pro"
 
     def test_un_micro_externe_mono_passe_devant_le_micro_integre(self) -> None:
-        casque = Peripherique("Poly Blackwire", "poly:1", entrees=1)
-        materiel = Materiel((BLACKHOLE, MICRO_INTEGRE, casque, AGREGE))
+        casque = Device("Poly Blackwire", "poly:1", entrees=1)
+        materiel = Hardware((BLACKHOLE, MICRO_INTEGRE, casque, AGREGE))
         assert advised_mic(materiel, "Casque absent") == "Poly Blackwire"
 
     def test_une_entree_ligne_sert_quand_il_n_y_a_rien_d_autre(self) -> None:
         # Faute de mieux, mieux vaut tenter que ne rien capter du tout.
-        materiel = Materiel((BLACKHOLE, REALTEK, AGREGE))
+        materiel = Hardware((BLACKHOLE, REALTEK, AGREGE))
         assert advised_mic(materiel, "Casque absent") == "Realtek USB2.0 Audio"
 
     def test_l_agrege_n_est_jamais_propose_meme_seul(self) -> None:
-        assert advised_mic(Materiel((AGREGE, BLACKHOLE)), "Casque absent") == ""
+        assert advised_mic(Hardware((AGREGE, BLACKHOLE)), "Casque absent") == ""
 
 
 class TestChoixParEcoute:
@@ -261,7 +261,7 @@ class TestUnCasqueLEmporte:
     #: Le matériel réel de ce poste : le Jabra y est **deux** périphériques,
     #: une entrée et une sortie de même nom, ce qui est la forme habituelle
     #: d'un casque USB sur macOS.
-    MATERIEL = Materiel((
+    MATERIEL = Hardware((
         MICRO_INTEGRE, HP_INTEGRES, JABRA_MICRO, JABRA_SORTIE, BLACKHOLE,
     ))
 
@@ -281,9 +281,9 @@ class TestUnCasqueLEmporte:
         """Mesuré : entrée à 2 canaux et sortie à 4, contre 1 et 2 pour un
         casque. Sans ce critère, elle serait préférée au micro intégré alors
         que rien n'est branché dessus."""
-        realtek_entree = Peripherique("Realtek USB2.0 Audio", "generic:1", entrees=2)
-        realtek_sortie = Peripherique("Realtek USB2.0 Audio", "generic:2", sorties=4)
-        materiel = Materiel((
+        realtek_entree = Device("Realtek USB2.0 Audio", "generic:1", entrees=2)
+        realtek_sortie = Device("Realtek USB2.0 Audio", "generic:2", sorties=4)
+        materiel = Hardware((
             MICRO_INTEGRE, JABRA_MICRO, JABRA_SORTIE,
             realtek_entree, realtek_sortie,
         ))

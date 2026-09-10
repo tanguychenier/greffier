@@ -21,7 +21,7 @@ from greffier.domain.models import Source, Span, SpeakerTurn, Utterance
 
 FORMAT = 2
 
-class DepotFichiers:
+class FileStore:
     """Range et relit les fichiers maîtres, un par réunion."""
 
     def __init__(self, folder: Path) -> None:

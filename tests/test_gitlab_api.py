@@ -7,12 +7,12 @@ from io import BytesIO
 import pytest
 
 from greffier.adapters import gitlab_api
-from greffier.domain.sources import Droit, Genre, Source
+from greffier.domain.sources import Kind, Right, Source
 
 
-def source(droit: Droit = Droit.LECTURE) -> Source:
+def source(droit: Right = Right.LECTURE) -> Source:
     return Source(
-        name="recherche", kind=Genre.GITLAB,
+        name="recherche", kind=Kind.GITLAB,
         adresse="https://gitlab.example.fr", projet="equipe/outil",
         droit=droit, token="GREFFIER_GITLAB_JETON",
     )
@@ -111,7 +111,7 @@ class TestLecture:
         assert "search=envoi" in gitlab.premier.full_url
 
     def test_la_lecture_ne_demande_aucun_droit_d_ecriture(self, gitlab):
-        assert gitlab_api.tickets(source(Droit.LECTURE), "glpat-x") == []
+        assert gitlab_api.tickets(source(Right.LECTURE), "glpat-x") == []
 
     def test_les_demandes_de_fusion_se_lisent_aussi(self, gitlab):
         gitlab.charge = [UN_TICKET]
@@ -122,27 +122,27 @@ class TestLecture:
 
 class TestEcriture:
     def test_une_source_en_lecture_seule_n_appelle_meme_pas(self, muet):
-        with pytest.raises(gitlab_api.GitLabRefuse, match="lecture seule"):
+        with pytest.raises(gitlab_api.GitLabRefused, match="lecture seule"):
             gitlab_api.creer_un_ticket(source(), "glpat-x", "Faire la chose")
 
     def test_commenter_est_une_ecriture(self, muet):
         """Un commentaire notifie des gens et reste attaché à leur travail."""
-        with pytest.raises(gitlab_api.GitLabRefuse, match="lecture seule"):
+        with pytest.raises(gitlab_api.GitLabRefused, match="lecture seule"):
             gitlab_api.comment(source(), "glpat-x", 42, "vu")
 
     def test_un_titre_vide_est_refuse(self, muet):
-        with pytest.raises(gitlab_api.GitLabRefuse):
-            gitlab_api.creer_un_ticket(source(Droit.ECRITURE), "glpat-x", "  ")
+        with pytest.raises(gitlab_api.GitLabRefused):
+            gitlab_api.creer_un_ticket(source(Right.ECRITURE), "glpat-x", "  ")
 
     def test_un_commentaire_vide_est_refuse(self, muet):
-        with pytest.raises(gitlab_api.GitLabRefuse):
-            gitlab_api.comment(source(Droit.ECRITURE), "glpat-x", 42, "   ")
+        with pytest.raises(gitlab_api.GitLabRefused):
+            gitlab_api.comment(source(Right.ECRITURE), "glpat-x", 42, "   ")
 
     def test_le_ticket_cree_est_rendu_avec_son_adresse(self, gitlab):
         """Une écriture dont on ne montre pas le résultat n'est pas vérifiable."""
         gitlab.charge = UN_TICKET
         cree = gitlab_api.creer_un_ticket(
-            source(Droit.ECRITURE), "glpat-x", "Corriger l'envoi"
+            source(Right.ECRITURE), "glpat-x", "Corriger l'envoi"
         )
         assert cree.number == 42
         assert cree.adresse.endswith("/issues/42")
@@ -150,12 +150,12 @@ class TestEcriture:
 
     def test_le_corps_porte_le_titre_donne(self, gitlab):
         gitlab.charge = UN_TICKET
-        gitlab_api.creer_un_ticket(source(Droit.ECRITURE), "glpat-x", "Un titre")
+        gitlab_api.creer_un_ticket(source(Right.ECRITURE), "glpat-x", "Un titre")
         assert json.loads(gitlab.premier.data)["title"] == "Un titre"
 
     def test_un_commentaire_rend_l_adresse_du_ticket(self, gitlab):
         gitlab.charge = {"id": 7}
-        rendered = gitlab_api.comment(source(Droit.ECRITURE), "glpat-x", 42, "vu")
+        rendered = gitlab_api.comment(source(Right.ECRITURE), "glpat-x", 42, "vu")
         assert rendered.endswith("/equipe/outil/-/issues/42")
         assert gitlab.premier.method == "POST"
 
@@ -163,12 +163,12 @@ class TestEcriture:
 class TestQuandCaRateOnLeDit:
     def test_un_jeton_refuse_dit_la_portee_a_verifier(self, monkeypatch):
         echouer(monkeypatch, 401)
-        with pytest.raises(gitlab_api.GitLabRefuse, match="read_api"):
+        with pytest.raises(gitlab_api.GitLabRefused, match="read_api"):
             gitlab_api.tickets(source(), "glpat-perime")
 
     def test_un_projet_introuvable_dit_qu_un_projet_prive_fait_pareil(self, monkeypatch):
         echouer(monkeypatch, 404)
-        with pytest.raises(gitlab_api.GitLabRefuse, match="privé"):
+        with pytest.raises(gitlab_api.GitLabRefused, match="privé"):
             gitlab_api.tickets(source(), "glpat-x")
 
     def test_un_serveur_injoignable_est_dit_sans_faire_tomber(self, monkeypatch):
@@ -176,10 +176,10 @@ class TestQuandCaRateOnLeDit:
             raise urllib.error.URLError("nom introuvable")
 
         monkeypatch.setattr(gitlab_api.urllib.request, "urlopen", tomber)
-        with pytest.raises(gitlab_api.GitLabRefuse, match="injoignable"):
+        with pytest.raises(gitlab_api.GitLabRefused, match="injoignable"):
             gitlab_api.tickets(source(), "glpat-x")
 
     def test_une_reponse_inattendue_est_dite(self, gitlab):
         gitlab.charge = {"pas": "une liste"}
-        with pytest.raises(gitlab_api.GitLabRefuse):
+        with pytest.raises(gitlab_api.GitLabRefused):
             gitlab_api.tickets(source(), "glpat-x")

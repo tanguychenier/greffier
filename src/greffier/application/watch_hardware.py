@@ -18,17 +18,17 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from greffier.domain.capture import SurveillanceDeCapture
-from greffier.domain.devices import Action, Materiel, WatchRules
-from greffier.domain.level import SurveillanceDeNiveau
+from greffier.domain.capture import CaptureWatch
+from greffier.domain.devices import Action, Hardware, WatchRules
+from greffier.domain.level import LevelWatch
 from greffier.domain.models import Phase
 
 SPAN = 4.0
 
-class Listeur(Protocol):
+class Lister(Protocol):
     """Ce qu'on attend de la lecture du matériel."""
 
-    def read(self) -> Materiel: ...  # pragma: no cover
+    def read(self) -> Hardware: ...  # pragma: no cover
 
 class Recorder(Protocol):
     """Ce qu'on attend de la machine à états d'enregistrement.
@@ -44,11 +44,11 @@ class Recorder(Protocol):
     def report(self, warning: str) -> Any: ...  # pragma: no cover
 
 @dataclass
-class VeilleMateriel:
+class HardwareWatch:
     """Un tour de veille, isolé de l'horloge et du matériel pour être éprouvable."""
 
     recorder: Recorder
-    lister: Listeur
+    lister: Lister
     watch_rules: WatchRules
     reconstruire: Callable[[str], bool]
     notify_user: Callable[[str], None] = lambda _: None
@@ -57,9 +57,9 @@ class VeilleMateriel:
     span: float = SPAN
 
     def __post_init__(self) -> None:
-        self._precedent: Materiel | None = None
-        self._capture = SurveillanceDeCapture()
-        self._level = SurveillanceDeNiveau()
+        self._precedent: Hardware | None = None
+        self._capture = CaptureWatch()
+        self._level = LevelWatch()
 
     def recorded(self) -> bool:
         """Faux dès que l'enregistrement s'arrête : la veille n'a plus d'objet."""

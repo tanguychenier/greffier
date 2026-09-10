@@ -12,7 +12,7 @@ from __future__ import annotations
 import numpy as np
 
 from greffier.adapters.channels_file import (
-    LecteurCanauxFichier,
+    FileChannelReader,
     levels_per_frame,
     separer_canaux,
 )
@@ -83,7 +83,7 @@ class TestUneVisioResteUneVisio:
     ) -> None:
         import soundfile as sf
 
-        player = LecteurCanauxFichier()
+        player = FileChannelReader()
         assert not player.distante
         # Une tranche de visio : la boucle couvre le micro.
         visio = tmp_path / "visio.wav"
@@ -111,4 +111,4 @@ class TestLecture:
         # Une tranche découpée pendant l'écriture peut arriver tronquée : le
         # direct affiche alors la phrase sans « Toi », il ne s'arrête pas.
         absent = tmp_path / "rien.wav"
-        assert LecteurCanauxFichier().local_passages(absent) == []
+        assert FileChannelReader().local_passages(absent) == []
