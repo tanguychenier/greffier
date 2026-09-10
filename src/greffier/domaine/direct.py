@@ -54,6 +54,20 @@ from greffier.domaine.questions import distance
 #: fortement à la mauvaise personne, c'est sa brièveté qui la rend suspecte.
 MATIERE_MINIMALE_VOIX = 2.0
 
+#: Matière exigée avant de laisser la banque de voix nommer quelqu'un.
+#:
+#: Reconnaître demande davantage que rattacher. Mesuré en séance : sur une
+#: réunion de trente-deux minutes, la banque a collé « Kilian ? » sur une voix de
+#: trois tours et « Florent ? » sur une de quatre, alors que ni l'un ni l'autre
+#: n'était là. Quelques secondes de parole ressemblent à trop de monde, et une
+#: étiquette fausse affichée à l'écran est pire qu'un « Voix 12 » : on la croit.
+#:
+#: Six secondes, soit le double du seuil du calibrage sous lequel un extrait
+#: porte le bruit de la pièce plus que le timbre. En deçà, la voix reste
+#: anonyme et `_retenter_le_nom` repassera : une voix qui compte finit toujours
+#: par accumuler de la matière.
+MATIERE_POUR_RECONNAITRE = 6.0
+
 #: Écart exigé avec la deuxième voix établie, pour qu'une phrase la rejoigne.
 #:
 #: Non nul, contrairement au recollage d'après réunion, et pour une raison qui
@@ -710,6 +724,10 @@ class Fil:
         """
         if voix.certitude.ferme or not voix.empreintes:
             return
+        if voix.secondes < MATIERE_POUR_RECONNAITRE:
+            # Trop peu de matière pour croire un nom. On ne dit rien plutôt
+            # que d'afficher une étiquette fausse, que l'oeil croira.
+            return
         correspondance = reconnaitre(voix.agregat, self.connues)
         if correspondance is None:
             return
@@ -816,14 +834,15 @@ class Fil:
         réunies : une correction humaine ne se laisse pas défaire par une
         mesure.
         """
+        faits: list[tuple[str, str]] = []
+        faits += self._reunir_les_homonymes()
         candidates = {
             identifiant: voix.empreintes
             for identifiant, voix in self.voix.items()
             if voix.empreintes and identifiant not in (VOIX_LOCALE, VOIX_INDETERMINEE)
         }
         if len(candidates) < 2:
-            return []
-        faits: list[tuple[str, str]] = []
+            return faits
         for source, cible in fusionner_voix(candidates).items():
             if source == cible or source not in self.voix or cible not in self.voix:
                 continue
@@ -831,6 +850,39 @@ class Fil:
                 continue
             self._absorber(source, cible)
             faits.append((source, cible))
+        return faits
+
+    def _reunir_les_homonymes(self) -> list[tuple[str, str]]:
+        """Deux voix que la banque nomme pareil sont la même personne.
+
+        L'auto-correction qui manquait, et elle ne coûte rien : quand la banque
+        répond « Tanguy » sur trois voix distinctes, elle a déjà dit que ces
+        trois voix sont de Tanguy. Attendre que leurs empreintes se ressemblent
+        assez pour être réunies, c'est refuser une information qu'on tient.
+
+        Mesuré en séance sur une réunion de trente-deux minutes : « Tanguy »
+        s'affichait sur trois voix à la fois, dont deux avec un point
+        d'interrogation. Le compte rendu en aurait annoncé trois.
+
+        Un nom posé **à la main** n'entre pas dans ce jeu : deux corrections
+        humaines de même nom sont déjà réunies par `corriger`, et deux noms
+        humains différents ne se laissent pas défaire par une mesure.
+        """
+        par_nom: dict[str, list[VoixDirecte]] = {}
+        for voix in self.voix.values():
+            if voix.nom and voix.nommable and voix.identifiant != VOIX_LOCALE:
+                par_nom.setdefault(voix.nom.casefold(), []).append(voix)
+        faits: list[tuple[str, str]] = []
+        for portantes in par_nom.values():
+            if len(portantes) < 2:
+                continue
+            # La plus fournie garde son identifiant : c'est celle dont l'extrait
+            # est le plus représentatif, et celle que l'oeil a le plus vue.
+            portantes.sort(key=lambda v: -v.secondes)
+            gardee = portantes[0]
+            for absorbee in portantes[1:]:
+                self._absorber(absorbee.identifiant, gardee.identifiant)
+                faits.append((absorbee.identifiant, gardee.identifiant))
         return faits
 
     def _noms_humains_differents(self, un: str, autre: str) -> bool:
