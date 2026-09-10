@@ -76,13 +76,13 @@ class TestSujetsRetenus:
 class TestRetrouverUnSujet:
     def test_par_son_nom(self):
         registre = Registry([Subject("Oasis", board="uXjV1=")])
-        trouve = registre.by_name("Oasis")
-        assert trouve is not None and trouve.board == "uXjV1="
+        found = registre.by_name("Oasis")
+        assert found is not None and found.board == "uXjV1="
 
     def test_par_un_alias(self):
         registre = Registry([Subject("Oasis", ("esup-oasis",), board="uXjV1=")])
-        trouve = registre.by_name("esup-oasis")
-        assert trouve is not None and trouve.board == "uXjV1="
+        found = registre.by_name("esup-oasis")
+        assert found is not None and found.board == "uXjV1="
 
     def test_un_sujet_inconnu_rend_rien(self):
         assert Registry([Subject("Oasis")]).by_name("Copernic") is None

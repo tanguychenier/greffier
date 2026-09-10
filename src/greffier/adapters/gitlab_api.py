@@ -17,7 +17,7 @@ from greffier.domain.sources import Source
 
 TIMEOUT = 15.0
 
-AU_PLUS = 20
+AT_MOST = 20
 
 class GitLabRefused(RuntimeError):
     """The call did not happen, and for a reason worth showing."""
@@ -34,17 +34,17 @@ class Ticket:
     etiquettes: tuple[str, ...] = ()
 
     def say(self) -> str:
-        qui = f" — {self.assigne}" if self.assigne else ""
+        who = f" — {self.assigne}" if self.assigne else ""
         marques = f" [{', '.join(self.etiquettes)}]" if self.etiquettes else ""
-        return f"#{self.number} {self.title}{qui}{marques} ({self.state})"
+        return f"#{self.number} {self.title}{who}{marques} ({self.state})"
 
 def _appeler(
     source: Source, token: str, path: str, methode: str = "GET",
     corps: dict[str, Any] | None = None,
 ) -> object:
-    projet = urllib.parse.quote(source.projet, safe="")
+    project = urllib.parse.quote(source.project, safe="")
     requete = urllib.request.Request(
-        f"{source.adresse}/api/v4/projects/{projet}{path}",
+        f"{source.adresse}/api/v4/projects/{project}{path}",
         method=methode,
         data=json.dumps(corps).encode("utf-8") if corps is not None else None,
         headers={
@@ -67,7 +67,7 @@ def _appeler(
             ) from trouble
         if trouble.code == 404:
             raise GitLabRefused(
-                f"projet « {source.projet} » introuvable sur {source.adresse}. "
+                f"projet « {source.project} » introuvable sur {source.adresse}. "
                 "Un projet privé invisible du jeton rend aussi 404."
             ) from trouble
         raise GitLabRefused(f"GitLab a répondu {trouble.code} : {detail}") from trouble
@@ -91,7 +91,7 @@ def tickets(
     source: Source, token: str, ouverts: bool = True, cherche: str = ""
 ) -> list[Ticket]:
     """The registered project's tickets. Read only."""
-    parametres = {"per_page": str(AU_PLUS), "order_by": "updated_at"}
+    parametres = {"per_page": str(AT_MOST), "order_by": "updated_at"}
     if ouverts:
         parametres["state"] = "opened"
     if cherche.strip():
@@ -103,7 +103,7 @@ def tickets(
 
 def join_requests(source: Source, token: str, ouvertes: bool = True) -> list[Ticket]:
     """The merge requests, presented as tickets."""
-    parametres = {"per_page": str(AU_PLUS), "order_by": "updated_at"}
+    parametres = {"per_page": str(AT_MOST), "order_by": "updated_at"}
     if ouvertes:
         parametres["state"] = "opened"
     rendered = _appeler(
@@ -113,7 +113,7 @@ def join_requests(source: Source, token: str, ouvertes: bool = True) -> list[Tic
         raise GitLabRefused("réponse inattendue de GitLab")
     return [_as_ticket(brut) for brut in rendered if isinstance(brut, dict)]
 
-def creer_un_ticket(
+def create_a_ticket(
     source: Source, token: str, title: str, description: str = ""
 ) -> Ticket:
     """Creates a ticket. **The caller must have confirmed.**"""
@@ -142,4 +142,4 @@ def comment(source: Source, token: str, number: int, text: str) -> str:
     )
     if not isinstance(rendered, dict):
         raise GitLabRefused("réponse inattendue de GitLab")
-    return f"{source.adresse}/{source.projet}/-/issues/{number}"
+    return f"{source.adresse}/{source.project}/-/issues/{number}"

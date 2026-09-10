@@ -113,7 +113,7 @@ class Audio(BaseModel):
         validation_alias="sortie",
     )
     mic: str = Field(default="", validation_alias="micro")
-    duree_maximale: int = Field(default=14_400, validation_alias="duree_maximale")
+    maximum_length: int = Field(default=14_400, validation_alias="duree_maximale")
 
 class Transcription(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
@@ -471,8 +471,8 @@ def save_settings(config: Config, folder: Path | None = None) -> Path:
     descripteur, temporary = tempfile.mkstemp(dir=target.parent, prefix=".config-",
                                                suffix=".toml")
     try:
-        with os.fdopen(descripteur, "w", encoding="utf-8") as flux:
-            flux.write(render(config))
+        with os.fdopen(descripteur, "w", encoding="utf-8") as stream:
+            stream.write(render(config))
         os.replace(temporary, target)
     except BaseException:
         Path(temporary).unlink(missing_ok=True)

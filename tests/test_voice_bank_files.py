@@ -31,8 +31,8 @@ class TestBanqueDeVoix:
         """Le vrai but : reconnue d'une réunion à l'autre."""
         bank.record("Josiane", voice(1.0, 0.02, 0.0))
         bank.record("Marc", voice(0.0, 0.0, 1.0))
-        trouve = recognise(voice(0.99, 0.05, 0.0), bank.people())
-        assert trouve is not None and trouve.name == "Josiane"
+        found = recognise(voice(0.99, 0.05, 0.0), bank.people())
+        assert found is not None and found.name == "Josiane"
 
     def test_les_empreintes_s_accumulent_pour_une_meme_personne(self, bank):
         for i in range(3):
@@ -93,7 +93,7 @@ def reunion_type(**overrides):
     defauts = dict(
         identifier="2026-08-24_reunion",
         audio=__import__("pathlib").Path("/tmp/r.wav"),
-        traitee_le=datetime.now(UTC),
+        processed_at=datetime.now(UTC),
         duration=100.0,
         utterances=[Utterance(Span(0, 40), "bonjour à tous", "1"),
                    Utterance(Span(60, 95), "au revoir", "2")],
@@ -169,8 +169,8 @@ class TestFichierMaitre:
         del content["terminee_le"]
         path.write_text(json.dumps(content), encoding="utf-8")
         relue = magasin.read("2026-08-24_reunion")
-        assert relue.commencee_le is None
-        assert relue.terminee_le is None
+        assert relue.started_at is None
+        assert relue.ended_at is None
         assert relue.utterances, "le reste du fichier se lit normalement"
 
     def test_les_plus_recentes_d_abord(self, tmp_path):
@@ -250,8 +250,8 @@ class TestReparerUneBanque:
         for vector in ([1.0, 0.0], [0.0, 1.0], [0.5, 0.5]):
             bank.record("Pascal", normalise(vector, source_duration=10.0))
         assert bank.remove_voiceprints("Pascal", [1]) == 1
-        reste = bank.find("Pascal")
-        assert reste is not None and len(reste.voiceprints) == 2
+        remaining = bank.find("Pascal")
+        assert remaining is not None and len(remaining.voiceprints) == 2
 
     def test_tout_retirer_efface_la_personne(self, tmp_path):
         """Une entrée sans empreinte ne reconnaît rien et encombre la liste."""
@@ -285,7 +285,7 @@ class TestOublierUneReunion:
         bank = FileVoiceBank(tmp_path)
         bonne = normalise([1.0, 0.0], source_duration=10.0)
         fautive = replace(normalise([0.0, 1.0], source_duration=900.0),
-                          origine="2026-09-09_reunion")
+                          origin="2026-09-09_reunion")
         bank.record("Pascal", bonne)
         bank.record("Pascal", fautive)
         bank.record("Kilian", fautive)
@@ -310,7 +310,7 @@ class TestOublierUneReunion:
 
         bank = FileVoiceBank(tmp_path)
         bank.record("Pascal", replace(
-            normalise([1.0, 0.0], source_duration=10.0), origine="2026-09-09_reunion"))
+            normalise([1.0, 0.0], source_duration=10.0), origin="2026-09-09_reunion"))
         relue = FileVoiceBank(tmp_path).find("Pascal")
         assert relue is not None
-        assert relue.voiceprints[0].origine == "2026-09-09_reunion"
+        assert relue.voiceprints[0].origin == "2026-09-09_reunion"

@@ -18,9 +18,9 @@ def levels(motif: list[tuple[float, float, int]]) -> tuple[list[float], list[flo
     """Construit deux suites de niveaux depuis (micro_db, systeme_db, trames)."""
     mic: list[float] = []
     system: list[float] = []
-    for m, s, combien in motif:
-        mic += [m] * combien
-        system += [s] * combien
+    for m, s, how_many in motif:
+        mic += [m] * how_many
+        system += [s] * how_many
     return mic, system
 
 
@@ -45,7 +45,7 @@ class TestVoixFaibleMaisLocale:
         assert local_turns(mic, system, PAS) == []
         # Avec une marge nulle, la même entrée est retenue : c'est bien la marge
         # qui décide, pas un autre effet.
-        souple = ChannelSettings(marge_db=0.0)
+        souple = ChannelSettings(margin_db=0.0)
         assert local_turns(mic, system, PAS, souple) != []
 
 
@@ -58,7 +58,7 @@ class TestBruitDeFond:
 
     def test_le_plancher_se_regle(self) -> None:
         mic, system = levels([(-52, -75, 400)])
-        bas = ChannelSettings(plancher_db=-60.0)
+        bas = ChannelSettings(floor_db=-60.0)
         assert local_turns(mic, system, PAS, bas) != []
 
 
@@ -117,19 +117,19 @@ class TestRetirerLesDoublons:
         # parle en même temps laisse un tour à cheval. Compter les deux ferait
         # deux personnes là où une tient la parole.
         distants = [Span(10.0, 14.0)]
-        locaux = [Span(9.0, 15.0)]
-        assert remove(distants, locaux) == []
+        local_spans = [Span(9.0, 15.0)]
+        assert remove(distants, local_spans) == []
 
     def test_un_tour_distant_independant_est_conserve(self) -> None:
         distants = [Span(30.0, 40.0)]
-        locaux = [Span(9.0, 15.0)]
-        assert remove(distants, locaux) == distants
+        local_spans = [Span(9.0, 15.0)]
+        assert remove(distants, local_spans) == distants
 
     def test_un_simple_chevauchement_partiel_ne_supprime_rien(self) -> None:
         # Un quart recouvert : les deux ont parlé, on garde les deux.
         distants = [Span(10.0, 20.0)]
-        locaux = [Span(18.0, 22.0)]
-        assert remove(distants, locaux) == distants
+        local_spans = [Span(18.0, 22.0)]
+        assert remove(distants, local_spans) == distants
 
     def test_sans_tour_local_rien_ne_change(self) -> None:
         distants = [Span(1.0, 2.0), Span(3.0, 4.0)]
@@ -142,22 +142,22 @@ class TestQuiParle:
     def test_le_silence(self) -> None:
         from greffier.domain.channels import WhoSpeaks, who_speaks
 
-        assert who_speaks(-70, -70) is WhoSpeaks.PERSONNE
+        assert who_speaks(-70, -70) is WhoSpeaks.NOBODY
 
     def test_toi_seul(self) -> None:
         from greffier.domain.channels import WhoSpeaks, who_speaks
 
-        assert who_speaks(-30, -70) is WhoSpeaks.TOI
+        assert who_speaks(-30, -70) is WhoSpeaks.YOU
 
     def test_les_autres_seuls(self) -> None:
         from greffier.domain.channels import WhoSpeaks, who_speaks
 
-        assert who_speaks(-70, -25) is WhoSpeaks.LES_AUTRES
+        assert who_speaks(-70, -25) is WhoSpeaks.THE_OTHERS
 
     def test_un_vrai_chevauchement(self) -> None:
         from greffier.domain.channels import WhoSpeaks, who_speaks
 
-        assert who_speaks(-20, -35) is WhoSpeaks.LES_DEUX
+        assert who_speaks(-20, -35) is WhoSpeaks.BOTH
 
     def test_le_micro_qui_reentend_les_enceintes_n_est_pas_toi(self) -> None:
         # Écoute par haut-parleurs : les deux canaux sont actifs, mais le micro
@@ -165,7 +165,7 @@ class TestQuiParle:
         # chaque phrase des autres.
         from greffier.domain.channels import WhoSpeaks, who_speaks
 
-        assert who_speaks(-28, -25) is WhoSpeaks.LES_AUTRES
+        assert who_speaks(-28, -25) is WhoSpeaks.THE_OTHERS
 
 
 class TestPresentielContreVisio:
@@ -250,8 +250,8 @@ class TestSoustraire:
     """
 
     def test_une_portion_au_milieu_coupe_en_deux(self) -> None:
-        restes = subtract(Span(0, 10), [Span(4, 6)])
-        assert restes == [Span(0, 4), Span(6, 10)]
+        remainders = subtract(Span(0, 10), [Span(4, 6)])
+        assert remainders == [Span(0, 4), Span(6, 10)]
 
     def test_une_portion_en_tete_raccourcit_le_debut(self) -> None:
         assert subtract(Span(13.2, 14.7), [Span(9.5, 13.8)]) == [
@@ -265,8 +265,8 @@ class TestSoustraire:
         assert subtract(Span(0, 3), [Span(5, 8)]) == [Span(0, 3)]
 
     def test_plusieurs_portions_se_soustraient_l_une_apres_l_autre(self) -> None:
-        restes = subtract(Span(0, 12), [Span(2, 4), Span(7, 9)])
-        assert restes == [Span(0, 2), Span(4, 7), Span(9, 12)]
+        remainders = subtract(Span(0, 12), [Span(2, 4), Span(7, 9)])
+        assert remainders == [Span(0, 2), Span(4, 7), Span(9, 12)]
 
     def test_sans_rien_a_oter_l_intervalle_ne_change_pas(self) -> None:
         assert subtract(Span(0, 5), []) == [Span(0, 5)]

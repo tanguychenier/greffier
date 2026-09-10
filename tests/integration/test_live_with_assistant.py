@@ -89,10 +89,10 @@ def test_appele_pendant_la_reunion_il_repond(meeting, tmp_path):
 
     duration = soundfile.info(str(meeting)).duration
     watcher = Watcher(
-        watch_rules=WatchRules(mot_cle="greffier"),
+        watch_rules=WatchRules(keyword="greffier"),
         log=tmp_path / "propositions.jsonl",
         transcriber=transcriber,
-        situer=lambda: Position(morceau=meeting, ecrit=duration, decalage=0.0),
+        situer=lambda: Position(morceau=meeting, written=duration, offset=0.0),
         assistant_of=assistant,
     )
     watcher.transcription_turn(watcher.situer(), tmp_path)
@@ -102,7 +102,7 @@ def test_appele_pendant_la_reunion_il_repond(meeting, tmp_path):
         assistant._job.join(timeout=30)
 
     assert voice.remark == ["Il reste la signature, et la recette à caler."]
-    assert assistant.manners.parle_le is not None
+    assert assistant.manners.spoke_at is not None
 
 
 def test_la_transcription_n_attend_pas_la_reponse(meeting, tmp_path):
@@ -135,10 +135,10 @@ def test_la_transcription_n_attend_pas_la_reponse(meeting, tmp_path):
 
     duration = soundfile.info(str(meeting)).duration
     watcher = Watcher(
-        watch_rules=WatchRules(mot_cle="greffier"),
+        watch_rules=WatchRules(keyword="greffier"),
         log=tmp_path / "propositions.jsonl",
         transcriber=transcriber,
-        situer=lambda: Position(morceau=meeting, ecrit=duration, decalage=0.0),
+        situer=lambda: Position(morceau=meeting, written=duration, offset=0.0),
         assistant_of=assistant,
     )
     depart = time.monotonic()
@@ -172,11 +172,11 @@ def test_une_phrase_ordinaire_ne_le_fait_pas_parler(tmp_path):
     import soundfile
 
     watcher = Watcher(
-        watch_rules=WatchRules(mot_cle="greffier"),
+        watch_rules=WatchRules(keyword="greffier"),
         log=tmp_path / "propositions.jsonl",
         transcriber=transcriber,
-        situer=lambda: Position(morceau=audio, ecrit=soundfile.info(str(audio)).duration,
-                                decalage=0.0),
+        situer=lambda: Position(morceau=audio, written=soundfile.info(str(audio)).duration,
+                                offset=0.0),
         assistant_of=assistant,
     )
     watcher.transcription_turn(watcher.situer(), tmp_path)
@@ -191,12 +191,12 @@ def test_l_assistant_absent_ne_change_rien(meeting, tmp_path):
     import soundfile
 
     watcher = Watcher(
-        watch_rules=WatchRules(mot_cle="greffier"),
+        watch_rules=WatchRules(keyword="greffier"),
         log=tmp_path / "propositions.jsonl",
         transcriber=transcriber,
         situer=lambda: Position(morceau=meeting,
-                                ecrit=soundfile.info(str(meeting)).duration,
-                                decalage=0.0),
+                                written=soundfile.info(str(meeting)).duration,
+                                offset=0.0),
     )
     watcher.transcription_turn(watcher.situer(), tmp_path)
 
@@ -234,10 +234,10 @@ class TestLaBoucleSurUnFilReel:
         from greffier.domain.models import Span, Utterance
 
         dites = []
-        for texte, depart, combien in self.OBSERVE:
+        for texte, depart, how_many in self.OBSERVE:
             dites += [
                 Utterance(span=Span(depart + i, depart + i + 1), text=texte)
-                for i in range(combien)
+                for i in range(how_many)
             ]
         return sorted(dites, key=lambda u: u.span.start)
 
@@ -253,8 +253,8 @@ class TestLaBoucleSurUnFilReel:
         from greffier.domain.boilerplate import collapse_loops
 
         for gardee in collapse_loops(self._fil()):
-            attendu = next(c for t, _d, c in self.OBSERVE if t == gardee.text)
-            assert gardee.span.end - gardee.span.start == attendu
+            expected = next(c for t, _d, c in self.OBSERVE if t == gardee.text)
+            assert gardee.span.end - gardee.span.start == expected
 
     def test_le_fil_publie_ne_porte_plus_la_repetition(self):
         """Ce que la fenêtre affiche : une ligne par phrase dite."""
@@ -335,13 +335,13 @@ initiative = false
             context=lambda: "Réunion d'équipe sur la recette.",
         )
         watcher = Watcher(
-            watch_rules=WatchRules(mot_cle="greffier"),
+            watch_rules=WatchRules(keyword="greffier"),
             log=tmp_path / "propositions.jsonl",
             transcriber=transcriber,
             situer=lambda: Position(
                 morceau=meeting,
-                ecrit=soundfile.info(str(meeting)).duration,
-                decalage=0.0,
+                written=soundfile.info(str(meeting)).duration,
+                offset=0.0,
             ),
             assistant_of=assistant,
             # Ce que la veille lit du fichier : la voix est donnée, pas

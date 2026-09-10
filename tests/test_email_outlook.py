@@ -109,12 +109,12 @@ class TestQuandOutlookNeRepondPas:
     alors se dire.
     """
 
-    def _envoyer(self, monkeypatch, sortie: str, code: int = 1):
+    def _envoyer(self, monkeypatch, output: str, code: int = 1):
         appels: list[list[str]] = []
 
         class Returned:
             returncode = code
-            stderr = sortie
+            stderr = output
             stdout = ""
 
         def faux_run(commande, **_options):

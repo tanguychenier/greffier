@@ -82,8 +82,8 @@ class TestAilleurs:
         assert locations.data_folder("Windows") == maison / "Local/greffier"
 
     def test_sans_argument_c_est_le_systeme_courant(self, maison):
-        attendu = locations.config_folder(platform.system())
-        assert locations.config_folder() == attendu
+        expected = locations.config_folder(platform.system())
+        assert locations.config_folder() == expected
 
 
 class TestDemenagement:

@@ -47,14 +47,14 @@ class TestCeQuiDeclencheUneQuestion:
     def test_un_terme_deforme_est_releve(self):
         questions = Questioner(known=("backlog",)).examine("Le bakclog est plein.")
         assert len(questions) == 1
-        assert questions[0].attendu == "backlog"
-        assert questions[0].entendu == "bakclog"
+        assert questions[0].expected == "backlog"
+        assert questions[0].heard == "bakclog"
         assert questions[0].motif is Reason.NEAR_TERM
 
     def test_un_terme_compose_est_reconnu_mot_a_mot(self):
         """« mrege » ne rencontrait jamais « merge request » et passait inaperçu."""
         questions = Questioner(known=("merge request",)).examine("La mrege request.")
-        assert questions and questions[0].attendu == "merge"
+        assert questions and questions[0].expected == "merge"
 
     def test_la_question_dit_ce_qu_elle_a_entendu(self):
         """Une question sans sa raison ressemble à un caprice : on n'y répond pas."""
@@ -88,8 +88,8 @@ class TestCeQuiNeDoitRienDeclencher:
         """Au-delà d'un certain nombre, il noierait qui travaille."""
         known = tuple(f"terme{n:03d}" for n in range(40))
         questioner = Questioner(known=known)
-        phrase = " ".join(f"terme{n:03d}x" for n in range(40))
-        assert len(questioner.examine(phrase)) <= QUESTIONS_MAXIMUM
+        sentence = " ".join(f"terme{n:03d}x" for n in range(40))
+        assert len(questioner.examine(sentence)) <= QUESTIONS_MAXIMUM
 
 
 class TestUnPlurielNEstPasUneDeformation:
@@ -102,7 +102,7 @@ class TestUnPlurielNEstPasUneDeformation:
     coût n'est pas la question : c'est qu'on cesse de lire les autres.
     """
 
-    @pytest.mark.parametrize("entendu,connu", [
+    @pytest.mark.parametrize("heard,connu", [
         ("bailleurs", "bailleur"),
         ("serveurs", "serveur"),
         ("recettes", "recette"),
@@ -111,22 +111,22 @@ class TestUnPlurielNEstPasUneDeformation:
         ("Backlog", "backlog"),
         ("sprints", "sprint"),
     ])
-    def test_aucune_question_sur_une_variante(self, entendu, connu):
+    def test_aucune_question_sur_une_variante(self, heard, connu):
         from greffier.domain.questions import Questioner
 
-        assert Questioner(known=[connu]).examine(f"on parle du {entendu}") == []
+        assert Questioner(known=[connu]).examine(f"on parle du {heard}") == []
 
-    @pytest.mark.parametrize("entendu,connu", [
+    @pytest.mark.parametrize("heard,connu", [
         ("Ouasis", "Oasis"),
         ("bakclog", "backlog"),
         ("Coppernic", "Copernic"),
     ])
-    def test_une_vraie_deformation_est_toujours_relevee(self, entendu, connu):
+    def test_une_vraie_deformation_est_toujours_relevee(self, heard, connu):
         """La correction ne doit pas emporter ce pour quoi l'outil existe."""
         from greffier.domain.questions import Questioner
 
-        posees = Questioner(known=[connu]).examine(f"on parle de {entendu}")
-        assert len(posees) == 1 and posees[0].attendu == connu
+        asked = Questioner(known=[connu]).examine(f"on parle de {heard}")
+        assert len(asked) == 1 and asked[0].expected == connu
 
     def test_le_terme_exact_ne_declenche_rien(self):
         from greffier.domain.questions import Questioner
@@ -164,7 +164,7 @@ class TestCeQuiRevientNEstPasUnAccident:
         questioner.examine("on garde cette marge pour la dette")
         questioner.examine("la marge sert à absorber les retours")
         # La première occurrence a pu poser sa question ; les suivantes, non.
-        assert len(questioner.posees) <= 1
+        assert len(questioner.asked) <= 1
 
     def test_un_terme_deja_bien_transcrit_fait_taire_ses_voisins(self):
         """Si le modèle sait écrire « merge », il n'a pas déformé ici."""
@@ -177,23 +177,23 @@ class TestCeQuiRevientNEstPasUnAccident:
     def test_une_deformation_isolee_est_toujours_relevee(self):
         from greffier.domain.questions import Questioner
 
-        posees = Questioner(known=["signature"]).examine(
+        asked = Questioner(known=["signature"]).examine(
             "la s'enature n'est pas passée")
-        assert len(posees) == 1 and posees[0].attendu == "signature"
+        assert len(asked) == 1 and asked[0].expected == "signature"
 
 
 class TestMotDerive:
     """Un terme précédé d'un préfixe est un autre mot, pas une faute."""
 
-    @pytest.mark.parametrize("entendu,connu", [
+    @pytest.mark.parametrize("heard,connu", [
         ("rétablissements", "établissement"),
         ("reprod", "prod"),
         ("déploiement", "ploiement"),
     ])
-    def test_un_derive_ne_declenche_rien(self, entendu, connu):
+    def test_un_derive_ne_declenche_rien(self, heard, connu):
         from greffier.domain.questions import derived_word
 
-        assert derived_word(entendu, connu)
+        assert derived_word(heard, connu)
 
     def test_l_elision_compte(self):
         """« ré- » devant une voyelle donne « rétablissement ».
@@ -204,15 +204,15 @@ class TestMotDerive:
 
         assert derived_word("rétablissement", "établissement")
 
-    @pytest.mark.parametrize("entendu,connu", [
+    @pytest.mark.parametrize("heard,connu", [
         ("Ouasis", "Oasis"),
         ("merde", "merge"),
         ("bakclog", "backlog"),
     ])
-    def test_une_deformation_n_est_pas_un_derive(self, entendu, connu):
+    def test_une_deformation_n_est_pas_un_derive(self, heard, connu):
         from greffier.domain.questions import derived_word
 
-        assert not derived_word(entendu, connu)
+        assert not derived_word(heard, connu)
 
     def test_un_faux_positif_ne_coute_qu_un_silence(self):
         """« recette » passe pour « re » + « cette », et c'est assumé.

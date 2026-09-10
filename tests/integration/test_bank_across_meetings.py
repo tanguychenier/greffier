@@ -40,14 +40,14 @@ def atelier(tmp_path_factory):
     if not (diarisation / "nemo_en_titanet_large.onnx").exists():
         pytest.skip("modèles absents — lance tools/install.py")
 
-    racine = tmp_path_factory.mktemp("poste")
-    config.paths.data = racine
+    root = tmp_path_factory.mktemp("poste")
+    config.paths.data = root
     config.minutes.engine = "aucun"
 
     from make_meeting import DIALOGUE_SANS_NOMS, fabriquer
 
-    premiere = fabriquer(racine / "reunion-1.wav")
-    seconde = fabriquer(racine / "reunion-2.wav", dialogue=DIALOGUE_SANS_NOMS)
+    premiere = fabriquer(root / "reunion-1.wav")
+    seconde = fabriquer(root / "reunion-2.wav", dialogue=DIALOGUE_SANS_NOMS)
     return config, premiere, seconde
 
 
@@ -144,7 +144,7 @@ class TestSeparerApresLaReunionDeBoutEnBout:
         return StoredMeeting(
             identifier="2026-09-10_10h10_reunion",
             audio=tmp_path / "r.wav",
-            traitee_le=datetime.now(UTC),
+            processed_at=datetime.now(UTC),
             duration=120.0,
             utterances=[
                 Utterance(Span(0, 40), "on cale la recette jeudi", "v1"),

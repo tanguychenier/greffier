@@ -14,18 +14,18 @@ import soundfile as sf
 
 from greffier.adapters.channels_file import TRAME_S, levels_per_frame, separer_canaux
 from greffier.domain.arithmetic import compute_threads
-from greffier.domain.channels import VOIX_LOCALE, local_turns, remove
+from greffier.domain.channels import LOCAL_VOICE, local_turns, remove
 from greffier.domain.models import Source, Span, SpeakerTurn
 
 
 class SherpaDiariser:
-    def __init__(self, segmentation: Path, voiceprints: Path, seuil: float = 0.45) -> None:
+    def __init__(self, segmentation: Path, voiceprints: Path, threshold: float = 0.45) -> None:
         for model in (segmentation, voiceprints):
             if not model.exists():
                 raise FileNotFoundError(f"modèle de diarisation introuvable : {model}")
         self.segmentation = segmentation
         self.voiceprints = voiceprints
-        self.seuil = seuil
+        self.threshold = threshold
 
     def segment(self, audio: Path, people: int | None) -> list[SpeakerTurn]:
         fils = compute_threads()
@@ -39,7 +39,7 @@ class SherpaDiariser:
             embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(
                 model=str(self.voiceprints), num_threads=fils),
             clustering=sherpa_onnx.FastClusteringConfig(
-                num_clusters=people if people else -1, threshold=self.seuil
+                num_clusters=people if people else -1, threshold=self.threshold
             ),
             min_duration_on=0.3,
             min_duration_off=0.5,
@@ -56,7 +56,7 @@ class SherpaDiariser:
 
         channels = separer_canaux(data, frequency)
         mic, system, distante = channels.mic, channels.system, channels.distante
-        locaux = (
+        local_spans = (
             local_turns(
                 levels_per_frame(mic, frequency),
                 levels_per_frame(system, frequency),
@@ -71,15 +71,15 @@ class SherpaDiariser:
             SpeakerTurn(
                 span=Span(s.start, s.end),
                 voice=str(s.speaker),
-                source=Source.SYSTEM if distante else Source.INCONNUE,
+                source=Source.SYSTEM if distante else Source.UNKNOWN,
             )
             for s in engine.process(a_segmenter).sort_by_start_time()
         ]
-        gardes = remove([t.span for t in distants], locaux)
+        gardes = remove([t.span for t in distants], local_spans)
         distants = [t for t in distants if t.span in gardes]
 
         turns = distants + [
-            SpeakerTurn(span=x, voice=VOIX_LOCALE, source=Source.MIC)
-            for x in locaux
+            SpeakerTurn(span=x, voice=LOCAL_VOICE, source=Source.MIC)
+            for x in local_spans
         ]
         return sorted(turns, key=lambda t: t.span.start)

@@ -86,7 +86,7 @@ def follower(config: Config, identifier: str) -> Follower:
     except FileNotFoundError:
         extractor = None
     return Follower(
-        thread=LiveThread(connues=known_people(bank),
+        thread=LiveThread(known=known_people(bank),
                 people=config.speakers.people),
         log=log,
         requests=requests,
@@ -179,7 +179,7 @@ def _instructions_of(config: Config) -> Callable[[str], list[str]]:
             conversations_file.file_for(config.paths.conversations, identifier),
             derniers=0,
         )
-        return [x.text.strip() for x in turns if x.qui == "moi" and x.text.strip()]
+        return [x.text.strip() for x in turns if x.who == "moi" and x.text.strip()]
 
     return lire
 
@@ -214,7 +214,7 @@ def _sender(config: Config, exiger_destinataire: bool = True) -> outbound.Sender
 
 def _audio_recorder(config: Config) -> FfmpegRecorder:
     """Audio capture. One construction, three callers."""
-    return FfmpegRecorder(config.audio.input, config.audio.duree_maximale)
+    return FfmpegRecorder(config.audio.input, config.audio.maximum_length)
 
 def lister(config: Config) -> CoreAudioLister:
     """Reading the audio hardware, for the watch and the diagnostic."""
@@ -293,8 +293,8 @@ def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
     file = conversations_file.file_for(
         config.paths.conversations, identifier)
 
-    def tracer(qui: str, quoi: str) -> None:
-        conversations_file.add(file, qui, quoi)
+    def tracer(who: str, what: str) -> None:
+        conversations_file.add(file, who, what)
 
     lui = AssistantSettings(
         name=config.assistant.name,

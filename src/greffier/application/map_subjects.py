@@ -49,23 +49,23 @@ Règles :
 _KINDS = {str(kind): kind for kind in Kind}
 _STANDINGS = {str(state): state for state in Standing}
 
-_BLOC = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
+_BLOCK = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
 
 def extract(
     writer: outbound.Writer,
     subject: str,
     material: str,
     maximum: int = 12,
-    deja: Sequence[str] = (),
+    already: Sequence[str] = (),
 ) -> list[Contribution]:
     """The contributions this meeting brings on this subject."""
     if not material.strip():
         return []
     invite = [f"Sujet à cartographier : {subject}"]
-    if deja:
+    if already:
         invite.append(
             "\nDéjà sur la carte, à reprendre mot pour mot s'il s'agit du même point :\n"
-            + "\n".join(f"- {label_text}" for label_text in deja)
+            + "\n".join(f"- {label_text}" for label_text in already)
         )
     invite.append(f"\nCe qui a été dit :\n{material}")
     return analyser(writer.write_up("\n".join(invite)), maximum=maximum)
@@ -75,8 +75,8 @@ class UnreadableOutput(ValueError):
 
 def analyser(rendered: str, maximum: int = 12) -> list[Contribution]:
     """Turns the writer's answer into contributions."""
-    trouve = _BLOC.search(rendered)
-    brut = trouve.group(1) if trouve else rendered
+    found = _BLOCK.search(rendered)
+    brut = found.group(1) if found else rendered
     start, end = brut.find("["), brut.rfind("]")
     if start == -1 or end <= start:
         raise UnreadableOutput(
@@ -99,10 +99,10 @@ def analyser(rendered: str, maximum: int = 12) -> list[Contribution]:
             continue
         apports.append(Contribution(
             text=text,
-            kind=_KINDS.get(str(item.get("genre", "")).strip(), Kind.CONSTAT),
-            state=_STANDINGS.get(str(item.get("etat", "")).strip(), Standing.EN_DISCUSSION)
-            if str(item.get("etat", "")).strip() != str(Standing.DEPASSE)
-            else Standing.EN_DISCUSSION,
-            sous=str(item.get("sous", "")).strip(),
+            kind=_KINDS.get(str(item.get("genre", "")).strip(), Kind.OBSERVATION),
+            state=_STANDINGS.get(str(item.get("etat", "")).strip(), Standing.UNDER_DISCUSSION)
+            if str(item.get("etat", "")).strip() != str(Standing.OVERTAKEN)
+            else Standing.UNDER_DISCUSSION,
+            under=str(item.get("sous", "")).strip(),
         ))
     return apports

@@ -37,11 +37,11 @@ class CoreAudioLister:
         if not shutil.which("swiftc"):
             return False
         self.binaire.parent.mkdir(parents=True, exist_ok=True)
-        fait = subprocess.run(
+        done = subprocess.run(
             ["swiftc", "-O", str(self.source), "-o", str(self.binaire)],
             capture_output=True, text=True, check=False,
         )
-        return fait.returncode == 0 and self.binaire.exists()
+        return done.returncode == 0 and self.binaire.exists()
 
     def _raw_output(self) -> str:
         if self.prete is not None and self.prete.exists():
@@ -52,8 +52,8 @@ class CoreAudioLister:
             command = ["swift", str(self.source), "--list"]
         else:
             return ""
-        fait = subprocess.run(command, capture_output=True, text=True, check=False, timeout=30)
-        return fait.stdout
+        done = subprocess.run(command, capture_output=True, text=True, check=False, timeout=30)
+        return done.stdout
 
     def read(self) -> Hardware:
         """The hardware state now. Empty when the system will not say."""
@@ -66,7 +66,7 @@ class CoreAudioLister:
 
 def analyser(output: str) -> Hardware:
     """Turns the lister's output into hardware the domain understands."""
-    trouves: list[Device] = []
+    found: list[Device] = []
     in_progress: tuple[str, str] | None = None
     for line in output.splitlines():
         header = _LINE.match(line)
@@ -78,7 +78,7 @@ def analyser(output: str) -> Hardware:
             name, channels = in_progress
             entrees = _ENTREES.search(channels)
             sorties = _SORTIES.search(channels)
-            trouves.append(
+            found.append(
                 Device(
                     name=name,
                     uid=uid.group(1),
@@ -87,4 +87,4 @@ def analyser(output: str) -> Hardware:
                 )
             )
             in_progress = None
-    return Hardware(tuple(trouves))
+    return Hardware(tuple(found))

@@ -119,10 +119,10 @@ class TestGardeFous:
     def test_un_enregistrement_muet_arrete_tout(self):
         """Le bug du 2026-08-20 : sans ça, un CR était fabriqué puis envoyé."""
         processing = chain(audio_recorder=FakeRecorder(levels=(-120.0, -120.0)))
-        with pytest.raises(ChainStopped) as arret:
+        with pytest.raises(ChainStopped) as stop:
             processing.run_chain(AUDIO)
-        assert arret.value.phase is Phase.ECHEC
-        assert "muet" in arret.value.because
+        assert stop.value.phase is Phase.ECHEC
+        assert "muet" in stop.value.because
 
     def test_une_transcription_vide_n_est_pas_redigee(self):
         transcriber = FakeTranscriber([utterance(0, 2, "Bonjour.")])
@@ -416,8 +416,8 @@ class TestEnteteContexte:
         header = context_header(
             "2026-09-09_10h05_reunion",
             1620.0,  # la transcription s'arrête à 10 h 32
-            commencee_le=datetime(2026, 9, 9, 10, 5).astimezone(),
-            terminee_le=datetime(2026, 9, 9, 10, 37).astimezone(),
+            started_at=datetime(2026, 9, 9, 10, 5).astimezone(),
+            ended_at=datetime(2026, 9, 9, 10, 37).astimezone(),
         )
         assert "de 10 h 05 à 10 h 37" in header
         assert "10 h 32" not in header
@@ -461,21 +461,21 @@ class TestEnteteContexte:
         from greffier.application.render import context_header
 
         header = context_header("2026-09-02_16h46_x", 600.0,
-                                 names=["Pascal", "Cédric"], voix_entendues=2)
+                                 names=["Pascal", "Cédric"], voices_heard=2)
         assert "Participants : Pascal, Cédric." in header
 
     def test_les_voix_non_nommees_sont_comptees_a_part(self) -> None:
         from greffier.application.render import context_header
 
         header = context_header("2026-09-02_16h46_x", 600.0,
-                                 names=["Pascal"], voix_entendues=3)
+                                 names=["Pascal"], voices_heard=3)
         assert "Pascal, et 2 voix non nommées." in header
 
     def test_sans_aucun_nom_on_dit_combien_de_personnes(self) -> None:
         """Constaté : un compte rendu ne disait pas du tout qui était présent."""
         from greffier.application.render import context_header
 
-        header = context_header("2026-09-02_17h04_x", 190.0, voix_entendues=3)
+        header = context_header("2026-09-02_17h04_x", 190.0, voices_heard=3)
         assert "3 personnes ont parlé, aucune nommée." in header
 
     def test_la_ligne_est_dictee_mot_pour_mot(self) -> None:
@@ -697,7 +697,7 @@ class TestLaChaineGardeLaReunion:
             def read(self, identifier):
                 return StoredMeeting(
                     identifier=identifier, audio=AUDIO,
-                    traitee_le=datetime.now(UTC), duration=1.0,
+                    processed_at=datetime.now(UTC), duration=1.0,
                     utterances=[], turns=[], names={}, propositions={},
                     warnings=[], subject="Point Oasis",
                 )
@@ -921,11 +921,11 @@ class TestLigneDesParticipants:
     en tête d'un compte rendu envoyé par courriel.
     """
 
-    def _line(self, names, entendues: int) -> str:
+    def _line(self, names, heard: int) -> str:
         from greffier.application.render import context_header
 
         return context_header(
-            "2026-09-10_10h10_reunion", 6120.0, names=names, voix_entendues=entendues
+            "2026-09-10_10h10_reunion", 6120.0, names=names, voices_heard=heard
         )
 
     def test_une_seule_voix_anonyme_est_dite_au_singulier(self):

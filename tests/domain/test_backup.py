@@ -45,8 +45,8 @@ class TestNom:
         assert str(name) == "greffier-2026-09-09_14h05"
 
     def test_le_nom_se_relit(self):
-        quand = datetime(2026, 9, 9, 14, 5)
-        assert BackupName.read(str(BackupName(quand))) == quand
+        when = datetime(2026, 9, 9, 14, 5)
+        assert BackupName.read(str(BackupName(when))) == when
 
     def test_ce_qui_n_est_pas_une_sauvegarde_est_refuse(self):
         assert BackupName.read("mes-documents") is None
@@ -54,8 +54,8 @@ class TestNom:
 
 
 class TestRotation:
-    def names(self, combien: int) -> list[str]:
-        return [str(BackupName(datetime(2026, 9, jour, 12, 0))) for jour in range(1, combien + 1)]
+    def names(self, how_many: int) -> list[str]:
+        return [str(BackupName(datetime(2026, 9, jour, 12, 0))) for jour in range(1, how_many + 1)]
 
     def test_sous_le_compte_rien_n_est_efface(self):
         assert to_erase(self.names(3), kept=7) == []

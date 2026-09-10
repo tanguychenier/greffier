@@ -95,10 +95,10 @@ class TestLaBoucleDuTranscripteur:
     quasi-silence.
     """
 
-    def _boucle(self, combien: int, texte: str = "Est-ce que tu entends Lucie ?"):
+    def _boucle(self, how_many: int, texte: str = "Est-ce que tu entends Lucie ?"):
         return [
             Utterance(span=Span(30.0 + i, 31.0 + i), text=texte)
-            for i in range(combien)
+            for i in range(how_many)
         ]
 
     def test_onze_repetitions_deviennent_une(self):
