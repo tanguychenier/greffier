@@ -273,3 +273,65 @@ else
 fi
 echo "   double-clic, ou cherche « Greffier » dans le Launchpad"
 echo "   journal : ~/Library/Logs/Greffier.log"
+
+# Une application deja lancee ne devient pas la nouvelle : macOS garde en
+# memoire celle qui tourne. Cout mesure : deux heures passees a chercher trois
+# boutons dans une fenetre ouverte la veille, alors qu'ils etaient dans le
+# paquet depuis le matin. Reconstruire, c'est donc aussi relancer.
+#
+# Jamais pendant une reunion. Le fichier d'etat le dit, et une reconstruction
+# n'a aucune raison de couper un enregistrement : on previent, et on laisse la
+# relance a qui saura quand.
+if pgrep -f "$APP/Contents/MacOS/Greffier" >/dev/null 2>&1; then
+  ETAT="$(python3 - <<'ETATPY'
+import json
+import os
+import pathlib
+import sys
+
+base = os.environ.get("GREFFIER_DONNEES") or (
+    pathlib.Path.home() / "Library/Application Support/Greffier")
+fichier = pathlib.Path(base) / "etat.json"
+try:
+    etat = json.loads(fichier.read_text())
+    phase, pid = etat["phase"], etat.get("pid")
+except (OSError, ValueError, KeyError):
+    phase, pid = "repos", None
+actives = {"enregistrement", "pause", "finalisation", "transcription",
+           "locuteurs", "redaction", "envoi"}
+
+
+def vivant(numero):
+    """Le fichier d'etat survit a tout ; le processus, non.
+
+    Sans ce controle, une phase restee sur « redaction » avec un processus mort
+    interdisait toute relance : mesure faite, l'application est alors la seule
+    chose qui tourne, et c'est justement elle qu'il faut remplacer.
+    """
+    if not numero:
+        return False
+    try:
+        os.kill(int(numero), 0)
+    except (OSError, ValueError):
+        return False
+    return True
+
+
+sys.stdout.write("occupe" if phase in actives and vivant(pid) else "libre")
+ETATPY
+)"
+  if [ "$ETAT" = "occupe" ]; then
+    echo "   ⚠️  une reunion est en cours : l'application n'a pas ete relancee."
+    echo "      Elle tourne encore sur la version precedente. « open -a Greffier »"
+    echo "      apres l'avoir quittee."
+  else
+    osascript -e 'tell application "Greffier" to quit' >/dev/null 2>&1
+    for _ in $(seq 1 20); do
+      pgrep -f "$APP/Contents/MacOS/Greffier" >/dev/null 2>&1 || break
+      sleep 0.25
+    done
+    pkill -f "$APP/Contents/MacOS/Greffier" >/dev/null 2>&1
+    open -a "$APP"
+    echo "   relancee sur cette version"
+  fi
+fi
