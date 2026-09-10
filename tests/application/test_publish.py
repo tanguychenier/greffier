@@ -9,7 +9,7 @@ from greffier.application.publish import (
     run_chain,
     tools_present,
 )
-from greffier.domain.store import Destin, Proposition
+from greffier.domain.store import Destination, Suggestion
 
 
 class RedacteurFactice:
@@ -95,14 +95,14 @@ class TestExecution:
         source = tmp_path / "ailleurs" / "reunion.wav"
         source.parent.mkdir()
         source.write_bytes(b"x" * 300_000)
-        proposition = Proposition(source, Destin.MEETING, "enregistrement sonore")
+        proposition = Suggestion(source, Destination.MEETING, "enregistrement sonore")
         fait = run_chain(proposition, tmp_path / "enregistrements")
         assert fait.produit is not None and fait.produit.exists()
         assert fait.trouble == ""
 
     def test_un_fichier_bloque_est_rapporte_et_non_tente(self, tmp_path):
-        proposition = Proposition(
-            tmp_path / "x.mp4", Destin.VIDEO, "vidéo",
+        proposition = Suggestion(
+            tmp_path / "x.mp4", Destination.VIDEO, "vidéo",
             bloque_par="ffmpeg est introuvable",
         )
         fait = run_chain(proposition, tmp_path / "enregistrements")
@@ -112,7 +112,7 @@ class TestExecution:
         file = tmp_path / "note.md"
         file.write_text("du texte", encoding="utf-8")
         fait = run_chain(
-            Proposition(file, Destin.CONTEXT, "texte"),
+            Suggestion(file, Destination.CONTEXT, "texte"),
             tmp_path / "enregistrements", writer=None,
         )
         assert "aucun rédacteur" in fait.trouble

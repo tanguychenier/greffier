@@ -80,7 +80,7 @@ class TestUnAncienFichierResteLisible:
         import json
         from datetime import UTC, datetime
 
-        from greffier.adapters.store_files import DepotFichiers
+        from greffier.adapters.store_files import FileStore
 
         minimal = {
             "format": 1,
@@ -93,7 +93,7 @@ class TestUnAncienFichierResteLisible:
         }
         path = tmp_path / "2026-08-01_09h00_ancienne.json"
         path.write_text(json.dumps(minimal), encoding="utf-8")
-        relue = DepotFichiers(tmp_path).read("2026-08-01_09h00_ancienne")
+        relue = FileStore(tmp_path).read("2026-08-01_09h00_ancienne")
         assert relue.utterances[0].text == "Bonjour."
         assert relue.subject == ""
         assert relue.commencee_le is None

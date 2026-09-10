@@ -40,7 +40,7 @@ def _file_at(name: str) -> str:
     reduit = re.sub(r"[^a-zA-Z0-9]+", "-", without_accents).strip("-").lower()
     return reduit or short_voiceprint(name)
 
-class BanqueFichiers:
+class FileVoiceBank:
     def __init__(self, folder: Path, maximum: int = EMPREINTES_PAR_PERSONNE) -> None:
         self.folder = folder
         self.maximum = maximum

@@ -13,7 +13,7 @@ import subprocess
 
 SYSTEM = platform.system()
 
-class NotificateurSysteme:
+class SystemNotifier:
     """Trois implémentations derrière une seule méthode, choisie au démarrage."""
 
     def notify(self, title: str, message: str) -> None:

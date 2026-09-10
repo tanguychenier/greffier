@@ -10,7 +10,7 @@ from pathlib import Path
 
 from greffier.domain.store import (
     TAILLE_MINIMALE_SON,
-    Destin,
+    Destination,
     offer,
     summarise,
 )
@@ -21,19 +21,19 @@ TOUS = frozenset({"ffmpeg", "pdftotext", "textutil"})
 class TestSons:
     def test_un_enregistrement_devient_une_reunion(self):
         propose = offer(Path("reunion.wav"), 50_000_000, TOUS)
-        assert propose.destin is Destin.MEETING
+        assert propose.destin is Destination.MEETING
         assert propose.feasible
 
     def test_les_formats_courants_sont_reconnus(self):
         for suffixe in (".wav", ".m4a", ".mp3", ".opus", ".flac"):
             assert offer(
                 Path(f"x{suffixe}"), 50_000_000, TOUS
-            ).destin is Destin.MEETING
+            ).destin is Destination.MEETING
 
     def test_un_son_trop_court_n_est_pas_une_reunion(self):
         """Une notification système, un bip, un extrait."""
         propose = offer(Path("bip.wav"), TAILLE_MINIMALE_SON - 1, TOUS)
-        assert propose.destin is Destin.INCONNU
+        assert propose.destin is Destination.INCONNU
         assert "trop court" in propose.parce_que
 
     def test_le_seuil_reste_bas(self):
@@ -44,13 +44,13 @@ class TestSons:
 class TestVideos:
     def test_un_enregistrement_teams_est_reconnu(self):
         propose = offer(Path("Teams-2026-09-09.mp4"), 800_000_000, TOUS)
-        assert propose.destin is Destin.VIDEO
+        assert propose.destin is Destination.VIDEO
         assert propose.feasible
 
     def test_ce_qui_manque_est_dit_plutot_que_le_fichier_ecarte(self):
         """Dire « il faudrait ffmpeg » est plus utile que faire disparaître."""
         propose = offer(Path("x.mp4"), 10_000_000, frozenset())
-        assert propose.destin is Destin.VIDEO
+        assert propose.destin is Destination.VIDEO
         assert not propose.feasible
         assert "ffmpeg" in propose.bloque_par
 
@@ -58,7 +58,7 @@ class TestVideos:
 class TestDocuments:
     def test_un_texte_se_lit_sans_rien_installer(self):
         propose = offer(Path("compte-rendu.md"), 4_000, frozenset())
-        assert propose.destin is Destin.CONTEXT
+        assert propose.destin is Destination.CONTEXT
         assert propose.feasible, "aucun outil n'est requis"
 
     def test_un_pdf_demande_un_outil(self):
@@ -73,12 +73,12 @@ class TestDocuments:
 class TestCeQuOnNeSaitPasClasser:
     def test_un_export_de_donnees_est_dit_inconnu(self):
         propose = offer(Path("export.csv"), 10_000, TOUS)
-        assert propose.destin is Destin.INCONNU
+        assert propose.destin is Destination.INCONNU
         assert ".csv" in propose.parce_que
 
     def test_un_fichier_sans_extension(self):
         propose = offer(Path("machin"), 1_000, TOUS)
-        assert propose.destin is Destin.INCONNU
+        assert propose.destin is Destination.INCONNU
         assert "sans extension" in propose.parce_que
 
     def test_l_inconnu_n_est_jamais_faisable(self):

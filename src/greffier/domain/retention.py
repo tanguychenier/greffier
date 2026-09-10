@@ -29,13 +29,13 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 
-class Geste(StrEnum):
+class Gesture(StrEnum):
     RIEN = "rien"
     COMPRESSER = "compresser"
     EFFACER = "effacer"
 
 @dataclass(frozen=True, slots=True)
-class Regle:
+class Rule:
     """Les délais, en jours. Zéro désactive le geste."""
 
     compresser_apres: int = 7
@@ -50,7 +50,7 @@ class Regle:
                 "sinon l'audio disparaît avant d'avoir été compressé"
             )
 
-    def decide(self, jours: float, transcrite: bool, deja_compresse: bool) -> Geste:
+    def decide(self, jours: float, transcrite: bool, deja_compresse: bool) -> Gesture:
         """Le geste dû pour une réunion de cet âge.
 
         Une réunion **non transcrite** n'est jamais touchée, quel que soit son
@@ -59,10 +59,10 @@ class Regle:
         n'est pas une réunion qu'on veut perdre.
         """
         if not transcrite:
-            return Geste.RIEN
+            return Gesture.RIEN
         if self.effacer_apres and jours >= self.effacer_apres:
-            return Geste.EFFACER
+            return Gesture.EFFACER
         if (self.compresser_apres and jours >= self.compresser_apres
                 and not deja_compresse):
-            return Geste.COMPRESSER
-        return Geste.RIEN
+            return Gesture.COMPRESSER
+        return Gesture.RIEN

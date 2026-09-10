@@ -21,7 +21,7 @@ from enum import StrEnum
 from pathlib import Path
 
 
-class Destin(StrEnum):
+class Destination(StrEnum):
     """Ce qu'on peut faire d'un fichier déposé."""
 
     MEETING = "réunion"
@@ -39,23 +39,23 @@ TEXTES_OUTILLES = frozenset({".pdf", ".doc", ".docx", ".rtf", ".odt"})
 TAILLE_MINIMALE_SON = 200_000
 
 @dataclass(frozen=True, slots=True)
-class Proposition:
+class Suggestion:
     """Ce qu'on propose de faire d'un fichier, et pourquoi."""
 
     file: Path
-    destin: Destin
+    destin: Destination
     parce_que: str
     bloque_par: str = ""
 
     @property
     def feasible(self) -> bool:
-        return self.destin is not Destin.INCONNU and not self.bloque_par
+        return self.destin is not Destination.INCONNU and not self.bloque_par
 
 def offer(
     file: Path,
     taille: int | None = None,
     outils: frozenset[str] = frozenset(),
-) -> Proposition:
+) -> Suggestion:
     """Ce qu'on propose de faire de ce fichier.
 
     `outils` porte les commandes disponibles sur le poste — « ffmpeg »,
@@ -67,45 +67,45 @@ def offer(
 
     if suffixe in SONS:
         if taille is not None and taille < TAILLE_MINIMALE_SON:
-            return Proposition(
-                file, Destin.INCONNU,
+            return Suggestion(
+                file, Destination.INCONNU,
                 f"son trop court pour une réunion ({taille / 1024:.0f} Ko)",
             )
-        return Proposition(file, Destin.MEETING, "enregistrement sonore")
+        return Suggestion(file, Destination.MEETING, "enregistrement sonore")
 
     if suffixe in VIDEOS:
-        return Proposition(
-            file, Destin.VIDEO,
+        return Suggestion(
+            file, Destination.VIDEO,
             "vidéo : la piste sonore sera extraite, l'image ne sert à rien ici",
             bloque_par="" if "ffmpeg" in outils else "ffmpeg est introuvable",
         )
 
     if suffixe in TEXTS:
-        return Proposition(file, Destin.CONTEXT, "texte lisible tel quel")
+        return Suggestion(file, Destination.CONTEXT, "texte lisible tel quel")
 
     if suffixe in TEXTES_OUTILLES:
         besoin = "pdftotext" if suffixe == ".pdf" else "textutil"
-        return Proposition(
-            file, Destin.CONTEXT,
+        return Suggestion(
+            file, Destination.CONTEXT,
             f"document {suffixe.lstrip('.')} : son texte sera extrait",
             bloque_par="" if besoin in outils else f"{besoin} est introuvable",
         )
 
-    return Proposition(
-        file, Destin.INCONNU,
+    return Suggestion(
+        file, Destination.INCONNU,
         f"« {suffixe or 'sans extension'} » n'est ni un son, ni une vidéo, "
         "ni un document texte",
     )
 
-def summarise(propositions: list[Proposition]) -> str:
+def summarise(propositions: list[Suggestion]) -> str:
     """Une phrase qui dit ce que le lot va devenir, avant validation."""
     if not propositions:
         return "Aucun fichier."
-    par_destin: dict[Destin, int] = {}
+    par_destin: dict[Destination, int] = {}
     for proposition in propositions:
         par_destin[proposition.destin] = par_destin.get(proposition.destin, 0) + 1
     chunks = [
-        f"{combien} {destin}{'s' if combien > 1 and destin is not Destin.CONTEXT else ''}"
+        f"{combien} {destin}{'s' if combien > 1 and destin is not Destination.CONTEXT else ''}"
         for destin, combien in par_destin.items()
     ]
     bloques = sum(1 for p in propositions if p.bloque_par)

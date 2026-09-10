@@ -33,10 +33,10 @@ from typing import Any
 import typer
 
 from greffier.adapters.configuration import Config
-from greffier.adapters.notifications import NotificateurSysteme
-from greffier.adapters.voice_bank_files import BanqueFichiers
+from greffier.adapters.notifications import SystemNotifier
+from greffier.adapters.voice_bank_files import FileVoiceBank
 from greffier.application import tidy as ranger_module
-from greffier.application.name_voice import VoixANommer, extract_audio, voices_to_name
+from greffier.application.name_voice import VoiceToName, extract_audio, voices_to_name
 from greffier.application.process import ChainStopped
 from greffier.application.render import regenerate_minutes
 from greffier.domain.minutes import title
@@ -188,9 +188,9 @@ def _hours_of(config: Config, audio: Path) -> tuple[datetime | None, datetime | 
         return (None, None)
     return (state.start, state.terminee_le)
 
-def _locations(config: Config) -> ranger_module.Emplacements:
+def _locations(config: Config) -> ranger_module.Places:
     """Où vivent les morceaux d'une réunion, d'après la configuration."""
-    return ranger_module.Emplacements(
+    return ranger_module.Places(
         meetings=config.paths.data / "reunions",
         recordings=config.paths.recordings,
         transcripts=config.paths.transcripts,
@@ -390,7 +390,7 @@ def _ask_for_names(config: Config, identifier: str) -> bool:
         _regenerate(config, identifier)
     return True
 
-def _listen(config: Config, identifier: str, candidate: VoixANommer) -> None:
+def _listen(config: Config, identifier: str, candidate: VoiceToName) -> None:
     """Joue l'extrait d'une voix, quand le système sait le faire."""
     player = shutil.which("afplay") or shutil.which("aplay") or shutil.which("ffplay")
     if not player:
@@ -1095,7 +1095,7 @@ def known(
     aussi simple de l'effacer que de l'ajouter.
     """
     config = Config.load(config_file)
-    bank = BanqueFichiers(config.paths.voice_bank)
+    bank = FileVoiceBank(config.paths.voice_bank)
 
     if forget:
         if bank.forget(forget):
@@ -1144,7 +1144,7 @@ def known(
 
     _say_the_bank_health(people)
 
-def _clean_an_entry(bank: BanqueFichiers, name: str) -> None:
+def _clean_an_entry(bank: FileVoiceBank, name: str) -> None:
     """Retire d'une personne les empreintes qui désignent quelqu'un d'autre.
 
     Effacer la personne entière pour une empreinte fautive perdait tout le
@@ -1394,9 +1394,9 @@ def board(
     ajouterait. Une carte se partage largement, la voir avant coûte peu.
     """
     from greffier.adapters import subjects_file
-    from greffier.application.map_subjects import RenduIllisible, extract
+    from greffier.application.map_subjects import UnreadableOutput, extract
     from greffier.application.render import render_transcript
-    from greffier.domain.board import Carte, join
+    from greffier.domain.board import Board, join
 
     config = Config.load(config_file)
     identifier = _reunion_visee(config, meeting)
@@ -1434,13 +1434,13 @@ def board(
                 typer.echo(f"    · {label_text}")
         try:
             apports = extract(engine, name, material, deja=deja)
-        except RenduIllisible as trouble:
+        except UnreadableOutput as trouble:
             typer.secho(f"  ✗ extraction illisible : {trouble}", fg=typer.colors.RED)
             continue
         if not apports:
             typer.echo("  rien à ajouter")
             continue
-        the_board = Carte(name)
+        the_board = Board(name)
         bilan = join(the_board, apports, meeting=identifier)
         for contribution in apports:
             marque = "✓" if str(contribution.state) == "acté" else "·"
@@ -1460,7 +1460,7 @@ def _board_labels(registre: object, name: str) -> tuple[str, ...]:
         return ()
     try:
         return tuple(board_miro.labels_present(connu.board))
-    except board_miro.MiroRefuse:
+    except board_miro.MiroRefused:
         return ()
 
 def _action_texts(board: object) -> list[str]:
@@ -1468,12 +1468,12 @@ def _action_texts(board: object) -> list[str]:
 
     La racine est écartée : le sujet n'est ni acté ni en discussion, il est.
     """
-    from greffier.domain.board import Genre, Noeud, RecorderState
+    from greffier.domain.board import Kind, Node, Standing
 
     trouves: list[str] = []
 
-    def walk(noeud: Noeud) -> None:
-        if noeud.state is RecorderState.ACTE and noeud.kind is not Genre.SUBJECT:
+    def walk(noeud: Node) -> None:
+        if noeud.state is Standing.ACTE and noeud.kind is not Kind.SUBJECT:
             trouves.append(noeud.text)
         for enfant in noeud.enfants:
             walk(enfant)
@@ -1492,7 +1492,7 @@ def _contributions_of_others(registre: object, name: str) -> tuple[str, ...]:
         return ()
     try:
         return tuple(board_miro.contributions_of_others(connu.board))
-    except board_miro.MiroRefuse:
+    except board_miro.MiroRefused:
         return ()
 
 def _publier_la_carte(
@@ -1509,7 +1509,7 @@ def _publier_la_carte(
             subjects_file.noter_la_carte(config.paths.subjects, name, tableau)
             typer.secho(f"  tableau créé : {adresse or tableau}", fg=typer.colors.GREEN)
         ecrit = board_miro.publish(the_board, tableau, meeting=identifier)  # type: ignore[arg-type]
-    except board_miro.MiroRefuse as trouble:
+    except board_miro.MiroRefused as trouble:
         typer.secho(f"  ✗ {trouble}", fg=typer.colors.RED, err=True)
         return
     typer.secho(
@@ -1580,10 +1580,10 @@ def _try_the_source(source: object, token: str) -> None:
     jeton peut être expiré, sa portée insuffisante, le projet invisible. Mieux
     vaut l'apprendre ici qu'en pleine réunion.
     """
-    from greffier.domain.sources import Genre, Source
+    from greffier.domain.sources import Kind, Source
 
     assert isinstance(source, Source)
-    if source.kind is Genre.GITLAB:
+    if source.kind is Kind.GITLAB:
         from greffier.adapters.gitlab_api import tickets
 
         trouves = tickets(source, token)
@@ -1646,7 +1646,7 @@ def publish(
     rendu d'un texte que personne n'a prononcé.
     """
     from greffier.application import publish as job
-    from greffier.domain.store import Destin, offer, summarise
+    from greffier.domain.store import Destination, offer, summarise
 
     config = Config.load(config_file)
     outils = job.tools_present()
@@ -1681,11 +1681,11 @@ def publish(
         return
 
     redacteur_document = cartographe(config)
-    if any(p.destin is Destin.CONTEXT and p.feasible for p in propositions):
-        from greffier.adapters.writer_claude import RedacteurClaude
+    if any(p.destin is Destination.CONTEXT and p.feasible for p in propositions):
+        from greffier.adapters.writer_claude import ClaudeWriter
         from greffier.application.publish import CONSIGNES_DOCUMENT
 
-        if isinstance(redacteur_document, RedacteurClaude):
+        if isinstance(redacteur_document, ClaudeWriter):
             redacteur_document.consignes_propres = CONSIGNES_DOCUMENT
 
     typer.echo("")
@@ -1900,12 +1900,12 @@ def tidy(
 
     from greffier.application import tidy as rangement
     from greffier.application.render import archiver as compresser
-    from greffier.domain.retention import Regle
+    from greffier.domain.retention import Rule
 
     config = Config.load(config_file)
     magasin = store(config)
     try:
-        regle = Regle(
+        regle = Rule(
             compresser_apres=config.retention.compresser_apres_jours,
             effacer_apres=config.retention.effacer_apres_jours,
         )
@@ -2006,7 +2006,7 @@ def revoir(
     qu'ils désignaient, et la banque est réinterrogée sur les voix recollées —
     c'est là qu'elle a le plus de matière pour reconnaître.
     """
-    from greffier.adapters.voiceprints_titanet import ExtracteurTitaNet
+    from greffier.adapters.voiceprints_titanet import TitaNetExtractor
     from greffier.application.render import review_voices
 
     config = Config.load(config_file)
@@ -2023,10 +2023,10 @@ def revoir(
         raise typer.Exit(1)
 
     typer.secho(f"  empreintes     {identifier}…", fg=typer.colors.BLUE)
-    extractor = ExtracteurTitaNet(
+    extractor = TitaNetExtractor(
         config.paths.models / "diarisation/nemo_en_titanet_large.onnx")
     avant, apres = review_voices(
-        gardee, extractor, BanqueFichiers(config.paths.voice_bank))
+        gardee, extractor, FileVoiceBank(config.paths.voice_bank))
     le_depot.record(gardee)
     portantes = len(gardee.attendees())
     typer.secho(f"✓ {avant} voix ramenées à {apres}, dont {portantes} au-dessus "
@@ -2270,7 +2270,7 @@ def watch(
 
     Utile à la main pour observer ce qu'elle décide, d'où la commande.
     """
-    from greffier.application.watch_hardware import VeilleMateriel
+    from greffier.application.watch_hardware import HardwareWatch
     from greffier.domain.devices import WatchRules, advised_mic
 
     config = Config.load(config_file)
@@ -2292,7 +2292,7 @@ def watch(
         return fait.returncode == 0
 
     def notify_user(message: str) -> None:
-        NotificateurSysteme().notify("Greffier", message)
+        SystemNotifier().notify("Greffier", message)
 
     depart = player.read()
     voulu = config.audio.mic or advised_mic(depart, config.audio.mic or "")
@@ -2335,7 +2335,7 @@ def watch(
         releve = read_level(chunks[-1])
         return None if releve is None else releve.micro_db
 
-    veilleuse = VeilleMateriel(
+    veilleuse = HardwareWatch(
         recorder=recorder,
         lister=player,
         watch_rules=WatchRules(micro_voulu=voulu, agrege=config.audio.input),

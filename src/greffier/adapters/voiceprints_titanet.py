@@ -21,7 +21,7 @@ DUREE_MINIMALE = 1.5
 
 DUREE_MAXIMALE = 60.0
 
-class ExtracteurTitaNet:
+class TitaNetExtractor:
     """Transforme un extrait de parole en empreinte vocale."""
 
     def __init__(self, model: Path) -> None:

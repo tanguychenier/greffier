@@ -24,7 +24,7 @@ from typing import Any
 
 from greffier.application.follow import TRANCHE_MINIMALE_S, Follower, Position
 from greffier.application.take_part import AssistantSettings
-from greffier.domain.instructions import Proposition, WatchRules
+from greffier.domain.instructions import Suggestion, WatchRules
 from greffier.domain.models import Span, Utterance
 from greffier.domain.participation import Because, Opening
 from greffier.ports import outbound
@@ -150,7 +150,7 @@ class Watcher:
             self.prompt_seed = fraiche
         return self.prompt_seed
 
-    def publish(self, nouvelles: list[Proposition]) -> None:
+    def publish(self, nouvelles: list[Suggestion]) -> None:
         """Ajoute au journal, une proposition par ligne.
 
         Un fichier en ajout plutôt qu'un fichier réécrit : l'interface peut le
@@ -170,13 +170,13 @@ class Watcher:
                     "contexte": proposition.context,
                 }, ensure_ascii=False) + "\n")
 
-    def clipboard_turn(self, at_instant: float) -> list[Proposition]:
+    def clipboard_turn(self, at_instant: float) -> list[Suggestion]:
         content = read_the_clipboard()
         nouvelles = self.watch_rules.paste(content, at_instant) if content else []
         self.publish(nouvelles)
         return nouvelles
 
-    def transcription_turn(self, ou: Position, job: Path) -> list[Proposition]:
+    def transcription_turn(self, ou: Position, job: Path) -> list[Suggestion]:
         """Transcrit ce qui a été enregistré depuis la dernière tranche.
 
         Le découpage se fait sur ce que le fichier **porte réellement**, jamais
@@ -303,7 +303,7 @@ class Watcher:
         depuis: Callable[[], float],
         job: Path,
         pause: Callable[[float], None] = time.sleep,
-    ) -> list[Proposition]:
+    ) -> list[Suggestion]:
         """Tourne jusqu'à la fin de l'enregistrement.
 
         Les deux rythmes sont gérés dans une seule boucle : deux fils
@@ -323,7 +323,7 @@ class Watcher:
         self.last_pass(job)
         return self.watch_rules.propositions
 
-    def last_pass(self, job: Path) -> list[Proposition]:
+    def last_pass(self, job: Path) -> list[Suggestion]:
         """Transcrit ce qui restait quand la réunion s'est arrêtée.
 
         Il reste toujours jusqu'à une période d'audio non lue : sans cette

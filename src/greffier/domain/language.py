@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 
 from greffier.domain.models import MentionKind
 
-Motif = tuple[MentionKind, "re.Pattern[str]", bool]
+Reason = tuple[MentionKind, "re.Pattern[str]", bool]
 
 @dataclass(frozen=True, slots=True)
 class Detection:
@@ -41,14 +41,14 @@ class Detection:
     """
 
     active: bool
-    motifs: tuple[Motif, ...] = ()
+    motifs: tuple[Reason, ...] = ()
     exclus: frozenset[str] = frozenset()
     longueur_minimale: int = 3
     suffixe_adverbial: str = ""
     longueur_du_suffixe: int = 0
 
 @dataclass(frozen=True, slots=True)
-class Decoupage:
+class Splitting:
     """Comment cette langue sépare ses mots.
 
     Le chinois, le japonais et le thaï n'insèrent pas d'espace entre les mots :
@@ -66,7 +66,7 @@ class Decoupage:
         return len(text.replace(" ", ""))
 
 @dataclass(frozen=True, slots=True)
-class Redaction:
+class Wording:
     """Ce que la langue change à la lecture de ce qui a été dit.
 
     Les génériques sont les phrases que le modèle invente sur un signal faible
@@ -83,8 +83,8 @@ class LanguageProfile:
     code: str
     name: str
     detection: Detection
-    decoupage: Decoupage = field(default_factory=Decoupage)
-    redaction: Redaction = field(default_factory=Redaction)
+    decoupage: Splitting = field(default_factory=Splitting)
+    redaction: Wording = field(default_factory=Wording)
 
     @property
     def eprouve(self) -> bool:

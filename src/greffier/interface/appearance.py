@@ -138,7 +138,7 @@ class Button(tk.Canvas):
             fill=self._plain_background() if oui else self.colours.hover,
         )
 
-class Liste(tk.Canvas):
+class Listing(tk.Canvas):
     """Une liste déroulante dessinée, à la place de celle de Tk.
 
     `ttk.Combobox` arrive avec le bouton fléché carré et gris du thème
@@ -258,7 +258,7 @@ class Liste(tk.Canvas):
         if change and self.on_choice is not None:
             self.on_choice(key)
 
-class Defileur(tk.Canvas):
+class Scroller(tk.Canvas):
     """Un ascenseur fin et dessiné, à la place de celui de Tk — gris, à bords
     carrés, avec ses boutons flèche, il détonne dans une fenêtre par ailleurs
     tenue par une seule palette.
@@ -316,7 +316,7 @@ class Defileur(tk.Canvas):
         target = event.y / height - portee / 2
         self.command("moveto", max(0.0, min(1.0 - portee, target)))
 
-class Vumetre(tk.Canvas):
+class LevelMeter(tk.Canvas):
     """Une barre de niveau, arrondie, qui change de teinte avec l'intensité.
 
     La jauge glisse vers la valeur demandée plutôt que d'y sauter : la parole
@@ -456,7 +456,7 @@ class _Segment(tk.Canvas):
         self._count = count
         self._draw()
 
-class BarreDeBoutons(tk.Frame):
+class ButtonBar(tk.Frame):
     """Des boutons qui passent à la ligne quand la largeur manque.
 
     `pack(side="left")` ne revient jamais à la ligne : le septième bouton de
@@ -504,7 +504,7 @@ class BarreDeBoutons(tk.Frame):
                 pady=(0, self.GAP) if rank < dernier_rang else 0,
             )
 
-class Onglets(tk.Frame):
+class Tabs(tk.Frame):
     """Une barre de segments, à la place du bandeau d'onglets de Tk."""
 
     def __init__(self, parent: tk.Misc, colours: Palette) -> None:

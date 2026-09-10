@@ -22,7 +22,7 @@ import json
 import re
 from collections.abc import Sequence
 
-from greffier.domain.board import Apport, Genre, RecorderState
+from greffier.domain.board import Contribution, Kind, Standing
 from greffier.ports import outbound
 
 GUIDANCE = """Tu extrais d'une réunion les points qui construisent la carte d'un
@@ -62,8 +62,8 @@ Règles :
   vraiment du même point ; sinon, formule le tien.
 """
 
-_KINDS = {str(kind): kind for kind in Genre}
-_ETATS = {str(state): state for state in RecorderState}
+_KINDS = {str(kind): kind for kind in Kind}
+_STANDINGS = {str(state): state for state in Standing}
 
 _BLOC = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
 
@@ -73,7 +73,7 @@ def extract(
     material: str,
     maximum: int = 12,
     deja: Sequence[str] = (),
-) -> list[Apport]:
+) -> list[Contribution]:
     """Les apports que cette réunion fournit sur ce sujet.
 
     `deja` porte les libellés qui sont **déjà** sur la carte. Les donner est ce
@@ -94,7 +94,7 @@ def extract(
     invite.append(f"\nCe qui a été dit :\n{material}")
     return analyser(writer.write_up("\n".join(invite)), maximum=maximum)
 
-class RenduIllisible(ValueError):
+class UnreadableOutput(ValueError):
     """La réponse ne contenait pas de tableau. Distinct de « rien trouvé ».
 
     Confondre les deux est ce qui a fait passer un échec pour un résultat : la
@@ -102,7 +102,7 @@ class RenduIllisible(ValueError):
     prose sans jamais produire de JSON.
     """
 
-def analyser(rendered: str, maximum: int = 12) -> list[Apport]:
+def analyser(rendered: str, maximum: int = 12) -> list[Contribution]:
     """Traduit la réponse du rédacteur en apports. Ignore ce qui ne va pas.
 
     Chaque élément est validé séparément : un objet mal formé au milieu de la
@@ -113,30 +113,30 @@ def analyser(rendered: str, maximum: int = 12) -> list[Apport]:
     brut = trouve.group(1) if trouve else rendered
     start, end = brut.find("["), brut.rfind("]")
     if start == -1 or end <= start:
-        raise RenduIllisible(
+        raise UnreadableOutput(
             "la réponse ne contient aucun tableau JSON : "
             + " ".join(rendered.split())[:160]
         )
     try:
         items = json.loads(brut[start:end + 1])
     except json.JSONDecodeError as trouble:
-        raise RenduIllisible(f"tableau JSON invalide : {trouble}") from trouble
+        raise UnreadableOutput(f"tableau JSON invalide : {trouble}") from trouble
     if not isinstance(items, list):
-        raise RenduIllisible("la réponse n'est pas un tableau")
+        raise UnreadableOutput("la réponse n'est pas un tableau")
 
-    apports: list[Apport] = []
+    apports: list[Contribution] = []
     for item in items[:maximum]:
         if not isinstance(item, dict):
             continue
         text = str(item.get("texte", "")).strip()
         if not text:
             continue
-        apports.append(Apport(
+        apports.append(Contribution(
             text=text,
-            kind=_KINDS.get(str(item.get("genre", "")).strip(), Genre.CONSTAT),
-            state=_ETATS.get(str(item.get("etat", "")).strip(), RecorderState.EN_DISCUSSION)
-            if str(item.get("etat", "")).strip() != str(RecorderState.DEPASSE)
-            else RecorderState.EN_DISCUSSION,
+            kind=_KINDS.get(str(item.get("genre", "")).strip(), Kind.CONSTAT),
+            state=_STANDINGS.get(str(item.get("etat", "")).strip(), Standing.EN_DISCUSSION)
+            if str(item.get("etat", "")).strip() != str(Standing.DEPASSE)
+            else Standing.EN_DISCUSSION,
             sous=str(item.get("sous", "")).strip(),
         ))
     return apports

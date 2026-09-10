@@ -31,14 +31,14 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 
-class RecorderState(StrEnum):
+class Standing(StrEnum):
     """Ce que la carte affirme d'un nœud."""
 
     ACTE = "acté"
     EN_DISCUSSION = "en discussion"
     DEPASSE = "dépassé"
 
-class Genre(StrEnum):
+class Kind(StrEnum):
     SUBJECT = "sujet"
     PROBLEME = "problème"
     PISTE = "piste"
@@ -76,11 +76,11 @@ _VIDES = frozenset({
     "que", "qui", "se", "ce", "cette", "il", "elle", "on", "est", "sont",
 })
 
-GENRES_DECIDABLES = frozenset({Genre.PISTE, Genre.ACTION})
+GENRES_DECIDABLES = frozenset({Kind.PISTE, Kind.ACTION})
 
-SANS_ETAT = frozenset({Genre.SUBJECT})
+SANS_ETAT = frozenset({Kind.SUBJECT})
 
-def state_allows(kind: Genre, state: RecorderState) -> RecorderState:
+def state_allows(kind: Kind, state: Standing) -> Standing:
     """L'état que ce genre peut porter. Ramène à « en discussion » sinon.
 
     « Dépassé » reste possible pour tout genre : un problème peut avoir cessé
@@ -88,8 +88,8 @@ def state_allows(kind: Genre, state: RecorderState) -> RecorderState:
     """
     if kind in SANS_ETAT:
         return state
-    if state is RecorderState.ACTE and kind not in GENRES_DECIDABLES:
-        return RecorderState.EN_DISCUSSION
+    if state is Standing.ACTE and kind not in GENRES_DECIDABLES:
+        return Standing.EN_DISCUSSION
     return state
 
 PART_COMMUNE = 0.6
@@ -133,23 +133,23 @@ def same_point(un: str, autre: str) -> bool:
     return communs / max(len(mots_un), len(mots_autre)) >= PART_COMMUNE
 
 @dataclass
-class Noeud:
+class Node:
     """Un point de la carte, et ce qui s'y rattache."""
 
     text: str
-    kind: Genre = Genre.CONSTAT
-    state: RecorderState = RecorderState.EN_DISCUSSION
+    kind: Kind = Kind.CONSTAT
+    state: Standing = Standing.EN_DISCUSSION
 
     def __post_init__(self) -> None:
         self.state = state_allows(self.kind, self.state)
-    enfants: list[Noeud] = field(default_factory=list)
+    enfants: list[Node] = field(default_factory=list)
     meetings: list[str] = field(default_factory=list)
 
     @property
     def key(self) -> str:
         return key(self.text)
 
-    def enfant(self, text: str) -> Noeud | None:
+    def enfant(self, text: str) -> Node | None:
         """L'enfant qui porte ce point, à la reformulation près."""
         return next((n for n in self.enfants if same_point(n.text, text)), None)
 
@@ -158,22 +158,22 @@ class Noeud:
         return 1 + sum(enfant.count() for enfant in self.enfants)
 
 @dataclass
-class Carte:
+class Board:
     """La carte d'un sujet, telle qu'elle existe à un instant."""
 
     subject: str
-    racine: Noeud | None = None
+    racine: Node | None = None
 
     def __post_init__(self) -> None:
         if self.racine is None:
-            self.racine = Noeud(self.subject, kind=Genre.SUBJECT, state=RecorderState.ACTE)
+            self.racine = Node(self.subject, kind=Kind.SUBJECT, state=Standing.ACTE)
 
     @property
     def count(self) -> int:
         return self.racine.count() if self.racine else 0
 
 @dataclass(frozen=True, slots=True)
-class Apport:
+class Contribution:
     """Ce qu'une réunion apporte : un point, et où l'accrocher.
 
     `sous` est le texte du parent, pas un identifiant : ce qui vient d'une
@@ -182,12 +182,12 @@ class Apport:
     """
 
     text: str
-    kind: Genre = Genre.CONSTAT
-    state: RecorderState = RecorderState.EN_DISCUSSION
+    kind: Kind = Kind.CONSTAT
+    state: Standing = Standing.EN_DISCUSSION
     sous: str = ""
 
 @dataclass(frozen=True, slots=True)
-class Bilan:
+class Summary:
     """Ce qu'une fusion a changé. Rien n'est jamais supprimé."""
 
     ajoutes: tuple[str, ...] = ()
@@ -198,7 +198,7 @@ class Bilan:
     def empty(self) -> bool:
         return not self.ajoutes and not self.actes
 
-def join(board: Carte, apports: list[Apport], meeting: str = "") -> Bilan:
+def join(board: Board, apports: list[Contribution], meeting: str = "") -> Summary:
     """Verse les apports dans la carte. **N'efface rien, jamais.**
 
     Un apport dont le parent est introuvable se raccroche à la racine plutôt que
@@ -218,7 +218,7 @@ def join(board: Carte, apports: list[Apport], meeting: str = "") -> Bilan:
             parent = board.racine
         existant = parent.enfant(contribution.text)
         if existant is None:
-            parent.enfants.append(Noeud(
+            parent.enfants.append(Node(
                 text=contribution.text.strip(),
                 kind=contribution.kind,
                 state=contribution.state,
@@ -229,15 +229,15 @@ def join(board: Carte, apports: list[Apport], meeting: str = "") -> Bilan:
         if meeting and meeting not in existant.meetings:
             existant.meetings.append(meeting)
         voulu = state_allows(existant.kind, contribution.state)
-        if voulu is RecorderState.ACTE and existant.state is RecorderState.EN_DISCUSSION:
-            existant.state = RecorderState.ACTE
+        if voulu is Standing.ACTE and existant.state is Standing.EN_DISCUSSION:
+            existant.state = Standing.ACTE
             actes.append(existant.text)
         else:
             known.append(existant.text)
 
-    return Bilan(tuple(ajoutes), tuple(actes), tuple(known))
+    return Summary(tuple(ajoutes), tuple(actes), tuple(known))
 
-def _find(noeud: Noeud, text: str) -> Noeud | None:
+def _find(noeud: Node, text: str) -> Node | None:
     """Le nœud portant ce libellé, où qu'il soit dans l'arbre."""
     if same_point(noeud.text, text):
         return noeud
@@ -247,7 +247,7 @@ def _find(noeud: Noeud, text: str) -> Noeud | None:
             return trouve
     return None
 
-def mark_overdue(board: Carte, text: str) -> bool:
+def mark_overdue(board: Board, text: str) -> bool:
     """Marque un point comme dépassé. Le nœud reste dans la carte.
 
     Le garder a un intérêt propre : une piste écartée qu'on efface revient à la
@@ -257,5 +257,5 @@ def mark_overdue(board: Carte, text: str) -> bool:
     trouve = _find(board.racine, text)
     if trouve is None or trouve is board.racine:
         return False
-    trouve.state = RecorderState.DEPASSE
+    trouve.state = Standing.DEPASSE
     return True

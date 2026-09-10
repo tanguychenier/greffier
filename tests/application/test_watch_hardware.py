@@ -4,27 +4,27 @@ from __future__ import annotations
 
 import pytest
 
-from greffier.application.watch_hardware import VeilleMateriel
-from greffier.domain.devices import Materiel, Peripherique, WatchRules
+from greffier.application.watch_hardware import HardwareWatch
+from greffier.domain.devices import Device, Hardware, WatchRules
 from greffier.domain.models import Phase
 
-JABRA = Peripherique("Jabra EVOLVE 30 II", "jabra:1", entrees=1)
-INTEGRE = Peripherique("Micro MacBook Pro", "BuiltInMicrophoneDevice", entrees=1)
-BLACKHOLE = Peripherique("BlackHole 2ch", "BlackHole2ch_UID", entrees=2, sorties=2)
+JABRA = Device("Jabra EVOLVE 30 II", "jabra:1", entrees=1)
+INTEGRE = Device("Micro MacBook Pro", "BuiltInMicrophoneDevice", entrees=1)
+BLACKHOLE = Device("BlackHole 2ch", "BlackHole2ch_UID", entrees=2, sorties=2)
 
-SANS = Materiel((BLACKHOLE, INTEGRE))
-AVEC = Materiel((BLACKHOLE, INTEGRE, JABRA))
+SANS = Hardware((BLACKHOLE, INTEGRE))
+AVEC = Hardware((BLACKHOLE, INTEGRE, JABRA))
 
 
 class ListeurFactice:
-    def __init__(self, suite: list[Materiel]) -> None:
+    def __init__(self, suite: list[Hardware]) -> None:
         self.suite = list(suite)
         self.lectures = 0
 
-    def read(self) -> Materiel:
+    def read(self) -> Hardware:
         self.lectures += 1
         if not self.suite:
-            return Materiel()
+            return Hardware()
         return self.suite.pop(0) if len(self.suite) > 1 else self.suite[0]
 
 
@@ -57,7 +57,7 @@ def veilleuse(materiels, *, reconstruction=True, recorder=None):
         reconstruits.append(mic)
         return reconstruction
 
-    v = VeilleMateriel(
+    v = HardwareWatch(
         recorder=recorder or MachineFactice(),
         lister=ListeurFactice(materiels),
         watch_rules=WatchRules(micro_voulu="Jabra EVOLVE 30 II"),
@@ -76,7 +76,7 @@ class TestPremierTour:
     def test_un_materiel_illisible_ne_conclut_rien(self) -> None:
         # Décider sur une lecture vide reviendrait à croire que tout a été
         # débranché, et à reconstruire l'agrégé sans aucune raison.
-        v, dits, reconstruits = veilleuse([Materiel(), Materiel()])
+        v, dits, reconstruits = veilleuse([Hardware(), Hardware()])
         v.turn()
         v.turn()
         assert reconstruits == [] and dits == []
@@ -108,7 +108,7 @@ class TestBranchementEnCoursDeReunion:
             ordre.append("reconstruction")
             return True
 
-        v = VeilleMateriel(
+        v = HardwareWatch(
             recorder=recorder,
             lister=ListeurFactice([SANS, AVEC]),
             watch_rules=WatchRules(micro_voulu="Jabra EVOLVE 30 II"),
@@ -142,7 +142,7 @@ class TestPlusAucunMicro:
     def test_l_outil_alerte_sans_rouvrir_de_morceau(self) -> None:
         recorder = MachineFactice()
         v, dits, reconstruits = veilleuse(
-            [AVEC, Materiel((BLACKHOLE,))], recorder=recorder
+            [AVEC, Hardware((BLACKHOLE,))], recorder=recorder
         )
         v.turn()
         v.turn()

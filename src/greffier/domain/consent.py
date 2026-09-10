@@ -21,7 +21,7 @@ from __future__ import annotations
 from enum import StrEnum
 
 
-class Information(StrEnum):
+class Disclosure(StrEnum):
     """Ce qui a été fait vis-à-vis des participants."""
 
     RIEN = "rien"
@@ -29,15 +29,15 @@ class Information(StrEnum):
     AGREEMENT = "accord"
 
 MENTIONS = {
-    Information.RIEN: (
+    Disclosure.RIEN: (
         "Cette réunion a été enregistrée et transcrite automatiquement. "
         "L'information des participants n'a pas été tracée."
     ),
-    Information.ANNONCE: (
+    Disclosure.ANNONCE: (
         "Cette réunion a été enregistrée et transcrite automatiquement, "
         "les participants en ayant été informés."
     ),
-    Information.AGREEMENT: (
+    Disclosure.AGREEMENT: (
         "Cette réunion a été enregistrée et transcrite automatiquement, "
         "avec l'accord des participants."
     ),
@@ -49,22 +49,22 @@ RAPPEL = (
     "pour que le compte rendu le dise."
 )
 
-def mention(disclosure: Information) -> str:
+def mention(disclosure: Disclosure) -> str:
     """La phrase à porter au compte rendu."""
     return MENTIONS[disclosure]
 
-def to_draw(disclosure: Information) -> bool:
+def to_draw(disclosure: Disclosure) -> bool:
     """Vrai s'il reste quelque chose à faire pour être en règle avec soi-même."""
-    return disclosure is Information.RIEN
+    return disclosure is Disclosure.RIEN
 
-def read(brut: str) -> Information:
+def read(brut: str) -> Disclosure:
     """Ce que dit la configuration, ou « rien » si elle ne dit rien de valable.
 
     On retombe sur l'état le plus prudent : une valeur mal orthographiée ne doit
     pas faire écrire au compte rendu que les participants ont donné leur accord.
     """
     nu = brut.strip().casefold()
-    for value in Information:
+    for value in Disclosure:
         if nu == str(value).casefold():
             return value
-    return Information.RIEN
+    return Disclosure.RIEN

@@ -3,7 +3,7 @@
 import pytest
 
 from greffier.adapters import board_miro
-from greffier.adapters.board_miro import INTERDITS, MiroRefuse, token
+from greffier.adapters.board_miro import INTERDITS, MiroRefused, token
 
 
 class TestTableauxInterdits:
@@ -21,7 +21,7 @@ class TestTableauxInterdits:
             raise AssertionError("aucun appel ne doit partir")
 
         monkeypatch.setattr(board_miro, "_appeler", jamais)
-        with pytest.raises(MiroRefuse, match="interdits"):
+        with pytest.raises(MiroRefused, match="interdits"):
             board_miro.textes_presents(next(iter(INTERDITS)))
 
 
@@ -40,7 +40,7 @@ class TestJeton:
     def test_sans_jeton_le_message_dit_quoi_faire(self, monkeypatch):
         monkeypatch.delenv("GREFFIER_MIRO_JETON", raising=False)
         monkeypatch.delenv("GREFFIER_MIRO_JETON_FICHIER", raising=False)
-        with pytest.raises(MiroRefuse, match="GREFFIER_MIRO_JETON"):
+        with pytest.raises(MiroRefused, match="GREFFIER_MIRO_JETON"):
             token()
 
     def test_aucun_chemin_n_est_ecrit_en_dur(self):
@@ -70,10 +70,10 @@ class TestPublicationSansReseau:
         return appels
 
     def test_seuls_les_noeuds_manquants_sont_poses(self, monkeypatch):
-        from greffier.domain.board import Apport, Carte, join
+        from greffier.domain.board import Board, Contribution, join
 
-        board = Carte("Oasis")
-        join(board, [Apport("Déjà là"), Apport("Nouveau")])
+        board = Board("Oasis")
+        join(board, [Contribution("Déjà là"), Contribution("Nouveau")])
         self.mark(monkeypatch, present_line=("Oasis", "Déjà là"))
         ecrit = board_miro.publish(board, "uXjVtest=")
         assert ecrit.poses == ("Nouveau",)
@@ -81,21 +81,21 @@ class TestPublicationSansReseau:
 
     def test_rien_n_est_supprime_ni_modifie(self, monkeypatch):
         """Ce que quelqu'un a posé reste tel quel."""
-        from greffier.domain.board import Apport, Carte, join
+        from greffier.domain.board import Board, Contribution, join
 
-        board = Carte("Oasis")
-        join(board, [Apport("Un point")])
+        board = Board("Oasis")
+        join(board, [Contribution("Un point")])
         appels = self.mark(monkeypatch)
         board_miro.publish(board, "uXjVtest=")
         methodes = {methode for methode, _, _ in appels}
         assert methodes <= {"GET", "POST"}, "ni DELETE ni PATCH"
 
     def test_l_etat_se_lit_a_la_couleur(self, monkeypatch):
-        from greffier.domain.board import Apport, Carte, Genre, RecorderState, join
+        from greffier.domain.board import Board, Contribution, Kind, Standing, join
 
-        board = Carte("Oasis")
+        board = Board("Oasis")
         # Une piste : seuls une piste et une action peuvent être actées.
-        join(board, [Apport("Décidé", kind=Genre.PISTE, state=RecorderState.ACTE)])
+        join(board, [Contribution("Décidé", kind=Kind.PISTE, state=Standing.ACTE)])
         appels = self.mark(monkeypatch)
         board_miro.publish(board, "uXjVtest=")
         colours = [
@@ -103,14 +103,14 @@ class TestPublicationSansReseau:
             for methode, path, corps in appels
             if methode == "POST" and "sticky_notes" in path and corps
         ]
-        assert board_miro.COLOURS[RecorderState.ACTE] in colours
+        assert board_miro.COLOURS[Standing.ACTE] in colours
 
     def test_le_texte_est_echappe(self, monkeypatch):
         """Un « < » dans un libellé ne doit pas casser le contenu HTML."""
-        from greffier.domain.board import Apport, Carte, join
+        from greffier.domain.board import Board, Contribution, join
 
-        board = Carte("Oasis")
-        join(board, [Apport("a < b & c")])
+        board = Board("Oasis")
+        join(board, [Contribution("a < b & c")])
         appels = self.mark(monkeypatch)
         board_miro.publish(board, "uXjVtest=")
         contenus = [
@@ -139,10 +139,10 @@ class TestConnecteurs:
 
     def test_les_identifiants_partent_en_nombres(self):
         """L'API les refuse en chaînes : « expected of type [Number] »."""
-        from greffier.domain.board import Apport, Carte, join
+        from greffier.domain.board import Board, Contribution, join
 
-        board = Carte("Oasis")
-        join(board, [Apport("Un point")])
+        board = Board("Oasis")
+        join(board, [Contribution("Un point")])
         appels = []
 
         def faux(path, methode="GET", corps=None):
@@ -165,26 +165,26 @@ class TestConnecteurs:
         assert isinstance(liens[0]["startItem"]["id"], int)
 
     def test_les_liens_traces_sont_comptes(self, monkeypatch):
-        from greffier.domain.board import Apport, Carte, join
+        from greffier.domain.board import Board, Contribution, join
 
-        board = Carte("Oasis")
-        join(board, [Apport("A"), Apport("B")])
+        board = Board("Oasis")
+        join(board, [Contribution("A"), Contribution("B")])
         self.mark(monkeypatch)
         ecrit = board_miro.publish(board, "uXjVtest=")
         assert ecrit.liens == 2
         assert ecrit.liens_manques == 0
 
     def test_les_liens_echoues_sont_comptes_et_non_avales(self, monkeypatch):
-        from greffier.domain.board import Apport, Carte, join
+        from greffier.domain.board import Board, Contribution, join
 
-        board = Carte("Oasis")
-        join(board, [Apport("A")])
+        board = Board("Oasis")
+        join(board, [Contribution("A")])
 
         def faux(path, methode="GET", corps=None):
             if "/items" in path:
                 return {"data": []}
             if "connectors" in path:
-                raise board_miro.MiroRefuse("refusé")
+                raise board_miro.MiroRefused("refusé")
             return {"id": "3458764683144805305"}
 
         monkeypatch.setattr(board_miro, "_appeler", faux)
@@ -197,16 +197,16 @@ class TestConnecteurs:
 class TestLaRacine:
     def test_le_sujet_ne_porte_pas_d_etat(self):
         """« Oasis — en discussion » ferait dire que le sujet est en débat."""
-        from greffier.domain.board import Carte
+        from greffier.domain.board import Board
 
-        board = Carte("Oasis")
+        board = Board("Oasis")
         assert board.racine is not None
         html = board_miro._as_html(board.racine, "")
         assert "en discussion" not in html
 
     def test_le_sujet_a_sa_propre_couleur(self):
-        from greffier.domain.board import Genre
+        from greffier.domain.board import Kind
 
-        assert Genre.SUBJECT in __import__(
+        assert Kind.SUBJECT in __import__(
             "greffier.domain.board", fromlist=["SANS_ETAT"]
         ).SANS_ETAT

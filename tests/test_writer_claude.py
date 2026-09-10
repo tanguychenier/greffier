@@ -10,7 +10,7 @@ import subprocess
 
 import pytest
 
-from greffier.adapters.writer_claude import RedacteurClaude
+from greffier.adapters.writer_claude import ClaudeWriter
 
 
 @pytest.fixture
@@ -31,25 +31,25 @@ def espion(monkeypatch):
 
 class TestModele:
     def test_le_modele_demande_est_transmis(self, espion):
-        RedacteurClaude("opus").write_up("Sandy : bonjour.")
+        ClaudeWriter("opus").write_up("Sandy : bonjour.")
         assert "--model" in espion["commande"]
         assert espion["commande"][espion["commande"].index("--model") + 1] == "opus"
 
     def test_sans_modele_rien_n_est_impose(self, espion):
         """Utile pour éprouver l'outil tel qu'il est réglé sur le poste."""
-        RedacteurClaude().write_up("Sandy : bonjour.")
+        ClaudeWriter().write_up("Sandy : bonjour.")
         assert "--model" not in espion["commande"]
 
     def test_la_transcription_passe_par_l_entree_standard(self, espion):
         """Une transcription d'une heure dépasse la taille admise pour un argument."""
-        RedacteurClaude("opus").write_up("Sandy : bonjour.")
+        ClaudeWriter("opus").write_up("Sandy : bonjour.")
         assert "Sandy : bonjour." in espion["entree"]
         assert not any("Sandy" in morceau for morceau in espion["commande"])
 
     def test_aucun_outil_n_est_autorise(self, espion):
         """Le rédacteur écrit un document, il n'a rien à lire ni à exécuter."""
         command = espion if False else None
-        RedacteurClaude("opus").write_up("x")
+        ClaudeWriter("opus").write_up("x")
         assert "--allowed-tools" in espion["commande"]
         assert espion["commande"][espion["commande"].index("--allowed-tools") + 1] == ""
         assert command is None
@@ -60,7 +60,7 @@ class TestEchecs:
         monkeypatch.setattr("greffier.adapters.writer_claude.shutil.which",
                             lambda _name: None)
         with pytest.raises(RuntimeError, match="ollama"):
-            RedacteurClaude("opus").write_up("x")
+            ClaudeWriter("opus").write_up("x")
 
     def test_une_sortie_vide_est_une_erreur(self, monkeypatch):
         monkeypatch.setattr("greffier.adapters.writer_claude.shutil.which",
@@ -70,4 +70,4 @@ class TestEchecs:
             lambda command, **o: subprocess.CompletedProcess(command, 0, "", "quota atteint"),
         )
         with pytest.raises(RuntimeError, match="quota atteint"):
-            RedacteurClaude("opus").write_up("x")
+            ClaudeWriter("opus").write_up("x")

@@ -126,7 +126,7 @@ class Person:
     meetings: int = 0
 
 @dataclass(slots=True)
-class Reunion:
+class Meeting:
     """L'objet central : ce qui a été enregistré et ce qu'on en sait."""
 
     identifier: str

@@ -22,15 +22,15 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 
-class Quoi(StrEnum):
+class What(StrEnum):
     TERME = "terme"
     PERSONNE = "personne"
 
 @dataclass(frozen=True, slots=True)
-class Apprentissage:
+class Learning:
     """Ce qu'une phrase demande de retenir."""
 
-    quoi: Quoi
+    quoi: What
     subject: str
     precision: str = ""
 
@@ -40,7 +40,7 @@ class Apprentissage:
 
     def say(self) -> str:
         """La confirmation à poser, qui montre exactement ce qui sera écrit."""
-        if self.quoi is Quoi.PERSONNE:
+        if self.quoi is What.PERSONNE:
             qui = f"« {self.subject} »"
             role = f", {self.precision}" if self.precision else ""
             return f"J'ajoute {qui}{role} aux personnes du contexte. Confirme ?"
@@ -107,7 +107,7 @@ def agreement(response: str) -> bool | None:
         return False
     return None
 
-def understand(phrase: str) -> Apprentissage | None:
+def understand(phrase: str) -> Learning | None:
     """Ce que cette phrase demande de retenir, ou None si ce n'en est pas une.
 
     On refuse plutôt que de deviner à moitié : une phrase qui commence par un
@@ -120,7 +120,7 @@ def understand(phrase: str) -> Apprentissage | None:
         role = _clean(personne.group("precision"))
         name = _clean(personne.group("sujet"))
         if name and _is_a_role(role):
-            return Apprentissage(Quoi.PERSONNE, name, role)
+            return Learning(What.PERSONNE, name, role)
 
     for motif in _MOTIFS:
         trouve = motif.match(phrase)
@@ -132,9 +132,9 @@ def understand(phrase: str) -> Apprentissage | None:
         )
         if not subject or len(subject.split()) > 5:
             continue
-        quoi = Quoi.PERSONNE if _is_a_role(precision) else Quoi.TERME
+        quoi = What.PERSONNE if _is_a_role(precision) else What.TERME
         try:
-            return Apprentissage(quoi, subject, precision)
+            return Learning(quoi, subject, precision)
         except ValueError:
             continue
     return None

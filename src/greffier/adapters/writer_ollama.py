@@ -82,7 +82,7 @@ def available_models() -> list[str]:
         return []
     return [line.split()[0] for line in output.splitlines()[1:] if line.strip()]
 
-class RedacteurOllama:
+class OllamaWriter:
     def __init__(self, model: str, hote: str = "http://127.0.0.1:11434",
                  language: str = "") -> None:
         self.model = model
