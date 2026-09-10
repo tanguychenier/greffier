@@ -51,6 +51,7 @@ from greffier.composition import (
     redacteur,
     suivi,
     transcripteur_leger,
+    voix_de_l_assistant,
 )
 from greffier.domaine.compte_rendu import titre
 from greffier.emplacements import dossier_config
@@ -58,6 +59,16 @@ from greffier.emplacements import dossier_config
 application = typer.Typer(
     add_completion=False, help="Enregistre, transcrit et résume tes réunions."
 )
+
+
+def _relire_les_boutons() -> tuple[bool, bool]:
+    """Où en sont les deux boutons de l'onglet En direct.
+
+    Relu à chaque tranche : la fenêtre et la veille sont deux processus, et le
+    seul canal entre eux est le fichier de configuration.
+    """
+    reglages = Config().assistant
+    return reglages.actif, reglages.voix != "aucun"
 
 
 def _matiere_du_direct(
@@ -923,7 +934,8 @@ def assister(
         relire_l_amorce=lambda: contexte(config).amorce(),
         interroger=interroger,
         participant=lui,
-        relire_la_participation=lambda: Config().assistant.actif,
+        relire_la_participation=_relire_les_boutons,
+        rendre_la_voix=lambda: voix_de_l_assistant(Config()),
         periode_tranche=config.direct.periode,
     )
     if le_suivi is not None:
