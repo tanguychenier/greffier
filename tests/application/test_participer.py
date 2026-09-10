@@ -282,3 +282,48 @@ class TestLEchangeSePoursuit:
             raison=Raison.APPORT, propos="Qui porte ça ?", ne_le=100.0)
         assistant.tour([dit("autre chose", 104.0, 106.0)], maintenant=109.0)
         assert assistant.attente is None
+
+
+class TestElleContinueTantQuElleADesQuestions:
+    """Un dialogue, pas un aller-retour.
+
+    Le signal d'arrêt vient d'elle — le point d'interrogation final — et non
+    d'un compteur qui la couperait au milieu d'un sujet.
+    """
+
+    def test_une_question_de_suite_garde_l_echange_ouvert(self):
+        assistant = Participant(
+            nom="Lucie", voix=VoixFactice(),
+            cerveau=CerveauFactice("Et qui valide, une fois que c'est fait ?"))
+        assistant.attente = Occasion(
+            raison=Raison.APPORT, propos="Qui porte la migration ?", ne_le=100.0)
+        suite = assistant.tour([dit("Hugo s'en charge", 104.0, 106.0)],
+                               maintenant=109.0)
+        assert suite is not None
+        assert assistant.attente is suite, "l'échange s'est refermé trop tôt"
+
+    def test_une_conclusion_referme_l_echange(self):
+        assistant = Participant(
+            nom="Lucie", voix=VoixFactice(),
+            cerveau=CerveauFactice("Très bien, c'est noté."))
+        assistant.attente = Occasion(
+            raison=Raison.APPORT, propos="Qui porte la migration ?", ne_le=100.0)
+        assistant.tour([dit("Hugo s'en charge", 104.0, 106.0)], maintenant=109.0)
+        assert assistant.attente is None
+
+    def test_le_repos_ne_coupe_pas_un_echange_en_cours(self):
+        """Une réponse à sa propre question passe outre le repos.
+
+        Sinon l'assistant poserait une question puis refuserait d'entendre la
+        réponse pendant trois minutes, ce qui est pire que de ne rien demander.
+        """
+        assistant = Participant(
+            nom="Lucie", voix=VoixFactice(),
+            cerveau=CerveauFactice("Et pour quand ?"))
+        assistant.politique.a_parle(
+            Occasion(raison=Raison.APPORT, propos="Qui porte ça ?", ne_le=100.0),
+            maintenant=100.0)
+        assistant.attente = Occasion(
+            raison=Raison.APPORT, propos="Qui porte ça ?", ne_le=100.0)
+        suite = assistant.tour([dit("Hugo", 104.0, 106.0)], maintenant=109.0)
+        assert suite is not None, "le repos a coupé l'échange"
