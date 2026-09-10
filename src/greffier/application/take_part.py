@@ -16,6 +16,7 @@ from typing import Any, Protocol
 from greffier.domain.models import Utterance
 from greffier.domain.participation import (
     MEMOIRE_DE_SES_MOTS,
+    MOTS_POUR_JUGER,
     Because,
     Manners,
     Opening,
@@ -165,10 +166,18 @@ class AssistantSettings:
                 if accuse is not None:
                     return accuse
             if called_by_name(text, self.name):
+                demande = question_asked(text, self.name) or text
                 proposees.append(Opening(
                     because=Because.APPELE,
-                    remark=question_asked(text, self.name) or text,
+                    remark=demande,
                     born_at=utterance.span.end,
+                    # Un sujet, donc une question déjà répondue ne l'est pas
+                    # deux fois. Les tranches se recouvrent exprès — c'est ce
+                    # qui évite de couper une phrase en deux — si bien qu'une
+                    # question près d'une frontière est retranscrite à la
+                    # tranche suivante. Sans ce sujet, elle y répondait de
+                    # nouveau, et c'est le vrai mécanisme de la boucle.
+                    subject=f"appel:{_empreinte_du_propos(demande)}",
                 ))
         if self.in_reserve is not None:
             proposees.append(self.in_reserve)
@@ -212,6 +221,13 @@ class AssistantSettings:
         self._oublier_ses_vieux_mots(now or utterance.span.end)
         if is_own(utterance.text, [mots for _quand, mots in self.its_own_words]):
             return True
+        if len(own_words(utterance.text)) >= MOTS_POUR_JUGER:
+            # Assez de mots pour trancher : ils l'ont fait, et la fenêtre de
+            # temps n'a pas à s'en mêler. Elle est **estimée** d'après la
+            # longueur du texte, et elle englobait la question suivante — la
+            # salle se retrouvait ignorée. Mesuré par le harnais de
+            # conversation.
+            return False
         start, end = utterance.span.start, utterance.span.end
         if end <= start:
             return False
