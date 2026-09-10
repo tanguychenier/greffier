@@ -26,10 +26,10 @@ from greffier.ports import outbound
 SYSTEM = platform.system()
 
 ATTENDENT_UNE_REPONSE = frozenset({
-    Because.VOIX_INDISTINCTE,
-    Because.DECISION_SANS_SUITE,
-    Because.QUESTION_SANS_REPONSE,
-    Because.ECART_AVEC_UN_DOCUMENT,
+    Because.INDISTINCT_VOICE,
+    Because.DECISION_WITHOUT_FOLLOW_UP,
+    Because.QUESTION_WITHOUT_ANSWER,
+    Because.GAP_WITH_A_DOCUMENT,
     Because.CONTRIBUTION,
 })
 

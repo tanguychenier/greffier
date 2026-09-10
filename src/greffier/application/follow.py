@@ -92,7 +92,7 @@ def _ligne_tour(turn: LiveTurn, voice: LiveVoice) -> dict[str, Any]:
         "texte": turn.text,
         "voix": turn.voice,
         "nom": voice.name,
-        "certitude": voice.certitude.value,
+        "certitude": voice.certainty.value,
         "rang": voice.rank,
     }
 
@@ -101,7 +101,7 @@ def _ligne_correction(correction: Correction) -> dict[str, Any]:
         "genre": GENRE_CORRECTION,
         "nom": correction.name,
         "voix": correction.voice,
-        "numeros": list(correction.numeros),
+        "numeros": list(correction.numbers),
         "toute_la_voix": correction.whole_voice,
     }
 
@@ -114,12 +114,12 @@ def _ligne_separation(fusion: Join) -> dict[str, Any]:
         "genre": GENRE_SEPARATION,
         "voix": fusion.source,
         "de": fusion.target,
-        "numeros": list(fusion.numeros),
+        "numeros": list(fusion.numbers),
         "nom": fusion.name,
-        "certitude": fusion.certitude.value,
+        "certitude": fusion.certainty.value,
         "rang": fusion.rank,
-        "nom_cible": fusion.nom_cible,
-        "certitude_cible": fusion.certitude_cible.value,
+        "nom_cible": fusion.target_name,
+        "certitude_cible": fusion.target_certainty.value,
     }
 
 def add(log: Path, lines: list[dict[str, Any]]) -> None:
@@ -186,19 +186,19 @@ def _replay_split(thread: LiveThread, line: dict[str, Any]) -> None:
     gardee = thread.voice.get(target)
     if rendue in thread.voice or gardee is None:
         return
-    numeros = {int(n) for n in line.get("numeros", [])}
+    numbers = {int(n) for n in line.get("numeros", [])}
     thread.reserve_identifier(rendue)
     thread.voice[rendue] = LiveVoice(
         identifier=rendue,
         name=line.get("nom"),
-        certitude=_certitude(line.get("certitude")),
+        certainty=_certitude(line.get("certitude")),
         rank=int(line.get("rang", 0)),
     )
-    if gardee.certitude is not Certainty.HUMAINE:
+    if gardee.certainty is not Certainty.HUMAINE:
         gardee.name = line.get("nom_cible")
-        gardee.certitude = _certitude(line.get("certitude_cible"))
+        gardee.certainty = _certitude(line.get("certitude_cible"))
     for turn in thread.turns:
-        if turn.voice == target and turn.number in numeros:
+        if turn.voice == target and turn.number in numbers:
             turn.voice = rendue
     thread.split_apart.add(frozenset({rendue, target}))
 
@@ -206,7 +206,7 @@ def _certitude(value: Any) -> Certainty:
     try:
         return Certainty(str(value))
     except ValueError:
-        return Certainty.INCONNUE
+        return Certainty.UNKNOWN
 
 def _replay_join(thread: LiveThread, line: dict[str, Any]) -> None:
     """Replays a voice join: the source's turns move to the target."""
@@ -220,11 +220,11 @@ def _replay_join(thread: LiveThread, line: dict[str, Any]) -> None:
                 turn.voice = target
         thread.voice.pop(source, None)
         return
-    ferme_avant = avalee.certitude.firm
-    nom_avant, certitude_avant = avalee.name, avalee.certitude
+    ferme_avant = avalee.certainty.firm
+    nom_avant, certitude_avant = avalee.name, avalee.certainty
     thread.join_into(source, target)
-    if not gardee.certitude.firm and ferme_avant:
-        gardee.name, gardee.certitude = nom_avant, certitude_avant
+    if not gardee.certainty.firm and ferme_avant:
+        gardee.name, gardee.certainty = nom_avant, certitude_avant
 
 def _replay_turn(thread: LiveThread, line: dict[str, Any]) -> None:
     identifier = str(line.get("voix", ""))
@@ -235,9 +235,9 @@ def _replay_turn(thread: LiveThread, line: dict[str, Any]) -> None:
     if voice is None:
         voice = LiveVoice(identifier=identifier)
         thread.voice[identifier] = voice
-    if not voice.certitude.firm:
+    if not voice.certainty.firm:
         voice.name = line.get("nom")
-        voice.certitude = Certainty(line.get("certitude", Certainty.INCONNUE.value))
+        voice.certainty = Certainty(line.get("certitude", Certainty.UNKNOWN.value))
         voice.rank = int(line.get("rang", 0))
     number = int(line.get("numero", len(thread.turns) + 1))
     if any(t.number == number for t in thread.turns):
@@ -249,16 +249,16 @@ def _replay_turn(thread: LiveThread, line: dict[str, Any]) -> None:
         text=str(line.get("texte", "")),
         voice=identifier,
     ))
-    thread.jusqu_a = max(thread.jusqu_a, end)
+    thread.up_to = max(thread.up_to, end)
 
 def _replay_correction(thread: LiveThread, line: dict[str, Any]) -> None:
-    numeros = [int(n) for n in line.get("numeros", [])]
+    numbers = [int(n) for n in line.get("numeros", [])]
     name = str(line.get("nom", "")).strip()
-    if not name or not numeros:
+    if not name or not numbers:
         return
-    whole_voice = bool(line.get("toute_la_voix", len(numeros) > 1))
+    whole_voice = bool(line.get("toute_la_voix", len(numbers) > 1))
     known = {t.number for t in thread.turns}
-    for number in numeros:
+    for number in numbers:
         if number in known:
             thread.correct(number, name, whole_voice=whole_voice)
             return
@@ -314,7 +314,7 @@ class Follower:
             )
             for r in utterances
         ]
-        kept = self.thread.retenir(recalees)
+        kept = self.thread.hold(recalees)
         if not kept:
             return []
 
@@ -393,7 +393,7 @@ class Follower:
             return []
         appris: list[str] = []
         for voice in self.thread.voice.values():
-            if voice.certitude is not Certainty.HUMAINE or voice.name is None:
+            if voice.certainty is not Certainty.HUMAINE or voice.name is None:
                 continue
             if self._appris.get(voice.identifier) == voice.name:
                 continue

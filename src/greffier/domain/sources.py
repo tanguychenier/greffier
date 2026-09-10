@@ -70,8 +70,8 @@ class Registry:
         """Is the gesture permitted? If not, why — in the user's terms."""
         source = self.by_name(name)
         if source is None:
-            connues = ", ".join(self.recorded()) or "aucune"
-            return (False, f"« {name} » n'est pas inscrite. Sources connues : {connues}")
+            known = ", ".join(self.recorded()) or "aucune"
+            return (False, f"« {name} » n'est pas inscrite. Sources connues : {known}")
         if ecriture and not source.can_write:
             return (
                 False,

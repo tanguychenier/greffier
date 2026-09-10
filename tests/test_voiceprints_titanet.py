@@ -57,6 +57,6 @@ class TestBornes:
         signal = np.arange(frequency * 600, dtype="float32")
         borne = int(DUREE_MAXIMALE * frequency)
         milieu = len(signal) // 2
-        attendu = signal[milieu - borne // 2 : milieu + borne // 2]
-        assert attendu[0] > 0, "le début du signal n'est pas retenu"
-        assert len(attendu) == borne
+        expected = signal[milieu - borne // 2 : milieu + borne // 2]
+        assert expected[0] > 0, "le début du signal n'est pas retenu"
+        assert len(expected) == borne

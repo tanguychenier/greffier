@@ -358,12 +358,12 @@ def _artifact_for_this_system(publication: dict[str, Any]) -> tuple[str, str]:
     The right one and no other: all three hang off the same release, and a Windows
     archive installed on a Mac would produce nothing that launches.
     """
-    attendu = ARTEFACTS.get(platform.system(), "")
-    if not attendu:
+    expected = ARTEFACTS.get(platform.system(), "")
+    if not expected:
         return ("", "")
     for piece in publication.get("assets") or []:
         if not isinstance(piece, dict):
             continue
-        if str(piece.get("name", "")) == attendu:
-            return (attendu, str(piece.get("browser_download_url", "")))
+        if str(piece.get("name", "")) == expected:
+            return (expected, str(piece.get("browser_download_url", "")))
     return ("", "")

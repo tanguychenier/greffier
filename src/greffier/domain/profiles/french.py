@@ -55,7 +55,7 @@ _MOTIFS: list[tuple[MentionKind, re.Pattern[str], bool]] = [
     ), False),
 ]
 
-EXCLUS_PAR_DEFAUT: frozenset[str] = frozenset({
+EXCLUDED_BY_DEFAULT: frozenset[str] = frozenset({
     "mais", "bon", "bref", "ensuite", "enfin", "ecoute", "ecoutez", "attends",
     "ok", "ah", "eh", "euh", "apres", "avant", "sinon", "sur", "dans", "les",
     "est", "peut", "parce", "pourquoi", "comment", "quand", "moi", "toi", "lui",
@@ -106,11 +106,11 @@ FRENCH = LanguageProfile(
     detection=Detection(
         active=True,
         motifs=tuple(_MOTIFS),
-        exclus=EXCLUS_PAR_DEFAUT,
-        longueur_minimale=3,
-        suffixe_adverbial="ment",
-        longueur_du_suffixe=8,
+        excluded=EXCLUDED_BY_DEFAULT,
+        minimum_length=3,
+        adverb_suffix="ment",
+        suffix_length=8,
     ),
-    decoupage=Splitting(mots_separes_par_des_espaces=True),
-    redaction=Wording(boilerplate=BOILERPLATE, motifs_de_decision=tuple(_DECISIONS)),
+    splitting=Splitting(words_split_by_spaces=True),
+    wording=Wording(boilerplate=BOILERPLATE, decision_patterns=tuple(_DECISIONS)),
 )

@@ -163,8 +163,8 @@ class Listing(tk.Canvas):
     def fill_menu(self, choix: list[tuple[str, str]], key: str = "") -> None:
         """Places the possible choices, and selects one."""
         self._choix = list(choix)
-        connues = [c for c, _ in self._choix]
-        self._key = key if key in connues else (connues[0] if connues else "")
+        known = [c for c, _ in self._choix]
+        self._key = key if key in known else (known[0] if known else "")
         self._show()
 
     def value(self) -> str:

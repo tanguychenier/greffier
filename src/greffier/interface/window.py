@@ -578,7 +578,7 @@ class Window:
 
     def _ecrire_un_tour(self, turn: LiveTurn) -> None:
         voice = self._thread.voice.get(turn.voice)
-        firm = voice is not None and voice.certitude.firm
+        firm = voice is not None and voice.certainty.firm
         repere = f"tour{turn.number}"
         self.thread_widget.insert("end", f"{clock(turn.span.start)}  ", "heure")
         self.thread_widget.insert(
@@ -2439,7 +2439,7 @@ class Window:
         en_attente = self._questions_attente[0]
         dit = agreement(response)
         if dit is True:
-            retenu = en_attente.question.attendu
+            retenu = en_attente.question.expected
         elif dit is False:
             retenu = ""
         elif len(response.split()) <= 3:

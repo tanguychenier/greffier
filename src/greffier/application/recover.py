@@ -41,14 +41,14 @@ def depuis_le_fil(
             span=turn.span,
             text=turn.text.strip(),
             voice=turn.voice,
-            source=Source.INCONNUE,
+            source=Source.UNKNOWN,
         ))
-        turns.append(SpeakerTurn(turn.span, turn.voice, Source.INCONNUE))
+        turns.append(SpeakerTurn(turn.span, turn.voice, Source.UNKNOWN))
 
     names = {
         voice: connue.name
         for voice, connue in thread.voice.items()
-        if connue.name and connue.certitude.name != "INCONNUE"
+        if connue.name and connue.certainty.name != "INCONNUE"
     }
     duration = turns[-1].span.end if turns else 0.0
     quand = held_on(identifier)

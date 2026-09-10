@@ -448,8 +448,8 @@ def _reconnaitre_a_nouveau(
     """Asks the bank again who the voices are, once stitched."""
     from greffier.domain import voiceprints as voix_domaine
 
-    connues = bank.people()
-    if not connues:
+    known = bank.people()
+    if not known:
         return
     groupes: dict[str, list[Any]] = {}
     for voice, listing in voiceprints.items():
@@ -457,7 +457,7 @@ def _reconnaitre_a_nouveau(
     for voice, listing in groupes.items():
         if voice in meeting.names or not listing:
             continue
-        match = voix_domaine.recognise(voix_domaine.aggregate(listing), connues)
+        match = voix_domaine.recognise(voix_domaine.aggregate(listing), known)
         if match and match.sure:
             meeting.names[voice] = match.name
             meeting.propositions.pop(voice, None)
