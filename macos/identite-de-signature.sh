@@ -46,6 +46,16 @@ for motif in "Developer ID Application:" "Apple Development:" "$NOM_LOCAL"; do
   fi
 done
 
+# Créer un certificat demande la confiance du trousseau, et macOS ouvre pour
+# cela une fenêtre de mot de passe. Sans personne devant l'écran, elle attend
+# indéfiniment : l'exécuteur d'intégration continue y est resté plus d'une
+# heure, et la publication n'a jamais reçu son paquet macOS.
+if [ -n "${CI:-}" ] || [ ! -t 0 ]; then
+  echo "   session non interactive : signature ad hoc." >&2
+  echo "-"
+  exit 0
+fi
+
 echo "   aucune identité de signature : création de « $NOM_LOCAL » (une seule fois)" >&2
 ATELIER="$(mktemp -d "${TMPDIR:-/tmp}/greffier-signature.XXXXXX")"
 trap 'rm -rf "$ATELIER"' EXIT
