@@ -26,7 +26,7 @@ def reunion_type(**overrides) -> StoredMeeting:
     return StoredMeeting(**defauts)
 
 
-class RedacteurFactice:
+class FakeWriter:
     def __init__(self) -> None:
         self.recu: str | None = None
 
@@ -48,14 +48,14 @@ class TestRendreLaTranscription:
 class TestRegenererLeCompteRendu:
     def test_le_redacteur_recoit_les_noms_a_jour(self) -> None:
         meeting = reunion_type(names={"1": "Josiane", "2": "Marc"})
-        writer = RedacteurFactice()
+        writer = FakeWriter()
         regenerate_minutes(meeting, writer)
         assert "[Josiane]" in writer.recu
         assert "[Marc]" in writer.recu
 
     def test_le_texte_rendu_est_celui_du_redacteur(self) -> None:
         assert (
-            regenerate_minutes(reunion_type(), RedacteurFactice())
+            regenerate_minutes(reunion_type(), FakeWriter())
             == "# Compte rendu\n\nTout va bien."
         )
 
@@ -63,6 +63,6 @@ class TestRegenererLeCompteRendu:
         """Le défaut visé : régénérer ne doit pas rendre le compte rendu moins
         fiable que l'original en perdant ce que la veille du matériel savait."""
         meeting = reunion_type(hardware_events=["casque branché à 12:03"])
-        writer = RedacteurFactice()
+        writer = FakeWriter()
         regenerate_minutes(meeting, writer)
         assert "casque branché à 12:03" in writer.recu

@@ -14,7 +14,7 @@ import pytest
 from greffier.adapters.transcription_faster_whisper import FasterWhisperTranscriber
 
 
-class FauxSegment:
+class FakeSegment:
     def __init__(self, text: str) -> None:
         self.start = 0.0
         self.end = 1.0
@@ -32,7 +32,7 @@ class TestRepliSurLeProcesseur:
         """
         requests: list[str] = []
 
-        class FauxModele:
+        class FakeModel:
             def __init__(self, peripherique: str) -> None:
                 self.peripherique = peripherique
 
@@ -40,7 +40,7 @@ class TestRepliSurLeProcesseur:
                 def segments():
                     if self.peripherique in refuse:
                         raise RuntimeError("Library libcublas.so.12 is not found")
-                    yield FauxSegment("Bonjour à tous")
+                    yield FakeSegment("Bonjour à tous")
 
                 return segments(), None
 
@@ -48,7 +48,7 @@ class TestRepliSurLeProcesseur:
 
         def load():
             requests.append(transcriber.peripherique)
-            return FauxModele(transcriber.peripherique)
+            return FakeModel(transcriber.peripherique)
 
         monkeypatch.setattr(transcriber, "_load", load, raising=False)
         return transcriber, requests
