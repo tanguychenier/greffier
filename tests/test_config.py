@@ -172,3 +172,71 @@ class TestLAssistantEstActifParDefaut:
         assistant = Config().assistant
         assert not assistant.initiative
         assert not assistant.demander_les_voix
+
+
+class TestPrenomsEprouves:
+    """Une liste et non un champ libre.
+
+    Un prénom saisi au hasard n'est pas forcément rendu par le modèle de
+    transcription, et rien ne le dirait à celui qui l'a tapé : il appellerait
+    dans le vide. Chacun de ceux-ci a passé quatre épreuves — deux tournures,
+    deux voix de synthèse — et cinq pièges, des phrases sans le prénom.
+    """
+
+    def test_chaque_prenom_porte_une_voix(self):
+        from greffier.adaptateurs.configuration import GENRES, PRENOMS
+
+        assert PRENOMS, "la liste est vide"
+        assert all(locuteur in GENRES for locuteur in PRENOMS.values())
+
+    def test_les_deux_genres_sont_proposés(self):
+        """Sinon le choix n'en est pas un."""
+        from greffier.adaptateurs.configuration import PRENOMS
+
+        assert set(PRENOMS.values()) == {0, 1}
+
+    def test_le_prenom_pose_sa_voix(self):
+        from greffier.adaptateurs.configuration import Assistant
+
+        assert Assistant(nom="Lucie").locuteur_effectif == 0
+        assert Assistant(nom="Martin").locuteur_effectif == 1
+
+    def test_un_prenom_hors_liste_garde_le_reglage(self):
+        """Le fichier de configuration autorise un prénom libre."""
+        from greffier.adaptateurs.configuration import Assistant
+
+        assert Assistant(nom="Aurélien", locuteur=1).locuteur_effectif == 1
+
+    def test_aucun_prenom_ecarte_ne_traine_dans_la_liste(self):
+        """« Élise » se déclenche sur « elle a lu ci et ça », mesuré.
+
+        « Greffier » lui-même est écarté pour la même raison : « le greffe du
+        tribunal » suffisait à l'appeler.
+        """
+        from greffier.adaptateurs.configuration import PRENOMS
+
+        assert "Élise" not in PRENOMS
+        assert "Greffier" not in PRENOMS
+
+    def test_chaque_prenom_se_reconnait_lui_meme(self):
+        """Le contrôle minimal : la règle d'appel doit le voir dans une phrase."""
+        from greffier.adaptateurs.configuration import PRENOMS
+        from greffier.domaine.participation import appelee
+
+        for prenom in PRENOMS:
+            assert appelee(f"{prenom}, tu peux noter ça ?", prenom), prenom
+
+    def test_aucun_prenom_ne_se_declenche_sur_une_phrase_ordinaire(self):
+        from greffier.adaptateurs.configuration import PRENOMS
+        from greffier.domaine.participation import appelee
+
+        pieges = [
+            "on passe au point suivant, la recette est terminée",
+            "il faut qu'on parle du budget et des livraisons",
+            "le sprint avance bien, la merge request est prête",
+            "elle a lu ci et ça dans la documentation",
+            "on a vu ça lundi avec l'équipe de Bordeaux",
+        ]
+        for prenom in PRENOMS:
+            for piege in pieges:
+                assert not appelee(piege, prenom), f"{prenom} sur « {piege} »"
