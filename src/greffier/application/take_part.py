@@ -139,6 +139,7 @@ class AssistantSettings:
     voice: Speaker | None = None
     cerveau: Any | None = None
     context: Callable[[], str] | None = None
+    setting: Callable[[], str] | None = None
     tracer: Callable[[str, str], None] | None = None
     awaiting: Opening | None = None
     name_voice: Callable[[str, str], bool] | None = None
@@ -427,7 +428,23 @@ class AssistantSettings:
         )
 
     def guidance(self) -> str:
-        return CONSIGNES_ORALES.format(name=self.name)
+        """What the assistant is told once, before the meeting starts.
+
+        The setting comes with it: the acronyms of this organisation and the
+        people in it. Without them it answers on the words it hears, and this
+        room says "CASA" and "visa" for things no general model knows.
+        """
+        consignes = CONSIGNES_ORALES.format(name=self.name)
+        milieu = self._le_milieu()
+        return f"{milieu}{consignes}" if milieu else consignes
+
+    def _le_milieu(self) -> str:
+        """The glossary of the setting, or nothing when there is none."""
+        if self.setting is None:
+            return ""
+        with contextlib.suppress(Exception):
+            return str(self.setting())
+        return ""
 
 def _empreinte_du_propos(remark: str) -> str:
     """What identifies an already made remark, words aside."""
