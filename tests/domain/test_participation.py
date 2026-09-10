@@ -5,7 +5,11 @@ from greffier.domain.participation import (
     Because,
     Manners,
     Opening,
+    called_by_name,
+    is_own,
+    own_words,
     speech_density,
+    without_own_name,
 )
 
 
@@ -186,3 +190,127 @@ class TestCeQueLeReglageGarantit:
             opening = Opening(because=because, remark="…", born_at=100.0)
             assert manners.refusal(opening, now=100.0, lull=9.0) == (
                 "il ne participe pas")
+
+
+class TestElleNeDoitPasSEntendreElleMeme:
+    """Elle parle par le haut-parleur, et l'outil enregistre la sortie système.
+
+    C'est voulu : c'est ainsi qu'il entend les autres participants d'une visio.
+    Conséquence, sa propre voix revient sur le canal des autres, elle y lit son
+    propre nom dans sa propre réponse, et elle repart. **Sans fin.**
+
+    Jugé sur les mots et non sur l'horloge, et c'est tout le point : elle répond
+    tard, dans un fil séparé, donc aucune fenêtre de temps n'est fiable.
+    """
+
+    DIT = "Qui prend en charge la migration en Symfony 7 ?"
+
+    def _ses_mots(self, *remarks: str) -> list[frozenset[str]]:
+        return [own_words(r) for r in remarks]
+
+    def test_ses_mots_exacts_reviennent(self):
+        assert is_own(self.DIT, self._ses_mots(self.DIT))
+
+    def test_ses_mots_deformes_par_le_haut_parleur(self):
+        """Ce qui revient n'est jamais orthographié pareil."""
+        assert is_own(
+            "qui prend en charge la migration en Symfony sept",
+            self._ses_mots(self.DIT),
+        )
+
+    def test_une_moitie_de_sa_phrase_suffit(self):
+        """La salle et la boucle de capture coûtent des mots au passage."""
+        assert is_own("qui prend en charge la migration", self._ses_mots(self.DIT))
+
+    def test_la_salle_n_est_pas_prise_pour_elle(self):
+        assert not is_own(
+            "Lucie, est-ce que tu peux faire des recherches sur Internet ?",
+            self._ses_mots(self.DIT),
+        )
+
+    def test_une_interjection_n_est_jamais_la_sienne(self):
+        """« oui » et « d'accord » appartiennent à tout le monde."""
+        for court in ("oui", "d'accord", "bon", "ok"):
+            assert not is_own(court, self._ses_mots("oui d'accord bon ok"))
+
+    def test_sans_rien_avoir_dit_elle_n_entend_personne(self):
+        assert not is_own(self.DIT, [])
+
+    def test_plusieurs_de_ses_propos_sont_gardes(self):
+        """Elle parle plusieurs fois : chacun doit rester reconnaissable."""
+        mes = self._ses_mots(
+            self.DIT,
+            "Il reste la signature, et la recette à caler.",
+        )
+        assert is_own("il reste la signature et la recette", mes)
+        assert is_own("qui prend en charge la migration", mes)
+
+    def test_les_accents_ne_font_pas_deux_phrases(self):
+        assert is_own(
+            "L'ETAPE VISA EST DEJA CALEE POUR JEUDI",
+            self._ses_mots("L'étape visa est déjà calée pour jeudi"),
+        )
+
+    def test_un_sujet_commun_ne_suffit_pas(self):
+        """Le vrai risque : un participant qui parle du même sujet qu'elle."""
+        assert not is_own(
+            "la migration me paraît risquée avant la recette de jeudi soir",
+            self._ses_mots("Qui prend en charge la migration ?"),
+        )
+
+
+class TestSonNomNeSortJamaisDeSaBouche:
+    """La garantie dure, et c'est celle qui coupe la boucle à la racine.
+
+    Constaté en réunion réelle : « Lucie, est-ce que tu peux faire des
+    recherches sur Internet ? » quinze fois en quinze secondes, prononcé par
+    elle. Elle avait répété la question qu'on venait de lui poser, son nom
+    compris, l'avait entendue par la boucle de capture, y avait lu son nom, et
+    était repartie.
+
+    Retirer son nom de tout ce qu'elle prononce rend le cycle impossible, quoi
+    qu'il arrive par ailleurs — cerveau absent, transcription déformée, canal
+    mal attribué.
+    """
+
+    def test_son_nom_est_retire(self):
+        assert "Lucie" not in without_own_name(
+            "Lucie, est-ce que tu peux faire des recherches sur Internet ?", "Lucie"
+        )
+
+    def test_ce_qu_elle_dit_reste_lisible(self):
+        assert without_own_name(
+            "Lucie, est-ce que tu peux faire des recherches sur Internet ?", "Lucie"
+        ) == "est-ce que tu peux faire des recherches sur Internet ?"
+
+    def test_son_nom_deforme_est_retire_aussi(self):
+        """La transcription rend « Lucie » de vingt façons."""
+        for dit in ("Lucy, tu m'entends ?", "Lucie tu m'entends ?",
+                    "Luci, tu m'entends ?"):
+            assert "uc" not in without_own_name(dit, "Lucie").lower(), dit
+
+    def test_un_propos_sans_son_nom_n_est_pas_touche(self):
+        """Le cas courant : elle ne doit pas voir sa phrase remaniée."""
+        propos = "Qui prend en charge la migration en Symfony 7 ?"
+        assert without_own_name(propos, "Lucie") == propos
+
+    def test_la_typographie_francaise_survit(self):
+        """Le français garde une espace avant les deux-points."""
+        propos = "Merci, c'est noté : je mets Hubert sur cette voix."
+        assert without_own_name(propos, "Lucie") == propos
+
+    def test_le_nom_au_milieu_d_une_phrase(self):
+        assert without_own_name("Oui Lucie a bien compris", "Lucie") == "Oui a bien compris"
+
+    def test_un_nom_vide_ne_touche_a_rien(self):
+        assert without_own_name("phrase entière", "") == "phrase entière"
+
+    def test_ce_qui_reste_ne_rappelle_plus_personne(self):
+        """Le bouclage complet : ce qu'elle dit ne doit plus l'appeler."""
+        for question in (
+            "Lucie, est-ce que tu peux faire des recherches sur Internet ?",
+            "Lucie, tu as compris le sujet Lucie ?",
+            "Dis-moi Lucie",
+        ):
+            reste = without_own_name(question, "Lucie")
+            assert not called_by_name(reste, "Lucie"), reste
