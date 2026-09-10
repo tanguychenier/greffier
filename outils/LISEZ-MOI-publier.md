@@ -30,9 +30,9 @@ pour les atteindre. Ce qui suit est donc une intention, pas une mesure.
   refusera au premier lancement, et il faudra un clic droit puis « Ouvrir ». Le
   résoudre demande un Developer ID et une notarisation, donc un compte payant et
   une décision qui n'est pas prise.
-- **Windows** : un dossier avec un `.exe`, par PyInstaller. Jamais lancé sur une
-  vraie machine Windows. Il manque aussi `outils/lanceur_windows.py`, que le
-  workflow appelle et qui reste à écrire.
+- **Windows** : un dossier avec un `.exe`, par PyInstaller, autour de
+  `outils/lanceur_windows.py`. Jamais lancé sur une vraie machine Windows :
+  seul `--version` a été éprouvé, et depuis un Mac.
 - **Linux** : l'arbre des sources et son installeur. Un AppImage serait plus
   commode, et reste à faire.
 
