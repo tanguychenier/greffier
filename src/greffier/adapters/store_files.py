@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from greffier.domain.meeting import StoredMeeting, held_on
+from greffier.domain.meeting import Join, StoredMeeting, held_on
 from greffier.domain.models import Source, Span, SpeakerTurn, Utterance
 
 FORMAT = 2
@@ -45,6 +45,12 @@ class FileStore:
                 {"debut": r.span.start, "fin": r.span.end,
                  "texte": r.text, "voix": r.voice, "source": r.source.value}
                 for r in meeting.utterances
+            ],
+            "fusions": [
+                {"absorbee": f.absorbed, "gardee": f.kept,
+                 "tours": list(f.turns), "repliques": list(f.utterances),
+                 "nom": f.name, "proposition": f.proposition}
+                for f in meeting.joins
             ],
         }
         path = self._path(meeting.identifier)
@@ -85,6 +91,18 @@ class FileStore:
             propositions=content.get("propositions", {}),
             warnings=content.get("avertissements", []),
             hardware_events=content.get("evenements_materiel", []),
+            joins=[
+                Join(
+                    absorbed=str(f.get("absorbee", "")),
+                    kept=str(f.get("gardee", "")),
+                    turns=tuple(int(x) for x in f.get("tours", [])),
+                    utterances=tuple(int(x) for x in f.get("repliques", [])),
+                    name=f.get("nom") or None,
+                    proposition=f.get("proposition") or None,
+                )
+                for f in content.get("fusions", [])
+                if isinstance(f, dict) and f.get("absorbee") and f.get("gardee")
+            ],
             turns=[
                 SpeakerTurn(Span(t["debut"], t["fin"]), t["voix"],
                              Source(t.get("source", "inconnue")))
