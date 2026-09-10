@@ -1001,3 +1001,53 @@ class TestPlancherAvantDeNommer:
 
     def test_juste_au_dessus_passe(self):
         assert self._resultat(6.1).names.get("2") == "Josiane"
+
+
+class TestLesConsignesArriventAuRedacteur:
+    """La chaîne doit poser les consignes de la séance devant le rédacteur.
+
+    Le défaut : elles étaient écrites dans la conversation, gardées sur le
+    disque, et la chaîne ne les lisait pas. Dix-sept messages perdus sur une
+    réunion de 1 h 42, dont « Il n'y a pas de sophie dans la réunion ».
+    """
+
+    CONSIGNES = [
+        "Il n'y a pas de sophie dans la réunion",
+        "Paul n'a pas dit booting, mais blue team",
+    ]
+
+    def _writer(self, consignes):
+        writer = FakeWriter()
+        chain(writer=writer, instructions=lambda _i: consignes).run_chain(AUDIO)
+        return writer.recu
+
+    def test_les_consignes_sont_devant_le_redacteur(self):
+        transcription = self._writer(self.CONSIGNES)
+        assert "Il n'y a pas de sophie" in transcription
+        assert "blue team" in transcription
+
+    def test_elles_passent_avant_le_reste_de_l_entete(self):
+        """Une correction humaine l'emporte sur ce que la transcription croit."""
+        transcription = self._writer(self.CONSIGNES)
+        assert transcription.index("Consignes données") < transcription.index(
+            "Mention sur l'enregistrement"
+        )
+
+    def test_sans_consigne_rien_n_est_ajoute(self):
+        assert "Consignes données" not in self._writer([])
+
+    def test_une_conversation_illisible_ne_coute_pas_le_compte_rendu(self):
+        """Le compte rendu vaut plus qu'un en-tête."""
+        def tombe(_identifier):
+            raise OSError("fichier illisible")
+
+        writer = FakeWriter()
+        outcome = chain(writer=writer, instructions=tombe).run_chain(AUDIO)
+        assert outcome.minutes, "le compte rendu doit être écrit quand même"
+        assert "Consignes données" not in writer.recu
+
+    def test_sans_lecteur_de_consignes_la_chaine_tourne(self):
+        """Le port est facultatif : la ligne de commande peut ne pas le brancher."""
+        writer = FakeWriter()
+        chain(writer=writer).run_chain(AUDIO)
+        assert "Consignes données" not in writer.recu

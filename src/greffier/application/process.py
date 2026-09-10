@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -151,6 +152,7 @@ class Chain:
     language: str = "fr"
     prompt_seed: str = ""
     context_header: str = ""
+    instructions: Callable[[str], list[str]] | None = None
     people: int | None = None
     not_first_names: frozenset[str] = frozenset()
     recipient: str = ""
@@ -426,7 +428,8 @@ class Chain:
             v for v in outcome.significant_voices() if v
         ] + [v for v in outcome.names if v not in outcome.significant_voices()]
         header = (
-            context_header(audio.stem, duration,
+            self._instructions_of(audio.stem)
+            + context_header(audio.stem, duration,
                             names=[outcome.names[v] for v in entendues if v in outcome.names],
                             voix_entendues=len(entendues),
                             commencee_le=outcome.commencee_le,
@@ -473,6 +476,20 @@ class Chain:
         )
         self._notify_user("Greffier", "Compte rendu prêt.")
         return outcome
+
+    def _instructions_of(self, identifier: str) -> str:
+        """What was asked of the tool during this meeting, for the writer.
+
+        Never raises: minutes are worth more than a header, and a conversation
+        that cannot be read must not cost the meeting.
+        """
+        from greffier.application.render import instructions_header
+
+        if self.instructions is None:
+            return ""
+        with contextlib.suppress(Exception):
+            return instructions_header(self.instructions(identifier))
+        return ""
 
     def _keep(self, audio: Path, outcome: Outcome) -> None:
         """Writes the master file, the transcript and the minutes."""

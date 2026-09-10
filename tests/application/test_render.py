@@ -3,6 +3,7 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
+from greffier.application import render
 from greffier.application.render import regenerate_minutes, render_transcript
 from greffier.domain.meeting import StoredMeeting
 from greffier.domain.models import Span, SpeakerTurn, Utterance
@@ -66,3 +67,35 @@ class TestRegenererLeCompteRendu:
         writer = FakeWriter()
         regenerate_minutes(meeting, writer)
         assert "casque branché à 12:03" in writer.recu
+
+
+class TestLesConsignesDeLaSeance:
+    """Ce qu'on a dit à l'outil pendant la réunion doit parvenir au rédacteur.
+
+    Le défaut, rapporté mot pour mot : « j'avais pourtant dit dans le chat de
+    l'outil qu'on avait pas de Sophie dans la réunion... et dans le chat je lui
+    avais donné des instructions pour le compte rendu, cela n'a pas été pris en
+    compte dans le compte rendu ». Les dix-sept messages étaient gardés sur le
+    disque et lus par personne.
+    """
+
+    def test_chaque_consigne_est_dictee(self):
+        entete = render.instructions_header([
+            "Il n'y a pas de sophie dans la réunion",
+            "Paul n'a pas dit booting, mais blue team",
+        ])
+        assert "Il n'y a pas de sophie" in entete
+        assert "blue team" in entete
+
+    def test_l_entete_dit_qu_elles_l_emportent(self):
+        """Sans cela le rédacteur arbitre entre la consigne et la transcription."""
+        entete = render.instructions_header(["Il n'y a pas de sophie"])
+        assert "l'emportent" in entete
+        assert "Applique-les" in entete
+
+    def test_sans_consigne_il_n_y_a_pas_d_entete(self):
+        assert render.instructions_header([]) == ""
+
+    def test_l_entete_se_termine_proprement(self):
+        """Il est collé aux autres : sans la ligne vide, deux blocs se touchent."""
+        assert render.instructions_header(["une"]).endswith("\n\n")
