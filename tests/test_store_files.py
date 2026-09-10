@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
-from greffier.adapters.store_files import DepotFichiers
+from greffier.adapters.store_files import FileStore
 from greffier.domain.meeting import StoredMeeting, held_on
 from greffier.domain.models import Span, SpeakerTurn, Utterance
 
@@ -33,7 +33,7 @@ class TestOrdreDesReunions:
     """
 
     def test_les_reunions_datees_vont_de_la_plus_recente_a_la_plus_ancienne(self, tmp_path):
-        store = DepotFichiers(tmp_path)
+        store = FileStore(tmp_path)
         for identifier in ("2026-09-02_17h37_reunion", "2026-09-09_10h05_reunion",
                             "2026-09-09_08h30_reunion"):
             store.record(meeting(identifier))
@@ -44,14 +44,14 @@ class TestOrdreDesReunions:
         ]
 
     def test_un_identifiant_sans_date_ne_passe_pas_devant_une_reunion_datee(self, tmp_path):
-        store = DepotFichiers(tmp_path)
+        store = FileStore(tmp_path)
         store.record(meeting("2026-09-09_10h05_reunion"))
         store.record(meeting("fausse-reunion"))
         assert store.lister()[0] == "2026-09-09_10h05_reunion"
         assert "fausse-reunion" in store.lister()
 
     def test_la_derniere_est_la_plus_recemment_tenue(self, tmp_path):
-        store = DepotFichiers(tmp_path)
+        store = FileStore(tmp_path)
         store.record(meeting("zzz-essai"))
         store.record(meeting("2026-09-09_10h05_reunion"))
         latest = store.latest()
@@ -59,7 +59,7 @@ class TestOrdreDesReunions:
         assert latest.identifier == "2026-09-09_10h05_reunion"
 
     def test_sans_dossier_la_liste_est_vide(self, tmp_path):
-        assert DepotFichiers(tmp_path / "rien").lister() == []
+        assert FileStore(tmp_path / "rien").lister() == []
 
 
 class TestHorodatageDeLIdentifiant:
@@ -81,7 +81,7 @@ class TestSujetChoisi:
     """
 
     def test_le_sujet_survit_a_l_ecriture(self, tmp_path):
-        store = DepotFichiers(tmp_path)
+        store = FileStore(tmp_path)
         gardee = meeting("2026-09-09_10h05_reunion")
         gardee.subject = "Point Oasis"
         store.record(gardee)
@@ -98,18 +98,18 @@ class TestSujetChoisi:
 
 class TestSuppression:
     def test_le_fichier_maitre_part(self, tmp_path):
-        store = DepotFichiers(tmp_path)
+        store = FileStore(tmp_path)
         store.record(meeting("2026-09-09_10h05_reunion"))
         assert store.delete("2026-09-09_10h05_reunion") is True
         assert store.lister() == []
 
     def test_supprimer_ce_qui_n_existe_pas_le_dit(self, tmp_path):
-        assert DepotFichiers(tmp_path).delete("jamais-vue") is False
+        assert FileStore(tmp_path).delete("jamais-vue") is False
 
 
 class TestAllerRetour:
     def test_ce_qui_est_ecrit_se_relit(self, tmp_path):
-        store = DepotFichiers(tmp_path)
+        store = FileStore(tmp_path)
         store.record(meeting("2026-09-09_10h05_reunion"))
         relue = store.read("2026-09-09_10h05_reunion")
         assert relue.utterances[0].text == "Bonjour."

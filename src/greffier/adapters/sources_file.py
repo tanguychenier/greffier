@@ -15,7 +15,7 @@ import subprocess
 import tomllib
 from pathlib import Path
 
-from greffier.domain.sources import Droit, Genre, Registre, Source
+from greffier.domain.sources import Kind, Registry, Right, Source
 
 GABARIT = '''# Les sources extérieures que Greffier a le droit de consulter.
 #
@@ -51,7 +51,7 @@ GABARIT = '''# Les sources extérieures que Greffier a le droit de consulter.
 
 PREFIXE_TROUSSEAU = "trousseau:"
 
-def read(file: Path) -> Registre:
+def read(file: Path) -> Registry:
     """Les sources inscrites. Vide si le fichier n'existe pas.
 
     Une entrée mal formée est écartée **avec** son nom : contrairement au
@@ -59,11 +59,11 @@ def read(file: Path) -> Registre:
     plus tard — « cette source n'est pas inscrite » alors qu'elle y figure.
     """
     if not file.exists():
-        return Registre([])
+        return Registry([])
     try:
         content = tomllib.loads(file.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError):
-        return Registre([])
+        return Registry([])
 
     sources: list[Source] = []
     for input in content.get("sources", []):
@@ -72,15 +72,15 @@ def read(file: Path) -> Registre:
         try:
             sources.append(Source(
                 name=str(input.get("nom", "")).strip(),
-                kind=Genre(str(input.get("genre", "")).strip().casefold()),
+                kind=Kind(str(input.get("genre", "")).strip().casefold()),
                 adresse=str(input.get("adresse", "")).strip().rstrip("/"),
                 projet=str(input.get("projet", "")).strip(),
-                droit=Droit(str(input.get("droit", "lecture")).strip().casefold()),
+                droit=Right(str(input.get("droit", "lecture")).strip().casefold()),
                 token=str(input.get("jeton", "")).strip(),
             ))
         except ValueError:
             continue
-    return Registre(sources)
+    return Registry(sources)
 
 def lay_the_template(file: Path) -> bool:
     """Écrit le fichier d'exemple s'il n'existe pas. Vrai s'il a été créé."""

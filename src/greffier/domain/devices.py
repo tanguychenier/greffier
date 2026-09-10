@@ -21,7 +21,7 @@ from enum import Enum
 
 
 @dataclass(frozen=True)
-class Peripherique:
+class Device:
     """Une entrée ou une sortie audio, telle que le système la présente."""
 
     name: str
@@ -34,19 +34,19 @@ class Peripherique:
         return self.entrees > 0
 
 @dataclass(frozen=True)
-class Materiel:
+class Hardware:
     """L'état du matériel audio à un instant donné."""
 
-    devices: tuple[Peripherique, ...] = ()
+    devices: tuple[Device, ...] = ()
 
-    def by_name(self, name: str) -> Peripherique | None:
+    def by_name(self, name: str) -> Device | None:
         return next((p for p in self.devices if p.name == name), None)
 
     def present(self, name: str) -> bool:
         return self.by_name(name) is not None
 
     @property
-    def mics(self) -> tuple[Peripherique, ...]:
+    def mics(self) -> tuple[Device, ...]:
         return tuple(p for p in self.devices if p.captured)
 
 class Action(Enum):
@@ -63,13 +63,13 @@ class Decision:
     mic: str = ""
     audio_suspect: bool = False
 
-def _headset_usable(materiel: Materiel, prefere: str) -> Peripherique | None:
+def _headset_usable(materiel: Hardware, prefere: str) -> Device | None:
     attendu = materiel.by_name(prefere)
     if attendu is not None and attendu.captured:
         return attendu
     return None
 
-def _fallback_mic(materiel: Materiel, exclus: tuple[str, ...]) -> Peripherique | None:
+def _fallback_mic(materiel: Hardware, exclus: tuple[str, ...]) -> Device | None:
     """Le meilleur micro disponible, hors ceux qu'on veut éviter.
 
     « Meilleur » veut dire : un micro qui n'est pas une boucle logicielle. Choisir
@@ -86,7 +86,7 @@ def _fallback_mic(materiel: Materiel, exclus: tuple[str, ...]) -> Peripherique |
     integres = [p for p in candidats if _est_integre(p.name)]
     return (casques or integres or candidats)[0]
 
-def _is_aggregated(peripherique: Peripherique) -> bool:
+def _is_aggregated(peripherique: Device) -> bool:
     """Les périphériques que Greffier fabrique lui-même.
 
     L'agrégé expose trois entrées et n'est ni une boucle ni un appareil intégré :
@@ -113,7 +113,7 @@ class WatchRules:
     agrege: str = "Reunion Entree"
     events: list[str] = field(default_factory=list)
 
-    def examine(self, avant: Materiel, apres: Materiel) -> Decision:
+    def examine(self, avant: Hardware, apres: Hardware) -> Decision:
         """Compare deux états du matériel et décide."""
         if avant.devices == apres.devices:
             return Decision(Action.RIEN)
@@ -166,7 +166,7 @@ class WatchRules:
 PLANCHER_MUET_DB = -68.0
 
 @dataclass(frozen=True)
-class ChoixMicro:
+class MicChoice:
     """Le micro retenu après écoute, et ce qu'il faut en dire."""
 
     name: str
@@ -177,7 +177,7 @@ class ChoixMicro:
 
 def choose_by_listening(
     essais: dict[str, float], casques: frozenset[str] = frozenset()
-) -> ChoixMicro | None:
+) -> MicChoice | None:
     """Retient le micro qui captera le mieux **la réunion**, après écoute.
 
     On compare plutôt que de trancher sur un seuil absolu : le bruit d'une pièce
@@ -215,7 +215,7 @@ def choose_by_listening(
             ranking = [(name, level)] + [
                 pair for pair in ranking if pair[0] != name
             ]
-    return ChoixMicro(
+    return MicChoice(
         name=name,
         niveau_db=level,
         ecartes=tuple(ranking[1:]),
@@ -223,7 +223,7 @@ def choose_by_listening(
         casque_prefere=bool(casques) and name in casques,
     )
 
-def candidates_to_listen_to(materiel: Materiel, prefere: str) -> list[str]:
+def candidates_to_listen_to(materiel: Hardware, prefere: str) -> list[str]:
     """Les micros qui valent une écoute, le préféré d'abord.
 
     BlackHole et les agrégés de Greffier sont exclus : le premier ne capte
@@ -245,11 +245,11 @@ def candidates_to_listen_to(materiel: Materiel, prefere: str) -> list[str]:
         ),
     )
 
-def headset_present(materiel: Materiel, name: str) -> bool:
+def headset_present(materiel: Hardware, name: str) -> bool:
     """Raccourci lisible pour les vérifications d'avant-enregistrement."""
     return _headset_usable(materiel, name) is not None
 
-def headsets_among(materiel: Materiel) -> frozenset[str]:
+def headsets_among(materiel: Hardware) -> frozenset[str]:
     """Les micros qui sont, selon toute vraisemblance, des micros de casque.
 
     L'indice est qu'un **même nom** capte et restitue : un casque a un écouteur
@@ -283,7 +283,7 @@ def headsets_among(materiel: Materiel) -> frozenset[str]:
         and not _est_integre(p.name)
     )
 
-def advised_mic(materiel: Materiel, prefere: str) -> str:
+def advised_mic(materiel: Hardware, prefere: str) -> str:
     """Micro à mettre dans l'agrégé, maintenant, au vu de ce qui est branché.
 
     Sert au démarrage : plutôt que de refuser de démarrer parce que le casque

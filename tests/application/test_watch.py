@@ -7,7 +7,7 @@ from pathlib import Path
 from greffier.application import watch
 from greffier.application.follow import Follower, Position
 from greffier.application.watch import Watcher
-from greffier.domain.instructions import Genre, WatchRules
+from greffier.domain.instructions import Kind, WatchRules
 from greffier.domain.live import LiveThread
 from greffier.domain.models import Span, Utterance
 
@@ -65,7 +65,7 @@ class TestJournal:
         lines = (tmp_path / "propositions.jsonl").read_text().strip().splitlines()
         assert len(lines) == 2
         premier = json.loads(lines[0])
-        assert premier["genre"] == Genre.LIEN.value
+        assert premier["genre"] == Kind.LIEN.value
         assert premier["instant"] == 7.0
 
     def test_le_journal_s_ajoute_et_ne_se_reecrit_pas(self, tmp_path, monkeypatch):

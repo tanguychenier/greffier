@@ -26,7 +26,7 @@ from pathlib import Path
 TOURS_RELUS = 60
 
 @dataclass(frozen=True, slots=True)
-class Tour:
+class Exchange:
     """Une réplique de la conversation, telle qu'elle a été dite."""
 
     qui: str
@@ -53,11 +53,11 @@ def add(file: Path, qui: str, text: str) -> None:
                 ensure_ascii=False,
             ) + "\n")
 
-def read(file: Path, derniers: int = TOURS_RELUS) -> list[Tour]:
+def read(file: Path, derniers: int = TOURS_RELUS) -> list[Exchange]:
     """Les derniers tours de la conversation, du plus ancien au plus récent."""
     if not file.exists():
         return []
-    turns: list[Tour] = []
+    turns: list[Exchange] = []
     with contextlib.suppress(OSError):
         for brute in file.read_text(encoding="utf-8").splitlines():
             if not brute.strip():
@@ -71,7 +71,7 @@ def read(file: Path, derniers: int = TOURS_RELUS) -> list[Tour]:
             quand = None
             with contextlib.suppress(ValueError, TypeError):
                 quand = datetime.fromisoformat(str(line.get("quand", "")))
-            turns.append(Tour(
+            turns.append(Exchange(
                 qui=str(line.get("qui", "note")),
                 text=str(line["texte"]),
                 quand=quand,

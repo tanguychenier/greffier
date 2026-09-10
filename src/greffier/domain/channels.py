@@ -34,7 +34,7 @@ RECOLLAGE_S = 0.7
 DUREE_MINIMALE_S = 0.8
 
 @dataclass(frozen=True)
-class Reglages:
+class ChannelSettings:
     """De quoi ajuster sans toucher au code, et sans deviner les valeurs."""
 
     marge_db: float = MARGE_DB
@@ -59,7 +59,7 @@ PART_VISIO = 0.05
 def over_video(
     micro_db: list[float],
     systeme_db: list[float],
-    reglages: Reglages | None = None,
+    reglages: ChannelSettings | None = None,
 ) -> bool:
     """Dit si la réunion s'est tenue à distance, d'après les deux canaux.
 
@@ -73,7 +73,7 @@ def over_video(
     dominent le micro une bonne partie du temps, puisqu'ils parlent par les
     haut-parleurs. Autour d'une table, jamais : tout le monde passe par le micro.
     """
-    r = reglages or Reglages()
+    r = reglages or ChannelSettings()
     utiles = min(len(micro_db), len(systeme_db))
     if utiles == 0:
         return False
@@ -87,10 +87,10 @@ def over_video(
 def who_speaks(
     micro_db: float,
     systeme_db: float,
-    reglages: Reglages | None = None,
+    reglages: ChannelSettings | None = None,
 ) -> WhoSpeaks:
     """Qui tient la parole à cet instant, d'après les deux canaux."""
-    r = reglages or Reglages()
+    r = reglages or ChannelSettings()
     mic = micro_db > r.plancher_db
     system = systeme_db > r.plancher_db
     if mic and system:
@@ -105,7 +105,7 @@ def local_turns(
     micro_db: list[float],
     systeme_db: list[float],
     pas_s: float,
-    reglages: Reglages | None = None,
+    reglages: ChannelSettings | None = None,
 ) -> list[Span]:
     """Les moments où la personne qui enregistre parle elle-même.
 
@@ -117,7 +117,7 @@ def local_turns(
     nécessaires : la première seule retiendrait les silences de la réunion, où
     le bruit de la pièce domine une boucle muette.
     """
-    r = reglages or Reglages()
+    r = reglages or ChannelSettings()
     if pas_s <= 0:
         raise ValueError("le pas des trames doit être positif")
 
@@ -128,7 +128,7 @@ def local_turns(
     ]
     return _regrouper(locales, pas_s, r)
 
-def _regrouper(locales: list[bool], pas_s: float, r: Reglages) -> list[Span]:
+def _regrouper(locales: list[bool], pas_s: float, r: ChannelSettings) -> list[Span]:
     """Assemble les trames en intervalles, en recollant les silences courts."""
     plages: list[tuple[int, int]] = []
     start: int | None = None

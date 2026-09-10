@@ -20,7 +20,7 @@ MEMOIRE_GRAND_MODELE_GO = 8.0
 DISQUE_NECESSAIRE_GO = 3.0
 
 @dataclass
-class Constat:
+class Reading:
     """Un point vérifié, et quoi faire s'il manque."""
 
     name: str
@@ -57,14 +57,14 @@ class Diagnostic:
     """Le verdict d'ensemble : ce qui manque, et si l'on peut tout de même y aller."""
 
     recorder: Recorder
-    constats: list[Constat] = field(default_factory=list)
+    constats: list[Reading] = field(default_factory=list)
 
     @property
-    def blocking(self) -> list[Constat]:
+    def blocking(self) -> list[Reading]:
         return [c for c in self.constats if c.bloquant and not c.present]
 
     @property
-    def missing(self) -> list[Constat]:
+    def missing(self) -> list[Reading]:
         return [c for c in self.constats if not c.present]
 
     @property

@@ -24,7 +24,7 @@ from greffier.domain.sources import Source
 TIMEOUT = 15.0
 AU_PLUS = 20
 
-class JiraRefuse(RuntimeError):
+class JiraRefused(RuntimeError):
     """L'appel n'a pas eu lieu, et pour une raison présentable."""
 
 @dataclass(frozen=True, slots=True)
@@ -48,7 +48,7 @@ def _identifiers(token: str) -> tuple[str, str]:
     fichier de configuration : elle identifie une personne.
     """
     if ":" not in token:
-        raise JiraRefuse(
+        raise JiraRefused(
             "le secret Jira doit valoir « adresse@exemple.fr:jeton » : "
             "l'authentification Basic demande les deux"
         )
@@ -78,15 +78,15 @@ def _appeler(
     except urllib.error.HTTPError as trouble:
         detail = trouble.read().decode("utf-8", "replace")[:200]
         if trouble.code in (401, 403):
-            raise JiraRefuse(
+            raise JiraRefused(
                 f"identifiants refusés sur « {source.name} » ({trouble.code}). "
                 "Vérifie l'adresse du compte et le jeton."
             ) from trouble
-        raise JiraRefuse(f"Jira a répondu {trouble.code} : {detail}") from trouble
+        raise JiraRefused(f"Jira a répondu {trouble.code} : {detail}") from trouble
     except (urllib.error.URLError, TimeoutError) as trouble:
-        raise JiraRefuse(f"{source.adresse} est injoignable : {trouble}") from trouble
+        raise JiraRefused(f"{source.adresse} est injoignable : {trouble}") from trouble
     except (ValueError, OSError) as trouble:
-        raise JiraRefuse(str(trouble)) from trouble
+        raise JiraRefused(str(trouble)) from trouble
 
 def _as_request(source: Source, brut: dict[str, Any]) -> Request:
     champs = brut.get("fields") or {}
@@ -113,7 +113,7 @@ def requests(source: Source, token: str, ouvertes: bool = True) -> list[Request]
     })
     rendered = _appeler(source, token, f"/search/jql?{parametres}")
     if not isinstance(rendered, dict):
-        raise JiraRefuse("réponse inattendue de Jira")
+        raise JiraRefused("réponse inattendue de Jira")
     trouvees = rendered.get("issues", [])
     return [
         _as_request(source, brut) for brut in trouvees if isinstance(brut, dict)
@@ -125,11 +125,11 @@ def creer_une_demande(
 ) -> Request:
     """Crée une demande. **L'appelant doit avoir confirmé.**"""
     if not source.can_write:
-        raise JiraRefuse(
+        raise JiraRefused(
             f"« {source.name} » est en lecture seule : rien n'a été créé"
         )
     if not title.strip():
-        raise JiraRefuse("une demande sans titre ne sert à personne")
+        raise JiraRefused("une demande sans titre ne sert à personne")
     corps = {
         "fields": {
             "project": {"key": source.projet},
@@ -147,6 +147,6 @@ def creer_une_demande(
         }
     rendered = _appeler(source, token, "/issue", "POST", corps)
     if not isinstance(rendered, dict) or not rendered.get("key"):
-        raise JiraRefuse("Jira n'a pas rendu la demande créée")
+        raise JiraRefused("Jira n'a pas rendu la demande créée")
     key = str(rendered["key"])
     return Request(key, title.strip(), "créée", f"{source.adresse}/browse/{key}")

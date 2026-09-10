@@ -63,7 +63,7 @@ class TestChoixDuModele:
 
     def test_le_modele_retenu_entre_dans_la_configuration(self):
         simule = DialogueSimule()
-        answers = assistant.Reponses()
+        answers = assistant.Answers()
         assistant.hardware_step(simule.dialogue(), state(memoire=4), answers)
         assert answers.values["GREFFIER_TRANSCRIPTION__MODEL"] == "medium"
 
@@ -73,7 +73,7 @@ class TestLivraison:
         """Le compte est déjà authentifié : rien à stocker, et c'est mieux ainsi."""
         monkeypatch.setattr(diagnostic, "outlook_present", lambda: True)
         simule = DialogueSimule(confirmations=[True], answers=["josiane@exemple.fr"])
-        answers = assistant.Reponses()
+        answers = assistant.Answers()
         assistant.delivery_step(simule.dialogue(), state(), answers)
         assert answers.values["GREFFIER_MINUTES__RECIPIENT"] == "josiane@exemple.fr"
         assert "GREFFIER_EMAIL__SERVER" not in answers.values
@@ -85,7 +85,7 @@ class TestLivraison:
             confirmations=[True],
             answers=["moi@exemple.fr", "smtp.exemple.fr", "587", "moi@exemple.fr"],
         )
-        answers = assistant.Reponses()
+        answers = assistant.Answers()
         assistant.delivery_step(simule.dialogue(), state(), answers)
         assert answers.values["GREFFIER_EMAIL__SERVER"] == "smtp.exemple.fr"
 
@@ -95,14 +95,14 @@ class TestLivraison:
             confirmations=[True],
             answers=["moi@exemple.fr", "smtp.exemple.fr", "587", "moi"],
         )
-        answers = assistant.Reponses()
+        answers = assistant.Answers()
         assistant.delivery_step(simule.dialogue(), state(), answers)
         assert not any("MOT_DE_PASSE" in key for key in answers.values)
         assert "environnement" in simule.tout_dit
 
     def test_sans_courriel_on_choisit_un_dossier(self, tmp_path):
         simule = DialogueSimule(confirmations=[False], answers=[str(tmp_path / "cr")])
-        answers = assistant.Reponses()
+        answers = assistant.Answers()
         assistant.delivery_step(simule.dialogue(), state(), answers)
         assert answers.values["GREFFIER_PATHS__DATA"] == str(tmp_path)
         assert answers.values["GREFFIER_MINUTES__RECIPIENT"] == ""
@@ -113,7 +113,7 @@ class TestRedacteur:
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: False)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: False)
         simule = DialogueSimule(confirmations=[False], choix=["aucun"])
-        answers = assistant.Reponses()
+        answers = assistant.Answers()
         assistant.writer_step(simule.dialogue(), state(), answers)
         assert any("install" in action for action in answers.to_do)
 
@@ -123,7 +123,7 @@ class TestRedacteur:
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: True)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: False)
         simule = DialogueSimule(choix=["claude"])
-        answers = assistant.Reponses()
+        answers = assistant.Answers()
         assistant.writer_step(simule.dialogue(), state(), answers)
         assert "aucune session" in simule.tout_dit
         assert any("claude" in action for action in answers.to_do)
@@ -132,7 +132,7 @@ class TestRedacteur:
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: True)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: True)
         simule = DialogueSimule()
-        answers = assistant.Reponses()
+        answers = assistant.Answers()
         assistant.writer_step(simule.dialogue(), state(), answers)
         assert answers.values["GREFFIER_MINUTES__ENGINE"] == "claude"
 
@@ -143,7 +143,7 @@ class TestRedacteur:
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: True)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: True)
         simule = DialogueSimule()
-        answers = assistant.Reponses()
+        answers = assistant.Answers()
         assistant.writer_step(simule.dialogue(), state(), answers)
         assert answers.values["GREFFIER_MINUTES__MODEL"] == "opus"
         assert assistant.MODELES_CLAUDE[0][0] == "opus", "le défaut est le premier proposé"
@@ -152,7 +152,7 @@ class TestRedacteur:
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: True)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: True)
         simule = DialogueSimule(choix=["claude", "haiku"])
-        answers = assistant.Reponses()
+        answers = assistant.Answers()
         assistant.writer_step(simule.dialogue(), state(), answers)
         assert answers.values["GREFFIER_MINUTES__MODEL"] == "haiku"
 
@@ -160,7 +160,7 @@ class TestRedacteur:
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: False)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: False)
         simule = DialogueSimule(confirmations=[False], choix=["aucun"])
-        answers = assistant.Reponses()
+        answers = assistant.Answers()
         assistant.writer_step(simule.dialogue(), state(), answers)
         assert "GREFFIER_MINUTES__MODEL" not in answers.values
 
@@ -176,7 +176,7 @@ class TestVocabulaire:
     def test_le_vocabulaire_sert_aussi_de_liste_d_exclusion(self):
         """Sans cela, « merci Copernic » créerait un participant."""
         simule = DialogueSimule(answers=["Copernic, Kanban , Trello"])
-        answers = assistant.Reponses()
+        answers = assistant.Answers()
         assistant.vocabulary_step(simule.dialogue(), state(), answers)
         words = json.loads(answers.values["GREFFIER_TRANSCRIPTION__VOCABULARY"])
         assert words == ["Copernic", "Kanban", "Trello"]
@@ -184,7 +184,7 @@ class TestVocabulaire:
 
     def test_on_peut_passer(self):
         simule = DialogueSimule(answers=[""])
-        answers = assistant.Reponses()
+        answers = assistant.Answers()
         assistant.vocabulary_step(simule.dialogue(), state(), answers)
         assert "GREFFIER_TRANSCRIPTION__VOCABULARY" not in answers.values
 
@@ -194,7 +194,7 @@ class TestEcriture:
         """La boucle complète : l'assistant écrit, la configuration relit."""
         from greffier.adapters.configuration import Config
 
-        answers = assistant.Reponses()
+        answers = assistant.Answers()
         answers.place("GREFFIER_MINUTES__ENGINE", "ollama")
         answers.place("GREFFIER_MINUTES__RECIPIENT", "moi@exemple.fr")
         target = assistant.write(answers, tmp_path / ".env")
@@ -210,7 +210,7 @@ class TestEcriture:
         """On ne détruit pas les réglages de quelqu'un sans laisser de trace."""
         target = tmp_path / ".env"
         target.write_text("GREFFIER_ANCIEN=1\n", encoding="utf-8")
-        assistant.write(assistant.Reponses(), target)
+        assistant.write(assistant.Answers(), target)
         assert (tmp_path / ".env.precedent").read_text().strip() == "GREFFIER_ANCIEN=1"
 
 
@@ -230,7 +230,7 @@ class TestParcoursComplet:
         assert "Copernic" in answers.values["GREFFIER_SPEAKERS__NOT_FIRST_NAMES"]
 
     def test_un_manque_bloquant_est_annonce_avant_tout(self):
-        manque = diagnostic.Constat(
+        manque = diagnostic.Reading(
             name="ffmpeg", present=False, detail="absent",
             remede="brew install ffmpeg", bloquant=True,
         )
@@ -243,7 +243,7 @@ class TestAdresseCourriel:
     def test_une_adresse_invalide_est_redemandee(self, monkeypatch):
         monkeypatch.setattr(diagnostic, "outlook_present", lambda: True)
         simule = DialogueSimule(confirmations=[True], answers=["pas-une-adresse", "moi@ex.fr"])
-        answers = assistant.Reponses()
+        answers = assistant.Answers()
         assistant.delivery_step(simule.dialogue(), state(), answers)
         assert answers.values["GREFFIER_MINUTES__RECIPIENT"] == "moi@ex.fr"
 
@@ -252,7 +252,7 @@ class TestAdresseCourriel:
         configuration qui promettait un envoi et n'envoyait rien."""
         monkeypatch.setattr(diagnostic, "outlook_present", lambda: True)
         simule = DialogueSimule(confirmations=[True], answers=["", "", ""])
-        answers = assistant.Reponses()
+        answers = assistant.Answers()
         assistant.delivery_step(simule.dialogue(), state(), answers)
         assert answers.values["GREFFIER_MINUTES__RECIPIENT"] == ""
         assert "restera simplement sur le disque" in simule.tout_dit

@@ -7,14 +7,14 @@ comprendre ce qui n'en est pas.
 
 import pytest
 
-from greffier.domain.intents import Apprentissage, Quoi, agreement, understand
+from greffier.domain.intents import Learning, What, agreement, understand
 
 
 class TestCeQuiEstCompris:
     def test_un_sigle_avec_son_sens(self):
         appris = understand("retiens que OTP veut dire mot de passe à usage unique")
         assert appris is not None
-        assert appris.quoi is Quoi.TERME
+        assert appris.quoi is What.TERME
         assert appris.subject == "OTP"
         assert appris.precision == "mot de passe à usage unique"
 
@@ -34,7 +34,7 @@ class TestCeQuiEstCompris:
     def test_une_personne_et_son_role(self):
         appris = understand("note que Morgane est cheffe de projet Oasis")
         assert appris is not None
-        assert appris.quoi is Quoi.PERSONNE
+        assert appris.quoi is What.PERSONNE
         assert appris.subject == "Morgane"
         assert "cheffe de projet" in appris.precision
 
@@ -92,7 +92,7 @@ class TestLaConfirmation:
 
     def test_un_apprentissage_sans_sujet_est_refuse(self):
         with pytest.raises(ValueError, match="sans sujet"):
-            Apprentissage(Quoi.TERME, "   ")
+            Learning(What.TERME, "   ")
 
 
 class TestAccord:

@@ -8,7 +8,7 @@ Treize minutes de parole absentes du compte rendu.
 
 from __future__ import annotations
 
-from greffier.domain.channels import Reglages, local_turns, remove, subtract
+from greffier.domain.channels import ChannelSettings, local_turns, remove, subtract
 from greffier.domain.models import Span
 
 PAS = 0.025  # 25 ms, comme l'adaptateur
@@ -45,7 +45,7 @@ class TestVoixFaibleMaisLocale:
         assert local_turns(mic, system, PAS) == []
         # Avec une marge nulle, la même entrée est retenue : c'est bien la marge
         # qui décide, pas un autre effet.
-        souple = Reglages(marge_db=0.0)
+        souple = ChannelSettings(marge_db=0.0)
         assert local_turns(mic, system, PAS, souple) != []
 
 
@@ -58,7 +58,7 @@ class TestBruitDeFond:
 
     def test_le_plancher_se_regle(self) -> None:
         mic, system = levels([(-52, -75, 400)])
-        bas = Reglages(plancher_db=-60.0)
+        bas = ChannelSettings(plancher_db=-60.0)
         assert local_turns(mic, system, PAS, bas) != []
 
 

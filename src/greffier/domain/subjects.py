@@ -46,7 +46,7 @@ class Subject:
         return key(mot) in {key(name) for name in self.forms_of_address}
 
 @dataclass
-class Registre:
+class Registry:
     """Les sujets suivis, et ce qu'une transcription en dit."""
 
     subjects: list[Subject] = field(default_factory=list)

@@ -28,11 +28,11 @@ from greffier.domain.models import Utterance
 from greffier.domain.profiles.neutral import NEUTRAL
 
 
-class Origine(StrEnum):
+class Origin(StrEnum):
     PAROLE = "parole"
     PRESSE_PAPIER = "presse_papier"
 
-class Genre(StrEnum):
+class Kind(StrEnum):
     INSTRUCTION = "instruction"   # « Greffier, ouvre le ticket… »
     LIEN = "lien"                 # une adresse collée
     DECISION = "decision"         # « on décide de… », « il faut que… »
@@ -40,13 +40,13 @@ class Genre(StrEnum):
 _LIEN = re.compile(r"https?://[^\s<>\"'()\[\]]{4,}")
 
 @dataclass(frozen=True, slots=True)
-class Proposition:
+class Suggestion:
     """Quelque chose à faire, soumis à validation."""
 
-    kind: Genre
+    kind: Kind
     text: str
     at_instant: float
-    origine: Origine
+    origine: Origin
     context: str = ""
 
     @property
@@ -94,54 +94,54 @@ class WatchRules:
 
     mot_cle: str = "greffier"
     profil: LanguageProfile = NEUTRAL
-    propositions: list[Proposition] = field(default_factory=list)
+    propositions: list[Suggestion] = field(default_factory=list)
     _vues: set[str] = field(default_factory=set)
 
-    def _add(self, proposition: Proposition) -> bool:
+    def _add(self, proposition: Suggestion) -> bool:
         if proposition.key in self._vues:
             return False
         self._vues.add(proposition.key)
         self.propositions.append(proposition)
         return True
 
-    def listen(self, utterances: list[Utterance]) -> list[Proposition]:
+    def listen(self, utterances: list[Utterance]) -> list[Suggestion]:
         """Relève ce qui, dans la parole, appelle une action."""
-        nouvelles: list[Proposition] = []
+        nouvelles: list[Suggestion] = []
         for utterance in utterances:
             at_instant = utterance.span.start
             instruction = instruction_after(utterance.text, self.mot_cle)
             if instruction:
-                candidate = Proposition(
-                    kind=Genre.INSTRUCTION, text=instruction, at_instant=at_instant,
-                    origine=Origine.PAROLE, context=utterance.text.strip(),
+                candidate = Suggestion(
+                    kind=Kind.INSTRUCTION, text=instruction, at_instant=at_instant,
+                    origine=Origin.PAROLE, context=utterance.text.strip(),
                 )
                 if self._add(candidate):
                     nouvelles.append(candidate)
                 continue
             if decisions_in(utterance.text, self.profil):
-                candidate = Proposition(
-                    kind=Genre.DECISION, text=utterance.text.strip(), at_instant=at_instant,
-                    origine=Origine.PAROLE, context="",
+                candidate = Suggestion(
+                    kind=Kind.DECISION, text=utterance.text.strip(), at_instant=at_instant,
+                    origine=Origin.PAROLE, context="",
                 )
                 if self._add(candidate):
                     nouvelles.append(candidate)
         return nouvelles
 
-    def paste(self, content: str, at_instant: float) -> list[Proposition]:
+    def paste(self, content: str, at_instant: float) -> list[Suggestion]:
         """Relève les liens passés par le presse-papier.
 
         C'est la source fiable : le texte est exact, il n'a pas transité par la
         transcription.
         """
-        nouvelles: list[Proposition] = []
+        nouvelles: list[Suggestion] = []
         for lien in liens_dans(content):
-            candidate = Proposition(
-                kind=Genre.LIEN, text=lien, at_instant=at_instant,
-                origine=Origine.PRESSE_PAPIER,
+            candidate = Suggestion(
+                kind=Kind.LIEN, text=lien, at_instant=at_instant,
+                origine=Origin.PRESSE_PAPIER,
             )
             if self._add(candidate):
                 nouvelles.append(candidate)
         return nouvelles
 
-    def by_gender(self, kind: Genre) -> list[Proposition]:
+    def by_gender(self, kind: Kind) -> list[Suggestion]:
         return [p for p in self.propositions if p.kind is kind]

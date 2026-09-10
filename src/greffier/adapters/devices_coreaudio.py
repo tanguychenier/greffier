@@ -17,7 +17,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from greffier.domain.devices import Materiel, Peripherique
+from greffier.domain.devices import Device, Hardware
 
 SYSTEM = platform.system()
 
@@ -64,22 +64,22 @@ class CoreAudioLister:
         fait = subprocess.run(command, capture_output=True, text=True, check=False, timeout=30)
         return fait.stdout
 
-    def read(self) -> Materiel:
+    def read(self) -> Hardware:
         """L'état du matériel maintenant. Vide si le système ne sait pas répondre."""
         if not self.available():
-            return Materiel()
+            return Hardware()
         try:
             return analyser(self._raw_output())
         except (subprocess.SubprocessError, OSError):
-            return Materiel()
+            return Hardware()
 
-def analyser(output: str) -> Materiel:
+def analyser(output: str) -> Hardware:
     """Convertit la sortie du listeur en matériel comparable.
 
     Fonction pure, donc éprouvable sur des sorties enregistrées, y compris
     celles qu'on ne peut pas reproduire à la demande sur un poste donné.
     """
-    trouves: list[Peripherique] = []
+    trouves: list[Device] = []
     in_progress: tuple[str, str] | None = None
     for line in output.splitlines():
         header = _LINE.match(line)
@@ -92,7 +92,7 @@ def analyser(output: str) -> Materiel:
             entrees = _ENTREES.search(channels)
             sorties = _SORTIES.search(channels)
             trouves.append(
-                Peripherique(
+                Device(
                     name=name,
                     uid=uid.group(1),
                     entrees=int(entrees.group(1)) if entrees else 0,
@@ -100,4 +100,4 @@ def analyser(output: str) -> Materiel:
                 )
             )
             in_progress = None
-    return Materiel(tuple(trouves))
+    return Hardware(tuple(trouves))

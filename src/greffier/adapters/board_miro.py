@@ -35,7 +35,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from greffier.domain.board import Carte, Noeud, RecorderState
+from greffier.domain.board import Board, Node, Standing
 from greffier.domain.layout import disposer
 
 BASE = "https://api.miro.com/v2"
@@ -45,18 +45,18 @@ INTERDITS = frozenset({"uXjVH5WwzTI="})
 PREFIXE = "Greffier"
 
 COLOURS = {
-    RecorderState.ACTE: "light_green",
-    RecorderState.EN_DISCUSSION: "light_yellow",
-    RecorderState.DEPASSE: "gray",
+    Standing.ACTE: "light_green",
+    Standing.EN_DISCUSSION: "light_yellow",
+    Standing.DEPASSE: "gray",
 }
 
 COULEUR_SUJET = "light_blue"
 
-class MiroRefuse(RuntimeError):
+class MiroRefused(RuntimeError):
     """L'appel n'a pas eu lieu, et pour une raison présentable."""
 
 @dataclass(frozen=True, slots=True)
-class Ecrit:
+class Written:
     """Ce qu'une publication a fait. Rien n'est jamais supprimé."""
 
     tableau: str
@@ -81,7 +81,7 @@ def token() -> str:
         path = Path(file).expanduser()
         if path.exists():
             return path.read_text(encoding="utf-8").strip()
-    raise MiroRefuse(
+    raise MiroRefused(
         "aucun jeton Miro : pose « GREFFIER_MIRO_JETON », ou "
         "« GREFFIER_MIRO_JETON_FICHIER » vers le fichier qui le contient"
     )
@@ -104,14 +104,14 @@ def _appeler(path: str, methode: str = "GET",
             return json.loads(brut) if brut.strip() else {}
     except urllib.error.HTTPError as trouble:
         detail = trouble.read().decode("utf-8", "replace")[:200]
-        raise MiroRefuse(f"Miro a répondu {trouble.code} : {detail}") from trouble
+        raise MiroRefused(f"Miro a répondu {trouble.code} : {detail}") from trouble
     except (urllib.error.URLError, TimeoutError) as trouble:
-        raise MiroRefuse(f"Miro est injoignable : {trouble}") from trouble
+        raise MiroRefused(f"Miro est injoignable : {trouble}") from trouble
 
 def _keep(tableau: str) -> str:
     """Refuse tout de suite un tableau interdit."""
     if tableau in INTERDITS:
-        raise MiroRefuse(
+        raise MiroRefused(
             f"le tableau {tableau} est sur la liste des tableaux interdits : "
             "cet outil n'y écrit jamais"
         )
@@ -129,11 +129,11 @@ def creer_le_tableau(subject: str) -> tuple[str, str]:
     })
     identifier = str(response.get("id", ""))
     if not identifier:
-        raise MiroRefuse("Miro n'a pas rendu d'identifiant de tableau")
+        raise MiroRefused("Miro n'a pas rendu d'identifiant de tableau")
     return (identifier, str(response.get("viewLink", "")))
 
 @dataclass(frozen=True, slots=True)
-class Pose:
+class Placement:
     """Un point déjà sur le tableau, et ce qu'on en sait."""
 
     identifier: str
@@ -174,7 +174,7 @@ def objets_presents(tableau: str) -> dict[str, str]:
 
 _PROVENANCE = re.compile(r"\d{4}-\d{2}-\d{2}_\d{2}h\d{2}")
 
-def placements_present(tableau: str) -> dict[str, Pose]:
+def placements_present(tableau: str) -> dict[str, Placement]:
     """Les points du tableau, avec leur place et leur origine.
 
     L'origine sert à deux choses : poser une pastille à côté d'un point sans le
@@ -182,7 +182,7 @@ def placements_present(tableau: str) -> dict[str, Pose]:
     c'est tout l'intérêt d'une carte partagée, et cela n'était jamais relu.
     """
     _keep(tableau)
-    trouves: dict[str, Pose] = {}
+    trouves: dict[str, Placement] = {}
     cursor = ""
     while True:
         parametres = {"limit": "50"}
@@ -200,7 +200,7 @@ def placements_present(tableau: str) -> dict[str, Pose]:
             if not premiere or premiere in trouves:
                 continue
             position = objet.get("position") or {}
-            trouves[premiere] = Pose(
+            trouves[premiere] = Placement(
                 identifier=str(objet.get("id", "")),
                 x=int(position.get("x", 0) or 0),
                 y=int(position.get("y", 0) or 0),
@@ -249,7 +249,7 @@ def _dots_placed(tableau: str) -> set[tuple[int, int]]:
                 f"/boards/{urllib.parse.quote(tableau, safe='')}/shapes"
                 f"?{urllib.parse.urlencode(parametres)}"
             )
-        except MiroRefuse:
+        except MiroRefused:
             return positions
         for forme in response.get("data", []):
             content = _sans_balises((forme.get("data") or {}).get("content", ""))
@@ -308,7 +308,7 @@ def mark_actions(
                 },
             )
             marques.append(text)
-        except MiroRefuse:
+        except MiroRefused:
             continue
     return tuple(marques)
 
@@ -335,7 +335,7 @@ def _sans_balises(html: str) -> str:
 
     return re.sub(r"<[^>]+>", " ", html).replace("&nbsp;", " ").strip()
 
-def publish(board: Carte, tableau: str, meeting: str = "") -> Ecrit:
+def publish(board: Board, tableau: str, meeting: str = "") -> Written:
     """Pose sur le tableau les nœuds qui n'y sont pas encore.
 
     Ne supprime rien, ne modifie rien. Un nœud déjà présent est laissé tel
@@ -380,9 +380,9 @@ def publish(board: Carte, tableau: str, meeting: str = "") -> Ecrit:
             poses.append(place.noeud.text)
 
     liens, manques = _relier(tableau, board, identifiers)
-    return Ecrit(tableau, tuple(poses), tuple(known), liens=liens, liens_manques=manques)
+    return Written(tableau, tuple(poses), tuple(known), liens=liens, liens_manques=manques)
 
-def _as_html(noeud: Noeud, meeting: str) -> str:
+def _as_html(noeud: Node, meeting: str) -> str:
     """Le texte du pense-bête : le point, puis d'où il vient.
 
     La provenance en petit dessous : « d'où vient cette branche » est la
@@ -392,7 +392,7 @@ def _as_html(noeud: Noeud, meeting: str) -> str:
     from greffier.domain.board import SANS_ETAT
 
     lines = [f"<p>{_echapper(noeud.text)}</p>"]
-    if noeud.kind not in SANS_ETAT and noeud.state is not RecorderState.ACTE:
+    if noeud.kind not in SANS_ETAT and noeud.state is not Standing.ACTE:
         lines.append(f"<p><i>{noeud.state}</i></p>")
     origine = meeting or (noeud.meetings[-1] if noeud.meetings else "")
     if origine:
@@ -412,7 +412,7 @@ def _liens_existants(tableau: str) -> set[tuple[str, str]]:
                 f"/boards/{urllib.parse.quote(tableau, safe='')}/connectors"
                 f"?{urllib.parse.urlencode(parametres)}"
             )
-        except MiroRefuse:
+        except MiroRefused:
             return couples
         for lien in response.get("data", []):
             depart = str((lien.get("startItem") or {}).get("id", ""))
@@ -427,7 +427,7 @@ def _echapper(text: str) -> str:
     return (text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
 def _relier(
-    tableau: str, board: Carte, identifiers: dict[str, str]
+    tableau: str, board: Board, identifiers: dict[str, str]
 ) -> tuple[int, int]:
     """Trace les liens entre les nœuds qu'on vient de poser. Rend (tracés, échoués).
 
@@ -458,6 +458,6 @@ def _relier(
                  "style": {"strokeStyle": "normal", "strokeWidth": "2"}},
             )
             traces += 1
-        except (MiroRefuse, ValueError):
+        except (MiroRefused, ValueError):
             manques += 1
     return (traces, manques)

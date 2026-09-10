@@ -26,7 +26,7 @@ DUREE_EXTRAIT = 10.0
 DUREE_UTILE = 3.0
 
 @dataclass
-class VoixANommer:
+class VoiceToName:
     """Une voix de la réunion, telle qu'elle est présentée à l'utilisateur."""
 
     voice: str
@@ -40,7 +40,7 @@ class VoixANommer:
     def to_name(self) -> bool:
         return self.name is None
 
-def voices_to_name(meeting: StoredMeeting, minimum: float = 10.0) -> list[VoixANommer]:
+def voices_to_name(meeting: StoredMeeting, minimum: float = 10.0) -> list[VoiceToName]:
     """Les voix de la réunion, de la plus bavarde à la moins, avec un extrait.
 
     Les fragments d'une seconde laissés par la segmentation sont écartés : les
@@ -56,7 +56,7 @@ def voices_to_name(meeting: StoredMeeting, minimum: float = 10.0) -> list[VoixAN
     for voice, duration in temps.items():
         if duration < minimum and not (meeting.names.get(voice) or meeting.propositions.get(voice)):
             continue
-        outcome.append(VoixANommer(
+        outcome.append(VoiceToName(
             voice=voice,
             duration=duration,
             part=duration / total,

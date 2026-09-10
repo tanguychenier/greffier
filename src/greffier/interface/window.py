@@ -60,12 +60,12 @@ from greffier.domain.minutes import title
 from greffier.domain.models import Phase
 from greffier.interface.appearance import (
     MAIN,
-    BarreDeBoutons,
     Button,
-    Defileur,
-    Liste,
-    Onglets,
-    Vumetre,
+    ButtonBar,
+    LevelMeter,
+    Listing,
+    Scroller,
+    Tabs,
 )
 from greffier.interface.readable import clock, live_state_line, readable_subject
 from greffier.interface.style import blend, font, palette, title_font
@@ -227,7 +227,7 @@ class Window:
         corps.rowconfigure(1, weight=1)
 
         self._build_state(corps)
-        self.tabs = Onglets(corps, c)
+        self.tabs = Tabs(corps, c)
         self.tabs.grid(row=1, column=0, sticky="nsew", pady=(22, 0))
         self._meetings_tab()
         self._live_tab()
@@ -278,12 +278,12 @@ class Window:
         self._build_commands()
         self._breathe()
 
-    def _ligne_vumetre(self, parent: tk.Frame, caption: str, rank: int) -> Vumetre:
+    def _ligne_vumetre(self, parent: tk.Frame, caption: str, rank: int) -> LevelMeter:
         self._text(parent, caption, taille=11, pale=True).grid(
             row=rank, column=0, sticky="w", pady=3
         )
         parent.columnconfigure(0, minsize=_LABEL_TEXT)
-        bar = Vumetre(parent, self.colours, width=340)
+        bar = LevelMeter(parent, self.colours, width=340)
         bar.grid(row=rank, column=1, sticky="w", pady=3)
         return bar
 
@@ -305,7 +305,7 @@ class Window:
         Button(rest, "Démarrer la réunion", self._start_recording, c,
                principal=True, width=192, height=38).pack(side="left")
         self._text(rest, "Micro", taille=11, pale=True).pack(side="left", padx=(20, 8))
-        self.mic = Liste(rest, c, width=286, height=36)
+        self.mic = Listing(rest, c, width=286, height=36)
         self.mic.pack(side="left")
         self._load_mics()
         self.jeux[Phase.REST] = rest
@@ -361,7 +361,7 @@ class Window:
                 arbre.heading(cle, text=caption, anchor="w")
                 arbre.column(cle, width=width, anchor="w", stretch=indice == 0)
         arbre.grid(row=rank, column=0, sticky="nsew")
-        scrollbar = Defileur(parent, self.colours, arbre.yview)
+        scrollbar = Scroller(parent, self.colours, arbre.yview)
         scrollbar.grid(row=rank, column=1, sticky="ns", padx=(4, 0))
         arbre.configure(yscrollcommand=scrollbar.set)
         parent.columnconfigure(1, minsize=12)
@@ -374,7 +374,7 @@ class Window:
             ("date", "Réunion", 320), ("voix", "Personnes", 90),
             ("mots", "Mots", 80), ("compte_rendu", "Compte rendu", 120),
         ))
-        actions = BarreDeBoutons(inside, self.colours)
+        actions = ButtonBar(inside, self.colours)
         actions.grid(row=1, column=0, sticky="ew", pady=(16, 0))
         for caption, action, width in (
             ("Traiter", self._process_selection, 100),
@@ -445,7 +445,7 @@ class Window:
             highlightthickness=0, cursor="arrow", spacing3=6,
         )
         self.thread_widget.grid(row=0, column=0, sticky="nsew")
-        scrollbar = Defileur(frame, c, self.thread_widget.yview)
+        scrollbar = Scroller(frame, c, self.thread_widget.yview)
         scrollbar.grid(row=0, column=1, sticky="ns", padx=(4, 0))
         self.thread_widget.configure(yscrollcommand=scrollbar.set)
         self.thread_widget.tag_configure("heure", foreground=c.calm, font=font(10))
@@ -821,7 +821,7 @@ class Window:
                            padx=0, pady=0, font=font(12), state="disabled",
                            highlightthickness=0, cursor="arrow")
         self.thread.grid(row=0, column=0, sticky="nsew")
-        scrollbar = Defileur(frame, c, self.thread.yview)
+        scrollbar = Scroller(frame, c, self.thread.yview)
         scrollbar.grid(row=0, column=1, sticky="ns", padx=(4, 0))
         self.thread.configure(yscrollcommand=scrollbar.set)
         self.thread.tag_configure("qui", foreground=c.ink_pale, spacing1=12, spacing3=3,
@@ -1199,7 +1199,7 @@ class Window:
         page.columnconfigure(0, weight=1)
         toile = tk.Canvas(page, bg=c.board, highlightthickness=0, borderwidth=0)
         toile.grid(row=1, column=0, sticky="nsew")
-        scrollbar = Defileur(page, c, toile.yview)
+        scrollbar = Scroller(page, c, toile.yview)
         scrollbar.grid(row=1, column=1, sticky="ns", padx=(6, 0))
         toile.configure(yscrollcommand=scrollbar.set)
 
@@ -1243,10 +1243,10 @@ class Window:
         return rank + 2
 
     def _dropdown(self, parent: tk.Frame, rank: int, caption: str,
-                          width: int = 392) -> Liste:
+                          width: int = 392) -> Listing:
         self._text(parent, caption, taille=11, pale=True).grid(
             row=rank, column=0, sticky="w", padx=(0, 12), pady=3)
-        listing = Liste(parent, self.colours, width=width,
+        listing = Listing(parent, self.colours, width=width,
                       on_choice=lambda _key: self._save_settings())
         listing.grid(row=rank, column=1, sticky="w", pady=3)
         return listing
@@ -2138,16 +2138,16 @@ class Window:
 
     def _document_writer(self, propositions: list) -> Any:  # type: ignore[type-arg]
         """Le rédacteur chargé de lire les documents, s'il y en a."""
-        from greffier.domain.store import Destin
+        from greffier.domain.store import Destination
         from greffier.wiring import cartographe
 
-        if not any(p.destin is Destin.CONTEXT and p.feasible for p in propositions):
+        if not any(p.destin is Destination.CONTEXT and p.feasible for p in propositions):
             return None
-        from greffier.adapters.writer_claude import RedacteurClaude
+        from greffier.adapters.writer_claude import ClaudeWriter
         from greffier.application.publish import CONSIGNES_DOCUMENT
 
         engine = cartographe(self.config)
-        if isinstance(engine, RedacteurClaude):
+        if isinstance(engine, ClaudeWriter):
             engine.consignes_propres = CONSIGNES_DOCUMENT
         return engine
 
@@ -2290,10 +2290,10 @@ class Window:
 
     def _locations(self) -> Any:
         """Où vivent les morceaux d'une réunion, d'après la configuration."""
-        from greffier.application.tidy import Emplacements
+        from greffier.application.tidy import Places
 
         paths = self.config.paths
-        return Emplacements(
+        return Places(
             meetings=paths.data / "reunions",
             recordings=paths.recordings,
             transcripts=paths.transcripts,
@@ -2638,7 +2638,7 @@ class Window:
         ce qu'on a sous les yeux.
         """
         from greffier.adapters import context_file
-        from greffier.domain.intents import Quoi, agreement
+        from greffier.domain.intents import What, agreement
 
         dit = agreement(response)
         if dit is None:
@@ -2653,7 +2653,7 @@ class Window:
             return True
 
         ajout = (
-            context_file.add_a_person if appris.quoi is Quoi.PERSONNE
+            context_file.add_a_person if appris.quoi is What.PERSONNE
             else context_file.add_a_term
         )
         pose = False
@@ -2694,7 +2694,7 @@ class Window:
 
         from greffier.adapters import attachments_file
         from greffier.application import publish as job
-        from greffier.domain.store import Destin, offer
+        from greffier.domain.store import Destination, offer
 
         choisis = filedialog.askopenfilenames(
             parent=self.racine,
@@ -2707,8 +2707,8 @@ class Window:
             offer(Path(path), Path(path).stat().st_size, outils)
             for path in choisis
         ]
-        documents = [p for p in propositions if p.destin is Destin.CONTEXT]
-        autres = [p for p in propositions if p.destin is not Destin.CONTEXT]
+        documents = [p for p in propositions if p.destin is Destination.CONTEXT]
+        autres = [p for p in propositions if p.destin is not Destination.CONTEXT]
         if autres:
             self._say("note", (
                 f"{len(autres)} fichier(s) sont des sons ou des vidéos : ils "

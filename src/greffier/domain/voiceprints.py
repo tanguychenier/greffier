@@ -53,7 +53,7 @@ def aggregate(voiceprints: Iterable[Voiceprint]) -> Voiceprint:
     return normalise(somme, source_duration=math.fsum(e.source_duration for e in listing))
 
 @dataclass(frozen=True, slots=True)
-class Correspondance:
+class Match:
     """What the voice bank believes it recognises, and how firmly."""
 
     name: str
@@ -86,7 +86,7 @@ def recognise(
     bank: Iterable[Person],
     seuil: float = SEUIL_RECONNAISSANCE,
     marge_minimale: float = MARGE_MINIMALE,
-) -> Correspondance | None:
+) -> Match | None:
     """The person in the bank that matches, or nothing if doubt remains."""
     connues = [p for p in bank if p.voiceprints]
     ranking = sorted(
@@ -102,7 +102,7 @@ def recognise(
         return None
     if name in conflicting_names(connues):
         return None
-    return Correspondance(name=name, similarity=best, marge=marge)
+    return Match(name=name, similarity=best, marge=marge)
 
 def join_voices(
     per_voice: dict[str, list[Voiceprint]],

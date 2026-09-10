@@ -111,9 +111,9 @@ class TestVerdictDeCanal:
         une seule et même personne — mesuré : trois locuteurs ramenés à une
         étiquette « moi ».
         """
-        from greffier.adapters.channels_file import LecteurCanauxFichier
+        from greffier.adapters.channels_file import FileChannelReader
 
-        assert LecteurCanauxFichier().local_passages(table) == []
+        assert FileChannelReader().local_passages(table) == []
 
 
 class TestChaineEnPresentiel:

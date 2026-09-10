@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from greffier.domain.board import Carte, Noeud
+from greffier.domain.board import Board, Node
 
 WIDTH = 220
 ENTRE_COLONNES = 380
@@ -29,15 +29,15 @@ ENTRE_COLONNES = 380
 ENTRE_LIGNES = 170
 
 @dataclass(frozen=True, slots=True)
-class Place:
+class Slot:
     """Un nœud et l'endroit où il va."""
 
-    noeud: Noeud
+    noeud: Node
     x: int
     y: int
     parent: str = ""
 
-def disposer(board: Carte) -> list[Place]:
+def disposer(board: Board) -> list[Slot]:
     """Les places de tous les nœuds, racine comprise.
 
     Chaque sous-arbre reçoit une bande verticale proportionnelle au nombre de
@@ -46,22 +46,22 @@ def disposer(board: Carte) -> list[Place]:
     """
     if board.racine is None:
         return []
-    places: list[Place] = []
+    places: list[Slot] = []
     _place(board.racine, profondeur=0, haut=0, places=places, parent="")
     return places
 
-def _feuilles(noeud: Noeud) -> int:
+def _feuilles(noeud: Node) -> int:
     """Nombre de lignes que ce sous-arbre occupe. Au moins une."""
     if not noeud.enfants:
         return 1
     return sum(_feuilles(enfant) for enfant in noeud.enfants)
 
 def _place(
-    noeud: Noeud, profondeur: int, haut: int, places: list[Place], parent: str
+    noeud: Node, profondeur: int, haut: int, places: list[Slot], parent: str
 ) -> None:
     height = _feuilles(noeud)
     y = (haut + height / 2 - 0.5) * ENTRE_LIGNES
-    places.append(Place(noeud, profondeur * ENTRE_COLONNES, int(y), parent))
+    places.append(Slot(noeud, profondeur * ENTRE_COLONNES, int(y), parent))
     cursor = haut
     for enfant in noeud.enfants:
         _place(enfant, profondeur + 1, cursor, places, noeud.text)

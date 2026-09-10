@@ -9,8 +9,8 @@ import pytest
 
 from greffier.domain.questions import (
     QUESTIONS_MAXIMUM,
-    Motif,
     Questioner,
+    Reason,
     distance,
     tolerance,
 )
@@ -49,7 +49,7 @@ class TestCeQuiDeclencheUneQuestion:
         assert len(questions) == 1
         assert questions[0].attendu == "backlog"
         assert questions[0].entendu == "bakclog"
-        assert questions[0].motif is Motif.NEAR_TERM
+        assert questions[0].motif is Reason.NEAR_TERM
 
     def test_un_terme_compose_est_reconnu_mot_a_mot(self):
         """« mrege » ne rencontrait jamais « merge request » et passait inaperçu."""

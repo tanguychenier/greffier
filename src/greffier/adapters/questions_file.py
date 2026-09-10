@@ -17,13 +17,13 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from greffier.domain.questions import Motif, Question
+from greffier.domain.questions import Question, Reason
 
 GENRE_QUESTION = "question"
 GENRE_REPONSE = "reponse"
 
 @dataclass(frozen=True, slots=True)
-class EnAttente:
+class Pending:
     """Une question posée à laquelle personne n'a encore répondu."""
 
     question: Question
@@ -58,7 +58,7 @@ def answer(file: Path, number: int, response: str) -> None:
             ensure_ascii=False,
         ) + "\n")
 
-def read(file: Path) -> tuple[list[EnAttente], dict[int, str]]:
+def read(file: Path) -> tuple[list[Pending], dict[int, str]]:
     """Les questions sans réponse, et les réponses déjà données.
 
     Une ligne illisible est sautée sans faire échouer la lecture : la file est
@@ -83,7 +83,7 @@ def read(file: Path) -> tuple[list[EnAttente], dict[int, str]]:
                     questions[int(line["numero"])] = Question(
                         number=int(line["numero"]),
                         text=str(line.get("texte", "")),
-                        motif=Motif(line.get("motif", Motif.NEAR_TERM)),
+                        motif=Reason(line.get("motif", Reason.NEAR_TERM)),
                         entendu=str(line.get("entendu", "")),
                         attendu=str(line.get("attendu", "")),
                     )
@@ -91,7 +91,7 @@ def read(file: Path) -> tuple[list[EnAttente], dict[int, str]]:
                 with contextlib.suppress(ValueError, KeyError):
                     answers[int(line["numero"])] = str(line.get("reponse", ""))
     awaiting = [
-        EnAttente(question)
+        Pending(question)
         for number, question in sorted(questions.items())
         if number not in answers
     ]
@@ -115,7 +115,7 @@ def keys_already_placed(file: Path) -> set[str]:
                     posees.add(Question(
                         number=int(line["numero"]),
                         text=str(line.get("texte", "")),
-                        motif=Motif(line.get("motif", Motif.NEAR_TERM)),
+                        motif=Reason(line.get("motif", Reason.NEAR_TERM)),
                         entendu=str(line.get("entendu", "")),
                         attendu=str(line.get("attendu", "")),
                     ).key)

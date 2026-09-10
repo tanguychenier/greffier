@@ -27,7 +27,7 @@ _ENTETE_MINIMAL = 44
 FENETRE_S = 0.25
 
 @dataclass(frozen=True)
-class Forme:
+class Shape:
     """Ce que l'en-tête du fichier dit du format."""
 
     channels: int
@@ -64,7 +64,7 @@ def _part(db: float) -> float:
     """
     return max(0.0, min(1.0, (db + 60.0) / 50.0))
 
-def lire_forme(audio: Path) -> Forme | None:
+def lire_forme(audio: Path) -> Shape | None:
     """Lit le format et l'endroit où commencent les échantillons.
 
     Les chunks sont parcourus jusqu'à « data » plutôt que d'en supposer la
@@ -91,7 +91,7 @@ def lire_forme(audio: Path) -> Forme | None:
         elif name == b"data":
             if channels < 1 or frequency < 1 or bits not in (8, 16, 24, 32):
                 return None
-            return Forme(
+            return Shape(
                 channels=channels, frequency=frequency,
                 octets_par_echantillon=bits // 8, debut_donnees=corps,
             )
