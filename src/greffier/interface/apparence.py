@@ -19,6 +19,14 @@ from collections.abc import Callable
 from greffier.interface.lisible import grille_de_boutons, marque_de_pastille
 from greffier.interface.style import Palette, police
 
+#: Le curseur de survol d'un élément cliquable. « hand2 » et non
+#: « pointinghand » : ce dernier n'existe que sur macOS, et sous X11 chaque
+#: survol de bouton levait un `TclError: bad cursor spec` — la fenêtre se
+#: peignait quand même, mais les boutons ne changeaient plus de curseur et le
+#: journal se remplissait. « hand2 » est le nom X11 historique, et Tk le
+#: reconnaît aussi sur macOS et Windows.
+MAIN = "hand2"
+
 
 def rectangle_arrondi(
     toile: tk.Canvas,
@@ -111,7 +119,7 @@ class Bouton(tk.Canvas):
             self.itemconfigure(
                 self._forme, fill=self.couleurs.survol if survol else self.couleurs.carte
             )
-        self.configure(cursor="pointinghand" if survol else "")
+        self.configure(cursor=MAIN if survol else "")
 
     def intituler(self, texte: str) -> None:
         self.itemconfigure(self._texte, text=texte)
@@ -241,7 +249,7 @@ class Liste(tk.Canvas):
             fill=self.couleurs.survol if survol else self.couleurs.fond,
             outline=self.couleurs.encre_pale if survol else self.couleurs.filet,
         )
-        self.configure(cursor="pointinghand" if survol else "")
+        self.configure(cursor=MAIN if survol else "")
 
     def _deployer(self, _evenement: tk.Event | None = None) -> None:
         if not self._actif or not self._choix:
@@ -440,7 +448,7 @@ class _Segment(tk.Canvas):
         self.texte = -1
         self._dessiner()
         self.bind("<Button-1>", lambda _e: action(self.intitule))
-        self.bind("<Enter>", lambda _e: self.configure(cursor="pointinghand"))
+        self.bind("<Enter>", lambda _e: self.configure(cursor=MAIN))
         self.bind("<Leave>", lambda _e: self.configure(cursor=""))
 
     def _dessiner(self) -> None:
