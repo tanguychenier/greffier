@@ -57,6 +57,13 @@ MINIMUM_OVERLAP_CHARACTERS = 4
 
 WORDS_TO_TOLERATE = 3
 
+#: A voice earns a number of its own once it holds this much of the meeting.
+#: Under both, unnamed, it is shown with the others rather than as a person:
+#: measured on a real ninety-minute meeting, four voices held 0.7% of the words
+#: between them and each took a row on screen.
+CRUMB_SECONDS = 15.0
+CRUMB_SHARE = 0.01
+
 IDENTICAL_SHARE = 0.5
 
 _LIVE_WORD = re.compile(r"\S+")
@@ -195,12 +202,13 @@ class LiveVoice:
         """What shows next to the sentence.
 
         The question mark is not decoration: it says the name comes from a voiceprint
-        and awaits confirmation.
+        and awaits confirmation. No number yet means too little material to be
+        shown as a person, so the voice is announced with the others.
         """
         if self.name is None:
-            return UNDETERMINED_NAME if self.identifier == UNDETERMINED_VOICE else (
-                f"Voix {self.rank}"
-            )
+            if self.identifier == UNDETERMINED_VOICE or self.rank <= 0:
+                return UNDETERMINED_NAME
+            return f"Voix {self.rank}"
         return self.name if self.certainty.firm else f"{self.name} ?"
 
     @property
@@ -301,6 +309,7 @@ class LiveThread:
     voice: dict[str, LiveVoice] = field(default_factory=dict)
     up_to: float = 0.0
     suite: int = 0
+    last_rank: int = 0
     last_text: str = ""
     joins: list[Join] = field(default_factory=list)
     split_apart: set[frozenset[str]] = field(default_factory=set)
@@ -383,8 +392,11 @@ class LiveThread:
             self._try_the_name_again(connue)
             return proche
 
+        # No number at birth: it is earned by holding a share of the meeting,
+        # in `_earn_a_number`. A number handed out on the first two seconds of
+        # audio fills the screen with people who never speak again.
         nouvelle = LiveVoice(
-            identifier=self._identifier(), rank=self._rank(), voiceprints=[voiceprint]
+            identifier=self._identifier(), voiceprints=[voiceprint]
         )
         self.voice[nouvelle.identifier] = nouvelle
         self._try_the_name_again(nouvelle)
@@ -470,6 +482,22 @@ class LiveThread:
         voice.likeness = match.similarity
         voice.gap = match.margin
 
+    def _earn_a_number(self, voice: str) -> None:
+        """Gives a voice its own number once it carries enough of the meeting.
+
+        Only ever upwards: a voice shown as a person stays one, even when the
+        others speak so much afterwards that its share falls back.
+        """
+        connue = self.voice.get(voice)
+        if connue is None or connue.rank > 0 or not connue.nameable:
+            return
+        if voice == LOCAL_VOICE:
+            return
+        total = sum(t.span.duration for t in self.turns)
+        held = sum(t.span.duration for t in self.turns if t.voice == voice)
+        if held >= CRUMB_SECONDS or (total > 0 and held >= CRUMB_SHARE * total):
+            connue.rank = self._rank()
+
     def record_turn(self, block: Block, voice: str) -> list[LiveTurn]:
         """Adds a block's sentences to the thread, attributed to a voice."""
         nouveaux: list[LiveTurn] = []
@@ -485,6 +513,7 @@ class LiveThread:
             self.up_to = max(self.up_to, utterance.span.end)
             if turn.text:
                 self.last_text = turn.text
+        self._earn_a_number(voice)
         return nouveaux
 
     def correct(self, number: int, name: str, whole_voice: bool = True) -> Correction:
@@ -597,7 +626,7 @@ class LiveThread:
         giving everything to the loudest voice.
         """
         faits: list[tuple[str, str]] = []
-        faits += self._join_namesakes()
+        faits += self.join_namesakes()
         candidates = {
             identifier: voice.voiceprints
             for identifier, voice in self.voice.items()
@@ -616,7 +645,7 @@ class LiveThread:
             faits.append((source, target))
         return faits
 
-    def _join_namesakes(self) -> list[tuple[str, str]]:
+    def join_namesakes(self) -> list[tuple[str, str]]:
         """Two voices the bank names alike are the same person.
 
         The self-correction that was missing, and it costs nothing: when the bank
@@ -688,11 +717,33 @@ class LiveThread:
         return f"v{self.suite}"
 
     def _rank(self) -> int:
-        """Display number of an unnamed voice: "Voix 1", "Voix 2"…"""
-        return sum(
-            1 for v in self.voice.values()
-            if v.nameable and v.identifier != LOCAL_VOICE
-        ) + 1
+        """Display number of an unnamed voice: "Voix 1", "Voix 2"…
+
+        Counted from a counter and not from the voices present: every join
+        deletes one, so counting handed out a number already on screen. Three
+        voices showed "Voix 11" in a ninety-minute meeting, which makes them
+        impossible to tell apart and impossible to name.
+        """
+        self.last_rank += 1
+        return self.last_rank
+
+    def reserve_rank(self, rank: int) -> None:
+        """Advances the counter past a number that came from elsewhere."""
+        self.last_rank = max(self.last_rank, rank)
+
+    def adopt_rank(self, voice: LiveVoice, rank: int) -> None:
+        """Takes the number a log carries, unless another voice already shows it.
+
+        Logs written before the counter existed carry duplicates, and replaying
+        them as they are would show the same label on three voices again.
+        """
+        self.reserve_rank(rank)
+        if voice.rank > 0:
+            return  # a label already shown never changes under the reader's eyes
+        if rank <= 0:
+            return
+        pris = any(v is not voice and v.rank == rank for v in self.voice.values())
+        voice.rank = self._rank() if pris else rank
 
     def _voice_named(self, name: str) -> LiveVoice | None:
         replie = name.casefold()
