@@ -155,3 +155,49 @@ class TestRelais:
 
     def test_il_relance_l_application(self):
         assert "open -a" in mises_a_jour._RELAIS
+
+
+class TestPaquetPlusRecentQueLeProcessus:
+    """Un paquet reconstruit ne remplace pas l'application déjà lancée.
+
+    Coût mesuré : deux heures passées à chercher trois boutons dans une fenêtre
+    ouverte la veille, alors qu'ils étaient dans le paquet depuis le matin. La
+    fenêtre a maintenant de quoi le dire, et `construire.sh` de quoi relancer.
+    """
+
+    def test_hors_du_paquet_la_question_ne_se_pose_pas(self):
+        """Depuis la ligne de commande, le code suit le dépôt."""
+        from greffier.adaptateurs.mises_a_jour import paquet_plus_recent
+
+        assert not paquet_plus_recent("/usr/bin/python3")
+
+    def test_un_paquet_pose_apres_le_demarrage_est_signale(self, tmp_path):
+        from greffier.adaptateurs import mises_a_jour
+
+        faux = tmp_path / "Greffier.app" / "Contents" / "MacOS"
+        faux.mkdir(parents=True)
+        executable = faux / "Greffier"
+        executable.write_text("")
+        # Le module a été chargé avant que ce fichier n'existe : c'est exactement
+        # la situation d'un paquet reconstruit sous une application qui tourne.
+        assert mises_a_jour.paquet_plus_recent(str(executable))
+
+    def test_un_paquet_plus_vieux_ne_dit_rien(self, tmp_path):
+        import os
+        import time
+
+        from greffier.adaptateurs import mises_a_jour
+
+        faux = tmp_path / "Greffier.app" / "Contents" / "MacOS"
+        faux.mkdir(parents=True)
+        executable = faux / "Greffier"
+        executable.write_text("")
+        ancien = time.time() - 3600
+        os.utime(executable, (ancien, ancien))
+        assert not mises_a_jour.paquet_plus_recent(str(executable))
+
+    def test_un_executable_disparu_ne_leve_pas(self, tmp_path):
+        from greffier.adaptateurs.mises_a_jour import paquet_plus_recent
+
+        absent = tmp_path / "Greffier.app" / "Contents" / "MacOS" / "Greffier"
+        assert not paquet_plus_recent(str(absent))
