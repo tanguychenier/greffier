@@ -62,13 +62,7 @@ def lay_the_template(file: Path) -> bool:
     return True
 
 def noter_la_carte(file: Path, subject: str, board: str) -> bool:
-    """Inscrit l'identifiant de carte d'un sujet, en ajout seul.
-
-    Ajout et non réécriture : le fichier porte des commentaires et un ordre
-    voulus. Si le sujet existe déjà avec une carte, on ne touche à rien — deux
-    cartes pour un sujet est exactement ce qu'on cherche à éviter, et écraser
-    la première ferait perdre la trace de celle qui existe.
-    """
+    """Records a subject's board identifier, append-only."""
     registre = read(file)
     connu = registre.by_name(subject)
     if connu is not None and connu.board:
