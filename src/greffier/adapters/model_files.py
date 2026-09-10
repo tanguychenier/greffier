@@ -26,6 +26,16 @@ TELECHARGEMENT = 1800.0
 MORCEAU = 1 << 20
 """Read size. A megabyte keeps the progress smooth without thrashing."""
 
+REQUIS_PARTOUT = "voix"
+"""The voice is fetched on every system, and that is a decision.
+
+It is the part people hear, and it has to sound the same on macOS, Linux and
+Windows. The fallback — each system's own synthesiser — sounds different on
+each, does not exist at all on some Linux sessions, and sounds like a machine
+where it does. Eighty megabytes next to one and a half gigabytes buys one voice
+everywhere.
+"""
+
 
 @dataclass(frozen=True, slots=True)
 class Model:
@@ -105,7 +115,6 @@ CATALOGUE: tuple[Model, ...] = (
         role="voix de l'assistant",
         archive=True,
         folder="vits-piper-fr_FR-upmc-medium",
-        required=False,
     ),
 )
 
