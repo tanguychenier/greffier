@@ -24,7 +24,7 @@ from greffier.application.follow import (
     request_a_split,
 )
 from greffier.domain.channels import LOCAL_VOICE
-from greffier.domain.live import NOM_LOCAL, Certainty, LiveThread
+from greffier.domain.live import LOCAL_NAME, Certainty, LiveThread
 from greffier.domain.models import Person, Span, Utterance, Voiceprint
 from greffier.domain.voiceprints import normalise
 
@@ -62,17 +62,17 @@ class SequenceExtractor:
 
 
 class InMemoryBank:
-    def __init__(self, connues: list[Person] | None = None) -> None:
-        self.connues = list(connues or [])
+    def __init__(self, known: list[Person] | None = None) -> None:
+        self.known = list(known or [])
         self.recues: list[tuple[str, Voiceprint]] = []
 
     def people(self) -> list[Person]:
-        return self.connues
+        return self.known
 
     def record(self, name: str, e: Voiceprint) -> Person:
         self.recues.append((name, e))
         personne = Person(name=name, voiceprints=[e])
-        self.connues.append(personne)
+        self.known.append(personne)
         return personne
 
 
@@ -164,7 +164,7 @@ class TestPublication:
         )
         instance.take_in(tmp_path / "tranche.wav", [utterance(0, 4)], decalage=0.0)
         assert instance.thread.turns[0].voice == LOCAL_VOICE
-        assert instance.thread.label(LOCAL_VOICE) == NOM_LOCAL
+        assert instance.thread.label(LOCAL_VOICE) == LOCAL_NAME
         # Aucune empreinte prélevée : dépenser du calcul pour confirmer ce que le
         # câblage établit n'apporte rien.
         assert extractor.requests == []
@@ -208,7 +208,7 @@ class TestPublication:
         marc = Person(name="Marc", voiceprints=[voiceprint(1, 0, duration=30)])
         instance = follower(
             tmp_path,
-            thread=LiveThread(connues=[marc]),
+            thread=LiveThread(known=[marc]),
             extractor=SequenceExtractor([voiceprint(1, 0)]),
         )
         instance.take_in(tmp_path / "tranche.wav", [utterance(0, 8)], decalage=0.0)
@@ -367,7 +367,7 @@ class TestRejouerPourAfficher:
         instance.apply_requests()
         rejoue = replay(lignes_du(instance.log))
         assert rejoue.label(rejoue.turns[0].voice) == "Marc"
-        assert rejoue.voice[rejoue.turns[0].voice].certitude is Certainty.HUMAINE
+        assert rejoue.voice[rejoue.turns[0].voice].certainty is Certainty.HUMAINE
 
     def test_rejouer_deux_fois_ne_duplique_pas_les_phrases(self, tmp_path: Path) -> None:
         # La fenêtre lit par morceaux : un chevauchement ne doit pas afficher la
@@ -505,11 +505,11 @@ class TestPorteeDeLaCorrectionRejouee:
         add(log, [
             {"genre": GENRE_TOUR, "numero": 1, "debut": 0.0, "fin": 8.0,
              "texte": "on cale la recette jeudi", "voix": "v1",
-             "nom": None, "certitude": Certainty.INCONNUE.value, "rang": 1},
+             "nom": None, "certitude": Certainty.UNKNOWN.value, "rang": 1},
             correction,
             {"genre": GENRE_TOUR, "numero": 2, "debut": 9.0, "fin": 17.0,
              "texte": "le devis part demain matin", "voix": "v1",
-             "nom": None, "certitude": Certainty.INCONNUE.value, "rang": 1},
+             "nom": None, "certitude": Certainty.UNKNOWN.value, "rang": 1},
         ])
         return log
 
@@ -551,7 +551,7 @@ class TestIdentifiantsJamaisReutilises:
             {"genre": GENRE_TOUR, "numero": number, "debut": float(number * 10),
              "fin": float(number * 10 + 8), "texte": f"phrase {number}",
              "voix": f"v{number}", "nom": None,
-             "certitude": Certainty.INCONNUE.value, "rang": number}
+             "certitude": Certainty.UNKNOWN.value, "rang": number}
             for number in (1, 2, 3)
         ])
         return log

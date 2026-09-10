@@ -102,7 +102,7 @@ def test_appele_pendant_la_reunion_il_repond(meeting, tmp_path):
         assistant._job.join(timeout=30)
 
     assert voice.remark == ["Il reste la signature, et la recette à caler."]
-    assert assistant.manners.parle_le is not None
+    assert assistant.manners.spoke_at is not None
 
 
 def test_la_transcription_n_attend_pas_la_reponse(meeting, tmp_path):
@@ -253,8 +253,8 @@ class TestLaBoucleSurUnFilReel:
         from greffier.domain.boilerplate import collapse_loops
 
         for gardee in collapse_loops(self._fil()):
-            attendu = next(c for t, _d, c in self.OBSERVE if t == gardee.text)
-            assert gardee.span.end - gardee.span.start == attendu
+            expected = next(c for t, _d, c in self.OBSERVE if t == gardee.text)
+            assert gardee.span.end - gardee.span.start == expected
 
     def test_le_fil_publie_ne_porte_plus_la_repetition(self):
         """Ce que la fenêtre affiche : une ligne par phrase dite."""

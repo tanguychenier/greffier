@@ -33,8 +33,8 @@ def publish(file: Path, question: Question) -> None:
         "numero": question.number,
         "texte": question.text,
         "motif": str(question.motif),
-        "entendu": question.entendu,
-        "attendu": question.attendu,
+        "entendu": question.heard,
+        "attendu": question.expected,
     }
     with file.open("a", encoding="utf-8") as flux:
         flux.write(json.dumps(line, ensure_ascii=False) + "\n")
@@ -70,8 +70,8 @@ def read(file: Path) -> tuple[list[Pending], dict[int, str]]:
                         number=int(line["numero"]),
                         text=str(line.get("texte", "")),
                         motif=Reason(line.get("motif", Reason.NEAR_TERM)),
-                        entendu=str(line.get("entendu", "")),
-                        attendu=str(line.get("attendu", "")),
+                        heard=str(line.get("entendu", "")),
+                        expected=str(line.get("attendu", "")),
                     )
             elif line.get("genre") == GENRE_REPONSE:
                 with contextlib.suppress(ValueError, KeyError):
@@ -86,19 +86,19 @@ def read(file: Path) -> tuple[list[Pending], dict[int, str]]:
 def keys_already_placed(file: Path) -> set[str]:
     """What it takes not to ask a question again after a restart."""
     awaiting, _ = read(file)
-    posees = {en_attente.question.key for en_attente in awaiting}
+    asked = {en_attente.question.key for en_attente in awaiting}
     if not file.exists():
-        return posees
+        return asked
     with contextlib.suppress(OSError):
         for brute in file.read_text(encoding="utf-8").splitlines():
             with contextlib.suppress(json.JSONDecodeError, ValueError, KeyError):
                 line = json.loads(brute)
                 if isinstance(line, dict) and line.get("genre") == GENRE_QUESTION:
-                    posees.add(Question(
+                    asked.add(Question(
                         number=int(line["numero"]),
                         text=str(line.get("texte", "")),
                         motif=Reason(line.get("motif", Reason.NEAR_TERM)),
-                        entendu=str(line.get("entendu", "")),
-                        attendu=str(line.get("attendu", "")),
+                        heard=str(line.get("entendu", "")),
+                        expected=str(line.get("attendu", "")),
                     ).key)
-    return posees
+    return asked

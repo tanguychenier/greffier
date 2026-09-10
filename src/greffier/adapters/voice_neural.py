@@ -148,10 +148,10 @@ class NeuralVoice:
     @property
     def _network(self) -> Path:
         """The weights file. Named model.onnx by Kokoro, otherwise the first .onnx."""
-        attendu = self.folder / "model.onnx"
-        if attendu.exists():
-            return attendu
-        return next(iter(sorted(self.folder.glob("*.onnx"))), attendu)
+        expected = self.folder / "model.onnx"
+        if expected.exists():
+            return expected
+        return next(iter(sorted(self.folder.glob("*.onnx"))), expected)
 
     def fabriquer(self, text: str, destination: Path) -> Path | None:
         """Writes the spoken text into a file, without playing it."""

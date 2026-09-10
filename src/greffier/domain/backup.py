@@ -51,10 +51,10 @@ class BackupName:
 def to_erase(names: list[str], kept: int = KEPT) -> list[str]:
     """The backups in excess, oldest first."""
     datees = [(BackupName.read(name), name) for name in names]
-    connues = sorted(
+    known = sorted(
         ((quand, name) for quand, name in datees if quand is not None),
         reverse=True,
     )
-    if len(connues) <= max(1, kept):
+    if len(known) <= max(1, kept):
         return []
-    return [name for _, name in connues[max(1, kept):]]
+    return [name for _, name in known[max(1, kept):]]

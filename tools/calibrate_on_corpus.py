@@ -102,8 +102,8 @@ def main() -> int:
     from greffier.adapters.configuration import Config
     from greffier.adapters.voiceprints_titanet import TitaNetExtractor
     from greffier.domain.voiceprints import (
-        MARGE_MINIMALE,
-        SEUIL_RECONNAISSANCE,
+        MINIMUM_MARGIN,
+        RECOGNITION_THRESHOLD,
         similarity,
     )
 
@@ -156,17 +156,17 @@ def main() -> int:
         print(f"  {value:.3f}  {quoi:<28} "
               f"{un[0]}{un[1]}·{un[2]} / {autre[0]}{autre[1]}·{autre[2]}")
 
-    print(f"\nSeuil en vigueur : {SEUIL_RECONNAISSANCE:.2f} "
-          f"(marge minimale {MARGE_MINIMALE:.2f})")
+    print(f"\nSeuil en vigueur : {RECOGNITION_THRESHOLD:.2f} "
+          f"(marge minimale {MINIMUM_MARGIN:.2f})")
     if memes:
         print(f"  même personne, deux séances : {min(memes):.3f} à {max(memes):.3f}")
-        sous = [value for value in memes if value < SEUIL_RECONNAISSANCE]
+        sous = [value for value in memes if value < RECOGNITION_THRESHOLD]
         if sous:
             print(f"  ⚠ {len(sous)} paire(s) sous le seuil : ces personnes ne seraient")
             print("    pas reconnues d'une réunion à l'autre.")
     if autres:
         print(f"  personnes différentes       : {min(autres):.3f} à {max(autres):.3f}")
-        au_dessus = [value for value in autres if value >= SEUIL_RECONNAISSANCE]
+        au_dessus = [value for value in autres if value >= RECOGNITION_THRESHOLD]
         if au_dessus:
             print(f"  ⚠ {len(au_dessus)} paire(s) au-dessus du seuil : deux personnes")
             print("    différentes seraient confondues.")
@@ -181,10 +181,10 @@ def main() -> int:
         print("\n  Les nuages se chevauchent : aucun seuil ne sépare. Ce que "
               "chacun coûte :\n")
         print(f"    {'seuil':>6}  {'non reconnu(s)':>15}  {'confusion(s)':>13}")
-        for seuil in (0.70, 0.60, 0.50, 0.45, 0.40, 0.30):
-            manques = sum(1 for value in memes if value < seuil)
-            confusions = sum(1 for value in autres if value >= seuil)
-            print(f"    {seuil:>6.2f}  {manques:>7}/{len(memes):<7}  "
+        for threshold in (0.70, 0.60, 0.50, 0.45, 0.40, 0.30):
+            manques = sum(1 for value in memes if value < threshold)
+            confusions = sum(1 for value in autres if value >= threshold)
+            print(f"    {threshold:>6.2f}  {manques:>7}/{len(memes):<7}  "
                   f"{confusions:>6}/{len(autres):<6}")
         print("\n  Une confusion écrit le nom de quelqu'un d'autre dans un "
               "compte rendu ;\n  un défaut de reconnaissance laisse une voix "

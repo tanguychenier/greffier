@@ -19,20 +19,20 @@ class Detection:
 
     active: bool
     motifs: tuple[Reason, ...] = ()
-    exclus: frozenset[str] = frozenset()
-    longueur_minimale: int = 3
-    suffixe_adverbial: str = ""
-    longueur_du_suffixe: int = 0
+    excluded: frozenset[str] = frozenset()
+    minimum_length: int = 3
+    adverb_suffix: str = ""
+    suffix_length: int = 0
 
 @dataclass(frozen=True, slots=True)
 class Splitting:
     """How this language separates its words."""
 
-    mots_separes_par_des_espaces: bool = True
+    words_split_by_spaces: bool = True
 
     def count_them(self, text: str) -> int:
         """The number of words, or of characters where words do not apply."""
-        if self.mots_separes_par_des_espaces:
+        if self.words_split_by_spaces:
             return len(text.split())
         return len(text.replace(" ", ""))
 
@@ -41,7 +41,7 @@ class Wording:
     """What the language changes in how what was said is read back."""
 
     boilerplate: frozenset[str] = frozenset()
-    motifs_de_decision: tuple[re.Pattern[str], ...] = ()
+    decision_patterns: tuple[re.Pattern[str], ...] = ()
 
 @dataclass(frozen=True, slots=True)
 class LanguageProfile:
@@ -50,8 +50,8 @@ class LanguageProfile:
     code: str
     name: str
     detection: Detection
-    decoupage: Splitting = field(default_factory=Splitting)
-    redaction: Wording = field(default_factory=Wording)
+    splitting: Splitting = field(default_factory=Splitting)
+    wording: Wording = field(default_factory=Wording)
 
     @property
     def eprouve(self) -> bool:

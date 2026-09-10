@@ -54,16 +54,16 @@ class Decision:
     audio_suspect: bool = False
 
 def _headset_usable(materiel: Hardware, prefere: str) -> Device | None:
-    attendu = materiel.by_name(prefere)
-    if attendu is not None and attendu.captured:
-        return attendu
+    expected = materiel.by_name(prefere)
+    if expected is not None and expected.captured:
+        return expected
     return None
 
-def _fallback_mic(materiel: Hardware, exclus: tuple[str, ...]) -> Device | None:
+def _fallback_mic(materiel: Hardware, excluded: tuple[str, ...]) -> Device | None:
     """The best mic available, excluding those to be avoided."""
     candidats = [
         p for p in materiel.mics
-        if p.name not in exclus and not _is_loopback(p.name) and not _is_aggregated(p)
+        if p.name not in excluded and not _is_loopback(p.name) and not _is_aggregated(p)
     ]
     if not candidats:
         return None
@@ -109,7 +109,7 @@ class WatchRules:
 
         if voulu_avant and not voulu_apres:
             self.events.append(f"{self.wanted_mic} débranché en cours de réunion")
-            repli = _fallback_mic(apres, exclus=(self.wanted_mic, self.agrege))
+            repli = _fallback_mic(apres, excluded=(self.wanted_mic, self.agrege))
             if repli is None:
                 return Decision(
                     Action.ALERTER,
@@ -126,8 +126,8 @@ class WatchRules:
             )
 
         if not voulu_apres:
-            repli = _fallback_mic(apres, exclus=(self.wanted_mic, self.agrege))
-            avant_repli = _fallback_mic(avant, exclus=(self.wanted_mic, self.agrege))
+            repli = _fallback_mic(apres, excluded=(self.wanted_mic, self.agrege))
+            avant_repli = _fallback_mic(avant, excluded=(self.wanted_mic, self.agrege))
             if repli is not None and (avant_repli is None or repli.name != avant_repli.name):
                 self.events.append(f"{repli.name} branché en cours de réunion")
                 return Decision(
@@ -222,5 +222,5 @@ def advised_mic(materiel: Hardware, prefere: str) -> str:
     """Mic to put in the aggregate now, given what is plugged in."""
     if headset_present(materiel, prefere):
         return prefere
-    repli = _fallback_mic(materiel, exclus=(prefere,))
+    repli = _fallback_mic(materiel, excluded=(prefere,))
     return repli.name if repli else ""

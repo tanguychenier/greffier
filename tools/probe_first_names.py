@@ -56,7 +56,7 @@ if transcriber is None:
     raise SystemExit("aucun modèle de transcription")
 
 
-def entendu(voice, phrase, folder):
+def heard(voice, phrase, folder):
     brut, wav = folder / "p.aiff", folder / "p.wav"
     subprocess.run(["say", "-v", voice, "-o", str(brut), phrase],
                    check=False, capture_output=True)
@@ -81,7 +81,7 @@ with tempfile.TemporaryDirectory() as brut:
         reconnus, total, exemple = 0, 0, ""
         for voice in VOICE:
             for phrase in SENTENCES:
-                text = entendu(voice, phrase.format(first_name), folder)
+                text = heard(voice, phrase.format(first_name), folder)
                 total += 1
                 if called_by_name(text, first_name):
                     reconnus += 1

@@ -13,16 +13,16 @@ from dataclasses import dataclass
 
 from greffier.domain.models import Person, Voiceprint
 
-SEUIL_RECONNAISSANCE = 0.45
-MARGE_MINIMALE = 0.06
-SEUIL_CONFLIT = 0.70
-SEUIL_FUSION = 0.75
-EMPREINTES_PAR_PERSONNE = 8
-MATIERE_MINIMALE_FUSION = 6.0
-MATIERE_ETABLIE = 30.0
-SEUIL_ADOPTION = 0.45
-MARGE_ADOPTION = 0.0
-SEUIL_CONSOLIDATION = 0.70
+RECOGNITION_THRESHOLD = 0.45
+MINIMUM_MARGIN = 0.06
+CONFLICT_THRESHOLD = 0.70
+JOIN_THRESHOLD = 0.75
+VOICEPRINTS_PER_PERSON = 8
+MINIMUM_JOIN_MATERIAL = 6.0
+ESTABLISHED_MATERIAL = 30.0
+ADOPTION_THRESHOLD = 0.45
+ADOPTION_MARGIN = 0.0
+CONSOLIDATION_THRESHOLD = 0.70
 
 def normalise(vector: Sequence[float], source_duration: float = 0.0) -> Voiceprint:
     """Brings the vector to length 1, so that a cosine is a dot product."""
@@ -58,11 +58,11 @@ class Match:
 
     name: str
     similarity: float
-    marge: float          # écart avec la deuxième personne la plus proche
+    margin: float          # écart avec la deuxième personne la plus proche
 
     @property
     def sure(self) -> bool:
-        return self.similarity >= SEUIL_RECONNAISSANCE and self.marge >= MARGE_MINIMALE
+        return self.similarity >= RECOGNITION_THRESHOLD and self.margin >= MINIMUM_MARGIN
 
 def _score(voiceprint: Voiceprint, personne: Person) -> float:
     """How close a voiceprint sits to a known person."""
@@ -73,40 +73,40 @@ def conflicting_names(bank: Iterable[Person]) -> dict[str, set[str]]:
     people = [p for p in bank if p.voiceprints]
     agregats = {p.name: aggregate(p.voiceprints) if len(p.voiceprints) > 1 else p.voiceprints[0]
                 for p in people}
-    conflits: dict[str, set[str]] = {}
+    conflicts: dict[str, set[str]] = {}
     for i, un in enumerate(people):
         for autre in people[i + 1:]:
-            if similarity(agregats[un.name], agregats[autre.name]) >= SEUIL_CONFLIT:
-                conflits.setdefault(un.name, set()).add(autre.name)
-                conflits.setdefault(autre.name, set()).add(un.name)
-    return conflits
+            if similarity(agregats[un.name], agregats[autre.name]) >= CONFLICT_THRESHOLD:
+                conflicts.setdefault(un.name, set()).add(autre.name)
+                conflicts.setdefault(autre.name, set()).add(un.name)
+    return conflicts
 
 def recognise(
     voiceprint: Voiceprint,
     bank: Iterable[Person],
-    seuil: float = SEUIL_RECONNAISSANCE,
-    marge_minimale: float = MARGE_MINIMALE,
+    threshold: float = RECOGNITION_THRESHOLD,
+    minimum_margin: float = MINIMUM_MARGIN,
 ) -> Match | None:
     """The person in the bank that matches, or nothing if doubt remains."""
-    connues = [p for p in bank if p.voiceprints]
+    known = [p for p in bank if p.voiceprints]
     ranking = sorted(
-        ((_score(voiceprint, p), p.name) for p in connues),
+        ((_score(voiceprint, p), p.name) for p in known),
         key=lambda x: (-x[0], x[1]),
     )
     if not ranking:
         return None
     best, name = ranking[0]
     second = ranking[1][0] if len(ranking) > 1 else -1.0
-    marge = best - second
-    if best < seuil or marge < marge_minimale:
+    margin = best - second
+    if best < threshold or margin < minimum_margin:
         return None
-    if name in conflicting_names(connues):
+    if name in conflicting_names(known):
         return None
-    return Match(name=name, similarity=best, marge=marge)
+    return Match(name=name, similarity=best, margin=margin)
 
 def join_voices(
     per_voice: dict[str, list[Voiceprint]],
-    seuil: float = SEUIL_FUSION,
+    threshold: float = JOIN_THRESHOLD,
 ) -> dict[str, str]:
     """Stitches back together the segment groups that are one person."""
     groupes = {voice: list(voiceprints) for voice, voiceprints in per_voice.items() if voiceprints}
@@ -115,7 +115,7 @@ def join_voices(
     while True:
         agregats = {voice: aggregate(e) for voice, e in groupes.items()}
         names = sorted(agregats)
-        meilleure: tuple[float, str, str] | None = None
+        best: tuple[float, str, str] | None = None
         for i, a in enumerate(names):
             for b in names[i + 1:]:
                 score = similarity(agregats[a], agregats[b])
@@ -124,14 +124,14 @@ def join_voices(
                     sum(e.source_duration for e in groupes[b]),
                 )
                 if (
-                    score >= seuil
-                    and material >= MATIERE_MINIMALE_FUSION
-                    and (meilleure is None or score > meilleure[0])
+                    score >= threshold
+                    and material >= MINIMUM_JOIN_MATERIAL
+                    and (best is None or score > best[0])
                 ):
-                    meilleure = (score, a, b)
-        if meilleure is None:
+                    best = (score, a, b)
+        if best is None:
             break
-        _, garde, absorbe = meilleure
+        _, garde, absorbe = best
         if sum(e.source_duration for e in groupes[absorbe]) > sum(
             e.source_duration for e in groupes[garde]
         ):
@@ -143,7 +143,7 @@ def join_voices(
 
     return membership
 
-def _groupes(
+def _groups(
     per_voice: dict[str, list[Voiceprint]], membership: dict[str, str]
 ) -> dict[str, list[Voiceprint]]:
     """The voiceprints gathered under the group that holds them."""
@@ -160,12 +160,12 @@ def _material(voiceprints: Iterable[Voiceprint]) -> float:
 def adopt_fragments(
     per_voice: dict[str, list[Voiceprint]],
     membership: dict[str, str],
-    seuil: float = SEUIL_ADOPTION,
-    marge_minimale: float = MARGE_ADOPTION,
-    matiere_etablie: float = MATIERE_ETABLIE,
+    threshold: float = ADOPTION_THRESHOLD,
+    minimum_margin: float = ADOPTION_MARGIN,
+    matiere_etablie: float = ESTABLISHED_MATERIAL,
 ) -> dict[str, str]:
     """Attaches each fragment to the established group it most resembles."""
-    groupes = _groupes(per_voice, membership)
+    groupes = _groups(per_voice, membership)
     etablis = {g: e for g, e in groupes.items() if _material(e) >= matiere_etablie}
     if not etablis:
         return membership
@@ -183,7 +183,7 @@ def adopt_fragments(
         )
         best, hote = ranking[0]
         second = ranking[1][0] if len(ranking) > 1 else -1.0
-        if best < seuil or best - second < marge_minimale:
+        if best < threshold or best - second < minimum_margin:
             continue
         etablis[hote] = etablis[hote] + groupes[fragment]
         for voice, vers in retenue.items():
@@ -194,25 +194,25 @@ def adopt_fragments(
 def consolidate(
     per_voice: dict[str, list[Voiceprint]],
     membership: dict[str, str],
-    seuil: float = SEUIL_CONSOLIDATION,
-    matiere_etablie: float = MATIERE_ETABLIE,
+    threshold: float = CONSOLIDATION_THRESHOLD,
+    matiere_etablie: float = ESTABLISHED_MATERIAL,
 ) -> dict[str, str]:
     """Joins two established groups that are in fact the same person."""
     retenue = dict(membership)
     while True:
-        groupes = _groupes(per_voice, retenue)
+        groupes = _groups(per_voice, retenue)
         etablis = {g: e for g, e in groupes.items() if _material(e) >= matiere_etablie}
         agregats = {g: aggregate(e) for g, e in etablis.items()}
         names = sorted(agregats)
-        meilleure: tuple[float, str, str] | None = None
+        best: tuple[float, str, str] | None = None
         for i, un in enumerate(names):
             for autre in names[i + 1:]:
                 score = similarity(agregats[un], agregats[autre])
-                if score >= seuil and (meilleure is None or score > meilleure[0]):
-                    meilleure = (score, un, autre)
-        if meilleure is None:
+                if score >= threshold and (best is None or score > best[0]):
+                    best = (score, un, autre)
+        if best is None:
             return retenue
-        _, garde, absorbe = meilleure
+        _, garde, absorbe = best
         if _material(etablis[absorbe]) > _material(etablis[garde]):
             garde, absorbe = absorbe, garde
         for voice, vers in retenue.items():
@@ -221,9 +221,9 @@ def consolidate(
 
 def stitch(
     per_voice: dict[str, list[Voiceprint]],
-    seuil_paires: float = SEUIL_FUSION,
-    seuil_adoption: float = SEUIL_ADOPTION,
-    seuil_consolidation: float = SEUIL_CONSOLIDATION,
+    seuil_paires: float = JOIN_THRESHOLD,
+    seuil_adoption: float = ADOPTION_THRESHOLD,
+    seuil_consolidation: float = CONSOLIDATION_THRESHOLD,
 ) -> dict[str, str]:
     """Brings the segmenter's groups down to the number of real people.
 
@@ -231,24 +231,24 @@ def stitch(
     consolidation of what has grown. Over-segmenting and stitching back is
     reversible; under-segmenting is not.
     """
-    membership = join_voices(per_voice, seuil=seuil_paires)
-    membership = adopt_fragments(per_voice, membership, seuil=seuil_adoption)
-    return consolidate(per_voice, membership, seuil=seuil_consolidation)
+    membership = join_voices(per_voice, threshold=seuil_paires)
+    membership = adopt_fragments(per_voice, membership, threshold=seuil_adoption)
+    return consolidate(per_voice, membership, threshold=seuil_consolidation)
 
 def doubtful_entry(
     nouvelle: Voiceprint,
     vise: str,
     bank: Iterable[Person],
-    marge: float = MARGE_MINIMALE,
+    margin: float = MINIMUM_MARGIN,
 ) -> str:
     """Does this voiceprint look like it belongs to someone else?"""
-    connues = {p.name: p for p in bank if p.voiceprints}
-    elsewhere = [(_score(nouvelle, p), name) for name, p in connues.items() if name != vise]
+    known = {p.name: p for p in bank if p.voiceprints}
+    elsewhere = [(_score(nouvelle, p), name) for name, p in known.items() if name != vise]
     if not elsewhere:
         return ""
     best, qui = max(elsewhere)
-    chez_soi = _score(nouvelle, connues[vise]) if vise in connues else -1.0
-    if best < SEUIL_RECONNAISSANCE or best - chez_soi < marge:
+    chez_soi = _score(nouvelle, known[vise]) if vise in known else -1.0
+    if best < RECOGNITION_THRESHOLD or best - chez_soi < margin:
         return ""
     if chez_soi < 0:
         return (
@@ -303,7 +303,7 @@ def intruding_voiceprints(
 def enrichir(
     personne: Person,
     nouvelle: Voiceprint,
-    maximum: int = EMPREINTES_PAR_PERSONNE,
+    maximum: int = VOICEPRINTS_PER_PERSON,
 ) -> Person:
     """Adds a voiceprint to a known person, capping how much accumulates."""
     personne.voiceprints.append(nouvelle)
