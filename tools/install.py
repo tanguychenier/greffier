@@ -1023,8 +1023,8 @@ def etape_verification(ctx, python):
         [str(python), "-c",
          "import sys, pathlib;"
          "sys.path.insert(0, 'src');"
-         "from greffier.adapters.voiceprints_titanet import ExtracteurTitaNet;"
-         f"ExtracteurTitaNet(pathlib.Path(r'{voiceprints}'))"],
+         "from greffier.adapters.voiceprints_titanet import TitaNetExtractor;"
+         f"TitaNetExtractor(pathlib.Path(r'{voiceprints}'))"],
         capture_output=True, text=True, cwd=ROOT, check=False,
     )
     if controle.returncode != 0:
@@ -1048,7 +1048,7 @@ def main():
     analyseur.add_argument("--config", help="dossier de configuration")
     args = analyseur.parse_args()
 
-    print(_teinte("1;37", f"Greffier — installation sur {SYSTEM} {platform.recorder()}"))
+    print(_teinte("1;37", f"Greffier — installation sur {SYSTEM} {platform.machine()}"))
     if sys.version_info < (3, 9):
         erreur(f"Python 3.9 minimum, trouvé {platform.python_version()}")
         return 1
