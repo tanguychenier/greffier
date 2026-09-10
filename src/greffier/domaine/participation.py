@@ -83,6 +83,14 @@ class Occasion:
     #: De quoi il s'agit, pour ne pas reposer deux fois la même question. Deux
     #: occasions de même sujet sont la même : la seconde ne sera pas servie.
     sujet: str = ""
+    #: Vrai quand `propos` est déjà le texte à prononcer, mot pour mot.
+    #:
+    #: Sans ce drapeau, un accusé de réception déjà rédigé — « je mets Hugo sur
+    #: cette voix » — repassait par le modèle, qui le remplaçait par une
+    #: politesse vague et perdait au passage la seule information qui comptait :
+    #: le nom retenu. Une phrase écrite pour être dite n'a rien à gagner d'un
+    #: aller-retour.
+    tel_quel: bool = False
 
     @property
     def force(self) -> int:
