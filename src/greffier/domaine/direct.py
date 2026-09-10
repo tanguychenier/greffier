@@ -33,15 +33,11 @@ from greffier.domaine.canaux import VOIX_LOCALE
 from greffier.domaine.empreintes import (
     MATIERE_ETABLIE,
     SEUIL_ADOPTION,
-    SEUIL_FUSION,
     agreger,
+    fusionner_voix,
     reconnaitre,
     similarite,
 )
-
-# Sous un alias : la méthode qui l'appelle porte le même nom, et lire
-# « recoller(candidates) » dans « def recoller » invite à croire à une récursion.
-from greffier.domaine.empreintes import recoller as recoller_les_voix
 from greffier.domaine.generiques import est_un_generique, est_une_annotation
 from greffier.domaine.langue import ProfilLinguistique
 from greffier.domaine.modeles import Empreinte, Intervalle, Personne, Replique
@@ -68,6 +64,42 @@ MATIERE_MINIMALE_VOIX = 2.0
 #: phrase à égalité — ceux-là méritent le fourre-tout plutôt qu'un choix
 #: arbitraire, qu'un clic devrait ensuite défaire.
 MARGE_ADOPTION_DIRECT = 0.06
+
+#: Seuil de rattachement d'une phrase à une voix déjà entendue, **en direct**.
+#:
+#: Bien plus bas que `SEUIL_FUSION`, et c'est une mesure qui l'impose. Le
+#: rattachement compare une empreinte de deux ou trois secondes à l'agrégat
+#: d'une voix, ce qui n'est pas la même question que comparer deux agrégats
+#: après la réunion. Mille neuf cent dix empreintes courtes d'une réunion réelle,
+#: étiquetées par le recollage final :
+#:
+#:   phrase / agrégat, même personne     médiane 0,667   1er décile 0,494
+#:   phrase / agrégat, personnes ≠       médiane 0,337   9e décile  0,501
+#:
+#: À 0,75, la médiane d'une même personne ne passait pas : chaque phrase fondait
+#: une voix, et comme aucune voix ne grossissait, aucune ne pouvait plus en
+#: adopter. Mesuré : **deux cent soixante-seize voix pour mille phrases**, un
+#: cercle vicieux entier.
+#:
+#: 0,50 tombe entre les deux distributions, qui ne se chevauchent qu'au décile.
+#: C'est la marge qui rend ce chevauchement sans conséquence : il ne suffit pas
+#: qu'une voix passe le seuil, il faut qu'elle devance nettement la suivante.
+SEUIL_RATTACHEMENT_DIRECT = 0.50
+
+#: Au-delà de ce nombre de voix, une phrase en rejoint une plutôt que d'en
+#: fonder une de plus.
+#:
+#: C'est le plafond qui manquait, et son absence était structurelle : chaque
+#: phrase qui ne ressemblait à rien fondait une voix, donc aucune voix ne
+#: grossissait, donc aucune n'avait d'agrégat assez fiable pour en accueillir
+#: une autre. Mesuré sur une réunion réelle de trois personnes : **deux cent
+#: soixante-seize voix pour mille phrases**, et le coût de chaque rattachement
+#: croissant avec elles.
+#:
+#: Douze parce qu'une réunion de travail dépasse rarement ce nombre, et que le
+#: plafond n'a pas à être juste : il a à borner le désastre. Le nombre annoncé
+#: dans la configuration, quand il l'est, l'emporte et vaut bien mieux.
+VOIX_AU_PLUS = 12
 
 #: Nom affiché pour la personne qui enregistre. Son micro la désigne : elle n'a
 #: pas à être reconnue, et son nom n'a pas à être demandé.
@@ -261,6 +293,37 @@ class VoixDirecte:
     ressemblance: float = 0.0
     ecart: float = 0.0
 
+    #: L'agrégat, gardé jusqu'à ce qu'une empreinte s'ajoute.
+    #:
+    #: Le rattachement compare la phrase courante à l'agrégat de **chaque**
+    #: voix, et le recalculait à chaque comparaison : un agrégat pèse quelques
+    #: centaines de nombres par empreinte, et le coût croît avec la réunion.
+    #: Mesuré : treize millisecondes par phrase à mi-parcours, contre deux
+    #: dixièmes de milliseconde au début.
+    _agregat: Empreinte | None = field(default=None, repr=False)
+
+    def ajouter(self, empreinte: Empreinte) -> None:
+        """Verse une empreinte, et périme l'agrégat.
+
+        Passer par ici plutôt que d'ajouter à la liste : c'est le seul endroit
+        qui sache que l'agrégat doit être refait, et un `append` oublié ailleurs
+        rendrait une voix reconnaissable à ce qu'elle était.
+        """
+        self.empreintes.append(empreinte)
+        self._agregat = None
+
+    def absorber(self, autre: VoixDirecte) -> None:
+        """Reprend les empreintes d'une autre voix."""
+        self.empreintes.extend(autre.empreintes)
+        self._agregat = None
+
+    @property
+    def agregat(self) -> Empreinte:
+        """L'empreinte moyenne de cette voix, calculée une fois par ajout."""
+        if self._agregat is None:
+            self._agregat = agreger(self.empreintes)
+        return self._agregat
+
     @property
     def secondes(self) -> float:
         """Matière accumulée, pour savoir si l'empreinte vaut d'être gardée."""
@@ -385,7 +448,10 @@ class Fil:
 
     #: Les personnes déjà en banque, pour reconnaître sans rien demander.
     connues: list[Personne] = field(default_factory=list)
-    seuil_fusion: float = SEUIL_FUSION
+    #: Le seuil du rattachement d'une phrase à une voix. Celui du direct, pas
+    #: celui du recollage d'après réunion : on compare une phrase à un agrégat,
+    #: et non deux agrégats.
+    seuil_fusion: float = SEUIL_RATTACHEMENT_DIRECT
     #: Combien de personnes participent, si on le sait. Renseigné, le fil
     #: n'invente jamais plus de voix que de participants : une empreinte qui ne
     #: franchit pas le seuil rejoint la plus ressemblante. Laissé vide, chaque
@@ -518,6 +584,12 @@ class Fil:
             # Une voix déjà fournie l'emporte sur une voix de plus : c'est
             # l'adoption du recollage final, appliquée pendant la réunion.
             proche = self._voix_etablie_proche(empreinte)
+        if proche is None and len(self._nommables()) >= VOIX_AU_PLUS:
+            # Le plafond est atteint : une phrase de plus est de quelqu'un qui
+            # est déjà là. Rejoindre la plus ressemblante vaut mieux que
+            # d'inventer un treizième participant, et le fourre-tout attend
+            # celles qui ne ressemblent à personne.
+            proche = self._la_moins_eloignee(empreinte)
         if proche is None and self._au_complet():
             # Le nombre de participants est annoncé et toutes les voix
             # existent : une empreinte qui ne franchit pas le seuil rejoint
@@ -531,7 +603,7 @@ class Fil:
             proche = self._la_moins_eloignee(empreinte)
         if proche is not None:
             connue = self.voix[proche]
-            connue.empreintes.append(empreinte)
+            connue.ajouter(empreinte)
             self._retenter_le_nom(connue)
             return proche
 
@@ -564,7 +636,7 @@ class Fil:
     def _la_moins_eloignee(self, empreinte: Empreinte) -> str | None:
         """La voix la plus ressemblante, seuil ou pas. Rien s'il n'y en a aucune."""
         classement = sorted(
-            ((similarite(empreinte, agreger(v.empreintes)), v.identifiant)
+            ((similarite(empreinte, v.agregat), v.identifiant)
              for v in self._nommables()),
             key=lambda x: (-x[0], x[1]),
         )
@@ -589,7 +661,7 @@ class Fil:
         défait l'attribution.
         """
         etablies = [
-            (similarite(empreinte, agreger(v.empreintes)), v.identifiant)
+            (similarite(empreinte, v.agregat), v.identifiant)
             for v in self._nommables()
             if sum(e.duree_source for e in v.empreintes) >= MATIERE_ETABLIE
         ]
@@ -612,13 +684,20 @@ class Fil:
         """
         classement = sorted(
             (
-                (similarite(empreinte, agreger(v.empreintes)), v.identifiant)
+                (similarite(empreinte, v.agregat), v.identifiant)
                 for v in self.voix.values()
                 if v.empreintes
             ),
             key=lambda x: (-x[0], x[1]),
         )
         if not classement or classement[0][0] < self.seuil_fusion:
+            return None
+        # La marge, et non le seuil seul : les deux distributions se chevauchent
+        # au décile, et c'est l'écart avec la deuxième voix qui rend ce
+        # chevauchement sans conséquence. Deux voix qui se disputent la phrase à
+        # égalité méritent le fourre-tout plutôt qu'un choix arbitraire.
+        second = classement[1][0] if len(classement) > 1 else -1.0
+        if classement[0][0] - second < MARGE_ADOPTION_DIRECT:
             return None
         return classement[0][1]
 
@@ -631,7 +710,7 @@ class Fil:
         """
         if voix.certitude.ferme or not voix.empreintes:
             return
-        correspondance = reconnaitre(agreger(voix.empreintes), self.connues)
+        correspondance = reconnaitre(voix.agregat, self.connues)
         if correspondance is None:
             return
         trouvee = (
@@ -702,7 +781,7 @@ class Fil:
         """Verse une voix dans une autre : ses tours, puis ses empreintes."""
         avalee = self.voix[source]
         gardee = self.voix[cible]
-        gardee.empreintes.extend(avalee.empreintes)
+        gardee.absorber(avalee)
         for tour in self.tours:
             if tour.voix == source:
                 tour.voix = cible
@@ -719,17 +798,19 @@ class Fil:
         la même paire monte à 0,79, et deux personnes différentes restent à
         0,63. Le seuil n'était pas en cause : il n'était pas rejoué.
 
-        C'est `recoller`, celui du traitement final, qui décide : mêmes seuils,
-        mêmes gardes, rien de neuf à calibrer — et c'est le point. Le fil
-        affichait quatre-vingt-dix voix là où le compte rendu, retraité, en
-        montrait trois, si bien qu'on corrigeait pendant la réunion un
-        découpage que le traitement final allait défaire tout seul.
+        C'est `fusionner_voix` qui décide, et **non** `recoller`, dont les trois
+        passes servent le traitement final. La tentation était forte — mêmes
+        seuils, rien de neuf à calibrer — et la mesure l'a écartée : rejoué sur
+        mille neuf cent dix phrases d'une réunion réelle, le recollage complet
+        appliqué toutes les dix secondes fait tomber la justesse des
+        attributions de **93 % à 79,6 %**, c'est-à-dire au niveau qu'on
+        obtiendrait en donnant tout à la voix la plus bavarde. Il fusionne tout.
 
-        Ses trois passes se prêtent bien au direct sans qu'on y touche :
-        l'adoption exige un groupe **établi** pour servir de point d'attache, et
-        au début d'une réunion aucun ne l'est. Elle ne fait donc rien tant que
-        la matière manque, puis se met à travailler d'elle-même — prudente
-        quand il faut l'être, utile quand elle peut l'être.
+        La raison tient à ce qu'il compare. Après la réunion, l'adoption
+        rapproche des agrégats de plusieurs minutes ; ici, des agrégats de deux
+        ou trois phrases, où 0,45 de ressemblance ne veut plus rien dire. Ce qui
+        limite le nombre de voix en direct, c'est le plafond (`VOIX_AU_PLUS`) et
+        le seuil de rattachement mesuré, pas un recollage plus gourmand.
 
         Deux voix nommées par un humain sous des noms différents ne sont jamais
         réunies : une correction humaine ne se laisse pas défaire par une
@@ -743,7 +824,7 @@ class Fil:
         if len(candidates) < 2:
             return []
         faits: list[tuple[str, str]] = []
-        for source, cible in recoller_les_voix(candidates).items():
+        for source, cible in fusionner_voix(candidates).items():
             if source == cible or source not in self.voix or cible not in self.voix:
                 continue
             if self._noms_humains_differents(source, cible):
@@ -790,7 +871,7 @@ class Fil:
             return None
         if voix.secondes < DUREE_POUR_LA_BANQUE_S:
             return None
-        return agreger(voix.empreintes)
+        return voix.agregat
 
     def _identifiant(self) -> str:
         self.suite += 1
