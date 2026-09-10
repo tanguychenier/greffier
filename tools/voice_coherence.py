@@ -58,7 +58,12 @@ def main() -> int:
         print("Les empreintes manquent : lance d'abord "
               "« tools/replay_stitching.py » sur cette réunion.", file=sys.stderr)
         return 1
-    per_voice: dict[str, list[Voiceprint]] = pickle.loads(cache.read_bytes())
+    try:
+        per_voice: dict[str, list[Voiceprint]] = pickle.loads(cache.read_bytes())
+    except (pickle.UnpicklingError, ModuleNotFoundError, AttributeError, EOFError):
+        print("Cache illisible : relance « tools/replay_stitching.py » "
+              "sur cette réunion, il le refera.", file=sys.stderr)
+        return 1
     grosses = sorted(
         per_voice.items(), key=lambda kv: -sum(e.source_duration for e in kv[1])
     )[: arguments.how_many]
