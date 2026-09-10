@@ -1,18 +1,4 @@
-"""Oublier une réunion, et savoir ce que cela efface avant de le faire.
-
-Une réunion ne tient pas dans un fichier : l'audio, la transcription, le compte
-rendu, le fil du direct, les propositions de noms et le fichier maître vivent
-côte à côte, nommés par le même identifiant. Supprimer le seul fichier maître
-laissait 158 Mo d'audio orphelins et un compte rendu que plus rien ne
-référençait ; les supprimer sans le dire efface un enregistrement qu'on ne peut
-pas refaire.
-
-D'où deux fonctions distinctes : `pieces_de` rassemble et **pèse** ce qui
-existe, pour qu'une confirmation dise la vérité, et `oublier` efface. La
-première ne touche à rien, ce qui permet à l'interface de demander avant.
-
-Ce module ne connaît aucun outil : il reçoit les dossiers et rend des chemins.
-"""
+"""Forgetting a meeting, and knowing what that erases before doing it."""
 
 from __future__ import annotations
 
@@ -26,11 +12,7 @@ from greffier.domain.retention import Gesture, Rule
 
 @dataclass(frozen=True, slots=True)
 class Places:
-    """Où vivent les morceaux d'une réunion.
-
-    Repris de la configuration par l'appelant plutôt que lu ici : le cas d'usage
-    n'a pas à savoir comment les chemins sont réglés.
-    """
+    """Where the pieces of a meeting live."""
 
     meetings: Path
     recordings: Path
@@ -55,12 +37,7 @@ class Attachment:
             return 0
 
 def pieces_de(ou: Places, identifier: str) -> list[Attachment]:
-    """Tout ce qui existe pour cette réunion, du plus lourd au plus léger.
-
-    L'audio d'abord parce que c'est lui qui pèse, et c'est le seul qu'on ne
-    puisse pas reconstituer : la transcription et le compte rendu se refont
-    depuis lui, l'inverse est faux.
-    """
+    """Everything that exists for this meeting, heaviest first."""
     candidats = [
         (ou.recordings, ("wav", "opus", "m4a", "mp3"), "enregistrement audio"),
         (ou.meetings, ("json",), "réunion transcrite"),
@@ -85,18 +62,14 @@ def pieces_de(ou: Places, identifier: str) -> list[Attachment]:
     return sorted(trouvees, key=lambda p: -p.bytes_read)
 
 def _supplied_documents(ou: Places, identifier: str) -> list[Path]:
-    """Les documents déposés pendant la réunion. Un dossier, pas un fichier."""
+    """The documents dropped during the meeting."""
     if ou.pieces is None:
         return []
     folder = ou.pieces / identifier
     return sorted(folder.glob("*.txt")) if folder.is_dir() else []
 
 def forget(ou: Places, identifier: str) -> list[Attachment]:
-    """Efface la réunion, et rend ce qui a été effacé.
-
-    Ce qui résiste est laissé sans faire échouer le reste : un compte rendu
-    ouvert dans un éditeur ne doit pas empêcher de libérer l'audio.
-    """
+    """Erases the meeting, and returns what was erased."""
     effacees: list[Attachment] = []
     for piece in pieces_de(ou, identifier):
         try:
@@ -111,7 +84,7 @@ def forget(ou: Places, identifier: str) -> list[Attachment]:
 
 @dataclass(frozen=True, slots=True)
 class Tidying:
-    """Ce qu'un tour de rangement a fait, ou ferait."""
+    """What a tidying pass did, or would do."""
 
     identifier: str
     geste: str
@@ -119,7 +92,7 @@ class Tidying:
     trouble: str = ""
 
 def audio_de(ou: Places, identifier: str) -> Path | None:
-    """L'enregistrement de cette réunion, compressé ou non."""
+    """This meeting's recording, compressed or not."""
     for suffixe in ("wav", "opus", "m4a", "mp3"):
         path = ou.recordings / f"{identifier}.{suffixe}"
         if path.exists():
@@ -133,16 +106,7 @@ def tidy(
     compresser: Callable[[Path], Path],
     for_real: bool = False,
 ) -> list[Tidying]:
-    """Applique la règle de rétention, ou dit seulement ce qu'elle ferait.
-
-    `reunions` porte, pour chacune, son identifiant, son âge en jours et si elle
-    est transcrite. Le calcul de l'âge appartient à l'appelant : il dépend de ce
-    que le fichier maître sait de la réunion, pas de cette fonction.
-
-    `pour_de_vrai` à faux est le défaut, et c'est délibéré : on doit pouvoir
-    montrer ce qu'un rangement emporterait avant de le lancer. Effacer un
-    enregistrement ne se rattrape pas.
-    """
+    """Applies the retention rule, or only says what it would do."""
     faits: list[Tidying] = []
     for identifier, jours, transcrite in meetings:
         audio = audio_de(ou, identifier)
@@ -169,7 +133,7 @@ def tidy(
     return faits
 
 def readable(bytes_read: int) -> str:
-    """« 151 Mo », « 34 Ko » — pour une phrase de confirmation."""
+    """"151 MB", "34 kB" — for a sentence a person reads."""
     if bytes_read >= 1024**3:
         return f"{bytes_read / 1024**3:.1f} Go"
     if bytes_read >= 1024**2:
