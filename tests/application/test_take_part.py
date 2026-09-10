@@ -327,3 +327,147 @@ class TestElleContinueTantQuElleADesQuestions:
             because=Because.CONTRIBUTION, remark="Qui porte ça ?", born_at=100.0)
         suite = assistant.turn([dit("Hubert", 104.0, 106.0)], now=109.0)
         assert suite is not None, "le repos a coupé l'échange"
+
+
+class TestLaBoucleEstImpossible:
+    """Les cas auxquels on n'avait pas pensé, et qu'une réunion a trouvés.
+
+    Elle parle par le haut-parleur, et l'outil enregistre la sortie système
+    exprès — c'est ainsi qu'il entend les autres dans une visio. Sa voix
+    revient donc sur le canal des autres. Chaque garde ci-dessous suffirait
+    seul ; ensemble ils rendent le cycle impossible, quoi qu'il arrive par
+    ailleurs.
+    """
+
+    QUESTION = "Lucie, est-ce que tu peux faire des recherches sur Internet ?"
+
+    def _elle(self, cerveau=None, voice=None):
+        return AssistantSettings(
+            name="Lucie", cerveau=cerveau, voice=voice,
+            manners=Manners(creux_minimal=0.0),
+        )
+
+    def test_sans_cerveau_elle_se_tait_au_lieu_de_repeter(self):
+        """Elle répétait la question, son nom compris, et se rappelait ainsi."""
+        elle = self._elle()
+        rendu = elle.answer(
+            Opening(because=Because.APPELE, remark=self.QUESTION, born_at=1.0), 2.0
+        )
+        assert rendu.remark == ""
+
+    def test_ce_qu_elle_dit_ne_porte_jamais_son_nom(self):
+        class CerveauQuiRepete:
+            def write_up(self, _demande):
+                return "Lucie ne peut pas chercher sur Internet."
+
+        voice = FakeVoiceAdapter()
+        elle = self._elle(cerveau=CerveauQuiRepete(), voice=voice)
+        rendu = elle.answer(
+            Opening(because=Because.APPELE, remark=self.QUESTION, born_at=1.0), 2.0
+        )
+        assert "Lucie" not in rendu.remark
+        assert voice.remark and "Lucie" not in voice.remark[0]
+
+    def test_elle_ne_reagit_pas_a_ses_propres_mots(self):
+        """Le cas exact : sa phrase revient par la boucle de capture."""
+        class Cerveau:
+            def write_up(self, _demande):
+                return "Je n'ai pas accès à Internet depuis cette réunion."
+
+        elle = self._elle(cerveau=Cerveau(), voice=FakeVoiceAdapter())
+        elle.answer(
+            Opening(because=Because.APPELE, remark=self.QUESTION, born_at=1.0), 2.0
+        )
+        revenu = [dit("Je n'ai pas accès à Internet depuis cette réunion.", 10.0, 14.0)]
+        assert elle.turn(revenu, 15.0) is None
+
+    def test_une_transcription_deformee_de_ses_mots_ne_la_rappelle_pas(self):
+        class Cerveau:
+            def write_up(self, _demande):
+                return "Je n'ai pas accès à Internet depuis cette réunion."
+
+        elle = self._elle(cerveau=Cerveau(), voice=FakeVoiceAdapter())
+        elle.answer(
+            Opening(because=Because.APPELE, remark=self.QUESTION, born_at=1.0), 2.0
+        )
+        abime = [dit("je n ai pas acces a internet depuis cette", 10.0, 14.0)]
+        assert elle.turn(abime, 15.0) is None
+
+    def test_la_salle_reste_entendue(self):
+        """Le garde ne doit pas la rendre sourde : c'est tout l'enjeu."""
+        class Cerveau:
+            def write_up(self, _demande):
+                return "Je n'ai pas accès à Internet."
+
+        elle = self._elle(cerveau=Cerveau(), voice=FakeVoiceAdapter())
+        elle.answer(
+            Opening(because=Because.APPELE, remark=self.QUESTION, born_at=1.0), 2.0
+        )
+        de_la_salle = [dit("Lucie, tu peux nous rappeler la date ?", 20.0, 24.0)]
+        retenue = elle.turn(de_la_salle, 25.0)
+        assert retenue is not None and retenue.because is Because.APPELE
+
+    def test_elle_oublie_ses_mots_au_bout_d_un_moment(self):
+        """Sinon un participant qui reprend son idée serait pris pour elle."""
+        class Cerveau:
+            def write_up(self, _demande):
+                return "La migration en Symfony sept reste à confier à quelqu'un."
+
+        elle = self._elle(cerveau=Cerveau(), voice=FakeVoiceAdapter())
+        elle.answer(
+            Opening(because=Because.APPELE, remark="Lucie, où en est la migration ?",
+                    born_at=1.0),
+            2.0,
+        )
+        tard = [dit("la migration en Symfony sept reste à confier à quelqu'un", 600.0, 606.0)]
+        assert elle._is_his_own(tard[0], 610.0) is False
+
+
+class TestElleALeDroitDeChercher:
+    """Elle disait ne pas pouvoir chercher sur Internet, outils en main.
+
+    Rapporté après une réunion. Les outils `WebSearch` et `WebFetch` étaient
+    bien accordés — `conversation.recherche_web` vaut vrai par défaut — mais la
+    consigne **orale**, qui remplace celle de la conversation écrite, lui
+    disait de s'en tenir à ce qui avait été dit. Elle obéissait.
+    """
+
+    def test_la_consigne_orale_autorise_la_recherche(self):
+        from greffier.application.take_part import CONSIGNES_ORALES
+
+        consigne = CONSIGNES_ORALES.format(name="Lucie")
+        assert "chercher en ligne" in consigne
+        assert "de ton propre chef" in consigne
+
+    def test_elle_nomme_la_source_sans_dire_l_adresse(self):
+        """Une URL ne s'entend pas ; une source sans nom ne se vérifie pas."""
+        from greffier.application.take_part import CONSIGNES_ORALES
+
+        consigne = CONSIGNES_ORALES.format(name="Lucie")
+        assert "nomme la source à voix haute" in consigne
+        assert "jamais son" in consigne and "adresse" in consigne
+
+    def test_elle_ne_doit_plus_s_en_tenir_a_la_reunion(self):
+        ancien = "Si tu n'as pas la réponse dans ce qui a été dit, dis-le"
+        from greffier.application.take_part import CONSIGNES_ORALES
+
+        assert ancien not in CONSIGNES_ORALES
+
+    def test_les_outils_sont_accordes_quand_le_reglage_le_dit(self):
+        from greffier.adapters.configuration import Config
+        from greffier.adapters.writer_claude import ClaudeWriter
+        from greffier.wiring import assistant
+
+        cerveau = assistant(Config(conversation={"recherche_web": True}))
+        assert isinstance(cerveau, ClaudeWriter)
+        assert cerveau.outils == ClaudeWriter.OUTILS_DE_RECHERCHE
+
+    def test_le_reglage_les_retire_vraiment(self):
+        """Qui ne veut rien laisser sortir du poste doit pouvoir l'obtenir."""
+        from greffier.adapters.configuration import Config
+        from greffier.adapters.writer_claude import ClaudeWriter
+        from greffier.wiring import assistant
+
+        cerveau = assistant(Config(conversation={"recherche_web": False}))
+        assert isinstance(cerveau, ClaudeWriter)
+        assert cerveau.outils == ()

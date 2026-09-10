@@ -178,3 +178,90 @@ def question_asked(text: str, name: str) -> str:
     reste = re.sub(r"\s+", " ", "".join(gardes))
     reste = re.sub(r"\s+([,.])", r"\1", reste)
     return re.sub(r"^[\s,.:;!?]+", "", reste).strip()
+
+
+MOTS_POUR_JUGER = 3
+"""Significant words below which an utterance cannot be recognised as its own.
+
+"Oui" and "d'accord" belong to everybody. Deciding on two words would silence
+the room every time the assistant had said one of them.
+"""
+
+PART_DES_MOTS = 0.6
+"""Share of an utterance's words that must come from its own remark.
+
+Not all of them: the loudspeakers, the room and the capture loop cost words on
+the way, so what comes back is a subset, sometimes a mangled one. Measured on
+the assistant's own sentences played through a room, six words in ten survive.
+"""
+
+MEMOIRE_DE_SES_MOTS = 180.0
+"""Seconds a remark stays recognisable as its own.
+
+Long, on purpose. It answers late — the model takes seconds, the voice takes
+more — and its words can come back several slices later. Shorter, the loop
+starts again; there is no cost to remembering.
+"""
+
+
+def own_words(remark: str) -> frozenset[str]:
+    """The significant words of a remark, for recognising it when it returns.
+
+    Accents and case removed, short words dropped: what comes back through the
+    loudspeakers and the capture loop is never spelt the same way.
+    """
+    return frozenset(
+        _strip_accents(mot)
+        for mot in re.findall(r"\w{4,}", remark, flags=re.UNICODE)
+    )
+
+
+def is_own(text: str, remarks: list[frozenset[str]]) -> bool:
+    """Is this utterance the assistant hearing itself?
+
+    The defect this answers: it speaks through the loudspeakers, the tool
+    records the system output on purpose — that is how it hears the other
+    people in a video call — so its own voice comes back on the channel meant
+    for everybody else. It then reads its own name in its own answer and
+    answers again, **for ever**.
+
+    Judged on the words and not on the clock, and that is the whole point: it
+    answers late, in a separate thread, so no window of time can be trusted.
+    """
+    words = own_words(text)
+    if len(words) < MOTS_POUR_JUGER:
+        return False
+    return any(
+        len(words & dites) >= PART_DES_MOTS * len(words)
+        for dites in remarks
+        if dites
+    )
+
+
+def without_own_name(remark: str, name: str) -> str:
+    """The remark with the assistant's own name taken out.
+
+    Its own name must never leave its mouth, and that is a hard guarantee
+    rather than a precaution: it speaks through the loudspeakers, the tool
+    records the system output on purpose, so whatever it says comes back
+    transcribed. A remark carrying its own name calls it again, and it answers
+    again — **for ever**. Observed in a real meeting, fifteen times in fifteen
+    seconds.
+    """
+    cherche = _strip_accents(name.strip())
+    if not cherche:
+        return remark
+    plafond = _ecart_tolere(cherche)
+    gardes = [
+        mot for mot in re.split(r"(\W+)", remark, flags=re.UNICODE)
+        if not (mot.strip()
+                and _distance(_strip_accents(mot), cherche, plafond) <= plafond)
+    ]
+    reste = "".join(gardes)
+    if reste == remark:
+        return remark
+    reste = re.sub(r"\s+", " ", reste)
+    # La virgule et le point seuls : le français garde une espace avant les
+    # deux-points, le point-virgule, le point d'exclamation et d'interrogation.
+    reste = re.sub(r"\s+([,.])", r"\1", reste)
+    return re.sub(r"^[\s,.:;!?]+", "", reste).strip()
