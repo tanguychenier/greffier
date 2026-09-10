@@ -214,6 +214,7 @@ class Window:
         self.status_line.grid(row=2, column=0, sticky="ew", pady=(14, 0))
         self._report_resumable_meetings()
         self._report_a_newer_bundle()
+        self._offer_the_models()
 
     def _build_state(self, parent: tk.Frame) -> None:
         c = self.colours
@@ -852,6 +853,18 @@ class Window:
                                  self._update_claude,
                                  self.colours, width=228, height=32)
         self.bouton_maj.pack(side="left")
+        rank += 1
+
+        rank = self._bloc(inside, rank, "Modèles locaux",
+                          "Ils vivent hors de l'application : une mise à jour "
+                          "ne les redemande pas.")
+        modeles = tk.Frame(inside, bg=self.colours.board)
+        modeles.grid(row=rank, column=0, columnspan=2, sticky="w", pady=(0, 2))
+        Button(modeles, "Télécharger les modèles manquants",
+               self._offer_the_models, self.colours,
+               width=300, height=32).pack(side="left")
+        self.mot_modeles = self._text(modeles, "", taille=11, pale=True)
+        self.mot_modeles.pack(side="left", padx=(12, 0))
         rank += 1
 
         rank = self._bloc(inside, rank, "Rédaction du compte rendu",
@@ -2168,6 +2181,85 @@ class Window:
             self._say("greffier", acte.doute)
             messagebox.showwarning("Greffier", acte.doute)
         self._regenerate_after_naming(identifier)
+
+    def _offer_the_models(self) -> None:
+        """Offers to fetch the models the machine is missing, and does it.
+
+        The models live outside the application, so an update keeps them — and
+        so a freshly downloaded application has none. Until now only the
+        command-line installer knew how to fetch them, which meant
+        double-clicking the published archive gave a tool that could not
+        transcribe anything. That is not what an executable is for.
+        """
+        from greffier.adapters import model_files
+
+        dossier = self.config.paths.models
+        manquants = [
+            m for m in model_files.missing(dossier, self.config.transcription.engine)
+            if m.required
+        ]
+        if not manquants:
+            if hasattr(self, "mot_modeles"):
+                self.mot_modeles.configure(text="Tous les modèles sont en place.")
+            return
+        quoi = ", ".join(sorted({m.role for m in manquants}))
+        if not messagebox.askyesno(
+            "Greffier",
+            f"Il manque {model_files.weight(manquants)} de modèles pour "
+            f"fonctionner : {quoi}.\n\nLes télécharger maintenant ? "
+            "Ils restent sur ce poste et servent à toutes les réunions "
+            "suivantes — une mise à jour ne les redemande pas.",
+        ):
+            self._paint_the_turn("greffier", (
+                f"Il manque {model_files.weight(manquants)} de modèles : {quoi}. "
+                "Sans eux, la transcription ne peut pas tourner. Réglages ▸ "
+                "« Télécharger les modèles » quand tu voudras."
+            ))
+            return
+        self._fetch_the_models(manquants)
+
+    def _fetch_the_models(self, manquants: list[Any]) -> None:
+        """Fetches the models in a thread, saying where it is.
+
+        In a thread because this is one and a half gigabytes: a window frozen
+        for ten minutes with nothing to read passes for broken.
+        """
+        from greffier.adapters import model_files
+
+        dossier = self.config.paths.models
+
+        def faire(dire: Callable[[str], None]) -> Any:
+            rates: list[str] = []
+            for rang, model in enumerate(manquants, start=1):
+                def avancement(
+                    recu: int, total: int, m: Any = model, n: int = rang
+                ) -> None:
+                    part = f"{recu * 100 // total} %" if total else f"{recu >> 20} Mo"
+                    dire(f"{m.role} ({n}/{len(manquants)}) — {part}")
+
+                pose, souci = model_files.fetch(model, dossier, avancement)
+                if not pose:
+                    rates.append(f"{model.role} : {souci}")
+            return rates
+
+        def fini(rates: Any, souci: Exception | None) -> None:
+            if souci is not None:
+                messagebox.showerror("Greffier", f"Téléchargement impossible : {souci}")
+                return
+            if rates:
+                self._paint_the_turn("greffier", (
+                    "Ces modèles n'ont pas pu être téléchargés :\n- "
+                    + "\n- ".join(rates)
+                    + "\nRéessaie depuis les Réglages quand le réseau va mieux."
+                ))
+                return
+            self._paint_the_turn("greffier", (
+                "Les modèles sont en place. Greffier peut transcrire, "
+                "reconnaître les voix et rédiger."
+            ))
+            self.status_line.configure(text="Modèles téléchargés.")
+
+        self._run_job(Job(caption="modèles", do_it=faire, done=fini))
 
     def _report_a_newer_bundle(self) -> None:
         """Says when the running application is no longer the installed one."""
