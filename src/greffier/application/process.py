@@ -18,7 +18,11 @@ from greffier.domain import names as noms_domaine
 from greffier.domain import profiles
 from greffier.domain import voiceprints as voix_domaine
 from greffier.domain.attribution import voice_of
-from greffier.domain.boilerplate import is_an_annotation, is_boilerplate
+from greffier.domain.boilerplate import (
+    collapse_loops,
+    is_an_annotation,
+    is_boilerplate,
+)
 from greffier.domain.language import LanguageProfile
 from greffier.domain.meeting import StoredMeeting
 from greffier.domain.minutes import title as titre_du_compte_rendu
@@ -386,10 +390,10 @@ class Chain:
             )
         profil = profiles.pour(self.language)
         outcome.profil = profil
-        outcome.utterances = [
+        outcome.utterances = collapse_loops([
             r for r in brutes
             if not is_boilerplate(r.text, profil) and not is_an_annotation(r.text)
-        ]
+        ])
         if outcome.words < MOTS_MINIMUM:
             raise ChainStopped(
                 Phase.ECHEC,
