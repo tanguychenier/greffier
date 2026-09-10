@@ -1,14 +1,7 @@
-"""Surveille le matériel audio pendant l'enregistrement, et réagit.
+"""Watches the audio hardware during the recording.
 
-`greffier enregistrer` lance ffmpeg puis rend la main : plus rien de Greffier ne
-tourne pendant la réunion. Personne n'est donc là pour voir un casque apparaître.
-Cette veille est le processus qui manque : elle vit le temps de l'enregistrement,
-et pas une seconde de plus.
-
-Ce n'est pas le démon écarté de la feuille de route. Un démon tourne en
-permanence, se surveille et se redémarre. Celle-ci naît avec l'enregistrement,
-meurt avec lui, et son absence ne coûte que l'adaptation au matériel — la
-capture, elle, continue.
+What matters is saying it **during** the meeting: a capture that stopped
+growing, found out afterwards, is a meeting that no longer exists.
 """
 
 from __future__ import annotations
@@ -26,16 +19,12 @@ from greffier.domain.models import Phase
 SPAN = 4.0
 
 class Lister(Protocol):
-    """Ce qu'on attend de la lecture du matériel."""
+    """What is expected of reading the hardware."""
 
     def read(self) -> Hardware: ...  # pragma: no cover
 
 class Recorder(Protocol):
-    """Ce qu'on attend de la machine à états d'enregistrement.
-
-    Réduit au strict nécessaire : la veille n'a pas à connaître le démarrage,
-    l'arrêt ni le recollage.
-    """
+    """What is expected of the recording state machine."""
 
     def read(self) -> Any: ...  # pragma: no cover
 
@@ -45,7 +34,7 @@ class Recorder(Protocol):
 
 @dataclass
 class HardwareWatch:
-    """Un tour de veille, isolé de l'horloge et du matériel pour être éprouvable."""
+    """One watch pass, isolated from the clock and the hardware."""
 
     recorder: Recorder
     lister: Lister
@@ -62,14 +51,14 @@ class HardwareWatch:
         self._level = LevelWatch()
 
     def recorded(self) -> bool:
-        """Faux dès que l'enregistrement s'arrête : la veille n'a plus d'objet."""
+        """False as soon as the recording stops: the watch ends with it."""
         try:
             return self.recorder.read().phase is Phase.RECORDING
         except (OSError, ValueError):
             return False
 
     def turn(self) -> None:
-        """Un tour : voir si la capture avance et porte du son, puis le matériel."""
+        """One pass: whether capture advances and carries sound."""
         self._check_the_capture()
         self._check_the_level()
         current = self.lister.read()
@@ -100,12 +89,7 @@ class HardwareWatch:
         self.notify_user(decision.because)
 
     def _check_the_capture(self) -> None:
-        """Dit tout de suite si plus rien ne s'écrit.
-
-        Avant, une capture morte ne se voyait qu'au traitement, une fois la
-        réunion finie : le contrôle de silence de la chaîne arrive trop tard
-        pour qu'on puisse la refaire.
-        """
+        """Says at once when nothing is being written any more."""
         if self.captured_size is None:
             return
         bytes_read = self.captured_size()
@@ -118,15 +102,7 @@ class HardwareWatch:
         self.notify_user("L'enregistrement n'avance plus.")
 
     def _check_the_level(self) -> None:
-        """Dit, une fois, que le son capté est trop faible pour transcrire.
-
-        Distinct de la capture qui n'avance plus : ici le fichier grossit, mais
-        il ne contient presque rien. Mesuré sur ce projet : à -43 dB, le modèle
-        n'écrit pas moins bien, il **invente** — « Merci d'avoir regardé cette
-        vidéo ! » pour « Test, test de réunion ». Le dire pendant la réunion
-        laisse une chance de rapprocher le micro ; le découvrir au compte rendu
-        n'en laisse aucune.
-        """
+        """Says, once, that the captured sound is too weak to transcribe."""
         if self.captured_level is None:
             return
         db = self.captured_level()
@@ -139,7 +115,7 @@ class HardwareWatch:
         self.notify_user("Le son capté est trop faible.")
 
     def loop(self, dormir: Callable[[float], None] = time.sleep) -> int:
-        """Veille jusqu'à l'arrêt de l'enregistrement. Rend le nombre de tours."""
+        """Watches until the recording stops."""
         turns = 0
         while self.recorded():
             self.turn()

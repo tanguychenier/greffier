@@ -1,16 +1,4 @@
-"""Fabriquer une sauvegarde, et savoir la restaurer.
-
-Une archive par sauvegarde, en `.tar.gz`, nommée par sa date. Une archive et
-non un dossier copié : elle se déplace d'un geste vers un disque externe ou un
-espace partagé, et c'est ce déplacement qui fait la sauvegarde — une copie
-laissée sur le même disque ne protège que de l'effacement accidentel, pas de la
-perte du disque. Le dossier de destination est donc réglable, et le message le
-dit quand il vaut le défaut.
-
-Restaurer est l'autre moitié du travail, et la moitié qu'on oublie : une
-sauvegarde qu'on n'a jamais restaurée est une hypothèse. `restaurer` existe
-donc, elle refuse d'écraser sans qu'on le demande, et un test la rejoue.
-"""
+"""Making a backup, and knowing how to restore it."""
 
 from __future__ import annotations
 
@@ -25,7 +13,7 @@ from greffier.domain.backup import CONTENT, KEPT, BackupName, to_erase
 
 @dataclass(frozen=True, slots=True)
 class Made:
-    """Ce qu'une sauvegarde a emporté."""
+    """What a backup carried away."""
 
     archive: Path
     dossiers: tuple[str, ...]
@@ -36,16 +24,10 @@ class Made:
 
     @property
     def on_the_same_disk(self) -> bool:
-        """Vrai si l'archive est restée sous ce qu'elle sauvegarde.
+        """True when the archive stayed under what it backs up.
 
-        À dire à l'utilisateur : cela protège d'un effacement accidentel, pas
-        de la perte du disque, et confondre les deux est la façon habituelle de
-        n'avoir aucune sauvegarde le jour où il en faut une.
-
-        Comparé au dossier de données réel, et non en cherchant un mot dans le
-        chemin : « Greffier-sauvegardes » dans un espace synchronisé contient le
-        mot « Greffier » et déclenchait l'avertissement à tort, ce qui est la
-        pire façon de se tromper — on prévient qui a fait ce qu'il fallait.
+        Which protects against a mistake but not against losing the disk, and that is
+        worth saying rather than hiding.
         """
         if self.data is None:
             return False
@@ -62,11 +44,7 @@ def do_it(
     kept: int = KEPT,
     quand: datetime | None = None,
 ) -> Made:
-    """Écrit l'archive et applique la rotation. Rend ce qui a été fait.
-
-    Les dossiers absents sont sautés sans bruit : une installation neuve n'a ni
-    conversations ni questions, et ce n'est pas une anomalie.
-    """
+    """Writes the archive and applies the rotation."""
     name = BackupName(quand or datetime.now(UTC).astimezone())
     destination.mkdir(parents=True, exist_ok=True)
     archive = destination / f"{name}.tar.gz"
@@ -112,12 +90,7 @@ def do_it(
                  archive.stat().st_size, tuple(effacees), data=data)
 
 def restore(archive: Path, data: Path, ecraser: bool = False) -> list[str]:
-    """Remet une sauvegarde en place. Rend les dossiers restaurés.
-
-    Refuse par défaut d'écraser ce qui existe : restaurer par erreur une
-    sauvegarde de la semaine dernière par-dessus le travail du jour ferait plus
-    de dégâts que la panne qu'on voulait réparer.
-    """
+    """Puts a backup back. Returns the folders restored."""
     if not archive.exists():
         raise FileNotFoundError(f"archive introuvable : {archive}")
     with tarfile.open(archive, "r:gz") as tar:
@@ -138,7 +111,7 @@ def restore(archive: Path, data: Path, ecraser: bool = False) -> list[str]:
     return racines
 
 def lister(destination: Path) -> list[tuple[str, int, datetime]]:
-    """Les sauvegardes présentes, la plus récente d'abord."""
+    """The backups present, most recent first."""
     trouvees: list[tuple[str, int, datetime]] = []
     if not destination.exists():
         return trouvees
@@ -150,7 +123,7 @@ def lister(destination: Path) -> list[tuple[str, int, datetime]]:
     return sorted(trouvees, key=lambda line: line[2], reverse=True)
 
 def space_available(destination: Path) -> int:
-    """Octets libres là où l'on écrit. Zéro si on ne sait pas."""
+    """Free bytes where writing happens. Zero when unknown."""
     try:
         return shutil.disk_usage(destination).free
     except OSError:

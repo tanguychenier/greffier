@@ -1,16 +1,4 @@
-"""Exécuter ce qu'un dépôt de fichiers a fait valider.
-
-Deux gestes, et rien d'autre : extraire la piste sonore d'une vidéo pour en
-faire une réunion, et tirer d'un document les sigles et les noms qui manquent au
-contexte. Le reste — transcrire, rédiger — est le travail de la chaîne, qui
-existe déjà et qu'on ne duplique pas.
-
-Le document n'est **pas** ajouté tel quel au contexte. Un compte rendu de dix
-pages versé dans l'amorce du transcripteur la ferait tronquer sans prévenir : ce
-qu'on en veut, ce sont les mots qu'un modèle ne peut pas devenir — sigles,
-produits, noms propres. Le rédacteur sait les repérer, c'est donc lui qui lit le
-document, et il rend une liste que la même confirmation qu'ailleurs valide.
-"""
+"""Doing what a file drop had validated."""
 
 from __future__ import annotations
 
@@ -49,7 +37,7 @@ LU_AU_PLUS = 40_000
 
 @dataclass(frozen=True, slots=True)
 class Done:
-    """Ce qu'un dépôt a produit."""
+    """What a drop produced."""
 
     proposition: Suggestion
     produit: Path | None = None
@@ -57,20 +45,14 @@ class Done:
     trouble: str = ""
 
 def tools_present() -> frozenset[str]:
-    """Les commandes d'extraction réellement disponibles sur ce poste."""
+    """The extraction commands actually available on this machine."""
     trouvees = {name for name in ("ffmpeg", "pdftotext") if shutil.which(name)}
     if platform.system() == "Darwin" and shutil.which("textutil"):
         trouvees.add("textutil")
     return frozenset(trouvees)
 
 def extract_sound(video: Path, destination: Path) -> Path:
-    """Sort la piste sonore d'une vidéo, au format que la chaîne attend.
-
-    16 kHz mono : c'est ce que les modèles de transcription et d'empreintes
-    consomment, et convertir une fois ici évite que chaque étape le refasse.
-    L'image est jetée — elle ne sert à rien pour transcrire, et garder un
-    fichier de 800 Mo à côté d'un WAV de 30 Mo n'apporte que de la place perdue.
-    """
+    """Pulls the sound track out of a video, in the format transcription wants."""
     destination.parent.mkdir(parents=True, exist_ok=True)
     fait = subprocess.run(
         ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
@@ -87,13 +69,7 @@ def extract_sound(video: Path, destination: Path) -> Path:
     return destination
 
 def lire_le_texte(document: Path) -> str:
-    """Le texte d'un document, quel que soit son format. Vide si illisible.
-
-    Les outils du système plutôt qu'une bibliothèque de plus : `pdftotext` et
-    `textutil` sont déjà là ou s'installent en une ligne, et une dépendance
-    Python de plus se paie à chaque installation de l'outil, sur les trois
-    systèmes.
-    """
+    """The text of a document, whatever its format. Empty when unreadable."""
     from greffier.domain.store import TEXTES_OUTILLES, TEXTS
 
     suffixe = document.suffix.casefold()
@@ -116,23 +92,13 @@ def lire_le_texte(document: Path) -> str:
 def learn_from_document(
     document: Path, writer: object, maximum: int = 20
 ) -> tuple[tuple[str, str, str], ...]:
-    """Les entrées de contexte que ce document suggère. Vide s'il n'apprend rien.
-
-    Rend des triplets (écriture, sens, genre) plutôt que d'écrire : la
-    confirmation est la même que pour une phrase tapée dans la conversation, et
-    c'est un humain qui décide ce qui entre dans le contexte.
-    """
+    """The context entries this document suggests."""
     return learn_from_text(lire_le_texte(document), writer, maximum)
 
 def learn_from_text(
     text: str, writer: object, maximum: int = 20
 ) -> tuple[tuple[str, str, str], ...]:
-    """Les entrées de contexte que ce texte suggère.
-
-    Séparée de la lecture du fichier : un document fourni pendant la réunion
-    est lu une fois, son texte servant à la fois à répondre aux questions et à
-    proposer du vocabulaire. Le relire ferait tourner `pdftotext` deux fois.
-    """
+    """The context entries this text suggests."""
     import json
     import re
 
@@ -169,12 +135,7 @@ def run_chain(
     recordings: Path,
     writer: object | None = None,
 ) -> Done:
-    """Fait ce que la proposition annonce. Ne lève pas : rapporte.
-
-    Un fichier qui échoue ne doit pas interrompre le dépôt des autres — on
-    dépose souvent un lot, et perdre neuf traitements pour un fichier abîmé
-    serait absurde.
-    """
+    """Does what the suggestion announced. Never raises."""
     if not proposition.feasible:
         return Done(proposition, trouble=proposition.bloque_par or "rien à en faire")
 
