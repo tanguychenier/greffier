@@ -6,6 +6,8 @@ and are downloaded separately, so their absence is the likeliest reason for a
 meeting to produce nothing. Silence there is the worst possible answer.
 """
 
+import re
+
 import pytest
 
 from greffier.adapters import system_diagnostic as diagnostic
@@ -32,7 +34,11 @@ class TestTheModelsAreLookedAt:
         assert constat.remede, "il dit quoi faire, pas seulement ce qui manque"
 
     def test_the_download_weight_is_announced(self, data):
-        assert "Go" in diagnostic.models_present(data).detail
+        """In whichever unit: the engines differ per system, and so does the
+        weight — 1.7 GB with whisper.cpp, 71 MB where faster-whisper carries
+        the transcription model itself."""
+        assert re.search(r"\d+([.,]\d+)? (Mo|Go) à télécharger",
+                         diagnostic.models_present(data).detail)
 
     def test_a_missing_required_model_blocks(self, data):
         assert diagnostic.models_present(data).bloquant
