@@ -441,14 +441,14 @@ def _first_name_in(text: str) -> str:
     """The first name in an answer of the form "it's Marcel"."""
     import re
 
-    outils = {
+    tools = {
         "c", "ce", "cette", "est", "c'est", "moi", "c'était", "etait", "était",
         "la", "le", "les", "de", "du", "des", "je", "suis", "s", "il", "elle",
         "on", "a", "ah", "eh", "ben", "bah", "oui", "non", "et", "que", "qui",
         "voix", "personne", "sais", "pas", "alors", "donc", "là", "ici", "là-bas",
     }
     words = [m for m in re.findall(r"[\w'-]+", text, flags=re.UNICODE) if m]
-    candidats = [m for m in words if m.lower().strip("'") not in outils and len(m) > 2]
+    candidats = [m for m in words if m.lower().strip("'") not in tools and len(m) > 2]
     if len(candidats) != 1:
         return ""
     return str(candidats[0]).strip("'").capitalize()

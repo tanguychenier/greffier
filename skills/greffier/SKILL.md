@@ -16,7 +16,7 @@ greffier diagnostic      # constate sans rien modifier
 greffier verifier        # dit si la chaîne s'assemble
 greffier contexte        # ce que l'outil sait des sigles et des personnes
 greffier niveau          # dit si le micro suffit à transcrire — parle pendant
-python3 outils/installer.py --verifier   # constate sans rien installer
+python3 tools/install.py --verifier   # constate sans rien installer
 ```
 
 `greffier diagnostic` répond sur ffmpeg, le micro, la capture du son des autres,
@@ -86,7 +86,7 @@ modèle le plus puissant** — c'est un choix, pas un oubli.
 
 **Une modification du code ne se voit pas dans l'application.** Le paquet
 embarque ses propres copies de l'interpréteur, des bibliothèques et du code.
-Après une modification, relance `python3 outils/installer.py` pour le
+Après une modification, relance `python3 tools/install.py` pour le
 reconstruire. La ligne de commande du dépôt, elle, suit le code immédiatement.
 
 **Le compte rendu est le seul maillon qui sort du poste**, avec la recherche de
@@ -143,7 +143,7 @@ qui faisait perdre une réunion entière quand le rédacteur échouait.
 | Une personne connue n'est plus reconnue du tout | la banque a une **paire en conflit** : deux entrées trop ressemblantes font taire les deux noms. `greffier connus` la nomme, et dit quelle empreinte est fautive. `greffier connus --nettoyer <nom>` la retire sans effacer la personne |
 | Une réunion a versé de fausses empreintes | `greffier connus --oublier-reunion <réunion>` défait ce qu'elle a déposé, sous tous les noms d'un coup |
 | L'assistant ne répond pas à son prénom | il ne participe pas : bouton dans l'onglet **En direct**. Vérifier ensuite `assistant.nom` : un prénom court et distinct vaut mieux que « Greffier », que « le greffe » suffit à réveiller |
-| L'assistant parle avec une voix de robot | le modèle de voix manque, il s'est replié sur celle du système. `python3 outils/installer.py` le télécharge (80 Mo, dans `modeles/voix`) |
+| L'assistant parle avec une voix de robot | le modèle de voix manque, il s'est replié sur celle du système. `python3 tools/install.py` le télécharge (80 Mo, dans `modeles/voix`) |
 | L'assistant parle mais personne ne l'entend | la sortie système est sur « Reunion Sortie », le périphérique de capture. La réunion la repose en quittant ; en cours de réunion, la remettre à la main |
 | L'assistant coupe la parole, ou ne dit jamais rien | `assistant.repos` et `assistant.creux_minimal`. Être appelé par son nom passe outre les deux, à dessein |
 | L'assistant se répond à lui-même | il ne devrait pas : ses propres prises de parole sont exclues de ce qu'il réécoute. Si cela arrive, le haut-parleur est très en avance sur l'horloge de la réunion — le signaler avec le journal |
@@ -155,7 +155,7 @@ Ne réponds pas « c'est corrigé » sur la foi d'une lecture. Rejoue ce qui pro
 
 ```sh
 .venv/bin/python -m pytest        # rapide, aucun modèle chargé
-.venv/bin/ruff check src tests outils
+.venv/bin/ruff check src tests tools
 .venv/bin/mypy
 ```
 

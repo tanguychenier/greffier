@@ -205,5 +205,5 @@ class TestUneSeuleListe:
         assert "from greffier" not in source
 
     def test_l_installeur_lit_ce_catalogue(self):
-        source = Path("outils/installer.py").read_text(encoding="utf-8")
+        source = Path("tools/install.py").read_text(encoding="utf-8")
         assert "adapters/model_files.py" in source

@@ -369,7 +369,7 @@ class TestRecollage:
         assert membership["a"] != membership["b"]
 
     def test_les_seuils_du_recollage_viennent_d_une_mesure(self):
-        """Rejoués sur la réunion réelle par `outils/rejouer_recollage.py`.
+        """Rejoués sur la réunion réelle par `tools/replay_stitching.py`.
 
         298 voix rendues par la segmentation, 172 après la passe des paires,
         24 après l'adoption, 23 après la consolidation — dont 3 portent plus de

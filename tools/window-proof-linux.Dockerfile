@@ -8,7 +8,7 @@
 # interpréteur sans Tk, et le paquet `python3-tk` de Debian s'adresse au python
 # de Debian, pas à celui-là. Trixie livre Python 3.13, ce que le projet exige.
 #
-#     docker build -f outils/preuve-fenetre-linux.Dockerfile -t greffier-fenetre .
+#     docker build -f tools/window-proof-linux.Dockerfile -t greffier-fenetre .
 FROM debian:trixie-slim
 
 # `python3-tk` est la seule dépendance système de l'interface, et c'est
@@ -38,4 +38,4 @@ ENV GREFFIER_CONFIG=/travail/config \
 # méthode déjà retenue sur macOS, qui pilote la vraie fenêtre plutôt que de
 # simuler des clics sur des coordonnées. Ce qui est prouvé : Tk s'ouvre, la
 # palette se calcule, les cinq onglets se peignent sans exception.
-RUN xvfb-run -a .venv/bin/python outils/preuve_fenetre.py
+RUN xvfb-run -a .venv/bin/python tools/window_proof.py

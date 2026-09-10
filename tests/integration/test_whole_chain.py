@@ -30,7 +30,7 @@ from greffier.adapters.configuration import Config
 from greffier.application.process import Chain
 
 RACINE = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(RACINE / "outils"))
+sys.path.insert(0, str(RACINE / "tools"))
 
 pytestmark = pytest.mark.integration
 
@@ -48,7 +48,7 @@ def models_present(config: Config) -> bool:
 def config() -> Config:
     configuration = Config()
     if not models_present(configuration):
-        pytest.skip("modèles absents — lance outils/installer.py")
+        pytest.skip("modèles absents — lance tools/install.py")
     if not shutil.which("whisper-cli"):
         pytest.skip("whisper.cpp absent")
     return configuration
@@ -59,7 +59,7 @@ def meeting(tmp_path_factory) -> Path:
     """Fabrique une fois la fausse réunion, réutilisée par tous les tests."""
     if platform.system() != "Darwin":
         pytest.skip("la synthèse vocale « say » n'existe que sur macOS")
-    from fabriquer_reunion import fabriquer
+    from make_meeting import fabriquer
 
     return fabriquer(tmp_path_factory.mktemp("audio") / "reunion.wav")
 

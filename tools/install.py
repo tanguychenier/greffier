@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Installe Greffier sur macOS, Linux ou Windows.
 
-    python3 outils/installer.py            # vérifie, propose, installe
-    python3 outils/installer.py --oui      # sans poser de question
-    python3 outils/installer.py --verifier # ne fait que constater
+    python3 tools/install.py            # vérifie, propose, installe
+    python3 tools/install.py --oui      # sans poser de question
+    python3 tools/install.py --verifier # ne fait que constater
 
 Écrit uniquement avec la bibliothèque standard : il doit tourner *avant* que
 quoi que ce soit ne soit installé, donc il ne peut dépendre de rien. Compatible
@@ -314,7 +314,7 @@ def installer_paquet(ctx, name, because):
 
 # ---------------------------------------------------------- 1. outils système
 
-def etape_outils(ctx):
+def system_tools_step(ctx):
     title("1. Outils système")
 
     if shutil.which("ffmpeg"):
@@ -1059,7 +1059,7 @@ def main():
     ctx = Context(args)
 
     try:
-        engine = etape_outils(ctx)
+        engine = system_tools_step(ctx)
         etape_audio(ctx)
         etape_modeles(ctx, engine)
         redaction = etape_redaction(ctx)

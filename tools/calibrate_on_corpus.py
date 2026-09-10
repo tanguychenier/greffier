@@ -14,7 +14,7 @@ deux séances, sans annotation à interpréter ni supposition à faire.
 
 Usage :
 
-    python3 outils/calibrer_sur_corpus.py <dossier du corpus>
+    python3 tools/calibrate_on_corpus.py <dossier du corpus>
 
 Ce que ce script ne fait pas : il ne modifie aucun seuil. Il mesure et affiche.
 Déplacer un seuil est une décision qui se prend en regardant les nombres, pas

@@ -1531,14 +1531,14 @@ def publish(
     from greffier.domain.store import Destination, offer, summarise
 
     config = Config.load(config_file)
-    outils = job.tools_present()
+    tools = job.tools_present()
     propositions = []
     for file in files:
         if not file.exists():
             typer.secho(f"  ✗ introuvable : {file}", fg=typer.colors.RED)
             continue
         taille = file.stat().st_size if file.is_file() else None
-        propositions.append(offer(file, taille, outils))
+        propositions.append(offer(file, taille, tools))
 
     if not propositions:
         raise typer.Exit(1)
