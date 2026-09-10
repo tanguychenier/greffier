@@ -145,8 +145,21 @@ class AssistantSettings:
     in_reserve: Opening | None = None
     its_own_turns: list[tuple[float, float]] = field(default_factory=list)
     its_own_words: list[tuple[float, frozenset[str]]] = field(default_factory=list)
+    stopped: bool = False
     _job: threading.Thread | None = None
     _search: threading.Thread | None = None
+
+    def stop(self) -> None:
+        """Ends it for good: nothing more comes out of its mouth.
+
+        It formulates in a separate thread and takes seconds to do it, so a
+        remark decided just before the meeting ended would otherwise be
+        pronounced after it.
+        """
+        self.stopped = True
+        if self.voice is not None:
+            with contextlib.suppress(Exception):
+                self.voice.go_quiet()
 
     def turn(
         self,
@@ -171,12 +184,8 @@ class AssistantSettings:
                     because=Because.APPELE,
                     remark=demande,
                     born_at=utterance.span.end,
-                    # Un sujet, donc une question déjà répondue ne l'est pas
-                    # deux fois. Les tranches se recouvrent exprès — c'est ce
-                    # qui évite de couper une phrase en deux — si bien qu'une
-                    # question près d'une frontière est retranscrite à la
-                    # tranche suivante. Sans ce sujet, elle y répondait de
-                    # nouveau, et c'est le vrai mécanisme de la boucle.
+                    # A subject, so a question the overlap brings back in the
+                    # next slice is not answered a second time.
                     subject=f"appel:{_empreinte_du_propos(demande)}",
                 ))
         if self.in_reserve is not None:
@@ -309,12 +318,12 @@ class AssistantSettings:
         hard guarantee: what it says comes back through the capture loop, and a
         remark carrying its own name calls it again.
         """
-        remark = without_own_name(self._phrase_it(opening), self.name)
-        if not remark:
+        if self.stopped:
             return Remark(remark="", because=opening.because, a=now)
-        # Retenu **avant** de parler : le fil de transcription tourne pendant
-        # qu'elle prononce, et une tranche peut lui revenir avant que « say »
-        # ait rendu la main.
+        remark = without_own_name(self._phrase_it(opening), self.name)
+        if not remark or self.stopped:
+            return Remark(remark="", because=opening.because, a=now)
+        # Kept before speaking: a slice can come back while `say` still holds.
         self.its_own_words.append((now, own_words(remark)))
         prononce = bool(self.voice and self.voice.say(remark))
         if prononce:
