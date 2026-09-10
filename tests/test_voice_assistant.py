@@ -221,7 +221,7 @@ class TestUneCoupureArreteToutLePropos:
         """Une voix dont le lecteur rend le code de retour voulu."""
         from greffier.adapters import voice_neural
 
-        class Lecture:
+        class ReadBack:
             pid = 4242
 
             def wait(self):
@@ -238,7 +238,7 @@ class TestUneCoupureArreteToutLePropos:
 
         monkeypatch.setattr(voice_neural, "_player", lambda: ["afplay"])
         monkeypatch.setattr(voice_neural.subprocess, "Popen",
-                            lambda *_a, **_k: Lecture())
+                            lambda *_a, **_k: ReadBack())
         return voice_neural.NeuralVoice(tmp_path, gag=tmp_path / "p.pid")
 
     def test_un_lecteur_tue_par_un_signal_arrete_la_suite(self, tmp_path, monkeypatch):

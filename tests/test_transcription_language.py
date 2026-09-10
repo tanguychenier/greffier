@@ -52,14 +52,14 @@ class TestFasterWhisper:
 
         vue: dict[str, object] = {}
 
-        class FauxModele:
+        class FakeModel:
             def transcribe(self, _audio, **options):
                 vue["language"] = options.get("language")
                 return iter(()), None
 
         transcriber = adaptateur.FasterWhisperTranscriber.__new__(
             adaptateur.FasterWhisperTranscriber)
-        monkeypatch.setattr(transcriber, "_load", lambda: FauxModele(), raising=False)
+        monkeypatch.setattr(transcriber, "_load", lambda: FakeModel(), raising=False)
         transcriber.transcribe(Path("essai.wav"), language, "")
         return vue["language"]
 

@@ -15,7 +15,7 @@ def installee_0_2_0(monkeypatch):
 
 
 def answer(monkeypatch, content: dict) -> None:
-    class Reponse(BytesIO):
+    class Response(BytesIO):
         def __enter__(self):
             return self
 
@@ -24,13 +24,13 @@ def answer(monkeypatch, content: dict) -> None:
 
     monkeypatch.setattr(
         updates.urllib.request, "urlopen",
-        lambda *_a, **_k: Reponse(json.dumps(content).encode("utf-8")),
+        lambda *_a, **_k: Response(json.dumps(content).encode("utf-8")),
     )
 
 
 def repondre_octets(monkeypatch, bytes_read: bytes) -> None:
     """Une réponse binaire, avec sa longueur : c'est elle qui fait l'avancement."""
-    class Reponse(BytesIO):
+    class Response(BytesIO):
         headers = {"Content-Length": str(len(bytes_read))}
 
         def __enter__(self):
@@ -40,7 +40,7 @@ def repondre_octets(monkeypatch, bytes_read: bytes) -> None:
             return False
 
     monkeypatch.setattr(
-        updates.urllib.request, "urlopen", lambda *_a, **_k: Reponse(bytes_read)
+        updates.urllib.request, "urlopen", lambda *_a, **_k: Response(bytes_read)
     )
 
 

@@ -54,9 +54,9 @@ def atelier(tmp_path_factory):
 def process(config, audio):
     from greffier.wiring import wire_up
 
-    chaine = wire_up(config)
-    chaine.writer = None
-    outcome = chaine.run_chain(audio, send=False)
+    chain = wire_up(config)
+    chain.writer = None
+    outcome = chain.run_chain(audio, send=False)
     duration = outcome.turns[-1].span.end if outcome.turns else 0.0
     store = FileStore(config.paths.data / "reunions")
     store.record(depuis_resultat(outcome, duration))
@@ -106,10 +106,10 @@ class TestReconnaissanceEntreReunions:
         etrangere = FileVoiceBank(tmp_path / "banque-etrangere")
         etrangere.record("Personne d'autre", normalise([1.0] + [0.0] * 191))
 
-        chaine = wire_up(config)
-        chaine.bank = etrangere
-        chaine.writer = None
-        outcome = chaine.run_chain(seconde, send=False)
+        chain = wire_up(config)
+        chain.bank = etrangere
+        chain.writer = None
+        outcome = chain.run_chain(seconde, send=False)
         assert "Personne d'autre" not in outcome.names.values()
 
     def test_les_voix_a_nommer_sont_presentees_avec_un_extrait(self, atelier):
