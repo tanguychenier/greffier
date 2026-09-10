@@ -12,15 +12,15 @@ from greffier.domain.profiles.neutral import NEUTRAL
 
 
 class Origin(StrEnum):
-    PAROLE = "parole"
-    PRESSE_PAPIER = "presse_papier"
+    SPEECH = "parole"
+    CLIPBOARD = "presse_papier"
 
 class Kind(StrEnum):
     INSTRUCTION = "instruction"   # « Greffier, ouvre le ticket… »
-    LIEN = "lien"                 # une adresse collée
+    LINK = "lien"                 # une adresse collée
     DECISION = "decision"         # « on décide de… », « il faut que… »
 
-_LIEN = re.compile(r"https?://[^\s<>\"'()\[\]]{4,}")
+_LINK = re.compile(r"https?://[^\s<>\"'()\[\]]{4,}")
 
 @dataclass(frozen=True, slots=True)
 class Suggestion:
@@ -29,7 +29,7 @@ class Suggestion:
     kind: Kind
     text: str
     at_instant: float
-    origine: Origin
+    origin: Origin
     context: str = ""
 
     @property
@@ -37,18 +37,18 @@ class Suggestion:
         """What identifies a duplicate."""
         return f"{self.kind}:{self.text.strip().lower()}"
 
-def liens_dans(text: str) -> list[str]:
+def links_in(text: str) -> list[str]:
     """Addresses present in a text, deduplicated and in order."""
     vus: list[str] = []
-    for trouve in _LIEN.finditer(text):
+    for trouve in _LINK.finditer(text):
         lien = trouve.group(0).rstrip(".,;:!?")
         if lien not in vus:
             vus.append(lien)
     return vus
 
-def instruction_after(text: str, mot_cle: str) -> str | None:
+def instruction_after(text: str, keyword: str) -> str | None:
     """What follows the wake word, when it is spoken."""
-    motif = re.compile(rf"(?i:\b{re.escape(mot_cle)}\b)[\s,:—-]*(?P<suite>[^.?!]{{3,240}})")
+    motif = re.compile(rf"(?i:\b{re.escape(keyword)}\b)[\s,:—-]*(?P<suite>[^.?!]{{3,240}})")
     trouve = motif.search(text)
     if not trouve:
         return None
@@ -63,7 +63,7 @@ def decisions_in(text: str, profil: LanguageProfile) -> bool:
 class WatchRules:
     """Gathers a meeting's suggestions, never acting on its own."""
 
-    mot_cle: str = "greffier"
+    keyword: str = "greffier"
     profil: LanguageProfile = NEUTRAL
     propositions: list[Suggestion] = field(default_factory=list)
     _vues: set[str] = field(default_factory=set)
@@ -80,11 +80,11 @@ class WatchRules:
         nouvelles: list[Suggestion] = []
         for utterance in utterances:
             at_instant = utterance.span.start
-            instruction = instruction_after(utterance.text, self.mot_cle)
+            instruction = instruction_after(utterance.text, self.keyword)
             if instruction:
                 candidate = Suggestion(
                     kind=Kind.INSTRUCTION, text=instruction, at_instant=at_instant,
-                    origine=Origin.PAROLE, context=utterance.text.strip(),
+                    origin=Origin.SPEECH, context=utterance.text.strip(),
                 )
                 if self._add(candidate):
                     nouvelles.append(candidate)
@@ -92,7 +92,7 @@ class WatchRules:
             if decisions_in(utterance.text, self.profil):
                 candidate = Suggestion(
                     kind=Kind.DECISION, text=utterance.text.strip(), at_instant=at_instant,
-                    origine=Origin.PAROLE, context="",
+                    origin=Origin.SPEECH, context="",
                 )
                 if self._add(candidate):
                     nouvelles.append(candidate)
@@ -101,10 +101,10 @@ class WatchRules:
     def paste(self, content: str, at_instant: float) -> list[Suggestion]:
         """Picks up the links passed through the clipboard."""
         nouvelles: list[Suggestion] = []
-        for lien in liens_dans(content):
+        for lien in links_in(content):
             candidate = Suggestion(
-                kind=Kind.LIEN, text=lien, at_instant=at_instant,
-                origine=Origin.PRESSE_PAPIER,
+                kind=Kind.LINK, text=lien, at_instant=at_instant,
+                origin=Origin.CLIPBOARD,
             )
             if self._add(candidate):
                 nouvelles.append(candidate)

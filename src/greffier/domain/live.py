@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 from greffier.domain.boilerplate import is_an_annotation, is_boilerplate
-from greffier.domain.channels import VOIX_LOCALE
+from greffier.domain.channels import LOCAL_VOICE
 from greffier.domain.language import LanguageProfile
 from greffier.domain.models import Person, Span, Utterance, Voiceprint
 from greffier.domain.profiles.neutral import NEUTRAL
@@ -307,8 +307,8 @@ class LiveThread:
 
     def __post_init__(self) -> None:
         self.voice.setdefault(
-            VOIX_LOCALE,
-            LiveVoice(VOIX_LOCALE, name=NOM_LOCAL, certitude=Certainty.CANAL),
+            LOCAL_VOICE,
+            LiveVoice(LOCAL_VOICE, name=NOM_LOCAL, certitude=Certainty.CANAL),
         )
         self.voice.setdefault(VOIX_INDETERMINEE, LiveVoice(VOIX_INDETERMINEE))
 
@@ -364,7 +364,7 @@ class LiveThread:
     def attach(self, voiceprint: Voiceprint | None, locale: bool) -> str:
         """The voice a block belongs to, founding one if need be."""
         if locale:
-            return VOIX_LOCALE
+            return LOCAL_VOICE
         if voiceprint is None:
             return VOIX_INDETERMINEE
 
@@ -394,14 +394,14 @@ class LiveThread:
         """The voices that name a person: neither "you" nor the catch-all."""
         return [
             voice for identifier, voice in self.voice.items()
-            if identifier not in (VOIX_LOCALE, VOIX_INDETERMINEE) and voice.voiceprints
+            if identifier not in (LOCAL_VOICE, VOIX_INDETERMINEE) and voice.voiceprints
         ]
 
     def _in_full(self) -> bool:
         """True when as many voices exist as attendees were announced."""
         if not self.people:
             return False
-        has_spoken = any(turn.voice == VOIX_LOCALE for turn in self.turns)
+        has_spoken = any(turn.voice == LOCAL_VOICE for turn in self.turns)
         distantes = self.people - (1 if has_spoken else 0)
         return len(self._nameable_ones()) >= max(1, distantes)
 
@@ -601,7 +601,7 @@ class LiveThread:
         candidates = {
             identifier: voice.voiceprints
             for identifier, voice in self.voice.items()
-            if voice.voiceprints and identifier not in (VOIX_LOCALE, VOIX_INDETERMINEE)
+            if voice.voiceprints and identifier not in (LOCAL_VOICE, VOIX_INDETERMINEE)
         }
         if len(candidates) < 2:
             return faits
@@ -625,7 +625,7 @@ class LiveThread:
         """
         by_name: dict[str, list[LiveVoice]] = {}
         for voice in self.voice.values():
-            if voice.name and voice.nameable and voice.identifier != VOIX_LOCALE:
+            if voice.name and voice.nameable and voice.identifier != LOCAL_VOICE:
                 by_name.setdefault(voice.name.casefold(), []).append(voice)
         faits: list[tuple[str, str]] = []
         for portantes in by_name.values():
@@ -663,7 +663,7 @@ class LiveThread:
 
     def voiceprint_to_learn(self, voice: LiveVoice) -> Voiceprint | None:
         """The voiceprint to pour into the bank for this voice, if there is enough."""
-        if voice.identifier == VOIX_LOCALE or not voice.voiceprints:
+        if voice.identifier == LOCAL_VOICE or not voice.voiceprints:
             return None
         if voice.seconds < DUREE_POUR_LA_BANQUE_S:
             return None
@@ -691,7 +691,7 @@ class LiveThread:
         """Display number of an unnamed voice: "Voix 1", "Voix 2"…"""
         return sum(
             1 for v in self.voice.values()
-            if v.nameable and v.identifier != VOIX_LOCALE
+            if v.nameable and v.identifier != LOCAL_VOICE
         ) + 1
 
     def _voice_named(self, name: str) -> LiveVoice | None:

@@ -33,9 +33,9 @@ INTERDITS = frozenset({"uXjVH5WwzTI="})
 PREFIXE = "Greffier"
 
 COLOURS = {
-    Standing.ACTE: "light_green",
-    Standing.EN_DISCUSSION: "light_yellow",
-    Standing.DEPASSE: "gray",
+    Standing.AGREED: "light_green",
+    Standing.UNDER_DISCUSSION: "light_yellow",
+    Standing.OVERTAKEN: "gray",
 }
 
 COULEUR_SUJET = "light_blue"
@@ -297,10 +297,10 @@ def publish(board: Board, tableau: str, meeting: str = "") -> Written:
         if any(same_point(label_text, place.noeud.text) for label_text in present_line):
             known.append(place.noeud.text)
             continue
-        from greffier.domain.board import SANS_ETAT
+        from greffier.domain.board import WITHOUT_STANDING
 
         colour = (
-            COULEUR_SUJET if place.noeud.kind in SANS_ETAT
+            COULEUR_SUJET if place.noeud.kind in WITHOUT_STANDING
             else COLOURS.get(place.noeud.state, "light_yellow")
         )
         corps = {
@@ -323,14 +323,14 @@ def publish(board: Board, tableau: str, meeting: str = "") -> Written:
 
 def _as_html(noeud: Node, meeting: str) -> str:
     """The sticky note's text: the point, then where it comes from."""
-    from greffier.domain.board import SANS_ETAT
+    from greffier.domain.board import WITHOUT_STANDING
 
     lines = [f"<p>{_echapper(noeud.text)}</p>"]
-    if noeud.kind not in SANS_ETAT and noeud.state is not Standing.ACTE:
+    if noeud.kind not in WITHOUT_STANDING and noeud.state is not Standing.AGREED:
         lines.append(f"<p><i>{noeud.state}</i></p>")
-    origine = meeting or (noeud.meetings[-1] if noeud.meetings else "")
-    if origine:
-        lines.append(f"<p><i>{_echapper(origine)}</i></p>")
+    origin = meeting or (noeud.meetings[-1] if noeud.meetings else "")
+    if origin:
+        lines.append(f"<p><i>{_echapper(origin)}</i></p>")
     return "".join(lines)
 
 def _liens_existants(tableau: str) -> set[tuple[str, str]]:

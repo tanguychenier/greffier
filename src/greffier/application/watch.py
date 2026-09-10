@@ -139,7 +139,7 @@ class Watcher:
                     "genre": proposition.kind.value,
                     "texte": proposition.text,
                     "instant": round(proposition.at_instant, 1),
-                    "origine": proposition.origine.value,
+                    "origine": proposition.origin.value,
                     "contexte": proposition.context,
                 }, ensure_ascii=False) + "\n")
 

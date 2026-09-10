@@ -9,7 +9,7 @@ from enum import StrEnum
 
 class What(StrEnum):
     TERME = "terme"
-    PERSONNE = "personne"
+    NOBODY = "personne"
 
 @dataclass(frozen=True, slots=True)
 class Learning:
@@ -25,7 +25,7 @@ class Learning:
 
     def say(self) -> str:
         """The confirmation to show, spelling out exactly what will be written."""
-        if self.quoi is What.PERSONNE:
+        if self.quoi is What.NOBODY:
             qui = f"« {self.subject} »"
             role = f", {self.precision}" if self.precision else ""
             return f"J'ajoute {qui}{role} aux personnes du contexte. Confirme ?"
@@ -94,7 +94,7 @@ def understand(phrase: str) -> Learning | None:
         role = _clean(personne.group("precision"))
         name = _clean(personne.group("sujet"))
         if name and _is_a_role(role):
-            return Learning(What.PERSONNE, name, role)
+            return Learning(What.NOBODY, name, role)
 
     for motif in _MOTIFS:
         trouve = motif.match(phrase)
@@ -106,7 +106,7 @@ def understand(phrase: str) -> Learning | None:
         )
         if not subject or len(subject.split()) > 5:
             continue
-        quoi = What.PERSONNE if _is_a_role(precision) else What.TERME
+        quoi = What.NOBODY if _is_a_role(precision) else What.TERME
         try:
             return Learning(quoi, subject, precision)
         except ValueError:

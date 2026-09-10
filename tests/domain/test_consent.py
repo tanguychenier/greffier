@@ -17,7 +17,7 @@ from greffier.domain.consent import (
 
 class TestLecture:
     def test_les_trois_etats_se_lisent(self):
-        assert read("rien") is Disclosure.RIEN
+        assert read("rien") is Disclosure.NOTHING
         assert read("annoncé") is Disclosure.ANNONCE
         assert read("accord") is Disclosure.AGREEMENT
 
@@ -27,8 +27,8 @@ class TestLecture:
     def test_une_valeur_inconnue_retombe_sur_le_plus_prudent(self):
         """Une faute d'orthographe ne doit pas faire écrire que les
         participants ont donné leur accord."""
-        assert read("oui") is Disclosure.RIEN
-        assert read("") is Disclosure.RIEN
+        assert read("oui") is Disclosure.NOTHING
+        assert read("") is Disclosure.NOTHING
 
 
 class TestMention:
@@ -38,7 +38,7 @@ class TestMention:
 
     def test_rien_est_dit_tel_quel(self):
         """Prétendre le contraire serait pire que de l'avouer."""
-        assert "n'a pas été tracée" in mention(Disclosure.RIEN)
+        assert "n'a pas été tracée" in mention(Disclosure.NOTHING)
 
     def test_annonce_ne_pretend_pas_a_un_accord(self):
         phrase = mention(Disclosure.ANNONCE)
@@ -55,7 +55,7 @@ class TestMention:
 
 class TestCeQuiResteAFaire:
     def test_rien_de_trace_reste_a_faire(self):
-        assert to_draw(Disclosure.RIEN) is True
+        assert to_draw(Disclosure.NOTHING) is True
 
     def test_une_annonce_tracee_suffit(self):
         assert to_draw(Disclosure.ANNONCE) is False

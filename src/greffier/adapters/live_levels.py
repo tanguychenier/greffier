@@ -31,18 +31,18 @@ class Shape:
 class LevelReading:
     """A snapshot of the levels, ready to display."""
 
-    micro_db: float
-    systeme_db: float
+    mic_db: float
+    system_db: float
     qui: WhoSpeaks
 
     @property
     def micro_part(self) -> float:
         """The mic level brought between 0 and 1, for a meter."""
-        return _part(self.micro_db)
+        return _part(self.mic_db)
 
     @property
     def systeme_part(self) -> float:
-        return _part(self.systeme_db)
+        return _part(self.system_db)
 
 def _part(db: float) -> float:
     """Converts decibels into a displayable fraction."""
@@ -103,11 +103,11 @@ def read_level(audio: Path, fenetre_s: float = FENETRE_S) -> LevelReading | None
 
     mic = channels[:, 0]
     system = channels[:, 1:].mean(axis=1) if forme.channels > 1 else np.zeros(trames)
-    micro_db, systeme_db = _decibels(mic), _decibels(system)
+    mic_db, system_db = _decibels(mic), _decibels(system)
     return LevelReading(
-        micro_db=micro_db,
-        systeme_db=systeme_db,
-        qui=who_speaks(micro_db, systeme_db),
+        mic_db=mic_db,
+        system_db=system_db,
+        qui=who_speaks(mic_db, system_db),
     )
 
 def _decibels(signal: np.ndarray) -> float:

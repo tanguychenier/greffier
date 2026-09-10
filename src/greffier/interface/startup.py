@@ -28,10 +28,10 @@ def _racines(prefixe: Path) -> list[Path]:
 
 def _find(motif: str, prefixes: list[Path]) -> Path | None:
     for prefixe in prefixes:
-        for racine in _racines(prefixe):
-            if not racine.is_dir():
+        for root in _racines(prefixe):
+            if not root.is_dir():
                 continue
-            for folder in sorted(racine.glob(motif), reverse=True):
+            for folder in sorted(root.glob(motif), reverse=True):
                 if (folder / "init.tcl").exists() or motif.startswith("tk"):
                     return folder
     return None
@@ -81,7 +81,7 @@ def _default_tcl() -> bool:
     est installé à l'endroit qu'il attend.
     """
     return any(
-        (racine / "init.tcl").exists()
+        (root / "init.tcl").exists()
         for prefixe in (Path(sys.base_prefix), Path("/usr"), Path("/opt/homebrew"))
-        for racine in prefixe.glob("lib/tcl*")
+        for root in prefixe.glob("lib/tcl*")
     )

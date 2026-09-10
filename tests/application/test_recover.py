@@ -41,8 +41,8 @@ class TestReconstruction:
 
     def test_la_date_vient_de_l_identifiant(self):
         meeting = depuis_le_fil("2026-09-09_10h05_reunion", THREAD)
-        assert meeting.commencee_le is not None
-        assert (meeting.commencee_le.hour, meeting.commencee_le.minute) == (10, 5)
+        assert meeting.started_at is not None
+        assert (meeting.started_at.hour, meeting.started_at.minute) == (10, 5)
 
     def test_les_lignes_sans_parole_sont_ecartees(self):
         meeting = depuis_le_fil("x", [{"genre": "etat", "message": "actif"}])

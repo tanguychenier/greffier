@@ -20,7 +20,7 @@ from greffier.adapters.configuration import SECTIONS, Config, render
 from greffier.adapters.writer_claude import GUIDANCE, guidance
 from greffier.adapters.writer_ollama import GUIDANCE as CONSIGNES_OLLAMA
 from greffier.adapters.writer_ollama import guidance as consignes_ollama
-from greffier.domain.languages import LANGUAGES, eprouvee, label_text, nom_de
+from greffier.domain.languages import LANGUAGES, eprouvee, label_text, name_of
 
 
 class TestLaLangueNAtterritJamaisDansLeEnv:
@@ -89,4 +89,4 @@ class TestLeCatalogueDitCeQueChaqueLangueRecoit:
         assert len(codes) == len(set(codes))
 
     def test_un_code_inconnu_se_rend_lui_meme(self):
-        assert nom_de("xx") == "xx"
+        assert name_of("xx") == "xx"

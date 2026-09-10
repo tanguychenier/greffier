@@ -70,7 +70,7 @@ def extract_sound(video: Path, destination: Path) -> Path:
 
 def lire_le_texte(document: Path) -> str:
     """The text of a document, whatever its format. Empty when unreadable."""
-    from greffier.domain.store import TEXTES_OUTILLES, TEXTS
+    from greffier.domain.store import TEXTS, TOOLED_TEXTS
 
     suffixe = document.suffix.casefold()
     if suffixe in TEXTS:
@@ -78,7 +78,7 @@ def lire_le_texte(document: Path) -> str:
             return document.read_text(encoding="utf-8", errors="replace")
         except OSError:
             return ""
-    if suffixe not in TEXTES_OUTILLES:
+    if suffixe not in TOOLED_TEXTS:
         return ""
     command = (
         ["pdftotext", "-q", str(document), "-"] if suffixe == ".pdf"
@@ -137,16 +137,16 @@ def run_chain(
 ) -> Done:
     """Does what the suggestion announced. Never raises."""
     if not proposition.feasible:
-        return Done(proposition, trouble=proposition.bloque_par or "rien à en faire")
+        return Done(proposition, trouble=proposition.blocked_by or "rien à en faire")
 
-    if proposition.destin is Destination.VIDEO:
+    if proposition.destination is Destination.VIDEO:
         target = recordings / f"{proposition.file.stem}.wav"
         try:
             return Done(proposition, produit=extract_sound(proposition.file, target))
         except (RuntimeError, OSError) as trouble:
             return Done(proposition, trouble=str(trouble))
 
-    if proposition.destin is Destination.MEETING:
+    if proposition.destination is Destination.MEETING:
         target = recordings / proposition.file.name
         try:
             if target.resolve() != proposition.file.resolve():
@@ -156,7 +156,7 @@ def run_chain(
         except OSError as trouble:
             return Done(proposition, trouble=str(trouble))
 
-    if proposition.destin is Destination.CONTEXT:
+    if proposition.destination is Destination.CONTEXT:
         if writer is None:
             return Done(proposition, trouble="aucun rédacteur pour lire le document")
         try:

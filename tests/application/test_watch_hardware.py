@@ -60,7 +60,7 @@ def veilleuse(materiels, *, reconstruction=True, recorder=None):
     v = HardwareWatch(
         recorder=recorder or FakeRecorderState(),
         lister=FakeLister(materiels),
-        watch_rules=WatchRules(micro_voulu="Jabra EVOLVE 30 II"),
+        watch_rules=WatchRules(wanted_mic="Jabra EVOLVE 30 II"),
         reconstruire=reconstruire,
         notify_user=dits.append,
     )
@@ -111,7 +111,7 @@ class TestBranchementEnCoursDeReunion:
         v = HardwareWatch(
             recorder=recorder,
             lister=FakeLister([SANS, AVEC]),
-            watch_rules=WatchRules(micro_voulu="Jabra EVOLVE 30 II"),
+            watch_rules=WatchRules(wanted_mic="Jabra EVOLVE 30 II"),
             reconstruire=reconstruire,
         )
         v.turn()
@@ -160,12 +160,12 @@ class TestLaCaptureQuiSArrete:
     """
 
     def test_une_taille_qui_stagne_est_signalee(self):
-        from greffier.domain.capture import TOURS_AVANT_ALERTE
+        from greffier.domain.capture import TURNS_BEFORE_ALERT
 
         recorder = FakeRecorderState()
         v, dits, _ = veilleuse([SANS], recorder=recorder)
         v.captured_size = lambda: 4096
-        for _ in range(TOURS_AVANT_ALERTE + 1):
+        for _ in range(TURNS_BEFORE_ALERT + 1):
             v.turn()
         assert any("n'avance plus" in s for s in recorder.signalements)
         assert dits, "l'utilisateur doit être prévenu, pas seulement l'état"
