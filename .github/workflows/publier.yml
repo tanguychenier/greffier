@@ -35,12 +35,21 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - name: Interpréteur relogeable
-        # `construire.sh` copie l'interpréteur du .venv dans le paquet : il lui
-        # faut donc un Python d'uv (python-build-standalone), et non celui de
-        # l'exécuteur, qui est un framework et ne se copie pas. Le .venv n'a pas
-        # besoin des dépendances — le script les installe lui-même dans le
-        # paquet.
-        run: uv venv --python 3.13
+        # `only-managed` est le fond de l'affaire, pas une précaution.
+        # `construire.sh` copie l'interpréteur du .venv dans le paquet, ce qui
+        # n'est possible qu'avec un Python d'uv (python-build-standalone). Sans
+        # ce drapeau, uv prend le Python **framework** déjà présent sur
+        # l'exécuteur : un framework garde son préfixe en dur, donc le paquet
+        # construit importait « greffier » depuis
+        # /Library/Frameworks/… et non depuis lui-même, avec des dépendances
+        # réparties entre les deux — d'où un « libonnxruntime.dylib » absent du
+        # paquet alors qu'il était bien installé.
+        #
+        # Le .venv n'a pas besoin des dépendances : le script les installe
+        # lui-même dans le paquet.
+        run: |
+          uv venv --python 3.13 --python-preference only-managed
+          .venv/bin/python3 -c "import sys; print('interpréteur :', sys.base_prefix)"
       - name: Construire le paquet
         # La cible est donnée explicitement : sans argument, le script choisit
         # /Applications ou ~/Applications selon ce qui est accessible en
