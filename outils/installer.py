@@ -27,8 +27,8 @@ import tarfile
 import urllib.request
 from pathlib import Path
 
-DEPOT = Path(__file__).resolve().parent.parent
-SYSTEME = platform.system()  # Darwin | Linux | Windows
+STORE = Path(__file__).resolve().parent.parent
+SYSTEM = platform.system()  # Darwin | Linux | Windows
 
 # --------------------------------------------------------------------- sortie
 
@@ -57,31 +57,31 @@ SYMBOLES = (
     else {"ok": "[ok]", "alerte": "[!]", "erreur": "[X]"}
 )
 
-COULEURS = sys.stdout.isatty() and os.environ.get("NO_COLOR") is None
+COLOURS = sys.stdout.isatty() and os.environ.get("NO_COLOR") is None
 
 
-def _teinte(code, texte):
-    return f"\033[{code}m{texte}\033[0m" if COULEURS else texte
+def _teinte(code, text):
+    return f"\033[{code}m{text}\033[0m" if COLOURS else text
 
 
-def titre(texte):
-    print(_teinte("1;34", f"\n{texte}"))
+def title(text):
+    print(_teinte("1;34", f"\n{text}"))
 
 
-def ok(texte):
-    print(_teinte("0;32", f"  {SYMBOLES['ok']} {texte}"))
+def ok(text):
+    print(_teinte("0;32", f"  {SYMBOLES['ok']} {text}"))
 
 
-def alerte(texte):
-    print(_teinte("0;33", f"  {SYMBOLES['alerte']} {texte}"))
+def alerte(text):
+    print(_teinte("0;33", f"  {SYMBOLES['alerte']} {text}"))
 
 
-def erreur(texte):
-    print(_teinte("0;31", f"  {SYMBOLES['erreur']} {texte}"), file=sys.stderr)
+def erreur(text):
+    print(_teinte("0;31", f"  {SYMBOLES['erreur']} {text}"), file=sys.stderr)
 
 
-def info(texte):
-    print(f"    {texte}")
+def info(text):
+    print(f"    {text}")
 
 
 class Abandon(Exception):
@@ -90,24 +90,24 @@ class Abandon(Exception):
 
 # ----------------------------------------------------------------- décisions
 
-class Contexte:
+class Context:
     def __init__(self, args):
         self.oui = args.oui
-        self.verifier_seulement = args.verifier
-        self.modeles = Path(
-            args.modeles or os.environ.get("GREFFIER_MODELES") or dossier_donnees() / "modeles"
+        self.check_only = args.check
+        self.models = Path(
+            args.models or os.environ.get("GREFFIER_MODELES") or data_folder() / "modeles"
         )
         self.config = Path(
-            args.config or os.environ.get("GREFFIER_CONFIG") or dossier_config()
+            args.config or os.environ.get("GREFFIER_CONFIG") or config_folder()
         )
         # Une chaîne d'origine peut déjà détenir les modèles : autant les
         # reprendre que retélécharger 1,6 Go. Vidable pour tester à blanc.
         reprise = os.environ.get("GREFFIER_MODELES_EXISTANTS", str(Path.home() / "reunions/models"))
         self.reprise = Path(reprise) if reprise else None
-        self.a_faire = []
+        self.to_do = []
 
-    def demander(self, question):
-        if self.verifier_seulement:
+    def ask(self, question):
+        if self.check_only:
             return False
         if self.oui:
             return True
@@ -124,22 +124,22 @@ class Contexte:
 # peuvent pas se contredire sur l'endroit où sont les modèles.
 def _charger_emplacements():
     specification = importlib.util.spec_from_file_location(
-        "greffier_emplacements", DEPOT / "src/greffier/emplacements.py"
+        "greffier_locations", STORE / "src/greffier/locations.py"
     )
     module = importlib.util.module_from_spec(specification)
     specification.loader.exec_module(module)
     return module
 
 
-EMPLACEMENTS = _charger_emplacements()
+LOCATIONS = _charger_emplacements()
 
 
-def dossier_donnees():
-    return EMPLACEMENTS.dossier_donnees(SYSTEME)
+def data_folder():
+    return LOCATIONS.data_folder(SYSTEM)
 
 
-def dossier_config():
-    return EMPLACEMENTS.dossier_config(SYSTEME)
+def config_folder():
+    return LOCATIONS.config_folder(SYSTEM)
 
 
 def etape_emplacements():
@@ -150,18 +150,18 @@ def etape_emplacements():
     refuser une écriture en pleine réunion. Tout vit désormais dans Application
     Support. Ne fait rien ailleurs, ni quand il n'y a rien à bouger.
     """
-    deplaces = EMPLACEMENTS.demenager(SYSTEME)
+    deplaces = LOCATIONS.relocate(SYSTEM)
     if not deplaces:
         return
-    titre("0. Emplacements")
-    for source, cible in deplaces:
-        ok(f"{source} → {cible}")
+    title("0. Emplacements")
+    for source, target in deplaces:
+        ok(f"{source} → {target}")
 
 
-def lancer(commande, **kwargs):
+def run_job(command, **kwargs):
     """Exécute une commande en montrant ce qui est lancé."""
-    info(f"$ {' '.join(commande)}")
-    return subprocess.run(commande, check=False, **kwargs)
+    info(f"$ {' '.join(command)}")
+    return subprocess.run(command, check=False, **kwargs)
 
 
 # ------------------------------------------------- gestionnaires de paquets
@@ -171,10 +171,10 @@ def carte_nvidia():
 
     macOS n'en a pas, et sa puce est déjà servie par Metal.
     """
-    return SYSTEME != "Darwin" and shutil.which("nvidia-smi") is not None
+    return SYSTEM != "Darwin" and shutil.which("nvidia-smi") is not None
 
 
-def serveur_de_son_present():
+def sound_server_present():
     """Si la session a un serveur de son auquel se brancher.
 
     « pactl » n'enregistre rien : il interroge le serveur, là où ffmpeg s'y
@@ -194,7 +194,7 @@ def serveur_de_son_present():
 #: l'installeur tourne avant que quoi que ce soit ne soit installé.
 def _charger_langues():
     specification = importlib.util.spec_from_file_location(
-        "greffier_langues", DEPOT / "src/greffier/domaine/langues.py"
+        "greffier_langues", STORE / "src/greffier/domain/languages.py"
     )
     module = importlib.util.module_from_spec(specification)
     try:
@@ -206,19 +206,19 @@ def _charger_langues():
     return module
 
 
-def langue_du_poste():
+def system_language():
     """La langue que le système annonce, si Greffier sait la servir.
 
     Renseignement gratuit que rien ne lisait : un poste allemand ressortait
     réglé sur le français, et personne ne s'en apercevait avant la première
     transcription.
     """
-    langues = _charger_langues()
-    connues = {code for code, _ in langues.LANGUES} if langues else {"fr"}
+    languages = _charger_langues()
+    connues = {code for code, _ in languages.LANGUAGES} if languages else {"fr"}
     for variable in ("LC_ALL", "LC_MESSAGES", "LANG"):
-        valeur = os.environ.get(variable, "")
-        if valeur:
-            code = valeur.split(".")[0].split("_")[0].lower()
+        value = os.environ.get(variable, "")
+        if value:
+            code = value.split(".")[0].split("_")[0].lower()
             if code in connues:
                 return code
     return "fr"
@@ -226,9 +226,9 @@ def langue_du_poste():
 
 def gestionnaire():
     """Le gestionnaire de paquets du poste, ou None si aucun n'est reconnu."""
-    if SYSTEME == "Darwin":
+    if SYSTEM == "Darwin":
         return ("brew", ["brew", "install"]) if shutil.which("brew") else None
-    if SYSTEME == "Windows":
+    if SYSTEM == "Windows":
         if shutil.which("winget"):
             return ("winget", ["winget", "install", "--accept-package-agreements",
                                "--accept-source-agreements", "-e", "--id"])
@@ -238,7 +238,7 @@ def gestionnaire():
     # En conteneur ou en intégration continue on tourne en root, où « sudo »
     # n'est souvent même pas installé.
     prefixe = [] if getattr(os, "geteuid", lambda: 1)() == 0 else ["sudo"]
-    for outil, commande in (
+    for outil, command in (
         ("apt-get", ["apt-get", "install", "-y"]),
         ("dnf", ["dnf", "install", "-y"]),
         ("pacman", ["pacman", "-S", "--noconfirm"]),
@@ -246,7 +246,7 @@ def gestionnaire():
         ("apk", ["apk", "add"]),
     ):
         if shutil.which(outil):
-            return (outil, prefixe + commande)
+            return (outil, prefixe + command)
     return None
 
 
@@ -272,31 +272,31 @@ PAQUETS = {
 }
 
 
-def installer_paquet(ctx, nom, raison):
+def installer_paquet(ctx, name, because):
     gest = gestionnaire()
     if gest is None:
-        alerte(f"{nom} absent, et aucun gestionnaire de paquets reconnu sur ce poste")
-        info(f"Installe-le à la main : {raison}")
+        alerte(f"{name} absent, et aucun gestionnaire de paquets reconnu sur ce poste")
+        info(f"Installe-le à la main : {because}")
         return False
-    outil, commande = gest
-    paquet = PAQUETS.get(nom, {}).get(outil)
+    outil, command = gest
+    paquet = PAQUETS.get(name, {}).get(outil)
     if paquet is None:
-        alerte(f"{nom} n'est pas empaqueté par {outil}")
+        alerte(f"{name} n'est pas empaqueté par {outil}")
         return False
-    if not ctx.demander(f"Installer {nom} avec {outil} ? ({raison})"):
-        ctx.a_faire.append(f"{' '.join(commande)} {paquet}")
+    if not ctx.ask(f"Installer {name} avec {outil} ? ({because})"):
+        ctx.to_do.append(f"{' '.join(command)} {paquet}")
         return False
     if outil == "apt-get":
         # Sans rafraîchissement, apt échoue sur une image ou un poste dont la
         # liste de paquets n'a jamais été mise à jour.
-        lancer(commande[:-2] + ["update", "-qq"], stdout=subprocess.DEVNULL)
-    return lancer(commande + [paquet]).returncode == 0
+        run_job(command[:-2] + ["update", "-qq"], stdout=subprocess.DEVNULL)
+    return run_job(command + [paquet]).returncode == 0
 
 
 # ---------------------------------------------------------- 1. outils système
 
 def etape_outils(ctx):
-    titre("1. Outils système")
+    title("1. Outils système")
 
     if shutil.which("ffmpeg"):
         ok("ffmpeg")
@@ -309,7 +309,7 @@ def etape_outils(ctx):
     if shutil.which("whisper-cli") or shutil.which("whisper"):
         ok("whisper.cpp (transcription accélérée)")
         return "whisper.cpp"
-    if SYSTEME == "Darwin" and installer_paquet(
+    if SYSTEM == "Darwin" and installer_paquet(
         ctx, "whisper-cpp", "transcription accélérée Metal"
     ):
         ok("whisper.cpp")
@@ -327,28 +327,28 @@ def etape_audio(ctx):
     propre voix est trivial, réenregistrer ce que les haut-parleurs jouent ne
     l'est pas.
     """
-    titre("2. Capture du son des autres participants")
+    title("2. Capture du son des autres participants")
 
-    if SYSTEME == "Darwin":
-        sortie = subprocess.run(
+    if SYSTEM == "Darwin":
+        output = subprocess.run(
             ["system_profiler", "SPAudioDataType"], capture_output=True, text=True, check=False
         ).stdout
-        if "BlackHole" in sortie:
+        if "BlackHole" in output:
             ok("BlackHole (pilote audio virtuel)")
         else:
             alerte("BlackHole absent : sans lui, seule ta voix serait enregistrée")
-            if ctx.demander("Installer BlackHole ? (mot de passe admin demandé)"):
-                lancer(["brew", "install", "--cask", "blackhole-2ch"])
+            if ctx.ask("Installer BlackHole ? (mot de passe admin demandé)"):
+                run_job(["brew", "install", "--cask", "blackhole-2ch"])
                 info("Puis : sudo killall coreaudiod   (recharge le son, coupure de 1-2 s)")
             else:
-                ctx.a_faire.append("brew install --cask blackhole-2ch")
-                ctx.a_faire.append("sudo killall coreaudiod")
+                ctx.to_do.append("brew install --cask blackhole-2ch")
+                ctx.to_do.append("sudo killall coreaudiod")
         return
 
-    if SYSTEME == "Linux":
+    if SYSTEM == "Linux":
         # PipeWire et PulseAudio exposent déjà un « monitor » de la sortie :
         # rien à installer, contrairement à macOS.
-        if serveur_de_son_present():
+        if sound_server_present():
             ok("PulseAudio/PipeWire — le moniteur de sortie sert de capture")
             info("Aucun pilote supplémentaire n'est nécessaire sur Linux.")
         else:
@@ -365,7 +365,7 @@ def etape_audio(ctx):
 
 # ---------------------------------------------------------------- 3. modèles
 
-MODELES = [
+MODELS = [
     {
         "nom": "ggml-large-v3-turbo.bin",
         "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin",
@@ -421,7 +421,7 @@ SEGMENTATION = (
 # pas cela à quelqu'un. C'est donc le seul modèle qu'on télécharge pour une
 # question de qualité perçue, et il est le premier qu'on retire d'une
 # installation à l'étroit.
-VOIX = (
+VOICE = (
     "https://github.com/k2-fsa/sherpa-onnx/releases/download/"
     "tts-models/vits-piper-fr_FR-upmc-medium.tar.bz2"
 )
@@ -436,72 +436,72 @@ VOIX_INUTILES = ("lexicon-gb-en.txt", "lexicon-us-en.txt", "lexicon-zh.txt",
                  "date-zh.fst", "number-zh.fst", "phone-zh.fst")
 
 
-def relier_ou_copier(source, cible, dossier=False):
+def relier_ou_copier(source, target, folder=False):
     """Relie la source à la cible, ou la copie si le système s'y refuse.
 
     Windows n'autorise les liens symboliques qu'en mode développeur ou en
     session élevée. Copier coûte de l'espace, mais un modèle de 98 Mo dupliqué
     vaut mieux qu'une installation qui échoue.
     """
-    if cible.exists() or cible.is_symlink():
-        if cible.is_dir() and not cible.is_symlink():
-            shutil.rmtree(cible)
+    if target.exists() or target.is_symlink():
+        if target.is_dir() and not target.is_symlink():
+            shutil.rmtree(target)
         else:
-            cible.unlink()
+            target.unlink()
     try:
-        cible.symlink_to(source, target_is_directory=dossier)
+        target.symlink_to(source, target_is_directory=folder)
         return "relié à"
     except (OSError, NotImplementedError):
-        if dossier:
-            shutil.copytree(source, cible)
+        if folder:
+            shutil.copytree(source, target)
         else:
-            shutil.copy2(source, cible)
+            shutil.copy2(source, target)
         return "copié depuis"
 
 
-def telecharger(url, cible):
+def download(url, target):
     """Télécharge en affichant la progression, sans laisser de fichier tronqué."""
-    partiel = cible.with_suffix(cible.suffix + ".partiel")
-    with urllib.request.urlopen(url) as flux, open(partiel, "wb") as sortie:
+    partiel = target.with_suffix(target.suffix + ".partiel")
+    with urllib.request.urlopen(url) as flux, open(partiel, "wb") as output:
         total = int(flux.headers.get("Content-Length") or 0)
         recu = 0
         while True:
             morceau = flux.read(1 << 20)
             if not morceau:
                 break
-            sortie.write(morceau)
+            output.write(morceau)
             recu += len(morceau)
             if total and sys.stdout.isatty():
-                print(f"\r    {cible.name} {recu * 100 // total:3d} %", end="", flush=True)
+                print(f"\r    {target.name} {recu * 100 // total:3d} %", end="", flush=True)
     if sys.stdout.isatty():
         print("\r", end="")
     # Renommage seulement une fois complet : une coupure de réseau ne doit pas
     # laisser un modèle tronqué qui échouerait bien plus tard, à l'exécution.
-    partiel.replace(cible)
+    partiel.replace(target)
 
 
-def etape_modeles(ctx, moteur):
-    titre("3. Modèles locaux")
-    (ctx.modeles / "diarisation").mkdir(parents=True, exist_ok=True)
+def etape_modeles(ctx, engine):
+    title("3. Modèles locaux")
+    (ctx.models / "diarisation").mkdir(parents=True, exist_ok=True)
 
-    for modele in MODELES:
-        if modele.get("requis_si") and modele["requis_si"] != moteur:
+    for model in MODELS:
+        if model.get("requis_si") and model["requis_si"] != engine:
             continue
-        cible = ctx.modeles / modele["nom"]
-        if cible.exists() and cible.stat().st_size >= modele["taille_min"]:
-            ok(f"{cible.name} ({modele['role']})")
+        target = ctx.models / model["nom"]
+        if target.exists() and target.stat().st_size >= model["taille_min"]:
+            ok(f"{target.name} ({model['role']})")
             continue
-        ancien = ctx.reprise / modele["nom"] if ctx.reprise else None
-        if ancien and ancien.exists() and ancien.stat().st_size >= modele["taille_min"]:
-            comment = relier_ou_copier(ancien, cible)
-            ok(f"{cible.name} {comment} {ancien}")
+        former = ctx.reprise / model["nom"] if ctx.reprise else None
+        if former and former.exists() and former.stat().st_size >= model["taille_min"]:
+            comment = relier_ou_copier(former, target)
+            ok(f"{target.name} {comment} {former}")
             continue
-        if ctx.verifier_seulement:
-            alerte(f"{cible.name} manquant ({modele['role']})")
+        if ctx.check_only:
+            alerte(f"{target.name} manquant ({model['role']})")
             continue
-        info(f"téléchargement de {cible.name} ({modele['role']})…")
-        telecharger(modele["url"], cible)
-        ok(cible.name)
+        info(f"téléchargement de {target.name} ({model['role']})…")
+        download(model["url"], target)
+        ok(target.name)
 
     _installer_la_segmentation(ctx)
     _installer_la_voix(ctx)
@@ -509,34 +509,34 @@ def etape_modeles(ctx, moteur):
 
 def _installer_la_segmentation(ctx):
     """Le modèle qui repère quand quelqu'un parle. Requis, lui."""
-    dossier = ctx.modeles / "diarisation/sherpa-onnx-pyannote-segmentation-3-0"
-    if (dossier / "model.onnx").exists():
+    folder = ctx.models / "diarisation/sherpa-onnx-pyannote-segmentation-3-0"
+    if (folder / "model.onnx").exists():
         ok("modèle de segmentation")
         return
-    ancien = (
+    former = (
         ctx.reprise / "diarisation/sherpa-onnx-pyannote-segmentation-3-0"
         if ctx.reprise else None
     )
-    if ancien and (ancien / "model.onnx").exists():
-        comment = relier_ou_copier(ancien, dossier, dossier=True)
-        ok(f"modèle de segmentation {comment} {ancien}")
+    if former and (former / "model.onnx").exists():
+        comment = relier_ou_copier(former, folder, folder=True)
+        ok(f"modèle de segmentation {comment} {former}")
         return
-    if ctx.verifier_seulement:
+    if ctx.check_only:
         alerte("modèle de segmentation manquant")
         return
-    archive = ctx.modeles / "diarisation/segmentation.tar.bz2"
+    archive = ctx.models / "diarisation/segmentation.tar.bz2"
     info("téléchargement du modèle de segmentation…")
-    telecharger(SEGMENTATION, archive)
+    download(SEGMENTATION, archive)
     with tarfile.open(archive, "r:bz2") as paquet:
         if sys.version_info >= (3, 12):
-            paquet.extractall(ctx.modeles / "diarisation", filter="data")
+            paquet.extractall(ctx.models / "diarisation", filter="data")
         else:
-            paquet.extractall(ctx.modeles / "diarisation")  # noqa: S202
+            paquet.extractall(ctx.models / "diarisation")  # noqa: S202
     archive.unlink()
     ok("modèle de segmentation")
 
 
-def voix_presente(dossier):
+def voix_presente(folder):
     """Un réseau et son vocabulaire, quel que soit le nom du fichier.
 
     Chercher « model.onnx » ne valait que pour Kokoro : un VITS nomme ses poids
@@ -545,7 +545,7 @@ def voix_presente(dossier):
     retélécharger à chaque passage. Même critère que l'adaptateur, pour que les
     deux ne puissent pas se contredire.
     """
-    return any(dossier.glob("*.onnx")) and (dossier / "tokens.txt").exists()
+    return any(folder.glob("*.onnx")) and (folder / "tokens.txt").exists()
 
 
 def _installer_la_voix(ctx):
@@ -555,32 +555,32 @@ def _installer_la_voix(ctx):
     complète : l'outil enregistre, transcrit et rédige sans jamais ouvrir la
     bouche, et c'est même son mode par défaut.
     """
-    dossier = ctx.modeles / "voix"
-    if voix_presente(dossier):
+    folder = ctx.models / "voix"
+    if voix_presente(folder):
         ok("voix de l'assistant")
         return
-    if ctx.verifier_seulement:
+    if ctx.check_only:
         alerte("voix de l'assistant manquante (il se repliera sur celle du système)")
         return
-    archive = ctx.modeles / "voix.tar.bz2"
+    archive = ctx.models / "voix.tar.bz2"
     info("téléchargement de la voix de l'assistant (80 Mo)…")
     try:
-        telecharger(VOIX, archive)
+        download(VOICE, archive)
         with tarfile.open(archive, "r:bz2") as paquet:
             if sys.version_info >= (3, 12):
-                paquet.extractall(ctx.modeles, filter="data")
+                paquet.extractall(ctx.models, filter="data")
             else:
-                paquet.extractall(ctx.modeles)  # noqa: S202
-        extrait = ctx.modeles / VOIX_DOSSIER
+                paquet.extractall(ctx.models)  # noqa: S202
+        extrait = ctx.models / VOIX_DOSSIER
         if extrait.exists():
-            if dossier.exists():
-                shutil.rmtree(dossier)
-            extrait.rename(dossier)
+            if folder.exists():
+                shutil.rmtree(folder)
+            extrait.rename(folder)
         for inutile in VOIX_INUTILES:
-            (dossier / inutile).unlink(missing_ok=True)
+            (folder / inutile).unlink(missing_ok=True)
         ok("voix de l'assistant")
-    except (OSError, tarfile.TarError) as souci:
-        alerte(f"voix de l'assistant non installée ({souci}) : "
+    except (OSError, tarfile.TarError) as trouble:
+        alerte(f"voix de l'assistant non installée ({trouble}) : "
                "l'assistant parlera avec la voix du système.")
     finally:
         archive.unlink(missing_ok=True)
@@ -592,7 +592,7 @@ def _installer_la_voix(ctx):
 # déjà sur le poste avant de proposer un téléchargement de plusieurs gigaoctets.
 # Le critère est la qualité de synthèse en français à taille raisonnable.
 FAMILLES_OLLAMA = ("qwen3", "mistral-small", "gemma3", "llama3.1", "qwen2.5")
-MODELE_OLLAMA = os.environ.get("GREFFIER_MODELE_OLLAMA", "qwen3:8b")
+OLLAMA_MODEL = os.environ.get("GREFFIER_MODELE_OLLAMA", "qwen3:8b")
 
 
 def modele_utilisable(disponibles):
@@ -610,12 +610,12 @@ def modele_utilisable(disponibles):
 
 def modeles_ollama():
     try:
-        sortie = subprocess.run(
+        output = subprocess.run(
             ["ollama", "list"], capture_output=True, text=True, check=False, timeout=20
         ).stdout
     except (OSError, subprocess.SubprocessError):
         return []
-    return [ligne.split()[0] for ligne in sortie.splitlines()[1:] if ligne.strip()]
+    return [line.split()[0] for line in output.splitlines()[1:] if line.strip()]
 
 
 def etape_redaction(ctx):
@@ -629,7 +629,7 @@ def etape_redaction(ctx):
     Ollama reste branchable pour qui veut du 100 % local — l'architecture le
     permet sans rien changer d'autre — au prix d'une synthèse plus grossière.
     """
-    titre("4. Rédaction du compte rendu")
+    title("4. Rédaction du compte rendu")
 
     if shutil.which("claude"):
         ok("Claude Code — rédacteur par défaut")
@@ -650,11 +650,11 @@ def etape_redaction(ctx):
             f"Ollama installé mais aucun modèle de synthèse reconnu "
             f"({len(disponibles)} présents)"
         )
-        if ctx.demander(
-            f"Télécharger {MODELE_OLLAMA} pour rédiger en local ? (~5 Go)"
-        ) and lancer(["ollama", "pull", MODELE_OLLAMA]).returncode == 0:
-            return {"moteur": "ollama", "modele": MODELE_OLLAMA}
-        ctx.a_faire.append(f"ollama pull {MODELE_OLLAMA}")
+        if ctx.ask(
+            f"Télécharger {OLLAMA_MODEL} pour rédiger en local ? (~5 Go)"
+        ) and run_job(["ollama", "pull", OLLAMA_MODEL]).returncode == 0:
+            return {"moteur": "ollama", "modele": OLLAMA_MODEL}
+        ctx.to_do.append(f"ollama pull {OLLAMA_MODEL}")
 
     alerte("aucun rédacteur : transcription et voix fonctionneront, pas le compte rendu")
     return {"moteur": "aucun", "modele": ""}
@@ -663,55 +663,55 @@ def etape_redaction(ctx):
 MODELE_WHISPER = os.environ.get("GREFFIER_MODELE_WHISPER", "large-v3")
 
 
-def etape_modele_whisper(ctx, moteur, python):
+def etape_modele_whisper(ctx, engine, python):
     """Récupère le modèle de faster-whisper, là où whisper.cpp n'existe pas.
 
     Sans cette étape, tout paraît installé et le téléchargement de 1,5 Go se
     déclenche au lancement de la première réunion — c'est-à-dire au pire moment.
     """
-    if moteur != "faster-whisper" or ctx.verifier_seulement or not python.exists():
+    if engine != "faster-whisper" or ctx.check_only or not python.exists():
         return
-    titre("5 bis. Modèle de transcription (faster-whisper)")
+    title("5 bis. Modèle de transcription (faster-whisper)")
     info(f"préparation de « {MODELE_WHISPER} »…")
-    resultat = subprocess.run(
+    outcome = subprocess.run(
         [str(python), "-c",
          "from faster_whisper import WhisperModel;"
          f"WhisperModel('{MODELE_WHISPER}', device='cpu', compute_type='int8')"],
-        capture_output=True, text=True, cwd=DEPOT, check=False,
+        capture_output=True, text=True, cwd=STORE, check=False,
     )
-    if resultat.returncode == 0:
+    if outcome.returncode == 0:
         ok(f"modèle {MODELE_WHISPER} prêt")
     else:
         alerte(f"modèle {MODELE_WHISPER} non préparé : il sera récupéré au premier usage")
-        derniere = resultat.stderr.strip().splitlines()
-        if derniere:
-            info(derniere[-1][:160])
+        latest = outcome.stderr.strip().splitlines()
+        if latest:
+            info(latest[-1][:160])
 
 
 # --------------------------------------------------------- 5. environnement
 
-def etape_environnement(ctx, moteur):
-    titre("5. Environnement Python")
-    venv = DEPOT / ".venv"
-    python = venv / ("Scripts/python.exe" if SYSTEME == "Windows" else "bin/python")
+def etape_environnement(ctx, engine):
+    title("5. Environnement Python")
+    venv = STORE / ".venv"
+    python = venv / ("Scripts/python.exe" if SYSTEM == "Windows" else "bin/python")
 
-    extras = "dev" + (",transcription" if moteur == "faster-whisper" else "")
-    if moteur == "faster-whisper" and carte_nvidia():
+    extras = "dev" + (",transcription" if engine == "faster-whisper" else "")
+    if engine == "faster-whisper" and carte_nvidia():
         # La carte seule ne suffit pas : CTranslate2 réclame cuBLAS et cuDNN,
         # qu'aucune distribution ne livre avec le pilote. Sans elles la
         # transcription tombe sur le processeur, treize fois plus lent —
         # treize heures pour une réunion d'une heure.
-        if ctx.demander("Installer l'accélération CUDA ? (2,2 Go, la transcription"
+        if ctx.ask("Installer l'accélération CUDA ? (2,2 Go, la transcription"
                         " passe de treize fois le temps réel à un tiers)"):
             extras += ",cuda"
         else:
-            ctx.a_faire.append("uv pip install -e '.[cuda]'")
+            ctx.to_do.append("uv pip install -e '.[cuda]'")
 
-    if ctx.verifier_seulement:
+    if ctx.check_only:
         ok("environnement présent") if python.exists() else alerte("environnement absent")
         return python
 
-    if SYSTEME == "Darwin" and not shutil.which("uv"):
+    if SYSTEM == "Darwin" and not shutil.which("uv"):
         # L'application embarque un interpréteur relogeable : seul uv en
         # installe un (python-build-standalone), et seul uv sait le remplir.
         # Sans lui, la ligne de commande fonctionne mais pas le paquet .app.
@@ -732,12 +732,12 @@ def etape_environnement(ctx, moteur):
 
     if shutil.which("uv"):
         if not python.exists():
-            lancer(["uv", "venv", "--python", "3.13"], cwd=DEPOT)
-        lancer(["uv", "pip", "install", "-q", "-e", f".[{extras}]"], cwd=DEPOT)
+            run_job(["uv", "venv", "--python", "3.13"], cwd=STORE)
+        run_job(["uv", "pip", "install", "-q", "-e", f".[{extras}]"], cwd=STORE)
     else:
         alerte("uv absent — repli sur venv + pip, plus lent")
         if not python.exists():
-            lancer([sys.executable, "-m", "venv", str(venv)])
+            run_job([sys.executable, "-m", "venv", str(venv)])
         if not python.exists():
             # S'arrêter ici et le dire : la suite échouerait de toute façon,
             # trois lignes plus bas, sur une trace Python que personne ne relie
@@ -745,7 +745,7 @@ def etape_environnement(ctx, moteur):
             erreur("l'environnement Python n'a pas pu être créé. Sous Debian et "
                    "Ubuntu, « apt install python3-venv » le fournit.")
             raise SystemExit(1)
-        lancer([str(python), "-m", "pip", "install", "-q", "-e", f".[{extras}]"], cwd=DEPOT)
+        run_job([str(python), "-m", "pip", "install", "-q", "-e", f".[{extras}]"], cwd=STORE)
     ok(f"dépendances installées ({extras})")
     return python
 
@@ -787,41 +787,41 @@ destinataire = ""
 '''
 
 
-def etape_configuration(ctx, moteur, redaction):
-    titre("6. Configuration")
+def etape_configuration(ctx, engine, redaction):
+    title("6. Configuration")
     ctx.config.mkdir(parents=True, exist_ok=True)
-    fichier = ctx.config / "config.toml"
-    if fichier.exists():
-        ok(f"configuration existante conservée : {fichier}")
-        return fichier
-    if ctx.verifier_seulement:
-        alerte(f"configuration absente : {fichier}")
-        return fichier
-    fichier.write_text(
+    file = ctx.config / "config.toml"
+    if file.exists():
+        ok(f"configuration existante conservée : {file}")
+        return file
+    if ctx.check_only:
+        alerte(f"configuration absente : {file}")
+        return file
+    file.write_text(
         GABARIT.format(
-            modeles=str(ctx.modeles),
-            donnees=str(dossier_donnees()),
-            entree="Reunion Entree" if SYSTEME == "Darwin" else "default",
-            sortie="Reunion Sortie" if SYSTEME == "Darwin" else "default.monitor",
-            moteur=moteur,
-            langue=langue_du_poste(),
-            redacteur=redaction["moteur"],
-            modele=redaction["modele"],
+            models=str(ctx.models),
+            data=str(data_folder()),
+            input="Reunion Entree" if SYSTEM == "Darwin" else "default",
+            output="Reunion Sortie" if SYSTEM == "Darwin" else "default.monitor",
+            engine=engine,
+            language=system_language(),
+            writer=redaction["moteur"],
+            model=redaction["modele"],
         ),
         encoding="utf-8",
     )
-    ok(f"configuration créée : {fichier}")
+    ok(f"configuration créée : {file}")
     alerte("renseigne « destinataire » pour recevoir les comptes rendus par mail")
-    return fichier
+    return file
 
 
 # ------------------------------------------------------ 7. intégration bureau
 
 def dossier_autodemarrage():
     """Où déposer ce qui doit se lancer à l'ouverture de session."""
-    if SYSTEME == "Darwin":
+    if SYSTEM == "Darwin":
         return Path.home() / "Library/LaunchAgents"
-    if SYSTEME == "Windows":
+    if SYSTEM == "Windows":
         return (Path(os.environ.get("APPDATA", Path.home() / "AppData/Roaming"))
                 / "Microsoft/Windows/Start Menu/Programs/Startup")
     return Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "autostart"
@@ -834,7 +834,7 @@ AGENT_MACOS = """<?xml version="1.0" encoding="UTF-8"?>
 <dict>
   <key>Label</key>              <string>com.reunions.greffier</string>
   <key>ProgramArguments</key>
-  <array><string>/usr/bin/open</string><string>{cible}</string></array>
+  <array><string>/usr/bin/open</string><string>{target}</string></array>
   <key>RunAtLoad</key>          <true/>
 </dict>
 </plist>
@@ -844,7 +844,7 @@ RACCOURCI_LINUX = """[Desktop Entry]
 Type=Application
 Name=Greffier
 Comment=Enregistre la réunion et en rédige le compte rendu
-Exec={cible}
+Exec={target}
 Terminal=false
 Categories=Office;AudioVideo;
 """
@@ -854,38 +854,38 @@ Categories=Office;AudioVideo;
 # et reste lisible par qui veut savoir ce qui se lance à sa session.
 DEMARRAGE_WINDOWS = """@echo off
 rem Lance Greffier à l'ouverture de session. Supprime ce fichier pour l'annuler.
-start "" /min {cible}
+start "" /min {target}
 """
 
 
-def integrer_au_bureau(ctx, cible, ecrire=True):
+def integrer_au_bureau(ctx, target, write=True):
     """Pose l'icône dans la barre et le lancement à l'ouverture de session.
 
     Renvoie le fichier écrit, ou None si le système n'est pas reconnu. La
     séparation « ecrire » permet de vérifier ce qui serait produit sur les trois
     systèmes depuis n'importe quel poste.
     """
-    dossier = dossier_autodemarrage()
-    if SYSTEME == "Darwin":
-        fichier, gabarit = dossier / "com.reunions.greffier.plist", AGENT_MACOS
-    elif SYSTEME == "Windows":
-        fichier, gabarit = dossier / "Greffier.cmd", DEMARRAGE_WINDOWS
-    elif SYSTEME == "Linux":
-        fichier, gabarit = dossier / "greffier.desktop", RACCOURCI_LINUX
+    folder = dossier_autodemarrage()
+    if SYSTEM == "Darwin":
+        file, gabarit = folder / "com.reunions.greffier.plist", AGENT_MACOS
+    elif SYSTEM == "Windows":
+        file, gabarit = folder / "Greffier.cmd", DEMARRAGE_WINDOWS
+    elif SYSTEM == "Linux":
+        file, gabarit = folder / "greffier.desktop", RACCOURCI_LINUX
     else:
         return None
-    if ecrire:
-        dossier.mkdir(parents=True, exist_ok=True)
-        fichier.write_text(gabarit.format(cible=cible), encoding="utf-8")
-    return fichier
+    if write:
+        folder.mkdir(parents=True, exist_ok=True)
+        file.write_text(gabarit.format(target=target), encoding="utf-8")
+    return file
 
 
 def etape_bureau(ctx):
     """Installe l'interface : icône dans la barre, lancée à l'ouverture de session."""
-    titre("7. Intégration au bureau")
+    title("7. Intégration au bureau")
 
-    if SYSTEME == "Darwin":
-        if not (DEPOT / "macos/construire.sh").exists():
+    if SYSTEM == "Darwin":
+        if not (STORE / "macos/construire.sh").exists():
             alerte("script de construction introuvable dans ce dépôt")
             return
         # /Applications d'abord : ~/Applications n'est indexé ni par Spotlight ni
@@ -894,14 +894,14 @@ def etape_bureau(ctx):
         candidates = [Path("/Applications/Greffier.app"),
                       Path.home() / "Applications/Greffier.app"]
         application = next((c for c in candidates if c.exists()), candidates[0])
-        if ctx.verifier_seulement:
+        if ctx.check_only:
             ok(f"application présente ({application})") if application.exists() \
                 else alerte("application absente")
             return
         # Autonome et signée de façon stable (voir macos/construire.sh) : les
         # autorisations micro et Outlook, données une fois, ne sont plus
         # redemandées à la reconstruction suivante.
-        if lancer([str(DEPOT / "macos/construire.sh")]).returncode != 0:
+        if run_job([str(STORE / "macos/construire.sh")]).returncode != 0:
             alerte("construction de l'application échouée")
             return
         pose = next((c for c in candidates if c.exists()), None)
@@ -913,7 +913,7 @@ def etape_bureau(ctx):
     # Tkinter vient avec Python, et l'interface est la même sur les trois
     # systèmes.
     ok("interface disponible : « greffier fenetre »")
-    if SYSTEME == "Linux":
+    if SYSTEM == "Linux":
         info("Si Tk manque : « apt install python3-tk ».")
 
 
@@ -937,7 +937,7 @@ def etape_skill(ctx):
     Une copie, pas un lien : le dépôt peut être déplacé ou supprimé, un skill
     qui pointerait dans le vide serait pire que pas de skill.
     """
-    titre("7 bis. Dépannage assisté")
+    title("7 bis. Dépannage assisté")
     if not shutil.which("claude"):
         info("Claude Code absent : les skills seront posés quand il le sera.")
         return
@@ -946,67 +946,67 @@ def etape_skill(ctx):
     # multipliés (assister une réunion en est un second), et un installeur qui
     # en copie un et oublie les autres est un piège pour la fois suivante.
     sources = sorted(
-        chemin for chemin in (DEPOT / "skills").glob("*/SKILL.md") if chemin.exists()
+        path for path in (STORE / "skills").glob("*/SKILL.md") if path.exists()
     )
     if not sources:
         alerte("aucun skill trouvé dans ce dépôt")
         return
 
     for source in sources:
-        nom = source.parent.name
-        cible = dossier_skills() / nom / "SKILL.md"
-        if ctx.verifier_seulement:
-            ok(f"skill « {nom} » présent") if cible.exists() else alerte(
-                f"skill « {nom} » absent")
+        name = source.parent.name
+        target = dossier_skills() / name / "SKILL.md"
+        if ctx.check_only:
+            ok(f"skill « {name} » présent") if target.exists() else alerte(
+                f"skill « {name} » absent")
             continue
-        if (cible.exists()
-                and cible.read_text(encoding="utf-8") == source.read_text(encoding="utf-8")):
-            ok(f"skill « {nom} » à jour")
+        if (target.exists()
+                and target.read_text(encoding="utf-8") == source.read_text(encoding="utf-8")):
+            ok(f"skill « {name} » à jour")
             continue
-        action = "mis à jour" if cible.exists() else "installé"
-        if not ctx.demander(f"Installer le skill « {nom} » pour Claude Code ?"):
-            ctx.a_faire.append(f"mkdir -p {cible.parent} && cp {source} {cible}")
+        action = "mis à jour" if target.exists() else "installé"
+        if not ctx.ask(f"Installer le skill « {name} » pour Claude Code ?"):
+            ctx.to_do.append(f"mkdir -p {target.parent} && cp {source} {target}")
             continue
-        cible.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, cible)
-        ok(f"skill « {nom} » {action} ({cible})")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        ok(f"skill « {name} » {action} ({target})")
 
-    if not ctx.verifier_seulement:
+    if not ctx.check_only:
         info("Dis « répare Greffier » ou « assiste ma réunion » à Claude Code.")
 
 
 # ---------------------------------------------------------- 8. vérification
 
 def etape_verification(ctx, python):
-    titre("8. Vérification")
+    title("8. Vérification")
     if not python.exists():
         alerte("environnement absent : vérification impossible")
         return False
 
-    resultat = subprocess.run(
-        [str(python), "-m", "pytest", str(DEPOT / "tests")],
-        capture_output=True, text=True, cwd=DEPOT, check=False,
+    outcome = subprocess.run(
+        [str(python), "-m", "pytest", str(STORE / "tests")],
+        capture_output=True, text=True, cwd=STORE, check=False,
     )
     resume = [
-        ligne for ligne in resultat.stdout.splitlines()
-        if "passed" in ligne or "failed" in ligne
+        line for line in outcome.stdout.splitlines()
+        if "passed" in line or "failed" in line
     ]
-    if resultat.returncode != 0:
+    if outcome.returncode != 0:
         erreur(resume[-1] if resume else "les tests ont échoué")
         return False
     ok(resume[-1] if resume else "tests passés")
 
-    empreintes = ctx.modeles / "diarisation/nemo_en_titanet_large.onnx"
-    if not empreintes.exists():
+    voiceprints = ctx.models / "diarisation/nemo_en_titanet_large.onnx"
+    if not voiceprints.exists():
         alerte("modèle d'empreintes absent : identification des voix indisponible")
         return False
     controle = subprocess.run(
         [str(python), "-c",
          "import sys, pathlib;"
          "sys.path.insert(0, 'src');"
-         "from greffier.adaptateurs.empreintes_titanet import ExtracteurTitaNet;"
-         f"ExtracteurTitaNet(pathlib.Path(r'{empreintes}'))"],
-        capture_output=True, text=True, cwd=DEPOT, check=False,
+         "from greffier.adapters.voiceprints_titanet import ExtracteurTitaNet;"
+         f"ExtracteurTitaNet(pathlib.Path(r'{voiceprints}'))"],
+        capture_output=True, text=True, cwd=STORE, check=False,
     )
     if controle.returncode != 0:
         erreur("le modèle d'empreintes ne se charge pas")
@@ -1028,50 +1028,50 @@ def main():
     analyseur.add_argument("--config", help="dossier de configuration")
     args = analyseur.parse_args()
 
-    print(_teinte("1;37", f"Greffier — installation sur {SYSTEME} {platform.machine()}"))
+    print(_teinte("1;37", f"Greffier — installation sur {SYSTEM} {platform.recorder()}"))
     if sys.version_info < (3, 9):
         erreur(f"Python 3.9 minimum, trouvé {platform.python_version()}")
         return 1
     # Avant de calculer le moindre chemin : ce qui traîne dans les dossiers
     # cachés doit être rangé, sinon l'installeur le retrouverait là-bas et
     # continuerait d'y écrire.
-    if not args.verifier:
+    if not args.check:
         etape_emplacements()
-    ctx = Contexte(args)
+    ctx = Context(args)
 
     try:
-        moteur = etape_outils(ctx)
+        engine = etape_outils(ctx)
         etape_audio(ctx)
-        etape_modeles(ctx, moteur)
+        etape_modeles(ctx, engine)
         redaction = etape_redaction(ctx)
-        python = etape_environnement(ctx, moteur)
-        etape_modele_whisper(ctx, moteur, python)
-        etape_configuration(ctx, moteur, redaction)
+        python = etape_environnement(ctx, engine)
+        etape_modele_whisper(ctx, engine, python)
+        etape_configuration(ctx, engine, redaction)
         etape_bureau(ctx)
         etape_skill(ctx)
         saine = etape_verification(ctx, python)
-    except Abandon as raison:
-        erreur(str(raison))
+    except Abandon as because:
+        erreur(str(because))
         return 1
     except KeyboardInterrupt:
         erreur("interrompu")
         return 130
 
-    if ctx.a_faire:
-        titre("Reste à faire")
-        for commande in ctx.a_faire:
-            info(commande)
+    if ctx.to_do:
+        title("Reste à faire")
+        for command in ctx.to_do:
+            info(command)
 
-    titre("Installé." if saine else "Installé, avec des réserves.")
-    info(f"modèles       {ctx.modeles}")
+    title("Installé." if saine else "Installé, avec des réserves.")
+    info(f"modèles       {ctx.models}")
 
     # L'installation pose les outils ; l'assistant décide de comment on s'en
     # sert. Enchaîner les deux évite qu'un poste reste installé mais muet.
-    if not ctx.verifier_seulement and python.exists():
-        if ctx.oui or ctx.demander("Configurer maintenant (rédacteur, courriel, vocabulaire) ?"):
-            greffier = python.parent / ("greffier.exe" if SYSTEME == "Windows" else "greffier")
+    if not ctx.check_only and python.exists():
+        if ctx.oui or ctx.ask("Configurer maintenant (rédacteur, courriel, vocabulaire) ?"):
+            greffier = python.parent / ("greffier.exe" if SYSTEM == "Windows" else "greffier")
             if greffier.exists():
-                subprocess.run([str(greffier), "configurer"], cwd=DEPOT, check=False)
+                subprocess.run([str(greffier), "configurer"], cwd=STORE, check=False)
             else:
                 info("Lance « greffier configurer » quand tu voudras.")
         else:

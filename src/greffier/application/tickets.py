@@ -15,9 +15,9 @@ import json
 import re
 from dataclasses import dataclass, field
 
-from greffier.ports.sortants import Redacteur
+from greffier.ports.outbound import Writer
 
-CONSIGNES = """À partir du compte rendu de réunion ci-dessous, propose les tickets à créer.
+GUIDANCE = """À partir du compte rendu de réunion ci-dessous, propose les tickets à créer.
 
 Rends uniquement un tableau JSON, sans texte autour, dont chaque élément a :
   "titre"       une phrase à l'impératif, moins de 80 caractères
@@ -38,36 +38,36 @@ Compte rendu :
 
 @dataclass(frozen=True, slots=True)
 class Ticket:
-    titre: str
+    title: str
     description: str = ""
     assigne: str = ""
     echeance: str = ""
     extrait: str = ""
 
-    def en_markdown(self) -> str:
-        lignes = [f"### {self.titre}", ""]
+    def as_markdown(self) -> str:
+        lines = [f"### {self.title}", ""]
         if self.description:
-            lignes += [self.description, ""]
+            lines += [self.description, ""]
         details = []
         if self.assigne:
             details.append(f"**Pour** {self.assigne}")
         if self.echeance:
             details.append(f"**Échéance** {self.echeance}")
         if details:
-            lignes += [" · ".join(details), ""]
+            lines += [" · ".join(details), ""]
         if self.extrait:
-            lignes += [f"> {self.extrait}", ""]
-        return "\n".join(lignes)
+            lines += [f"> {self.extrait}", ""]
+        return "\n".join(lines)
 
 
 @dataclass
-class Proposition:
+class Suggestion:
     tickets: list[Ticket] = field(default_factory=list)
     brut: str = ""
 
-    def en_markdown(self, reunion: str) -> str:
-        entete = [
-            f"# Tickets proposés — {reunion}",
+    def as_markdown(self, meeting: str) -> str:
+        header = [
+            f"# Tickets proposés — {meeting}",
             "",
             "Proposés, **pas créés** : relis-les avant de les ouvrir. Un ticket "
             "ouvert à tort dans un outil partagé coûte plus cher à retirer qu'à "
@@ -75,18 +75,18 @@ class Proposition:
             "",
         ]
         if not self.tickets:
-            entete.append("Aucune action décidée dans ce compte rendu.")
-            return "\n".join(entete) + "\n"
-        return "\n".join(entete) + "\n" + "\n".join(t.en_markdown() for t in self.tickets)
+            header.append("Aucune action décidée dans ce compte rendu.")
+            return "\n".join(header) + "\n"
+        return "\n".join(header) + "\n" + "\n".join(t.as_markdown() for t in self.tickets)
 
 
-def extraire_json(reponse: str) -> list[object]:
+def extract_json(response: str) -> list[object]:
     """Récupère le tableau JSON, même enrobé de texte ou de balises.
 
     Un modèle qui répond « Voici les tickets : ```json … ``` » reste utilisable :
     exiger une réponse parfaitement nue rendrait la fonction fragile pour rien.
     """
-    nettoye = re.sub(r"^```(?:json)?|```$", "", reponse.strip(), flags=re.MULTILINE).strip()
+    nettoye = re.sub(r"^```(?:json)?|```$", "", response.strip(), flags=re.MULTILINE).strip()
     try:
         charge = json.loads(nettoye)
     except json.JSONDecodeError:
@@ -100,25 +100,25 @@ def extraire_json(reponse: str) -> list[object]:
     return charge if isinstance(charge, list) else []
 
 
-def depuis_reponse(reponse: str) -> Proposition:
+def depuis_reponse(response: str) -> Suggestion:
     """Construit les tickets à partir de ce que le rédacteur a rendu."""
     tickets = []
-    for element in extraire_json(reponse):
-        if not isinstance(element, dict):
+    for item in extract_json(response):
+        if not isinstance(item, dict):
             continue
-        titre = str(element.get("titre", "")).strip()
-        if not titre:
+        title = str(item.get("titre", "")).strip()
+        if not title:
             continue
         tickets.append(Ticket(
-            titre=titre,
-            description=str(element.get("description", "")).strip(),
-            assigne=str(element.get("assigne", "")).strip(),
-            echeance=str(element.get("echeance", "")).strip(),
-            extrait=str(element.get("extrait", "")).strip(),
+            title=title,
+            description=str(item.get("description", "")).strip(),
+            assigne=str(item.get("assigne", "")).strip(),
+            echeance=str(item.get("echeance", "")).strip(),
+            extrait=str(item.get("extrait", "")).strip(),
         ))
-    return Proposition(tickets=tickets, brut=reponse)
+    return Suggestion(tickets=tickets, brut=response)
 
 
-def proposer(compte_rendu: str, redacteur: Redacteur) -> Proposition:
+def offer(minutes: str, writer: Writer) -> Suggestion:
     """Demande les tickets au même rédacteur que le compte rendu."""
-    return depuis_reponse(redacteur.rediger(CONSIGNES + compte_rendu))
+    return depuis_reponse(writer.write_up(GUIDANCE + minutes))
