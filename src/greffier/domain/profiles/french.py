@@ -1,15 +1,4 @@
-"""Le français : les règles éprouvées sur de vraies réunions.
-
-Chaque motif, chaque exclusion et chaque seuil de ce fichier vient d'un incident
-mesuré sur un enregistrement réel, et son commentaire l'explique. C'est ce qui
-distingue ce profil d'une simple table de traduction, et ce qui rend malhonnête
-d'en recopier la forme dans une autre langue sans l'avoir éprouvée : les règles
-ne décrivent pas une grammaire, elles décrivent ce que des gens ont dit.
-
-Déplacé depuis `noms`, `generiques` et `instructions` sans qu'une règle change :
-les tests qui les gardaient sont les mêmes, et ce sont eux qui prouvent que le
-déplacement n'a rien coûté.
-"""
+"""French: the rules measured on real meetings."""
 
 from __future__ import annotations
 

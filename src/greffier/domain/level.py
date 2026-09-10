@@ -1,22 +1,8 @@
-"""Juger si un niveau de parole suffit à transcrire.
+"""Judging whether a speech level is enough to transcribe.
 
-Le contrôle qui existait mesurait le **silence** : il sert à repérer un micro
-coupé, et c'est utile, mais un micro qui capte -49 dB de bruit de pièce ne dit
-rien de ce que donnera la parole. Or c'est la parole qui décide.
-
-Les seuils viennent de deux mesures faites sur ce projet, pas d'un usage :
-
-- à **-43 dB** de parole, le modèle a rendu « Merci d'avoir regardé cette
-  vidéo ! » là où la personne disait « Test, test de réunion ». Un signal faible
-  ne donne pas une transcription pauvre, il en donne une **inventée**, ce qui est
-  bien pire : elle traverse le compte rendu avec le même aplomb que le reste.
-- en dessous de **-70 dB**, il n'y a rien du tout : c'est le seuil que la chaîne
-  de traitement emploie déjà pour refuser un enregistrement muet.
-
-Entre les deux, la transcription se dégrade sans qu'on puisse dire où elle
-basculera. D'où trois verdicts et non deux : « faible » avertit sans bloquer,
-parce qu'une réunion qui a lieu vaut mieux qu'une réunion refusée pour un
-décibel.
+A weak signal does not give a poor transcript: it gives an **invented** one.
+Measured at -43 dB, whisper returned "thanks for watching this video" where the
+person said "test, meeting test".
 """
 
 from __future__ import annotations
@@ -37,7 +23,7 @@ class Verdict(StrEnum):
 MUET_DB = -70.0
 
 def judge(db: float) -> Verdict:
-    """Ce que vaut ce niveau de parole."""
+    """What this speech level is worth."""
     if db < MUET_DB:
         return Verdict.MUET
     if db < INSUFFISANT_DB:
@@ -47,7 +33,7 @@ def judge(db: float) -> Verdict:
     return Verdict.BON
 
 def say(db: float) -> str:
-    """Une phrase pour l'écran, qui dit le niveau **et** quoi en faire."""
+    """A sentence for the screen, giving the level **and** what to do about it."""
     verdict = judge(db)
     if verdict is Verdict.MUET:
         return (
@@ -70,31 +56,21 @@ def say(db: float) -> str:
     return f"Bon niveau ({db:.0f} dB)."
 
 def sufficient(db: float) -> bool:
-    """Vrai si on peut démarrer sans avertir."""
+    """True when recording can start without a warning."""
     return judge(db) in (Verdict.BON, Verdict.FAIBLE)
 
 RELEVES_AVANT_ALERTE = 8
 
 @dataclass
 class LevelWatch:
-    """Suit le niveau capté pendant la réunion et dit s'il ne suffit pas.
-
-    Le **maximum** et non la moyenne : entre deux phrases il y a du silence, et
-    une moyenne sur une réunion mesure surtout les silences. Ce qui compte est
-    de savoir si la parole, quand elle a lieu, arrive assez fort.
-
-    Alerte **une seule fois**. Le niveau ne se corrige pas en cours de réunion
-    sans interrompre, donc répéter n'ajoute rien : on le dit, la personne fait
-    ce qu'elle veut, et le compte rendu le saura de toute façon par
-    l'avertissement de couverture.
-    """
+    """Follows the captured level during the meeting and says if it falls short."""
 
     releves: int = 0
     meilleur_db: float = -200.0
     alertee: bool = False
 
     def observe(self, db: float) -> str:
-        """Rend ce qu'il faut signaler, ou une chaîne vide."""
+        """What needs reporting, or an empty string."""
         self.releves += 1
         self.meilleur_db = max(self.meilleur_db, db)
         if self.alertee or self.releves < RELEVES_AVANT_ALERTE:

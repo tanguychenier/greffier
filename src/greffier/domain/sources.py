@@ -1,24 +1,7 @@
-"""Les sources extérieures que l'outil a le droit de consulter, et d'écrire.
+"""The outside sources the tool may consult, and what it may do there.
 
-Un assistant qui peut lire un dépôt et créer un ticket est utile. Le même
-assistant avec un jeton d'écriture et une phrase mal comprise crée un ticket que
-personne n'a demandé, sur un projet que personne n'a nommé. La question n'est
-donc pas « peut-il écrire » mais « où, et après quelle confirmation ».
-
-Trois décisions portent ce module.
-
-**Rien n'est atteignable qui ne soit inscrit.** Une source absente du registre
-n'existe pas pour l'outil, quelle que soit la phrase tapée. Découvrir un projet
-et s'y mettre n'arrive jamais — c'est ce qui rend le risque borné à ce qu'on a
-listé soi-même.
-
-**L'écriture est un droit séparé, et il se donne source par source.** Pouvoir
-lire les tickets d'un projet n'autorise pas à en créer. Le défaut est la lecture
-seule, parce que c'est le cas qui rend service sans rien risquer.
-
-**Le jeton ne vit jamais ici.** Le registre nomme la variable d'environnement ou
-l'entrée de trousseau qui le porte ; un secret dans un fichier de configuration
-finit dans une sauvegarde, puis dans un dépôt.
+What is not registered does not exist. Discovering a source and writing to it
+never happens.
 """
 
 from __future__ import annotations
@@ -37,7 +20,7 @@ class Right(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class Source:
-    """Une source extérieure inscrite, et ce qu'on peut en faire."""
+    """A registered outside source, and what may be done with it."""
 
     name: str
     kind: Kind
@@ -62,12 +45,12 @@ class Source:
         return self.droit is Right.ECRITURE
 
     def say(self) -> str:
-        """Une ligne pour l'écran, qui montre la portée réelle."""
+        """One line for the screen, showing the real scope."""
         return f"{self.name} — {self.kind} {self.projet} sur {self.adresse} ({self.droit})"
 
 @dataclass
 class Registry:
-    """Les sources inscrites. Ce qui n'y est pas n'existe pas."""
+    """The registered sources. What is not in here does not exist."""
 
     sources: list[Source]
 
@@ -79,16 +62,12 @@ class Registry:
         return [s for s in self.sources if s.kind is kind]
 
     def recorded(self, kind: Kind | None = None) -> list[str]:
-        """Les noms disponibles, pour pouvoir les proposer plutôt que deviner."""
+        """The names available, so they can be offered rather than guessed."""
         choisies = self.sources if kind is None else self.of_gender(kind)
         return [s.name for s in choisies]
 
     def allowed(self, name: str, ecriture: bool) -> tuple[bool, str]:
-        """Le geste est-il permis ? Sinon, pourquoi — en termes utilisables.
-
-        Le refus dit ce qui manque, parce qu'un « non » sans raison laisse
-        croire à une panne là où il s'agit d'un réglage.
-        """
+        """Is the gesture permitted? If not, why — in the user's terms."""
         source = self.by_name(name)
         if source is None:
             connues = ", ".join(self.recorded()) or "aucune"
