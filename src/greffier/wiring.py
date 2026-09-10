@@ -1,8 +1,8 @@
-"""Racine de composition : c'est ici, et seulement ici, qu'on choisit les outils.
+"""Composition root: here, and only here, is what is plugged where.
 
-Le reste du code ne connaît que des ports. Ce module est le seul à savoir que la
-transcription passe par whisper.cpp sur macOS et par faster-whisper ailleurs, ou
-que la rédaction interroge Ollama. Changer d'outil ne touche que ce fichier.
+Every other module receives what it needs and knows nothing of who built it.
+That is what makes the domain testable without audio, without a model and
+without a network.
 """
 
 from __future__ import annotations
@@ -52,30 +52,13 @@ def _transcriber(config: Config) -> outbound.Transcriber:
     return FasterWhisperTranscriber(taille=config.transcription.model)
 
 def _live_model(config: Config) -> str:
-    """Le modèle que cette machine fait tourner dans le budget d'une tranche.
-
-    Le même critère que la transcription définitive : mémoire et accélération
-    disponibles. Mesuré sur un Mac Apple Silicon, tranche de dix secondes réelle
-    — 0,72 s avec `small`, 1,44 s avec `large-v3-turbo`, pour un budget de dix
-    secondes. Le grand modèle tient avec sept fois la marge, et rend une phrase
-    là où le petit rendait trois fragments faux.
-    """
+    """The model this machine can run in the noise of a recording."""
     from greffier.adapters import system_diagnostic as diagnostic
 
     return diagnostic.recorder(config.paths.data).advised_model
 
 def light_transcriber(config: Config) -> outbound.Transcriber | None:
-    """Le modèle de la transcription en direct : rapide plutôt que juste.
-
-    Il faut rendre une tranche en moins de temps qu'il n'en faut pour en
-    enregistrer une autre, sans quoi l'affichage prend du retard qu'il ne
-    rattrape jamais. Ce n'est pas une raison de prendre le plus petit modèle :
-    sur une machine qui en a les moyens, le grand tient dans le budget et le
-    petit rendait le fil illisible — mesuré, pas supposé.
-
-    Rend `None` quand aucun modèle n'est là : le direct affichera alors ce que
-    l'audio dit des canaux, et le dira, plutôt que de rester vide sans raison.
-    """
+    """The live transcription model: fast rather than precise."""
     taille = config.live.model or _live_model(config)
     if config.transcription.engine == "whisper.cpp":
         models = config.paths.models
@@ -91,13 +74,7 @@ def light_transcriber(config: Config) -> outbound.Transcriber | None:
     return FasterWhisperTranscriber(taille=taille)
 
 def follower(config: Config, identifier: str) -> Follower:
-    """Le fil affiché pendant la réunion, et ce qui le corrige.
-
-    L'extracteur d'empreintes est facultatif ici, alors qu'il est requis pour le
-    traitement : sans lui, le direct montre ce qui se dit et distingue « toi »
-    des autres, ce qui est déjà l'essentiel. Refuser de rien afficher parce
-    qu'un modèle manque serait le pire des deux mondes.
-    """
+    """The thread shown during the meeting, and what feeds it."""
     log, requests = files(config.paths.live, identifier)
     bank = FileVoiceBank(config.paths.voice_bank)
     extractor: outbound.VoiceprintExtractor | None = None
@@ -119,7 +96,7 @@ def follower(config: Config, identifier: str) -> Follower:
     )
 
 def writer(config: Config) -> outbound.Writer | None:
-    """Le rédacteur seul, pour régénérer un compte rendu sans tout réassembler."""
+    """The writer alone, to regenerate a set of minutes."""
     engine = config.minutes.engine
     language = config.minutes.language or config.transcription.language
     if engine == "ollama":
@@ -135,18 +112,7 @@ def writer(config: Config) -> outbound.Writer | None:
     return None
 
 def assistant(config: Config) -> outbound.Writer | None:
-    """Qui répond dans la conversation — pas qui rédige le compte rendu.
-
-    Deux instances, deux réglages, et c'est volontaire. Le rédacteur du compte
-    rendu n'a **aucun** outil : le document se compose de ce qui a été dit et de
-    rien d'autre, sans quoi une décision pourrait se voir complétée par ce qu'il
-    a trouvé ailleurs. La conversation, elle, sert précisément à aller chercher
-    — une définition, une norme, l'état d'un service — et refuser de le faire
-    obligeait à quitter la réunion pour ouvrir un navigateur.
-
-    La recherche s'éteint depuis les réglages : elle fait sortir du poste le
-    terme cherché, et il y a des réunions où cela ne se fait pas.
-    """
+    """Who answers in the conversation — not who writes the minutes."""
     engine = config.minutes.engine
     if engine == "ollama":
         return OllamaWriter(config.minutes.effective_model,
@@ -168,19 +134,7 @@ def assistant(config: Config) -> outbound.Writer | None:
     )
 
 def cartographe(config: Config) -> outbound.Writer | None:
-    """Qui extrait les points d'une carte. Ni le rédacteur, ni l'assistant.
-
-    Une troisième instance, et pour une raison mesurée : `RedacteurClaude`
-    préfixe les consignes du compte rendu à tout ce qu'on lui passe. Une demande
-    d'extraction JSON arrivait donc **après** cent lignes de « tu rédiges le
-    compte rendu d'une réunion », et le modèle suivait les premières — il a
-    rendu de la prose, en demandant si c'était bien le tableau attendu.
-    L'extraction échouait alors en silence, sur « rien à ajouter ».
-
-    Aucun outil : extraire ce qui a été dit ne demande pas d'aller chercher
-    ailleurs, et pourrait au contraire faire entrer dans la carte des points
-    qui n'ont pas été prononcés.
-    """
+    """Who extracts a board's points."""
     engine = config.minutes.engine
     if engine == "ollama":
         return OllamaWriter(config.minutes.effective_model,
@@ -198,11 +152,11 @@ def cartographe(config: Config) -> outbound.Writer | None:
     )
 
 def store(config: Config) -> FileStore:
-    """Les fichiers maîtres, source de vérité d'une réunion traitée."""
+    """The master files, a meeting's source of truth."""
     return FileStore(config.paths.data / "reunions")
 
 def naming(config: Config) -> Naming:
-    """Le cas d'usage « donner un nom à une voix », après la réunion."""
+    """The "give a voice a name" use case, after the meeting."""
     diarisation = config.paths.models / "diarisation"
     return Naming(
         store=store(config),
@@ -211,17 +165,10 @@ def naming(config: Config) -> Naming:
     )
 
 def context(config: Config) -> WorkContext:
-    """Ce que l'outil sait du milieu, fondu depuis ses trois sources.
+    """What the tool knows of the setting, blended from its three sources.
 
-    De la moins précise à la plus précise : le vocabulaire de `config.toml`, le
-    nom des habitués que la banque de voix connaît déjà, puis `contexte.toml`,
-    seul endroit où un sigle porte son sens. La plus précise l'emporte à égalité
-    de nom.
-
-    Assemblé ici et non lu à trois endroits : la transcription en direct, la
-    transcription définitive et la rédaction ont besoin du même contexte, et
-    trois lectures indépendantes finiraient par diverger — c'est exactement ce
-    qui faisait que le direct devinait des termes que l'outil connaissait.
+    Least precise first: the vocabulary from config.toml, the names the voice bank
+    already knows, then contexte.toml, the only place an acronym carries a meaning.
     """
     from greffier.adapters import context_file
 
@@ -231,16 +178,7 @@ def context(config: Config) -> WorkContext:
     return fondu.join(context_file.read(config.paths.context))
 
 def _sender(config: Config, exiger_destinataire: bool = True) -> outbound.Sender | None:
-    """Comment part le compte rendu.
-
-    Outlook là où il existe : le compte est déjà authentifié, donc aucun mot de
-    passe à stocker. Sinon SMTP, s'il est renseigné. Sinon rien ne part, et le
-    compte rendu reste simplement sur le disque.
-
-    « greffier envoyer » demande le destinataire à l'écran : il passe
-    `exiger_destinataire=False` pour obtenir un expéditeur même quand la
-    configuration n'en désigne aucun.
-    """
+    """How the minutes leave."""
     if exiger_destinataire and not config.minutes.recipient:
         return None
     if config.email.server:
@@ -255,11 +193,11 @@ def _sender(config: Config, exiger_destinataire: bool = True) -> outbound.Sender
     return FileSender(config.paths.minutes_folder)
 
 def _audio_recorder(config: Config) -> FfmpegRecorder:
-    """La capture audio. Une seule construction, trois appelants."""
+    """Audio capture. One construction, three callers."""
     return FfmpegRecorder(config.audio.input, config.audio.duree_maximale)
 
 def lister(config: Config) -> CoreAudioLister:
-    """Lecture du matériel audio, pour la veille et le diagnostic."""
+    """Reading the audio hardware, for the watch and the diagnostic."""
     source = Path(__file__).resolve().parent.parent.parent / "macos/creer-peripheriques.swift"
     prete = Path(sys.executable).resolve().parent.parent / "Resources/lister-peripheriques"
     return CoreAudioLister(
@@ -267,7 +205,7 @@ def lister(config: Config) -> CoreAudioLister:
     )
 
 def recording(config: Config) -> Recording:
-    """La machine à états de l'enregistrement, partagée entre deux commandes."""
+    """The recording state machine, shared by two commands."""
     return Recording(
         audio_recorder=_audio_recorder(config),
         dossier_audio=config.paths.recordings,
@@ -304,12 +242,7 @@ def wire_up(config: Config) -> Chain:
     )
 
 def assistant_voice(config: Config) -> Any | None:
-    """Ce qui prononce, ou rien si l'assistant participe par écrit.
-
-    L'ordre est celui de la qualité : la voix neuronale d'abord, celle du
-    système ensuite, rien enfin. Un modèle absent ne fait pas taire l'assistant,
-    il le fait parler moins bien — et le diagnostic dit comment y remédier.
-    """
+    """Whatever pronounces, or nothing when the assistant takes part in writing."""
     voulu = config.assistant.voice
     if voulu == "aucun":
         return None
@@ -331,12 +264,7 @@ def assistant_voice(config: Config) -> Any | None:
     return system if system.available else None
 
 def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
-    """L'assistant en tant que participant à la réunion.
-
-    Rend `None` quand il n'a pas été activé : la fabrique ne décide pas de sa
-    présence, elle la construit quand elle est demandée. Une voix qui sort du
-    haut-parleur sans qu'on l'ait voulu serait la pire des surprises.
-    """
+    """The assistant as a participant in the meeting."""
     if not config.assistant.active:
         return None
     from greffier.adapters import conversations_file

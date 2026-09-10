@@ -1,21 +1,7 @@
-"""Où Greffier range sa configuration et ses données, selon le système.
+"""Where the tool files its configuration and its data, per system.
 
-Sans dépendance : l'installeur charge ce module *avant* que quoi que ce soit ne
-soit installé, avec le Python 3.9 que certains postes livrent encore.
-
-Sur macOS, l'emplacement natif — ``~/Library/Application Support/Greffier`` —
-et non la convention XDG. Les dossiers cachés du compte (``~/.config``,
-``~/.local``) sont surveillés par les gardes du poste, qui
-redemandaient une autorisation pour chaque accès de chaque programme de la
-chaîne, à chaque réunion ; une écriture y a même été refusée en pleine réunion,
-et le direct s'est arrêté net. Application Support est l'endroit où toutes les
-applications écrivent : personne ne le conteste. ``XDG_CONFIG_HOME`` et
-``XDG_DATA_HOME``, s'ils sont posés, l'emportent — c'est ce qui isole les
-tests, et ce qui laisse le choix à qui préfère XDG.
-
-Les anciens emplacements restent servis tant qu'ils existent et que le nouveau
-est vide : un poste déjà installé continue de fonctionner. L'installeur les
-déménage (`demenager`), pour qu'il ne reste rien dans les dossiers cachés.
+A module with no dependency: the installer reads it before pydantic exists, and
+has to say the same thing as the rest.
 """
 
 from __future__ import annotations
@@ -67,13 +53,7 @@ def _holds_configuration(folder: Path) -> bool:
     return any((folder / name).exists() for name in FICHIERS_CONFIG)
 
 def relocate(system: str | None = None) -> list[tuple[Path, Path]]:
-    """Sort des dossiers cachés ce qu'une version précédente y a laissé.
-
-    macOS seulement, et seulement hors XDG. Renvoie les déplacements faits,
-    dans l'ordre. Relançable : sans rien à déplacer, ne fait rien. Ce qui existe
-    déjà à destination n'est jamais écrasé — l'ancien reste alors en place, et
-    son absence de la liste le dit.
-    """
+    """Brings out of hidden folders what an earlier version put there."""
     if _system(system) != "Darwin":
         return []
     natif = Path.home() / NATIF_MACOS
@@ -100,20 +80,7 @@ def _move_contents(former: Path, natif: Path) -> list[tuple[Path, Path]]:
     return faits
 
 def locate_tcl(environnement: dict[str, str] | None = None, prefixe: Path | None = None) -> None:
-    """Dit à Tcl où sont ses fichiers, quand l'interpréteur l'a oublié.
-
-    Les interpréteurs distribués par uv portent le chemin de la machine qui les
-    a compilés : `tk.Tk()` cherche `init.tcl` dans `/tools/deps/lib/tcl9.0`, qui
-    n'existe sur aucun poste, et échoue par « This probably means that Tcl
-    wasn't installed properly » alors que Tcl est là, à côté de l'interpréteur.
-
-    Mesuré : la fenêtre ne s'ouvrait pas depuis `.venv/bin/greffier`, alors
-    qu'elle s'ouvrait depuis le paquet macOS — qui embarque ses propres copies
-    et n'a donc jamais rencontré le défaut.
-
-    On ne touche à rien quand les variables sont déjà posées : un poste qui a un
-    Tcl du système, ou une distribution qui s'y retrouve seule, garde le sien.
-    """
+    """Tells Tcl where its files are, when the interpreter cannot find them."""
     env = environnement if environnement is not None else os.environ
     racine = prefixe or Path(sys.base_prefix)
     for variable, motif in (("TCL_LIBRARY", "tcl"), ("TK_LIBRARY", "tk")):
