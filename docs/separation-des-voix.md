@@ -10,6 +10,13 @@ s'arrête à mai 2026 et n'a pas été vérifié depuis. Les noms et les princip
 sont sûrs ; les classements et les « meilleurs » ne le sont pas, et une
 recherche à jour est le premier point à faire ensemble.
 
+**Depuis :** le banc des extracteurs a été lancé sur une réunion réelle de
+1 h 42, et il tranche la question du modèle d'empreintes. CAM++ et ResNet293,
+tous deux en tête des classements de vérification du locuteur, ont une marge
+**négative** sur des extraits de 2,5 s — aucun seuil ne les sépare. TitaNet
+reste. Voir [le REX du 10 septembre](rex-2026-09-10.md), section 4 : tout
+candidat doit désormais battre **+0,099 de marge à 14,6 ms par extrait**.
+
 ## 1. Ce que l'outil fait
 
 Trois étages, chacun mesuré sur une réunion réelle de 92 minutes à trois
