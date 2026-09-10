@@ -128,7 +128,7 @@ Ce qui vient de se dire :
 
 
 class Parleur(Protocol):
-    """Ce qui prononce. `VoixKokoro` et `VoixSysteme` s'y conforment."""
+    """Ce qui prononce. `VoixNeuronale` et `VoixSysteme` s'y conforment."""
 
     def dire(self, texte: str) -> bool:
         ...
