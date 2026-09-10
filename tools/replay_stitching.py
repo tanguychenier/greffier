@@ -7,7 +7,7 @@ trois personnes autour d'une table**. Cet outil rejoue la décision sur cette
 réunion-là, avec ses vraies empreintes, et la note contre les noms que
 l'utilisateur a posés à la main — la seule vérité terrain dont on dispose.
 
-    python3 outils/rejouer_recollage.py 2026-09-09_16h36_reunion
+    python3 tools/replay_stitching.py 2026-09-09_16h36_reunion
 
 Les empreintes sont calculées une fois puis mises en cache : elles coûtent
 quelques minutes, les stratégies se comparent ensuite en une seconde.

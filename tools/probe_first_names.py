@@ -13,7 +13,7 @@ suffisait à réveiller, et d'« Élise », que « elle a lu ci et ça » appell
 Retenu : quatre appels sur quatre, zéro faux positif sur cinq. Un prénom reconnu
 une fois sur deux ne vaut rien, puisqu'on appelle une fois et qu'on attend.
 
-    python3 outils/eprouver_les_prenoms.py
+    python3 tools/probe_first_names.py
 
 **Aucun son n'est joué** : les fichiers sont écrits puis transcrits. On peut
 donc le lancer pendant une réunion — même si le calcul, lui, se dispute le

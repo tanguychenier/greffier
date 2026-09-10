@@ -19,7 +19,7 @@ RACINE = Path(__file__).resolve().parent.parent
 
 def charger_installeur():
     specification = importlib.util.spec_from_file_location(
-        "installeur", RACINE / "outils" / "installer.py"
+        "installeur", RACINE / "tools" / "install.py"
     )
     module = importlib.util.module_from_spec(specification)
     specification.loader.exec_module(module)
