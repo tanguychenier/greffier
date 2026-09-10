@@ -552,3 +552,87 @@ class TestLesDeuxBoutonsEnCoursDeReunion:
         voice = lui.voice
         self._watcher(lui, (True, True))._apply_the_buttons(True, True)
         assert lui.manners.active and lui.voice is voice and not voice.tue
+
+
+class TestOnceTheMeetingEnds:
+    """Clicking "end the meeting" must end it, the assistant included.
+
+    The last slice is still transcribed, so nothing said at the very end is
+    lost, but it is transcribed silently: an answer coming out of the speakers
+    in a room that has just been told the meeting is over would be the one
+    thing everybody remembers of the demonstration.
+    """
+
+    class FakeVoice:
+        def __init__(self):
+            self.tue = False
+            self.dit = []
+
+        def say(self, text):
+            self.dit.append(text)
+            return True
+
+        def go_quiet(self):
+            self.tue = True
+
+        def is_speaking(self):
+            return False
+
+    def _assistant(self):
+        from greffier.application.take_part import AssistantSettings
+        from greffier.domain.participation import Manners
+
+        return AssistantSettings(
+            name="Lucie", voice=self.FakeVoice(), manners=Manners(active=True),
+        )
+
+    def _watcher(self, tmp_path, monkeypatch, ecrit, lui):
+        monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
+        monkeypatch.setattr(watch, "extract_slice",
+                            lambda audio, start, end, dest: dest)
+        return watcher(
+            tmp_path,
+            transcriber=SliceTranscriber([[utterance(0.0, "Lucie, tu en penses quoi ?")]]),
+            situer=lambda: ou(tmp_path, ecrit=ecrit),
+            assistant_of=lui,
+        )
+
+    def test_the_last_slice_is_still_transcribed(self, tmp_path, monkeypatch):
+        lui = self._assistant()
+        instance = self._watcher(tmp_path, monkeypatch, 20.0, lui)
+        instance.last_pass(tmp_path)
+        assert instance.traite == 20.0, "the closing audio is read"
+
+    def test_she_does_not_answer_on_the_last_slice(self, tmp_path, monkeypatch):
+        """Called by name in the last seconds: transcribed, not answered."""
+        lui = self._assistant()
+        appels = []
+        lui.answer_aside = lambda opening, now: appels.append(opening)
+        instance = self._watcher(tmp_path, monkeypatch, 20.0, lui)
+        instance.last_pass(tmp_path)
+        assert appels == []
+
+    def test_she_answers_on_an_ordinary_slice(self, tmp_path, monkeypatch):
+        """The counter-proof: the same slice mid-meeting does reach her."""
+        lui = self._assistant()
+        appels = []
+        lui.answer_aside = lambda opening, now: appels.append(opening)
+        instance = self._watcher(tmp_path, monkeypatch, 20.0, lui)
+        instance.transcription_turn(ou(tmp_path, ecrit=20.0), tmp_path)
+        assert len(appels) == 1
+
+    def test_the_voice_is_cut_when_the_loop_ends(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
+        lui = self._assistant()
+        voice = lui.voice
+        watcher(tmp_path, assistant_of=lui).loop(
+            still_running=lambda: False, depuis=lambda: 0.0, job=tmp_path,
+            pause=lambda _: None,
+        )
+        assert voice.tue, "a sentence under way stops with the meeting"
+        assert lui.stopped
+
+    def test_a_watch_without_an_assistant_ends_quietly(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
+        watcher(tmp_path).loop(still_running=lambda: False, depuis=lambda: 0.0,
+                               job=tmp_path, pause=lambda _: None)
