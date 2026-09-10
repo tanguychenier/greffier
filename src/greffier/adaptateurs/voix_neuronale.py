@@ -309,11 +309,19 @@ class VoixNeuronale:
                     commande, stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 self._publier_le_baillon(self._lecture.pid)
-            self._lecture.wait()
+            code = self._lecture.wait()
         except OSError:
             return False
         finally:
             self._publier_le_baillon(None)
+        if code is not None and code < 0:
+            # Tué par un signal, donc coupé de l'extérieur : c'est le bouton de
+            # la fenêtre, et il ne demande pas de sauter une phrase, il demande
+            # le silence. Sans ce contrôle, la phrase en cours s'arrêtait et la
+            # suivante repartait aussitôt — « elle s'arrête puis elle reprend »,
+            # ce qui est pire que de ne pas s'arrêter.
+            self._interrompu.set()
+            return False
         return not self._interrompu.is_set()
 
     def _publier_le_baillon(self, pid: int | None) -> None:
