@@ -886,3 +886,60 @@ fallback and everyone can hear that it is one.
 - **The assistant cannot yet read the connected sources** (GitLab, Jira, Trello)
   when it decides whether to speak. It has them for a written question, not for
   a spoken one.
+
+## The morning after, in use (2026-09-10)
+
+What the night's work looked like once somebody tried to use it, and what came
+out of it. Every figure is measured on the same 92-minute recording.
+
+| Defect | What it cost | State |
+|---|---|---|
+| The live thread founded **a voice per sentence** | 111 voices for three people, and the cost of each attachment growing with them | fixed — 12 voices, attributions 92.9% right, 4.3 ms per sentence |
+| The vocabulary questions were absurd | « J'ai entendu "bailleurs". Fallait-il comprendre "bailleur" ? » — a plural, an accent. Three questions in four were of that kind, so nobody read the fourth | fixed — 8 questions become 3 on the same 3,765 replies |
+| Two buttons, one saying « Lucie participe » | it suggested she could choose not to, and removing it removed the only way to switch her on — she answered nothing and nobody could tell why | fixed — one button, for the voice; `actif` true by default |
+| Rebuilding did not replace the running application | two hours spent looking for three buttons that had been in the bundle since morning | fixed — `construire.sh` relaunches, never during a meeting |
+| `pointinghand` is a macOS cursor | a Tcl exception on every hover under X11 | fixed |
+| A document handed over mid-meeting | reached the assistant only once the minutes were written | fixed — re-read on every question |
+| A sentence written to be said went through the model | the acknowledgement that names a voice came back as a vague courtesy, dropping the name | fixed |
+
+**A step back worth recording.** The live stitching had been wired to the final
+chain's three passes. Replayed, that makes attribution accuracy fall from 93% to
+**79.6%** — the level you would get by giving everything to the loudest voice.
+After the meeting, adoption compares aggregates of minutes; live, aggregates of
+two sentences, where 0.45 of similarity means nothing. The live thread is back
+to `fusionner_voix`, and what bounds the number of voices is the ceiling and the
+measured threshold.
+
+### Still open, and why
+
+- **The publication workflow has never run.** It waits in
+  `outils/publier.yml.a-mettre-en-place`: an OAuth token without the `workflow`
+  scope can neither create nor update a file under `.github/workflows/`, and
+  GitHub rejects the whole push when one appears. Two `git mv` from an account
+  that has the right, and it runs. Until then the Windows and Linux artefacts
+  cannot be proven — GitHub's runners are this project's only Windows bench.
+- **Gatekeeper will refuse the macOS bundle** on any other machine. The bundle is
+  signed with a development certificate, not notarised. Fixing it needs a
+  Developer ID, so a paid account: a decision, not a task.
+- **The history still carries colleagues' first names** in the commit messages of
+  the 88 commits that predate 2026-09-10. The files are clean; the past is not.
+  An anonymised history exists and has no common ancestor with `main` — GitHub
+  refuses a pull request between disjoint histories, and a merge would erase
+  nothing anyway. Publishing it requires a force-push on `main`, which is a
+  decision. The rewritten history is kept in
+  `~/Documents/greffier-avant-anonymisation-2026-09-10.bundle`.
+- **Windows has still not been run on a real machine.** Sixteen tests cover the
+  system-specific paths — cursor, PowerShell literal, executable path, voice
+  player — and `outils/lanceur_windows.py` answers `--version`. Nobody has
+  double-clicked it.
+- **No AppImage for Linux**, only the source tree and its installer.
+- **The assistant does not read the connected sources** (GitLab, Jira, Trello)
+  when deciding whether to speak. It has them for a written question, not for a
+  spoken one. Nothing is configured on this machine, so building it would prove
+  nothing.
+- **`initiative` is off by default**, which means the proactive half — a decision
+  with no owner, a question left hanging — ships disabled. It is measured and
+  tested; it has never been through a real meeting.
+- **Two voices merged by hand cannot be separated again.** Naming joins, and a
+  name can be removed, but the join itself has no undo. It has not cost anything
+  since the stitching stopped over-splitting, which is why it waits.
