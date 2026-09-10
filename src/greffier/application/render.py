@@ -143,6 +143,31 @@ def disclosure_header(disclosure: str) -> str:
         f"{mention(read(disclosure))}\n\n"
     )
 
+def instructions_header(instructions: list[str]) -> str:
+    """What was asked of the tool during the meeting, dictated to the writer.
+
+    The defect this repairs, in the words that reported it: "I had said in the
+    tool's chat that we had no Sophie... and in the chat I had given it
+    instructions for the minutes, none of it was taken into account". The
+    corrections were kept on disk and read by nobody.
+
+    They come first among the headers and they say so: someone who watched the
+    meeting happen knows things the transcript does not carry, and a correction
+    that arrives after the fact is worth more than any rule.
+    """
+    if not instructions:
+        return ""
+    lines = [
+        "[Consignes données pendant la réunion]",
+        "Elles viennent de la personne qui a suivi la réunion en direct et "
+        "elles l'emportent sur ce que la transcription laisse croire : une "
+        "correction de nom, un terme à écrire autrement, une section à "
+        "ajouter. Applique-les.",
+    ]
+    lines += [f"- {x}" for x in instructions]
+    return "\n".join(lines) + "\n\n"
+
+
 def hardware_header(events: list[str]) -> str:
     """What the watch observed of the hardware, told to the writer."""
     if not events:
