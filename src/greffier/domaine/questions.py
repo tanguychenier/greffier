@@ -51,7 +51,83 @@ def tolerance(terme: str) -> int:
 #: transcription définitive, qui a le contexte complet.
 QUESTIONS_MAXIMUM = 8
 
+#: À partir de ce nombre d'occurrences, un mot n'est plus un accident.
+#:
+#: Une déformation de transcription se répète rarement à l'identique : le modèle
+#: rend « s'enature » une fois, pas trois. Un mot français, lui, revient — et
+#: c'est ce qui distingue « marge », qui est un mot, de « merve », qui n'en est
+#: pas un. Sans cette règle il fallait un dictionnaire français, que le domaine
+#: n'a pas et qu'une réunion technique déborderait de toute façon.
+#:
+#: Relevé sur une réunion réelle : « marge » pour « merge »,
+#: « rétablissements » pour « établissement », « recetter » pour « recette » —
+#: trois mots parfaitement français, chacun demandé comme une faute.
+OCCURRENCES_QUI_ETABLISSENT = 2
+
 _MOT = re.compile(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*", re.UNICODE)
+
+#: Ce qui n'est pas une déformation mais une variante de la même forme : le
+#: pluriel, l'accent, le trait d'union, la casse.
+#:
+#: Sans ce garde-fou, la file se remplissait de questions qui ne pouvaient rien
+#: changer — « J'ai entendu "bailleurs". Fallait-il comprendre "bailleur" ? »,
+#: « J'ai entendu "pre-prod". Fallait-il comprendre "pré-prod" ? ». Un écart de
+#: un, donc sous le seuil, donc posé ; et absurde, parce que la réponse est déjà
+#: connue et qu'elle ne corrige rien. Trois questions sur quatre étaient de
+#: cette nature sur une réunion réelle, ce qui décrédibilise les quatrièmes.
+_PLURIEL = re.compile(r"(?:s|x)$")
+
+
+def forme_canonique(mot: str) -> str:
+    """Ce qu'il reste d'un mot quand on retire ce qui ne le change pas.
+
+    Deux mots de même forme canonique sont le même mot : il n'y a rien à
+    demander. On ne s'en sert **que** pour se taire, jamais pour identifier —
+    la réduction est trop grossière pour ça, et confondrait « bu » et « bus ».
+    """
+    import unicodedata
+
+    depouille = unicodedata.normalize("NFD", mot.casefold())
+    sans_accent = "".join(c for c in depouille if unicodedata.category(c) != "Mn")
+    sans_liaison = re.sub(r"[-'’\s]", "", sans_accent)
+    return _PLURIEL.sub("", sans_liaison)
+
+
+def meme_mot(un: str, autre: str) -> bool:
+    """Les deux ne diffèrent-ils que par le pluriel, l'accent ou la casse ?"""
+    return forme_canonique(un) == forme_canonique(autre)
+
+
+#: Les préfixes qui fabriquent un mot à partir d'un autre. Un terme précédé de
+#: l'un d'eux n'est pas une déformation, c'est un autre mot — et un mot du
+#: français, pas un accident du modèle.
+#:
+#: Relevé sur une réunion réelle : « J'ai entendu "rétablissements". Fallait-il
+#: comprendre "établissement" ? ». Un écart de un, donc sous le seuil ; et sans
+#: objet, puisque « rétablissement » existe.
+PREFIXES = ("re", "ré", "de", "dé", "in", "im", "non", "anti", "pre", "pré",
+            "sur", "sous", "mal", "co")
+
+
+def mot_derive(mot: str, terme: str) -> bool:
+    """Le mot est-il le terme précédé d'un préfixe français ?
+
+    On compare sur les formes canoniques, et l'**élision** compte : « ré- »
+    devant une voyelle donne « rétablissement » et non « réétablissement ». Sans
+    elle, le cas qui a motivé cette règle passait au travers.
+    """
+    court, long = forme_canonique(terme), forme_canonique(mot)
+    if len(long) <= len(court) or not court:
+        return False
+    for prefixe in (forme_canonique(p) for p in PREFIXES):
+        if not long.startswith(prefixe):
+            continue
+        reste = long[len(prefixe):]
+        # Sans élision, puis avec : le terme peut avoir perdu sa voyelle
+        # initiale au contact du préfixe.
+        if reste == court or (court[0] in "aeiouy" and reste == court[1:]):
+            return True
+    return False
 
 
 class Motif(StrEnum):
@@ -131,6 +207,9 @@ class Interrogateur:
     #: Les écritures que le contexte connaît. Comparées en minuscules.
     connus: tuple[str, ...] = ()
     posees: set[str] = field(default_factory=set)
+    #: Combien de fois chaque forme a été entendue, sous sa forme canonique.
+    #: Ce qui revient n'est pas un accident de transcription.
+    _entendus: dict[str, int] = field(default_factory=dict, repr=False)
     _numero: int = 0
 
     def __post_init__(self) -> None:
@@ -151,6 +230,9 @@ class Interrogateur:
 
     def examiner(self, texte: str) -> list[Question]:
         """Les questions que ce passage soulève. Vide la plupart du temps."""
+        # Compter d'abord, juger ensuite : c'est le nombre d'occurrences qui
+        # dit si un mot est voulu, et le mot en cours compte pour une.
+        self._retenir(texte)
         if len(self.posees) >= QUESTIONS_MAXIMUM:
             return []
         trouvees: list[Question] = []
@@ -160,6 +242,8 @@ class Interrogateur:
             nu = mot.casefold()
             candidat = self._terme_proche(nu)
             if candidat is None:
+                continue
+            if self._etabli(nu) or self._deja_dit_juste(candidat):
                 continue
             question = Question(
                 numero=self._numero + 1,
@@ -180,6 +264,33 @@ class Interrogateur:
                 break
         return trouvees
 
+    def _retenir(self, texte: str) -> None:
+        """Compte ce qui a été entendu, avant de juger quoi que ce soit."""
+        for mot in _mots(texte):
+            if len(mot) < LONGUEUR_MINIMALE:
+                continue
+            clef = forme_canonique(mot)
+            self._entendus[clef] = self._entendus.get(clef, 0) + 1
+
+    def _etabli(self, mot_nu: str) -> bool:
+        """Ce mot revient-il assez pour être un mot voulu ?
+
+        Une déformation ne se répète pas à l'identique : le modèle rend
+        « s'enature » une fois, pas trois. Un mot français revient, et c'est ce
+        qui sépare « marge », qui est un mot, de « merve », qui n'en est pas un.
+        """
+        return self._entendus.get(forme_canonique(mot_nu), 0) >= (
+            OCCURRENCES_QUI_ETABLISSENT)
+
+    def _deja_dit_juste(self, terme: str) -> bool:
+        """Le terme attendu a-t-il déjà été transcrit correctement ?
+
+        Si « merge » a été rendu comme tel ailleurs dans la réunion, alors
+        « merde » est probablement bien « merde » : le modèle sait écrire le
+        terme, il n'a pas eu besoin de le déformer ici.
+        """
+        return forme_canonique(terme) in self._entendus
+
     def _terme_proche(self, mot_nu: str) -> str | None:
         """Le terme connu dont ce mot est probablement une déformation.
 
@@ -189,7 +300,14 @@ class Interrogateur:
         meilleur: tuple[int, str] | None = None
         for terme in self.connus:
             terme_nu = terme.casefold()
-            if terme_nu == mot_nu:
+            # Le mot connu, à un pluriel ou un accent près, est le mot connu.
+            # Demander « fallait-il comprendre "bailleur" ? » à quelqu'un qui a
+            # dit « bailleurs » ne corrige rien et fait fermer la file.
+            if terme_nu == mot_nu or meme_mot(mot_nu, terme_nu):
+                return None
+            # « rétablissement » n'est pas « établissement » mal entendu : c'est
+            # un autre mot, et un mot du français.
+            if mot_derive(mot_nu, terme_nu):
                 return None
             if len(terme) < LONGUEUR_MINIMALE:
                 continue
