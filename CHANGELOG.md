@@ -6,6 +6,8 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## New
 
+- **assistant** — give it the glossary of the setting, not only the writer (`0e90d8c`)
+- **diagnostic** — look at the models and the voice bank (`0cbb82e`)
 - **models** — the application fetches its own models (`63ee2db`)
 - **voices** — split two voices joined after the meeting (`cb082c7`)
 - **minutes** — the instructions given during the meeting reach the writer (`d81b996`)
@@ -54,6 +56,11 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **macos** — the build hung for an hour on a password window (`6c63b6e`)
+- **install** — the installer died on its first line, then declared the model broken (`44ee0ab`)
+- **live** — one label per person, and scraps announced with the others (`8c40030`)
+- **tools** — a cache written by an older version stops nothing (`676ef84`)
+- **tools** — the argument names argparse carries in strings (`07ada0b`)
 - **assistant** — stay silent once the meeting is over (`c62c715`)
 - **assistant** — make hearing itself unable to start a loop (`9b4f5cb`)
 - **transcription** — collapse the model's repeat loop (`87f612f`)
@@ -112,6 +119,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Documentation
 
+- name the diagrams in English, and show the one nobody could see (`0e37933`)
 - the window, the command line and the wiring, in English (`2a85ac8`)
 - **adapters** — the tools, in English (`1c1afd1`)
 - **adapters** — the nine biggest adapters, in English (`50e5fd2`)
@@ -141,6 +149,9 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Refactored
 
+- the French words the rename had left in every layer (`63f64a1`)
+- **domain** — the thresholds, the live thread and the questions (`a6fbb88`)
+- **domain** — English identifiers in the domain layer (`47acd9e`)
 - the tools directory and its files, in English (`9f411f3`)
 - name the remaining classes in English (`f30a6bf`)
 - drop the comment blocks, and say the domain in English (`1b3bbda`)
