@@ -943,3 +943,48 @@ measured threshold.
 - **Two voices merged by hand cannot be separated again.** Naming joins, and a
   name can be removed, but the join itself has no undo. It has not cost anything
   since the stitching stopped over-splitting, which is why it waits.
+
+## Retour d'expérience à faire, réunion du 2026-09-10 (10 h 10)
+
+Trente-deux minutes en présentiel, micro pieuvre, l'assistant muet — `actif`
+était faux au démarrage de la veille, défaut corrigé depuis. Ce que le fil
+montrait pendant la séance, relevé en lecture seule :
+
+| | Réunion du 09-09 | Réunion du 10-09 |
+|---|---|---|
+| Voix dans le fil | **111** | **14** dont 13 nommables |
+| Tours affichés | 974 | 371 |
+| Part portée par les quatre voix principales | — | **92 %** |
+
+Le plafond et le seuil mesuré tiennent. Ce qui reste tient à la **banque**, pas
+au découpage :
+
+- « Tanguy » s'affichait sur **trois voix à la fois**, dont deux avec un point
+  d'interrogation. Corrigé : le recollage réunit d'abord les voix que la banque
+  nomme pareil.
+- « Kilian ? » sur une voix de trois tours, « Florent ? » sur une de quatre, alors
+  que ni l'un ni l'autre n'était présent. Corrigé : la banque ne nomme plus une
+  voix de moins de six secondes.
+
+### Ce que le REX doit trancher
+
+- **L'algorithme.** Le rattachement compare une phrase à l'agrégat d'une voix,
+  et rien d'autre. Deux pistes non explorées : tenir compte de **qui vient de
+  parler** — un tour de parole succède rarement à lui-même, et jamais après un
+  silence de dix secondes — et de la **position dans la salle**, que deux canaux
+  donneraient gratuitement.
+- **Les prises et les sondes.** Un micro pieuvre au centre d'une table entend
+  tout le monde au même niveau, ce qui est confortable pour la transcription et
+  ruineux pour la séparation des voix : c'est exactement le cas où le canal ne
+  désigne personne. Deux micros écartés, ou un micro par personne, donneraient
+  une différence de temps d'arrivée dont la séparation ferait un usage
+  autrement plus sûr que le timbre. À mesurer avant d'acheter quoi que ce soit.
+- **L'auto-correction des attributions déjà affichées.** Le fil réunit des voix,
+  mais il ne réattribue jamais une phrase à une autre voix existante. Quand une
+  voix se révèle être une autre, les phrases déjà montrées restent où elles
+  étaient. C'est faisable — le fil est rejouable, `rejouer()` le fait déjà — et
+  personne ne l'a mesuré.
+- **La qualité de la transcription elle-même**, que le REX doit séparer de la
+  séparation des voix : « ça détectait mal les voix » et « les mots étaient
+  faux » ne se réparent pas au même endroit, et le premier ne s'améliore pas en
+  travaillant sur le second.
