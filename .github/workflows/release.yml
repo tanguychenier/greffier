@@ -31,6 +31,7 @@ jobs:
   macos:
     name: macOS bundle
     runs-on: macos-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -48,6 +49,11 @@ jobs:
         # The target is given explicitly: with no argument the script picks
         # /Applications or ~/Applications, and the next step would not know
         # where to look.
+        #
+        # Ad hoc on purpose: there is no certificate on a runner, and asking
+        # the keychain to trust one opens a password window nobody can answer.
+        env:
+          GREFFIER_SIGNATURE: '-'
         run: bash macos/construire.sh "$RUNNER_TEMP/Greffier.app"
       - name: Zip it
         run: |
@@ -67,6 +73,7 @@ jobs:
   windows:
     name: Windows executable
     runs-on: windows-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -109,6 +116,7 @@ jobs:
   linux:
     name: Linux archive
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Archive the sources and their installer
