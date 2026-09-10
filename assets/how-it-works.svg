@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 340" width="900" height="340"
-     role="img" aria-labelledby="titre desc">
-  <title id="titre">How Greffier works, from the room to the minutes</title>
+     role="img" aria-labelledby="title desc">
+  <title id="title">How Greffier works, from the room to the minutes</title>
   <desc id="desc">Two audio channels are captured, transcribed, cut into
   speaking turns and matched against a voice bank. Names spoken during the
   meeting are crossed with the voice prints. The assistant answers when called
@@ -23,11 +23,11 @@
     .badge  { fill: #1d2530; stroke: #2f3a49; stroke-width: 1; }
     .badget { fill: #7f8b9a; font: 600 9px ui-sans-serif, system-ui, sans-serif; }
 
-    /* Le flux : un trait qui se remplit, puis repart. Une seule animation par
-       segment, décalée, pour que l'oeil suive le sens de la chaîne. */
+    /* The flow: a line that fills, then starts over. One animation per segment,
+       offset, so the eye follows the direction of the chain. */
     .dash { stroke-dasharray: 90; stroke-dashoffset: 90;
-            animation: tirer 7s linear infinite; }
-    @keyframes tirer {
+            animation: pull 7s linear infinite; }
+    @keyframes pull {
       0%   { stroke-dashoffset: 90; }
       18%  { stroke-dashoffset: 0; }
       92%  { stroke-dashoffset: 0; }
@@ -39,9 +39,9 @@
     .s4 { animation-delay: 1.65s; }
     .s5 { animation-delay: 2.2s; }
 
-    /* Les cartes s'allument à leur tour. */
-    .lit { animation: allumer 7s linear infinite; }
-    @keyframes allumer {
+    /* The cards light up in turn. */
+    .lit { animation: light-up 7s linear infinite; }
+    @keyframes light-up {
       0%, 8%    { stroke: #262b36; }
       12%, 88%  { stroke: #3c4657; }
       100%      { stroke: #262b36; }
@@ -52,9 +52,9 @@
     .c4 { animation-delay: 1.65s; }
     .c5 { animation-delay: 2.2s; }
 
-    /* Les deux canaux pulsent au départ : c'est là que tout commence. */
+    /* The two channels pulse at the start: that is where everything begins. */
     .pulse { animation: battre 2.4s ease-in-out infinite; transform-origin: center; }
-    @keyframes battre { 0%,100% { opacity: .45; } 50% { opacity: 1; } }
+    @keyframes beat { 0%,100% { opacity: .45; } 50% { opacity: 1; } }
     .p2 { animation-delay: .5s; }
 
     @media (prefers-reduced-motion: reduce) {
@@ -111,13 +111,13 @@
     <text class="sub" x="14" y="68">leave the machine</text>
   </g>
 
-  <!-- Le flux entre les étapes -->
+  <!-- The flow between the steps -->
   <path class="flow dash s1" d="M156 134 H196"/>
   <path class="flow dash s2" d="M328 134 H368"/>
   <path class="flow dash s3" d="M500 134 H540"/>
   <path class="flow dash s4" d="M672 134 H712"/>
 
-  <!-- L'assistant, en dessous : il écoute tout et répond quand on l'appelle -->
+  <!-- The assistant, below: it listens to everything and answers when called -->
   <g transform="translate(196,220)">
     <rect class="card voice" width="304" height="72" rx="8" fill="#151a1f"/>
     <text class="step" x="14" y="20" style="fill:#a8813f">CALLED BY NAME</text>
@@ -127,7 +127,7 @@
   <path class="voice dash s5" d="M262 172 V220"/>
   <path class="voice dash s5" d="M434 172 V220"/>
 
-  <!-- Correction en séance -->
+  <!-- Fixing a name during the meeting -->
   <g transform="translate(540,220)">
     <rect class="card" width="336" height="72" rx="8"/>
     <text class="step" x="14" y="20">DURING THE MEETING</text>
@@ -136,7 +136,7 @@
   </g>
   <path class="rule" d="M606 172 V220"/>
 
-  <!-- Légende -->
+  <!-- Legend -->
   <g transform="translate(24,42)">
     <text class="title" x="0" y="0">From the room to the minutes</text>
     <text class="legend" x="0" y="18">Solid green: stays on the machine. Dashed amber: may leave, only if you ask.</text>
