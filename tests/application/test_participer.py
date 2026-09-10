@@ -182,3 +182,42 @@ class TestEchecs:
         rendu = assistant.repondre(
             Occasion(raison=Raison.APPELE, propos="?", ne_le=1.0), maintenant=2.0)
         assert not rendu.prononce and traces == ["Oui, je vous entends très bien."]
+
+
+class TestUnProposDejaEcritNeRepasseParPersonne:
+    """Une phrase écrite pour être dite n'a rien à gagner d'un aller-retour.
+
+    Le remerciement qui nomme la voix — « je mets Hugo sur cette voix » — était
+    repassé par le modèle, qui le remplaçait par une politesse vague et perdait
+    la seule information qui comptait.
+    """
+
+    def test_le_remerciement_est_prononce_mot_pour_mot(self):
+        voix, cerveau = VoixFactice(), CerveauFactice("Parfait, je vous laisse.")
+        assistant = Participant(
+            nom="Lucie", voix=voix, cerveau=cerveau,
+            nommer=lambda _v, _p: True,
+        )
+        assistant.attente = assistant.demander_qui_parle("12", maintenant=100.0)
+        suite = assistant.tour([dit("c'est Hugo", 104.0, 105.0)], maintenant=108.0)
+        assert suite is not None
+        rendu = assistant.repondre(suite, maintenant=108.0)
+        assert rendu.propos == "Merci, c'est noté : je mets Hugo sur cette voix."
+        assert cerveau.demandes == [], "le modèle a été appelé pour rien"
+
+    def test_la_question_sur_une_voix_ne_passe_pas_non_plus(self):
+        """Elle doit être immédiate : rien de distant ne la formule."""
+        cerveau = CerveauFactice("autre chose")
+        assistant = Participant(nom="Lucie", voix=VoixFactice(), cerveau=cerveau)
+        question = assistant.demander_qui_parle("7", maintenant=50.0)
+        rendu = assistant.repondre(question, maintenant=50.0)
+        assert "prénom" in rendu.propos and cerveau.demandes == []
+
+    def test_une_vraie_question_passe_toujours_par_le_modele(self):
+        cerveau = CerveauFactice("Oui, je vous entends.")
+        assistant = Participant(nom="Lucie", voix=VoixFactice(), cerveau=cerveau,
+                                contexte=lambda: "réunion")
+        rendu = assistant.repondre(
+            Occasion(raison=Raison.APPELE, propos="tu nous entends ?", ne_le=1.0),
+            maintenant=2.0)
+        assert rendu.propos == "Oui, je vous entends." and len(cerveau.demandes) == 1

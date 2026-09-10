@@ -251,6 +251,7 @@ class Participant:
                 propos=f"Merci, c'est noté : je mets {prenom} sur cette voix.",
                 ne_le=a,
                 sujet=f"merci:{voix}",
+                tel_quel=True,
             )
         return None
 
@@ -294,7 +295,9 @@ class Participant:
         n'a pas besoin d'un modèle, et faire dépendre cette question d'un appel
         distant la rendrait lente et faillible là où elle doit être immédiate.
         """
-        if occasion.raison is not Raison.APPELE or self.cerveau is None:
+        if occasion.tel_quel or occasion.raison is not Raison.APPELE:
+            return occasion.propos
+        if self.cerveau is None:
             return occasion.propos
         matiere = ""
         if self.contexte is not None:
@@ -381,6 +384,7 @@ class Participant:
                    "parler. Est-ce que cette personne peut dire son prénom ?",
             ne_le=maintenant,
             sujet=f"voix:{voix}",
+            tel_quel=True,
         )
 
     def consignes(self) -> str:
