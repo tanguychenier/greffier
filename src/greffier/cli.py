@@ -899,6 +899,10 @@ def voice(
     name: str = typer.Option(None, "--nom", help="Nom à lui donner"),
     accept: bool = typer.Option(False, "--accepter-propositions",
                                   help="Valider d'un coup les noms devinés"),
+    separer_voix: str = typer.Option(
+        None, "--separer",
+        help="Défaire la dernière réunion de voix qui a produit cette voix",
+    ),
     config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
 ) -> None:
     """Montre les voix d'une réunion, et permet de les nommer.
@@ -919,6 +923,18 @@ def voice(
             typer.echo("Aucune proposition à valider.")
         else:
             _regenerate(config, identifier)
+        return
+
+    if separer_voix:
+        try:
+            detail = naming(config).split(identifier, separer_voix)
+        except KeyError as souci:
+            typer.secho(str(souci), fg=typer.colors.RED, err=True)
+            raise typer.Exit(1) from souci
+        typer.secho(f"✓ la voix {separer_voix} est séparée", fg=typer.colors.GREEN)
+        typer.echo("Les deux voix sont de nouveau distinctes dans la réunion.")
+        typer.echo("« greffier voix » les liste, « --nommer » en nomme une.")
+        _regenerate(config, identifier)
         return
 
     if nommer_voix and name:
