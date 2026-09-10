@@ -115,6 +115,14 @@ SITE="$CONTENU/lib/python$VERSION/site-packages"
 mkdir -p "$CONTENU/MacOS" "$CONTENU/Resources"
 [ -f "$DEPOT/macos/Greffier.icns" ] && cp "$DEPOT/macos/Greffier.icns" "$CONTENU/Resources/"
 
+# Constate AVANT de construire, parce que construire tue l'application en
+# cours : macOS abat un processus dont l'executable signe vient d'etre
+# remplace. Le controle se faisait apres, donc il voyait toujours « pas
+# lancee » et ne relancait jamais — mesure du 2026-09-10, ou le poste est
+# reste sans application juste apres une reunion.
+TOURNAIT=0
+pgrep -f "$APP/Contents/MacOS/Greffier" >/dev/null 2>&1 && TOURNAIT=1
+
 echo "→ interpréteur et bibliothèque standard"
 cp "$BASE_PREFIX/bin/python$VERSION" "$EXECUTABLE"
 chmod 755 "$EXECUTABLE"
@@ -282,7 +290,7 @@ echo "   journal : ~/Library/Logs/Greffier.log"
 # Jamais pendant une reunion. Le fichier d'etat le dit, et une reconstruction
 # n'a aucune raison de couper un enregistrement : on previent, et on laisse la
 # relance a qui saura quand.
-if pgrep -f "$APP/Contents/MacOS/Greffier" >/dev/null 2>&1; then
+if [ "$TOURNAIT" = "1" ]; then
   ETAT="$(python3 - <<'ETATPY'
 import json
 import os
@@ -330,8 +338,33 @@ ETATPY
       pgrep -f "$APP/Contents/MacOS/Greffier" >/dev/null 2>&1 || break
       sleep 0.25
     done
-    pkill -f "$APP/Contents/MacOS/Greffier" >/dev/null 2>&1
-    open -a "$APP"
-    echo "   relancee sur cette version"
+    # « || true » et non par elegance : sous `set -e`, un pkill qui ne trouve
+    # rien rend 1 et tuait le script **avant** la relance. Or ne rien trouver
+    # est le cas normal — l'application vient de quitter proprement juste
+    # au-dessus. Chaque reconstruction laissait donc le poste sans
+    # application, en annoncant l'avoir relancee. Mesure du 2026-09-10.
+    pkill -f "$APP/Contents/MacOS/Greffier" >/dev/null 2>&1 || true
+    # Verifiee, et non annoncee. Mesure du 2026-09-10 : l'ancienne instance
+    # affichait une fenetre modale, a refuse « quit », a ete tuee — et
+    # « open » a rendu 0 sans rien lancer, parce que macOS considere encore
+    # l'application comme en cours d'extinction. Le script annoncait la relance
+    # et laissait le poste sans application, juste apres une reunion.
+    RELANCEE=0
+    for _ in 1 2 3; do
+      open -a "$APP" >/dev/null 2>&1
+      for _ in $(seq 1 12); do
+        if pgrep -f "$APP/Contents/MacOS/Greffier" >/dev/null 2>&1; then
+          RELANCEE=1
+          break
+        fi
+        sleep 0.5
+      done
+      [ "$RELANCEE" = "1" ] && break
+    done
+    if [ "$RELANCEE" = "1" ]; then
+      echo "   relancee sur cette version"
+    else
+      echo "   ⚠️  l'application n'a pas redemarre : « open -a Greffier »." >&2
+    fi
   fi
 fi
