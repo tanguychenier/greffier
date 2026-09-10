@@ -240,3 +240,79 @@ class TestPrenomsEprouves:
         for prenom in PRENOMS:
             for piege in pieges:
                 assert not appelee(piege, prenom), f"{prenom} sur « {piege} »"
+
+
+class TestLesClefsDuFichierNeBougentPas:
+    """Le fichier de configuration des postes doit rester lisible.
+
+    Chaque champ porte un `validation_alias` : le nom du champ en Python peut
+    passer à l'anglais sans que la clef du fichier change. Une mise à jour qui
+    rendrait illisible le `config.toml` d'un poste effacerait ses réglages en
+    silence, et il n'y a pas de raison de le faire subir à qui que ce soit.
+    """
+
+    #: Un fichier tel qu'un poste en porte aujourd'hui.
+    EXISTANT = """
+[audio]
+micro = "Micro MacBook Pro"
+
+[transcription]
+moteur = "whisper.cpp"
+modele = "large-v3"
+vocabulaire = ["Jira", "recette"]
+
+[compte_rendu]
+moteur = "claude"
+destinataire = "moi@exemple.fr"
+delai = 1800
+
+[assistant]
+actif = true
+nom = "Lucie"
+voix = "kokoro"
+initiative = false
+
+[apparence]
+theme = "sombre"
+"""
+
+    def _config(self, tmp_path):
+        from greffier.adaptateurs.configuration import Config
+
+        fichier = tmp_path / "config.toml"
+        fichier.write_text(self.EXISTANT, encoding="utf-8")
+        return Config.charger(fichier)
+
+    def test_chaque_section_est_relue(self, tmp_path):
+        config = self._config(tmp_path)
+        assert config.audio.micro == "Micro MacBook Pro"
+        assert config.transcription.modele == "large-v3"
+        assert config.transcription.vocabulaire == ["Jira", "recette"]
+        assert config.compte_rendu.destinataire == "moi@exemple.fr"
+        assert config.compte_rendu.delai == 1800
+        assert config.assistant.nom == "Lucie"
+        assert config.assistant.voix == "kokoro"
+        assert config.assistant.actif is True
+        assert config.assistant.initiative is False
+        assert config.apparence.theme == "sombre"
+
+    def test_les_clefs_reecrites_sont_les_memes(self, tmp_path):
+        """Ce qui est réécrit doit pouvoir être relu : c'est le vrai cycle."""
+        from greffier.adaptateurs.configuration import Config, rendre
+
+        rendu = rendre(self._config(tmp_path))
+        deuxieme = tmp_path / "encore.toml"
+        deuxieme.write_text(rendu, encoding="utf-8")
+        relu = Config.charger(deuxieme)
+        assert relu.assistant.nom == "Lucie"
+        assert relu.compte_rendu.destinataire == "moi@exemple.fr"
+        assert relu.apparence.theme == "sombre"
+
+    def test_une_clef_inconnue_ne_fait_pas_tomber(self, tmp_path):
+        """Un réglage retiré d'une version à l'autre ne doit rien casser."""
+        from greffier.adaptateurs.configuration import Config
+
+        fichier = tmp_path / "config.toml"
+        fichier.write_text('[assistant]\nnom = "Alice"\nreglage_disparu = 3\n',
+                           encoding="utf-8")
+        assert Config.charger(fichier).assistant.nom == "Alice"
