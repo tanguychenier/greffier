@@ -149,8 +149,17 @@ class Watcher:
         self.publish(nouvelles)
         return nouvelles
 
-    def transcription_turn(self, ou: Position, job: Path) -> list[Suggestion]:
-        """Transcribes what has been recorded since the last slice."""
+    def transcription_turn(
+        self, ou: Position, job: Path, laisser_parler: bool = True
+    ) -> list[Suggestion]:
+        """Transcribes what has been recorded since the last slice.
+
+        `laisser_parler` false on the last pass: the meeting is over, and the
+        assistant answering out loud in a room that has just been told the
+        meeting is finished would be a strange thing to watch. The sentence is
+        still transcribed and still lands in the minutes — only the voice is
+        held back.
+        """
         if self.transcriber is None:
             return []
         start = max(0.0, self.traite - ou.decalage - OVERLAP, ou.ecrit - TRANCHE_MAXIMALE)
@@ -195,7 +204,8 @@ class Watcher:
         self.publish(nouvelles)
         if self.follower is not None:
             self.follower.take_in(tranche, utterances, decalage)
-        self.assistant_turn(recalees, self.traite)
+        if laisser_parler:
+            self.assistant_turn(recalees, self.traite)
         return nouvelles
 
     def assistant_turn(self, utterances: list[Utterance], now: float) -> None:
@@ -266,6 +276,8 @@ class Watcher:
                 self.transcription_turn(ou, job)
             pause(PERIODE_PRESSE_PAPIER)
         self.last_pass(job)
+        if self.assistant_of is not None:
+            self.assistant_of.stop()
         return self.watch_rules.propositions
 
     def last_pass(self, job: Path) -> list[Suggestion]:
@@ -273,7 +285,7 @@ class Watcher:
         ou = self.situer() if self.situer is not None else None
         if ou is None or ou.overall - self.traite < TRANCHE_MINIMALE_S:
             return []
-        return self.transcription_turn(ou, job)
+        return self.transcription_turn(ou, job, laisser_parler=False)
 
     def _is_time(self, ou: Position) -> bool:
         """Is it time to transcribe?"""

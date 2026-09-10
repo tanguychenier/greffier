@@ -495,3 +495,69 @@ class TestElleALeDroitDeChercher:
         cerveau = assistant(Config(conversation={"recherche_web": False}))
         assert isinstance(cerveau, ClaudeWriter)
         assert cerveau.outils == ()
+
+
+class TestStoppedForGood:
+    """`stop()` is the end of the meeting, and it must reach a remark in flight.
+
+    Phrasing happens in a separate thread and takes seconds: cutting the
+    speaker is not enough, because the thread comes back afterwards and speaks
+    into a room where the meeting is over.
+    """
+
+    def _elle(self, cerveau=None):
+        return AssistantSettings(
+            name="Lucie", voice=FakeVoiceAdapter(), cerveau=cerveau or FakeBrain(),
+            manners=Manners(active=True),
+        )
+
+    def _appel(self, now=12.0):
+        return Opening(because=Because.APPELE, remark="Lucie, une idée ?", born_at=now)
+
+    def test_nothing_is_pronounced_after_a_stop(self):
+        elle = self._elle()
+        elle.stop()
+        assert elle.answer(self._appel(), now=12.0).remark == ""
+        assert elle.voice.remark == []
+
+    def test_the_speaker_is_cut_by_the_stop(self):
+        elle = self._elle()
+        coupee = []
+        elle.voice.go_quiet = lambda: coupee.append(True)
+        elle.stop()
+        assert coupee == [True]
+
+    def test_a_remark_phrased_during_the_stop_stays_in(self):
+        """The thread was already inside the brain when the meeting ended."""
+        elle = self._elle()
+
+        class BrainThatEnds(FakeBrain):
+            def write_up(self, text):
+                elle.stop()
+                return super().write_up(text)
+
+        elle.cerveau = BrainThatEnds()
+        assert elle.answer(self._appel(), now=12.0).remark == ""
+        assert elle.voice.remark == []
+
+    def test_a_stop_without_a_voice_does_not_raise(self):
+        elle = self._elle()
+        elle.voice = None
+        elle.stop()
+        assert elle.stopped
+
+    def test_a_speaker_that_fails_to_stop_does_not_raise(self):
+        """The neural voice goes through a subprocess: killing it can fail."""
+        elle = self._elle()
+
+        def tomber():
+            raise OSError("kill: no such process")
+
+        elle.voice.go_quiet = tomber
+        elle.stop()
+        assert elle.stopped
+
+    def test_before_the_stop_she_does_answer(self):
+        elle = self._elle()
+        assert elle.answer(self._appel(), now=12.0).remark
+        assert elle.voice.remark
