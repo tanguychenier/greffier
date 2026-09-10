@@ -1,17 +1,7 @@
-"""Ce qu'il faut faire quand le matériel audio change pendant une réunion.
+"""What to do when the audio hardware changes mid-recording.
 
-Un périphérique agrégé macOS référence un **matériel précis**. Brancher un
-casque en cours de réunion ne le fait pas entrer dans l'agrégé, et le débrancher
-en retire le micro maître : dans les deux cas la capture continue, sur le mauvais
-appareil ou sur rien, sans que rien ne l'annonce.
-
-C'est arrivé sur une réunion réelle : le casque a été branché après le début, la
-voix de la personne qui enregistrait est restée 12 dB sous celle des autres,
-puis a été effacée au mixage. Le compte rendu ne l'a jamais mentionnée.
-
-Ce module ne parle ni à CoreAudio ni à ffmpeg : il compare deux états du matériel
-et dit quoi faire. C'est ce qui permet d'éprouver les onze situations ci-dessous
-sans brancher un seul câble.
+Plugging in a headset means rebuilding the capture device, so opening a new
+file. Doing that blindly loses the meeting; refusing it records silence.
 """
 
 from __future__ import annotations
@@ -22,7 +12,7 @@ from enum import Enum
 
 @dataclass(frozen=True)
 class Device:
-    """Une entrée ou une sortie audio, telle que le système la présente."""
+    """An audio input or output, as the system presents it."""
 
     name: str
     uid: str
@@ -35,7 +25,7 @@ class Device:
 
 @dataclass(frozen=True)
 class Hardware:
-    """L'état du matériel audio à un instant donné."""
+    """The state of the audio hardware at one instant."""
 
     devices: tuple[Device, ...] = ()
 
@@ -50,7 +40,7 @@ class Hardware:
         return tuple(p for p in self.devices if p.captured)
 
 class Action(Enum):
-    """Ce que l'enregistrement doit faire du changement constaté."""
+    """What the recording should do about the change observed."""
 
     RIEN = "rien"
     RECONSTRUIRE = "reconstruire"
@@ -70,12 +60,7 @@ def _headset_usable(materiel: Hardware, prefere: str) -> Device | None:
     return None
 
 def _fallback_mic(materiel: Hardware, exclus: tuple[str, ...]) -> Device | None:
-    """Le meilleur micro disponible, hors ceux qu'on veut éviter.
-
-    « Meilleur » veut dire : un micro qui n'est pas une boucle logicielle. Choisir
-    BlackHole comme micro produirait un enregistrement où la personne qui parle
-    n'est jamais captée, ce qui est exactement le défaut qu'on corrige.
-    """
+    """The best mic available, excluding those to be avoided."""
     candidats = [
         p for p in materiel.mics
         if p.name not in exclus and not _is_loopback(p.name) and not _is_aggregated(p)
@@ -87,12 +72,7 @@ def _fallback_mic(materiel: Hardware, exclus: tuple[str, ...]) -> Device | None:
     return (casques or integres or candidats)[0]
 
 def _is_aggregated(peripherique: Device) -> bool:
-    """Les périphériques que Greffier fabrique lui-même.
-
-    L'agrégé expose trois entrées et n'est ni une boucle ni un appareil intégré :
-    sans ce filtre il passait pour le meilleur micro externe disponible, et
-    Greffier se proposait de se mettre lui-même dans son propre agrégé.
-    """
+    """The devices the tool builds itself."""
     return peripherique.uid.startswith("com.reunions.")
 
 def _is_loopback(name: str) -> bool:
@@ -103,18 +83,14 @@ def _est_integre(name: str) -> bool:
 
 @dataclass
 class WatchRules:
-    """Suit le matériel pendant un enregistrement et dit quand réagir.
-
-    `micro_voulu` est le micro que l'agrégé est censé porter. `agrege` est le nom
-    du périphérique que ffmpeg ouvre.
-    """
+    """Follows the hardware during a recording and says when to react."""
 
     micro_voulu: str
     agrege: str = "Reunion Entree"
     events: list[str] = field(default_factory=list)
 
     def examine(self, avant: Hardware, apres: Hardware) -> Decision:
-        """Compare deux états du matériel et décide."""
+        """Compares two hardware states and decides."""
         if avant.devices == apres.devices:
             return Decision(Action.RIEN)
 
@@ -167,7 +143,7 @@ PLANCHER_MUET_DB = -68.0
 
 @dataclass(frozen=True)
 class MicChoice:
-    """Le micro retenu après écoute, et ce qu'il faut en dire."""
+    """The mic kept after listening, and what needs saying about it."""
 
     name: str
     niveau_db: float
@@ -178,28 +154,11 @@ class MicChoice:
 def choose_by_listening(
     essais: dict[str, float], casques: frozenset[str] = frozenset()
 ) -> MicChoice | None:
-    """Retient le micro qui captera le mieux **la réunion**, après écoute.
+    """Keeps the mic that will best capture **the meeting**, after listening.
 
-    On compare plutôt que de trancher sur un seuil absolu : le bruit d'une pièce
-    varie trop d'un lieu à l'autre pour qu'un chiffre fixe décide seul. Le
-    plancher ne sert qu'à prévenir quand *aucun* candidat ne capte.
-
-    Mesuré sur un poste réel : un casque Jabra branché, reconnu, gain à 1,0,
-    rendait -78 dB parce que le bouton de sourdine de son boîtier était enfoncé,
-    quand le micro intégré rendait -58 dB. Greffier retenait le casque et
-    enregistrait une heure de silence, puis accusait l'autorisation micro. D'où
-    l'écoute.
-
-    **Mais le plus fort à froid n'est pas le meilleur en réunion.** Le
-    2026-09-09, le même Jabra a été écarté à -68 dB au profit du micro intégré
-    à -49 dB : le casque était simplement posé sur le bureau, à un mètre de la
-    bouche. Une fois porté, il aurait été de loin le meilleur — il l'est
-    toujours, un micro de casque étant à trois centimètres de la bouche là où
-    celui d'un portable est à cinquante et capte toute la pièce.
-
-    La règle est donc : **un casque qui capte quelque chose l'emporte**, même
-    plus faible. On ne se rabat sur l'intégré que si le casque est muet, ce que
-    l'écoute sait dire — et c'était tout son objet.
+    A mic can be plugged in, recognised, turned up, and still mute: USB headsets
+    have a mute button on the cable. Choosing without listening yields a whole
+    meeting of silence.
     """
     if not essais:
         return None
@@ -224,11 +183,7 @@ def choose_by_listening(
     )
 
 def candidates_to_listen_to(materiel: Hardware, prefere: str) -> list[str]:
-    """Les micros qui valent une écoute, le préféré d'abord.
-
-    BlackHole et les agrégés de Greffier sont exclus : le premier ne capte
-    jamais une bouche, le second est ce qu'on est en train de construire.
-    """
+    """The mics worth a listen, the preferred one first."""
     utiles = [
         p.name for p in materiel.mics
         if not _is_loopback(p.name) and not _is_aggregated(p)
@@ -246,31 +201,11 @@ def candidates_to_listen_to(materiel: Hardware, prefere: str) -> list[str]:
     )
 
 def headset_present(materiel: Hardware, name: str) -> bool:
-    """Raccourci lisible pour les vérifications d'avant-enregistrement."""
+    """Readable shortcut for the pre-recording checks."""
     return _headset_usable(materiel, name) is not None
 
 def headsets_among(materiel: Hardware) -> frozenset[str]:
-    """Les micros qui sont, selon toute vraisemblance, des micros de casque.
-
-    L'indice est qu'un **même nom** capte et restitue : un casque a un écouteur
-    et un micro, un micro de table n'a que le micro. Le rapprochement se fait
-    par le nom et non par périphérique, parce qu'un casque USB est souvent
-    présenté comme deux appareils distincts — sur ce poste, le Jabra apparaît en
-    « jabra:1 » pour l'entrée et « jabra:2 » pour la sortie. Un critère
-    « capte et restitue » sur un seul appareil ne l'aurait jamais reconnu.
-
-    L'entrée doit être **mono**, et c'est ce qui sépare un casque d'une carte
-    son générique. Mesuré sur ce poste : le Jabra expose une entrée à 1 canal et
-    une sortie à 2, tandis qu'une « Realtek USB2.0 Audio » — station d'accueil ou
-    écran — expose une entrée à 2 canaux et une sortie à 4. Sans ce critère,
-    cette carte passait pour un casque et serait préférée au micro intégré alors
-    que rien n'est branché dessus. `_micro_de_repli` dit déjà la même chose : une
-    entrée USB stéréo est presque toujours une entrée ligne.
-
-    Sont exclus les boucles logicielles, les agrégés fabriqués par l'outil, et
-    le matériel intégré : sur un portable, le micro et les haut-parleurs portent
-    des noms différents, mais l'ensemble n'est pas un casque pour autant.
-    """
+    """The mics that are, in all likelihood, headset mics."""
     sorties = {
         p.name for p in materiel.devices
         if p.sorties > 0 and not _is_loopback(p.name) and not _is_aggregated(p)
@@ -284,11 +219,7 @@ def headsets_among(materiel: Hardware) -> frozenset[str]:
     )
 
 def advised_mic(materiel: Hardware, prefere: str) -> str:
-    """Micro à mettre dans l'agrégé, maintenant, au vu de ce qui est branché.
-
-    Sert au démarrage : plutôt que de refuser de démarrer parce que le casque
-    habituel est absent, on prend le meilleur micro réellement présent.
-    """
+    """Mic to put in the aggregate now, given what is plugged in."""
     if headset_present(materiel, prefere):
         return prefere
     repli = _fallback_mic(materiel, exclus=(prefere,))

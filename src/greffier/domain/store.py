@@ -1,18 +1,4 @@
-"""Reconnaître ce qu'un fichier déposé est, et ce qu'on peut en faire.
-
-Déposer un fichier sur l'outil ne dit pas ce qu'il faut en faire. Un
-enregistrement Teams est une réunion à transcrire ; un compte rendu écrit par
-un collègue est du contexte ; un export de tickets n'est ni l'un ni l'autre.
-Traiter tout de la même façon produirait un fourre-tout qui n'organise rien —
-ce qui est exactement le contraire de ce qu'on demande à l'outil.
-
-D'où une **proposition**, jamais une décision : le classement s'affiche, et
-c'est un humain qui valide. Une vidéo de deux heures mal classée coûte une
-transcription pour rien ; un document classé en réunion produit un compte rendu
-d'un texte que personne n'a prononcé.
-
-Ce module ne lit aucun fichier : il regarde un nom et une taille, et propose.
-"""
+"""Recognising what a dropped file is, and what can be done with it."""
 
 from __future__ import annotations
 
@@ -22,7 +8,7 @@ from pathlib import Path
 
 
 class Destination(StrEnum):
-    """Ce qu'on peut faire d'un fichier déposé."""
+    """What can be done with a dropped file."""
 
     MEETING = "réunion"
     VIDEO = "vidéo"
@@ -40,7 +26,7 @@ TAILLE_MINIMALE_SON = 200_000
 
 @dataclass(frozen=True, slots=True)
 class Suggestion:
-    """Ce qu'on propose de faire d'un fichier, et pourquoi."""
+    """What is proposed for a file, and why."""
 
     file: Path
     destin: Destination
@@ -56,13 +42,7 @@ def offer(
     taille: int | None = None,
     outils: frozenset[str] = frozenset(),
 ) -> Suggestion:
-    """Ce qu'on propose de faire de ce fichier.
-
-    `outils` porte les commandes disponibles sur le poste — « ffmpeg »,
-    « pdftotext », « textutil ». Un destin qui en réclame une absente est
-    proposé quand même, avec ce qui manque : dire « il faudrait ffmpeg » est
-    plus utile que faire disparaître le fichier de la liste.
-    """
+    """What is proposed for this file."""
     suffixe = file.suffix.casefold()
 
     if suffixe in SONS:
@@ -98,7 +78,7 @@ def offer(
     )
 
 def summarise(propositions: list[Suggestion]) -> str:
-    """Une phrase qui dit ce que le lot va devenir, avant validation."""
+    """A sentence saying what the batch will become, before approval."""
     if not propositions:
         return "Aucun fichier."
     par_destin: dict[Destination, int] = {}
