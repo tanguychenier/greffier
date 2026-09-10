@@ -15,7 +15,7 @@ c'est Sandy`, `merci Jacques`, `Jacques, tu peux…`. The transcription language
 is a setting and whisper handles a hundred of them, but nothing will pick names
 out of an English meeting.
 
-![Greffier's chain: record, transcribe, separate the voices, name them, write, send](assets/chaine.svg)
+![Greffier's chain: record, transcribe, separate the voices, name them, write, send](assets/chain.svg)
 
 ## What it does
 
@@ -373,7 +373,7 @@ greffier archiver                      # compresses processed recordings
 
 ### The window
 
-![The five views of the window: Meetings, Live, Voices, Conversation, Settings](assets/vues.svg)
+![The five views of the window: Meetings, Live, Voices, Conversation, Settings](assets/views.svg)
 
 ```sh
 greffier fenetre        # or double-click Greffier in the Launchpad
@@ -415,6 +415,10 @@ written after listening to it. Asking beforehand would assume you know what a
 meeting is going to be about.
 
 ## Architecture
+
+![What runs where: two channels, whisper, pyannote and TitaNet, the voice bank,
+the assistant answering when called, and the only step that may leave the
+machine](assets/how-it-works.svg)
 
 Hexagonal — the domain at the centre, the techniques around it.
 
