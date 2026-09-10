@@ -485,16 +485,23 @@ class Fenetre:
         # onglet de configuration au milieu d'une phrase.
         barre = tk.Frame(dedans, bg=c.carte)
         barre.grid(row=1, column=0, sticky="ew", pady=(0, 14))
-        barre.columnconfigure(1, weight=1)
+        barre.columnconfigure(2, weight=1)
         self.bouton_participation = Bouton(
             barre, self._intitule_participation(), self._basculer_la_participation,
             self.couleurs, largeur=210, hauteur=34,
             principal=self.config.assistant.actif,
         )
         self.bouton_participation.grid(row=0, column=0, sticky="w")
+        # Le même bouton que dans l'onglet Conversation, et c'est voulu : un
+        # document se fournit **pendant** la réunion, donc depuis l'onglet où
+        # l'on est pendant la réunion. Le chercher dans un autre onglet revient
+        # à ne pas l'avoir.
+        Bouton(barre, "Fournir un document", self._fournir_un_document,
+               self.couleurs, largeur=190, hauteur=34).grid(
+                   row=0, column=1, sticky="w", padx=(10, 0))
         self.mot_participation = self._texte(
-            barre, "", taille=11, pale=True, wraplength=520, justify="left")
-        self.mot_participation.grid(row=0, column=1, sticky="w", padx=(14, 0))
+            barre, "", taille=11, pale=True, wraplength=420, justify="left")
+        self.mot_participation.grid(row=0, column=2, sticky="w", padx=(14, 0))
         self._dire_la_participation()
 
         cadre = tk.Frame(dedans, bg=c.carte)
