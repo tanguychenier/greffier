@@ -149,3 +149,26 @@ class TestChemins:
     def test_le_chemin_des_donnees_est_configurable(self, monkeypatch):
         monkeypatch.setenv("GREFFIER_CHEMINS__DONNEES", "/ailleurs")
         assert Config().chemins.donnees == Path("/ailleurs")
+
+
+class TestLAssistantEstActifParDefaut:
+    """Il suit la réunion et répond : c'est son travail.
+
+    Le jour où l'interface a cessé d'exposer ce réglage — un seul bouton, pour
+    la voix — plus rien ne permettait de l'activer. L'assistant ne répondait pas
+    et personne ne pouvait savoir pourquoi. Constaté en réunion, ce qui est le
+    pire moment.
+    """
+
+    def test_il_est_actif_sans_rien_regler(self):
+        from greffier.adaptateurs.configuration import Config
+
+        assert Config().assistant.actif
+
+    def test_mais_il_ne_parle_pas_de_lui_meme(self):
+        """Répondre est sans risque ; parler de soi-même se décide."""
+        from greffier.adaptateurs.configuration import Config
+
+        assistant = Config().assistant
+        assert not assistant.initiative
+        assert not assistant.demander_les_voix

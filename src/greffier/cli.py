@@ -934,6 +934,7 @@ def assister(
         relire_l_amorce=lambda: contexte(config).amorce(),
         interroger=interroger,
         participant=lui,
+        initiative=config.assistant.initiative,
         relire_la_participation=_relire_les_boutons,
         rendre_la_voix=lambda: voix_de_l_assistant(Config()),
         periode_tranche=config.direct.periode,
