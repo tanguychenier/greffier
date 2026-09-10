@@ -314,7 +314,11 @@ class TestReunionPubliee:
             {"genre": GENRE_TOUR, "numero": 2, "debut": 2.0, "fin": 4.0,
              "texte": "salut", "voix": "v2", "nom": None,
              "certitude": "inconnue", "rang": 2},
-            {"genre": GENRE_CORRECTION, "nom": "Sophie", "voix": "v2", "numeros": [2]},
+            # « toute_la_voix » explicite, comme le journal l'écrit désormais :
+            # le déduire du nombre de numéros rejouait en « seulement cette
+            # phrase » une correction portant sur une voix d'un seul tour.
+            {"genre": GENRE_CORRECTION, "nom": "Sophie", "voix": "v2",
+             "numeros": [2], "toute_la_voix": True},
             {"genre": GENRE_REUNION, "voix": "v2", "vers": "v1"},
         ]
         fil = rejouer(lignes)

@@ -807,3 +807,126 @@ class TestReunirLesHomonymes:
             fil.voix[identifiant].certitude = Certitude.PROBABLE
         assert fil.recoller(), "le recollage n'a rien réuni"
         assert len([v for v in fil.voix.values() if v.nom == "Tanguy"]) == 1
+
+
+class TestSeparerDeuxVoixReunies:
+    """Défaire une réunion de voix : le geste qui manquait.
+
+    Le défaut, signalé après une réunion de quatre-vingt-douze minutes : « j'ai
+    dit non, voix deux et voix trois, c'est la même personne… je ne pouvais plus
+    redistinguer les voix ». Réunir mélangeait les empreintes dans un même tas
+    et supprimait la voix absorbée. Deux personnes réunies à tort le restaient
+    jusqu'au compte rendu.
+    """
+
+    def _fil_a_deux_voix(self):
+        fil = Fil()
+        for identifiant in ("v1", "v2"):
+            fil.voix[identifiant] = VoixDirecte(identifiant=identifiant,
+                                                rang=int(identifiant[1]))
+        fil.voix["v1"].ajouter(empreinte(1.0, 0.0, duree=8.0))
+        fil.voix["v2"].ajouter(empreinte(0.0, 1.0, duree=6.0))
+        for numero, voix in enumerate(("v1", "v2", "v1", "v2"), start=1):
+            fil.tours.append(TourDirect(
+                numero=numero, intervalle=Intervalle(numero, numero + 1),
+                texte=f"phrase {numero}", voix=voix))
+        return fil
+
+    def _reunies(self):
+        """Deux voix réunies à tort par une correction humaine."""
+        fil = self._fil_a_deux_voix()
+        fil.corriger(1, "Tanguy")
+        fil.corriger(2, "Tanguy")
+        gardee = next(v for v in fil.voix.values() if v.nom == "Tanguy")
+        return fil, gardee.identifiant
+
+    def test_la_voix_absorbee_retrouve_son_identifiant(self):
+        fil, cible = self._reunies()
+        assert len([v for v in fil.voix.values() if v.nom == "Tanguy"]) == 1
+        assert fil.separer(cible) is not None
+        assert {"v1", "v2"} <= set(fil.voix)
+
+    def test_chaque_tour_revient_a_sa_voix(self):
+        fil, cible = self._reunies()
+        fil.separer(cible)
+        par_voix = {t.numero: t.voix for t in fil.tours}
+        assert par_voix == {1: "v1", 2: "v2", 3: "v1", 4: "v2"}
+
+    def test_chaque_empreinte_revient_a_sa_voix(self):
+        """Le point qui compte : c'est l'empreinte qui sert la banque de voix."""
+        fil, cible = self._reunies()
+        fil.separer(cible)
+        assert fil.voix["v1"].secondes == pytest.approx(8.0)
+        assert fil.voix["v2"].secondes == pytest.approx(6.0)
+
+    def test_l_agregat_est_refait_apres_la_separation(self):
+        """Sinon la voix reste reconnaissable à ce qu'elle était mélangée."""
+        fil, cible = self._reunies()
+        melange = list(fil.voix[cible].agregat.vecteur)
+        fil.separer(cible)
+        assert list(fil.voix[cible].agregat.vecteur) != melange
+
+    def test_la_mesure_ne_les_reunit_pas_de_nouveau(self):
+        """Le clic serait resté sans effet : `recoller` refaisait la fusion."""
+        fil = self._fil_a_deux_voix()
+        # Deux voix qui se ressemblent assez pour que la mesure les réunisse.
+        fil.voix["v2"].empreintes = [empreinte(0.8, 0.6, duree=8.0)]
+        fil.voix["v2"].oublier_l_agregat()
+        fil.corriger(1, "Tanguy")
+        fil.corriger(2, "Tanguy")
+        cible = next(v.identifiant for v in fil.voix.values() if v.nom == "Tanguy")
+        fil.separer(cible)
+        fil.recoller()
+        assert {"v1", "v2"} <= set(fil.voix), "la mesure a refait la fusion défaite"
+
+    def test_l_homonymie_ne_les_reunit_pas_de_nouveau(self):
+        """Le cas de l'auto-correction : la banque a nommé deux voix pareil.
+
+        Elle les réunit, et c'est le plus souvent juste. Quand ce ne l'est pas,
+        la séparation doit tenir — sinon la tranche suivante la défait.
+        """
+        fil = self._fil_a_deux_voix()
+        for identifiant in ("v1", "v2"):
+            fil.voix[identifiant].nom = "Tanguy"
+            fil.voix[identifiant].certitude = Certitude.RECONNUE
+        fil.recoller()
+        cible = next(iter(v.identifiant for v in fil.voix.values()
+                          if v.nom == "Tanguy"))
+        assert {"v1", "v2"} - set(fil.voix), "l'homonymie devait les réunir"
+        fil.separer(cible)
+        assert {"v1", "v2"} <= set(fil.voix)
+        fil.recoller()
+        assert {"v1", "v2"} <= set(fil.voix), "l'homonymie a refait la fusion"
+
+    def test_la_voix_rendue_redevient_anonyme(self):
+        """Ce qui met l'oeil sur elle : « Voix 2 » se nomme, « Tanguy » se croit."""
+        fil, cible = self._reunies()
+        fil.separer(cible)
+        rendue = next(i for i in ("v1", "v2") if i != cible)
+        assert fil.voix[rendue].nom is None
+
+    def test_un_humain_peut_revenir_sur_sa_separation(self):
+        """Le dernier geste tranche : séparer puis renommer réunit de nouveau."""
+        fil, cible = self._reunies()
+        fil.separer(cible)
+        autre = next(i for i in ("v1", "v2") if i != cible)
+        numero = next(t.numero for t in fil.tours if t.voix == autre)
+        fil.corriger(numero, "Tanguy")
+        assert len([v for v in fil.voix.values() if v.nom == "Tanguy"]) == 1
+
+    def test_rien_a_separer_ne_casse_rien(self):
+        fil = self._fil_a_deux_voix()
+        assert fil.separer("v1") is None
+        assert fil.separer("inconnue") is None
+
+    def test_la_cible_retrouve_ce_qu_elle_portait(self):
+        """Une voix anonyme qui a absorbé une voix nommée redevient anonyme."""
+        fil = self._fil_a_deux_voix()
+        fil.voix["v2"].nom = "Tanguy"
+        fil.voix["v2"].certitude = Certitude.RECONNUE
+        fil._absorber("v1", "v2")
+        assert fil.voix["v2"].nom == "Tanguy"
+        fil.voix["v2"].nom, fil.voix["v2"].certitude = "Marie", Certitude.RECONNUE
+        fil.separer("v2")
+        assert fil.voix["v2"].nom == "Tanguy", "l'état d'avant la fusion"
+        assert fil.voix["v1"].nom is None

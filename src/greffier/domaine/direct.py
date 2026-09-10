@@ -331,6 +331,10 @@ class VoixDirecte:
         self.empreintes.extend(autre.empreintes)
         self._agregat = None
 
+    def oublier_l_agregat(self) -> None:
+        """Périme l'agrégat, quand la liste change sans passer par `ajouter`."""
+        self._agregat = None
+
     @property
     def agregat(self) -> Empreinte:
         """L'empreinte moyenne de cette voix, calculée une fois par ajout."""
@@ -414,10 +418,10 @@ class Correction:
     #: entrer en banque. `None` sinon : mieux vaut ne rien apprendre qu'apprendre
     #: une signature tirée de trois secondes de « d'accord ».
     empreinte: Empreinte | None = None
-
-    @property
-    def toute_la_voix(self) -> bool:
-        return len(self.numeros) > 1
+    #: La portée décidée, et non déduite du nombre de tours touchés : une voix
+    #: qui n'a qu'un tour au moment du clic en aura d'autres ensuite, et la
+    #: correction doit les couvrir.
+    toute_la_voix: bool = True
 
 
 def blocs(repliques: list[Replique], locaux: list[Intervalle]) -> list[Bloc]:
@@ -449,6 +453,32 @@ def _est_locale(intervalle: Intervalle, locaux: list[Intervalle]) -> bool:
     couvert = sum(local.recouvrement(intervalle) for local in locaux)
     return couvert / intervalle.duree >= 0.5
 
+
+
+@dataclass(frozen=True, slots=True)
+class Fusion:
+    """Ce qu'il faut avoir gardé pour défaire une réunion de deux voix.
+
+    Réunir deux voix mélange leurs empreintes dans un même tas et supprime la
+    voix absorbée : sans cette trace, l'erreur est définitive. Elle l'a été
+    pendant une réunion entière, où deux personnes réunies à tort sont restées
+    une seule jusqu'au compte rendu.
+    """
+
+    source: str
+    cible: str
+    #: Les empreintes qui appartenaient à la source, pour les lui rendre.
+    empreintes: tuple[Empreinte, ...]
+    #: Les seuls tours qui ont changé d'étiquette lors de cette réunion.
+    numeros: tuple[int, ...]
+    nom: str | None
+    certitude: Certitude
+    rang: int
+    ressemblance: float = 0.0
+    ecart: float = 0.0
+    #: L'état de la cible avant, qu'une correction humaine a pu changer après.
+    nom_cible: str | None = None
+    certitude_cible: Certitude = Certitude.INCONNUE
 
 @dataclass
 class Fil:
@@ -486,6 +516,12 @@ class Fil:
     #: Texte du dernier tour inscrit, pour retirer le recouvrement au tour
     #: suivant — celui-là seul peut être la suite immédiate de ce qui s'affiche.
     dernier_texte: str = ""
+    #: Les réunions de voix déjà faites, dans l'ordre, pour pouvoir les défaire.
+    fusions: list[Fusion] = field(default_factory=list)
+    #: Les paires qu'un humain a séparées. Ni la mesure ni l'homonymie ne les
+    #: réunissent de nouveau : sans cela, `recoller` refaisait la fusion à la
+    #: tranche suivante et le clic n'avait servi à rien.
+    separees: set[frozenset[str]] = field(default_factory=set)
 
     def __post_init__(self) -> None:
         self.voix.setdefault(
@@ -785,6 +821,12 @@ class Fil:
         if fusion is not None and fusion.identifiant != voix.identifiant:
             # Le nom est déjà porté par une autre voix : l'outil avait découpé
             # une personne en deux. La correction les réunit.
+            #
+            # Y compris deux voix séparées à la main plus tôt : c'est un geste
+            # humain qui revient sur un geste humain, et le dernier tranche.
+            self.separees.discard(
+                frozenset({voix.identifiant, fusion.identifiant})
+            )
             self._absorber(voix.identifiant, fusion.identifiant)
             voix = fusion
         voix.nom = nom
@@ -792,18 +834,96 @@ class Fil:
         numeros = tuple(t.numero for t in self.tours if t.voix == voix.identifiant)
         return Correction(
             nom=nom, voix=voix.identifiant, numeros=numeros,
-            empreinte=self.empreinte_a_apprendre(voix),
+            empreinte=self.empreinte_a_apprendre(voix), toute_la_voix=True,
         )
 
     def _absorber(self, source: str, cible: str) -> None:
-        """Verse une voix dans une autre : ses tours, puis ses empreintes."""
+        """Verse une voix dans une autre : ses tours, puis ses empreintes.
+
+        Consigne au passage de quoi défaire : les empreintes de la source et les
+        seuls tours qui changent d'étiquette. Sans cette trace, une réunion
+        fautive ne se répare pas — c'est arrivé en séance, sur deux personnes.
+        """
         avalee = self.voix[source]
         gardee = self.voix[cible]
+        deplaces = tuple(t.numero for t in self.tours if t.voix == source)
+        self.fusions.append(Fusion(
+            source=source, cible=cible,
+            empreintes=tuple(avalee.empreintes), numeros=deplaces,
+            nom=avalee.nom, certitude=avalee.certitude, rang=avalee.rang,
+            ressemblance=avalee.ressemblance, ecart=avalee.ecart,
+            nom_cible=gardee.nom, certitude_cible=gardee.certitude,
+        ))
         gardee.absorber(avalee)
         for tour in self.tours:
             if tour.voix == source:
                 tour.voix = cible
         del self.voix[source]
+
+    def reunir(self, source: str, cible: str) -> Fusion | None:
+        """Réunit deux voix en gardant de quoi défaire.
+
+        Publique parce que la fenêtre rejoue les réunions depuis le journal :
+        sans passer par ici, elles ne laissaient aucune trace de leur côté, et
+        une réunion automatique — le cas le plus fréquent — restait indéfaisable
+        depuis l'écran où on la voit.
+        """
+        if source == cible or source not in self.voix or cible not in self.voix:
+            return None
+        self._absorber(source, cible)
+        return self.fusions[-1]
+
+    def peut_separer(self, cible: str) -> bool:
+        """Vrai quand cette voix a absorbé une autre qu'on peut lui reprendre."""
+        return any(
+            f.cible == cible and f.source not in self.voix for f in self.fusions
+        )
+
+    def separer(self, cible: str) -> Fusion | None:
+        """Défait la dernière réunion qui a produit cette voix.
+
+        Le geste que la réunion réclamait : dire « ces deux-là ne sont pas la
+        même personne » après avoir dit le contraire, ou après que l'outil l'ait
+        dit tout seul. La voix absorbée reprend son identifiant, ses empreintes
+        et ses tours, et la paire est inscrite parmi celles qu'on ne réunit plus.
+
+        Rend la fusion défaite, ou rien s'il n'y en avait aucune à défaire.
+        """
+        fusion = next(
+            (f for f in reversed(self.fusions) if f.cible == cible), None
+        )
+        if fusion is None or fusion.source in self.voix:
+            return None
+        gardee = self.voix.get(cible)
+        if gardee is None:
+            return None
+        rendue = VoixDirecte(
+            identifiant=fusion.source, nom=fusion.nom,
+            certitude=fusion.certitude, rang=fusion.rang,
+            empreintes=list(fusion.empreintes),
+            ressemblance=fusion.ressemblance, ecart=fusion.ecart,
+        )
+        # Retirées par identité et non par valeur : deux extraits d'une même
+        # voix peuvent porter le même vecteur, et un `remove` par égalité
+        # emporterait celui de la cible.
+        a_rendre = {id(e) for e in fusion.empreintes}
+        gardee.empreintes = [e for e in gardee.empreintes if id(e) not in a_rendre]
+        gardee.oublier_l_agregat()
+        # La cible retrouve ce qu'elle portait avant, sauf si un humain l'a
+        # nommée depuis : sa décision est postérieure, elle l'emporte.
+        if gardee.certitude is not Certitude.HUMAINE:
+            gardee.nom, gardee.certitude = fusion.nom_cible, fusion.certitude_cible
+        for tour in self.tours:
+            if tour.voix == cible and tour.numero in set(fusion.numeros):
+                tour.voix = fusion.source
+        self.voix[fusion.source] = rendue
+        self.fusions.remove(fusion)
+        self.separees.add(frozenset({fusion.source, cible}))
+        return fusion
+
+    def _tenues_a_part(self, une: str, autre: str) -> bool:
+        """Vrai quand un humain a déjà dit que ces deux voix ne sont pas la même."""
+        return frozenset({une, autre}) in self.separees
 
     def recoller(self) -> list[tuple[str, str]]:
         """Réunit les voix que la matière accumulée montre être la même personne.
@@ -848,6 +968,8 @@ class Fil:
                 continue
             if self._noms_humains_differents(source, cible):
                 continue
+            if self._tenues_a_part(source, cible):
+                continue
             self._absorber(source, cible)
             faits.append((source, cible))
         return faits
@@ -881,6 +1003,8 @@ class Fil:
             portantes.sort(key=lambda v: -v.secondes)
             gardee = portantes[0]
             for absorbee in portantes[1:]:
+                if self._tenues_a_part(absorbee.identifiant, gardee.identifiant):
+                    continue
                 self._absorber(absorbee.identifiant, gardee.identifiant)
                 faits.append((absorbee.identifiant, gardee.identifiant))
         return faits
@@ -909,7 +1033,8 @@ class Fil:
             )
             self.voix[cible.identifiant] = cible
         tour.voix = cible.identifiant
-        return Correction(nom=nom, voix=cible.identifiant, numeros=(tour.numero,))
+        return Correction(nom=nom, voix=cible.identifiant,
+                          numeros=(tour.numero,), toute_la_voix=False)
 
     def empreinte_a_apprendre(self, voix: VoixDirecte) -> Empreinte | None:
         """L'empreinte à verser en banque pour cette voix, s'il y a de quoi.
@@ -925,8 +1050,27 @@ class Fil:
             return None
         return voix.agregat
 
+    def retenir_l_identifiant(self, identifiant: str) -> None:
+        """Avance le compteur au-delà d'un identifiant venu d'ailleurs.
+
+        Le journal nomme les voix « v1 », « v2 »… Les rejouer sans avancer le
+        compteur lui fait redistribuer « v1 », qui **écrase** alors la voix
+        existante : deux personnes sous un même identifiant, sans rien qui le
+        signale. Le cas se produit à chaque reprise de fil.
+        """
+        if len(identifiant) < 2 or identifiant[0] != "v":
+            return
+        chiffres = identifiant[1:]
+        if chiffres.isdigit():
+            self.suite = max(self.suite, int(chiffres))
+
     def _identifiant(self) -> str:
         self.suite += 1
+        # La ceinture, en plus de `retenir_l_identifiant` : un identifiant déjà
+        # pris ne doit jamais ressortir, quelle que soit la façon dont la voix
+        # est entrée dans le fil.
+        while f"v{self.suite}" in self.voix:
+            self.suite += 1
         return f"v{self.suite}"
 
     def _rang(self) -> int:
