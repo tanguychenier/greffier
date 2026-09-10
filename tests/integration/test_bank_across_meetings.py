@@ -44,10 +44,10 @@ def atelier(tmp_path_factory):
     config.paths.data = root
     config.minutes.engine = "aucun"
 
-    from make_meeting import DIALOGUE_SANS_NOMS, fabriquer
+    from make_meeting import DIALOGUE_WITHOUT_NAMES, make
 
-    premiere = fabriquer(root / "reunion-1.wav")
-    seconde = fabriquer(root / "reunion-2.wav", dialogue=DIALOGUE_SANS_NOMS)
+    premiere = make(root / "reunion-1.wav")
+    seconde = make(root / "reunion-2.wav", dialogue=DIALOGUE_WITHOUT_NAMES)
     return config, premiere, seconde
 
 

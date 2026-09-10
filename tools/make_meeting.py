@@ -43,7 +43,7 @@ DIALOGUE = [
 # Une seconde réunion, avec les mêmes voix mais **aucun prénom prononcé**. Elle
 # sert à prouver la banque de voix : si des noms apparaissent malgré tout, ils ne
 # peuvent venir que de la reconnaissance vocale.
-DIALOGUE_SANS_NOMS = [
+DIALOGUE_WITHOUT_NAMES = [
     ("A", "On reprend là où nous nous étions arrêtés la dernière fois, avec le "
           "calendrier de la semaine prochaine et les points encore en suspens."),
     ("B", "Les deux anomalies sont validées depuis ce matin, la version peut donc "
@@ -105,7 +105,7 @@ VOICE = {"A": "Thomas", "B": "Amélie"}
 SILENCE = 0.4  # secondes entre deux répliques, comme dans une vraie discussion
 
 
-def fabriquer(destination: Path, voice: dict | None = None, dialogue=None) -> Path:
+def make(destination: Path, voice: dict | None = None, dialogue=None) -> Path:
     if platform.system() != "Darwin":
         raise RuntimeError("la synthèse « say » n'existe que sur macOS")
     if not shutil.which("say") or not shutil.which("ffmpeg"):
@@ -155,7 +155,7 @@ def fabriquer(destination: Path, voice: dict | None = None, dialogue=None) -> Pa
     return destination
 
 
-def fabriquer_presentiel(destination: Path) -> Path:
+def make_in_the_room(destination: Path) -> Path:
     """Fabrique une réunion de table : trois voix sur le micro, une boucle qui fuit.
 
     Le fichier est **stéréo**, comme ce que rend le périphérique d'enregistrement :
@@ -168,7 +168,7 @@ def fabriquer_presentiel(destination: Path) -> Path:
     """
     with tempfile.TemporaryDirectory() as folder:
         melange = Path(folder) / "micro.wav"
-        fabriquer(melange, voice=VOIX_PRESENTIEL, dialogue=DIALOGUE_PRESENTIEL)
+        make(melange, voice=VOIX_PRESENTIEL, dialogue=DIALOGUE_PRESENTIEL)
         destination.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(melange),
@@ -183,16 +183,16 @@ def fabriquer_presentiel(destination: Path) -> Path:
 
 def main() -> int:
     analyseur = argparse.ArgumentParser(description=__doc__)
-    analyseur.add_argument("sortie", type=Path)
+    analyseur.add_argument("output", type=Path)
     analyseur.add_argument(
-        "--presentiel", action="store_true",
+        "--in-the-room", action="store_true",
         help="trois voix autour d'une table, en stéréo, au lieu de deux en mono",
     )
     arguments = analyseur.parse_args()
     path = (
-        fabriquer_presentiel(arguments.output)
-        if arguments.presentiel
-        else fabriquer(arguments.output)
+        make_in_the_room(arguments.output)
+        if arguments.in_the_room
+        else make(arguments.output)
     )
     duration = subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
@@ -200,7 +200,7 @@ def main() -> int:
     ).stdout.strip()
     utterances, voice, channels = (
         (len(DIALOGUE_PRESENTIEL), 3, "stéréo")
-        if arguments.presentiel
+        if arguments.in_the_room
         else (len(DIALOGUE), 2, "mono")
     )
     print(f"{path} — {float(duration):.1f} s, {utterances} répliques, {voice} voix, {channels}")
