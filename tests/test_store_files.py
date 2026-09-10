@@ -114,3 +114,95 @@ class TestAllerRetour:
         relue = store.read("2026-09-09_10h05_reunion")
         assert relue.utterances[0].text == "Bonjour."
         assert relue.turns[0].voice == "1"
+
+
+def reunie(identifier: str = "2026-09-10_10h10_reunion") -> StoredMeeting:
+    """Une réunion où deux voix ont été réunies sous le même nom."""
+    detail = StoredMeeting(
+        identifier=identifier,
+        audio=Path(f"/tmp/{identifier}.wav"),
+        traitee_le=datetime.now(UTC),
+        duration=60.0,
+        utterances=[
+            Utterance(Span(0, 5), "on cale la recette jeudi", voice="v1"),
+            Utterance(Span(6, 11), "le devis part demain", voice="v2"),
+        ],
+        turns=[SpeakerTurn(Span(0, 5), "v1"), SpeakerTurn(Span(6, 11), "v2")],
+        names={"v1": "Tanguy", "v2": "Pascal"},
+        propositions={},
+        warnings=[],
+    )
+    detail.join_into("v2", "v1")
+    return detail
+
+
+class TestSeparerDeuxVoixApresLaReunion:
+    """Réunir deux voix se défaisait dans le direct, et par rien ensuite.
+
+    Le geste existait des deux côtés — nommer deux voix pareil les réunit, ce
+    qui est exactement ce qu'il faut quand l'outil a découpé une personne en
+    deux — mais seul le fil du direct savait revenir en arrière.
+    """
+
+    def test_la_voix_absorbee_reprend_ses_tours(self):
+        detail = reunie()
+        assert {t.voice for t in detail.turns} == {"v1"}
+        assert detail.split("v1") is not None
+        assert {t.voice for t in detail.turns} == {"v1", "v2"}
+
+    def test_elle_reprend_ses_repliques(self):
+        detail = reunie()
+        detail.split("v1")
+        par_voix = {u.voice for u in detail.utterances}
+        assert par_voix == {"v1", "v2"}
+
+    def test_elle_reprend_son_nom(self):
+        detail = reunie()
+        detail.split("v1")
+        assert detail.names == {"v1": "Tanguy", "v2": "Pascal"}
+
+    def test_rien_a_separer_ne_casse_rien(self):
+        detail = meeting("2026-09-10_11h00_reunion")
+        assert detail.split("1") is None
+        assert not detail.can_split("1")
+
+    def test_la_fusion_se_dit_avant_de_la_defaire(self):
+        detail = reunie()
+        assert detail.can_split("v1")
+        detail.split("v1")
+        assert not detail.can_split("v1"), "une fois défaite, plus rien à défaire"
+
+    def test_la_fusion_survit_a_l_ecriture(self, tmp_path):
+        """Sans cela, séparer ne marche que tant que l'application est ouverte."""
+        magasin = FileStore(tmp_path)
+        magasin.record(reunie())
+        relue = magasin.read("2026-09-10_10h10_reunion")
+        assert relue.can_split("v1")
+        assert relue.split("v1") is not None
+        assert {t.voice for t in relue.turns} == {"v1", "v2"}
+
+    def test_un_fichier_ecrit_avant_reste_lisible(self, tmp_path):
+        """Aucune réunion déjà traitée ne doit devenir illisible."""
+        import json
+
+        magasin = FileStore(tmp_path)
+        chemin = magasin.record(meeting("2026-09-09_10h05_reunion"))
+        contenu = json.loads(chemin.read_text(encoding="utf-8"))
+        del contenu["fusions"]
+        chemin.write_text(json.dumps(contenu, ensure_ascii=False), encoding="utf-8")
+        relue = magasin.read("2026-09-09_10h05_reunion")
+        assert relue.joins == []
+        assert not relue.can_split("1")
+
+    def test_deux_fusions_se_defont_dans_l_ordre_inverse(self):
+        detail = reunie()
+        detail.utterances.append(Utterance(Span(12, 17), "et la prod lundi", voice="v3"))
+        detail.turns.append(SpeakerTurn(Span(12, 17), "v3"))
+        detail.names["v3"] = "Sophie"
+        detail.join_into("v3", "v1")
+        assert {t.voice for t in detail.turns} == {"v1"}
+        detail.split("v1")
+        assert "v3" in {t.voice for t in detail.turns}, "la dernière d'abord"
+        assert "v2" not in {t.voice for t in detail.turns}
+        detail.split("v1")
+        assert {t.voice for t in detail.turns} == {"v1", "v2", "v3"}
