@@ -4,18 +4,28 @@ Les voix livrées d'office par les systèmes sont des synthétiseurs par
 concaténation : elles disent les mots, mais l'oreille entend la machine à chaque
 syllabe. Pour un outil qui prend la parole dans une réunion, c'est éliminatoire.
 
-Kokoro est un modèle de synthèse neuronale de 82 millions de paramètres, tenu
-par `sherpa-onnx` — **le moteur déjà présent** pour la segmentation et les
-empreintes vocales. Aucune dépendance nouvelle, aucun appel réseau, et un
-modèle que l'installeur télécharge comme il télécharge déjà ceux de whisper.
-Mesuré sur ce poste : **4,9 fois le temps réel**, huit secondes de parole
-calculées en une seconde et demie.
+La synthèse est tenue par `sherpa-onnx` — **le moteur déjà présent** pour la
+segmentation et les empreintes vocales. Aucune dépendance nouvelle, aucun appel
+réseau, et un modèle que l'installeur télécharge comme il télécharge déjà ceux
+de whisper.
+
+Le modèle retenu est un VITS français, choisi **à l'écoute** contre trois
+autres. Il gagne aussi sur les chiffres : quarante-huit fois le temps réel,
+quatre secondes de parole calculées en huit centièmes, quatre-vingts
+mégaoctets. Le multilingue Kokoro, qui servait d'abord, tenait cinq fois le
+temps réel pour trois cent vingt-cinq mégaoctets — et s'entendait davantage.
+
+Les deux familles restent acceptées, et se distinguent par un fichier : Kokoro
+porte une table de voix, un VITS n'en a pas. Détecter plutôt que configurer,
+parce que changer de modèle est une décision de qualité sonore et non de
+programmation.
 
 Deux détails décident du résultat :
 
-- **la langue de phonémisation** doit être dite (`lang="fr"`). Sans elle, un
-  texte français est découpé en phonèmes anglais et la voix prend un accent à
-  couper au couteau, ce qui s'entend immédiatement ;
+- **la langue de phonémisation** doit être dite à Kokoro (`lang="fr"`, jamais
+  `"fr-fr"`, qui échoue en silence). Sans elle, un texte français est découpé en
+  phonèmes anglais et la voix prend un accent à couper au couteau. Un VITS
+  français, lui, porte sa langue dans ses poids ;
 - **on parle par phrases**. Générer tout le propos avant d'ouvrir la bouche
   fait attendre le temps de calcul du tout ; générer la première phrase pendant
   qu'on prononce, c'est la latence de la première phrase seule.
@@ -37,10 +47,16 @@ from typing import Any
 
 SYSTEME = platform.system()
 
-#: La seule voix française du modèle multilingue (identifiant 30). Les autres
-#: sont anglaises, chinoises, japonaises, espagnoles, hindi, italiennes ou
-#: portugaises : leur donner du français produit un charabia phonétique.
-VOIX_FRANCAISE = 30
+#: La voix retenue dans le modèle, quand il en porte plusieurs.
+#:
+#: Pour Kokoro multilingue, c'est **30** : la seule française, les autres étant
+#: anglaises, chinoises, japonaises, espagnoles, hindi, italiennes ou
+#: portugaises, et leur donner du français produit un charabia phonétique. Pour
+#: un VITS français mono-locuteur, c'est 0.
+#:
+#: Le défaut suit le modèle qu'installe l'installeur, et se règle dans
+#: `assistant.locuteur` pour qui en change.
+VOIX_FRANCAISE = 0
 
 #: Le code espeak-ng du français est « fr », et non « fr-fr » : ce dernier fait
 #: échouer la phonémisation en silence, et rien n'est prononcé du tout.
@@ -131,12 +147,12 @@ def _sans_bavardage() -> Iterator[None]:
         os.close(copie)
 
 
-class VoixKokoro:
+class VoixNeuronale:
     """Prononce un texte avec une voix neuronale, en local.
 
     Le modèle se charge à la première phrase et non à la construction : ouvrir
-    la fenêtre ne doit pas coûter trois cent vingt-cinq mégaoctets à quelqu'un
-    qui ne fera jamais parler l'assistant.
+    la fenêtre ne doit pas coûter quatre-vingts mégaoctets à quelqu'un qui ne
+    fera jamais parler l'assistant.
     """
 
     def __init__(self, dossier: Path, langue: str = "fr", voix: int = VOIX_FRANCAISE,
@@ -153,34 +169,63 @@ class VoixKokoro:
 
     @property
     def installee(self) -> bool:
-        return (self.dossier / "model.onnx").exists() and (
-            self.dossier / "voices.bin").exists()
+        """Un réseau et son vocabulaire suffisent, quelle que soit la famille."""
+        return self._reseau.exists() and (self.dossier / "tokens.txt").exists()
 
     @property
     def disponible(self) -> bool:
         return self.installee and _lecteur() is not None
 
     def _charger(self) -> Any:
+        """Monte le modèle présent, quelle que soit sa famille.
+
+        Deux familles se posent au même endroit et se distinguent par un
+        fichier : Kokoro porte une table de voix (`voices.bin`), un VITS n'en a
+        pas. Détecter plutôt que configurer, parce que changer de modèle est une
+        décision de qualité sonore, pas de programmation — et qu'un réglage de
+        plus à tenir à jour serait un réglage de plus à se tromper.
+        """
         if self._moteur is not None:
             return self._moteur
         import sherpa_onnx
 
-        configuration = sherpa_onnx.OfflineTtsConfig(
-            model=sherpa_onnx.OfflineTtsModelConfig(
+        commun = {
+            "tokens": str(self.dossier / "tokens.txt"),
+            "data_dir": str(self.dossier / "espeak-ng-data"),
+        }
+        if self._table_des_voix.exists():
+            modele = sherpa_onnx.OfflineTtsModelConfig(
                 kokoro=sherpa_onnx.OfflineTtsKokoroModelConfig(
-                    model=str(self.dossier / "model.onnx"),
-                    voices=str(self.dossier / "voices.bin"),
-                    tokens=str(self.dossier / "tokens.txt"),
-                    data_dir=str(self.dossier / "espeak-ng-data"),
-                    lang=LANGUE_ESPEAK.get(self.langue, self.langue),
+                    model=str(self._reseau), voices=str(self._table_des_voix),
+                    lang=LANGUE_ESPEAK.get(self.langue, self.langue), **commun,
                 ),
                 num_threads=self.fils,
-            ),
-        )
+            )
+        else:
+            # Un VITS porte sa langue dans ses poids : rien à lui dire.
+            modele = sherpa_onnx.OfflineTtsModelConfig(
+                vits=sherpa_onnx.OfflineTtsVitsModelConfig(
+                    model=str(self._reseau), **commun),
+                num_threads=self.fils,
+            )
+        configuration = sherpa_onnx.OfflineTtsConfig(model=modele)
         if not configuration.validate():
             raise RuntimeError("configuration de synthèse vocale invalide")
         self._moteur = sherpa_onnx.OfflineTts(configuration)
         return self._moteur
+
+    @property
+    def _table_des_voix(self) -> Path:
+        return self.dossier / "voices.bin"
+
+    @property
+    def _reseau(self) -> Path:
+        """Le fichier de poids. Nommé `model.onnx` chez Kokoro, autrement chez
+        Piper — d'où la recherche plutôt qu'un nom en dur."""
+        attendu = self.dossier / "model.onnx"
+        if attendu.exists():
+            return attendu
+        return next(iter(sorted(self.dossier.glob("*.onnx"))), attendu)
 
     def fabriquer(self, texte: str, destination: Path) -> Path | None:
         """Écrit le texte parlé dans un fichier, sans le jouer.

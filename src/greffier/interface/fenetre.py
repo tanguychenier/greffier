@@ -557,7 +557,7 @@ class Fenetre:
         elle se fait entendre dans la pièce. Deux réunions différentes.
         """
         from greffier.adaptateurs import configuration as reglages
-        from greffier.adaptateurs.voix_kokoro import VoixKokoro
+        from greffier.adaptateurs.voix_neuronale import VoixNeuronale
 
         avant = self.config.assistant.voix
         if avant != "aucun":
@@ -567,7 +567,7 @@ class Fenetre:
             # modèle est là, celle du système sinon.
             self.config.assistant.voix = (
                 "kokoro"
-                if VoixKokoro(self.config.chemins.voix_de_synthese).installee
+                if VoixNeuronale(self.config.chemins.voix_de_synthese).installee
                 else "systeme"
             )
         try:
@@ -1342,9 +1342,9 @@ class Fenetre:
         Proposer la voix neuronale sans dire qu'elle manque enverrait chercher
         un défaut là où il n'y a qu'un modèle à télécharger.
         """
-        from greffier.adaptateurs.voix_kokoro import VoixKokoro
+        from greffier.adaptateurs.voix_neuronale import VoixNeuronale
 
-        installee = VoixKokoro(self.config.chemins.voix_de_synthese).installee
+        installee = VoixNeuronale(self.config.chemins.voix_de_synthese).installee
         return [
             ("kokoro", "Voix naturelle" if installee
              else "Voix naturelle (modèle absent, repli sur le système)"),
