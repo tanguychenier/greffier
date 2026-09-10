@@ -1,14 +1,4 @@
-"""Le fichier maître d'une réunion : tout ce qui a été dit, quand, et par qui.
-
-Un seul fichier JSON par réunion, qui devient la source de vérité. Le compte
-rendu en découle, mais on peut y revenir des semaines plus tard pour renommer
-une voix, réécouter un passage ou refaire la synthèse autrement — sans
-retranscrire l'heure d'audio.
-
-Les horodatages sont conservés jusqu'au bout : ce sont eux qui permettent de
-vérifier une citation, de découper un extrait, et de dire ce que la
-transcription a perdu.
-"""
+"""A meeting's master file: everything known about it, in one place."""
 
 from __future__ import annotations
 
@@ -22,7 +12,7 @@ from greffier.domain.models import Source, Span, SpeakerTurn, Utterance
 FORMAT = 2
 
 class FileStore:
-    """Range et relit les fichiers maîtres, un par réunion."""
+    """Files and reads back the master files, one per meeting."""
 
     def __init__(self, folder: Path) -> None:
         self.folder = folder
@@ -108,19 +98,7 @@ class FileStore:
         )
 
     def lister(self) -> list[str]:
-        """Les réunions, la plus récemment **tenue** d'abord.
-
-        Trié sur l'horodatage que porte l'identifiant, et non par ordre
-        alphabétique : « fausse-reunion » passait avant « 2026-09-09_10h05… »
-        parce que « f » vient après « 2 », et devenait donc « la dernière
-        réunion » pour toutes les commandes appelées sans argument — jusqu'à
-        « greffier envoyer », qui expédiait le compte rendu d'une autre réunion
-        que celle qui venait de se tenir. Constaté le 2026-09-09.
-
-        Les identifiants sans date vont en fin de liste : ils ne peuvent pas
-        prétendre être les derniers. Entre eux, du plus récemment écrit, faute
-        de mieux.
-        """
+        """The meetings, most recently **held** first."""
         if not self.folder.exists():
             return []
 
@@ -134,13 +112,7 @@ class FileStore:
                                        key=recency, reverse=True)]
 
     def delete(self, identifier: str) -> bool:
-        """Oublie le fichier maître. Rend False s'il n'y en avait pas.
-
-        Ne touche à rien d'autre : l'audio, la transcription et le compte rendu
-        appartiennent à qui sait ce qu'ils valent — voir `application.ranger`,
-        qui les rassemble pour qu'on puisse dire ce qu'on efface avant de le
-        faire.
-        """
+        """Forgets the master file. False when there was none."""
         path = self._path(identifier)
         if not path.exists():
             return False

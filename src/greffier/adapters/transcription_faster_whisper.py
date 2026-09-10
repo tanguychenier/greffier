@@ -1,8 +1,4 @@
-"""Transcription par faster-whisper, partout où whisper.cpp n'est pas empaqueté.
-
-Même modèle, même qualité ; l'implémentation diffère. Sur macOS, whisper.cpp
-reste préféré : l'accélération Metal le rend nettement plus rapide.
-"""
+"""Transcription through faster-whisper, everywhere whisper.cpp is not."""
 
 from __future__ import annotations
 
@@ -21,17 +17,7 @@ _CUDA_LIBRARIES = (
 )
 
 def cuda_libraries() -> list[Path]:
-    """Les bibliothèques que posent les roues « nvidia-* », prêtes à charger.
-
-    Ces roues les déposent dans le dossier des paquets, hors du chemin où le
-    chargeur du système va les chercher : CTranslate2 ne les trouvait pas et se
-    rabattait sur le processeur, treize fois plus lent. La seule autre façon de
-    les lui montrer est de régler `LD_LIBRARY_PATH` avant de lancer Greffier,
-    ce qu'aucun raccourci de bureau ne fait.
-
-    Rend une liste vide quand les roues ne sont pas installées, ce qui est le
-    cas ordinaire : elles ne servent qu'à une carte NVIDIA.
-    """
+    """The libraries the nvidia wheels install."""
     paquet = importlib.util.find_spec("nvidia")
     if paquet is None or not paquet.submodule_search_locations:
         return []
@@ -43,12 +29,7 @@ def cuda_libraries() -> list[Path]:
     ]
 
 def _show_cuda_to_the_loader() -> None:
-    """Charge ce que `bibliotheques_cuda` a trouvé, sans jamais faire échouer.
-
-    Une bibliothèque illisible n'est pas une raison de renoncer à transcrire :
-    la carte sera simplement inutilisable, et le repli sur le processeur s'en
-    chargera.
-    """
+    """Loads what cuda_libraries found."""
     for path in cuda_libraries():
         with contextlib.suppress(OSError):
             ctypes.CDLL(str(path), mode=ctypes.RTLD_GLOBAL)

@@ -1,8 +1,4 @@
-"""Rédaction du compte rendu par un modèle local servi par Ollama.
-
-Rien ne sort du poste : c'est la seule voie qui tient la promesse du « tout en
-local » jusqu'au bout de la chaîne.
-"""
+"""Writing the minutes with a local model, for whoever wants nothing to leave."""
 
 from __future__ import annotations
 
@@ -41,18 +37,7 @@ _MENTION_DE_LANGUE = "Attendu, en français,"
 _MENTION_NUE = "Attendu, en"
 
 def guidance(language: str = "") -> str:
-    """Les consignes, dictées dans la langue voulue.
-
-    Le français rend la constante **caractère pour caractère** : cent lignes
-    d'ajustements gagnés sur de vraies réunions, qu'on ne retraduit pas et qu'on
-    ne réécrit pas. Pour une autre langue, la même constante, avec la seule
-    mention de langue remplacée et une directive posée en tête puis rappelée
-    juste avant la transcription — un modèle qui lit cent lignes de français
-    retombe volontiers dans le français à la fin d'un long document.
-
-    Ce que les tests prouvent : que l'instruction PART. Qu'un modèle y obéisse
-    sur toute la longueur d'un compte rendu, aucun test ne le dira.
-    """
+    """The instructions, dictated in the language wanted."""
     if not language or language == "fr":
         return GUIDANCE
     name = nom_de(language)
@@ -66,14 +51,7 @@ def guidance(language: str = "") -> str:
     )
 
 def available_models() -> list[str]:
-    """Les modèles qu'Ollama a déjà sur ce poste.
-
-    Ici plutôt que dans l'assistant de première configuration : c'est
-    l'adaptateur d'Ollama qui sait parler à Ollama, et la fenêtre allait
-    chercher cette liste dans un assistant en terminal, par une fonction
-    privée. Rendre la liste vide plutôt que d'échouer : ne pas savoir ce qui
-    est installé n'empêche pas de choisir.
-    """
+    """The models Ollama already has on this machine."""
     try:
         output = subprocess.run(
             ["ollama", "list"], capture_output=True, text=True, check=False, timeout=20

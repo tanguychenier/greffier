@@ -1,15 +1,4 @@
-"""Ce que les canaux d'un enregistrement disent de la provenance du son.
-
-Le premier canal porte le micro, les suivants la boucle système. De là se
-déduisent deux choses qu'aucun modèle n'a besoin d'établir : si la réunion s'est
-tenue à distance, et quels passages viennent de la personne qui enregistre.
-
-Ce savoir vivait dans la diarisation, où lui seul l'utilisait. Le direct en a
-besoin aussi, et **deux implémentations de « qui parle par quel canal » qui
-divergent seraient pires qu'une duplication visible** : la fenêtre afficherait
-un locuteur que le compte rendu contredirait. D'où ce module, importé par les
-deux, et testable sans charger un modèle.
-"""
+"""What a recording's channels say about who is speaking."""
 
 from __future__ import annotations
 
@@ -30,14 +19,14 @@ _PLANCHER_LOG = 1e-12
 
 @dataclass(frozen=True)
 class Channels:
-    """Les deux provenances, séparées, et ce qu'elles impliquent."""
+    """The two origins, separated, and what they carry."""
 
     mic: np.ndarray | None
     system: np.ndarray
     distante: bool
 
 def levels_per_frame(signal: np.ndarray, frequency: int) -> list[float]:
-    """Niveau de chaque trame, en décibels. Le domaine ne veut que ça."""
+    """The level of each frame, in decibels."""
     pas = int(frequency * TRAME_S) or 1
     utiles = len(signal) // pas
     if utiles == 0:
@@ -49,24 +38,7 @@ def levels_per_frame(signal: np.ndarray, frequency: int) -> list[float]:
 def separer_canaux(
     data: np.ndarray, frequency: int = 16000, distante: bool | None = None
 ) -> Channels:
-    """Sépare le micro de la boucle, et dit si la réunion était à distance.
-
-    `distante` impose la réponse au lieu de la chercher. C'est ce dont le direct
-    a besoin : le verdict se lit sur l'ensemble d'une réunion, pas sur dix
-    secondes. Une tranche où seule la personne au micro parle ne montre aucune
-    boucle dominante, donc se lirait « présentiel » — et sa voix, cessant d'être
-    reconnue par le canal, deviendrait un participant distant de plus.
-
-    Une boucle muette veut dire qu'aucun son n'a été joué par la machine : la
-    réunion s'est tenue autour d'une table, et **tout le monde parle dans le
-    même micro**.
-
-    C'est une distinction qui décide de tout. En visio, la provenance identifie
-    la personne qui enregistre avec certitude. En présentiel, elle n'identifie
-    personne, et l'appliquer quand même ferait de tous les participants une
-    seule voix. Mesuré : trois locuteurs autour d'une table ramenés à une seule
-    étiquette « moi ».
-    """
+    """Separates the mic from the loopback, and says whether it was remote."""
     if data.ndim < 2 or data.shape[1] < 2:
         mono = data if data.ndim == 1 else data[:, 0]
         return Channels(mic=None, system=mono, distante=False)
@@ -90,30 +62,13 @@ def separer_canaux(
     return Channels(mic=mic, system=system, distante=True)
 
 class FileChannelReader:
-    """Lit un enregistrement et rend les passages venus du micro.
-
-    Sert le port `LecteurDeCanaux` : le direct a besoin de savoir, pour chaque
-    phrase transcrite, si elle vient de la personne qui enregistre — la seule
-    attribution qui ne se trompe jamais.
-
-    **Un objet, et non une fonction**, parce qu'il retient une chose : une
-    réunion tenue à distance l'est jusqu'au bout. Le verdict se lit sur
-    l'ensemble de l'audio, pas sur dix secondes ; sans cette mémoire, une tranche
-    où personne d'autre ne parle se lit « présentiel », et la voix de la personne
-    au micro devient un participant de plus. Mesuré à l'essai sur la première
-    tranche d'une réunion, avant que quiconque d'autre ait pris la parole.
-    """
+    """Reads a recording and returns the passages from the mic."""
 
     def __init__(self) -> None:
         self.distante = False
 
     def local_passages(self, audio: Path) -> list[Span]:
-        """Les moments où la personne qui enregistre parle, dans ce fichier.
-
-        Vide en présentiel, et c'est correct : autour d'une table, le canal ne
-        désigne personne. Le direct affichera alors des voix à nommer plutôt
-        qu'un « Toi » qui serait faux pour la moitié des passages.
-        """
+        """The moments when the person recording speaks themselves."""
         try:
             data, frequency = sf.read(audio, dtype="float32", always_2d=True)
         except (OSError, RuntimeError):

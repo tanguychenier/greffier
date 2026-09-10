@@ -23,7 +23,7 @@ from pathlib import Path
 
 
 def _racines(prefixe: Path) -> list[Path]:
-    """Où chercher, du plus probable au moins."""
+    """Where to look, most likely first."""
     return [prefixe / "lib", prefixe / "share", prefixe]
 
 def _find(motif: str, prefixes: list[Path]) -> Path | None:
@@ -37,7 +37,7 @@ def _find(motif: str, prefixes: list[Path]) -> Path | None:
     return None
 
 def preparer() -> dict[str, str]:
-    """Renseigne les chemins Tcl/Tk manquants. Rend ce qui a été posé."""
+    """Fills in the missing Tcl/Tk paths."""
     prefixes = [Path(sys.base_prefix), Path(sys.prefix)]
     pose: dict[str, str] = {}
     for variable, motif in (("TCL_LIBRARY", "tcl[0-9]*"), ("TK_LIBRARY", "tk[0-9]*")):

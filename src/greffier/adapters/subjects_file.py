@@ -1,13 +1,4 @@
-"""Le registre des sujets, dans un fichier qu'on relit à la main.
-
-Le rapprochement entre « Oasis », « esup-oasis » et « le projet Oasis » ne se
-devine pas : il s'apprend une fois, et il faut donc pouvoir l'écrire. Ce fichier
-est aussi le seul endroit qui dit **où** vit la carte d'un sujet — sans lui,
-chaque réunion en créerait une nouvelle.
-
-À côté de `contexte.toml`, et pour les mêmes raisons : ce sont deux registres
-tenus par un humain, qui grossissent, se relisent et se partagent.
-"""
+"""The subject registry, in a file a human maintains."""
 
 from __future__ import annotations
 
@@ -33,11 +24,7 @@ GABARIT = '''# Les sujets que Greffier suit, et où vit la carte de chacun.
 '''
 
 def read(file: Path) -> Registry:
-    """Le registre écrit à la main. Vide si le fichier n'existe pas.
-
-    Une entrée mal formée est écartée sans faire échouer la lecture : un
-    registre à moitié valable vaut mieux qu'une réunion qui refuse de démarrer.
-    """
+    """The registry written by hand. Empty when the file is missing."""
     if not file.exists():
         return Registry()
     try:
@@ -67,7 +54,7 @@ def read(file: Path) -> Registry:
     return Registry(list(fondus.values()))
 
 def lay_the_template(file: Path) -> bool:
-    """Écrit le fichier d'exemple s'il n'existe pas. Vrai s'il a été créé."""
+    """Writes the example file when it does not exist."""
     if file.exists():
         return False
     file.parent.mkdir(parents=True, exist_ok=True)

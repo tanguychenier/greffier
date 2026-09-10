@@ -1,9 +1,4 @@
-"""Prévenir l'utilisateur pendant que la chaîne tourne.
-
-Le traitement d'une heure de réunion prend plusieurs minutes : personne ne reste
-devant son terminal. Une notification du système est le seul moyen d'apprendre
-que c'est prêt — ou que ça a échoué.
-"""
+"""Telling the user while the chain runs, with no terminal open."""
 
 from __future__ import annotations
 
@@ -14,7 +9,7 @@ import subprocess
 SYSTEM = platform.system()
 
 class SystemNotifier:
-    """Trois implémentations derrière une seule méthode, choisie au démarrage."""
+    """Three implementations behind one method, one per system."""
 
     def notify(self, title: str, message: str) -> None:
         try:

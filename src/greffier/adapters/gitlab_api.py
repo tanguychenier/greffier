@@ -1,18 +1,7 @@
-"""Lire et écrire sur un GitLab inscrit au registre des sources.
+"""Reading and writing on a GitLab registered in the source registry.
 
-Ce n'est **pas** l'assistant qui appelle l'API. Il n'a que deux outils, la
-recherche et la lecture d'une page web, et cela reste vrai : lui confier un
-jeton d'écriture reviendrait à ce qu'une phrase mal comprise crée un ticket.
-C'est Greffier qui appelle, sur une intention reconnue, après confirmation — et
-l'assistant ne voit que le résultat.
-
-Deux conséquences que ce module tient :
-
-- **la portée vient du registre**, pas de la phrase. Un projet qui n'y figure
-  pas est inatteignable, même nommé explicitement ;
-- **toute écriture rend ce qu'elle a fait**, avec l'adresse de ce qui a été
-  créé. Une écriture dont on ne peut pas montrer le résultat n'est pas
-  vérifiable.
+What is not registered does not exist, and writing always needs the caller to
+have confirmed.
 """
 
 from __future__ import annotations
@@ -31,11 +20,11 @@ TIMEOUT = 15.0
 AU_PLUS = 20
 
 class GitLabRefused(RuntimeError):
-    """L'appel n'a pas eu lieu, et pour une raison présentable."""
+    """The call did not happen, and for a reason worth showing."""
 
 @dataclass(frozen=True, slots=True)
 class Ticket:
-    """Un ticket, réduit à ce qui sert à en parler."""
+    """A ticket, reduced to what it takes to talk about it."""
 
     number: int
     title: str
@@ -101,7 +90,7 @@ def _as_ticket(brut: dict[str, Any]) -> Ticket:
 def tickets(
     source: Source, token: str, ouverts: bool = True, cherche: str = ""
 ) -> list[Ticket]:
-    """Les tickets du projet inscrit. Lecture seule, toujours permise."""
+    """The registered project's tickets. Read only."""
     parametres = {"per_page": str(AU_PLUS), "order_by": "updated_at"}
     if ouverts:
         parametres["state"] = "opened"
@@ -113,7 +102,7 @@ def tickets(
     return [_as_ticket(brut) for brut in rendered if isinstance(brut, dict)]
 
 def join_requests(source: Source, token: str, ouvertes: bool = True) -> list[Ticket]:
-    """Les demandes de fusion, présentées comme des tickets — même besoin."""
+    """The merge requests, presented as tickets."""
     parametres = {"per_page": str(AU_PLUS), "order_by": "updated_at"}
     if ouvertes:
         parametres["state"] = "opened"
@@ -127,13 +116,7 @@ def join_requests(source: Source, token: str, ouvertes: bool = True) -> list[Tic
 def creer_un_ticket(
     source: Source, token: str, title: str, description: str = ""
 ) -> Ticket:
-    """Crée un ticket. **L'appelant doit avoir confirmé.**
-
-    Ce module ne demande rien : il ne sait pas s'il tourne dans une fenêtre, un
-    terminal ou un fil de fond. La confirmation appartient à qui parle à
-    l'humain, et le droit d'écriture au registre — les deux sont exigés, et ni
-    l'un ni l'autre ne suffit.
-    """
+    """Creates a ticket. **The caller must have confirmed.**"""
     if not source.can_write:
         raise GitLabRefused(
             f"« {source.name} » est en lecture seule : aucun ticket n'a été créé"
@@ -149,11 +132,7 @@ def creer_un_ticket(
     return _as_ticket(rendered)
 
 def comment(source: Source, token: str, number: int, text: str) -> str:
-    """Ajoute un commentaire à un ticket. Rend son adresse.
-
-    Commenter est une écriture, au même titre que créer : un commentaire
-    notifie des gens et reste attaché à leur travail.
-    """
+    """Adds a comment to a ticket. Returns its address."""
     if not source.can_write:
         raise GitLabRefused(f"« {source.name} » est en lecture seule")
     if not text.strip():
