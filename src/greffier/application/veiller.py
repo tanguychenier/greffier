@@ -192,6 +192,10 @@ class Veilleur:
     #: de réunion. Construire une voix charge un modèle : on ne le fait qu'une
     #: fois, à la première demande.
     rendre_la_voix: Callable[[], Any] | None = None
+    #: L'assistant a-t-il le droit d'ouvrir la bouche sans qu'on l'appelle ?
+    #: Faux, il ne fait que répondre — ce qui est sans risque, la question
+    #: venant d'un humain qui juge du moment.
+    initiative: bool = False
     #: Matière au-delà de laquelle une voix sans nom mérite qu'on demande à qui
     #: elle est. Trente secondes : en deçà, c'est un « oui, d'accord » dont le
     #: compte rendu se passera, et interrompre pour cela serait ridicule.
@@ -336,11 +340,12 @@ class Veilleur:
             occasions=self._voix_a_demander(maintenant),
         )
         if retenue is None:
-            # Rien à dire maintenant : on en profite pour chercher s'il y aura
-            # quelque chose à dire tout à l'heure. La recherche coûte un appel
-            # au modèle, donc elle se fait à côté et son résultat sert à la
-            # tranche suivante.
-            self.participant.chercher_un_apport_a_part(maintenant)
+            if self.initiative:
+                # Rien à dire maintenant : on cherche s'il y aura quelque chose
+                # à dire tout à l'heure. La recherche coûte un appel au modèle,
+                # donc elle se fait à côté et son résultat sert à la tranche
+                # suivante.
+                self.participant.chercher_un_apport_a_part(maintenant)
             return
         if retenue.raison in ATTENDENT_UNE_REPONSE:
             # On retient la question posée : c'est ce qui permet à la réponse
@@ -384,7 +389,7 @@ class Veilleur:
         « Personne 12 » dans le compte rendu, et plus personne ne saura la
         reconnaître. La demander sur le moment coûte une phrase et vaut un nom.
         """
-        if self.suivi is None or self.participant is None:
+        if self.suivi is None or self.participant is None or not self.initiative:
             return []
         for voix in self.suivi.fil.voix.values():
             if (voix.nom is None and voix.nommable

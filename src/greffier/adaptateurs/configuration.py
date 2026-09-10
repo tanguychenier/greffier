@@ -360,10 +360,19 @@ class Assistant(BaseModel):
     réunion, et de la façon dont il se fait entendre.
     """
 
-    #: Faux par défaut : une voix qui sort du haut-parleur au milieu d'une
-    #: réunion ne s'impose pas, elle se demande. Le bouton de la fenêtre pose ce
-    #: réglage et le repose, autant de fois qu'on veut.
-    actif: bool = False
+    #: Vrai par défaut : l'assistant suit la réunion, prend des notes et répond
+    #: quand on l'appelle. C'est son travail, et il n'y a pas de raison de le
+    #: débrancher.
+    #:
+    #: Il était faux, et le jour où l'interface a cessé d'exposer ce réglage —
+    #: un seul bouton, pour la voix — plus rien ne permettait de l'activer :
+    #: l'assistant ne répondait pas, et personne ne pouvait savoir pourquoi.
+    #: Constaté en réunion, ce qui est le pire moment.
+    #:
+    #: Ce qui se règle, c'est la **voix** (`voix`) et l'**initiative**
+    #: (`initiative`) : se faire entendre dans la pièce et parler sans qu'on
+    #: l'ait appelé sont les deux choses qui dépendent de la réunion.
+    actif: bool = True
     #: Le nom auquel il répond. Lui donner un prénom vaut mieux que « Greffier »,
     #: qui ressemble à trop de mots courants : « le greffe du tribunal » suffit à
     #: le réveiller, un prénom non.
@@ -386,7 +395,18 @@ class Assistant(BaseModel):
     creux_minimal: float = 2.0
     #: L'autorise à demander qui vient de parler quand une voix lui échappe.
     #: C'est ce qui vaut un nom au compte rendu plutôt qu'un « Personne 12 ».
-    demander_les_voix: bool = True
+    #: Faux par défaut : c'est une intervention de sa propre initiative, et
+    #: `initiative` en décide.
+    demander_les_voix: bool = False
+    #: L'autorise à ouvrir la bouche sans qu'on l'ait appelée : relever une
+    #: décision sans responsable, une question restée en l'air, demander à qui
+    #: est une voix.
+    #:
+    #: **Faux par défaut.** Répondre quand on l'appelle est sans risque : la
+    #: question vient d'un humain, qui juge du moment. Parler de soi-même
+    #: demande de bien juger, et une intervention de trop coûte la confiance de
+    #: toute la salle — devant public, cela ne se tente pas sans l'avoir voulu.
+    initiative: bool = False
 
 
 class Apparence(BaseModel):
@@ -534,7 +554,7 @@ SECTIONS: dict[str, tuple[str, ...]] = {
     "retention": ("compresser_apres_jours", "effacer_apres_jours"),
     "conversation": ("recherche_web", "information"),
     "assistant": ("actif", "nom", "voix", "vitesse", "locuteur", "repos",
-                  "creux_minimal", "demander_les_voix"),
+                  "creux_minimal", "initiative", "demander_les_voix"),
     "apparence": ("theme",),
 }
 
