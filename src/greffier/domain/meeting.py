@@ -86,9 +86,6 @@ class StoredMeeting:
         if absorbee == gardee:
             return 0
         deplaces = sum(1 for t in self.turns if t.voice == absorbee)
-        # `TourDeParole` est gelé : on reconstruit la liste plutôt que de la
-        # muter. Le gel n'est pas un obstacle, c'est ce qui garantit qu'aucun
-        # autre endroit du code ne déplace un tour sans passer par ici.
         self.turns = [
             replace(turn, voice=gardee) if turn.voice == absorbee else turn
             for turn in self.turns

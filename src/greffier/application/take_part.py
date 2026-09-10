@@ -148,8 +148,6 @@ class AssistantSettings:
     _job: threading.Thread | None = None
     _search: threading.Thread | None = None
 
-    # --------------------------------------------------------------- écoute
-
     def turn(
         self,
         utterances: list[Utterance],
@@ -280,16 +278,9 @@ class AssistantSettings:
             subject=f"suite:{attendue.subject or _empreinte_du_propos(attendue.remark)}",
             as_is=True,
         )
-        # Tant qu'elle pose des questions, l'échange continue : c'est un
-        # dialogue, pas un aller-retour. Elle s'arrête d'elle-même dès qu'elle
-        # conclut plutôt que de demander — le point d'interrogation final est le
-        # signal, et il vient d'elle, non d'un compteur qui la couperait au
-        # milieu d'un sujet.
         if remark.rstrip().endswith("?"):
             self.awaiting = suite
         return suite
-
-    # ---------------------------------------------------------------- parole
 
     def answer(self, opening: Opening, now: float) -> Remark:
         """Formule puis prononce. Bloquant : voir `repondre_a_part`."""
@@ -298,9 +289,6 @@ class AssistantSettings:
             return Remark(remark="", because=opening.because, a=now)
         prononce = bool(self.voice and self.voice.say(remark))
         if prononce:
-            # Une seconde par quinze caractères : le débit de la synthèse, à la
-            # louche. Ce qui compte est de couvrir le temps où il s'entend, pas
-            # de le mesurer au millième.
             self.its_own_turns.append((now, now + 1.0 + len(remark) / 15.0))
         self.manners.has_spoken(opening, now)
         if self.tracer is not None:
@@ -380,8 +368,6 @@ class AssistantSettings:
             because=Because.CONTRIBUTION,
             remark=remark,
             born_at=now,
-            # Le sujet est le propos lui-même : deux remarques identiques ne se
-            # disent pas deux fois, et une remarque déjà faite ne revient pas.
             subject=f"apport:{_empreinte_du_propos(remark)}",
         )
 

@@ -37,8 +37,6 @@ class Genre(StrEnum):
     LIEN = "lien"                 # une adresse collée
     DECISION = "decision"         # « on décide de… », « il faut que… »
 
-# Adresses http(s) et chemins de dépôt collés. Volontairement strict : mieux
-# vaut rater un lien exotique que proposer d'ouvrir n'importe quoi.
 _LIEN = re.compile(r"https?://[^\s<>\"'()\[\]]{4,}")
 
 @dataclass(frozen=True, slots=True)
@@ -64,8 +62,6 @@ def liens_dans(text: str) -> list[str]:
     """Adresses présentes dans un texte, sans doublon et dans l'ordre."""
     vus: list[str] = []
     for trouve in _LIEN.finditer(text):
-        # La ponctuation finale colle souvent à l'adresse quand elle est
-        # recopiée depuis une phrase.
         lien = trouve.group(0).rstrip(".,;:!?")
         if lien not in vus:
             vus.append(lien)
@@ -121,8 +117,6 @@ class WatchRules:
                 )
                 if self._add(candidate):
                     nouvelles.append(candidate)
-                # Une instruction explicite suffit : inutile de la reclasser
-                # aussi en décision.
                 continue
             if decisions_in(utterance.text, self.profil):
                 candidate = Proposition(

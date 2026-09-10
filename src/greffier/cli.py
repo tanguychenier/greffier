@@ -260,31 +260,21 @@ def process(
     config = Config.load(config_file)
     _refuse_during_a_meeting(config, quand_meme)
     chaine = wire_up(config)
-    # Le journal ne publie que si l'état porte **cette** réunion : sans cela,
-    # un traitement lancé pendant qu'une autre s'enregistre y publiait
-    # « terminé » et arrêtait la capture.
     chaine.log = recording(config).pour(audio.stem)
     if sans_cr:
         chaine.writer = None
 
-    # Le journal câblé par la composition écrit le fichier d'état, que lit
-    # l'icône de la barre de menus. Le remplacer par un simple afficheur la
-    # rendait aveugle : pendant les quinze minutes d'un retraitement, elle
-    # montrait encore la phase précédente. On affiche **et** on publie.
     publisher = chaine.log
 
     def progress(phase: str, message: str = "") -> None:
         typer.secho(f"  {phase:<14} {message}", fg=typer.colors.BLUE)
         if publisher is not None:
-            # L'affichage ne doit pas dépendre de l'écriture de l'état.
             with contextlib.suppress(OSError, ValueError):
                 publisher.publish(phase, message)
 
     chaine.log = type("Journal", (), {"publish": staticmethod(progress)})()
 
     try:
-        # Un destinataire renseigné vaut demande d'envoi : c'est la raison
-        # d'être de l'outil, et le redemander à chaque réunion n'apporte rien.
         commencee_le, terminee_le = _hours_of(config, audio)
         outcome = chaine.run_chain(
             audio,
@@ -301,11 +291,6 @@ def process(
         typer.secho(f"⚠ {warning}", fg=typer.colors.YELLOW)
 
     significatives = outcome.significant_voices()
-    # Une voix nommée reste affichée même brève : la masquer sous le seuil des
-    # fragments cachait le résultat qu'on cherchait. Constaté sur un jeu d'essai
-    # à trois locuteurs : deux noms trouvés, un seul montré. Une proposition
-    # (nom deviné, pas encore confirmé) suit la même règle : sans elle, un
-    # prénom prononcé dans une réponse brève ne s'affichait jamais.
     for voice, duration in outcome.speaking_time().items():
         deja_montree = voice in outcome.names or voice in outcome.propositions
         if deja_montree and voice not in significatives:
@@ -322,15 +307,11 @@ def process(
         if voice in outcome.names:
             typer.secho(f"  {part}  {outcome.names[voice]}", fg=typer.colors.GREEN)
         elif voice in outcome.propositions:
-            # Proposé, jamais affirmé : c'est à l'utilisateur de trancher.
             typer.secho(f"  {part}  ≈ {outcome.propositions[voice]} (à confirmer)",
                         fg=typer.colors.YELLOW)
         else:
             typer.echo(f"  {part}  Personne {voice}")
 
-    # L'écriture est faite par la chaîne, pour tous ses appelants : ici on ne
-    # fait que dire où. La faire une seconde fois écrasait le même fichier avec
-    # le même contenu, et laissait croire que la fenêtre écrivait aussi.
     if outcome.transcript_written:
         typer.echo(f"\nTranscription : {outcome.transcript_written}")
     if outcome.fichier_maitre:
@@ -383,7 +364,6 @@ def _ask_for_names(config: Config, identifier: str) -> bool:
         typer.echo()
         typer.secho(f"  voix {candidate.voice} — {part}", bold=True)
         if candidate.proposition:
-            # Proposé, jamais affirmé : c'est à l'utilisateur de trancher.
             typer.secho(f"  entendu dans la réunion : {candidate.proposition}",
                         fg=typer.colors.CYAN)
         if candidate.extrait:
@@ -640,9 +620,6 @@ def _prepare_capture(config: Config) -> str:
 
     mic = _mic_by_listening(config, materiel)
     if mic and mic != config.audio.mic:
-        # Le micro et la sortie sont deux appareils distincts : le micro intégré
-        # d'un portable n'est pas une sortie, et passer son nom aux deux faisait
-        # échouer la construction de l'agrégé.
         if _swift("--mic", mic, "--casque", _listening_output(materiel)).returncode == 0:
             typer.secho(f"  micro : {mic}", fg=typer.colors.CYAN)
         else:
@@ -716,9 +693,6 @@ def _mic_by_listening(config: Config, materiel: object) -> str:
             fg=typer.colors.YELLOW,
         )
     if choix.casque_prefere:
-        # Le dire : au vu des seuls niveaux, le choix paraît faux. Un casque
-        # posé sur le bureau capte moins qu'un micro de portable, et devient de
-        # loin le meilleur dès qu'on le porte.
         plus_fort = [name for name, db in choix.ecartes if db > choix.niveau_db]
         if plus_fort:
             typer.secho(
@@ -891,9 +865,6 @@ def assist(
     log = config.paths.propositions / f"{state.identifier}.jsonl"
     transcriber = None if sans_transcription else light_transcriber(config)
 
-    # Les questions sur les termes mal entendus, déposées au fil de la réunion.
-    # Les clefs déjà posées sont relues du fichier : le processus qui écoute
-    # peut être relancé en cours de réunion, et redemander serait pire que rien.
     from greffier.adapters import questions_file
     from greffier.domain.questions import Questioner
 
@@ -911,37 +882,20 @@ def assist(
         for question in questioner.examine(text):
             questions_file.publish(fichier_questions, question)
     the_follower = follower(config, state.identifier) if config.live.active else None
-    # Ce que la veille précédente avait déjà entendu, s'il y en a eu une. Sans
-    # cette reprise, relancer la veille au milieu d'une réunion retranscrivait
-    # tout depuis le début et doublait chaque phrase du fil — ce qui rendait la
-    # relance inutilisable, alors que c'est le seul moyen de rattraper un
-    # réglage manqué au démarrage ou une veille qui a lâché.
     reprise = _resume_the_thread(config, state.identifier, the_follower)
     lui = assistant_of(config, state.identifier)
     if lui is not None and the_follower is not None:
         lui.name_voice = _namer(the_follower, config, state.identifier)
-        # Ce qui s'est dit jusqu'ici **et** ce qu'on lui a donné à lire. Les
-        # documents comptent autant que le fil : un ordre du jour déposé en
-        # début de réunion nomme la moitié des sigles qu'on va entendre, et
-        # attendre la fin pour les lire les rend inutiles.
         lui.context = _live_material(config, state.identifier, the_follower)
     watcher = Watcher(
         watch_rules=WatchRules(mot_cle=mot_cle),
         log=log,
         transcriber=transcriber,
-        # La position vient des octets écrits, pas de l'horloge : après une
-        # pause, les deux ont divergé de tout le temps d'arrêt.
         situer=lambda: position(recorder.read().chunks, written_duration),
         follower=the_follower,
-        # Les canaux de la tranche sont mis à niveau avant d'être transcrits :
-        # sans cela, la voix la plus faible du mélange n'est pas transcrite.
         preparateur=_audio_recorder(config),
         language=config.transcription.language,
-        # Le même contexte que la transcription définitive : c'est le fil qu'on
-        # lit pendant la réunion, et c'est dessus qu'on corrige.
         prompt_seed=the_context.prompt_seed(),
-        # Relue à chaque tranche : un terme ajouté en pleine réunion doit
-        # servir à la phrase suivante, pas à la réunion d'après.
         relire_l_amorce=lambda: context(config).prompt_seed(),
         interrogate=interrogate,
         traite=reprise,
@@ -1392,7 +1346,6 @@ def contexte_(
     typer.echo(f"  {prompt_seed or '(aucune)'}")
     ecartes = the_context.ecartes()
     if ecartes:
-        # whisper tronque sans prévenir : le dire est tout l'intérêt.
         typer.secho(
             f"\n⚠ {len(ecartes)} terme(s) écarté(s), l'amorce est pleine : "
             + ", ".join(ecartes[:8]) + ("…" if len(ecartes) > 8 else ""),
@@ -1470,11 +1423,7 @@ def board(
 
     for name in vises:
         typer.secho(f"\n— {name} —", fg=typer.colors.BRIGHT_WHITE, bold=True)
-        # Ce qui est déjà sur la carte, donné au rédacteur : sans cela il
-        # reformule et chaque reformulation crée une branche de plus.
         deja = _board_labels(registre, name) if publish else ()
-        # Ce que des humains ont ajouté sur la carte depuis la dernière fois :
-        # c'est tout l'intérêt d'une carte partagée, et cela n'était jamais relu.
         des_autres = _contributions_of_others(registre, name) if publish else ()
         if des_autres:
             typer.secho(
@@ -1486,8 +1435,6 @@ def board(
         try:
             apports = extract(engine, name, material, deja=deja)
         except RenduIllisible as trouble:
-            # Distinct de « rien à ajouter » : une panne ne doit pas se lire
-            # comme un résultat.
             typer.secho(f"  ✗ extraction illisible : {trouble}", fg=typer.colors.RED)
             continue
         if not apports:
@@ -1514,9 +1461,6 @@ def _board_labels(registre: object, name: str) -> tuple[str, ...]:
     try:
         return tuple(board_miro.labels_present(connu.board))
     except board_miro.MiroRefuse:
-        # Ne pas pouvoir relire n'empêche pas d'extraire ; on risque seulement
-        # des doublons, ce qui se corrige, là où ne rien produire ne se corrige
-        # pas.
         return ()
 
 def _action_texts(board: object) -> list[str]:
@@ -1573,8 +1517,6 @@ def _publier_la_carte(
         f"{ecrit.liens} lien(s)",
         fg=typer.colors.GREEN,
     )
-    # Les points tranchés reçoivent une pastille à côté d'eux : sans elle, une
-    # piste retenue restait jaune indéfiniment.
     actes = _action_texts(the_board)
     if actes:
         marques = board_miro.mark_actions(tableau, actes, meeting=identifier)
@@ -1582,8 +1524,6 @@ def _publier_la_carte(
             typer.secho(f"  ✓ {len(marques)} point(s) marqué(s) « acté »",
                         fg=typer.colors.GREEN)
     if ecrit.liens_manques:
-        # Dit, et non avalé : une carte a été publiée sans un seul trait sans
-        # que rien ne le signale.
         typer.secho(
             f"  ⚠ {ecrit.liens_manques} lien(s) n'ont pas pu être tracés",
             fg=typer.colors.YELLOW,
@@ -1935,9 +1875,6 @@ def back_up(
     if faite.effacees:
         typer.echo(f"  rotation {len(faite.effacees)} ancienne(s) effacée(s)")
     if faite.on_the_same_disk:
-        # Le dire à chaque fois : confondre « une copie existe » et « le travail
-        # est à l'abri » est la façon habituelle de n'avoir aucune sauvegarde le
-        # jour où il en faut une.
         typer.secho(
             "\n⚠ Cette copie est sur le même disque que les données : elle protège\n"
             "  d'un effacement, pas d'une panne de disque. Règle "
@@ -1983,8 +1920,6 @@ def tidy(
             detail = magasin.read(identifier)
         except (OSError, ValueError):
             continue
-        # L'âge se compte depuis la tenue de la réunion quand on la connaît :
-        # retraiter une vieille réunion ne doit pas la rajeunir.
         reference = detail.commencee_le or detail.traitee_le
         jours = (now - reference).total_seconds() / 86400
         meetings.append((identifier, jours, bool(detail.utterances)))
@@ -2290,9 +2225,6 @@ def send(
         raise typer.Exit(1)
 
     objet = title(minutes, f"Compte rendu de réunion — {identifier}")
-    # Le corps du message est déjà le compte rendu : rien à joindre par défaut.
-    # La transcription intégrale fait circuler les propos de chacun mot à mot,
-    # ce qui ne se décide pas à la place du lecteur.
     transcription = config.paths.transcripts / f"{identifier}.txt"
     pieces = [transcription] if avec_transcription and transcription.exists() else []
 
@@ -2308,8 +2240,6 @@ def send(
     typer.secho("  Format   ", nl=False, bold=True)
     typer.echo("HTML mis en forme, Markdown en repli")
 
-    # Les intertitres suffisent à reconnaître un compte rendu : inutile de
-    # dérouler trois pages dans un terminal pour vérifier qu'on tient le bon.
     sections = [x.strip().lstrip("#").strip() for x in minutes.splitlines()
                 if x.strip().startswith("## ")]
     if sections:

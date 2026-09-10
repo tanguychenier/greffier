@@ -32,7 +32,6 @@ GABARIT = '''# Les sujets que Greffier suit, et où vit la carte de chacun.
 # carte = ""
 '''
 
-
 def read(file: Path) -> Registre:
     """Le registre écrit à la main. Vide si le fichier n'existe pas.
 
@@ -46,10 +45,6 @@ def read(file: Path) -> Registre:
     except (OSError, tomllib.TOMLDecodeError):
         return Registre()
 
-    # Les entrées de même nom se fondent, la dernière l'emportant : le fichier
-    # s'écrit en ajout seul — pour ne pas effacer ses commentaires — donc
-    # renseigner la carte d'un sujet déjà listé ajoute une seconde entrée. Sans
-    # cette fusion, la première l'emporterait et la carte resterait ignorée.
     fondus: dict[str, Subject] = {}
     for input in content.get("sujets", []):
         if not isinstance(input, dict) or not str(input.get("nom", "")).strip():
@@ -62,7 +57,6 @@ def read(file: Path) -> Registre:
         )
         precedent = fondus.get(name.casefold())
         if precedent is not None:
-            # Les alias s'accumulent, la carte la plus récemment écrite gagne.
             nouvelles = tuple(dict.fromkeys(precedent.alias + nouvelles))
         fondus[name.casefold()] = Subject(
             name=name,
@@ -72,7 +66,6 @@ def read(file: Path) -> Registre:
         )
     return Registre(list(fondus.values()))
 
-
 def lay_the_template(file: Path) -> bool:
     """Écrit le fichier d'exemple s'il n'existe pas. Vrai s'il a été créé."""
     if file.exists():
@@ -80,7 +73,6 @@ def lay_the_template(file: Path) -> bool:
     file.parent.mkdir(parents=True, exist_ok=True)
     file.write_text(GABARIT, encoding="utf-8")
     return True
-
 
 def noter_la_carte(file: Path, subject: str, board: str) -> bool:
     """Inscrit l'identifiant de carte d'un sujet, en ajout seul.
@@ -99,9 +91,6 @@ def noter_la_carte(file: Path, subject: str, board: str) -> bool:
         if connu is None:
             flux.write(f'\n[[sujets]]\nnom = "{subject}"\ncarte = "{board}"\n')
         else:
-            # Le sujet existe sans carte : on ajoute une entrée qui la porte,
-            # et la lecture retiendra la dernière. Réécrire le fichier pour
-            # modifier une ligne effacerait les commentaires alentour.
             flux.write(
                 f'\n[[sujets]]\nnom = "{connu.name}"\n'
                 f'alias = {list(connu.alias)!r}\ncarte = "{board}"\n'

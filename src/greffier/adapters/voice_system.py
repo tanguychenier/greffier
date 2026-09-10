@@ -47,8 +47,6 @@ def _say_voice() -> list[tuple[str, str]]:
         return []
     voice = []
     for line in output.splitlines():
-        # « Thomas (Premium)      fr_FR    # Bonjour… » : le nom peut contenir
-        # des espaces et des parenthèses, la langue jamais.
         trouve = re.match(r"^(.+?)\s+([a-z]{2}_[A-Z]{2})\s+#", line)
         if trouve and trouve.group(2).startswith("fr"):
             voice.append((trouve.group(1).strip(), trouve.group(2)))
@@ -65,8 +63,6 @@ def best_voice() -> str | None:
     if not voice:
         return None
     for qualite in QUALITES:
-        # fr_FR avant fr_CA : la réunion se tient en France, et l'accent
-        # québécois, si agréable soit-il, distrait l'auditoire.
         for language in ("fr_FR", "fr_CA"):
             for name, cette_langue in voice:
                 if f"({qualite})" in name and cette_langue == language:
@@ -119,9 +115,6 @@ class SystemVoice:
                 return ["espeak-ng", "-v", "fr", "-s", str(self.debit), text]
             return []
         if SYSTEM == "Windows" and shutil.which("powershell"):
-            # Le texte passe par un littéral PowerShell : seuls les guillemets
-            # simples ont besoin d'être doublés, et ils ne peuvent rien fermer
-            # d'autre. Aucune interpolation n'a lieu dans ce type de chaîne.
             echappe = text.replace("'", "''")
             return [
                 "powershell", "-NoProfile", "-Command",

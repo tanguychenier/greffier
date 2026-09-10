@@ -39,31 +39,10 @@ ATTENDENT_UNE_REPONSE = frozenset({
     Because.CONTRIBUTION,
 })
 
-# Le presse-papier est gratuit à relire : on le fait souvent, pour que le lien
-# collé apparaisse pendant qu'on en parle encore.
 PERIODE_PRESSE_PAPIER = 2.0
-# Une tranche de transcription coûte plusieurs secondes de calcul. Trop souvent,
-# on prend du temps machine à la réunion elle-même.
 SLICE_PERIOD = 30.0
-# Recouvrement entre deux tranches : une phrase à cheval doit rester entière
-# dans au moins l'une des deux.
 OVERLAP = 5.0
-# Une tranche ratée est reprise à la suivante, avec un peu plus de matière. Sans
-# borne, un échec durable — modèle absent, fichier illisible — la ferait grandir
-# jusqu'à demander plusieurs minutes de calcul à chaque tour.
 TRANCHE_MAXIMALE = 90.0
-# Secondes d'audio **déjà transcrit** données en plus au modèle, avant la
-# tranche. Rien n'en est réaffiché : c'est du contexte, et il change tout.
-#
-# Mesuré le 2026-09-09 sur une réunion en présentiel, même passage, même modèle,
-# seule la longueur de la fenêtre changeant : à 15 s « sur la ZIS », à 30 s
-# « sur Asis », à 60 s « sur Oasis » — le mot juste, et la phrase entière avec.
-# Whisper décode par fenêtres de 30 s en reportant le texte de la précédente en
-# contexte : ne lui donner que la tranche, c'est le priver de ce sur quoi il
-# s'appuie, et il comble avec ce qui ressemble.
-#
-# Le coût tient dans le budget : 0,9 s pour 15 s d'audio, 1,4 s pour 60 s avec
-# huit fils, pour une tranche qui en dure dix.
 CONTEXTE_S = 50.0
 
 def _within_the_slice(utterances: list[Utterance], frontiere: float) -> list[Utterance]:
@@ -213,19 +192,11 @@ class Watcher:
         tranche = extract_slice(ou.morceau, start, ou.ecrit, job / "tranche.wav")
         if tranche is None:
             return []
-        # Le modèle reçoit la tranche **précédée** de ce qui a déjà été
-        # transcrit ; seules les répliques qui débordent dans la tranche sont
-        # gardées. Le reste n'est là que pour qu'il sache de quoi on parle.
         depart = max(0.0, start - CONTEXTE_S)
         avec_contexte = tranche if depart >= start else (
             extract_slice(ou.morceau, depart, ou.ecrit, job / "fenetre.wav")
             or tranche
         )
-        # Deux versions de la même tranche, et c'est nécessaire : la
-        # transcription veut un mélange équilibré, l'attribution veut les
-        # niveaux **relatifs** intacts, puisque c'est l'écart entre le micro et
-        # la boucle qui dit qui parle. Normaliser avant d'attribuer ferait
-        # passer tout le monde pour la personne qui enregistre.
         a_transcrire = avec_contexte
         if self.preparateur is not None:
             a_transcrire = self.preparateur.prepare_transcript(
@@ -236,21 +207,14 @@ class Watcher:
                 a_transcrire, self.language, self._current_prompt_seed()
             )
         except (RuntimeError, OSError):
-            # Une tranche ratée ne doit pas interrompre la veille : la réunion
-            # continue, et la transcription définitive se fera à la fin.
             return []
         utterances = _within_the_slice(utterances, start - depart)
         self.traite = ou.decalage + ou.ecrit
-        # Pendant la réunion, sur ce qui vient d'être dit : après coup, une
-        # question sur un terme mal entendu arrive trop tard pour que le compte
-        # rendu en profite.
         if self.interrogate is not None:
             for utterance in utterances:
                 with contextlib.suppress(OSError):
                     self.interrogate(utterance.text)
         decalage = ou.decalage + start
-        # Les répliques sont datées dans la tranche : on les remet à l'heure de
-        # la réunion, sinon les propositions renverraient au mauvais moment.
         recalees = [
             Utterance(
                 span=Span(
@@ -263,8 +227,6 @@ class Watcher:
         nouvelles = self.watch_rules.listen(recalees)
         self.publish(nouvelles)
         if self.follower is not None:
-            # Le fil affiché reçoit la tranche elle-même : l'empreinte vocale se
-            # prélève dedans, aux temps de la tranche.
             self.follower.take_in(tranche, utterances, decalage)
         self.assistant_turn(recalees, self.traite)
         return nouvelles
@@ -287,17 +249,9 @@ class Watcher:
         )
         if retenue is None:
             if self.initiative:
-                # Rien à dire maintenant : on cherche s'il y aura quelque chose
-                # à dire tout à l'heure. La recherche coûte un appel au modèle,
-                # donc elle se fait à côté et son résultat sert à la tranche
-                # suivante.
                 self.assistant_of.look_for_a_contribution_aside(now)
             return
         if retenue.because in ATTENDENT_UNE_REPONSE:
-            # On retient la question posée : c'est ce qui permet à la réponse
-            # d'être comprise comme une réponse, et pas comme une phrase de plus.
-            # Répondre à quelqu'un n'attend rien en retour ; poser une question
-            # de soi-même, si.
             self.assistant_of.awaiting = retenue
         self.assistant_of.answer_aside(retenue, now)
 

@@ -24,10 +24,8 @@ from greffier.domain.sources import Source
 TIMEOUT = 15.0
 AU_PLUS = 20
 
-
 class JiraRefuse(RuntimeError):
     """L'appel n'a pas eu lieu, et pour une raison présentable."""
-
 
 @dataclass(frozen=True, slots=True)
 class Request:
@@ -43,7 +41,6 @@ class Request:
         qui = f" — {self.assigne}" if self.assigne else ""
         return f"{self.key} {self.title}{qui} ({self.state})"
 
-
 def _identifiers(token: str) -> tuple[str, str]:
     """Le couple courriel/jeton, depuis le secret unique déposé.
 
@@ -57,7 +54,6 @@ def _identifiers(token: str) -> tuple[str, str]:
         )
     adresse, _, brut = token.partition(":")
     return (adresse.strip(), brut.strip())
-
 
 def _appeler(
     source: Source, token: str, path: str, methode: str = "GET",
@@ -92,7 +88,6 @@ def _appeler(
     except (ValueError, OSError) as trouble:
         raise JiraRefuse(str(trouble)) from trouble
 
-
 def _as_request(source: Source, brut: dict[str, Any]) -> Request:
     champs = brut.get("fields") or {}
     assigne = (champs.get("assignee") or {}).get("displayName", "") or ""
@@ -105,7 +100,6 @@ def _as_request(source: Source, brut: dict[str, Any]) -> Request:
         adresse=f"{source.adresse}/browse/{key}",
         assigne=assigne,
     )
-
 
 def requests(source: Source, token: str, ouvertes: bool = True) -> list[Request]:
     """Les demandes du projet inscrit. Lecture seule, toujours permise."""
@@ -124,7 +118,6 @@ def requests(source: Source, token: str, ouvertes: bool = True) -> list[Request]
     return [
         _as_request(source, brut) for brut in trouvees if isinstance(brut, dict)
     ]
-
 
 def creer_une_demande(
     source: Source, token: str, title: str, description: str = "",
@@ -145,8 +138,6 @@ def creer_une_demande(
         }
     }
     if description.strip():
-        # Jira attend le format « document » depuis l'API 3 : du texte brut y
-        # est refusé, et l'erreur ne le dit pas clairement.
         corps["fields"]["description"] = {
             "type": "doc", "version": 1,
             "content": [{

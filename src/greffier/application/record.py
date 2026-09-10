@@ -63,8 +63,6 @@ def _alive(pid: int | None) -> bool:
     try:
         os.kill(pid, 0)
     except (ProcessLookupError, PermissionError, OSError):
-        # PermissionError : le processus existe mais appartient à quelqu'un
-        # d'autre — donc ce n'est pas le nôtre, il ne compte pas.
         return False
     return True
 
@@ -113,8 +111,6 @@ class StateLog:
             current = self.state.read()
         except (OSError, ValueError):
             return
-        # Un état au repos n'appartient à aucune réunion : publier y est sans
-        # danger, et c'est le cas ordinaire d'un traitement lancé après coup.
         if current.identifier and current.identifier != self.identifier:
             return
         self.state.publish(phase, message)
@@ -135,8 +131,6 @@ class Recording:
         self.audio_recorder = audio_recorder
         self.dossier_audio = dossier_audio
         self.fichier_etat = fichier_etat
-
-    # ----------------------------------------------------------------- état
 
     def read(self) -> RecorderState:
         if not self.fichier_etat.exists():
@@ -166,12 +160,6 @@ class Recording:
             ),
             sortie_precedente=content.get("sortie_precedente", ""),
         )
-        # Le fichier survit à un redémarrage : c'est la présence du processus
-        # qui décide si quoi que ce soit est vraiment en cours. Le contrôle ne
-        # valait que pour l'enregistrement, si bien qu'une rédaction interrompue
-        # laissait l'état figé sur « Rédaction… » avec un processus mort —
-        # mesuré le 2026-09-09, et la fenêtre l'affichait encore le lendemain
-        # matin, annonçant une réunion en cours qui n'existait plus.
         if state.phase.in_progress and not _alive(state.pid):
             enregistrait = state.phase in (Phase.RECORDING, Phase.PAUSE)
             state.phase = Phase.ECHEC
@@ -278,7 +266,6 @@ class Recording:
         state.chunks.append(suivant)
         state.phase = Phase.RECORDING
         state.message = "Enregistrement en cours."
-        # Le temps de pause ne compte pas dans la durée de la réunion.
         if state.suspendu_le is not None:
             state.pause_totale += (datetime.now(UTC) - state.suspendu_le).total_seconds()
             state.suspendu_le = None
@@ -317,8 +304,6 @@ class Recording:
         self.write(state)
         return state
 
-    # ------------------------------------------------------------- actions
-
     def start_recording(self, name: str = "reunion", sortie_precedente: str = "") -> RecorderState:
         in_progress = self.read()
         if in_progress.phase is Phase.RECORDING:
@@ -345,8 +330,6 @@ class Recording:
         state = self.read()
         if state.audio is None:
             raise RuntimeError("Aucun enregistrement à arrêter.")
-        # Arrêter depuis la pause est légitime : la réunion est finie, la
-        # capture était simplement suspendue.
         if state.pid is not None and _alive(state.pid):
             self.audio_recorder.stop_recording(state.pid)
         state.phase = Phase.FINALISATION
@@ -354,9 +337,6 @@ class Recording:
         state.pid = None
         state.terminee_le = datetime.now(UTC)
         self.write(state)
-        # Le garde-fou passe avant le recollage : sinon le fichier recollé
-        # remplace celui qu'on vient de trouver vide, et plus rien ne signale
-        # qu'aucun son n'a été capté.
         chunks = [m for m in (state.chunks or [state.audio]) if m is not None]
         utiles = [m for m in chunks if m.exists() and m.stat().st_size > 0]
         if not utiles:
@@ -364,8 +344,6 @@ class Recording:
                 f"{state.audio} est vide. Vérifie l'autorisation micro et le "
                 "périphérique d'entrée."
             )
-        # La suite de la chaîne attend un flux continu : les empreintes vocales
-        # se comparent mal d'un fichier à l'autre.
         if len(utiles) > 1:
             state.message = f"Enregistrement arrêté, {len(utiles)} morceaux recollés."
         self.audio_recorder.wire_up(utiles, state.audio)

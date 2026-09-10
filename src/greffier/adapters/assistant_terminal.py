@@ -68,8 +68,6 @@ class Dialogue:
     show: Callable[[str], None]
     choose: Callable[[str, list[tuple[str, str]], int], str]
 
-# --------------------------------------------------------------- les étapes
-
 def language_step(dialogue: Dialogue, state: Diagnostic, answers: Reponses) -> None:
     """Dans quelle langue se tiennent les réunions, et s'écrivent les comptes rendus.
 
@@ -135,8 +133,6 @@ def hardware_step(dialogue: Dialogue, state: Diagnostic, answers: Reponses) -> N
             dialogue.show(f"  • {constat.name} : {constat.remede}")
             answers.to_do.append(constat.remede)
 
-    # Le modèle est choisi d'après la mémoire réelle : proposer le plus gros
-    # partout ferait ramer la machine pendant toute la réunion.
     answers.place("GREFFIER_TRANSCRIPTION__MODEL", recorder.advised_model)
     answers.place(
         "GREFFIER_TRANSCRIPTION__ENGINE",
@@ -161,8 +157,6 @@ def writer_step(dialogue: Dialogue, state: Diagnostic, answers: Reponses) -> Non
             answers.to_do.append(command)
 
     if diagnostic.claude_installed() and not diagnostic.claude_signed_in():
-        # Sans cette vérification, l'échec n'apparaîtrait qu'après une heure de
-        # transcription — c'est-à-dire au pire moment possible.
         dialogue.show(
             "Claude Code est installé mais aucune session n'est ouverte.\n"
             "Lance « claude » une fois et connecte-toi à ton abonnement : sans cela,\n"
@@ -224,8 +218,6 @@ def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Reponses) -> N
         answers.place("GREFFIER_MINUTES__RECIPIENT", "")
         return
 
-    # Une adresse vide vaut « pas d'envoi » : accepter les deux à la fois
-    # produirait une configuration qui prétend envoyer et n'envoie rien.
     adresse = ""
     for _ in range(3):
         adresse = dialogue.ask("À quelle adresse", "").strip()
@@ -239,8 +231,6 @@ def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Reponses) -> N
     answers.place("GREFFIER_MINUTES__RECIPIENT", adresse)
 
     if diagnostic.outlook_present():
-        # Outlook est déjà authentifié sur le poste : aucun mot de passe à
-        # stocker, ce qui vaut mieux que n'importe quelle configuration SMTP.
         dialogue.show(
             "Outlook est installé : Greffier passera par lui. Aucun mot de passe\n"
             "à saisir, ton compte est déjà authentifié.\n"
@@ -257,8 +247,6 @@ def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Reponses) -> N
     answers.place("GREFFIER_EMAIL__PORT", dialogue.ask("Port", "587"))
     user = dialogue.ask("Identifiant", adresse)
     answers.place("GREFFIER_EMAIL__USER", user)
-    # Le mot de passe ne va pas dans le fichier : il reste dans l'environnement,
-    # où un gestionnaire de secrets peut le fournir.
     dialogue.show(
         "Le mot de passe n'est pas écrit dans la configuration. Fournis-le par\n"
         "l'environnement au moment de l'envoi :\n"
@@ -277,8 +265,6 @@ def vocabulary_step(dialogue: Dialogue, state: Diagnostic, answers: Reponses) ->
     words = [m.strip() for m in entry.split(",") if m.strip()]
     if words:
         answers.place("GREFFIER_TRANSCRIPTION__VOCABULARY", json.dumps(words, ensure_ascii=False))
-        # Les mêmes mots ne doivent jamais être pris pour des prénoms : sans
-        # cela, « merci Copernic » créerait un participant.
         answers.place("GREFFIER_SPEAKERS__NOT_FIRST_NAMES",
                        json.dumps(words, ensure_ascii=False))
 
@@ -297,9 +283,6 @@ def write(answers: Reponses, file: Path | None = None) -> Path:
     target = file or config_folder() / ".env"
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
-        # On ne détruit pas une configuration existante sans laisser de trace.
-        # « with_name » et non « with_suffix » : un fichier caché comme « .env »
-        # n'a pas de suffixe, et la sauvegarde serait partie sous un autre nom.
         target.replace(target.with_name(target.name + ".precedent"))
     target.write_text(answers.render_env(), encoding="utf-8")
     apply_settings(answers)

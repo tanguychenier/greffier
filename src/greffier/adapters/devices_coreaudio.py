@@ -21,24 +21,16 @@ from greffier.domain.devices import Materiel, Peripherique
 
 SYSTEM = platform.system()
 
-# « Jabra EVOLVE 30 II  [entrée 1ch, sortie 2ch] » puis « uid: … » à la ligne.
 _LINE = re.compile(r"^\s{2}(\S.*?)\s+\[(.+?)\]\s*$")
 _UID = re.compile(r"^\s+uid:\s*(.+?)\s*$")
 _ENTREES = re.compile(r"entrée (\d+)ch")
 _SORTIES = re.compile(r"sortie (\d+)ch")
-
 
 class CoreAudioLister:
     """Donne l'état du matériel audio, à la demande."""
 
     def __init__(self, source: Path, cache: Path, prete: Path | None = None) -> None:
         self.source = source
-        # Le binaire livré dans le paquet macOS, quand il existe. Exécuter
-        # depuis le paquet signé plutôt que depuis ~/.local change tout face à
-        # un garde du poste : exécuté depuis ~/.local, il
-        # redéclenchait une demande d'autorisation à chaque relevé du matériel
-        # — toutes les cinq secondes pendant une réunion, constaté, la règle
-        # « Autoriser » réécrite en boucle sans jamais suffire.
         self.prete = prete
         self.binaire = cache / "lister-peripheriques"
 
@@ -66,7 +58,6 @@ class CoreAudioLister:
         elif self._compiler():
             command = [str(self.binaire), "--list"]
         elif shutil.which("swift"):
-            # Repli : dix fois plus lent, mais mieux que ne rien surveiller.
             command = ["swift", str(self.source), "--list"]
         else:
             return ""
@@ -80,10 +71,7 @@ class CoreAudioLister:
         try:
             return analyser(self._raw_output())
         except (subprocess.SubprocessError, OSError):
-            # Un échec de lecture ne doit jamais interrompre un enregistrement :
-            # la veille se taira, la capture continue.
             return Materiel()
-
 
 def analyser(output: str) -> Materiel:
     """Convertit la sortie du listeur en matériel comparable.

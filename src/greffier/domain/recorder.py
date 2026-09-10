@@ -16,12 +16,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-# En dessous, faire tourner le grand modèle de transcription revient à faire
-# ramer la machine pendant toute la réunion.
 MEMOIRE_GRAND_MODELE_GO = 8.0
-# Modèles, VAD, empreintes, segmentation : 1,7 Go, plus la marge d'extraction.
 DISQUE_NECESSAIRE_GO = 3.0
-
 
 @dataclass
 class Constat:
@@ -32,7 +28,6 @@ class Constat:
     detail: str = ""
     remede: str = ""
     bloquant: bool = False
-
 
 @dataclass
 class Recorder:
@@ -56,7 +51,6 @@ class Recorder:
         if self.memory_gb >= 4:
             return "medium"
         return "small"
-
 
 @dataclass
 class Diagnostic:

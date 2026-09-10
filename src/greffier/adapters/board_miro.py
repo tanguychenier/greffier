@@ -165,8 +165,6 @@ def objets_presents(tableau: str) -> dict[str, str]:
             content = (objet.get("data") or {}).get("content", "")
             if not content:
                 continue
-            # La première ligne porte le point ; les suivantes son état et sa
-            # provenance, qui ne font pas partie du libellé.
             premiere = _sans_balises(content.split("</p>")[0])
             if premiere:
                 trouves.setdefault(premiere, str(objet.get("id", "")))
@@ -279,12 +277,6 @@ def mark_actions(
 
     _keep(tableau)
     present_line = placements_present(tableau)
-    # Les pastilles déjà là, avec **toutes** leurs positions. Elles ne portent
-    # pas le texte du point qu'elles marquent, donc seule leur place les
-    # rattache — et `poses_presentes` ne pouvait pas servir : il indexe par
-    # libellé, or toutes les pastilles s'appellent « acté », si bien qu'une
-    # seule position était retenue et qu'une pastille de plus était posée à
-    # chaque publication.
     deja_marques = _dots_placed(tableau)
     marques: list[str] = []
     for text in texts:
@@ -310,9 +302,6 @@ def mark_actions(
                              "content": f"<p>{_echapper(MARQUE_ACTE)}</p>"},
                     "style": {"fillColor": "#2e6b52", "color": "#ffffff",
                               "fontSize": "12"},
-                    # À droite du point, hors de son emprise : la géométrie
-                    # rendue par l'API n'est pas fiable, donc on s'écarte
-                    # largement plutôt que de calculer au pixel.
                     "position": {"x": attendue[0], "y": attendue[1],
                                  "origin": "center"},
                     "geometry": {"width": 70, "height": 34},
@@ -357,8 +346,6 @@ def publish(board: Carte, tableau: str, meeting: str = "") -> Ecrit:
     from greffier.domain.board import same_point
 
     _keep(tableau)
-    # Les objets déjà là, avec leur identifiant : ils servent à comparer **et**
-    # à rattacher les points nouveaux à un parent qui existait avant.
     present_line = placements_present(tableau)
     identifiers: dict[str, str] = {
         label_text: pose.identifier for label_text, pose in present_line.items()
@@ -368,7 +355,6 @@ def publish(board: Carte, tableau: str, meeting: str = "") -> Ecrit:
     known: list[str] = []
 
     for place in disposer(board):
-        # À la reformulation près : c'est ce qui empêche la carte de doubler.
         if any(same_point(label_text, place.noeud.text) for label_text in present_line):
             known.append(place.noeud.text)
             continue
@@ -406,8 +392,6 @@ def _as_html(noeud: Noeud, meeting: str) -> str:
     from greffier.domain.board import SANS_ETAT
 
     lines = [f"<p>{_echapper(noeud.text)}</p>"]
-    # La racine ne porte pas d'état : « Oasis — en discussion » ferait dire à la
-    # carte que le sujet lui-même est en débat.
     if noeud.kind not in SANS_ETAT and noeud.state is not RecorderState.ACTE:
         lines.append(f"<p><i>{noeud.state}</i></p>")
     origine = meeting or (noeud.meetings[-1] if noeud.meetings else "")
@@ -464,8 +448,6 @@ def _relier(
         arrivee = identifiers.get(place.noeud.text)
         if not place.parent or depart is None or arrivee is None:
             continue
-        # Un lien déjà tracé ne se retrace pas : republier une carte y
-        # empilerait des traits superposés à chaque passage.
         if (depart, arrivee) in deja_reliees:
             continue
         try:
@@ -477,8 +459,5 @@ def _relier(
             )
             traces += 1
         except (MiroRefuse, ValueError):
-            # Un lien manquant laisse la carte lisible ; interrompre la
-            # publication à cause d'un trait la laisserait à moitié faite. Mais
-            # on le compte, pour que l'appelant puisse le dire.
             manques += 1
     return (traces, manques)
