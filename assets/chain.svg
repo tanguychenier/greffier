@@ -1,69 +1,68 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 200" width="880" height="200"
-     role="img" aria-labelledby="titre desc">
-  <title id="titre">Greffier's chain, step by step</title>
+     role="img" aria-labelledby="title desc">
+  <title id="title">Greffier's chain, step by step</title>
   <desc id="desc">Six chained steps: record the meeting, transcribe it, separate
     the voices, give them a name, write the minutes, send them. Only the writing
     leaves the machine.</desc>
 
   <style>
-    /* Les couleurs suivent le thème du lecteur : GitHub et GitLab rendent ce
-       fichier tel quel, et un schéma clair sur fond sombre est illisible. */
+    /* The colours follow the reader's theme: GitHub and GitLab render this file
+       as it is, and a light diagram on a dark ground is unreadable. */
     :root {
-      --fond: #ffffff;   --encre: #1d1d20;   --pale: #6e6e78;
+      --ground: #ffffff;   --ink: #1d1d20;   --pale: #6e6e78;
       --filet: #d2d2da;  --accent: #3b4cca;  --carte: #f5f5f7;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --fond: #1a1a1d; --encre: #f2f2f4; --pale: #9a9aa4;
+        --ground: #1a1a1d; --ink: #f2f2f4; --pale: #9a9aa4;
         --filet: #3d3d46; --accent: #7b8cf0; --carte: #242428;
       }
     }
-    .fond { fill: var(--fond); }
+    .ground { fill: var(--ground); }
     .carte { fill: var(--carte); stroke: var(--filet); stroke-width: 1; }
-    .titre { fill: var(--encre); font: 600 13px -apple-system, "Segoe UI", system-ui, sans-serif; }
+    .title { fill: var(--ink); font: 600 13px -apple-system, "Segoe UI", system-ui, sans-serif; }
     .note  { fill: var(--pale);  font: 400 11px -apple-system, "Segoe UI", system-ui, sans-serif; }
-    /* Les notes des cartes sont sur deux lignes, et plus petites que celles du
-       pied : sur une seule ligne, chacune débordait de sa carte — la plus longue
-       de cent pixels — et se posait sur la suivante. */
+    /* The card notes sit on two lines and smaller than the footer ones: on a
+       single line each one overflowed its card by up to a hundred pixels. */
     .dedans { fill: var(--pale); font: 400 10px -apple-system, "Segoe UI", system-ui, sans-serif; }
     .lien  { stroke: var(--filet); stroke-width: 2; fill: none; }
     .halo  { fill: var(--accent); opacity: 0; }
     .num   { fill: var(--accent); font: 600 11px -apple-system, "Segoe UI", system-ui, sans-serif; }
 
-    /* Chaque étape s'allume à son tour : six temps égaux sur douze secondes. */
-    .halo { animation: allumer 12s linear infinite; }
+    /* Each step lights up in turn: six equal beats over twelve seconds. */
+    .halo { animation: light-up 12s linear infinite; }
     #h1 { animation-delay: 0s }    #h2 { animation-delay: 2s }
     #h3 { animation-delay: 4s }    #h4 { animation-delay: 6s }
     #h5 { animation-delay: 8s }    #h6 { animation-delay: 10s }
-    @keyframes allumer {
+    @keyframes light-up {
       0%, 1%   { opacity: 0; }
       3%, 14%  { opacity: 0.14; }
       16%,100% { opacity: 0; }
     }
-    /* Le jeton parcourt la chaîne au même rythme. */
-    #jeton { animation: avancer 12s linear infinite; }
-    @keyframes avancer {
+    /* The token travels the chain at the same pace. */
+    #token { animation: advance 12s linear infinite; }
+    @keyframes advance {
       0%   { transform: translateX(0); }
       100% { transform: translateX(700px); }
     }
     @media (prefers-reduced-motion: reduce) {
-      .halo, #jeton { animation: none; }
-      #jeton { opacity: 0; }
+      .halo, #token { animation: none; }
+      #token { opacity: 0; }
     }
   </style>
 
-  <rect class="fond" x="0" y="0" width="880" height="200" rx="10"/>
+  <rect class="ground" x="0" y="0" width="880" height="200" rx="10"/>
 
-  <!-- Le fil qui relie les étapes, sous les cartes. -->
+  <!-- The thread that links the steps, under the cards. -->
   <path class="lien" d="M 110 79 H 770"/>
-  <circle id="jeton" cx="110" cy="79" r="4" fill="var(--accent)"/>
+  <circle id="token" cx="110" cy="79" r="4" fill="var(--accent)"/>
 
   <g>
     <!-- 1 -->
     <rect class="carte" x="20" y="48" width="126" height="62" rx="9"/>
     <rect id="h1" class="halo" x="20" y="48" width="126" height="62" rx="9"/>
     <text class="num"    x="34" y="68">1</text>
-    <text class="titre"  x="48" y="68">Record</text>
+    <text class="title"  x="48" y="68">Record</text>
     <text class="dedans" x="34" y="87">your voice and</text>
     <text class="dedans" x="34" y="100">everyone else's</text>
 
@@ -71,7 +70,7 @@
     <rect class="carte" x="160" y="48" width="126" height="62" rx="9"/>
     <rect id="h2" class="halo" x="160" y="48" width="126" height="62" rx="9"/>
     <text class="num"    x="174" y="68">2</text>
-    <text class="titre"  x="188" y="68">Transcribe</text>
+    <text class="title"  x="188" y="68">Transcribe</text>
     <text class="dedans" x="174" y="87">locally, on the card</text>
     <text class="dedans" x="174" y="100">or the processor</text>
 
@@ -79,7 +78,7 @@
     <rect class="carte" x="300" y="48" width="126" height="62" rx="9"/>
     <rect id="h3" class="halo" x="300" y="48" width="126" height="62" rx="9"/>
     <text class="num"    x="314" y="68">3</text>
-    <text class="titre"  x="328" y="68">Split voices</text>
+    <text class="title"  x="328" y="68">Split voices</text>
     <text class="dedans" x="314" y="87">voice prints,</text>
     <text class="dedans" x="314" y="100">re-merged</text>
 
@@ -87,7 +86,7 @@
     <rect class="carte" x="440" y="48" width="126" height="62" rx="9"/>
     <rect id="h4" class="halo" x="440" y="48" width="126" height="62" rx="9"/>
     <text class="num"    x="454" y="68">4</text>
-    <text class="titre"  x="468" y="68">Name</text>
+    <text class="title"  x="468" y="68">Name</text>
     <text class="dedans" x="454" y="87">first names spoken</text>
     <text class="dedans" x="454" y="100">during the meeting</text>
 
@@ -95,7 +94,7 @@
     <rect class="carte" x="580" y="48" width="126" height="62" rx="9"/>
     <rect id="h5" class="halo" x="580" y="48" width="126" height="62" rx="9"/>
     <text class="num"    x="594" y="68">5</text>
-    <text class="titre"  x="608" y="68">Write</text>
+    <text class="title"  x="608" y="68">Write</text>
     <text class="dedans" x="594" y="87">decisions, actions,</text>
     <text class="dedans" x="594" y="100">questions</text>
 
@@ -103,12 +102,12 @@
     <rect class="carte" x="720" y="48" width="126" height="62" rx="9"/>
     <rect id="h6" class="halo" x="720" y="48" width="126" height="62" rx="9"/>
     <text class="num"    x="734" y="68">6</text>
-    <text class="titre"  x="748" y="68">Send</text>
+    <text class="title"  x="748" y="68">Send</text>
     <text class="dedans" x="734" y="87">by mail, or</text>
     <text class="dedans" x="734" y="100">into a folder</text>
   </g>
 
-  <text class="titre" x="20" y="30">From speech to minutes</text>
+  <text class="title" x="20" y="30">From speech to minutes</text>
   <text class="note"  x="20" y="146">Everything happens on this machine except step 5: the writing calls a command-line assistant.</text>
   <text class="note"  x="20" y="164">A local model replaces it, at the price of a coarser summary.</text>
   <text class="note"  x="20" y="182">1 min 16 of processing for 11.8 min of audio, measured on an Apple Silicon Mac.</text>
