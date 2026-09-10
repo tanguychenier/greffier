@@ -6,7 +6,7 @@ from greffier.adapters import assistant_terminal as assistant
 from greffier.adapters import system_diagnostic as diagnostic
 
 
-class DialogueSimule:
+class ScriptedDialogue:
     """Rejoue une conversation écrite d'avance, et retient ce qui a été dit."""
 
     def __init__(self, answers=None, confirmations=None, choix=None):
@@ -62,7 +62,7 @@ class TestChoixDuModele:
         assert recorder(memoire=32, system="Linux").advised_model == "large-v3"
 
     def test_le_modele_retenu_entre_dans_la_configuration(self):
-        simule = DialogueSimule()
+        simule = ScriptedDialogue()
         answers = assistant.Answers()
         assistant.hardware_step(simule.dialogue(), state(memoire=4), answers)
         assert answers.values["GREFFIER_TRANSCRIPTION__MODEL"] == "medium"
@@ -72,7 +72,7 @@ class TestLivraison:
     def test_par_courriel_avec_outlook_ne_demande_aucun_mot_de_passe(self, monkeypatch):
         """Le compte est déjà authentifié : rien à stocker, et c'est mieux ainsi."""
         monkeypatch.setattr(diagnostic, "outlook_present", lambda: True)
-        simule = DialogueSimule(confirmations=[True], answers=["josiane@exemple.fr"])
+        simule = ScriptedDialogue(confirmations=[True], answers=["josiane@exemple.fr"])
         answers = assistant.Answers()
         assistant.delivery_step(simule.dialogue(), state(), answers)
         assert answers.values["GREFFIER_MINUTES__RECIPIENT"] == "josiane@exemple.fr"
@@ -81,7 +81,7 @@ class TestLivraison:
 
     def test_par_courriel_sans_outlook_demande_le_serveur(self, monkeypatch):
         monkeypatch.setattr(diagnostic, "outlook_present", lambda: False)
-        simule = DialogueSimule(
+        simule = ScriptedDialogue(
             confirmations=[True],
             answers=["moi@exemple.fr", "smtp.exemple.fr", "587", "moi@exemple.fr"],
         )
@@ -91,7 +91,7 @@ class TestLivraison:
 
     def test_le_mot_de_passe_n_est_jamais_ecrit(self, monkeypatch):
         monkeypatch.setattr(diagnostic, "outlook_present", lambda: False)
-        simule = DialogueSimule(
+        simule = ScriptedDialogue(
             confirmations=[True],
             answers=["moi@exemple.fr", "smtp.exemple.fr", "587", "moi"],
         )
@@ -101,7 +101,7 @@ class TestLivraison:
         assert "environnement" in simule.tout_dit
 
     def test_sans_courriel_on_choisit_un_dossier(self, tmp_path):
-        simule = DialogueSimule(confirmations=[False], answers=[str(tmp_path / "cr")])
+        simule = ScriptedDialogue(confirmations=[False], answers=[str(tmp_path / "cr")])
         answers = assistant.Answers()
         assistant.delivery_step(simule.dialogue(), state(), answers)
         assert answers.values["GREFFIER_PATHS__DATA"] == str(tmp_path)
@@ -112,7 +112,7 @@ class TestRedacteur:
     def test_claude_absent_est_propose_a_l_installation(self, monkeypatch):
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: False)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: False)
-        simule = DialogueSimule(confirmations=[False], choix=["aucun"])
+        simule = ScriptedDialogue(confirmations=[False], choix=["aucun"])
         answers = assistant.Answers()
         assistant.writer_step(simule.dialogue(), state(), answers)
         assert any("install" in action for action in answers.to_do)
@@ -122,7 +122,7 @@ class TestRedacteur:
         transcription — au pire moment possible."""
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: True)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: False)
-        simule = DialogueSimule(choix=["claude"])
+        simule = ScriptedDialogue(choix=["claude"])
         answers = assistant.Answers()
         assistant.writer_step(simule.dialogue(), state(), answers)
         assert "aucune session" in simule.tout_dit
@@ -131,7 +131,7 @@ class TestRedacteur:
     def test_claude_pret_est_choisi_par_defaut(self, monkeypatch):
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: True)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: True)
-        simule = DialogueSimule()
+        simule = ScriptedDialogue()
         answers = assistant.Answers()
         assistant.writer_step(simule.dialogue(), state(), answers)
         assert answers.values["GREFFIER_MINUTES__ENGINE"] == "claude"
@@ -142,7 +142,7 @@ class TestRedacteur:
         rend le même document en entamant un quota bien plus vite."""
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: True)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: True)
-        simule = DialogueSimule()
+        simule = ScriptedDialogue()
         answers = assistant.Answers()
         assistant.writer_step(simule.dialogue(), state(), answers)
         assert answers.values["GREFFIER_MINUTES__MODEL"] == "opus"
@@ -151,7 +151,7 @@ class TestRedacteur:
     def test_un_autre_modele_peut_etre_choisi(self, monkeypatch):
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: True)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: True)
-        simule = DialogueSimule(choix=["claude", "haiku"])
+        simule = ScriptedDialogue(choix=["claude", "haiku"])
         answers = assistant.Answers()
         assistant.writer_step(simule.dialogue(), state(), answers)
         assert answers.values["GREFFIER_MINUTES__MODEL"] == "haiku"
@@ -159,7 +159,7 @@ class TestRedacteur:
     def test_sans_redacteur_aucun_modele_n_est_pose(self, monkeypatch):
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: False)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: False)
-        simule = DialogueSimule(confirmations=[False], choix=["aucun"])
+        simule = ScriptedDialogue(confirmations=[False], choix=["aucun"])
         answers = assistant.Answers()
         assistant.writer_step(simule.dialogue(), state(), answers)
         assert "GREFFIER_MINUTES__MODEL" not in answers.values
@@ -175,7 +175,7 @@ class TestRedacteur:
 class TestVocabulaire:
     def test_le_vocabulaire_sert_aussi_de_liste_d_exclusion(self):
         """Sans cela, « merci Copernic » créerait un participant."""
-        simule = DialogueSimule(answers=["Copernic, Kanban , Trello"])
+        simule = ScriptedDialogue(answers=["Copernic, Kanban , Trello"])
         answers = assistant.Answers()
         assistant.vocabulary_step(simule.dialogue(), state(), answers)
         words = json.loads(answers.values["GREFFIER_TRANSCRIPTION__VOCABULARY"])
@@ -183,7 +183,7 @@ class TestVocabulaire:
         assert json.loads(answers.values["GREFFIER_SPEAKERS__NOT_FIRST_NAMES"]) == words
 
     def test_on_peut_passer(self):
-        simule = DialogueSimule(answers=[""])
+        simule = ScriptedDialogue(answers=[""])
         answers = assistant.Answers()
         assistant.vocabulary_step(simule.dialogue(), state(), answers)
         assert "GREFFIER_TRANSCRIPTION__VOCABULARY" not in answers.values
@@ -219,7 +219,7 @@ class TestParcoursComplet:
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: True)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: True)
         monkeypatch.setattr(diagnostic, "outlook_present", lambda: True)
-        simule = DialogueSimule(
+        simule = ScriptedDialogue(
             confirmations=[True],
             answers=["josiane@exemple.fr", "Copernic, OASIS"],
         )
@@ -234,7 +234,7 @@ class TestParcoursComplet:
             name="ffmpeg", present=False, detail="absent",
             remede="brew install ffmpeg", bloquant=True,
         )
-        simule = DialogueSimule(confirmations=[False], answers=[""])
+        simule = ScriptedDialogue(confirmations=[False], answers=[""])
         answers = assistant.run_chain(simule.dialogue(), state(constats=[manque]))
         assert "brew install ffmpeg" in answers.to_do
 
@@ -242,7 +242,7 @@ class TestParcoursComplet:
 class TestAdresseCourriel:
     def test_une_adresse_invalide_est_redemandee(self, monkeypatch):
         monkeypatch.setattr(diagnostic, "outlook_present", lambda: True)
-        simule = DialogueSimule(confirmations=[True], answers=["pas-une-adresse", "moi@ex.fr"])
+        simule = ScriptedDialogue(confirmations=[True], answers=["pas-une-adresse", "moi@ex.fr"])
         answers = assistant.Answers()
         assistant.delivery_step(simule.dialogue(), state(), answers)
         assert answers.values["GREFFIER_MINUTES__RECIPIENT"] == "moi@ex.fr"
@@ -251,7 +251,7 @@ class TestAdresseCourriel:
         """Dire « oui au courriel » puis ne rien saisir produisait une
         configuration qui promettait un envoi et n'envoyait rien."""
         monkeypatch.setattr(diagnostic, "outlook_present", lambda: True)
-        simule = DialogueSimule(confirmations=[True], answers=["", "", ""])
+        simule = ScriptedDialogue(confirmations=[True], answers=["", "", ""])
         answers = assistant.Answers()
         assistant.delivery_step(simule.dialogue(), state(), answers)
         assert answers.values["GREFFIER_MINUTES__RECIPIENT"] == ""

@@ -16,7 +16,7 @@ SANS = Hardware((BLACKHOLE, INTEGRE))
 AVEC = Hardware((BLACKHOLE, INTEGRE, JABRA))
 
 
-class ListeurFactice:
+class FakeLister:
     def __init__(self, suite: list[Hardware]) -> None:
         self.suite = list(suite)
         self.lectures = 0
@@ -28,7 +28,7 @@ class ListeurFactice:
         return self.suite.pop(0) if len(self.suite) > 1 else self.suite[0]
 
 
-class MachineFactice:
+class FakeRecorderState:
     def __init__(self, phase: Phase = Phase.RECORDING, tours_avant_arret: int = 99) -> None:
         self.phase = phase
         self.reprises: list[str] = []
@@ -58,8 +58,8 @@ def veilleuse(materiels, *, reconstruction=True, recorder=None):
         return reconstruction
 
     v = HardwareWatch(
-        recorder=recorder or MachineFactice(),
-        lister=ListeurFactice(materiels),
+        recorder=recorder or FakeRecorderState(),
+        lister=FakeLister(materiels),
         watch_rules=WatchRules(micro_voulu="Jabra EVOLVE 30 II"),
         reconstruire=reconstruire,
         notify_user=dits.append,
@@ -84,7 +84,7 @@ class TestPremierTour:
 
 class TestBranchementEnCoursDeReunion:
     def test_le_casque_branche_declenche_reconstruction_puis_reprise(self) -> None:
-        recorder = MachineFactice()
+        recorder = FakeRecorderState()
         v, dits, reconstruits = veilleuse([SANS, AVEC], recorder=recorder)
         v.turn()
         v.turn()
@@ -101,7 +101,7 @@ class TestBranchementEnCoursDeReunion:
     def test_on_reconstruit_avant_de_rouvrir_la_capture(self) -> None:
         # Rouvrir sur un agrégé périmé perdrait le morceau en cours pour rien.
         ordre: list[str] = []
-        recorder = MachineFactice()
+        recorder = FakeRecorderState()
         recorder.reprendre = lambda because: ordre.append("reprise")  # type: ignore[method-assign]
 
         def reconstruire(mic: str) -> bool:
@@ -110,7 +110,7 @@ class TestBranchementEnCoursDeReunion:
 
         v = HardwareWatch(
             recorder=recorder,
-            lister=ListeurFactice([SANS, AVEC]),
+            lister=FakeLister([SANS, AVEC]),
             watch_rules=WatchRules(micro_voulu="Jabra EVOLVE 30 II"),
             reconstruire=reconstruire,
         )
@@ -121,14 +121,14 @@ class TestBranchementEnCoursDeReunion:
 
 class TestQuandLaReconstructionEchoue:
     def test_la_capture_n_est_pas_coupee(self) -> None:
-        recorder = MachineFactice()
+        recorder = FakeRecorderState()
         v, dits, _ = veilleuse([SANS, AVEC], reconstruction=False, recorder=recorder)
         v.turn()
         v.turn()
         assert recorder.reprises == []
 
     def test_l_echec_est_dit_plutot_que_tu(self) -> None:
-        recorder = MachineFactice()
+        recorder = FakeRecorderState()
         v, dits, _ = veilleuse([SANS, AVEC], reconstruction=False, recorder=recorder)
         v.turn()
         v.turn()
@@ -140,7 +140,7 @@ class TestQuandLaReconstructionEchoue:
 
 class TestPlusAucunMicro:
     def test_l_outil_alerte_sans_rouvrir_de_morceau(self) -> None:
-        recorder = MachineFactice()
+        recorder = FakeRecorderState()
         v, dits, reconstruits = veilleuse(
             [AVEC, Hardware((BLACKHOLE,))], recorder=recorder
         )
@@ -162,7 +162,7 @@ class TestLaCaptureQuiSArrete:
     def test_une_taille_qui_stagne_est_signalee(self):
         from greffier.domain.capture import TOURS_AVANT_ALERTE
 
-        recorder = MachineFactice()
+        recorder = FakeRecorderState()
         v, dits, _ = veilleuse([SANS], recorder=recorder)
         v.captured_size = lambda: 4096
         for _ in range(TOURS_AVANT_ALERTE + 1):
@@ -171,7 +171,7 @@ class TestLaCaptureQuiSArrete:
         assert dits, "l'utilisateur doit être prévenu, pas seulement l'état"
 
     def test_une_capture_qui_avance_ne_signale_rien(self):
-        recorder = MachineFactice()
+        recorder = FakeRecorderState()
         v, dits, _ = veilleuse([SANS], recorder=recorder)
         bytes_read = iter(range(1000, 100000, 1000))
         v.captured_size = lambda: next(bytes_read)
@@ -182,7 +182,7 @@ class TestLaCaptureQuiSArrete:
 
     def test_sans_moyen_de_mesurer_la_veille_garde_son_ancien_office(self):
         """Une taille illisible ne doit pas faire crier au loup."""
-        recorder = MachineFactice()
+        recorder = FakeRecorderState()
         v, dits, _ = veilleuse([SANS], recorder=recorder)
         v.captured_size = lambda: None
         for _ in range(8):
@@ -196,7 +196,7 @@ class TestLeSonTropFaible:
     def test_un_niveau_durablement_faible_est_signale(self):
         from greffier.domain.level import RELEVES_AVANT_ALERTE
 
-        recorder = MachineFactice()
+        recorder = FakeRecorderState()
         v, dits, _ = veilleuse([SANS], recorder=recorder)
         v.captured_level = lambda: -55.0
         for _ in range(RELEVES_AVANT_ALERTE + 1):
@@ -207,7 +207,7 @@ class TestLeSonTropFaible:
     def test_un_bon_niveau_ne_signale_rien(self):
         from greffier.domain.level import RELEVES_AVANT_ALERTE
 
-        recorder = MachineFactice()
+        recorder = FakeRecorderState()
         v, _, _ = veilleuse([SANS], recorder=recorder)
         v.captured_level = lambda: -20.0
         for _ in range(RELEVES_AVANT_ALERTE + 2):
@@ -215,7 +215,7 @@ class TestLeSonTropFaible:
         assert recorder.signalements == []
 
     def test_sans_moyen_de_mesurer_rien_n_est_dit(self):
-        recorder = MachineFactice()
+        recorder = FakeRecorderState()
         v, _, _ = veilleuse([SANS], recorder=recorder)
         v.captured_level = lambda: None
         for _ in range(12):
@@ -225,27 +225,27 @@ class TestLeSonTropFaible:
 
 class TestBoucle:
     def test_la_veille_s_arrete_avec_l_enregistrement(self) -> None:
-        recorder = MachineFactice(tours_avant_arret=3)
+        recorder = FakeRecorderState(tours_avant_arret=3)
         v, _, _ = veilleuse([AVEC], recorder=recorder)
         turns = v.loop(dormir=lambda _: None)
         assert turns == 3
 
     def test_une_veille_sur_un_enregistrement_termine_ne_tourne_pas(self) -> None:
-        recorder = MachineFactice(phase=Phase.REST)
+        recorder = FakeRecorderState(phase=Phase.REST)
         v, _, _ = veilleuse([AVEC], recorder=recorder)
         assert v.loop(dormir=lambda _: None) == 0
 
     def test_un_etat_illisible_arrete_la_veille_plutot_que_de_boucler(self) -> None:
-        class Cassee(MachineFactice):
+        class BrokenOne(FakeRecorderState):
             def read(self):
                 raise OSError("état illisible")
 
-        v, _, _ = veilleuse([AVEC], recorder=Cassee())
+        v, _, _ = veilleuse([AVEC], recorder=BrokenOne())
         assert v.loop(dormir=lambda _: None) == 0
 
     def test_elle_dort_entre_deux_tours(self) -> None:
         sommeils: list[float] = []
-        recorder = MachineFactice(tours_avant_arret=2)
+        recorder = FakeRecorderState(tours_avant_arret=2)
         v, _, _ = veilleuse([AVEC], recorder=recorder)
         v.loop(dormir=sommeils.append)
         assert sommeils == [pytest.approx(4.0), pytest.approx(4.0)]

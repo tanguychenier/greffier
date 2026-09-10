@@ -18,7 +18,7 @@ import numpy as np
 from greffier.adapters.voiceprints_titanet import DUREE_MAXIMALE, DUREE_MINIMALE
 
 
-class Enregistre:
+class Recorded:
     """Retient ce qu'on lui soumet, à la place du modèle."""
 
     def __init__(self) -> None:
@@ -41,12 +41,12 @@ class TestBornes:
         assert DUREE_MAXIMALE >= DUREE_MINIMALE
 
     def test_un_extrait_court_passe_entier(self) -> None:
-        garde = Enregistre()
+        garde = Recorded()
         garde.borner(np.zeros(16000 * 10, dtype="float32"), 16000)
         assert garde.recus == [16000 * 10]
 
     def test_un_extrait_trop_long_est_ramene_a_la_borne(self) -> None:
-        garde = Enregistre()
+        garde = Recorded()
         garde.borner(np.zeros(16000 * 600, dtype="float32"), 16000)
         assert garde.recus == [int(16000 * DUREE_MAXIMALE)]
 
