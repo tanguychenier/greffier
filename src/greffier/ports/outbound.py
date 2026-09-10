@@ -1,12 +1,9 @@
-"""Ce que le métier attend du monde extérieur.
+"""What the domain expects of the outside world.
 
-Des `Protocol` et non des classes de base : un adaptateur n'a rien à hériter, il
-lui suffit d'avoir la bonne forme. Les doublures de test s'écrivent alors en
-trois lignes, sans importer quoi que ce soit d'ici.
-
-Chaque port correspond à une chose qui change d'un système à l'autre ou d'un
-outil à l'autre — c'est précisément la liste de ce qu'il faudra réécrire pour
-Windows, ou le jour où l'on changera de modèle de transcription.
+Protocols rather than base classes: an adapter has nothing to inherit, it only
+needs the right shape. Each port matches one thing that differs from system to
+system or from tool to tool — which is exactly the list of what has to be
+rewritten for Windows, or the day the transcription model changes.
 """
 
 from __future__ import annotations
@@ -20,65 +17,54 @@ from greffier.domain.models import Person, Span, SpeakerTurn, Utterance, Voicepr
 
 @runtime_checkable
 class AudioRecorder(Protocol):
-    """Capture le son de la réunion.
+    """Captures the sound of the meeting.
 
-    Le seul port dont l'implémentation diffère vraiment sur les trois systèmes :
-    entendre sa propre voix est trivial, réenregistrer ce que les haut-parleurs
-    jouent ne l'est pas.
+    The only port whose implementation truly differs across the three systems:
+    hearing your own voice is trivial, recording back what the speakers play is
+    not.
     """
 
     def start_recording(self, destination: Path) -> int:
-        """Lance l'enregistrement en tâche de fond, rend l'identifiant du processus."""
+        """Starts recording in the background, returns the process identifier."""
         ...
 
     def stop_recording(self, processus: int) -> None:
-        """Arrête proprement, en laissant le fichier audio exploitable."""
+        """Stops cleanly, leaving the audio file usable."""
         ...
 
     def try_it(self, peripherique: str, seconds: float = 1.5) -> float:
-        """Niveau capté par une entrée, en décibels. -120 si elle n'ouvre pas.
+        """Level captured by an input, in decibels. -120 when it does not open.
 
-        Un micro peut être branché, reconnu, réglé au maximum, et pourtant
-        muet : les casques USB ont un bouton de sourdine sur leur boîtier. Le
-        choisir sans l'écouter donne une réunion entière de silence, et un
-        message d'erreur qui accuse l'autorisation micro.
+        A mic can be plugged in, recognised, turned up, and still mute: USB headsets
+        have a mute button on the cable.
         """
         ...
 
     def prepare_transcript(self, audio: Path, destination: Path) -> Path:
-        """Met l'enregistrement au niveau qu'attend la transcription.
+        """Brings the recording to the level transcription expects.
 
-        Un signal faible ne donne pas une transcription pauvre : il donne une
-        transcription **inventée**. Sur un enregistrement réel à -43 dB, whisper
-        a rendu « Merci d'avoir regardé cette vidéo ! » là où la personne disait
-        « Test, test de réunion ». Le même fichier normalisé rend la bonne
-        phrase.
-
-        Chaque canal est mis à niveau séparément avant d'être mélangé : sinon
-        une voix 12 dB sous les autres reste 12 dB sous les autres, et c'est
-        elle que le modèle invente.
+        A weak signal does not give a poor transcript, it gives an invented one. Each
+        channel is levelled separately before mixing, or the voice 12 dB below the rest
+        stays 12 dB below and is the one the model makes up.
         """
         ...
 
     def wire_up(self, chunks: list[Path], destination: Path) -> Path:
-        """Recolle les morceaux d'un enregistrement en un seul fichier.
+        """Stitches the chunks of a recording into a single file.
 
-        Un enregistrement se coupe en plusieurs morceaux quand le matériel
-        change en cours de réunion : brancher un casque impose de reconstruire
-        le périphérique de capture, donc de rouvrir un fichier. La suite de la
-        chaîne, elle, attend un flux continu — les empreintes vocales se
-        comparent mal d'un fichier à l'autre.
+        A recording splits into chunks whenever the hardware changes mid-meeting, and
+        the rest of the chain expects one continuous stream.
         """
         ...
 
     def levels(self, audio: Path) -> list[float]:
-        """Niveau moyen de chaque canal, en dB. -120 pour un canal muet."""
+        """Mean level of each channel, in dB. -120 for a mute channel."""
         ...
 
 
 @runtime_checkable
 class Transcriber(Protocol):
-    """Transforme de l'audio en répliques horodatées."""
+    """Turns audio into timestamped utterances."""
 
     def transcribe(self, audio: Path, language: str, prompt_seed: str) -> list[Utterance]:
         ...
@@ -86,7 +72,7 @@ class Transcriber(Protocol):
 
 @runtime_checkable
 class Diariser(Protocol):
-    """Découpe l'audio en tours de parole et regroupe les voix."""
+    """Cuts the audio into speaker turns and groups the voices."""
 
     def segment(self, audio: Path, people: int | None) -> list[SpeakerTurn]:
         ...
@@ -94,11 +80,10 @@ class Diariser(Protocol):
 
 @runtime_checkable
 class ChannelReader(Protocol):
-    """Dit quels passages d'un enregistrement viennent du micro.
+    """Says which passages of a recording came from the mic.
 
-    Le seul port dont la réponse ne vient d'aucun modèle : c'est du câblage. La
-    transcription en direct s'en sert pour afficher « Toi » sans consulter la
-    moindre empreinte — et sans jamais se tromper.
+    The only port whose answer comes from no model: it is wiring, and it is never
+    wrong.
     """
 
     def local_passages(self, audio: Path) -> list[Span]:
@@ -107,7 +92,7 @@ class ChannelReader(Protocol):
 
 @runtime_checkable
 class VoiceprintExtractor(Protocol):
-    """Produit la signature vocale d'un extrait."""
+    """Produces the vocal signature of an excerpt."""
 
     def extract_spans(self, audio: Path, intervalles: list[Span]) -> list[Voiceprint]:
         ...
@@ -115,19 +100,19 @@ class VoiceprintExtractor(Protocol):
 
 @runtime_checkable
 class VoiceBank(Protocol):
-    """Mémoire des voix connues, d'une réunion à l'autre."""
+    """Memory of the known voices, from one meeting to the next."""
 
     def people(self) -> list[Person]:
         ...
 
     def record(self, name: str, voiceprint: Voiceprint) -> Person:
-        """Range l'empreinte et rend la personne, enrichie."""
+        """Files the voiceprint and returns the person, enriched."""
         ...
 
 
 @runtime_checkable
 class Writer(Protocol):
-    """Rédige le compte rendu à partir de la transcription attribuée."""
+    """Writes the minutes from the attributed transcript."""
 
     def write_up(self, transcription: str) -> str:
         ...
@@ -135,7 +120,7 @@ class Writer(Protocol):
 
 @runtime_checkable
 class Sender(Protocol):
-    """Envoie le compte rendu."""
+    """Sends the minutes."""
 
     def send(self, recipient: str, subject: str, corps: str, pieces: list[Path]) -> None:
         ...
@@ -143,30 +128,20 @@ class Sender(Protocol):
 
 @runtime_checkable
 class MeetingStore(Protocol):
-    """Garde une réunion traitée, et sait la relire.
-
-    C'est ce qui manquait à la chaîne : l'écriture n'existait que dans la
-    commande en ligne, donc une réunion terminée depuis la fenêtre ne laissait
-    rien — ni dans la liste des réunions, ni de quoi nommer une voix après coup.
-    """
+    """Keeps a processed meeting, and knows how to read it back."""
 
     def record(self, meeting: StoredMeeting) -> Path:
-        """Écrit le fichier maître et rend son chemin."""
+        """Writes the master file and returns its path."""
         ...
 
     def read(self, identifier: str) -> StoredMeeting:
-        """Relit une réunion déjà traitée, pour la nommer ou la reprendre.
-
-        Déclaré ici parce que « nommer » en a besoin : sans lui, le cas d'usage
-        se typait sur l'adaptateur concret, et la dépendance repartait à
-        l'envers sans que rien ne le dise.
-        """
+        """Reads back a processed meeting, to name it or resume it."""
         ...
 
 
 @runtime_checkable
 class Notifier(Protocol):
-    """Prévient l'utilisateur pendant que la chaîne tourne, sans terminal ouvert."""
+    """Tells the user while the chain runs, with no terminal open."""
 
     def notify(self, title: str, message: str) -> None:
         ...
@@ -174,7 +149,7 @@ class Notifier(Protocol):
 
 @runtime_checkable
 class StateJournal(Protocol):
-    """Publie l'avancement, pour que l'interface sache où en est la chaîne."""
+    """Publishes progress, so the interface knows where the chain is."""
 
     def publish(self, phase: str, message: str = "") -> None:
         ...

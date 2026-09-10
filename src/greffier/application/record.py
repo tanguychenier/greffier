@@ -1,12 +1,7 @@
-"""La machine à états d'un enregistrement.
+"""The state machine of a recording.
 
-Deux commandes séparées dans le temps — on démarre, on part en réunion, on
-revient une heure plus tard et on arrête — donc deux processus différents. L'état
-ne peut pas vivre en mémoire : il est sur le disque, et c'est le système
-d'exploitation qui arbitre, via l'existence d'un processus vivant.
-
-Ce fichier d'état sert aussi d'interface : une icône de barre de menus ou de
-zone de notification n'a qu'à le lire pour afficher où en est la chaîne.
+One state file, read by every process. It survives a crash, which is the whole
+reason it exists rather than a variable in memory.
 """
 
 from __future__ import annotations
@@ -26,23 +21,14 @@ from greffier.ports import outbound
 
 
 def _identifier(name: str, horodatage: datetime) -> str:
-    """Nom de fichier lisible et triable : la date d'abord, puis le sujet.
-
-    Un sujet sans lettre ASCII ne laisse rien après réduction. Se rabattre sur
-    « reunion » donnait le même identifiant à deux réunions tenues dans la même
-    minute, l'une écrasant l'autre.
-    """
+    """A readable, sortable file name: the date first."""
     depouille = unicodedata.normalize("NFD", name)
     without_accents = "".join(c for c in depouille if unicodedata.category(c) != "Mn")
     reduit = re.sub(r"[^a-zA-Z0-9]+", "-", without_accents).strip("-").lower()
     return f"{horodatage:%Y-%m-%d_%Hh%M}_{reduit or short_voiceprint(name)}"
 
 def _kill_tree(pid: int) -> None:
-    """Arrête un processus et sa descendance.
-
-    whisper est un petit-enfant : tuer le seul parent laisserait le modèle
-    tourner pour rien, sur toute la durée d'une réunion.
-    """
+    """Stops a process and its descendants."""
     import signal
     import subprocess
 
@@ -68,7 +54,7 @@ def _alive(pid: int | None) -> bool:
 
 @dataclass
 class RecorderState:
-    """Ce que l'interface a besoin de savoir, sans rien calculer."""
+    """What the interface needs to know, without computing anything."""
 
     phase: Phase = Phase.REST
     message: str = ""
@@ -86,7 +72,7 @@ class RecorderState:
 
     @property
     def seconds(self) -> float:
-        """Durée réellement enregistrée, pauses déduites."""
+        """Time actually recorded, pauses deducted."""
         if self.start is None:
             return 0.0
         ecoule = (datetime.now(UTC) - self.start).total_seconds() - self.pause_totale
@@ -96,12 +82,7 @@ class RecorderState:
 
 @dataclass
 class StateLog:
-    """Publie l'avancement, mais seulement pour la réunion qu'il concerne.
-
-    Une réunion **autre** que celle en cours d'enregistrement ne publie rien :
-    on préfère perdre l'affichage d'un retraitement — dont l'appelant montre
-    déjà l'avancement — que d'arrêter une capture en cours.
-    """
+    """Publishes progress, but only for the meeting the state carries."""
 
     state: Recording
     identifier: str
@@ -116,11 +97,7 @@ class StateLog:
         self.state.publish(phase, message)
 
 class Recording:
-    """Démarre, arrête, et sait dire où on en est.
-
-    L'état est réécrit de façon atomique : une interface qui le lit en boucle ne
-    doit jamais tomber sur une version à moitié écrite.
-    """
+    """Starts, stops, and can say where things stand."""
 
     def __init__(
         self,
@@ -193,12 +170,7 @@ class Recording:
         temporary.replace(self.fichier_etat)
 
     def publish(self, phase: str, message: str = "") -> None:
-        """Sert de `JournalEtat` : la chaîne de traitement publie ici aussi.
-
-        Le processus courant est retenu : c'est lui qui porte la transcription
-        puis la rédaction, et c'est donc lui qu'il faut interrompre si
-        l'utilisateur change d'avis pendant les longues minutes de traitement.
-        """
+        """Serves as StateJournal: the processing chain publishes its phases here."""
         state = self.read()
         state.phase = Phase(phase)
         state.message = message
@@ -206,22 +178,16 @@ class Recording:
         self.write(state)
 
     def pour(self, identifier: str) -> StateLog:
-        """Un journal qui n'écrit **que** si l'état porte cette réunion.
+        """A log that writes **only** if the state carries this meeting.
 
-        Le fichier d'état est unique, et c'est ce qui rendait
-        `traiter --quand-meme` dangereux : un traitement lancé pendant qu'une
-        réunion s'enregistrait y publiait ses propres phases jusqu'à
-        « terminé », la fenêtre en concluait que la réunion était finie, et la
-        capture s'arrêtait. Une réunion entière a été perdue ainsi le
-        2026-09-09.
-
-        Le drapeau devient alors inutile plutôt que dangereux : la bonne façon
-        de retirer un piège est de lui ôter sa raison d'être.
+        Without that, a processing run started during a recording published its own
+        phases through to "done", the window concluded the meeting was over, and
+        capture stopped. A whole meeting was lost that way.
         """
         return StateLog(self, identifier)
 
     def abandon(self) -> RecorderState:
-        """Arrête le traitement en cours. L'audio, lui, est conservé."""
+        """Stops the processing under way. The audio is kept."""
         state = self.read()
         pid = state.pid
         if not state.phase.in_progress or not _alive(pid) or pid is None:
@@ -234,16 +200,7 @@ class Recording:
         return state
 
     def pause(self) -> RecorderState:
-        """Suspend l'enregistrement sans clore la réunion.
-
-        On arrête la capture, proprement, et on garde le morceau. Reprendre en
-        ouvrira un suivant : c'est exactement ce que fait un changement de
-        matériel, et le recollage à l'arrêt ne voit pas la différence.
-
-        Utile en réunion : une interruption, un aparté, une pause déjeuner. Sans
-        cela, il fallait tout arrêter, donc lancer le traitement, puis relancer
-        une seconde réunion et se retrouver avec deux comptes rendus.
-        """
+        """Suspends the recording without closing the meeting."""
         state = self.read()
         if state.phase is not Phase.RECORDING:
             raise RuntimeError("Aucun enregistrement en cours.")
@@ -257,7 +214,7 @@ class Recording:
         return state
 
     def resume(self) -> RecorderState:
-        """Repart après une pause, sur un morceau de plus."""
+        """Starts again after a pause, on one more chunk."""
         state = self.read()
         if state.phase is not Phase.PAUSE:
             raise RuntimeError("L'enregistrement n'est pas en pause.")
@@ -273,16 +230,7 @@ class Recording:
         return state
 
     def reprendre(self, because: str) -> RecorderState:
-        """Clôt le morceau courant et repart sur le suivant.
-
-        Appelée quand le matériel a changé : le périphérique agrégé vient d'être
-        reconstruit, et ffmpeg tient encore l'ancien. On l'arrête proprement, ce
-        qui laisse un fichier relisible, puis on rouvre.
-
-        Le trou entre les deux est de l'ordre de la seconde. C'est le prix d'un
-        branchement en cours de réunion, et il se compare mal à celui d'une voix
-        absente du compte rendu.
-        """
+        """Closes the current chunk and starts the next."""
         state = self.read()
         if state.phase is not Phase.RECORDING or state.audio is None:
             raise RuntimeError("Aucun enregistrement en cours.")
@@ -297,7 +245,7 @@ class Recording:
         return state
 
     def report(self, warning: str) -> RecorderState:
-        """Note un constat sur le matériel sans toucher à la capture."""
+        """Notes an observation about the hardware without touching capture."""
         state = self.read()
         state.events.append(warning)
         state.message = warning
