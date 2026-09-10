@@ -41,8 +41,6 @@ def readable_subject(identifier: str, minutes: Path, subject: str = "") -> str:
 
             title = extraire_titre(minutes.read_text(encoding="utf-8"), "")
             if title:
-                # Le titre commence par « Compte rendu : » : inutile de le
-                # répéter sur chaque ligne d'une liste de comptes rendus.
                 sans_prefixe = title.split(":", 1)[-1].strip() if ":" in title else title
                 return sans_prefixe or title
     return identifier
@@ -82,7 +80,6 @@ def button_grid(
         return (1, 0)
     demandee = max(largeurs)
     plafond = int(demandee * ETIREMENT_MAXIMUM)
-    # Le nombre minimal de rangs tel que la répartition égale tienne encore.
     for rangs in range(1, total + 1):
         by_rank = -(-total // rangs)  # division entière par excès
         if by_rank * demandee + (by_rank - 1) * gap <= offerte:

@@ -84,8 +84,6 @@ def position(
     dernier = present_line[-1]
     return Position(morceau=dernier, ecrit=duration(dernier) or 0.0, decalage=decalage)
 
-# ------------------------------------------------------------------ le journal
-
 def files(folder: Path, identifier: str) -> tuple[Path, Path]:
     """Le journal du direct et le dépôt des corrections, pour une réunion.
 
@@ -222,9 +220,6 @@ def _replay_split(thread: LiveThread, line: dict[str, Any]) -> None:
     rendue, target = str(line.get("voix", "")), str(line.get("de", ""))
     if not rendue or not target or rendue == target:
         return
-    # Consignée d'abord, et sans condition : c'est le seul fait qui doit
-    # survivre à tout, y compris à un journal dont on n'a lu que la fin. Sans
-    # lui, la tranche suivante refait la fusion et le clic n'a servi à rien.
     thread.split_apart.add(frozenset({rendue, target}))
     gardee = thread.voice.get(target)
     if rendue in thread.voice or gardee is None:
@@ -263,8 +258,6 @@ def _replay_join(thread: LiveThread, line: dict[str, Any]) -> None:
         return
     avalee, gardee = thread.voice.get(source), thread.voice.get(target)
     if avalee is None or gardee is None:
-        # Journal tronqué, ou voix jamais vue de ce côté : on retague quand même,
-        # pour que la phrase s'affiche sous la voix qui a survécu.
         for turn in thread.turns:
             if turn.voice == source:
                 turn.voice = target
@@ -272,10 +265,7 @@ def _replay_join(thread: LiveThread, line: dict[str, Any]) -> None:
         return
     ferme_avant = avalee.certitude.firm
     nom_avant, certitude_avant = avalee.name, avalee.certitude
-    # Par `reunir` et non à la main : c'est ce qui garde de quoi séparer ensuite.
     thread.join_into(source, target)
-    # Le nom le plus sûr des deux survit : une voix anonyme absorbée par une
-    # voix nommée ne doit pas effacer ce nom, ni l'inverse.
     if not gardee.certitude.firm and ferme_avant:
         gardee.name, gardee.certitude = nom_avant, certitude_avant
 
@@ -288,8 +278,6 @@ def _replay_turn(thread: LiveThread, line: dict[str, Any]) -> None:
     if voice is None:
         voice = LiveVoice(identifier=identifier)
         thread.voice[identifier] = voice
-    # Une correction déjà appliquée ne se laisse pas défaire par une ligne plus
-    # ancienne : c'est la règle du domaine, la fenêtre ne la contourne pas.
     if not voice.certitude.firm:
         voice.name = line.get("nom")
         voice.certitude = Certainty(line.get("certitude", Certainty.INCONNUE.value))
@@ -311,18 +299,12 @@ def _replay_correction(thread: LiveThread, line: dict[str, Any]) -> None:
     name = str(line.get("nom", "")).strip()
     if not name or not numeros:
         return
-    # La portée telle qu'elle a été décidée. Déduite du nombre de numéros
-    # auparavant, ce qui rejouait en « seulement cette phrase » une correction
-    # portant sur toute une voix qui n'avait alors qu'un tour : à la reprise du
-    # fil, les tours suivants de cette voix perdaient le nom.
     whole_voice = bool(line.get("toute_la_voix", len(numeros) > 1))
     known = {t.number for t in thread.turns}
     for number in numeros:
         if number in known:
             thread.correct(number, name, whole_voice=whole_voice)
             return
-
-# ----------------------------------------------------- les corrections humaines
 
 def request_a_split(requests: Path, voice: str) -> None:
     """Dépose une séparation pour le processus qui écoute.
@@ -348,8 +330,6 @@ def ask(requests: Path, number: int, name: str, whole_voice: bool = True) -> Non
             {"numero": number, "nom": name, "toute_la_voix": whole_voice},
             ensure_ascii=False,
         ) + "\n")
-
-# ------------------------------------------------------------------- le suivi
 
 @dataclass
 class Follower:
@@ -405,11 +385,6 @@ class Follower:
             for turn in self.thread.record_turn(bloc, voice):
                 nouveaux.append(turn)
                 lines.append(_ligne_tour(turn, self.thread.voice[voice]))
-        # Le recollage, maintenant que la tranche a versé sa matière : c'est là
-        # que deux voix nées d'empreintes courtes se révèlent être la même
-        # personne. Sans cette seconde chance, chaque reprise de parole créait
-        # une voix — mesuré, 0,69 de ressemblance phrase à phrase contre 0,79
-        # sur les agrégats, pour un seuil à 0,75.
         for source, target in self.thread.stitch():
             lines.append(_ligne_reunion(source, target))
         add(self.log, lines)
@@ -442,14 +417,10 @@ class Follower:
         try:
             trouvees = self.extractor.extract_spans(tranche, chunks)
         except (RuntimeError, OSError, ValueError):
-            # Un extrait que le modèle refuse ne doit pas interrompre la
-            # réunion : la phrase s'affiche sans nom, et se corrige d'un clic.
             return None
         if not trouvees:
             return None
         return trouvees[0] if len(trouvees) == 1 else aggregate(trouvees)
-
-    # ------------------------------------------------------------ corrections
 
     def apply_requests(self) -> list[Correction]:
         """Prend en compte ce que la fenêtre a corrigé depuis la dernière fois.
@@ -485,8 +456,6 @@ class Follower:
                 whole_voice=bool(line.get("toute_la_voix", True)),
             )
         except (KeyError, ValueError, TypeError):
-            # Une demande qui ne correspond à rien — journal effacé, numéro
-            # inconnu — est ignorée : la réunion continue.
             return None
 
     def learn_named_voices(self) -> list[str]:

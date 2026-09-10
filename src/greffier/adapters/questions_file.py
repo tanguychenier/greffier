@@ -22,7 +22,6 @@ from greffier.domain.questions import Motif, Question
 GENRE_QUESTION = "question"
 GENRE_REPONSE = "reponse"
 
-
 @dataclass(frozen=True, slots=True)
 class EnAttente:
     """Une question posée à laquelle personne n'a encore répondu."""
@@ -33,10 +32,8 @@ class EnAttente:
     def number(self) -> int:
         return self.question.number
 
-
 def questions_file(folder: Path, identifier: str) -> Path:
     return folder / f"{identifier}.jsonl"
-
 
 def publish(file: Path, question: Question) -> None:
     """Ajoute une question à la file. N'écrase jamais rien."""
@@ -52,7 +49,6 @@ def publish(file: Path, question: Question) -> None:
     with file.open("a", encoding="utf-8") as flux:
         flux.write(json.dumps(line, ensure_ascii=False) + "\n")
 
-
 def answer(file: Path, number: int, response: str) -> None:
     """Publie une réponse. La question reste, avec sa trace."""
     file.parent.mkdir(parents=True, exist_ok=True)
@@ -61,7 +57,6 @@ def answer(file: Path, number: int, response: str) -> None:
             {"genre": GENRE_REPONSE, "numero": number, "reponse": response},
             ensure_ascii=False,
         ) + "\n")
-
 
 def read(file: Path) -> tuple[list[EnAttente], dict[int, str]]:
     """Les questions sans réponse, et les réponses déjà données.
@@ -102,7 +97,6 @@ def read(file: Path) -> tuple[list[EnAttente], dict[int, str]]:
     ]
     return (awaiting, answers)
 
-
 def keys_already_placed(file: Path) -> set[str]:
     """De quoi ne pas reposer une question après un redémarrage du direct.
 
@@ -113,7 +107,6 @@ def keys_already_placed(file: Path) -> set[str]:
     posees = {en_attente.question.key for en_attente in awaiting}
     if not file.exists():
         return posees
-    # Les questions déjà répondues comptent aussi : y revenir serait pire.
     with contextlib.suppress(OSError):
         for brute in file.read_text(encoding="utf-8").splitlines():
             with contextlib.suppress(json.JSONDecodeError, ValueError, KeyError):

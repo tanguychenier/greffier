@@ -13,7 +13,6 @@ import subprocess
 
 SYSTEM = platform.system()
 
-
 class NotificateurSysteme:
     """Trois implémentations derrière une seule méthode, choisie au démarrage."""
 
@@ -26,13 +25,9 @@ class NotificateurSysteme:
             elif SYSTEM == "Windows":
                 self._windows(title, message)
         except (OSError, subprocess.SubprocessError):
-            # Une notification qui échoue ne doit jamais faire échouer une
-            # réunion : c'est un confort, pas un maillon de la chaîne.
             pass
 
     def _macos(self, title: str, message: str) -> None:
-        # Titre et message par l'environnement : une apostrophe dans un nom de
-        # réunion casserait le script AppleScript.
         subprocess.run(
             ["osascript", "-e",
              'display notification (system attribute "GREFFIER_MSG") '
@@ -47,8 +42,6 @@ class NotificateurSysteme:
             subprocess.run(["notify-send", title, message], capture_output=True, check=False)
 
     def _windows(self, title: str, message: str) -> None:
-        # PowerShell est le seul moyen d'afficher une notification sans rien
-        # installer sur un poste Windows.
         script = (
             "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications,"
             " ContentType=WindowsRuntime] > $null"

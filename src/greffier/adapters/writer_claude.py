@@ -215,8 +215,6 @@ class RedacteurClaude:
                 f"« {self.command} » est introuvable dans le PATH. "
                 "Installe Claude Code, ou bascule « compte_rendu.moteur » sur « ollama »."
             )
-        # Le texte passe par l'entrée standard : une transcription d'une heure
-        # dépasse largement la taille admise pour un argument de commande.
         command = [self.command, "-p", "--output-format", "text",
                     "--allowed-tools", ",".join(self.outils)]
         if self.model:

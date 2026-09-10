@@ -153,9 +153,6 @@ def tidy(
             continue
         avant = audio.stat().st_size if audio.exists() else 0
         if not for_real:
-            # Ce que la compression gagnerait n'est pas mesurable sans la faire :
-            # on annonce l'ordre de grandeur mesuré, sans le présenter comme un
-            # chiffre exact.
             gagne = avant if geste is Geste.EFFACER else int(avant * 0.9)
             faits.append(Rangement(identifier, str(geste), gagne))
             continue

@@ -88,11 +88,6 @@ def installed_version() -> str:
         installed = version_du_paquet("greffier")
     except PackageNotFoundError:
         installed = ""
-    # Les métadonnées d'une installation modifiable sont figées à la date du
-    # `pip install`, pas à celle du code : un dépôt passé en 0.3.0 continuait
-    # d'annoncer 0.1.0 et se croyait en retard de deux versions. Le paquet
-    # construit, lui, est réinstallé et dit vrai — c'est donc uniquement au
-    # développement que la source doit primer.
     depuis_les_sources = _version_du_projet()
     return depuis_les_sources or installed
 
@@ -368,11 +363,6 @@ def bundle_is_newer(argv0: str = "") -> bool:
         return False
     try:
         pose = executable.stat().st_mtime
-        # `psutil` n'est pas là et n'a pas à l'être : l'heure de démarrage du
-        # processus se lit dans son propre dossier de travail sous /proc sur
-        # Linux, et par `ps` sur macOS. Plus simple et portable : l'heure à
-        # laquelle **ce** module a été chargé approche celle du démarrage à
-        # quelques secondes près, et quelques secondes ne décident rien ici.
         return pose > _CHARGE_LE
     except OSError:
         return False
@@ -399,7 +389,6 @@ def check(store: str = STORE, timeout: float = TIMEOUT) -> Verdict:
             content = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as trouble:
         if trouble.code == 404:
-            # Aucune release publiée : ce n'est pas une panne, c'est un état.
             return Verdict(installed=installed, trouble="aucune version publiée")
         return Verdict(installed=installed, trouble=f"réponse {trouble.code} de GitHub")
     except (urllib.error.URLError, TimeoutError):

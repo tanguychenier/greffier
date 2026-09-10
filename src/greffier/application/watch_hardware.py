@@ -74,8 +74,6 @@ class VeilleMateriel:
         self._check_the_level()
         current = self.lister.read()
         if not current.devices:
-            # Lecture impossible : on ne conclut rien. Décider sur un matériel
-            # vide reviendrait à croire que tout a été débranché.
             return
         if self._precedent is None:
             self._precedent = current
@@ -91,8 +89,6 @@ class VeilleMateriel:
             self.notify_user(decision.because)
             return
 
-        # Reconstruire d'abord : rouvrir la capture sur un agrégé encore périmé
-        # ne servirait à rien, et perdrait le morceau en cours pour rien.
         if not self.reconstruire(decision.mic):
             self.recorder.report(
                 f"{decision.because} La reconstruction du périphérique a échoué : "

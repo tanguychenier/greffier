@@ -32,17 +32,9 @@ from greffier.domain.models import (
 from greffier.domain.profiles.neutral import NEUTRAL
 from greffier.ports import outbound
 
-# En dessous, tous les canaux sont considérés muets et il n'y a rien à
-# transcrire. Le bruit de fond d'un micro ouvert dans une pièce vide tourne
-# autour de -55 dB ; -70 ne retient que le vrai silence numérique.
 SEUIL_MUET_DB = -70.0
 
-# Entre les deux, on prévient sans alarmer : une heure de réunion comporte des
-# silences, et 80 % de couverture reste normal. En dessous, il manque du texte.
 COUVERTURE_BASSE = 0.80
-# Sous ce nombre de mots, rédiger un compte rendu ne produit que du bruit. Sans
-# ce contrôle, un enregistrement inaudible donnait un « compte rendu » fabriqué
-# de toutes pièces, expédié par mail (constaté le 2026-08-20).
 MOTS_MINIMUM = 20
 
 AVERTISSEMENT_SANS_BOUCLE = "· boucle système muette, à préciser"
@@ -60,9 +52,7 @@ class Outcome:
     audio: Path
     utterances: list[Utterance] = field(default_factory=list)
     turns: list[SpeakerTurn] = field(default_factory=list)
-    # voix acoustique → nom retenu
     names: dict[str, str] = field(default_factory=dict)
-    # voix → nom proposé mais pas assez étayé pour être affirmé
     propositions: dict[str, str] = field(default_factory=dict)
     minutes: str = ""
     envoye: bool = False
@@ -163,8 +153,6 @@ class Chain:
     disclosure: str = "rien"
     hardware_events: list[str] = field(default_factory=list)
 
-    # ------------------------------------------------------------- avancement
-
     def _phase(self, phase: Phase, message: str = "") -> None:
         if self.log:
             self.log.publish(phase.value, message)
@@ -172,8 +160,6 @@ class Chain:
     def _notify_user(self, title: str, message: str) -> None:
         if self.notificateur:
             self.notificateur.notify(title, message)
-
-    # ---------------------------------------------------------------- étapes
 
     def _check_audio(self, audio: Path, outcome: Outcome) -> None:
         """Refuse de transcrire un enregistrement muet.
@@ -190,23 +176,12 @@ class Chain:
                 "Enregistrement muet sur tous les canaux. "
                 "Vérifie l'autorisation micro et le périphérique d'entrée.",
             )
-        # Un seul canal muet est légitime en présentiel : le son système n'existe
-        # pas. On le signale sans bloquer.
         if len(levels) >= 2:
             if levels[0] < SEUIL_MUET_DB:
                 outcome.warnings.append(
                     "Ton micro est resté muet : seuls les autres participants sont transcrits."
                 )
             elif max(levels[1:]) < SEUIL_MUET_DB:
-                # Deux situations donnent le même silence, et on ne peut pas les
-                # distinguer ici : une réunion en salle, où tout passe par le
-                # micro et où ce silence est normal ; une visio dont la boucle
-                # système n'a pas été branchée, où les autres participants sont
-                # perdus. La première est de loin la plus fréquente, et annoncer
-                # « seule ta voix est transcrite » y était simplement faux — le
-                # micro de table entend tout le monde. `_preciser_les_canaux`
-                # tranche après le découpage, quand on sait combien de personnes
-                # ce micro portait.
                 outcome.warnings.append(AVERTISSEMENT_SANS_BOUCLE)
 
     def _preciser_les_canaux(self, outcome: Outcome) -> None:
@@ -359,8 +334,6 @@ class Chain:
         for voice, trouve in attribution.certitudes.items():
             connu = depuis_banque.get(voice)
             if connu and connu.lower() != trouve.name.lower():
-                # Désaccord : la banque a été validée par un humain, elle prime,
-                # mais l'écart mérite d'être signalé plutôt qu'enterré.
                 outcome.warnings.append(
                     f"La voix {voice} est reconnue comme {connu} mais nommée {trouve.name} "
                     "pendant la réunion."
@@ -414,8 +387,6 @@ class Chain:
             outcome.names.pop(voice, None)
             outcome.propositions.pop(voice, None)
 
-    # ------------------------------------------------------------- exécution
-
     def run_chain(
         self,
         audio: Path,
@@ -424,8 +395,6 @@ class Chain:
         commencee_le: datetime | None = None,
         terminee_le: datetime | None = None,
     ) -> Outcome:
-        # Ce que la veille a constaté du matériel : le rédacteur doit le savoir
-        # avant d'écrire, pas après.
         self.hardware_events = list(hardware_events or [])
         outcome = Outcome(
             audio=audio,
@@ -438,11 +407,6 @@ class Chain:
         self._check_audio(audio, outcome)
 
         self._phase(Phase.TRANSCRIPTION, "Transcription…")
-        # L'audio est mis à niveau avant d'être transcrit. Un signal faible ne
-        # donne pas une transcription pauvre, il en donne une inventée : sur un
-        # enregistrement réel à -43 dB, le modèle a rendu « Merci d'avoir
-        # regardé cette vidéo ! » là où la personne disait « Test, test de
-        # réunion ». La durée ne change pas, donc les horodatages restent justes.
         with tempfile.TemporaryDirectory() as folder:
             prepare = self.audio_recorder.prepare_transcript(
                 audio, Path(folder) / f"{audio.stem}-niveau.wav"
@@ -450,9 +414,6 @@ class Chain:
             brutes = self.transcriber.transcribe(
                 prepare, self.language, self.prompt_seed
             )
-        # Les génériques que le modèle invente sur signal faible — « Sous-titrage
-        # réalisé par… » — n'ont été prononcés par personne. Les garder revenait
-        # à les attribuer à quelqu'un dans le compte rendu.
         profil = profiles.pour(self.language)
         outcome.profil = profil
         outcome.utterances = [
@@ -473,19 +434,10 @@ class Chain:
         self._attach_voices(outcome.utterances, turns)
         self._attribute_names(outcome.utterances, turns, self._recognise(audio, turns), outcome)
         self._join_namesakes(outcome)
-        # Après le découpage : c'est le nombre de voix entendues qui dit si le
-        # silence de la boucle système était normal ou coûteux.
         self._preciser_les_canaux(outcome)
         self._warn_about_coverage(outcome)
         self._warn_about_attendees(outcome)
 
-        # Gardée **avant** de rédiger, et non seulement quand aucun rédacteur
-        # n'est branché. Rédiger est la seule étape qui dépende d'un outil hors
-        # du poste, donc celle qui échoue : une expiration du rédacteur faisait
-        # perdre la transcription et l'attribution des voix d'une réunion
-        # entière — 32 minutes, le 2026-09-09 — alors que tout le calcul coûteux
-        # était déjà fait et juste. Gardée ici, la réunion se reprend d'un
-        # « greffier rediger », sans réécouter l'audio.
         self._keep(audio, outcome)
 
         if self.writer is None:
@@ -493,8 +445,6 @@ class Chain:
             return outcome
 
         self._phase(Phase.REDACTION, f"{outcome.words} mots transcrits. Rédaction…")
-        # Le rédacteur apprend d'abord ce que la transcription a perdu : sans
-        # cela, le compte rendu présente comme complet un texte qui ne l'est pas.
         from greffier.application.render import (
             context_header,
             disclosure_header,
@@ -504,11 +454,6 @@ class Chain:
         )
 
         duration = outcome.turns[-1].span.end if outcome.turns else 0.0
-        # Les voix qui ont réellement porté la réunion, nommées ou non : sans ce
-        # compte, un compte rendu dont aucune voix n'est nommée ne disait rien
-        # de qui était présent — constaté à l'usage. Les fragments en sont
-        # exclus, sans quoi la ligne annonce « et 295 voix non nommées » là où
-        # trois personnes étaient présentes.
         entendues = [
             v for v in outcome.significant_voices() if v
         ] + [v for v in outcome.names if v not in outcome.significant_voices()]
@@ -526,19 +471,12 @@ class Chain:
         outcome.minutes = self.writer.write_up(
             render_transcript(outcome, header)
         )
-        # La réunion se nomme d'elle-même : le titre du compte rendu a été écrit
-        # après lecture de toute la transcription, et « 2026-09-09_10h05_reunion »
-        # ne dit rien de ce qui s'y est passé. Le préfixe « Compte rendu : » est
-        # retiré — dans une liste de réunions, il ne distingue rien.
         titre_ecrit = titre_du_compte_rendu(outcome.minutes, "")
         if titre_ecrit:
             outcome.subject = (
                 titre_ecrit.split(":", 1)[-1].strip() if ":" in titre_ecrit else titre_ecrit
             )
 
-        # Le compte rendu rejoint ce qui était déjà gardé, **avant** l'envoi :
-        # un serveur de courriel indisponible ne doit pas faire perdre une
-        # heure de transcription et sa rédaction.
         self._keep(audio, outcome)
 
         if send and self.sender and self.recipient:
@@ -546,13 +484,6 @@ class Chain:
             try:
                 self._send(audio, outcome)
             except Exception as trouble:  # noqa: BLE001
-                # L'envoi ne doit pas emporter la chaîne. Tout est déjà sur le
-                # disque : la transcription, les voix, le compte rendu. Laisser
-                # l'exception remonter n'ajoutait rien et coûtait deux fois — le
-                # 2026-09-10, une réunion de 1 h 42 est restée figée sur
-                # « envoi » deux heures durant, parce que la phase suivante
-                # n'était jamais publiée et que l'échec ne se rapportait que par
-                # une fenêtre modale que personne n'a vue.
                 outcome.warnings.append(
                     f"Compte rendu NON envoyé : {trouble} "
                     "Le compte rendu est gardé ; « greffier envoyer » réessaie."
@@ -560,8 +491,6 @@ class Chain:
             else:
                 outcome.envoye = True
         elif send:
-            # Sauter l'envoi sans le dire laissait croire à un compte rendu parti.
-            # L'interface affichait même « Compte rendu envoyé ».
             manque = ("aucun destinataire n'est configuré" if not self.recipient
                       else "aucun moyen d'envoi n'est configuré")
             outcome.warnings.append(
@@ -587,9 +516,6 @@ class Chain:
 
         duration = outcome.turns[-1].span.end if outcome.turns else 0.0
         if self.store is not None:
-            # Un sujet saisi à la main l'emporte, et survit donc à un
-            # retraitement : c'est une correction, et une correction que la
-            # chaîne écraserait ne servirait à rien.
             with contextlib.suppress(Exception):
                 garde = self.store.read(outcome.audio.stem).subject
                 if garde:

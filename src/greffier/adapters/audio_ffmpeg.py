@@ -17,27 +17,19 @@ from pathlib import Path
 
 SYSTEM = platform.system()
 
-# Sous ce niveau, un canal est muet. Le bruit de fond d'un micro ouvert dans une
-# pièce vide tourne autour de -55 dB RMS.
 SILENCE_NUMERIQUE = -120.0
 
 _LEVEL = re.compile(r"RMS level dB: (-?[\d.]+|-inf)")
-
 
 class FfmpegRecorder:
     def __init__(self, peripherique: str, duree_maximale: int = 14_400) -> None:
         self.peripherique = peripherique
         self.duree_maximale = duree_maximale
 
-    # ------------------------------------------------------------- capture
-
     def _input(self) -> list[str]:
         if SYSTEM == "Darwin":
             return ["-f", "avfoundation", "-i", f":{self._avfoundation_index()}"]
         if SYSTEM == "Linux":
-            # PulseAudio et PipeWire exposent un « moniteur » de la sortie :
-            # réenregistrer ce que jouent les haut-parleurs ne demande aucun
-            # pilote supplémentaire, contrairement à macOS.
             return ["-f", "pulse", "-i", self.peripherique]
         return ["-f", "dshow", "-i", f"audio={self.peripherique}"]
 
@@ -126,7 +118,6 @@ class FfmpegRecorder:
         if channels == 1:
             filtre = "loudnorm=I=-20:TP=-1.5:LRA=11"
         else:
-            # Chaque canal est extrait, mis à niveau, puis tout est remélangé.
             parts = "".join(
                 f"[0:a]pan=mono|c0=c{i},loudnorm=I=-20:TP=-1.5:LRA=11[c{i}];"
                 for i in range(channels)
@@ -142,8 +133,6 @@ class FfmpegRecorder:
             capture_output=True, text=True, check=False,
         )
         if fait.returncode != 0 or not destination.exists():
-            # Une normalisation ratée ne doit pas coûter la réunion : on
-            # transcrit l'original, quitte à ce que le résultat soit moins bon.
             return audio
         return destination
 
@@ -187,8 +176,6 @@ class FfmpegRecorder:
                 uniformes.append(converti)
 
             listing = atelier / "morceaux.txt"
-            # Les chemins passent par un fichier : une apostrophe dans un nom de
-            # réunion suffirait à casser une ligne de commande.
             listing.write_text(
                 "".join(f"file '{m.resolve()}'\n" for m in uniformes), encoding="utf-8"
             )
@@ -221,8 +208,6 @@ class FfmpegRecorder:
         except (ValueError, IndexError):
             return 0
 
-    # -------------------------------------------------------------- mesure
-
     def try_it(self, peripherique: str, seconds: float = 1.5) -> float:
         """Écoute brièvement une entrée et rend son niveau, en décibels.
 
@@ -232,8 +217,6 @@ class FfmpegRecorder:
         Greffier retenait le casque et enregistrait une heure de silence.
         """
         if SYSTEM != "Darwin":
-            # Ailleurs, la capture passe par un moniteur de sortie que rien ne
-            # coupe silencieusement : l'essai n'apporterait rien.
             return 0.0
         try:
             index = self._index_of(peripherique)

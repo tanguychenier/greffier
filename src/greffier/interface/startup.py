@@ -26,18 +26,15 @@ def _racines(prefixe: Path) -> list[Path]:
     """Où chercher, du plus probable au moins."""
     return [prefixe / "lib", prefixe / "share", prefixe]
 
-
 def _find(motif: str, prefixes: list[Path]) -> Path | None:
     for prefixe in prefixes:
         for racine in _racines(prefixe):
             if not racine.is_dir():
                 continue
-            # Version la plus récente d'abord : « tcl9.0 » avant « tcl8.6 ».
             for folder in sorted(racine.glob(motif), reverse=True):
                 if (folder / "init.tcl").exists() or motif.startswith("tk"):
                     return folder
     return None
-
 
 def preparer() -> dict[str, str]:
     """Renseigne les chemins Tcl/Tk manquants. Rend ce qui a été posé."""
@@ -51,7 +48,6 @@ def preparer() -> dict[str, str]:
             os.environ[variable] = str(trouve)
             pose[variable] = str(trouve)
     return pose
-
 
 def available() -> tuple[bool, str]:
     """Dit si une fenêtre peut s'ouvrir, et pourquoi non le cas échéant.
@@ -77,7 +73,6 @@ def available() -> tuple[bool, str]:
         )
     trouve = " (chemins Tcl résolus)" if pose else ""
     return True, f"Tkinter {tkinter.TkVersion}{trouve}"
-
 
 def _default_tcl() -> bool:
     """Vrai quand Tcl trouvera ses fichiers sans qu'on l'aide.

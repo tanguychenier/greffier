@@ -80,17 +80,12 @@ def system_is_dark() -> bool:
     if system == "Darwin":
         return _output(["defaults", "read", "-g", "AppleInterfaceStyle"]) == "Dark"
     if system == "Windows":
-        # 0 veut dire sombre : la clé dit si les applications utilisent le
-        # thème **clair**, ce qui se lit à l'envers de ce qu'on cherche.
         lu = _output([
             "reg", "query",
             r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
             "/v", "AppsUseLightTheme",
         ])
         return "0x0" in lu
-    # Linux et les autres : la clé portable de freedesktop d'abord, que GNOME,
-    # KDE et les bureaux récents renseignent tous ; le réglage GNOME ensuite,
-    # pour les versions qui ne l'exposent pas encore.
     portail = _output([
         "gdbus", "call", "--session", "--dest", "org.freedesktop.portal.Desktop",
         "--object-path", "/org/freedesktop/portal/desktop",
@@ -98,8 +93,6 @@ def system_is_dark() -> bool:
         "org.freedesktop.appearance", "color-scheme",
     ])
     if portail:
-        # La réponse est un variant imbriqué, « (<<uint32 1>>,) » : 1 est
-        # sombre, 2 est clair, 0 est « sans préférence ».
         return "uint32 1" in portail
     reglage = _output(["gsettings", "get", "org.gnome.desktop.interface",
                        "color-scheme"])
@@ -143,18 +136,9 @@ def font(taille: int, gras: bool = False) -> tuple[str, int, str]:
         "Darwin": "SF Pro Text",
         "Windows": "Segoe UI",
     }
-    # Tk ne garantit que « Courier », « Helvetica » et « Times » sur les trois
-    # systèmes, et les fait pointer vers les polices de la plateforme. Nommer
-    # « DejaVu Sans » semblait plus juste sous Linux, mais l'interpréteur que
-    # pose l'installeur embarque un Tk construit sans fontconfig : il n'expose
-    # que les familles X11 historiques, et tout nom qu'il ignore retombe sur
-    # « fixed » — une bitmap qui ne s'échelonne pas.
     famille = familles.get(platform.system(), "Helvetica")
     return (famille, -taille, "bold" if gras else "normal")
 
-# Descendues de `fenetre`, où elles étaient privées et donc jamais éprouvées.
-# `degrade` tomberait aujourd'hui sur une couleur mal formée sans qu'aucun test
-# ne le dise, et c'est de la couleur, pas du Tk : sa place est ici.
 def blend(depuis: str, vers: str, part: float) -> str:
     """Une couleur entre deux autres, en hexadécimal — le fondu du point rouge."""
     a = tuple(int(depuis[i : i + 2], 16) for i in (1, 3, 5))

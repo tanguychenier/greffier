@@ -68,12 +68,6 @@ def key(text: str) -> str:
     littérale créerait deux branches là où il en faut une.
     """
     carriers = content_words(text)
-    # Un libellé fait **uniquement** de mots vides garderait une clef vide, et
-    # tous ces libellés se confondraient : « A » et « D » sont deux mots vides
-    # français, donc deux branches distinctes n'en auraient plus fait qu'une, la
-    # seconde écrasant silencieusement la première. Fusionner à tort est le
-    # défaut le plus coûteux ici — on perd de l'information au lieu d'en
-    # dupliquer. `mots_porteurs` garde donc tous les mots dans ce cas.
     return " ".join(sorted(carriers))
 
 _VIDES = frozenset({
@@ -136,7 +130,6 @@ def same_point(un: str, autre: str) -> bool:
     communs = sum(
         1 for mot in mots_un if any(_near_ones(mot, target) for target in mots_autre)
     )
-    # Sur le plus **long** des deux : un fragment ne doit pas absorber le tout.
     return communs / max(len(mots_un), len(mots_autre)) >= PART_COMMUNE
 
 @dataclass
@@ -235,8 +228,6 @@ def join(board: Carte, apports: list[Apport], meeting: str = "") -> Bilan:
             continue
         if meeting and meeting not in existant.meetings:
             existant.meetings.append(meeting)
-        # Une décision relève l'état ; elle ne l'abaisse pas. « Acté » qui
-        # redeviendrait « en discussion » ferait douter de toute la carte.
         voulu = state_allows(existant.kind, contribution.state)
         if voulu is RecorderState.ACTE and existant.state is RecorderState.EN_DISCUSSION:
             existant.state = RecorderState.ACTE

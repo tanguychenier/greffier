@@ -60,8 +60,6 @@ def _place(
     noeud: Noeud, profondeur: int, haut: int, places: list[Place], parent: str
 ) -> None:
     height = _feuilles(noeud)
-    # Centré sur sa propre bande : sans cela, un parent se retrouve à hauteur de
-    # son premier enfant et la carte penche vers le haut.
     y = (haut + height / 2 - 0.5) * ENTRE_LIGNES
     places.append(Place(noeud, profondeur * ENTRE_COLONNES, int(y), parent))
     cursor = haut

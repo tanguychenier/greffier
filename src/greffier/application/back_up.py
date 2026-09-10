@@ -73,8 +73,6 @@ def do_it(
 
     pris: list[str] = []
     files = 0
-    # Écrite à côté puis renommée : une archive interrompue ne doit pas prendre
-    # la place d'une archive valable, et surtout ne doit pas passer pour telle.
     temporary = archive.with_suffix(".partiel")
     try:
         with tarfile.open(temporary, "w:gz") as tar:
@@ -85,9 +83,6 @@ def do_it(
                 tar.add(source, arcname=folder)
                 pris.append(folder)
                 files += sum(1 for _ in source.rglob("*") if _.is_file())
-            # La configuration et les registres tenus à la main : ils vivent
-            # ailleurs que les données, et se réécrire à la main est justement
-            # ce qu'on veut éviter.
             if config is not None and config.exists():
                 for file in ("config.toml", "contexte.toml", "sujets.toml"):
                     path = config / file
@@ -139,8 +134,6 @@ def restore(archive: Path, data: Path, ecraser: bool = False) -> list[str]:
                     + ". Relance en demandant explicitement d'écraser."
                 )
         data.mkdir(parents=True, exist_ok=True)
-        # `filter="data"` : une archive de sauvegarde ne doit pas pouvoir écrire
-        # hors du dossier de destination, même la sienne.
         tar.extractall(data, filter="data")
     return racines
 

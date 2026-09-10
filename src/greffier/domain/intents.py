@@ -66,19 +66,16 @@ _MOTIF_PERSONNE = re.compile(
 )
 
 _MOTIFS = (
-    # « retiens que OTP veut dire mot de passe à usage unique »
     re.compile(
         rf"^\s*{_AMORCES}\b[^:]*?\bque\s+(?P<sujet>.{{1,60}}?)\s+{_LIENS}\s+"
         rf"(?P<precision>.{{1,160}}?)\s*[.!]?\s*$",
         re.IGNORECASE,
     ),
-    # « retiens : OTP = mot de passe à usage unique »
     re.compile(
         rf"^\s*{_AMORCES}\b\s*[:,]?\s*(?P<sujet>.{{1,60}}?)\s*{_LIENS}\s*"
         rf"(?P<precision>.{{1,160}}?)\s*[.!]?\s*$",
         re.IGNORECASE,
     ),
-    # « retiens le mot CASA », sans sens
     re.compile(
         rf"^\s*{_AMORCES}\b\s*(?:le mot|le terme|le sigle|l'acronyme)\s+"
         rf"(?P<sujet>.{{1,60}}?)\s*[.!]?\s*$",
@@ -122,8 +119,6 @@ def understand(phrase: str) -> Apprentissage | None:
     if personne is not None:
         role = _clean(personne.group("precision"))
         name = _clean(personne.group("sujet"))
-        # Le rôle est exigé : sans lui, « X est en congé » deviendrait une
-        # entrée du contexte, ce qui n'a aucun sens et pollue l'amorce.
         if name and _is_a_role(role):
             return Apprentissage(Quoi.PERSONNE, name, role)
 
@@ -136,8 +131,6 @@ def understand(phrase: str) -> Apprentissage | None:
             trouve.groupdict().get("precision") or ""
         )
         if not subject or len(subject.split()) > 5:
-            # Plus de cinq mots n'est pas un terme : c'est une phrase, donc on
-            # a mal découpé.
             continue
         quoi = Quoi.PERSONNE if _is_a_role(precision) else Quoi.TERME
         try:
