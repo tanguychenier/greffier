@@ -574,3 +574,54 @@ class TestIdentifiantsJamaisReutilises:
         assert apres[1] == avant[1], "la phrase 1 a changé de voix"
         assert apres[3] == avant[3], "la phrase 3 a changé de voix"
         assert len(set(apres.values())) == 3, apres
+
+
+class TestARebuiltThreadShowsWhatTheListenerShows:
+    """The window rebuilds the thread from the log; the listening process holds
+    the live one. They must agree.
+
+    Measured on a real ninety-minute meeting: three people out of nine were
+    still shown twice at the end, because a correction made in the window names
+    a voice like another one and the join that follows belongs to the listener.
+    Replaying without joining namesakes showed both.
+    """
+
+    def _lignes(self, *voix: tuple[int, str, str, int]):
+        return [
+            {"genre": "tour", "numero": n, "debut": float(n), "fin": float(n) + 2.0,
+             "texte": "on cale la recette", "voix": v, "nom": nom,
+             "certitude": "humaine" if nom else "inconnue", "rang": rang}
+            for n, v, nom, rang in voix
+        ]
+
+    def test_two_voices_of_one_name_become_one(self):
+        from greffier.application.follow import replay
+
+        thread = replay(self._lignes(
+            (1, "v1", "Bastien", 1), (2, "v2", "Bastien", 2), (3, "v3", "Lise", 3),
+        ))
+        noms = sorted(v.name for v in thread.voice.values() if v.name)
+        assert noms == ["Bastien", "Lise", "Toi"]
+
+    def test_the_turns_of_both_are_kept(self):
+        from greffier.application.follow import replay
+
+        thread = replay(self._lignes(
+            (1, "v1", "Bastien", 1), (2, "v2", "Bastien", 2),
+        ))
+        assert len(thread.turns) == 2
+        assert len({t.voice for t in thread.turns}) == 1, "les deux tours vont à une voix"
+
+    def test_a_number_the_log_shows_is_never_handed_out_again(self):
+        from greffier.application.follow import replay
+
+        thread = replay(self._lignes((1, "v1", "", 11)))
+        assert thread.last_rank >= 11
+
+    def test_voices_of_different_names_stay_apart(self):
+        from greffier.application.follow import replay
+
+        thread = replay(self._lignes(
+            (1, "v1", "Bastien", 1), (2, "v2", "Lise", 2),
+        ))
+        assert len([v for v in thread.voice.values() if v.name]) == 3
