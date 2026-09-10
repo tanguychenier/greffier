@@ -574,8 +574,22 @@ class Traitement:
 
         if envoyer and self.expediteur and self.destinataire:
             self._phase(Phase.ENVOI, "Envoi du compte rendu…")
-            self._envoyer(audio, resultat)
-            resultat.envoye = True
+            try:
+                self._envoyer(audio, resultat)
+            except Exception as souci:  # noqa: BLE001
+                # L'envoi ne doit pas emporter la chaîne. Tout est déjà sur le
+                # disque : la transcription, les voix, le compte rendu. Laisser
+                # l'exception remonter n'ajoutait rien et coûtait deux fois — le
+                # 2026-09-10, une réunion de 1 h 42 est restée figée sur
+                # « envoi » deux heures durant, parce que la phase suivante
+                # n'était jamais publiée et que l'échec ne se rapportait que par
+                # une fenêtre modale que personne n'a vue.
+                resultat.avertissements.append(
+                    f"Compte rendu NON envoyé : {souci} "
+                    "Le compte rendu est gardé ; « greffier envoyer » réessaie."
+                )
+            else:
+                resultat.envoye = True
         elif envoyer:
             # Sauter l'envoi sans le dire laissait croire à un compte rendu parti.
             # L'interface affichait même « Compte rendu envoyé ».
