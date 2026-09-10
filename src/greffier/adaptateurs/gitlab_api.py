@@ -26,18 +26,12 @@ from typing import Any
 
 from greffier.domaine.sources import Source
 
-#: Court : une réunion n'attend pas. Une source lente vaut mieux dite lente
-#: qu'attendue en silence.
 DELAI = 15.0
 
-#: Ce qu'on rapporte au plus. Vingt tickets suffisent à répondre à « où en est
-#: le projet » ; deux cents noieraient la réponse et la fenêtre de contexte.
 AU_PLUS = 20
-
 
 class GitLabRefuse(RuntimeError):
     """L'appel n'a pas eu lieu, et pour une raison présentable."""
-
 
 @dataclass(frozen=True, slots=True)
 class Ticket:
@@ -54,7 +48,6 @@ class Ticket:
         qui = f" — {self.assigne}" if self.assigne else ""
         marques = f" [{', '.join(self.etiquettes)}]" if self.etiquettes else ""
         return f"#{self.numero} {self.titre}{qui}{marques} ({self.etat})"
-
 
 def _appeler(
     source: Source, jeton: str, chemin: str, methode: str = "GET",
@@ -94,7 +87,6 @@ def _appeler(
     except (ValueError, OSError) as souci:
         raise GitLabRefuse(str(souci)) from souci
 
-
 def _en_ticket(brut: dict[str, Any]) -> Ticket:
     assigne = (brut.get("assignee") or {}).get("name", "") or ""
     return Ticket(
@@ -105,7 +97,6 @@ def _en_ticket(brut: dict[str, Any]) -> Ticket:
         assigne=assigne,
         etiquettes=tuple(str(x) for x in brut.get("labels", [])),
     )
-
 
 def tickets(
     source: Source, jeton: str, ouverts: bool = True, cherche: str = ""
@@ -121,7 +112,6 @@ def tickets(
         raise GitLabRefuse("réponse inattendue de GitLab")
     return [_en_ticket(brut) for brut in rendu if isinstance(brut, dict)]
 
-
 def demandes_de_fusion(source: Source, jeton: str, ouvertes: bool = True) -> list[Ticket]:
     """Les demandes de fusion, présentées comme des tickets — même besoin."""
     parametres = {"per_page": str(AU_PLUS), "order_by": "updated_at"}
@@ -133,7 +123,6 @@ def demandes_de_fusion(source: Source, jeton: str, ouvertes: bool = True) -> lis
     if not isinstance(rendu, list):
         raise GitLabRefuse("réponse inattendue de GitLab")
     return [_en_ticket(brut) for brut in rendu if isinstance(brut, dict)]
-
 
 def creer_un_ticket(
     source: Source, jeton: str, titre: str, description: str = ""
@@ -158,7 +147,6 @@ def creer_un_ticket(
     if not isinstance(rendu, dict) or not rendu.get("iid"):
         raise GitLabRefuse("GitLab n'a pas rendu le ticket créé")
     return _en_ticket(rendu)
-
 
 def commenter(source: Source, jeton: str, numero: int, texte: str) -> str:
     """Ajoute un commentaire à un ticket. Rend son adresse.

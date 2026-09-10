@@ -22,17 +22,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-#: Caractères utilisables par l'amorce du transcripteur. whisper accepte un
-#: contexte initial de 224 jetons — la moitié de sa fenêtre de texte — et
-#: **tronque silencieusement** au-delà : un glossaire trop long ne prévient pas,
-#: il perd sa fin. À ~4 caractères par jeton, 850 laisse la marge d'une phrase
-#: d'introduction. Ce qui ne tient pas est écarté ici, où on peut le dire.
 AMORCE_MAXIMUM = 850
 
-#: Ouvre l'amorce du transcripteur. Un glossaire nu se fait recopier tel quel
-#: dans la transcription ; annoncé comme du vocabulaire, il sert d'orthographe.
 _PREAMBULE = "Réunion de travail."
-
 
 @dataclass(frozen=True, slots=True)
 class Terme:
@@ -56,7 +48,6 @@ class Terme:
         """« OTP (mot de passe à usage unique) », ou « OTP » si le sens manque."""
         return f"{self.ecriture} ({self.sens})" if self.sens else self.ecriture
 
-
 @dataclass(frozen=True, slots=True)
 class Intervenant:
     """Quelqu'un dont le nom se prononce en réunion.
@@ -76,7 +67,6 @@ class Intervenant:
     @property
     def glose(self) -> str:
         return f"{self.nom} ({self.role})" if self.role else self.nom
-
 
 @dataclass(frozen=True, slots=True)
 class Contexte:
@@ -160,7 +150,6 @@ class Contexte:
             )
             lignes += [f"- {i.glose}" for i in self.intervenants]
         return "\n".join(lignes) + "\n\n"
-
 
 def _tenir(mots: list[str], place: int) -> list[str]:
     """Les premiers `mots` qui tiennent dans `place` caractères, séparateurs compris."""

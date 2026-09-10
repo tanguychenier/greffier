@@ -44,125 +44,33 @@ from greffier.domaine.modeles import Empreinte, Intervalle, Personne, Replique
 from greffier.domaine.profils.neutre import NEUTRE
 from greffier.domaine.questions import distance
 
-#: Matière minimale pour **fonder** une voix. En deçà, une bribe rejoint la voix
-#: la plus ressemblante plutôt que d'inventer une personne. Mesuré sur une
-#: réunion en présentiel : les voix qui portaient réellement la réunion sont
-#: nées sur 3,0 à 7,3 s de parole, les voix parasites sur 1,0 et 1,5 s. Trente
-#: des cent soixante phrases duraient moins d'une seconde et demie.
-#:
-#: Rien à voir avec le seuil de ressemblance : une bribe peut ressembler
-#: fortement à la mauvaise personne, c'est sa brièveté qui la rend suspecte.
 MATIERE_MINIMALE_VOIX = 2.0
 
-#: Matière exigée avant de laisser la banque de voix nommer quelqu'un.
-#:
-#: Reconnaître demande davantage que rattacher. Mesuré en séance : sur une
-#: réunion de trente-deux minutes, la banque a collé « Kilian ? » sur une voix de
-#: trois tours et « Florent ? » sur une de quatre, alors que ni l'un ni l'autre
-#: n'était là. Quelques secondes de parole ressemblent à trop de monde, et une
-#: étiquette fausse affichée à l'écran est pire qu'un « Voix 12 » : on la croit.
-#:
-#: Six secondes, soit le double du seuil du calibrage sous lequel un extrait
-#: porte le bruit de la pièce plus que le timbre. En deçà, la voix reste
-#: anonyme et `_retenter_le_nom` repassera : une voix qui compte finit toujours
-#: par accumuler de la matière.
 MATIERE_POUR_RECONNAITRE = 6.0
 
-#: Écart exigé avec la deuxième voix établie, pour qu'une phrase la rejoigne.
-#:
-#: Non nul, contrairement au recollage d'après réunion, et pour une raison qui
-#: tient au moment : après coup, on compare des **agrégats** de plusieurs
-#: minutes, et se tromper ne coûte qu'un « greffier revoir ». Ici on compare une
-#: phrase, souvent brève, et l'attribution s'affiche tout de suite sous les yeux
-#: des participants. Une marge écarte les cas où deux voix se disputent la
-#: phrase à égalité — ceux-là méritent le fourre-tout plutôt qu'un choix
-#: arbitraire, qu'un clic devrait ensuite défaire.
 MARGE_ADOPTION_DIRECT = 0.06
 
-#: Seuil de rattachement d'une phrase à une voix déjà entendue, **en direct**.
-#:
-#: Bien plus bas que `SEUIL_FUSION`, et c'est une mesure qui l'impose. Le
-#: rattachement compare une empreinte de deux ou trois secondes à l'agrégat
-#: d'une voix, ce qui n'est pas la même question que comparer deux agrégats
-#: après la réunion. Mille neuf cent dix empreintes courtes d'une réunion réelle,
-#: étiquetées par le recollage final :
-#:
-#:   phrase / agrégat, même personne     médiane 0,667   1er décile 0,494
-#:   phrase / agrégat, personnes ≠       médiane 0,337   9e décile  0,501
-#:
-#: À 0,75, la médiane d'une même personne ne passait pas : chaque phrase fondait
-#: une voix, et comme aucune voix ne grossissait, aucune ne pouvait plus en
-#: adopter. Mesuré : **deux cent soixante-seize voix pour mille phrases**, un
-#: cercle vicieux entier.
-#:
-#: 0,50 tombe entre les deux distributions, qui ne se chevauchent qu'au décile.
-#: C'est la marge qui rend ce chevauchement sans conséquence : il ne suffit pas
-#: qu'une voix passe le seuil, il faut qu'elle devance nettement la suivante.
 SEUIL_RATTACHEMENT_DIRECT = 0.50
 
-#: Au-delà de ce nombre de voix, une phrase en rejoint une plutôt que d'en
-#: fonder une de plus.
-#:
-#: C'est le plafond qui manquait, et son absence était structurelle : chaque
-#: phrase qui ne ressemblait à rien fondait une voix, donc aucune voix ne
-#: grossissait, donc aucune n'avait d'agrégat assez fiable pour en accueillir
-#: une autre. Mesuré sur une réunion réelle de trois personnes : **deux cent
-#: soixante-seize voix pour mille phrases**, et le coût de chaque rattachement
-#: croissant avec elles.
-#:
-#: Douze parce qu'une réunion de travail dépasse rarement ce nombre, et que le
-#: plafond n'a pas à être juste : il a à borner le désastre. Le nombre annoncé
-#: dans la configuration, quand il l'est, l'emporte et vaut bien mieux.
 VOIX_AU_PLUS = 12
 
-#: Nom affiché pour la personne qui enregistre. Son micro la désigne : elle n'a
-#: pas à être reconnue, et son nom n'a pas à être demandé.
 NOM_LOCAL = "Toi"
 
-#: Voix des passages distants dont l'extrait est trop court pour porter une
-#: empreinte — un « oui », un « d'accord ». Ils sont **regroupés** sous une
-#: étiquette qui ne prétend rien, plutôt que de créer un participant par bribe :
-#: sans cela, une heure de réunion afficherait des dizaines de fausses voix.
 VOIX_INDETERMINEE = "?"
 NOM_INDETERMINE = "Les autres"
 
-#: Part de sa durée qu'une réplique doit apporter de neuf pour être affichée.
-#: Les tranches se recouvrent volontairement, donc chaque passage est transcrit
-#: deux fois — mais **jamais découpé au même endroit** : mesuré, la même phrase
-#: est datée 13,60 dans une tranche et 12,80 dans la suivante. Filtrer sur le
-#: seul début jetait alors une phrase entière parce qu'elle commençait 0,3 s
-#: avant la frontière. On compare donc ce qu'elle apporte, pas où elle commence.
 PART_NEUVE_MINIMALE = 0.5
 
-#: En deçà, un cumul d'extraits ne vaut pas d'être versé à la banque de voix.
-#: Trois secondes : c'est le seuil du calibrage (`docs/calibrage.md`), sous
-#: lequel un extrait porte le bruit de la pièce plus que le timbre, et celui
-#: retenu après la réunion (`nommer.DUREE_UTILE`). Exiger davantage paraissait
-#: prudent et coûtait tout : à l'essai, une correction saisie à la deuxième
-#: phrase n'entrait jamais en banque, donc ne servait ni à la réunion suivante
-#: ni au compte rendu.
 DUREE_POUR_LA_BANQUE_S = 3.0
 
-#: En deçà, un recouvrement d'un seul mot banal (« et », « de ») ne doit rien
-#: couper : ce serait le hasard, pas une vraie répétition.
 CARACTERES_RECOUVREMENT_MINIMUM = 4
 
-#: À partir de combien de mots on accepte un recouvrement **imparfait**. En
-#: dessous, seule l'égalité mot pour mot coupe : sur un ou deux mots, deux
-#: phrases différentes se ressemblent trop souvent.
 MOTS_POUR_TOLERER = 3
 
-#: Part des mots qui doivent être identiques, les autres devant être de simples
-#: variantes du même mot. Relevé le 2026-09-09 dans une réunion réelle :
-#: « Qu'est-ce qu'on dit d'autre sur l'ASIS ? » puis « - Qu'est-ce qu'on dit
-#: d'autre sur Oasis ? Il y a cette histoire… » — six mots sur sept identiques,
-#: et la phrase s'affichait deux fois faute de coupe. Chaque doublon coûtait en
-#: plus une empreinte, donc une voix de plus dans le fil.
 PART_IDENTIQUE = 0.5
 
 _MOT_DIRECT = re.compile(r"\S+")
 _PONCTUATION_MOT = ".,;:!?…\"'«»()[]-–—"
-
 
 def _mots_porteurs(texte: str) -> list[tuple[str, int]]:
     """Les mots qui portent du sens, chacun avec sa fin dans le texte.
@@ -178,7 +86,6 @@ def _mots_porteurs(texte: str) -> list[tuple[str, int]]:
             trouves.append((nu, mot.end()))
     return trouves
 
-
 def _meme_mot(un: str, autre: str) -> bool:
     """Deux transcriptions du même mot : « l'ASIS » et « Oasis ».
 
@@ -191,7 +98,6 @@ def _meme_mot(un: str, autre: str) -> bool:
     if plus_court < 4:
         return False
     return distance(un, autre) <= (2 if plus_court >= 5 else 1)
-
 
 def _se_recouvrent(gauche: list[str], droite: list[str]) -> bool:
     """Vrai si ces deux suites de mots sont le même passage, dit deux fois."""
@@ -206,7 +112,6 @@ def _se_recouvrent(gauche: list[str], droite: list[str]) -> bool:
         return False
     identiques = sum(1 for a, b in zip(gauche, droite, strict=True) if a == b)
     return identiques / len(gauche) >= PART_IDENTIQUE
-
 
 def retirer_repetition(precedent: str, nouveau: str) -> str:
     """Retire, en tête du nouveau texte, la fin déjà affichée par le précédent.
@@ -235,12 +140,7 @@ def retirer_repetition(precedent: str, nouveau: str) -> str:
             return nouveau[apres[longueur - 1][1]:].lstrip(" ,.;:!?-–—")
     return nouveau
 
-
-#: En dessous, l'écart avec la personne suivante est trop mince pour qu'un nom
-#: se lise comme le bon : c'est la même valeur que la marge exigée par la
-#: reconnaissance, reprise ici pour que l'explication et la décision coïncident.
 MARGE_LISIBLE = 0.06
-
 
 class Certitude(StrEnum):
     """D'où vient le nom affiché. Détermine ce qu'on ose en faire.
@@ -261,8 +161,6 @@ class Certitude(StrEnum):
         """Vrai quand le nom n'est plus une hypothèse."""
         return self in {Certitude.HUMAINE, Certitude.CANAL}
 
-
-#: Les sources, de la plus forte à la plus faible.
 _FORCE = {
     Certitude.HUMAINE: 4,
     Certitude.CANAL: 3,
@@ -270,7 +168,6 @@ _FORCE = {
     Certitude.PROBABLE: 1,
     Certitude.INCONNUE: 0,
 }
-
 
 @dataclass(frozen=True, slots=True)
 class Bloc:
@@ -290,7 +187,6 @@ class Bloc:
             self.repliques[0].intervalle.debut, self.repliques[-1].intervalle.fin
         )
 
-
 @dataclass(slots=True)
 class VoixDirecte:
     """Une voix telle que le fil la connaît à cet instant."""
@@ -300,20 +196,9 @@ class VoixDirecte:
     certitude: Certitude = Certitude.INCONNUE
     rang: int = 0
     empreintes: list[Empreinte] = field(default_factory=list)
-    #: Ce que la banque a répondu : ressemblance au nom retenu, et écart avec la
-    #: personne suivante. Gardés parce que « Sophie ? » ne dit pas s'il s'agit
-    #: d'une hypothèse fragile ou d'une quasi-certitude, et que c'est
-    #: exactement ce qu'il faut savoir pour décider de corriger ou non.
     ressemblance: float = 0.0
     ecart: float = 0.0
 
-    #: L'agrégat, gardé jusqu'à ce qu'une empreinte s'ajoute.
-    #:
-    #: Le rattachement compare la phrase courante à l'agrégat de **chaque**
-    #: voix, et le recalculait à chaque comparaison : un agrégat pèse quelques
-    #: centaines de nombres par empreinte, et le coût croît avec la réunion.
-    #: Mesuré : treize millisecondes par phrase à mi-parcours, contre deux
-    #: dixièmes de milliseconde au début.
     _agregat: Empreinte | None = field(default=None, repr=False)
 
     def ajouter(self, empreinte: Empreinte) -> None:
@@ -395,7 +280,6 @@ class VoixDirecte:
         """
         return self.identifiant != VOIX_INDETERMINEE
 
-
 @dataclass(slots=True)
 class TourDirect:
     """Une phrase affichée, et à qui le fil l'attribue."""
@@ -405,7 +289,6 @@ class TourDirect:
     texte: str
     voix: str
 
-
 @dataclass(frozen=True, slots=True)
 class Correction:
     """Ce qu'une correction humaine a changé, pour que l'appelant en tire les
@@ -414,15 +297,8 @@ class Correction:
     nom: str
     voix: str
     numeros: tuple[int, ...]
-    #: Empreinte agrégée de la voix, quand elle porte assez de matière pour
-    #: entrer en banque. `None` sinon : mieux vaut ne rien apprendre qu'apprendre
-    #: une signature tirée de trois secondes de « d'accord ».
     empreinte: Empreinte | None = None
-    #: La portée décidée, et non déduite du nombre de tours touchés : une voix
-    #: qui n'a qu'un tour au moment du clic en aura d'autres ensuite, et la
-    #: correction doit les couvrir.
     toute_la_voix: bool = True
-
 
 def blocs(repliques: list[Replique], locaux: list[Intervalle]) -> list[Bloc]:
     """Regroupe les répliques en passages d'une même source.
@@ -446,14 +322,11 @@ def blocs(repliques: list[Replique], locaux: list[Intervalle]) -> list[Bloc]:
         groupes.append(Bloc(tuple(courant), courant_local))
     return groupes
 
-
 def _est_locale(intervalle: Intervalle, locaux: list[Intervalle]) -> bool:
     if intervalle.duree <= 0:
         return any(local.recouvrement(intervalle) > 0 for local in locaux)
     couvert = sum(local.recouvrement(intervalle) for local in locaux)
     return couvert / intervalle.duree >= 0.5
-
-
 
 @dataclass(frozen=True, slots=True)
 class Fusion:
@@ -467,16 +340,13 @@ class Fusion:
 
     source: str
     cible: str
-    #: Les empreintes qui appartenaient à la source, pour les lui rendre.
     empreintes: tuple[Empreinte, ...]
-    #: Les seuls tours qui ont changé d'étiquette lors de cette réunion.
     numeros: tuple[int, ...]
     nom: str | None
     certitude: Certitude
     rang: int
     ressemblance: float = 0.0
     ecart: float = 0.0
-    #: L'état de la cible avant, qu'une correction humaine a pu changer après.
     nom_cible: str | None = None
     certitude_cible: Certitude = Certitude.INCONNUE
 
@@ -490,37 +360,16 @@ class Fil:
     qu'un modèle qui tombe ne doit pas emporter la fenêtre.
     """
 
-    #: Les personnes déjà en banque, pour reconnaître sans rien demander.
     connues: list[Personne] = field(default_factory=list)
-    #: Le seuil du rattachement d'une phrase à une voix. Celui du direct, pas
-    #: celui du recollage d'après réunion : on compare une phrase à un agrégat,
-    #: et non deux agrégats.
     seuil_fusion: float = SEUIL_RATTACHEMENT_DIRECT
-    #: Combien de personnes participent, si on le sait. Renseigné, le fil
-    #: n'invente jamais plus de voix que de participants : une empreinte qui ne
-    #: franchit pas le seuil rejoint la plus ressemblante. Laissé vide, chaque
-    #: prise de parole qui n'atteint pas 0,75 crée une voix — inévitable sans
-    #: cette information, et c'est la seule que la machine ne peut pas déduire.
     personnes: int | None = None
-    #: La langue de la réunion. Neutre par défaut, jamais française : c'est
-    #: l'appelant qui sait dans quelle langue on parle.
     profil: ProfilLinguistique = NEUTRE
     tours: list[TourDirect] = field(default_factory=list)
     voix: dict[str, VoixDirecte] = field(default_factory=dict)
-    #: Fin du dernier tour inscrit : ce qui commence avant a déjà été affiché.
     jusqu_a: float = 0.0
-    #: Compteur d'identifiants, jamais réutilisé. Une correction peut réunir deux
-    #: voix, donc en faire disparaître une : recompter les voix présentes
-    #: redonnerait un identifiant déjà porté par une autre.
     suite: int = 0
-    #: Texte du dernier tour inscrit, pour retirer le recouvrement au tour
-    #: suivant — celui-là seul peut être la suite immédiate de ce qui s'affiche.
     dernier_texte: str = ""
-    #: Les réunions de voix déjà faites, dans l'ordre, pour pouvoir les défaire.
     fusions: list[Fusion] = field(default_factory=list)
-    #: Les paires qu'un humain a séparées. Ni la mesure ni l'homonymie ne les
-    #: réunissent de nouveau : sans cela, `recoller` refaisait la fusion à la
-    #: tranche suivante et le clic n'avait servi à rien.
     separees: set[frozenset[str]] = field(default_factory=set)
 
     def __post_init__(self) -> None:

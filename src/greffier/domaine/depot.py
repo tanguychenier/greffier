@@ -24,34 +24,19 @@ from pathlib import Path
 class Destin(StrEnum):
     """Ce qu'on peut faire d'un fichier déposé."""
 
-    #: Transcrire, identifier les voix, rédiger un compte rendu.
     REUNION = "réunion"
-    #: Extraire la piste sonore, puis la traiter comme une réunion.
     VIDEO = "vidéo"
-    #: En tirer des sigles, des noms et des sujets pour le contexte.
     CONTEXTE = "contexte"
-    #: Reconnu, mais rien à en faire aujourd'hui. Dit plutôt que d'être ignoré.
     INCONNU = "inconnu"
 
-
-#: Ce que la chaîne sait transcrire directement.
 SONS = frozenset({".wav", ".mp3", ".m4a", ".opus", ".flac", ".aac", ".aiff", ".ogg"})
 
-#: Ce dont il faut d'abord extraire la piste sonore. Les enregistrements Teams
-#: et Zoom arrivent en .mp4, et c'est le cas le plus courant d'un dépôt.
 VIDEOS = frozenset({".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"})
 
-#: Ce dont on peut tirer du contexte. Le texte brut et le Markdown se lisent
-#: sans rien installer ; les deux autres demandent un outil du système, et
-#: l'outil le dit au lieu d'échouer sans expliquer.
 TEXTES = frozenset({".txt", ".md", ".markdown"})
 TEXTES_OUTILLES = frozenset({".pdf", ".doc", ".docx", ".rtf", ".odt"})
 
-#: En dessous, un fichier audio ne porte pas une réunion : c'est une notification
-#: système, un bip, un extrait. Mesuré : une réunion d'une minute pèse déjà 2 Mo
-#: en WAV, et la plus courte qui vaille la peine dure quelques minutes.
 TAILLE_MINIMALE_SON = 200_000
-
 
 @dataclass(frozen=True, slots=True)
 class Proposition:
@@ -59,15 +44,12 @@ class Proposition:
 
     fichier: Path
     destin: Destin
-    #: La raison, en clair, pour que la validation soit éclairée.
     parce_que: str
-    #: Ce qui manque pour le faire, s'il manque quelque chose.
     bloque_par: str = ""
 
     @property
     def faisable(self) -> bool:
         return self.destin is not Destin.INCONNU and not self.bloque_par
-
 
 def proposer(
     fichier: Path,
@@ -114,7 +96,6 @@ def proposer(
         f"« {suffixe or 'sans extension'} » n'est ni un son, ni une vidéo, "
         "ni un document texte",
     )
-
 
 def resumer(propositions: list[Proposition]) -> str:
     """Une phrase qui dit ce que le lot va devenir, avant validation."""

@@ -25,10 +25,6 @@ class Palette:
     invisibles paraît plate quoi qu'on fasse par ailleurs.
     """
 
-    #: L'accent porte l'action principale, l'onglet choisi et le liseré de
-    #: saisie active. Il valait le noir de l'encre : la fenêtre était donc
-    #: entièrement grise, et rien ne guidait l'œil. Un indigo, choisi loin du
-    #: rouge d'enregistrement et des vumètres pour qu'aucun état ne s'y confonde.
     fond: str
     carte: str
     encre: str
@@ -41,7 +37,6 @@ class Palette:
     vert: str
     ambre: str
     survol: str
-
 
 CLAIR = Palette(
     fond="#f5f5f7",
@@ -72,7 +67,6 @@ SOMBRE = Palette(
     ambre="#d9a441",
     survol="#2e2e34",
 )
-
 
 def systeme_en_sombre() -> bool:
     """Suit le réglage du système, plutôt que d'imposer un goût.
@@ -114,7 +108,6 @@ def systeme_en_sombre() -> bool:
     theme = _sortie(["gsettings", "get", "org.gnome.desktop.interface", "gtk-theme"])
     return "dark" in theme.lower()
 
-
 def _sortie(commande: list[str]) -> str:
     """Ce qu'une commande écrit, ou rien si elle manque ou échoue.
 
@@ -129,7 +122,6 @@ def _sortie(commande: list[str]) -> str:
         return ""
     return fait.stdout.strip() if fait.returncode == 0 else ""
 
-
 def palette(theme: str = "systeme") -> Palette:
     """La palette demandée, ou celle du système quand on ne demande rien."""
     if theme == "clair":
@@ -137,7 +129,6 @@ def palette(theme: str = "systeme") -> Palette:
     if theme == "sombre":
         return SOMBRE
     return SOMBRE if systeme_en_sombre() else CLAIR
-
 
 def police(taille: int, gras: bool = False) -> tuple[str, int, str]:
     """La police de l'interface du système, avec un repli sûr.
@@ -161,7 +152,6 @@ def police(taille: int, gras: bool = False) -> tuple[str, int, str]:
     famille = familles.get(platform.system(), "Helvetica")
     return (famille, -taille, "bold" if gras else "normal")
 
-
 # Descendues de `fenetre`, où elles étaient privées et donc jamais éprouvées.
 # `degrade` tomberait aujourd'hui sur une couleur mal formée sans qu'aucun test
 # ne le dise, et c'est de la couleur, pas du Tk : sa place est ici.
@@ -170,7 +160,6 @@ def degrade(depuis: str, vers: str, part: float) -> str:
     a = tuple(int(depuis[i : i + 2], 16) for i in (1, 3, 5))
     b = tuple(int(vers[i : i + 2], 16) for i in (1, 3, 5))
     return "#" + "".join(f"{round(x + (y - x) * part):02x}" for x, y in zip(a, b, strict=True))
-
 
 def police_titre(taille: int) -> tuple[str, int, str]:
     """Une empreinte plus éditoriale pour le nom de la réunion.

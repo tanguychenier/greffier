@@ -23,21 +23,14 @@ from dataclasses import dataclass, field
 
 from greffier.domaine.carte import clef, mots_porteurs
 
-#: En dessous, on n'ouvre ni ne complète aucune carte. Mesuré sur la réunion du
-#: 2026-09-09 : les sujets réellement traités reviennent cinq fois et plus, les
-#: allusions une ou deux.
 MENTIONS_MINIMALES = 3
-
 
 @dataclass(frozen=True, slots=True)
 class Sujet:
     """Un sujet suivi, ses appellations, et où vit sa carte."""
 
     nom: str
-    #: Les autres façons de le nommer. Renseignées à la main : personne ne peut
-    #: deviner qu'« esup-oasis » désigne « Oasis ».
     alias: tuple[str, ...] = ()
-    #: L'identifiant de sa carte, vide tant qu'elle n'existe pas.
     carte: str = ""
 
     def __post_init__(self) -> None:
@@ -51,7 +44,6 @@ class Sujet:
     def reconnait(self, mot: str) -> bool:
         """Vrai si ce mot est une de ses appellations."""
         return clef(mot) in {clef(nom) for nom in self.appellations}
-
 
 @dataclass
 class Registre:
@@ -88,7 +80,6 @@ class Registre:
         comptes = self.compter(texte)
         retenus = [(nom, compte) for nom, compte in comptes.items() if compte >= minimum]
         return [nom for nom, _ in sorted(retenus, key=lambda paire: -paire[1])]
-
 
 def _compter_sans_chevauchement(
     mots: list[str], appellations: tuple[str, ...]

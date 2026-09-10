@@ -23,60 +23,22 @@ import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-#: La distance tolérée dépend de la longueur du terme, parce qu'une distance
-#: absolue confond des mots courants avec des termes métier. Mesuré sur le
-#: vocabulaire réel du poste : « point » et « sprint » sont à 2, et rien ne les
-#: rapproche — demander « fallait-il comprendre sprint ? » chaque fois que
-#: quelqu'un dit « point » ferait fermer la file au bout d'une minute. À partir
-#: de huit lettres, deux écarts restent une déformation plausible.
-#:
-#: La distance employée compte la **transposition** pour un seul écart : les
-#: erreurs de transcription inversent des lettres — « bakclog » pour
-#: « backlog » — et deux mots à une transposition près sont le même mot.
 LONGUEUR_TOLERANCE_LARGE = 8
 DISTANCE_MAXIMUM = 2
 
-#: En dessous, la distance ne veut rien dire : « CR » et « OR » sont à 1 et
-#: n'ont aucun rapport. Les sigles courts sont justement ceux qu'on écrit en
-#: majuscules, donc reconnaissables autrement.
 LONGUEUR_MINIMALE = 5
-
 
 def tolerance(terme: str) -> int:
     """Combien d'écarts on accepte avant de croire à une déformation."""
     return DISTANCE_MAXIMUM if len(terme) >= LONGUEUR_TOLERANCE_LARGE else 1
 
-#: Une même question ne se pose pas deux fois dans une réunion, et l'outil ne
-#: doit pas noyer qui travaille. Au-delà, il se taît et garde le reste pour la
-#: transcription définitive, qui a le contexte complet.
 QUESTIONS_MAXIMUM = 8
 
-#: À partir de ce nombre d'occurrences, un mot n'est plus un accident.
-#:
-#: Une déformation de transcription se répète rarement à l'identique : le modèle
-#: rend « s'enature » une fois, pas trois. Un mot français, lui, revient — et
-#: c'est ce qui distingue « marge », qui est un mot, de « merve », qui n'en est
-#: pas un. Sans cette règle il fallait un dictionnaire français, que le domaine
-#: n'a pas et qu'une réunion technique déborderait de toute façon.
-#:
-#: Relevé sur une réunion réelle : « marge » pour « merge »,
-#: « rétablissements » pour « établissement », « recetter » pour « recette » —
-#: trois mots parfaitement français, chacun demandé comme une faute.
 OCCURRENCES_QUI_ETABLISSENT = 2
 
 _MOT = re.compile(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*", re.UNICODE)
 
-#: Ce qui n'est pas une déformation mais une variante de la même forme : le
-#: pluriel, l'accent, le trait d'union, la casse.
-#:
-#: Sans ce garde-fou, la file se remplissait de questions qui ne pouvaient rien
-#: changer — « J'ai entendu "bailleurs". Fallait-il comprendre "bailleur" ? »,
-#: « J'ai entendu "pre-prod". Fallait-il comprendre "pré-prod" ? ». Un écart de
-#: un, donc sous le seuil, donc posé ; et absurde, parce que la réponse est déjà
-#: connue et qu'elle ne corrige rien. Trois questions sur quatre étaient de
-#: cette nature sur une réunion réelle, ce qui décrédibilise les quatrièmes.
 _PLURIEL = re.compile(r"(?:s|x)$")
-
 
 def forme_canonique(mot: str) -> str:
     """Ce qu'il reste d'un mot quand on retire ce qui ne le change pas.
@@ -92,22 +54,12 @@ def forme_canonique(mot: str) -> str:
     sans_liaison = re.sub(r"[-'’\s]", "", sans_accent)
     return _PLURIEL.sub("", sans_liaison)
 
-
 def meme_mot(un: str, autre: str) -> bool:
     """Les deux ne diffèrent-ils que par le pluriel, l'accent ou la casse ?"""
     return forme_canonique(un) == forme_canonique(autre)
 
-
-#: Les préfixes qui fabriquent un mot à partir d'un autre. Un terme précédé de
-#: l'un d'eux n'est pas une déformation, c'est un autre mot — et un mot du
-#: français, pas un accident du modèle.
-#:
-#: Relevé sur une réunion réelle : « J'ai entendu "rétablissements". Fallait-il
-#: comprendre "établissement" ? ». Un écart de un, donc sous le seuil ; et sans
-#: objet, puisque « rétablissement » existe.
 PREFIXES = ("re", "ré", "de", "dé", "in", "im", "non", "anti", "pre", "pré",
             "sur", "sous", "mal", "co")
-
 
 def mot_derive(mot: str, terme: str) -> bool:
     """Le mot est-il le terme précédé d'un préfixe français ?
@@ -129,21 +81,17 @@ def mot_derive(mot: str, terme: str) -> bool:
             return True
     return False
 
-
 class Motif(StrEnum):
     """Pourquoi l'outil demande. Dit à l'écran : une question sans raison
     visible ressemble à un caprice, et on n'y répond pas."""
 
     TERME_PROCHE = "terme-proche"
 
-
 @dataclass(frozen=True, slots=True)
 class Question:
     numero: int
-    #: La question, telle qu'elle s'affiche.
     texte: str
     motif: Motif
-    #: Ce qui l'a déclenchée : le mot entendu et le terme soupçonné.
     entendu: str = ""
     attendu: str = ""
 
@@ -151,7 +99,6 @@ class Question:
     def clef(self) -> str:
         """De quoi reconnaître une question déjà posée, sans dépendre du texte."""
         return f"{self.motif}:{self.entendu.casefold()}:{self.attendu.casefold()}"
-
 
 def distance(un: str, autre: str) -> int:
     """Distance d'édition **avec transposition** (Damerau-Levenshtein).
@@ -190,10 +137,8 @@ def distance(un: str, autre: str) -> int:
         avant_precedente, precedente = precedente, courante
     return precedente[-1]
 
-
 def _mots(texte: str) -> list[str]:
     return _MOT.findall(texte)
-
 
 @dataclass
 class Interrogateur:
@@ -204,11 +149,8 @@ class Interrogateur:
     rendrait la file inutilisable.
     """
 
-    #: Les écritures que le contexte connaît. Comparées en minuscules.
     connus: tuple[str, ...] = ()
     posees: set[str] = field(default_factory=set)
-    #: Combien de fois chaque forme a été entendue, sous sa forme canonique.
-    #: Ce qui revient n'est pas un accident de transcription.
     _entendus: dict[str, int] = field(default_factory=dict, repr=False)
     _numero: int = 0
 

@@ -27,7 +27,6 @@ from greffier.domaine.langue import ProfilLinguistique
 _PONCTUATION = re.compile(r"[^\w\s]+", re.UNICODE)
 _ESPACES = re.compile(r"\s+")
 
-
 def _nu(texte: str) -> str:
     """Le texte sans accents, sans ponctuation, en minuscules.
 
@@ -40,7 +39,6 @@ def _nu(texte: str) -> str:
     )
     return _ESPACES.sub(" ", _PONCTUATION.sub(" ", sans_accents)).strip()
 
-
 def est_un_generique(texte: str, profil: ProfilLinguistique) -> bool:
     """Vrai si toute la réplique est un générique inventé par le modèle.
 
@@ -51,13 +49,7 @@ def est_un_generique(texte: str, profil: ProfilLinguistique) -> bool:
     """
     return _nu(texte) in profil.redaction.generiques
 
-
-#: Ce qu'une annotation porte comme bornes. Whisper les écrit quand il entend
-#: du son sans parole : « *Belouge* », « (musique) », « [Applaudissements] ».
-#: Relevé dans le fil d'une réunion réelle du 2026-09-09, où « *Belouge* » a
-#: été inscrit comme une prise de parole avec sa propre empreinte de voix.
 _BORNES_ANNOTATION = (("*", "*"), ("(", ")"), ("[", "]"), ("♪", "♪"), ("{", "}"))
-
 
 def est_une_annotation(texte: str) -> bool:
     """Vrai si toute la réplique est une annotation, pas de la parole.
