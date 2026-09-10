@@ -375,6 +375,9 @@ class Assistant(BaseModel):
     #: Le débit. En dessous de 1, on parle à des gens occupés ; au-dessus, on
     #: parle à quelqu'un qui écoute.
     vitesse: float = 0.95
+    #: Le locuteur, quand le modèle en porte plusieurs. Celui qui est installé
+    #: en a deux, et c'est le premier qui a été retenu à l'écoute.
+    locuteur: int = 0
     #: Secondes entre deux prises de parole **spontanées**. Être appelé ne compte
     #: pas : on répond tout de suite, quel que soit le repos restant.
     repos: float = 180.0
@@ -530,8 +533,8 @@ SECTIONS: dict[str, tuple[str, ...]] = {
     "sauvegarde": ("dossier", "apres_chaque_reunion", "gardees"),
     "retention": ("compresser_apres_jours", "effacer_apres_jours"),
     "conversation": ("recherche_web", "information"),
-    "assistant": ("actif", "nom", "voix", "vitesse", "repos", "creux_minimal",
-                  "demander_les_voix"),
+    "assistant": ("actif", "nom", "voix", "vitesse", "locuteur", "repos",
+                  "creux_minimal", "demander_les_voix"),
     "apparence": ("theme",),
 }
 

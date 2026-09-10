@@ -7,8 +7,8 @@ jouent les fautes qui ne se voient qu'une fois sur place.
 
 from types import SimpleNamespace
 
-from greffier.adaptateurs import voix_kokoro, voix_systeme
-from greffier.adaptateurs.voix_kokoro import nettoyer, phrases
+from greffier.adaptateurs import voix_neuronale, voix_systeme
+from greffier.adaptateurs.voix_neuronale import nettoyer, phrases
 
 
 class TestDecoupageDuPropos:
@@ -39,27 +39,27 @@ class TestDecoupageDuPropos:
 
 class TestLecteurSelonLeSysteme:
     def test_macos_prend_afplay(self, monkeypatch):
-        monkeypatch.setattr(voix_kokoro, "SYSTEME", "Darwin")
-        monkeypatch.setattr(voix_kokoro.shutil, "which",
+        monkeypatch.setattr(voix_neuronale, "SYSTEME", "Darwin")
+        monkeypatch.setattr(voix_neuronale.shutil, "which",
                             lambda n: "/usr/bin/afplay" if n == "afplay" else None)
-        assert voix_kokoro._lecteur() == ["afplay"]
+        assert voix_neuronale._lecteur() == ["afplay"]
 
     def test_linux_prend_ce_qui_est_la(self, monkeypatch):
-        monkeypatch.setattr(voix_kokoro, "SYSTEME", "Linux")
-        monkeypatch.setattr(voix_kokoro.shutil, "which",
+        monkeypatch.setattr(voix_neuronale, "SYSTEME", "Linux")
+        monkeypatch.setattr(voix_neuronale.shutil, "which",
                             lambda n: "/usr/bin/aplay" if n == "aplay" else None)
-        assert voix_kokoro._lecteur() == ["/usr/bin/aplay"]
+        assert voix_neuronale._lecteur() == ["/usr/bin/aplay"]
 
     def test_windows_retombe_sur_powershell(self, monkeypatch):
-        monkeypatch.setattr(voix_kokoro, "SYSTEME", "Windows")
-        monkeypatch.setattr(voix_kokoro.shutil, "which",
+        monkeypatch.setattr(voix_neuronale, "SYSTEME", "Windows")
+        monkeypatch.setattr(voix_neuronale.shutil, "which",
                             lambda n: "powershell.exe" if n == "powershell" else None)
-        assert voix_kokoro._lecteur()[0] == "powershell"
+        assert voix_neuronale._lecteur()[0] == "powershell"
 
     def test_sans_lecteur_la_voix_se_declare_indisponible(self, monkeypatch, tmp_path):
-        monkeypatch.setattr(voix_kokoro, "SYSTEME", "Linux")
-        monkeypatch.setattr(voix_kokoro.shutil, "which", lambda _n: None)
-        assert voix_kokoro.VoixKokoro(tmp_path).disponible is False
+        monkeypatch.setattr(voix_neuronale, "SYSTEME", "Linux")
+        monkeypatch.setattr(voix_neuronale.shutil, "which", lambda _n: None)
+        assert voix_neuronale.VoixNeuronale(tmp_path).disponible is False
 
 
 class TestVoixDuSysteme:
