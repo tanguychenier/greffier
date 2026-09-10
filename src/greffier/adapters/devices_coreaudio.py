@@ -1,13 +1,4 @@
-"""Lit le matériel audio réel, pour que la veille ait quelque chose à comparer.
-
-`swift creer-peripheriques.swift --list` met une seconde : recompilé à chaque
-appel, il coûterait un dixième du temps machine pendant tout l'enregistrement.
-On le compile donc une fois, dans le dossier de données, et on rappelle le
-binaire. La recompilation n'a lieu que si la source est plus récente.
-
-Hors macOS, il n'y a rien à surveiller : Linux et Windows exposent un moniteur
-de sortie et ne construisent aucun périphérique agrégé.
-"""
+"""Reads the real audio hardware, so the watch is not guessing."""
 
 from __future__ import annotations
 
@@ -27,7 +18,7 @@ _ENTREES = re.compile(r"entrée (\d+)ch")
 _SORTIES = re.compile(r"sortie (\d+)ch")
 
 class CoreAudioLister:
-    """Donne l'état du matériel audio, à la demande."""
+    """Gives the state of the audio hardware, on demand."""
 
     def __init__(self, source: Path, cache: Path, prete: Path | None = None) -> None:
         self.source = source
@@ -65,7 +56,7 @@ class CoreAudioLister:
         return fait.stdout
 
     def read(self) -> Hardware:
-        """L'état du matériel maintenant. Vide si le système ne sait pas répondre."""
+        """The hardware state now. Empty when the system will not say."""
         if not self.available():
             return Hardware()
         try:
@@ -74,11 +65,7 @@ class CoreAudioLister:
             return Hardware()
 
 def analyser(output: str) -> Hardware:
-    """Convertit la sortie du listeur en matériel comparable.
-
-    Fonction pure, donc éprouvable sur des sorties enregistrées, y compris
-    celles qu'on ne peut pas reproduire à la demande sur un poste donné.
-    """
+    """Turns the lister's output into hardware the domain understands."""
     trouves: list[Device] = []
     in_progress: tuple[str, str] | None = None
     for line in output.splitlines():

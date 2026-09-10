@@ -1,16 +1,8 @@
-"""Découpage en tours de parole, par sherpa-onnx, en local.
+"""Cutting into speaker turns, through sherpa-onnx.
 
-Deux modèles : pyannote-segmentation-3.0 repère quand quelqu'un parle, TitaNet
-regroupe les passages par empreinte vocale.
-
-**Les canaux ne sont pas mélangés.** L'enregistrement sépare matériellement le
-micro de la boucle système : la segmentation ne tourne donc que sur la boucle,
-et la voix locale est établie par le canal, ce qui ne demande aucun modèle.
-
-Le mélange, lui, coûtait cher. Sur une réunion réelle, la voix de la personne
-qui enregistrait arrivait 12 dB sous celle des autres : moyennée, elle passait
-18 dB sous le mélange et n'a jamais été vue. Treize minutes de parole absentes
-du compte rendu d'une réunion d'une heure.
+Over-segmenting and stitching back is reversible; under-segmenting is not. The
+grouping threshold is therefore deliberately low, and the stitching in the
+domain repairs afterwards.
 """
 
 from __future__ import annotations

@@ -1,14 +1,8 @@
-"""Rédaction du compte rendu par Claude Code, en mode sans interface.
+"""Writing the minutes with Claude Code, through its command line.
 
-C'est le rédacteur par défaut : la qualité de synthèse d'un compte rendu de
-réunion — distinguer une décision d'une hypothèse, rattacher une position à une
-personne — reste hors de portée des modèles qu'on fait tourner sur un portable.
-
-Choix assumé et documenté : **la transcription sort du poste** vers l'API
-Anthropic. Tout le reste de la chaîne — enregistrement, transcription,
-identification des voix — demeure local. Pour ne rien laisser sortir du tout,
-`compte_rendu.moteur = "ollama"` branche un modèle local, au prix d'une synthèse
-plus grossière.
+The only link in the chain that leaves the machine, and a deliberate one:
+telling a decision from a hypothesis and tying a position to a person is out of
+reach of models that run on a laptop.
 """
 
 from __future__ import annotations
@@ -126,18 +120,7 @@ _MENTION_DE_LANGUE = "Structure attendue, en français,"
 _MENTION_NUE = "Structure attendue, en"
 
 def guidance(language: str = "") -> str:
-    """Les consignes, dictées dans la langue voulue.
-
-    Le français rend la constante **caractère pour caractère** : cent lignes
-    d'ajustements gagnés sur de vraies réunions, qu'on ne retraduit pas et qu'on
-    ne réécrit pas. Pour une autre langue, la même constante, avec la seule
-    mention de langue remplacée et une directive posée en tête puis rappelée
-    juste avant la transcription — un modèle qui lit cent lignes de français
-    retombe volontiers dans le français à la fin d'un long document.
-
-    Ce que les tests prouvent : que l'instruction PART. Qu'un modèle y obéisse
-    sur toute la longueur d'un compte rendu, aucun test ne le dira.
-    """
+    """The instructions, dictated in the language wanted."""
     if not language or language == "fr":
         return GUIDANCE
     name = nom_de(language)
@@ -188,14 +171,7 @@ N'emploie ni tiret cadratin ni demi-cadratin.
 """
 
 class ClaudeWriter:
-    """Rédige le compte rendu en appelant Claude Code en ligne de commande.
-
-    Le modèle est **demandé explicitement** plutôt que laissé au défaut de
-    l'outil : celui-ci suit le réglage personnel de qui a installé Claude Code,
-    donc le compte rendu changerait de rédacteur sans que personne ne l'ait
-    décidé — et pourrait consommer le haut de gamme là où le second suffit
-    (voir `CompteRendu.CLAUDE_PAR_DEFAUT`).
-    """
+    """Writes the minutes by calling Claude Code."""
 
     OUTILS_DE_RECHERCHE: ClassVar[tuple[str, ...]] = ("WebSearch", "WebFetch")
 

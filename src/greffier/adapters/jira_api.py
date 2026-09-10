@@ -1,13 +1,4 @@
-"""Lire et écrire sur un Jira inscrit au registre des sources.
-
-Même principe que pour GitLab : c'est Greffier qui appelle, sur intention
-reconnue et après confirmation, jamais l'assistant avec un jeton en main.
-
-Jira s'authentifie par courriel et jeton, en Basic : le jeton seul ne suffit
-pas. Le courriel est celui du compte, et il est pris dans la même entrée que le
-jeton, séparé par un « : » — de sorte qu'un seul secret est à déposer et que
-l'adresse ne traîne pas dans un fichier de configuration.
-"""
+"""Reading and writing on a Jira registered in the source registry."""
 
 from __future__ import annotations
 
@@ -25,11 +16,11 @@ TIMEOUT = 15.0
 AU_PLUS = 20
 
 class JiraRefused(RuntimeError):
-    """L'appel n'a pas eu lieu, et pour une raison présentable."""
+    """The call did not happen, and for a reason worth showing."""
 
 @dataclass(frozen=True, slots=True)
 class Request:
-    """Un ticket Jira, réduit à ce qui sert à en parler."""
+    """A Jira issue, reduced to what it takes to talk about it."""
 
     key: str
     title: str
@@ -42,11 +33,7 @@ class Request:
         return f"{self.key} {self.title}{qui} ({self.state})"
 
 def _identifiers(token: str) -> tuple[str, str]:
-    """Le couple courriel/jeton, depuis le secret unique déposé.
-
-    Un seul secret à déposer plutôt que deux, et l'adresse du compte hors du
-    fichier de configuration : elle identifie une personne.
-    """
+    """The email and token pair, from the single secret."""
     if ":" not in token:
         raise JiraRefused(
             "le secret Jira doit valoir « adresse@exemple.fr:jeton » : "
@@ -102,7 +89,7 @@ def _as_request(source: Source, brut: dict[str, Any]) -> Request:
     )
 
 def requests(source: Source, token: str, ouvertes: bool = True) -> list[Request]:
-    """Les demandes du projet inscrit. Lecture seule, toujours permise."""
+    """The registered project's issues. Read only."""
     jql = f'project = "{source.projet}"'
     if ouvertes:
         jql += " AND statusCategory != Done"
@@ -123,7 +110,7 @@ def creer_une_demande(
     source: Source, token: str, title: str, description: str = "",
     kind: str = "Task",
 ) -> Request:
-    """Crée une demande. **L'appelant doit avoir confirmé.**"""
+    """Creates an issue. **The caller must have confirmed.**"""
     if not source.can_write:
         raise JiraRefused(
             f"« {source.name} » est en lecture seule : rien n'a été créé"

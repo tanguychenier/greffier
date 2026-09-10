@@ -33,13 +33,7 @@ class TitaNetExtractor:
         )
 
     def extract(self, echantillons: np.ndarray, frequency: int) -> Voiceprint:
-        """Empreinte d'un extrait, borné en durée.
-
-        Un extrait trop long fait tomber le modèle, et avec lui la réunion
-        entière : voir `DUREE_MAXIMALE`. On garde le **milieu** du passage plutôt
-        que son début, où l'on trouve volontiers une hésitation ou un « alors »
-        qui ne dit rien du timbre.
-        """
+        """The voiceprint of an excerpt, capped in duration."""
         borne = int(DUREE_MAXIMALE * frequency)
         if len(echantillons) > borne:
             milieu = len(echantillons) // 2
@@ -55,12 +49,7 @@ class TitaNetExtractor:
         audio: Path,
         intervalles: list[Span],
     ) -> list[Voiceprint]:
-        """Une empreinte par intervalle, les trop courts étant écartés.
-
-        Les canaux sont additionnés : en visio, la voix distante n'est que sur
-        l'un des deux, et n'en garder qu'un ferait disparaître la moitié des
-        participants.
-        """
+        """One voiceprint per span, the too-short ones dropped."""
         data, frequency = sf.read(audio, dtype="float32", always_2d=True)
         signal = data.mean(axis=1)
         voiceprints: list[Voiceprint] = []

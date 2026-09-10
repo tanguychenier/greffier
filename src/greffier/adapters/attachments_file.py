@@ -1,15 +1,4 @@
-"""Les documents fournis pour une réunion, gardés sous forme de texte.
-
-Ce qu'on tend à l'outil en pleine réunion — un ordre du jour, un cahier des
-charges, un compte rendu précédent — sert deux fois : le vocabulaire du document
-part dans le contexte, et le texte lui-même doit pouvoir répondre à « qu'est-ce
-que le document dit de X ? » sans qu'on le rouvre.
-
-Le texte est gardé, pas le fichier : une pièce jointe de quarante mégaoctets
-recopiée dans les données de la réunion se sauvegarde, se synchronise et se
-perd, alors que son texte fait quelques dizaines de kilooctets. L'original reste
-là où il est, c'est à lui de vivre sa vie.
-"""
+"""The documents supplied for a meeting, kept as text."""
 
 from __future__ import annotations
 
@@ -26,7 +15,7 @@ HEADER = "# "
 
 @dataclass(frozen=True, slots=True)
 class Attachment:
-    """Un document fourni, réduit à son texte."""
+    """A supplied document, reduced to its text."""
 
     name: str
     file: Path
@@ -39,7 +28,7 @@ def attachments_folder(base: Path, identifier: str) -> Path:
     return base / identifier
 
 def _aplatir(name: str) -> str:
-    """Un nom de fichier sûr, sans accent ni espace, jamais vide."""
+    """A safe file name, without accents or spaces."""
     without_accents = "".join(
         lettre for lettre in unicodedata.normalize("NFD", name)
         if unicodedata.category(lettre) != "Mn"
@@ -48,12 +37,7 @@ def _aplatir(name: str) -> str:
     return nu[:60] or "document"
 
 def write(base: Path, identifier: str, name: str, text: str) -> Attachment | None:
-    """Garde le texte de ce document sous la réunion. None s'il n'y a rien à garder.
-
-    Écrase une pièce du même nom : redéposer un document est ce qu'on fait
-    quand il a changé, et garder les deux versions ferait répondre l'outil sur
-    l'ancienne.
-    """
+    """Keeps this document's text under the meeting."""
     utile = text.strip()
     if not utile or not identifier.strip():
         return None
@@ -64,7 +48,7 @@ def write(base: Path, identifier: str, name: str, text: str) -> Attachment | Non
     return Attachment(name=name, file=file, caracteres=len(utile))
 
 def lister(base: Path, identifier: str) -> list[Attachment]:
-    """Les documents fournis pour cette réunion, du plus ancien au plus récent."""
+    """The documents supplied for this meeting, newest first."""
     folder = attachments_folder(base, identifier)
     if not identifier.strip() or not folder.is_dir():
         return []
@@ -80,12 +64,7 @@ def lister(base: Path, identifier: str) -> list[Attachment]:
     return trouvees
 
 def material(base: Path, identifier: str, au_plus: int = AU_PLUS) -> str:
-    """Le texte des documents, prêt à être donné à l'assistant. Vide s'il n'y en a pas.
-
-    Chaque document est annoncé par son nom : sans lui, l'assistant répond « le
-    document dit » sans pouvoir dire lequel, et deux documents contradictoires
-    deviennent une seule voix.
-    """
+    """The text of the documents, ready to hand to the assistant."""
     chunks: list[str] = []
     reste = au_plus
     for piece in lister(base, identifier):
