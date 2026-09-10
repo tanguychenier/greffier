@@ -1,12 +1,7 @@
-"""Proposer les tickets à créer à partir d'un compte rendu.
+"""Suggesting the tickets to create from a set of minutes.
 
-Le compte rendu contient déjà une section « Décisions et suites » : quoi, qui,
-quand. Il ne reste qu'à la transformer en tickets — et à s'arrêter là.
-
-**Rien n'est créé.** Les tickets sont proposés dans un fichier, à relire et à
-ouvrir soi-même. Créer automatiquement des tickets depuis une transcription
-reviendrait à polluer un outil partagé sur la foi d'un texte produit par un
-modèle : la relecture humaine est le garde-fou, pas une formalité.
+Suggesting, never creating: a ticket opened without being read is a ticket
+nobody closes.
 """
 
 from __future__ import annotations
@@ -81,11 +76,7 @@ class Suggestion:
 
 
 def extract_json(response: str) -> list[object]:
-    """Récupère le tableau JSON, même enrobé de texte ou de balises.
-
-    Un modèle qui répond « Voici les tickets : ```json … ``` » reste utilisable :
-    exiger une réponse parfaitement nue rendrait la fonction fragile pour rien.
-    """
+    """Recovers the JSON array, even wrapped in text."""
     nettoye = re.sub(r"^```(?:json)?|```$", "", response.strip(), flags=re.MULTILINE).strip()
     try:
         charge = json.loads(nettoye)
@@ -101,7 +92,7 @@ def extract_json(response: str) -> list[object]:
 
 
 def depuis_reponse(response: str) -> Suggestion:
-    """Construit les tickets à partir de ce que le rédacteur a rendu."""
+    """Builds the tickets from what the writer answered."""
     tickets = []
     for item in extract_json(response):
         if not isinstance(item, dict):
@@ -120,5 +111,5 @@ def depuis_reponse(response: str) -> Suggestion:
 
 
 def offer(minutes: str, writer: Writer) -> Suggestion:
-    """Demande les tickets au même rédacteur que le compte rendu."""
+    """Asks the same writer that wrote the minutes for the tickets."""
     return depuis_reponse(writer.write_up(GUIDANCE + minutes))
