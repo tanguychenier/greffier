@@ -29,7 +29,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from make_meeting import fabriquer  # noqa: E402
+from make_meeting import make  # noqa: E402
 
 # Voix nettement distinctes, pour que le test mesure la chaîne et non la
 # capacité de la synthèse vocale à faire deux timbres différents.
@@ -158,16 +158,16 @@ CAS: dict[str, tuple[dict, list[tuple[str, str]]]] = {
 
 def main() -> int:
     player = argparse.ArgumentParser(description=__doc__)
-    player.add_argument("dossier", type=Path, help="Où écrire les fichiers")
-    player.add_argument("--cas", choices=sorted(CAS), help="Un seul cas")
+    player.add_argument("folder", type=Path, help="Où écrire les fichiers")
+    player.add_argument("--case", choices=sorted(CAS), help="Un seul cas")
     arguments = player.parse_args()
 
-    voulus = [arguments.cas] if arguments.cas else sorted(CAS)
+    voulus = [arguments.case] if arguments.case else sorted(CAS)
     arguments.folder.mkdir(parents=True, exist_ok=True)
     for name in voulus:
         voice, dialogue = CAS[name]
         target = arguments.folder / f"cas-{name}.wav"
-        fabriquer(target, voice=voice, dialogue=dialogue)
+        make(target, voice=voice, dialogue=dialogue)
         taille = target.stat().st_size / 1024
         print(f"  {target.name:<26} {taille:6.0f} Ko  {len(dialogue)} répliques")
     return 0

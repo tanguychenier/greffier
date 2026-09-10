@@ -1039,11 +1039,12 @@ def etape_verification(ctx, python):
 
 def main():
     analyseur = argparse.ArgumentParser(description=__doc__)
-    analyseur.add_argument("--oui", action="store_true",
+    analyseur.add_argument("--oui", dest="yes", action="store_true",
                            help="installe sans poser de question")
-    analyseur.add_argument("--verifier", action="store_true",
+    analyseur.add_argument("--verifier", dest="check", action="store_true",
                            help="constate l'état sans rien installer")
-    analyseur.add_argument("--modeles", help="dossier où ranger les modèles")
+    analyseur.add_argument("--modeles", dest="models",
+                           help="dossier où ranger les modèles")
     analyseur.add_argument("--config", help="dossier de configuration")
     args = analyseur.parse_args()
 
