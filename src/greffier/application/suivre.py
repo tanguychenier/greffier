@@ -40,20 +40,13 @@ from greffier.domaine.empreintes import agreger
 from greffier.domaine.modeles import Empreinte, Intervalle, Personne, Replique
 from greffier.ports import sortants
 
-#: Sous cette durée, une tranche ne porte pas de quoi transcrire : le modèle y
-#: invente plus qu'il n'entend.
 TRANCHE_MINIMALE_S = 3.0
 
-#: Genres de lignes du journal. Un flux d'événements, pas un état : c'est ce qui
-#: permet de n'écrire qu'en ajout et de relire à n'importe quel moment.
 GENRE_TOUR = "tour"
 GENRE_CORRECTION = "correction"
 GENRE_ETAT = "etat"
-#: Deux voix reconnues comme la même personne, une fois la matière accumulée.
 GENRE_REUNION = "reunion"
-#: Une réunion de voix défaite à la main : elles ne sont pas la même personne.
 GENRE_SEPARATION = "separation"
-
 
 @dataclass(frozen=True, slots=True)
 class Position:
@@ -66,15 +59,12 @@ class Position:
     """
 
     morceau: Path
-    #: Secondes présentes dans ce morceau.
     ecrit: float
-    #: Secondes cumulées des morceaux précédents, pour un horodatage de réunion.
     decalage: float
 
     @property
     def globale(self) -> float:
         return self.decalage + self.ecrit
-
 
 def position(
     morceaux: list[Path], duree: Callable[[Path], float | None]
@@ -94,9 +84,7 @@ def position(
     dernier = presents[-1]
     return Position(morceau=dernier, ecrit=duree(dernier) or 0.0, decalage=decalage)
 
-
 # ------------------------------------------------------------------ le journal
-
 
 def fichiers(dossier: Path, identifiant: str) -> tuple[Path, Path]:
     """Le journal du direct et le dépôt des corrections, pour une réunion.
@@ -109,7 +97,6 @@ def fichiers(dossier: Path, identifiant: str) -> tuple[Path, Path]:
         dossier / f"{identifiant}.jsonl",
         dossier / f"{identifiant}.corrections.jsonl",
     )
-
 
 def _ligne_tour(tour: TourDirect, voix: VoixDirecte) -> dict[str, Any]:
     """Ce qu'une phrase publie d'elle-même.
@@ -130,7 +117,6 @@ def _ligne_tour(tour: TourDirect, voix: VoixDirecte) -> dict[str, Any]:
         "rang": voix.rang,
     }
 
-
 def _ligne_correction(correction: Correction) -> dict[str, Any]:
     return {
         "genre": GENRE_CORRECTION,
@@ -140,10 +126,8 @@ def _ligne_correction(correction: Correction) -> dict[str, Any]:
         "toute_la_voix": correction.toute_la_voix,
     }
 
-
 def _ligne_reunion(source: str, cible: str) -> dict[str, Any]:
     return {"genre": GENRE_REUNION, "voix": source, "vers": cible}
-
 
 def _ligne_separation(fusion: Fusion) -> dict[str, Any]:
     """De quoi rendre la séparation à la fenêtre, et à un fil repris.
@@ -163,7 +147,6 @@ def _ligne_separation(fusion: Fusion) -> dict[str, Any]:
         "certitude_cible": fusion.certitude_cible.value,
     }
 
-
 def ajouter(journal: Path, lignes: list[dict[str, Any]]) -> None:
     """Ajoute au journal, une ligne par événement.
 
@@ -176,7 +159,6 @@ def ajouter(journal: Path, lignes: list[dict[str, Any]]) -> None:
     with journal.open("a", encoding="utf-8") as flux:
         for ligne in lignes:
             flux.write(json.dumps(ligne, ensure_ascii=False) + "\n")
-
 
 def lire_depuis(journal: Path, position_octets: int = 0) -> tuple[list[dict[str, Any]], int]:
     """Les lignes ajoutées depuis la dernière lecture, et où reprendre.
@@ -211,7 +193,6 @@ def lire_depuis(journal: Path, position_octets: int = 0) -> tuple[list[dict[str,
             lignes.append(ligne)
     return lignes, position_octets + complet + 1
 
-
 def rejouer(lignes: list[dict[str, Any]], fil: Fil | None = None) -> Fil:
     """Reconstruit le fil depuis le journal, pour l'afficher.
 
@@ -230,7 +211,6 @@ def rejouer(lignes: list[dict[str, Any]], fil: Fil | None = None) -> Fil:
         elif genre == GENRE_SEPARATION:
             _rejouer_separation(fil, ligne)
     return fil
-
 
 def _rejouer_separation(fil: Fil, ligne: dict[str, Any]) -> None:
     """Rejoue une séparation : les tours nommés repassent à la voix rendue.
@@ -265,13 +245,11 @@ def _rejouer_separation(fil: Fil, ligne: dict[str, Any]) -> None:
             tour.voix = rendue
     fil.separees.add(frozenset({rendue, cible}))
 
-
 def _certitude(valeur: Any) -> Certitude:
     try:
         return Certitude(str(valeur))
     except ValueError:
         return Certitude.INCONNUE
-
 
 def _rejouer_reunion(fil: Fil, ligne: dict[str, Any]) -> None:
     """Rejoue une réunion de voix : les tours de la source passent à la cible.
@@ -301,7 +279,6 @@ def _rejouer_reunion(fil: Fil, ligne: dict[str, Any]) -> None:
     if not gardee.certitude.ferme and ferme_avant:
         gardee.nom, gardee.certitude = nom_avant, certitude_avant
 
-
 def _rejouer_tour(fil: Fil, ligne: dict[str, Any]) -> None:
     identifiant = str(ligne.get("voix", ""))
     if not identifiant:
@@ -329,7 +306,6 @@ def _rejouer_tour(fil: Fil, ligne: dict[str, Any]) -> None:
     ))
     fil.jusqu_a = max(fil.jusqu_a, fin)
 
-
 def _rejouer_correction(fil: Fil, ligne: dict[str, Any]) -> None:
     numeros = [int(n) for n in ligne.get("numeros", [])]
     nom = str(ligne.get("nom", "")).strip()
@@ -346,9 +322,7 @@ def _rejouer_correction(fil: Fil, ligne: dict[str, Any]) -> None:
             fil.corriger(numero, nom, toute_la_voix=toute_la_voix)
             return
 
-
 # ----------------------------------------------------- les corrections humaines
-
 
 def demander_une_separation(demandes: Path, voix: str) -> None:
     """Dépose une séparation pour le processus qui écoute.
@@ -360,7 +334,6 @@ def demander_une_separation(demandes: Path, voix: str) -> None:
     demandes.parent.mkdir(parents=True, exist_ok=True)
     with demandes.open("a", encoding="utf-8") as flux:
         flux.write(json.dumps({"separer": voix}, ensure_ascii=False) + "\n")
-
 
 def demander(demandes: Path, numero: int, nom: str, toute_la_voix: bool = True) -> None:
     """Dépose une correction pour le processus qui écoute.
@@ -376,9 +349,7 @@ def demander(demandes: Path, numero: int, nom: str, toute_la_voix: bool = True) 
             ensure_ascii=False,
         ) + "\n")
 
-
 # ------------------------------------------------------------------- le suivi
-
 
 @dataclass
 class Suivi:
@@ -395,14 +366,8 @@ class Suivi:
     canaux: sortants.LecteurDeCanaux | None = None
     extracteur: sortants.ExtracteurEmpreintes | None = None
     banque: sortants.BanqueDeVoix | None = None
-    #: La réunion suivie. Voyage avec chaque empreinte versée en banque : sans
-    #: elle, défaire ce qu'une réunion mal attribuée a déposé demande de deviner
-    #: à la durée des extraits.
     identifiant: str = ""
-    #: Position déjà lue dans le fichier des demandes.
     _lues: int = field(default=0, repr=False)
-    #: Voix déjà versées en banque, et sous quel nom. Une correction est souvent
-    #: saisie avant que la voix ait de quoi être apprise : on repasse.
     _appris: dict[str, str] = field(default_factory=dict, repr=False)
 
     def accueillir(
@@ -558,7 +523,6 @@ class Suivi:
         comme « personne ne parle » plutôt que comme « rien n'écoute ».
         """
         ajouter(self.journal, [{"genre": GENRE_ETAT, "message": message, "actif": actif}])
-
 
 def personnes_connues(banque: sortants.BanqueDeVoix | None) -> list[Personne]:
     """La banque de voix, ou rien si elle n'est pas lisible.

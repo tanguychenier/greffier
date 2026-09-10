@@ -32,12 +32,10 @@ class Origine(StrEnum):
     PAROLE = "parole"
     PRESSE_PAPIER = "presse_papier"
 
-
 class Genre(StrEnum):
     INSTRUCTION = "instruction"   # « Greffier, ouvre le ticket… »
     LIEN = "lien"                 # une adresse collée
     DECISION = "decision"         # « on décide de… », « il faut que… »
-
 
 # Adresses http(s) et chemins de dépôt collés. Volontairement strict : mieux
 # vaut rater un lien exotique que proposer d'ouvrir n'importe quoi.
@@ -62,7 +60,6 @@ class Proposition:
         """
         return f"{self.genre}:{self.texte.strip().lower()}"
 
-
 def liens_dans(texte: str) -> list[str]:
     """Adresses présentes dans un texte, sans doublon et dans l'ordre."""
     vus: list[str] = []
@@ -73,7 +70,6 @@ def liens_dans(texte: str) -> list[str]:
         if lien not in vus:
             vus.append(lien)
     return vus
-
 
 def instruction_apres(texte: str, mot_cle: str) -> str | None:
     """Ce qui suit le mot d'activation, s'il est prononcé.
@@ -88,7 +84,6 @@ def instruction_apres(texte: str, mot_cle: str) -> str | None:
     suite = trouve.group("suite").strip()
     return suite or None
 
-
 def decisions_dans(texte: str, profil: ProfilLinguistique) -> bool:
     """Le passage annonce-t-il une décision ou une suite à donner ?
 
@@ -97,15 +92,11 @@ def decisions_dans(texte: str, profil: ProfilLinguistique) -> bool:
     """
     return any(motif.search(texte) for motif in profil.redaction.motifs_de_decision)
 
-
 @dataclass
 class Veille:
     """Accumule les propositions d'une réunion, sans jamais rien répéter."""
 
     mot_cle: str = "greffier"
-    #: La langue de la réunion. Neutre par défaut, jamais française : c'est
-    #: l'appelant qui sait dans quelle langue on parle, et le supposer était
-    #: précisément ce que ce profil est venu retirer.
     profil: ProfilLinguistique = NEUTRE
     propositions: list[Proposition] = field(default_factory=list)
     _vues: set[str] = field(default_factory=set)

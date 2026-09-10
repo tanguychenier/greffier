@@ -31,10 +31,6 @@ from greffier.ports import sortants
 
 SYSTEME = platform.system()
 
-#: Les raisons de parler qui appellent une réponse. Répondre à quelqu'un
-#: n'attend rien en retour, et un remerciement clôt l'échange ; poser une
-#: question de soi-même laisse une phrase en suspens, et rester muet quand on y
-#: répond fait passer pour distrait.
 ATTENDENT_UNE_REPONSE = frozenset({
     Raison.VOIX_INDISTINCTE,
     Raison.DECISION_SANS_SUITE,
@@ -70,7 +66,6 @@ TRANCHE_MAXIMALE = 90.0
 # huit fils, pour une tranche qui en dure dix.
 CONTEXTE_S = 50.0
 
-
 def _dans_la_tranche(repliques: list[Replique], frontiere: float) -> list[Replique]:
     """Ne garde que ce qui déborde dans la tranche, remis à l'heure de celle-ci.
 
@@ -94,7 +89,6 @@ def _dans_la_tranche(repliques: list[Replique], frontiere: float) -> list[Repliq
         ))
     return gardees
 
-
 def lire_presse_papier() -> str:
     """Contenu du presse-papier, ou vide si le système ne le donne pas."""
     commandes = {
@@ -113,12 +107,10 @@ def lire_presse_papier() -> str:
     except (OSError, subprocess.SubprocessError):
         return ""
 
-
 def _existe(programme: str) -> bool:
     import shutil
 
     return shutil.which(programme) is not None
-
 
 def extraire_tranche(audio: Path, debut: float, fin: float, destination: Path) -> Path | None:
     """Découpe un morceau d'un enregistrement **en cours d'écriture**.
@@ -138,7 +130,6 @@ def extraire_tranche(audio: Path, debut: float, fin: float, destination: Path) -
         return None
     return destination if destination.stat().st_size > 1024 else None
 
-
 @dataclass
 class Veilleur:
     """Fait tourner la veille tant que la réunion est enregistrée."""
@@ -146,66 +137,20 @@ class Veilleur:
     veille: Veille
     journal: Path
     transcripteur: sortants.Transcripteur | None = None
-    #: Où en est l'enregistrement, d'après les octets réellement écrits. Une
-    #: fonction et non un chemin : l'enregistrement change de morceau dès qu'on
-    #: met en pause ou qu'on branche un casque.
     situer: Callable[[], Position | None] | None = None
-    #: Le fil affiché pendant la réunion. Absent, la veille se contente de
-    #: relever les propositions, comme avant.
     suivi: Suivi | None = None
-    #: Met les canaux de la tranche à niveau avant de la transcrire. Sans lui, la
-    #: voix la plus faible du mélange est **omise ou inventée** — le défaut qui
-    #: avait coûté treize minutes de parole au premier compte rendu réel, et qui
-    #: se reproduisait ici : à l'essai, une question sur six n'était pas
-    #: transcrite du tout, celle de la personne au micro.
     preparateur: sortants.Enregistreur | None = None
     langue: str = "fr"
-    #: Repère les termes que la transcription a probablement déformés et dépose
-    #: la question. Facultatif : sans lui, le direct fonctionne comme avant.
     interroger: Callable[[str], None] | None = None
-    #: Le vocabulaire donné au modèle du direct. Vide, il devinait les sigles et
-    #: les prénoms que l'outil connaissait pourtant : l'amorce n'était câblée
-    #: que sur la transcription définitive, si bien que le fil affichait
-    #: « l'exploitement » là où le compte rendu, lui, écrivait « déploiement ».
-    #: Or c'est le direct qu'on lit pendant la réunion, et c'est là qu'on
-    #: corrige.
     amorce: str = ""
-    #: Relit le contexte, pour que l'amorce suive **pendant** la réunion.
-    #: Sans cela, un terme appris en cours de route ne servait qu'à la réunion
-    #: suivante : le processus du direct avait figé son amorce au démarrage, et
-    #: c'est justement en réunion qu'on découvre les mots qui manquent.
     relire_l_amorce: Callable[[], str] | None = None
-    #: L'assistant, quand il participe à la réunion. Absent, la veille est ce
-    #: qu'elle a toujours été : elle écoute et n'ouvre pas la bouche.
     participant: Participant | None = None
-    #: Relit si l'assistant participe toujours, et s'il a la parole. La fenêtre
-    #: et la veille sont deux processus : les boutons écrivent dans la
-    #: configuration, et c'est ici qu'on s'en aperçoit. Même mécanisme que pour
-    #: l'amorce, et pour la même raison — on doit pouvoir le faire taire en
-    #: pleine réunion, pas à la suivante.
-    #:
-    #: Rend le couple (participe, parle à voix haute). Les deux se règlent
-    #: séparément : sans la voix, l'assistant pose toujours ses questions, mais
-    #: dans la conversation.
-    #: Rend (se fait entendre, peut parler de lui-même), relu à chaque tranche.
     relire_la_participation: Callable[[], tuple[bool, bool]] | None = None
-    #: De quoi rendre la parole à l'assistant quand on la lui redonne en cours
-    #: de réunion. Construire une voix charge un modèle : on ne le fait qu'une
-    #: fois, à la première demande.
     rendre_la_voix: Callable[[], Any] | None = None
-    #: L'assistant a-t-il le droit d'ouvrir la bouche sans qu'on l'appelle ?
-    #: Faux, il ne fait que répondre — ce qui est sans risque, la question
-    #: venant d'un humain qui juge du moment.
     initiative: bool = False
-    #: Matière au-delà de laquelle une voix sans nom mérite qu'on demande à qui
-    #: elle est. Trente secondes : en deçà, c'est un « oui, d'accord » dont le
-    #: compte rendu se passera, et interrompre pour cela serait ridicule.
     matiere_pour_demander: float = 30.0
     periode_tranche: float = PERIODE_TRANCHE
-    #: Jusqu'où la transcription au fil de l'eau est allée, en secondes de
-    #: réunion. Ce qui précède a déjà été lu — et affiché.
     traite: float = 0.0
-    #: Dernière taille d'audio observée, pour savoir si la capture avance.
     vu: float | None = None
 
     def _amorce_courante(self) -> str:

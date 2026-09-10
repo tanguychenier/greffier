@@ -37,7 +37,6 @@ def _identifiant(nom: str, horodatage: datetime) -> str:
     reduit = re.sub(r"[^a-zA-Z0-9]+", "-", sans_accent).strip("-").lower()
     return f"{horodatage:%Y-%m-%d_%Hh%M}_{reduit or empreinte_courte(nom)}"
 
-
 def _tuer_arbre(pid: int) -> None:
     """Arrête un processus et sa descendance.
 
@@ -58,7 +57,6 @@ def _tuer_arbre(pid: int) -> None:
     with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
         os.kill(pid, signal.SIGTERM)
 
-
 def _vivant(pid: int | None) -> bool:
     if not pid:
         return False
@@ -69,7 +67,6 @@ def _vivant(pid: int | None) -> bool:
         # d'autre — donc ce n'est pas le nôtre, il ne compte pas.
         return False
     return True
-
 
 @dataclass
 class Etat:
@@ -82,22 +79,11 @@ class Etat:
     audio: Path | None = None
     debut: datetime | None = None
     pid: int | None = None
-    #: Morceaux capturés jusqu'ici. Plusieurs dès que le matériel a changé en
-    #: cours de réunion : chaque changement impose de rouvrir un fichier.
     morceaux: list[Path] = field(default_factory=list)
-    #: Ce que la veille a constaté du matériel, pour le dire au compte rendu.
     evenements: list[str] = field(default_factory=list)
-    #: Depuis quand l'enregistrement est suspendu, s'il l'est.
     suspendu_le: datetime | None = None
-    #: Temps passé en pause, retiré de la durée affichée.
     pause_totale: float = 0.0
-    #: Quand l'enregistrement a été arrêté. Retenu ici parce que c'est le seul
-    #: endroit qui le sache : la durée du dernier tour de parole s'arrête au
-    #: dernier mot prononcé, ce qui plaçait la fin d'une réunion cinq minutes
-    #: trop tôt dans le compte rendu (mesuré le 2026-09-09 : 10 h 32 annoncé
-    #: pour un arrêt à 10 h 37).
     terminee_le: datetime | None = None
-    #: Sortie système d'avant la réunion, à rendre une fois celle-ci finie.
     sortie_precedente: str = ""
 
     @property
@@ -109,7 +95,6 @@ class Etat:
         if self.suspendu_le is not None:
             ecoule -= (datetime.now(UTC) - self.suspendu_le).total_seconds()
         return max(0.0, ecoule)
-
 
 @dataclass
 class Journal:
@@ -133,7 +118,6 @@ class Journal:
         if courant.identifiant and courant.identifiant != self.identifiant:
             return
         self.etat.publier(phase, message)
-
 
 class Enregistrement:
     """Démarre, arrête, et sait dire où on en est.

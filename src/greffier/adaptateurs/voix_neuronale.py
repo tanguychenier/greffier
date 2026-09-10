@@ -47,40 +47,20 @@ from typing import Any
 
 SYSTEME = platform.system()
 
-#: La voix retenue dans le modèle, quand il en porte plusieurs.
-#:
-#: Pour Kokoro multilingue, c'est **30** : la seule française, les autres étant
-#: anglaises, chinoises, japonaises, espagnoles, hindi, italiennes ou
-#: portugaises, et leur donner du français produit un charabia phonétique. Pour
-#: un VITS français mono-locuteur, c'est 0.
-#:
-#: Le défaut suit le modèle qu'installe l'installeur, et se règle dans
-#: `assistant.locuteur` pour qui en change.
 VOIX_FRANCAISE = 0
 
-#: Le code espeak-ng du français est « fr », et non « fr-fr » : ce dernier fait
-#: échouer la phonémisation en silence, et rien n'est prononcé du tout.
 LANGUE_ESPEAK = {"fr": "fr", "en": "en-us", "es": "es", "it": "it", "pt": "pt"}
 
-#: Un débit un peu sous la normale : on parle à des gens qui écoutent d'une
-#: oreille, au milieu d'autre chose.
 VITESSE = 0.95
 
-#: Fins de phrase. On coupe là pour parler tôt, sans hacher le propos au milieu
-#: d'une proposition — un point d'interrogation qui tombe dans le silence n'a
-#: pas la même valeur qu'un souffle coupé.
 FINS_DE_PHRASE = re.compile(r"(?<=[.!?…])\s+")
 
-#: Les tirets n'ont pas de phonème : le modèle les signale un par un et les
-#: ignore. On les remplace par une virgule, qui porte la même pause.
 TIRETS = re.compile(r"\s*[—–-]\s*")
-
 
 def nettoyer(texte: str) -> str:
     """Ce qui se prononce, débarrassé de ce qui ne se prononce pas."""
     sans_tirets = TIRETS.sub(", ", texte)
     return re.sub(r"\s+", " ", sans_tirets).strip()
-
 
 def phrases(texte: str, maximum: int = 240) -> list[str]:
     """Découpe en morceaux prononçables, du plus tôt au plus tard.
@@ -108,7 +88,6 @@ def phrases(texte: str, maximum: int = 240) -> list[str]:
             morceaux.append(courant)
     return morceaux
 
-
 def _lecteur() -> list[str] | None:
     """La commande qui joue un fichier wav, selon le système."""
     if SYSTEME == "Darwin" and shutil.which("afplay"):
@@ -121,7 +100,6 @@ def _lecteur() -> list[str] | None:
     if SYSTEME == "Windows" and shutil.which("powershell"):
         return ["powershell", "-NoProfile", "-Command"]
     return None
-
 
 @contextlib.contextmanager
 def _sans_bavardage() -> Iterator[None]:
@@ -146,7 +124,6 @@ def _sans_bavardage() -> Iterator[None]:
         os.dup2(copie, 2)
         os.close(copie)
 
-
 class VoixNeuronale:
     """Prononce un texte avec une voix neuronale, en local.
 
@@ -158,16 +135,6 @@ class VoixNeuronale:
     def __init__(self, dossier: Path, langue: str = "fr", voix: int = VOIX_FRANCAISE,
                  vitesse: float = VITESSE, fils: int = 4,
                  baillon: Path | None = None) -> None:
-        #: Où déposer le numéro du processus qui joue le son.
-        #:
-        #: La fenêtre et la veille sont deux processus, et le bouton « couper »
-        #: est dans la fenêtre : elle écrit un réglage que la veille ne relit
-        #: qu'à la tranche suivante, soit jusqu'à quinze secondes plus tard.
-        #: Mesuré en réunion — on appuie, elle continue de parler, et le bouton
-        #: paraît cassé. Il l'était, du point de vue de qui appuie.
-        #:
-        #: Avec ce fichier, la fenêtre coupe le son elle-même, tout de suite, et
-        #: le réglage suit à son rythme pour la suite.
         self.baillon = Path(baillon) if baillon else None
         self.dossier = Path(dossier)
         self.langue = langue
@@ -355,7 +322,6 @@ class VoixNeuronale:
                 lecture.wait(timeout=2)
             except subprocess.TimeoutExpired:
                 lecture.kill()
-
 
 def faire_taire(baillon: Path) -> bool:
     """Coupe le son en cours, depuis n'importe quel processus.

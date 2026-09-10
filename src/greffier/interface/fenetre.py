@@ -71,27 +71,16 @@ from greffier.interface.apparence import (
 from greffier.interface.lisible import etat_du_direct, horloge, sujet_lisible
 from greffier.interface.style import degrade, palette, police, police_titre
 
-#: Cadence de rafraîchissement. Quatre fois par seconde suffit à suivre la
-#: parole, et laisse la machine tranquille pendant une heure de réunion.
 PERIODE_MS = 250
 
-#: Les micros sont relus moins souvent que l'état : la lecture du matériel coûte
-#: 60 ms, ce qui est négligeable une fois par seconde et inutile quatre fois.
 PERIODE_MICROS_MS = 1000
 
-#: Cadence de la respiration du point rouge. Assez fin pour un fondu lisse,
-#: assez large pour ne rien coûter sur une heure de réunion.
 PULSATION_MS = 50
 
-#: Durée d'un cycle de respiration, en secondes.
 PULSATION_S = 1.6
 
-
-#: Largeur réservée aux libellés des vumètres. Fixée plutôt que laissée à la
-#: grille, qui rejetait les barres à l'autre bout de la carte.
 _LIBELLE = 84
 
-#: Colonnes dont le contenu est un nombre, donc aligné à droite.
 _NOMBRES = frozenset({"voix", "mots", "duree", "part"})
 
 _LIBELLES_VOIX = {
@@ -101,17 +90,14 @@ _LIBELLES_VOIX = {
     QuiParle.LES_DEUX: "vous parlez en même temps",
 }
 
-
 @dataclass
 class Travail:
     """Une tâche longue, portée par un fil, qui rend compte à la fenêtre."""
 
     intitule: str
     faire: Callable[[Callable[[str], None]], Any]
-    #: Appelé sur le fil de l'interface, avec le résultat ou l'exception.
     fini: Callable[[Any, Exception | None], None] = lambda _resultat, _souci: None
     messages: queue.Queue[str] = field(default_factory=queue.Queue)
-
 
 class Fenetre:
     """Assemble l'interface et la tient à jour."""
@@ -130,18 +116,10 @@ class Fenetre:
         # processus d'écoute publie. La fenêtre y applique les corrections tout
         # de suite, sans attendre la tranche suivante.
         self._fil = Fil()
-        #: Numéros de questions déjà écrites dans le fil de la conversation :
-        #: la file se relit à chaque tour, l'affichage ne doit pas se répéter.
         self._questions_vues: set[int] = set()
         self._questions_attente: list[Any] = []
-        #: Ce qu'une phrase a demandé de retenir, en attente de confirmation.
-        #: Rien n'est écrit dans le contexte avant un « oui » : un motif se
-        #: trompe parfois, et une entrée fausse fait écrire faux au direct.
         self._apprentissage_attente: Any = None
-        #: Réunion dont la conversation est à l'écran, pour ne pas la repeindre
-        #: à chaque tour de la boucle du direct.
         self._conversation_affichee = ""
-        #: Ce que l'outil propose de retenir, en attente de confirmation.
         self._apprentissage: Any = None
         self._fil_reunion = ""
         self._fil_position = 0
@@ -639,7 +617,6 @@ class Fenetre:
                 else " Elle n'intervient jamais sans qu'on l'appelle.")
         self.mot_participation.configure(text=mot)
 
-
     # -------------------------------------------------------------- le direct
 
     def _suivre_le_direct(self, etat: Any) -> None:
@@ -996,21 +973,12 @@ class Fenetre:
 
     # ---------------------------------------------------------------- réglages
 
-    #: Les modèles de transcription connus, du plus juste au plus rapide. Seuls
-    #: ceux réellement présents sur le disque sont proposés : offrir un modèle
-    #: absent promettrait un téléchargement d'un gigaoctet au premier clic sur
-    #: « Démarrer », c'est-à-dire au pire moment.
     MODELES_TRANSCRIPTION = (
         ("large-v3-turbo", "large-v3-turbo — le plus juste, conseillé"),
         ("large-v3", "large-v3 — plus lent, sans gain mesuré ici"),
         ("small", "small — rapide, pour les postes modestes"),
     )
     THEMES = (("systeme", "Selon le système"), ("clair", "Clair"), ("sombre", "Sombre"))
-    #: Les langues proposées. Une liste et non un champ libre : « fr » ne se
-    #: devine pas, et une faute de code faisait transcrire en silence dans la
-    #: mauvaise langue. Whisper en connaît une centaine ; celles-ci couvrent ce
-    #: qu'une réunion de travail rencontre, et la détection automatique répond
-    #: pour le reste.
     LANGUES = (
         ("fr", "Français"), ("", "Détection automatique"), ("en", "Anglais"),
         ("es", "Espagnol"), ("de", "Allemand"), ("it", "Italien"),
@@ -1023,11 +991,6 @@ class Fenetre:
         ("ollama", "Ollama — tout reste sur ce poste"),
         ("aucun", "Aucun — s'arrêter à la transcription"),
     )
-    #: Combien de personnes participent. « Déduit » laisse le regroupement
-    #: trouver le nombre — ce qu'il fait mal en présentiel, où toutes les voix
-    #: passent par le même micro : mesuré, quatre voix pour deux personnes.
-    #: Annoncer le nombre force exactement autant de groupes, et c'est la seule
-    #: chose que la machine ne peut pas savoir.
     PARTICIPANTS = (("", "Déduit de l'enregistrement"),
                     *((str(n), f"{n} personnes") for n in range(2, 13)))
     PERIODES_DIRECT = (("5.0", "5 s — très réactif, plus de calcul"),
@@ -1266,8 +1229,6 @@ class Fenetre:
                 + (f" À voir : {verdict.adresse}" if verdict.adresse else "")
             ))
 
-    #: Ce qu'une mise à jour ne touche jamais, dit à chaque fois : c'est la
-    #: seule question que se pose quelqu'un devant ce bouton.
     RIEN_N_EST_PERDU = (
         "Les réunions, les comptes rendus, la banque de voix, les "
         "conversations et les réglages ne sont pas touchés : ils vivent hors "
@@ -1371,7 +1332,6 @@ class Fenetre:
         # dans une liste. Il enregistre quand on le quitte ou qu'on valide.
         self.reglage_destinataire.bind("<FocusOut>", lambda _e: self._enregistrer_reglages())
         self.reglage_destinataire.bind("<Return>", lambda _e: self._enregistrer_reglages())
-
 
     def _redacteur_choisi(self, _evenement: Any = None) -> None:
         """Changer de rédacteur change la liste des modèles, puis enregistre."""
@@ -3197,7 +3157,6 @@ class Fenetre:
                 "retranscrire."
             ))
             self.onglets.marquer("Conversation", len(manquantes))
-
 
 def ouvrir(config: Config) -> None:
     """Point d'entrée de la fenêtre."""

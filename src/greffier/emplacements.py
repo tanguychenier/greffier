@@ -28,21 +28,16 @@ import sys
 from pathlib import Path
 
 NATIF_MACOS = "Library/Application Support/Greffier"
-#: Ce qui fait qu'un dossier « contient une configuration ».
 FICHIERS_CONFIG = ("config.toml", ".env")
-
 
 def _systeme(systeme: str | None) -> str:
     return systeme or platform.system()
 
-
 def ancien_dossier_config() -> Path:
     return Path.home() / ".config/greffier"
 
-
 def ancien_dossier_donnees() -> Path:
     return Path.home() / ".local/share/greffier"
-
 
 def dossier_config(systeme: str | None = None) -> Path:
     systeme = _systeme(systeme)
@@ -59,7 +54,6 @@ def dossier_config(systeme: str | None = None) -> Path:
         return natif
     return Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "greffier"
 
-
 def dossier_donnees(systeme: str | None = None) -> Path:
     systeme = _systeme(systeme)
     if systeme == "Windows":
@@ -72,10 +66,8 @@ def dossier_donnees(systeme: str | None = None) -> Path:
         return natif
     return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "greffier"
 
-
 def _contient_configuration(dossier: Path) -> bool:
     return any((dossier / nom).exists() for nom in FICHIERS_CONFIG)
-
 
 def demenager(systeme: str | None = None) -> list[tuple[Path, Path]]:
     """Sort des dossiers cachés ce qu'une version précédente y a laissé.
@@ -94,7 +86,6 @@ def demenager(systeme: str | None = None) -> list[tuple[Path, Path]]:
     if "XDG_CONFIG_HOME" not in os.environ:
         faits += _deplacer_contenu(ancien_dossier_config(), natif)
     return faits
-
 
 def _deplacer_contenu(ancien: Path, natif: Path) -> list[tuple[Path, Path]]:
     if not ancien.is_dir():
@@ -115,7 +106,6 @@ def _deplacer_contenu(ancien: Path, natif: Path) -> list[tuple[Path, Path]]:
     with contextlib.suppress(OSError):
         ancien.rmdir()
     return faits
-
 
 def situer_tcl(environnement: dict[str, str] | None = None, prefixe: Path | None = None) -> None:
     """Dit à Tcl où sont ses fichiers, quand l'interpréteur l'a oublié.

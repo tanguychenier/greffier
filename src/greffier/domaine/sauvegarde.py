@@ -24,9 +24,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-#: Ce qui entre dans une sauvegarde, du plus irremplaçable au moins.
-#: L'ordre est celui de la restauration : la banque de voix d'abord, parce
-#: qu'elle a été construite à la main et qu'aucun traitement ne la refera.
 CONTENU = (
     "banque-de-voix",
     "reunions",
@@ -38,8 +35,6 @@ CONTENU = (
     "propositions",
 )
 
-#: Ce qu'on laisse dehors, et pourquoi. Écrit ici plutôt que déduit : une
-#: sauvegarde qui grossit sans qu'on sache pourquoi finit par ne plus se faire.
 ECARTES = {
     "enregistrements": "l'audio, 115 Mo par heure — c'est lui qui rend une "
                        "sauvegarde impossible, et une réunion transcrite reste "
@@ -51,11 +46,7 @@ ECARTES = {
     "lectures": "des lectures à voix haute, refabricables",
 }
 
-#: Combien de sauvegardes on garde. Sept jours de travail : assez pour
-#: rattraper une erreur qu'on n'a pas vue le jour même, assez peu pour que
-#: l'ensemble reste léger — sept fois 3 Mo.
 GARDEES = 7
-
 
 @dataclass(frozen=True, slots=True)
 class Nom:
@@ -79,7 +70,6 @@ class Nom:
             return datetime.strptime(nom[len("greffier-"):], "%Y-%m-%d_%Hh%M")
         except ValueError:
             return None
-
 
 def a_effacer(noms: list[str], gardees: int = GARDEES) -> list[str]:
     """Les sauvegardes en trop, les plus anciennes d'abord.
