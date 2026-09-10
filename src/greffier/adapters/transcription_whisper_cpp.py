@@ -1,8 +1,4 @@
-"""Transcription par whisper.cpp, accéléré Metal sur macOS.
-
-Environ huit fois plus rapide que le temps réel sur un Mac Apple Silicon : une
-réunion d'une heure est transcrite en quelques minutes.
-"""
+"""Transcription through whisper.cpp, Metal-accelerated on macOS."""
 
 from __future__ import annotations
 
@@ -21,7 +17,7 @@ def _seconds(h: str, m: str, s: str, ms: str) -> float:
     return int(h) * 3600 + int(m) * 60 + int(s) + int(ms) / 1000
 
 def lire_srt(path: Path) -> list[Utterance]:
-    """Extrait les répliques d'un fichier de sous-titres."""
+    """Extracts the utterances from a subtitle file."""
     utterances: list[Utterance] = []
     content = path.read_text(encoding="utf-8").strip()
     if not content:

@@ -1,14 +1,4 @@
-"""La file des questions, en ajout seul, un fichier par réunion.
-
-Même choix que le fil du direct, pour les mêmes raisons : deux processus se
-partagent la file — celui qui écoute la dépose, la fenêtre la lit et y répond —
-et un fichier en ajout seul survit à tout, se relit après un plantage et ne
-demande ni démon ni port réseau.
-
-Une réponse ne réécrit pas la question : elle publie une ligne qui dit ce
-qu'elle répond. On garde ainsi la trace de ce qui a été demandé et de ce qui a
-été décidé, ce qui est exactement ce dont le contexte a besoin pour apprendre.
-"""
+"""The question queue, append-only, one file per meeting."""
 
 from __future__ import annotations
 
@@ -24,7 +14,7 @@ GENRE_REPONSE = "reponse"
 
 @dataclass(frozen=True, slots=True)
 class Pending:
-    """Une question posée à laquelle personne n'a encore répondu."""
+    """A question asked that nobody has answered yet."""
 
     question: Question
 
@@ -36,7 +26,7 @@ def questions_file(folder: Path, identifier: str) -> Path:
     return folder / f"{identifier}.jsonl"
 
 def publish(file: Path, question: Question) -> None:
-    """Ajoute une question à la file. N'écrase jamais rien."""
+    """Appends a question to the queue. Never overwrites."""
     file.parent.mkdir(parents=True, exist_ok=True)
     line = {
         "genre": GENRE_QUESTION,
@@ -50,7 +40,7 @@ def publish(file: Path, question: Question) -> None:
         flux.write(json.dumps(line, ensure_ascii=False) + "\n")
 
 def answer(file: Path, number: int, response: str) -> None:
-    """Publie une réponse. La question reste, avec sa trace."""
+    """Publishes an answer. The question stays, with its answer."""
     file.parent.mkdir(parents=True, exist_ok=True)
     with file.open("a", encoding="utf-8") as flux:
         flux.write(json.dumps(
@@ -59,11 +49,7 @@ def answer(file: Path, number: int, response: str) -> None:
         ) + "\n")
 
 def read(file: Path) -> tuple[list[Pending], dict[int, str]]:
-    """Les questions sans réponse, et les réponses déjà données.
-
-    Une ligne illisible est sautée sans faire échouer la lecture : la file est
-    écrite par un autre processus, qui peut être interrompu en pleine ligne.
-    """
+    """The unanswered questions, and the answers given."""
     if not file.exists():
         return ([], {})
     questions: dict[int, Question] = {}
@@ -98,11 +84,7 @@ def read(file: Path) -> tuple[list[Pending], dict[int, str]]:
     return (awaiting, answers)
 
 def keys_already_placed(file: Path) -> set[str]:
-    """De quoi ne pas reposer une question après un redémarrage du direct.
-
-    L'interrogateur tient cette mémoire en vivant ; le processus qui écoute,
-    lui, peut être relancé en cours de réunion.
-    """
+    """What it takes not to ask a question again after a restart."""
     awaiting, _ = read(file)
     posees = {en_attente.question.key for en_attente in awaiting}
     if not file.exists():

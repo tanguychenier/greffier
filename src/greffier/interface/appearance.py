@@ -1,13 +1,7 @@
-"""Les widgets dessinés de la fenêtre.
+"""The window's drawn widgets.
 
-Les widgets fournis par Tk datent, et aucun réglage de thème ne les rattrape :
-un bouton `ttk` reste un bouton gris à bord carré, une `Progressbar` reste une
-barre rayée. Ce qui suit les remplace par des formes dessinées sur un `Canvas`,
-avec des angles arrondis, une palette tenue en un seul endroit et des états de
-survol. Tk sait faire cela très bien : il dessine ce qu'on lui demande.
-
-La palette et la typographie vivent dans `style`, qui n'importe pas Tk : elles
-se testent sans écran, et l'image d'intégration continue n'a pas Tk.
+Drawn rather than native: Tk's own widgets cannot be styled far enough, and a
+tool that goes on television has to look like it was made on purpose.
 """
 
 from __future__ import annotations
@@ -28,18 +22,14 @@ def rounded_rectangle(
     fill: str = "",
     outline: str = "",
 ) -> int:
-    """Un rectangle à coins arrondis, que Tk ne fournit pas.
-
-    Assemblé en un seul polygone lissé : deux arcs et un rectangle laisseraient
-    des jointures visibles dès qu'on change la couleur de remplissage.
-    """
+    """A rounded rectangle, which Tk does not provide."""
     return toile.create_polygon(
         _rounded_points(x1, y1, x2, y2, rayon),
         smooth=True, splinesteps=24, fill=fill, outline=outline,
     )
 
 class Button(tk.Canvas):
-    """Un bouton dessiné : coins arrondis, survol, deux allures."""
+    """A drawn button: rounded corners, hover, and a hand cursor."""
 
     def __init__(
         self,
@@ -73,13 +63,7 @@ class Button(tk.Canvas):
         self.bind("<Button-1>", lambda _e: self.action() if self._active else None)
 
     def redimensionner(self, width: int) -> None:
-        """Reprend la largeur du bouton, forme et texte recentré compris.
-
-        Nécessaire pour qu'une barre d'actions soit une vraie grille : des
-        boutons de largeurs différentes ne s'alignent pas d'un rang à l'autre,
-        et une barre dont les bords ne tombent pas ensemble se lit comme
-        bâclée.
-        """
+        """Takes the button's width again, shape and text together."""
         width = max(48, int(width))
         if width == int(self.cget("width")):
             return
@@ -139,18 +123,7 @@ class Button(tk.Canvas):
         )
 
 class Listing(tk.Canvas):
-    """Une liste déroulante dessinée, à la place de celle de Tk.
-
-    `ttk.Combobox` arrive avec le bouton fléché carré et gris du thème
-    « clam » : à côté des boutons et des ascenseurs dessinés, elle jure — même
-    en lui passant les couleurs de la palette, la flèche reste un bouton séparé
-    par un liseré, et le menu déployé garde ses bords carrés. Ici, tout est
-    dessiné : même arrondi, même liseré, même survol que le reste.
-
-    Le composant porte lui-même ses couples (clef, libellé) : l'appelant règle
-    et lit des **clefs**, jamais le texte affiché — c'est ce qui évitait, dans
-    la version précédente, de retrouver la clef en comparant des libellés.
-    """
+    """A drawn dropdown, in place of Tk's own."""
 
     def __init__(
         self,
@@ -188,7 +161,7 @@ class Listing(tk.Canvas):
         self.bind("<Button-1>", self._deployer)
 
     def fill_menu(self, choix: list[tuple[str, str]], key: str = "") -> None:
-        """Pose les choix possibles, et sélectionne `clef` si elle en fait partie."""
+        """Places the possible choices, and selects one."""
         self._choix = list(choix)
         connues = [c for c, _ in self._choix]
         self._key = key if key in connues else (connues[0] if connues else "")
@@ -259,14 +232,7 @@ class Listing(tk.Canvas):
             self.on_choice(key)
 
 class Scroller(tk.Canvas):
-    """Un ascenseur fin et dessiné, à la place de celui de Tk — gris, à bords
-    carrés, avec ses boutons flèche, il détonne dans une fenêtre par ailleurs
-    tenue par une seule palette.
-
-    Sert le même contrat que `ttk.Scrollbar` : `set(premier, dernier)` en
-    entrée, `commande("moveto"|"scroll", …)` en sortie — un `Text` ou un
-    `Treeview` ne voient pas la différence.
-    """
+    """A thin drawn scrollbar, in place of Tk's own."""
 
     def __init__(
         self, parent: tk.Misc, colours: Palette,
@@ -288,7 +254,7 @@ class Scroller(tk.Canvas):
         self._tint(hover=False)
 
     def set(self, premier: str | float, dernier: str | float) -> None:
-        """Appelé par le widget suivi via `yscrollcommand` — signature imposée."""
+        """Called by the followed widget through yscrollcommand."""
         self._premier, self._dernier = float(premier), float(dernier)
         self._draw()
 
@@ -317,12 +283,7 @@ class Scroller(tk.Canvas):
         self.command("moveto", max(0.0, min(1.0 - portee, target)))
 
 class LevelMeter(tk.Canvas):
-    """Une barre de niveau, arrondie, qui change de teinte avec l'intensité.
-
-    La jauge glisse vers la valeur demandée plutôt que d'y sauter : la parole
-    est faite de pics, et une barre qui saute à chaque tranche de 250 ms donne
-    une impression de nervosité qu'un simple lissage suffit à corriger.
-    """
+    """A rounded level bar that changes colour with the level."""
 
     def __init__(
         self, parent: tk.Misc, colours: Palette, width: int = 300, height: int = 8
@@ -384,14 +345,7 @@ def _rounded_points(
     ]
 
 class _Segment(tk.Canvas):
-    """Un onglet dessiné, qui sait se peindre choisi ou non — et porter un compte.
-
-    Le compte est une pastille, comme le panier d'un site marchand : on doit
-    savoir qu'il y a quelque chose à voir **sans** être sur l'onglet, et sans
-    qu'une fenêtre surgisse au milieu d'une réunion. Elle n'apparaît qu'à partir
-    de un, et le segment s'élargit pour lui faire place plutôt que de réserver
-    un vide permanent.
-    """
+    """A drawn tab, which knows how to paint itself selected."""
 
     PLACE_PASTILLE = 26
 
@@ -449,7 +403,7 @@ class _Segment(tk.Canvas):
         )
 
     def mark(self, count: int) -> None:
-        """Pose ou retire la pastille. Ne redessine que si le compte a changé."""
+        """Places or removes the dot. Redraws only what changes."""
         count = max(0, count)
         if count == self._count:
             return
@@ -457,17 +411,7 @@ class _Segment(tk.Canvas):
         self._draw()
 
 class ButtonBar(tk.Frame):
-    """Des boutons qui passent à la ligne quand la largeur manque.
-
-    `pack(side="left")` ne revient jamais à la ligne : le septième bouton de
-    l'onglet Réunions sortait de la fenêtre, invisible et inatteignable —
-    exactement le défaut que le module met en garde contre, en haut de ce
-    fichier, à propos d'un bouton poussé hors du cadre.
-
-    Le nombre de colonnes est recalculé à chaque redimensionnement, d'après la
-    largeur réellement offerte. Une grille et non un `pack` : c'est ce qui
-    permet de placer les boutons sur plusieurs rangs sans les mesurer un à un.
-    """
+    """Buttons that wrap when the window is too narrow."""
 
     GAP = 9
 
@@ -505,7 +449,7 @@ class ButtonBar(tk.Frame):
             )
 
 class Tabs(tk.Frame):
-    """Une barre de segments, à la place du bandeau d'onglets de Tk."""
+    """A bar of segments, in place of Tk's notebook."""
 
     def __init__(self, parent: tk.Misc, colours: Palette) -> None:
         super().__init__(parent, bg=colours.ground)
