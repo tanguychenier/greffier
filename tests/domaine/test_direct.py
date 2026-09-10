@@ -461,10 +461,15 @@ class TestPlafondDesParticipants:
     """Annoncer combien de personnes parlent empêche d'en inventer.
 
     Mesuré en présentiel le 2026-09-02 : phrase à phrase, deux prises de parole
-    de la même personne se ressemblent à 0,69 en médiane, sous le seuil de
-    0,75. Chaque tour de parole créait donc une voix — vingt et une pour trois
-    personnes. Le nombre de participants est la seule chose que la machine ne
-    peut pas déduire de l'audio.
+    de la même personne se ressemblent à 0,69 en médiane. Chaque tour de parole
+    créait donc une voix — vingt et une pour trois personnes.
+
+    Les empreintes d'essai sont **franchement équidistantes** des deux voix
+    posées, et non à un cheveu du seuil : la version précédente tenait à ce que
+    0,749 reste sous 0,75, si bien que mesurer le vrai seuil du direct cassait
+    trois tests qui ne parlaient pas de lui. Ce qu'ils éprouvent est le plafond,
+    et le cas à éprouver est celui d'une voix qui ne ressemble nettement à
+    personne.
     """
 
     def _fil(self, personnes=None):
@@ -481,7 +486,7 @@ class TestPlafondDesParticipants:
     def test_sans_annonce_une_voix_de_plus_est_creee(self):
         """Le comportement d'avant, qu'il faut garder quand on ne sait pas."""
         fil = self._fil()
-        etrangere = empreinte(0.62, 0.55, duree=3.0)
+        etrangere = empreinte(0.7, 0.7, duree=3.0)
         assert fil.rattacher(etrangere, locale=False) not in ("v1", "v2")
 
     def test_au_complet_l_empreinte_rejoint_la_plus_proche(self):
@@ -497,7 +502,7 @@ class TestPlafondDesParticipants:
 
     def test_sous_le_plafond_on_cree_encore(self):
         fil = self._fil(personnes=4)
-        assert fil.rattacher(empreinte(0.62, 0.55, duree=3.0), locale=False) not in ("v1", "v2")
+        assert fil.rattacher(empreinte(0.7, 0.7, duree=3.0), locale=False) not in ("v1", "v2")
 
     def test_la_voix_locale_compte_parmi_les_participants(self):
         """Le micro désigne déjà celui qui enregistre : il ne prend pas une des
@@ -512,7 +517,7 @@ class TestPlafondDesParticipants:
 
     def test_sans_la_voix_locale_le_plafond_laisse_une_place(self):
         fil = self._fil(personnes=3)
-        assert fil.rattacher(empreinte(0.62, 0.55, duree=3.0), locale=False) \
+        assert fil.rattacher(empreinte(0.7, 0.7, duree=3.0), locale=False) \
             not in ("v1", "v2")
 
     def test_ni_la_voix_locale_ni_le_fourre_tout_ne_comptent(self):
@@ -544,8 +549,14 @@ class TestPlancherDeMatiere:
         assert fil.rattacher(bribe, locale=False) == "v1", "aucune voix inventée"
 
     def test_une_prise_de_parole_franche_peut_fonder_une_voix(self):
+        """Assez longue **et** assez différente : les deux conditions comptent.
+
+        L'empreinte est franchement éloignée de la voix en place, et non à un
+        cheveu du seuil : c'est le cas d'une deuxième personne qui prend la
+        parole, celui qu'il faut savoir reconnaître.
+        """
         fil = self._fil()
-        etrangere = empreinte(0.62, 0.55, duree=4.0)
+        etrangere = empreinte(0.3, 0.95, duree=4.0)
         assert fil.rattacher(etrangere, locale=False) not in ("v1",)
 
     def test_une_bribe_sans_aucune_voix_va_au_fourre_tout(self):
