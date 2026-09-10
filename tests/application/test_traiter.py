@@ -797,3 +797,63 @@ class TestCanauxEnPresentiel:
         resultat.tours = [TourDeParole(Intervalle(0, 90), "0")]
         chaine()._preciser_les_canaux(resultat)
         assert resultat.avertissements == []
+
+
+class TestHomonymesApresReunion:
+    """Deux voix reconnues sous le même nom n'en font qu'une.
+
+    Le défaut, mesuré sur une réunion réelle de 1 h 42 : la chaîne concluait
+    « Laura » sur neuf voix distinctes, dont huit d'un seul tour. Le compte
+    rendu annonçait « et 9 voix non nommées » et huit participants de trop.
+
+    Les vecteurs sont choisis pour tenir le cas exactement : les deux voix sont
+    à 0,700 l'une de l'autre, donc **sous** le seuil de recollage, et à 0,92 de
+    la personne en banque, donc toutes deux reconnues. Le recollage par
+    empreinte ne peut rien ici ; le nom, lui, le dit.
+    """
+
+    #: 0,700 entre elles, 0,92 de Josiane chacune.
+    VECTEURS = {
+        (0.0, 12.0): [1.0, 0.0, 0.0],
+        (21.0, 28.0): [1.0, 0.0, 0.0],
+        (13.0, 20.0): [0.7, 0.714, 0.0],
+    }
+
+    def _resultat(self):
+        from greffier.domaine.empreintes import normaliser
+
+        banque = BanqueFactice([Personne("Josiane", [normaliser([0.92, 0.39, 0.0])])])
+        traitement = chaine(extracteur=ExtracteurFactice(self.VECTEURS), banque=banque)
+        return traitement.executer(AUDIO)
+
+    def test_une_seule_voix_porte_le_nom(self):
+        resultat = self._resultat()
+        assert list(resultat.noms.values()) == ["Josiane"], resultat.noms
+
+    def test_la_voix_la_plus_fournie_garde_les_tours(self):
+        """Dix-neuf secondes contre sept : c'est le meilleur extrait des deux."""
+        resultat = self._resultat()
+        gardee = next(iter(resultat.noms))
+        assert {t.voix for t in resultat.tours} == {gardee}
+
+    def test_les_repliques_suivent(self):
+        """Sinon le compte rendu attribue encore à une voix qui n'existe plus."""
+        resultat = self._resultat()
+        gardee = next(iter(resultat.noms))
+        portees = {r.voix for r in resultat.repliques if r.voix is not None}
+        assert portees == {gardee}, portees
+
+    def test_deux_personnes_distinctes_restent_deux(self):
+        """Le garde-fou : la règle ne doit pas tout replier sur une voix."""
+        from greffier.domaine.empreintes import normaliser
+
+        banque = BanqueFactice([
+            Personne("Josiane", [normaliser([1.0, 0.02, 0.0])]),
+            Personne("Michel", [normaliser([0.02, 1.0, 0.0])]),
+        ])
+        vecteurs = {(0.0, 12.0): [1.0, 0.0, 0.0], (21.0, 28.0): [1.0, 0.0, 0.0],
+                    (13.0, 20.0): [0.0, 1.0, 0.0]}
+        resultat = chaine(
+            extracteur=ExtracteurFactice(vecteurs), banque=banque
+        ).executer(AUDIO)
+        assert sorted(resultat.noms.values()) == ["Josiane", "Michel"]
