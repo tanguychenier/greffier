@@ -305,6 +305,7 @@ def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
         ),
         voice=assistant_voice(config),
         tracer=tracer,
+        setting=lambda: context(config).header(),
     )
     cerveau = assistant(config)
     if cerveau is not None and hasattr(cerveau, "consignes_propres"):
