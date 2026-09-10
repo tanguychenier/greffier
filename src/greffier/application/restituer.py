@@ -160,8 +160,11 @@ def _presents(noms: Sequence[str], voix_entendues: int) -> str:
             return f"Participants : {liste}, et {reste} voix non nommée{pluriel}."
         return f"Participants : {liste}."
     if voix_entendues > 0:
-        pluriel = "s" if voix_entendues > 1 else ""
-        return (f"Participants : {voix_entendues} personne{pluriel} ont parlé, "
+        # Le verbe s'accorde aussi : « 1 personne ont parlé » s'écrivait tel
+        # quel, en première ligne d'un compte rendu qu'on envoie par courriel.
+        if voix_entendues == 1:
+            return "Participants : 1 personne a parlé, non nommée."
+        return (f"Participants : {voix_entendues} personnes ont parlé, "
                 "aucune nommée.")
     return ""
 
