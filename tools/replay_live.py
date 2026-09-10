@@ -120,7 +120,12 @@ def main() -> int:
               "« tools/replay_stitching.py » sur cette réunion.", file=sys.stderr)
         return 1
     meeting = json.loads(path.read_text())
-    per_voice = pickle.loads(cache.read_bytes())
+    try:
+        per_voice = pickle.loads(cache.read_bytes())
+    except (pickle.UnpicklingError, ModuleNotFoundError, AttributeError, EOFError):
+        print("Cache illisible : relance « tools/replay_stitching.py » "
+              "sur cette réunion, il le refera.", file=sys.stderr)
+        return 1
     nommees = verite_nommee(meeting)
     if not nommees:
         print("Aucune voix nommée : il n'y a pas de vérité terrain à comparer.",
