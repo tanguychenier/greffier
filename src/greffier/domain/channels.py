@@ -1,19 +1,7 @@
-"""Qui parle, d'après le canal par lequel le son arrive.
+"""Who speaks, according to the channel the sound arrives on.
 
-L'enregistrement sépare matériellement deux sources : le micro d'un côté, ce que
-jouent les haut-parleurs de l'autre. Une voix qui arrive par le micro est celle
-de la personne qui enregistre ; une voix qui arrive par la boucle système est
-celle d'un participant distant. Ce n'est pas une déduction, c'est un fait de
-câblage, et aucun modèle n'a besoin d'être consulté pour l'établir.
-
-La chaîne moyennait ces canaux avant de chercher les locuteurs. Sur une réunion
-réelle, la voix de la personne qui enregistrait est arrivée 12 dB sous celle des
-autres : moyennée, elle se retrouvait 18 dB sous le mélange, et la segmentation
-ne l'a jamais vue. Treize minutes de parole absentes du compte rendu, sur une
-réunion d'une heure. Ce module rend cette information au lieu de la détruire.
-
-Il ne connaît ni ffmpeg ni sherpa-onnx : il reçoit des niveaux par trame, en
-décibels, et rend des intervalles.
+The only knowledge here that comes from no model: it is wiring. A voice on the
+mic belongs to whoever is recording, and that is never wrong.
 """
 
 from __future__ import annotations
@@ -35,7 +23,7 @@ DUREE_MINIMALE_S = 0.8
 
 @dataclass(frozen=True)
 class ChannelSettings:
-    """De quoi ajuster sans toucher au code, et sans deviner les valeurs."""
+    """What can be tuned without touching the code."""
 
     marge_db: float = MARGE_DB
     plancher_db: float = PLANCHER_DB
@@ -43,11 +31,7 @@ class ChannelSettings:
     duree_minimale_s: float = DUREE_MINIMALE_S
 
 class WhoSpeaks(StrEnum):
-    """Ce qu'une interface peut afficher pendant la réunion, sans modèle.
-
-    La provenance suffit : le micro d'un côté, la boucle système de l'autre.
-    Aucun calcul d'empreinte, donc une réponse immédiate à chaque trame.
-    """
+    """What an interface may show during the meeting, without a model."""
 
     PERSONNE = "personne"
     TOI = "toi"
@@ -61,18 +45,7 @@ def over_video(
     systeme_db: list[float],
     reglages: ChannelSettings | None = None,
 ) -> bool:
-    """Dit si la réunion s'est tenue à distance, d'après les deux canaux.
-
-    Le critère est **relatif**, et il a fallu s'y reprendre. Tester si la boucle
-    système est non nulle ne marche pas : sur une réunion tenue autour d'une
-    table, elle relevait -53 dB au lieu du silence attendu, du son ayant fui
-    dedans à un moment. Conclure « visio » sur cette base attribuait toute la
-    réunion à la personne qui enregistrait.
-
-    Ce qui distingue vraiment les deux, c'est que dans une visio les autres
-    dominent le micro une bonne partie du temps, puisqu'ils parlent par les
-    haut-parleurs. Autour d'une table, jamais : tout le monde passe par le micro.
-    """
+    """Whether the meeting was held remotely, from the two channels."""
     r = reglages or ChannelSettings()
     utiles = min(len(micro_db), len(systeme_db))
     if utiles == 0:
@@ -89,7 +62,7 @@ def who_speaks(
     systeme_db: float,
     reglages: ChannelSettings | None = None,
 ) -> WhoSpeaks:
-    """Qui tient la parole à cet instant, d'après les deux canaux."""
+    """Who holds the floor at this instant, from the two channels."""
     r = reglages or ChannelSettings()
     mic = micro_db > r.plancher_db
     system = systeme_db > r.plancher_db
@@ -107,16 +80,7 @@ def local_turns(
     pas_s: float,
     reglages: ChannelSettings | None = None,
 ) -> list[Span]:
-    """Les moments où la personne qui enregistre parle elle-même.
-
-    `micro_db` et `systeme_db` sont les niveaux par trame, dans le même
-    découpage. `pas_s` est la durée d'une trame.
-
-    Une trame compte comme locale quand le micro dépasse la boucle système d'au
-    moins la marge **et** qu'il sort du bruit de fond. Les deux conditions sont
-    nécessaires : la première seule retiendrait les silences de la réunion, où
-    le bruit de la pièce domine une boucle muette.
-    """
+    """The moments when the person recording speaks themselves."""
     r = reglages or ChannelSettings()
     if pas_s <= 0:
         raise ValueError("le pas des trames doit être positif")
@@ -129,7 +93,7 @@ def local_turns(
     return _regrouper(locales, pas_s, r)
 
 def _regrouper(locales: list[bool], pas_s: float, r: ChannelSettings) -> list[Span]:
-    """Assemble les trames en intervalles, en recollant les silences courts."""
+    """Assembles frames into spans, closing the short silences."""
     plages: list[tuple[int, int]] = []
     start: int | None = None
     dernier = 0
@@ -151,14 +115,7 @@ def _regrouper(locales: list[bool], pas_s: float, r: ChannelSettings) -> list[Sp
     ]
 
 def subtract(span: Span, autres: list[Span]) -> list[Span]:
-    """Ce qui reste d'un intervalle quand on en ôte les autres.
-
-    Sert à prélever une empreinte vocale sur ce qui est **vraiment** distant. La
-    transcription coupe à la phrase, pas au changement de locuteur : un passage
-    peut porter la fin d'une phrase locale, et l'empreinte tirée du tout mélange
-    alors deux voix. Mesuré à l'essai : 0,6 s de voix locale dans un extrait de
-    1,5 s suffisait à faire de la même personne deux participants distincts.
-    """
+    """What is left of a span once the others are taken out of it."""
     restes = [span]
     for autre in autres:
         suivants: list[Span] = []
@@ -174,14 +131,7 @@ def subtract(span: Span, autres: list[Span]) -> list[Span]:
     return restes
 
 def remove(turns: list[Span], locaux: list[Span]) -> list[Span]:
-    """Ôte des tours distants ce qui recouvre un tour local.
-
-    La segmentation tourne sur la boucle système seule, donc elle ne devrait
-    jamais y voir la voix locale. Mais un participant qui parle en même temps
-    laisse un tour à cheval, et laisser les deux ferait compter deux personnes
-    là où une seule tient la parole. On tranche en faveur du canal, qui ne se
-    trompe pas sur la provenance.
-    """
+    """Takes out of the remote turns whatever a local turn covers."""
     if not locaux:
         return turns
     restants: list[Span] = []

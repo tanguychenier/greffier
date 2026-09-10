@@ -1,26 +1,8 @@
-"""La carte d'un sujet : le problème, les pistes, ce qui est acté.
+"""A subject's board: the problem, the leads, what is settled.
 
-Une réunion de travail définit des stratégies. Cela se tient mieux en carte
-qu'en prose, et cette carte se partage pour que chaque partie prenante y
-contribue — « ça je l'ai fait », « ça je n'ai pas la solution ».
-
-Trois décisions gouvernent ce module.
-
-**Une carte par sujet, jamais par réunion.** Une réunion touche cinq sujets ; un
-sujet revient sur dix réunions. Une carte par réunion produirait dix cartes
-d'Oasis dont aucune ne serait à jour.
-
-**On ajoute, on ne remplace pas.** Une carte partagée porte le travail de
-plusieurs personnes. Ce qui vient d'une réunion s'ajoute à ce qui existe ; ce
-qui semble dépassé se **marque**, jamais ne s'efface. Sans cette règle, une
-réunion mal transcrite peut détruire le travail de dix personnes.
-
-**Ce qui est en discussion se distingue de ce qui est acté.** La carte s'écrit
-pendant la réunion, donc elle recueille des choses non tranchées. Les présenter
-comme des décisions de l'équipe serait un contresens, et personne ne pourrait
-plus se fier à la carte.
-
-Ce module ne connaît aucun service : il compose et fusionne des arbres.
+Built from sticky notes and connectors rather than a mindmap widget: the widget
+is a third-party app whose nodes the REST API can neither create nor read, and
+reading back is what allows a board to be completed instead of duplicated.
 """
 
 from __future__ import annotations
@@ -32,7 +14,7 @@ from enum import StrEnum
 
 
 class Standing(StrEnum):
-    """Ce que la carte affirme d'un nœud."""
+    """What the board asserts about a node."""
 
     ACTE = "acté"
     EN_DISCUSSION = "en discussion"
@@ -46,14 +28,7 @@ class Kind(StrEnum):
     CONSTAT = "constat"
 
 def content_words(text: str) -> list[str]:
-    """Les mots qui portent le sens, dans **l'ordre**, sans accents ni ponctuation.
-
-    Distinct de `clef`, qui trie. Le tri est ce qu'il faut pour comparer deux
-    libellés courts — « recette externalisée » et « externalisée, la recette »
-    sont un seul point — mais il détruit l'adjacence, donc il ne peut pas servir
-    à compter des occurrences dans un texte : « esup oasis » y apparaissait deux
-    fois, une comme suite et une comme « oasis » isolé.
-    """
+    """The words that carry meaning, **in order**, without accents."""
     nu = unicodedata.normalize("NFKD", text.casefold())
     nu = "".join(lettre for lettre in nu if not unicodedata.combining(lettre))
     tous = [mot for mot in re.split(r"[^a-z0-9]+", nu) if mot]
@@ -61,12 +36,7 @@ def content_words(text: str) -> list[str]:
     return carriers or tous
 
 def key(text: str) -> str:
-    """De quoi reconnaître deux formulations du même point.
-
-    Sans accents, sans ponctuation, sans mots vides, et **trié** : « L'accès au
-    SI » et « acces au SI » désignent la même chose, et une comparaison
-    littérale créerait deux branches là où il en faut une.
-    """
+    """What identifies two wordings of the same point."""
     carriers = content_words(text)
     return " ".join(sorted(carriers))
 
@@ -81,11 +51,7 @@ GENRES_DECIDABLES = frozenset({Kind.PISTE, Kind.ACTION})
 SANS_ETAT = frozenset({Kind.SUBJECT})
 
 def state_allows(kind: Kind, state: Standing) -> Standing:
-    """L'état que ce genre peut porter. Ramène à « en discussion » sinon.
-
-    « Dépassé » reste possible pour tout genre : un problème peut avoir cessé
-    d'en être un.
-    """
+    """The standing this kind may carry. Falls back to under discussion."""
     if kind in SANS_ETAT:
         return state
     if state is Standing.ACTE and kind not in GENRES_DECIDABLES:
@@ -99,7 +65,7 @@ ECART_MOT = 2
 LONGUEUR_COMPARABLE = 5
 
 def _near_ones(un: str, autre: str) -> bool:
-    """Deux mots désignent-ils la même chose, à une terminaison près."""
+    """Do two words name the same thing, give or take an ending?"""
     if un == autre:
         return True
     if len(un) < LONGUEUR_COMPARABLE or len(autre) < LONGUEUR_COMPARABLE:
@@ -109,19 +75,7 @@ def _near_ones(un: str, autre: str) -> bool:
     return distance(un, autre) <= ECART_MOT
 
 def same_point(un: str, autre: str) -> bool:
-    """Vrai si ces deux libellés désignent le même point de la carte.
-
-    La comparaison exacte des clefs ne suffisait pas : le rédacteur reformule
-    d'une extraction à l'autre, et chaque reformulation ouvrait une branche de
-    plus — un quart des points revenaient en doublon, mesuré. On compare donc la
-    **part de mots porteurs communs**, en rapprochant les mots à une terminaison
-    près.
-
-    Le sens est symétrique et la part se calcule sur le plus court des deux :
-    « la recette » et « la recette d'Oasis bloquée faute d'environnement » ne
-    sont pas le même point, et diviser par l'union le dirait à tort dès que l'un
-    est un fragment de l'autre.
-    """
+    """True when these two labels name the same point of the board."""
     mots_un, mots_autre = set(content_words(un)), set(content_words(autre))
     if not mots_un or not mots_autre:
         return False
@@ -134,7 +88,7 @@ def same_point(un: str, autre: str) -> bool:
 
 @dataclass
 class Node:
-    """Un point de la carte, et ce qui s'y rattache."""
+    """A point of the board, and what hangs off it."""
 
     text: str
     kind: Kind = Kind.CONSTAT
@@ -150,16 +104,16 @@ class Node:
         return key(self.text)
 
     def enfant(self, text: str) -> Node | None:
-        """L'enfant qui porte ce point, à la reformulation près."""
+        """The child that carries this point, rewording aside."""
         return next((n for n in self.enfants if same_point(n.text, text)), None)
 
     def count(self) -> int:
-        """Nombre de nœuds, celui-ci compris."""
+        """Number of nodes, this one included."""
         return 1 + sum(enfant.count() for enfant in self.enfants)
 
 @dataclass
 class Board:
-    """La carte d'un sujet, telle qu'elle existe à un instant."""
+    """A subject's board, as it stands at one instant."""
 
     subject: str
     racine: Node | None = None
@@ -174,12 +128,7 @@ class Board:
 
 @dataclass(frozen=True, slots=True)
 class Contribution:
-    """Ce qu'une réunion apporte : un point, et où l'accrocher.
-
-    `sous` est le texte du parent, pas un identifiant : ce qui vient d'une
-    transcription ne connaît aucun identifiant, et retrouver le parent par son
-    libellé est précisément le travail de `clef`.
-    """
+    """What a meeting brings: a point, and where to hang it."""
 
     text: str
     kind: Kind = Kind.CONSTAT
@@ -188,7 +137,7 @@ class Contribution:
 
 @dataclass(frozen=True, slots=True)
 class Summary:
-    """Ce qu'une fusion a changé. Rien n'est jamais supprimé."""
+    """What a join changed. Nothing is ever deleted."""
 
     ajoutes: tuple[str, ...] = ()
     actes: tuple[str, ...] = ()
@@ -199,12 +148,7 @@ class Summary:
         return not self.ajoutes and not self.actes
 
 def join(board: Board, apports: list[Contribution], meeting: str = "") -> Summary:
-    """Verse les apports dans la carte. **N'efface rien, jamais.**
-
-    Un apport dont le parent est introuvable se raccroche à la racine plutôt que
-    d'être perdu : mal placé, il reste corrigeable d'un glissement de souris ;
-    perdu, il faut réécouter la réunion.
-    """
+    """Pours the contributions into the board. **Never erases anything.**"""
     assert board.racine is not None
     ajoutes: list[str] = []
     actes: list[str] = []
@@ -238,7 +182,7 @@ def join(board: Board, apports: list[Contribution], meeting: str = "") -> Summar
     return Summary(tuple(ajoutes), tuple(actes), tuple(known))
 
 def _find(noeud: Node, text: str) -> Node | None:
-    """Le nœud portant ce libellé, où qu'il soit dans l'arbre."""
+    """The node carrying this label, wherever it sits in the tree."""
     if same_point(noeud.text, text):
         return noeud
     for enfant in noeud.enfants:
@@ -248,11 +192,7 @@ def _find(noeud: Node, text: str) -> Node | None:
     return None
 
 def mark_overdue(board: Board, text: str) -> bool:
-    """Marque un point comme dépassé. Le nœud reste dans la carte.
-
-    Le garder a un intérêt propre : une piste écartée qu'on efface revient à la
-    réunion suivante, et le groupe refait le même chemin.
-    """
+    """Marks a point as overdue. The node stays on the board."""
     assert board.racine is not None
     trouve = _find(board.racine, text)
     if trouve is None or trouve is board.racine:
