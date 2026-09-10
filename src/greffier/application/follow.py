@@ -51,12 +51,12 @@ class Position:
     """
 
     morceau: Path
-    ecrit: float
-    decalage: float
+    written: float
+    offset: float
 
     @property
     def overall(self) -> float:
-        return self.decalage + self.ecrit
+        return self.offset + self.written
 
 def position(
     chunks: list[Path], duration: Callable[[Path], float | None]
@@ -65,11 +65,11 @@ def position(
     present_line = [m for m in chunks if duration(m) is not None]
     if not present_line:
         return None
-    decalage = 0.0
+    offset = 0.0
     for morceau in present_line[:-1]:
-        decalage += duration(morceau) or 0.0
+        offset += duration(morceau) or 0.0
     dernier = present_line[-1]
-    return Position(morceau=dernier, ecrit=duration(dernier) or 0.0, decalage=decalage)
+    return Position(morceau=dernier, written=duration(dernier) or 0.0, offset=offset)
 
 def files(folder: Path, identifier: str) -> tuple[Path, Path]:
     """The live log and the corrections drop, for one meeting.
@@ -127,18 +127,18 @@ def add(log: Path, lines: list[dict[str, Any]]) -> None:
     if not lines:
         return
     log.parent.mkdir(parents=True, exist_ok=True)
-    with log.open("a", encoding="utf-8") as flux:
+    with log.open("a", encoding="utf-8") as stream:
         for line in lines:
-            flux.write(json.dumps(line, ensure_ascii=False) + "\n")
+            stream.write(json.dumps(line, ensure_ascii=False) + "\n")
 
 def read_from(log: Path, position_octets: int = 0) -> tuple[list[dict[str, Any]], int]:
     """The lines added since the last read, and where to resume."""
     if not log.exists():
         return [], position_octets
     try:
-        with log.open("rb") as flux:
-            flux.seek(position_octets)
-            brut = flux.read()
+        with log.open("rb") as stream:
+            stream.seek(position_octets)
+            brut = stream.read()
     except OSError:
         return [], position_octets
     if not brut:
@@ -266,14 +266,14 @@ def _replay_correction(thread: LiveThread, line: dict[str, Any]) -> None:
 def request_a_split(requests: Path, voice: str) -> None:
     """Drops a split for the listening process."""
     requests.parent.mkdir(parents=True, exist_ok=True)
-    with requests.open("a", encoding="utf-8") as flux:
-        flux.write(json.dumps({"separer": voice}, ensure_ascii=False) + "\n")
+    with requests.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps({"separer": voice}, ensure_ascii=False) + "\n")
 
 def ask(requests: Path, number: int, name: str, whole_voice: bool = True) -> None:
     """Drops a correction for the listening process."""
     requests.parent.mkdir(parents=True, exist_ok=True)
-    with requests.open("a", encoding="utf-8") as flux:
-        flux.write(json.dumps(
+    with requests.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(
             {"numero": number, "nom": name, "toute_la_voix": whole_voice},
             ensure_ascii=False,
         ) + "\n")
@@ -293,13 +293,13 @@ class Follower:
     _appris: dict[str, str] = field(default_factory=dict, repr=False)
 
     def take_in(
-        self, tranche: Path, utterances: list[Utterance], decalage: float
+        self, slice_: Path, utterances: list[Utterance], offset: float
     ) -> list[LiveTurn]:
         """Attributes a slice's sentences and publishes them."""
         self.apply_requests()
-        locaux = self.channels.local_passages(tranche) if self.channels else []
+        local_spans = self.channels.local_passages(slice_) if self.channels else []
         globaux = [
-            Span(x.start + decalage, x.end + decalage) for x in locaux
+            Span(x.start + offset, x.end + offset) for x in local_spans
         ]
         # La boucle de répétition du transcripteur se coupe ici, avant
         # l'attribution : onze fois la même phrase, c'est une voix de plus et
@@ -308,7 +308,7 @@ class Follower:
         recalees = [
             Utterance(
                 span=Span(
-                    r.span.start + decalage, r.span.end + decalage
+                    r.span.start + offset, r.span.end + offset
                 ),
                 text=r.text, voice=r.voice, source=r.source,
             )
@@ -320,10 +320,10 @@ class Follower:
 
         nouveaux: list[LiveTurn] = []
         lines: list[dict[str, Any]] = []
-        for bloc in blocks(kept, globaux):
-            voiceprint = self._voiceprint(tranche, bloc, locaux, decalage)
-            voice = self.thread.attach(voiceprint, bloc.locale)
-            for turn in self.thread.record_turn(bloc, voice):
+        for block in blocks(kept, globaux):
+            voiceprint = self._voiceprint(slice_, block, local_spans, offset)
+            voice = self.thread.attach(voiceprint, block.local)
+            for turn in self.thread.record_turn(block, voice):
                 nouveaux.append(turn)
                 lines.append(_ligne_tour(turn, self.thread.voice[voice]))
         for source, target in self.thread.stitch():
@@ -333,25 +333,25 @@ class Follower:
         return nouveaux
 
     def _voiceprint(
-        self, tranche: Path, bloc: Block, locaux: list[Span], decalage: float
+        self, slice_: Path, block: Block, local_spans: list[Span], offset: float
     ) -> Voiceprint | None:
         """The voiceprint of a remote passage, taken from what is not local."""
-        if bloc.locale or self.extractor is None:
+        if block.local or self.extractor is None:
             return None
         within_the_slice = Span(
-            max(0.0, bloc.span.start - decalage),
-            max(0.0, bloc.span.end - decalage),
+            max(0.0, block.span.start - offset),
+            max(0.0, block.span.end - offset),
         )
-        chunks = subtract(within_the_slice, locaux)
+        chunks = subtract(within_the_slice, local_spans)
         if not chunks:
             return None
         try:
-            trouvees = self.extractor.extract_spans(tranche, chunks)
+            found = self.extractor.extract_spans(slice_, chunks)
         except (RuntimeError, OSError, ValueError):
             return None
-        if not trouvees:
+        if not found:
             return None
-        return trouvees[0] if len(trouvees) == 1 else aggregate(trouvees)
+        return found[0] if len(found) == 1 else aggregate(found)
 
     def apply_requests(self) -> list[Correction]:
         """Takes in what the window corrected since last time.

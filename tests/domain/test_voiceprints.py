@@ -64,8 +64,8 @@ class TestReconnaissance:
     def test_reconnait_une_voix_connue(self):
         josiane = Person("Josiane", [voice(1.0, 0.0, 0.0)])
         marc = Person("Marc", [voice(0.0, 1.0, 0.0)])
-        trouve = recognise(voice(0.95, 0.05, 0.0), [josiane, marc])
-        assert trouve is not None and trouve.name == "Josiane" and trouve.sure
+        found = recognise(voice(0.95, 0.05, 0.0), [josiane, marc])
+        assert found is not None and found.name == "Josiane" and found.sure
 
     def test_une_voix_inconnue_ne_renvoie_rien(self):
         """Résultat normal et fréquent : on demandera à l'utilisateur."""
@@ -91,8 +91,8 @@ class TestReconnaissance:
         en_salle = voice(0.0, 1.0, 0.0)
         bank = [Person("Josiane", [au_casque, en_salle]),
                   Person("Marc", [voice(0.3, 0.3, 0.9)])]
-        trouve = recognise(voice(0.05, 0.99, 0.0), bank)
-        assert trouve is not None and trouve.name == "Josiane"
+        found = recognise(voice(0.05, 0.99, 0.0), bank)
+        assert found is not None and found.name == "Josiane"
 
     def test_les_seuils_sont_ajustables(self):
         """Une salle réverbérante abaisse la similarité : le seuil doit suivre."""
@@ -238,9 +238,9 @@ class TestBanqueAmbigue:
     """
 
     def test_deux_noms_sur_la_meme_voix_sont_signales(self):
-        une = voice(1.0, 0.0, 0.0)
+        one_of = voice(1.0, 0.0, 0.0)
         presque = voice(0.99, 0.14, 0.0)
-        bank = [Person(name="Camilo", voiceprints=[une]),
+        bank = [Person(name="Camilo", voiceprints=[one_of]),
                   Person(name="Tanguy", voiceprints=[presque]),
                   Person(name="Sophie", voiceprints=[voice(0.0, 0.0, 1.0)])]
         conflicts = conflicting_names(bank)
@@ -254,11 +254,11 @@ class TestBanqueAmbigue:
 
     def test_aucun_nom_n_est_affirme_quand_la_banque_se_contredit(self):
         """Se taire vaut mieux que choisir : c'est l'utilisateur qui tranchera."""
-        une = voice(1.0, 0.0, 0.0)
-        bank = [Person(name="Camilo", voiceprints=[une]),
+        one_of = voice(1.0, 0.0, 0.0)
+        bank = [Person(name="Camilo", voiceprints=[one_of]),
                   Person(name="Tanguy", voiceprints=[voice(0.99, 0.14, 0.0)]),
                   Person(name="Sophie", voiceprints=[voice(0.0, 0.0, 1.0)])]
-        assert recognise(une, bank) is None
+        assert recognise(one_of, bank) is None
 
     def test_les_noms_hors_conflit_restent_reconnus(self):
         """Une entrée douteuse ne doit pas rendre toute la banque muette."""

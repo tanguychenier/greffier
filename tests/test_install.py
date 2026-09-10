@@ -32,7 +32,7 @@ def installer():
 
 
 @pytest.fixture
-def sous(installer, monkeypatch):
+def under(installer, monkeypatch):
     """Fait croire à l'installeur qu'il tourne sur le système demandé."""
 
     def basculer(system, **variables):
@@ -45,68 +45,68 @@ def sous(installer, monkeypatch):
 
 
 class TestChemins:
-    def test_linux_suit_les_conventions_xdg(self, sous, tmp_path, monkeypatch):
-        module = sous("Linux", XDG_CONFIG_HOME=str(tmp_path / "config"))
+    def test_linux_suit_les_conventions_xdg(self, under, tmp_path, monkeypatch):
+        module = under("Linux", XDG_CONFIG_HOME=str(tmp_path / "config"))
         assert module.config_folder() == tmp_path / "config" / "greffier"
 
-    def test_macos_utilise_application_support(self, sous, monkeypatch, tmp_path):
+    def test_macos_utilise_application_support(self, under, monkeypatch, tmp_path):
         """Pas XDG : les dossiers cachés du compte sont surveillés par les gardes
         du poste, qui redemandaient une autorisation à chaque accès."""
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
         monkeypatch.delenv("XDG_DATA_HOME", raising=False)
-        module = sous("Darwin")
+        module = under("Darwin")
         expected = tmp_path / "Library/Application Support/Greffier"
         assert module.config_folder() == expected
         assert module.data_folder() == expected
 
-    def test_l_installeur_et_l_application_disent_la_meme_chose(self, sous, monkeypatch, tmp_path):
+    def test_l_installeur_et_l_application_disent_la_meme_chose(self, under, monkeypatch, tmp_path):
         """Une seule définition des emplacements : sinon l'installeur cherche
         les modèles là où l'application ne les met pas — et les retélécharge."""
         from greffier import locations
 
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         monkeypatch.delenv("XDG_DATA_HOME", raising=False)
-        module = sous("Darwin")
+        module = under("Darwin")
         assert module.data_folder() == locations.data_folder("Darwin")
 
-    def test_windows_utilise_appdata(self, sous, tmp_path):
-        module = sous("Windows", APPDATA=str(tmp_path / "Roaming"),
+    def test_windows_utilise_appdata(self, under, tmp_path):
+        module = under("Windows", APPDATA=str(tmp_path / "Roaming"),
                       LOCALAPPDATA=str(tmp_path / "Local"))
         assert module.config_folder() == tmp_path / "Roaming" / "greffier"
         assert module.data_folder() == tmp_path / "Local" / "greffier"
 
 
 class TestGestionnaireDePaquets:
-    def test_windows_prefere_winget_a_scoop(self, sous, monkeypatch):
-        module = sous("Windows")
+    def test_windows_prefere_winget_a_scoop(self, under, monkeypatch):
+        module = under("Windows")
         monkeypatch.setattr(module.shutil, "which", lambda outil: "C:\\\\winget.exe")
         outil, _ = module.gestionnaire()
         assert outil == "winget"
 
-    def test_windows_sans_gestionnaire_ne_plante_pas(self, sous, monkeypatch):
-        module = sous("Windows")
+    def test_windows_sans_gestionnaire_ne_plante_pas(self, under, monkeypatch):
+        module = under("Windows")
         monkeypatch.setattr(module.shutil, "which", lambda outil: None)
         assert module.gestionnaire() is None
 
-    def test_linux_reconnait_apt(self, sous, monkeypatch):
-        module = sous("Linux")
+    def test_linux_reconnait_apt(self, under, monkeypatch):
+        module = under("Linux")
         monkeypatch.setattr(module.shutil, "which", lambda outil: "/usr/bin/apt-get"
                             if outil == "apt-get" else None)
         outil, command = module.gestionnaire()
         assert outil == "apt-get" and "install" in command
 
-    def test_root_n_appelle_pas_sudo(self, sous, monkeypatch):
+    def test_root_n_appelle_pas_sudo(self, under, monkeypatch):
         """En conteneur et en intégration continue, sudo n'est pas installé."""
-        module = sous("Linux")
+        module = under("Linux")
         monkeypatch.setattr(module.shutil, "which", lambda outil: "/usr/bin/apt-get"
                             if outil == "apt-get" else None)
         monkeypatch.setattr(module.os, "geteuid", lambda: 0, raising=False)
         _, command = module.gestionnaire()
         assert "sudo" not in command
 
-    def test_utilisateur_ordinaire_passe_par_sudo(self, sous, monkeypatch):
-        module = sous("Linux")
+    def test_utilisateur_ordinaire_passe_par_sudo(self, under, monkeypatch):
+        module = under("Linux")
         monkeypatch.setattr(module.shutil, "which", lambda outil: "/usr/bin/apt-get"
                             if outil == "apt-get" else None)
         monkeypatch.setattr(module.os, "geteuid", lambda: 501, raising=False)
@@ -122,24 +122,24 @@ class TestGestionnaireDePaquets:
 class TestIntegrationAuBureau:
     """Ce qui sera déposé pour lancer Greffier à l'ouverture de session."""
 
-    def test_macos_produit_un_launch_agent(self, sous, monkeypatch, tmp_path):
+    def test_macos_produit_un_launch_agent(self, under, monkeypatch, tmp_path):
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-        module = sous("Darwin")
+        module = under("Darwin")
         file = module.integrer_au_bureau(None, "/Applications/Greffier.app")
         assert file.parent == tmp_path / "Library/LaunchAgents"
         content = file.read_text(encoding="utf-8")
         assert "com.reunions.greffier" in content and "RunAtLoad" in content
 
-    def test_linux_produit_un_raccourci_desktop(self, sous, monkeypatch, tmp_path):
-        module = sous("Linux", XDG_CONFIG_HOME=str(tmp_path / "config"))
+    def test_linux_produit_un_raccourci_desktop(self, under, monkeypatch, tmp_path):
+        module = under("Linux", XDG_CONFIG_HOME=str(tmp_path / "config"))
         file = module.integrer_au_bureau(None, "/usr/local/bin/greffier")
         assert file == tmp_path / "config/autostart/greffier.desktop"
         content = file.read_text(encoding="utf-8")
         assert content.startswith("[Desktop Entry]")
         assert "Exec=/usr/local/bin/greffier" in content
 
-    def test_windows_produit_un_script_de_demarrage(self, sous, tmp_path):
-        module = sous("Windows", APPDATA=str(tmp_path / "Roaming"))
+    def test_windows_produit_un_script_de_demarrage(self, under, tmp_path):
+        module = under("Windows", APPDATA=str(tmp_path / "Roaming"))
         file = module.integrer_au_bureau(None, r"C:\\Greffier\\greffier.exe")
         assert file.parent.name == "Startup"
         content = file.read_text(encoding="utf-8")
@@ -147,8 +147,8 @@ class TestIntegrationAuBureau:
         # qui exige PowerShell et COM, pour le même résultat.
         assert file.suffix == ".cmd" and "start" in content
 
-    def test_un_systeme_inconnu_ne_plante_pas(self, sous):
-        module = sous("Haiku")
+    def test_un_systeme_inconnu_ne_plante_pas(self, under):
+        module = under("Haiku")
         assert module.integrer_au_bureau(None, "/quelque/part") is None
 
 
@@ -177,9 +177,9 @@ class TestSkillDeDepannage:
 
     def test_tous_les_skills_du_depot_ont_un_en_tete(self):
         """Un skill sans en-tête n'est pas chargé, et rien ne le signale."""
-        trouves = sorted((RACINE / "skills").glob("*/SKILL.md"))
-        assert len(trouves) >= 2, "le dépôt porte le dépannage et l'assistance"
-        for path in trouves:
+        found = sorted((RACINE / "skills").glob("*/SKILL.md"))
+        assert len(found) >= 2, "le dépôt porte le dépannage et l'assistance"
+        for path in found:
             text = path.read_text(encoding="utf-8")
             assert text.startswith(f"---\nname: {path.parent.name}\n"), path
             assert "description:" in text.split("---")[1], path
@@ -193,19 +193,19 @@ class TestSkillDeDepannage:
         assert "jamais la phrase de la réunion" in aplati
         assert "Ne jamais effacer ce qu'un humain a posé" in aplati
 
-    def test_il_est_pose_la_ou_claude_code_le_cherche(self, sous, monkeypatch, tmp_path):
-        module = sous("Darwin")
+    def test_il_est_pose_la_ou_claude_code_le_cherche(self, under, monkeypatch, tmp_path):
+        module = under("Darwin")
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         assert module.dossier_skills() == tmp_path / ".claude/skills"
 
-    def test_une_copie_et_non_un_lien(self, sous, monkeypatch, tmp_path):
+    def test_une_copie_et_non_un_lien(self, under, monkeypatch, tmp_path):
         """Le dépôt peut être déplacé : un lien pointerait dans le vide."""
-        module = sous("Darwin")
+        module = under("Darwin")
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         monkeypatch.setattr(module.shutil, "which", lambda outil: "/usr/local/bin/claude")
 
         class Context:
-            oui = True
+            yes = True
             check_only = False
             to_do: list[str] = []
 
@@ -218,13 +218,13 @@ class TestSkillDeDepannage:
         assert pose.read_text(encoding="utf-8") == (
             RACINE / "skills/greffier/SKILL.md").read_text(encoding="utf-8")
 
-    def test_sans_claude_code_rien_n_est_pose(self, sous, monkeypatch, tmp_path):
-        module = sous("Darwin")
+    def test_sans_claude_code_rien_n_est_pose(self, under, monkeypatch, tmp_path):
+        module = under("Darwin")
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         monkeypatch.setattr(module.shutil, "which", lambda outil: None)
 
         class Context:
-            oui = True
+            yes = True
             check_only = False
             to_do: list[str] = []
 
@@ -259,8 +259,8 @@ class TestCaptureDuSonSousLinux:
     paquet inutile.
     """
 
-    def test_la_prise_du_serveur_suffit(self, sous, monkeypatch, tmp_path):
-        module = sous("Linux", XDG_RUNTIME_DIR=str(tmp_path))
+    def test_la_prise_du_serveur_suffit(self, under, monkeypatch, tmp_path):
+        module = under("Linux", XDG_RUNTIME_DIR=str(tmp_path))
         monkeypatch.delenv("PULSE_SERVER", raising=False)
         monkeypatch.setattr(module.shutil, "which", lambda _outil: None)
         (tmp_path / "pulse").mkdir()
@@ -268,15 +268,15 @@ class TestCaptureDuSonSousLinux:
 
         assert module.sound_server_present()
 
-    def test_sans_serveur_il_n_y_a_rien_a_capter(self, sous, monkeypatch, tmp_path):
-        module = sous("Linux", XDG_RUNTIME_DIR=str(tmp_path))
+    def test_sans_serveur_il_n_y_a_rien_a_capter(self, under, monkeypatch, tmp_path):
+        module = under("Linux", XDG_RUNTIME_DIR=str(tmp_path))
         monkeypatch.delenv("PULSE_SERVER", raising=False)
 
         assert not module.sound_server_present()
 
-    def test_un_serveur_declare_est_cru(self, sous, monkeypatch, tmp_path):
+    def test_un_serveur_declare_est_cru(self, under, monkeypatch, tmp_path):
         """Un serveur distant ne pose aucune prise dans cette session."""
-        module = sous("Linux", XDG_RUNTIME_DIR=str(tmp_path),
+        module = under("Linux", XDG_RUNTIME_DIR=str(tmp_path),
                       PULSE_SERVER="tcp:192.168.1.10:4713")
         monkeypatch.setattr(module.shutil, "which", lambda _outil: None)
 
@@ -293,22 +293,22 @@ class TestAccelerationParLaCarte:
     servent.
     """
 
-    def test_une_carte_est_reconnue(self, sous, monkeypatch):
-        module = sous("Linux")
+    def test_une_carte_est_reconnue(self, under, monkeypatch):
+        module = under("Linux")
         monkeypatch.setattr(module.shutil, "which",
                             lambda outil: "/usr/bin/nvidia-smi" if outil == "nvidia-smi" else None)
 
         assert module.carte_nvidia()
 
-    def test_sans_carte_rien_n_est_propose(self, sous, monkeypatch):
-        module = sous("Linux")
+    def test_sans_carte_rien_n_est_propose(self, under, monkeypatch):
+        module = under("Linux")
         monkeypatch.setattr(module.shutil, "which", lambda _outil: None)
 
         assert not module.carte_nvidia()
 
-    def test_macos_est_servi_par_metal(self, sous, monkeypatch):
+    def test_macos_est_servi_par_metal(self, under, monkeypatch):
         """Aucune carte NVIDIA n'y est utilisable, et la puce a déjà Metal."""
-        module = sous("Darwin")
+        module = under("Darwin")
         monkeypatch.setattr(module.shutil, "which", lambda _outil: "/usr/bin/nvidia-smi")
 
         assert not module.carte_nvidia()
@@ -322,22 +322,22 @@ class TestLaLangueDuPoste:
     s'en apercevait avant la première transcription.
     """
 
-    def test_la_langue_annoncee_est_retenue(self, sous, monkeypatch):
-        module = sous("Linux", LANG="de_DE.UTF-8")
+    def test_la_langue_annoncee_est_retenue(self, under, monkeypatch):
+        module = under("Linux", LANG="de_DE.UTF-8")
         monkeypatch.delenv("LC_ALL", raising=False)
         monkeypatch.delenv("LC_MESSAGES", raising=False)
 
         assert module.system_language() == "de"
 
-    def test_une_langue_inconnue_retombe_sur_le_francais(self, sous, monkeypatch):
-        module = sous("Linux", LANG="xx_XX.UTF-8")
+    def test_une_langue_inconnue_retombe_sur_le_francais(self, under, monkeypatch):
+        module = under("Linux", LANG="xx_XX.UTF-8")
         monkeypatch.delenv("LC_ALL", raising=False)
         monkeypatch.delenv("LC_MESSAGES", raising=False)
 
         assert module.system_language() == "fr"
 
-    def test_sans_variable_le_francais(self, sous, monkeypatch):
-        module = sous("Linux")
+    def test_sans_variable_le_francais(self, under, monkeypatch):
+        module = under("Linux")
         for variable in ("LC_ALL", "LC_MESSAGES", "LANG"):
             monkeypatch.delenv(variable, raising=False)
 

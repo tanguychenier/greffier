@@ -18,10 +18,10 @@ _CUDA_LIBRARIES = (
 
 def cuda_libraries() -> list[Path]:
     """The libraries the nvidia wheels install."""
-    paquet = importlib.util.find_spec("nvidia")
-    if paquet is None or not paquet.submodule_search_locations:
+    package = importlib.util.find_spec("nvidia")
+    if package is None or not package.submodule_search_locations:
         return []
-    root = Path(next(iter(paquet.submodule_search_locations)))
+    root = Path(next(iter(package.submodule_search_locations)))
     return [
         path
         for motif in _CUDA_LIBRARIES

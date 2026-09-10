@@ -62,8 +62,8 @@ class TestAmorce:
     def test_aucun_terme_n_est_coupe_en_deux(self):
         """Une écriture coupée apprend une orthographe fausse : pire que rien."""
         context = Context(termes=tuple(Term(f"terme-{n:03d}") for n in range(200)))
-        for mot in context.prompt_seed().split("Vocabulaire : ")[1].rstrip(".").split(", "):
-            assert mot.startswith("terme-") and len(mot) == len("terme-000")
+        for word in context.prompt_seed().split("Vocabulaire : ")[1].rstrip(".").split(", "):
+            assert word.startswith("terme-") and len(word) == len("terme-000")
 
     def test_un_terme_repete_ne_compte_qu_une_fois(self):
         prompt_seed = Context(termes=(Term("OTP"), Term("OTP"))).prompt_seed()

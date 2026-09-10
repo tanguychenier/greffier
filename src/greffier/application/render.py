@@ -47,14 +47,14 @@ def context_header(
     identifier: str,
     duration: float = 0.0,
     names: Sequence[str] = (),
-    voix_entendues: int = 0,
+    voices_heard: int = 0,
     started_at: datetime | None = None,
     ended_at: datetime | None = None,
 ) -> str:
     """The meeting's context, dictated to the writer word for word."""
-    trouve = _HORODATAGE.match(identifier)
+    found = _HORODATAGE.match(identifier)
     lines = ["[Contexte de la réunion]"]
-    context = _context_line(trouve, duration, names, voix_entendues,
+    context = _context_line(found, duration, names, voices_heard,
                                   started_at, ended_at)
     if not context:
         return ""
@@ -63,21 +63,21 @@ def context_header(
         "ni en retirer :"
     )
     lines.append(context)
-    if trouve:
+    if found:
         lines.append("Emploie cette date, jamais celle du jour.")
     return "\n".join(lines) + "\n\n"
 
 def _context_line(
-    trouve: re.Match[str] | None,
+    found: re.Match[str] | None,
     duration: float,
     names: Sequence[str],
-    voix_entendues: int,
+    voices_heard: int,
     started_at: datetime | None = None,
     ended_at: datetime | None = None,
 ) -> str:
     chunks: list[str] = []
-    if trouve:
-        annee, mois, jour, heure, minute = trouve.groups()
+    if found:
+        annee, mois, jour, heure, minute = found.groups()
         chunks.append(f"{int(jour)} {_MOIS[int(mois) - 1]} {annee}")
     if started_at is not None and ended_at is not None:
         locale_debut, locale_fin = started_at.astimezone(), ended_at.astimezone()
@@ -88,8 +88,8 @@ def _context_line(
         ecoule = (ended_at - started_at).total_seconds()
         if ecoule > 0:
             chunks.append(f"durée {_readable_duration(ecoule)}")
-    elif trouve and trouve.group(4):
-        chunks.append(_time_range(int(trouve.group(4)), int(trouve.group(5)), duration))
+    elif found and found.group(4):
+        chunks.append(_time_range(int(found.group(4)), int(found.group(5)), duration))
         if duration > 0:
             chunks.append(f"durée {_readable_duration(duration)}")
     elif duration > 0:
@@ -97,7 +97,7 @@ def _context_line(
     if not chunks:
         return ""
     line = ", ".join(chunks) + "."
-    present_line = _present_line(names, voix_entendues)
+    present_line = _present_line(names, voices_heard)
     return f"{line} {present_line}" if present_line else line
 
 def _time_range(heure: int, minute: int, duration: float) -> str:
@@ -107,25 +107,25 @@ def _time_range(heure: int, minute: int, duration: float) -> str:
     end = (heure * 60 + minute + int(duration // 60)) % (24 * 60)
     return f"de {heure} h {minute:02d} à {end // 60} h {end % 60:02d}"
 
-def _present_line(names: Sequence[str], voix_entendues: int) -> str:
+def _present_line(names: Sequence[str], voices_heard: int) -> str:
     known = [n for n in dict.fromkeys(names) if n]
     if known:
-        reste = voix_entendues - len(known)
+        remaining = voices_heard - len(known)
         listing = ", ".join(known)
-        if reste > 0:
-            pluriel = "s" if reste > 1 else ""
-            return f"Participants : {listing}, et {reste} voix non nommée{pluriel}."
+        if remaining > 0:
+            pluriel = "s" if remaining > 1 else ""
+            return f"Participants : {listing}, et {remaining} voix non nommée{pluriel}."
         return f"Participants : {listing}."
-    if voix_entendues > 0:
-        if voix_entendues == 1:
+    if voices_heard > 0:
+        if voices_heard == 1:
             return "Participants : 1 personne a parlé, non nommée."
-        return (f"Participants : {voix_entendues} personnes ont parlé, "
+        return (f"Participants : {voices_heard} personnes ont parlé, "
                 "aucune nommée.")
     return ""
 
 def _readable_duration(seconds: float) -> str:
-    heures, reste = divmod(int(seconds), 3600)
-    minutes, restantes = divmod(reste, 60)
+    heures, remaining = divmod(int(seconds), 3600)
+    minutes, restantes = divmod(remaining, 60)
     if heures:
         return f"{heures} h {minutes:02d}"
     if minutes:
@@ -226,10 +226,10 @@ def render_transcript(meeting: Transcribed, header: str = "") -> str:
         lines.append(f"{start // 60:02d}:{start % 60:02d}  {utterance.text}")
     return header + "\n".join(lines).strip() + "\n"
 
-def to_resume(store: Any, minutes_folder: Path, combien: int = 20) -> list[str]:
+def to_resume(store: Any, minutes_folder: Path, how_many: int = 20) -> list[str]:
     """The transcribed meetings whose minutes are still missing."""
     missing = []
-    for identifier in store.lister()[:combien]:
+    for identifier in store.lister()[:how_many]:
         if not re.match(r"^\d{4}-\d{2}-\d{2}_", identifier):
             continue
         if not (minutes_folder / f"{identifier}.md").exists():
@@ -243,12 +243,12 @@ def regenerate_minutes(
 ) -> str:
     """Replays the writing only, from what is already kept."""
     duration = meeting.turns[-1].span.end if meeting.turns else 0.0
-    entendues = meeting.attendees()
+    heard = meeting.attendees()
     header = (
         context_header(
             meeting.identifier, duration,
-            names=[meeting.names[v] for v in entendues if v in meeting.names],
-            voix_entendues=len(entendues),
+            names=[meeting.names[v] for v in heard if v in meeting.names],
+            voices_heard=len(heard),
             started_at=meeting.started_at,
             ended_at=meeting.ended_at,
         )
@@ -260,8 +260,8 @@ def regenerate_minutes(
 
 def notable_passages(
     meeting: Transcribed,
-    duree_visee: float = 300.0,
-    duree_minimale: float = 8.0,
+    target_length: float = 300.0,
+    minimum_length: float = 8.0,
 ) -> list[Span]:
     """The passages to splice together to hear the essentials again."""
     temps = meeting.speaking_time()
@@ -269,8 +269,8 @@ def notable_passages(
     retenus: list[Span] = []
 
     for voice, is_speaking in temps.items():
-        quota = duree_visee * (is_speaking / total)
-        if quota < duree_minimale:
+        quota = target_length * (is_speaking / total)
+        if quota < minimum_length:
             continue
         candidats = sorted(
             (t.span for t in meeting.turns if t.voice == voice),
@@ -280,9 +280,9 @@ def notable_passages(
         for span in candidats:
             if cumul >= quota:
                 break
-            if span.duration < duree_minimale:
+            if span.duration < minimum_length:
                 continue
-            end = min(span.end, span.start + max(duree_minimale, quota - cumul))
+            end = min(span.end, span.start + max(minimum_length, quota - cumul))
             retenus.append(Span(span.start, end))
             cumul += end - span.start
 
@@ -320,12 +320,12 @@ def assemble(audio: Path, passages: list[Span], destination: Path) -> Path:
 def speak_aloud(text: str, destination: Path) -> Path:
     """Records the minutes read out by the system's synthesiser."""
     destination.parent.mkdir(parents=True, exist_ok=True)
-    propre = _sans_balisage(text)
+    clean = _without_markup(text)
 
     if SYSTEM == "Darwin":
         with tempfile.TemporaryDirectory() as job:
             brut = Path(job) / "lecture.aiff"
-            subprocess.run(["say", "-v", "Thomas", "-o", str(brut), propre], check=True)
+            subprocess.run(["say", "-v", "Thomas", "-o", str(brut), clean], check=True)
             subprocess.run(
                 ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(brut),
                  "-c:a", "aac", "-b:a", "96k", str(destination)],
@@ -334,7 +334,7 @@ def speak_aloud(text: str, destination: Path) -> Path:
         return destination
     if shutil.which("espeak-ng"):
         subprocess.run(
-            ["espeak-ng", "-v", "fr", "-w", str(destination.with_suffix(".wav")), propre],
+            ["espeak-ng", "-v", "fr", "-w", str(destination.with_suffix(".wav")), clean],
             check=True,
         )
         return destination.with_suffix(".wav")
@@ -342,15 +342,15 @@ def speak_aloud(text: str, destination: Path) -> Path:
         "Aucune synthèse vocale disponible. Sur Linux : « apt install espeak-ng »."
     )
 
-def _sans_balisage(text: str) -> str:
+def _without_markup(text: str) -> str:
     """Strips the Markdown of what is not pronounced."""
     import re
 
-    propre = re.sub(r"^\s*\|.*\|\s*$", "", text, flags=re.MULTILINE)  # tableaux
-    propre = re.sub(r"[*_`#>]+", "", propre)
-    propre = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", propre)           # liens
-    propre = re.sub(r"\n{3,}", "\n\n", propre)
-    return propre.strip()
+    clean = re.sub(r"^\s*\|.*\|\s*$", "", text, flags=re.MULTILINE)  # tableaux
+    clean = re.sub(r"[*_`#>]+", "", clean)
+    clean = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", clean)           # liens
+    clean = re.sub(r"\n{3,}", "\n\n", clean)
+    return clean.strip()
 
 def archiver(audio: Path, garder_original: bool = False) -> Path:
     """Compresses a processed recording."""
@@ -370,15 +370,15 @@ def voiceprints_per_voice(
     extractor: Any, audio: Path, per_voice: dict[str, list[Any]]
 ) -> dict[str, list[Any]]:
     """The voiceprints of each voice, reading the recording only once."""
-    tous = [(voice, i) for voice, intervalles in per_voice.items() for i in intervalles]
-    voiceprints = extractor.extract_spans(audio, [i for _, i in tous])
-    if len(voiceprints) != len(tous):
+    all_of_them = [(voice, i) for voice, intervalles in per_voice.items() for i in intervalles]
+    voiceprints = extractor.extract_spans(audio, [i for _, i in all_of_them])
+    if len(voiceprints) != len(all_of_them):
         return {
             voice: extractor.extract_spans(audio, intervalles)
             for voice, intervalles in per_voice.items()
         }
     groupees: dict[str, list[Any]] = {voice: [] for voice in per_voice}
-    for (voice, _), voiceprint in zip(tous, voiceprints, strict=True):
+    for (voice, _), voiceprint in zip(all_of_them, voiceprints, strict=True):
         groupees[voice].append(voiceprint)
     return groupees
 
@@ -408,11 +408,11 @@ def review_voices(
     temps = meeting.speaking_time()
     names: dict[str, str] = {}
     for voice, name in sorted(meeting.names.items(), key=lambda x: -temps.get(x[0], 0.0)):
-        vers = membership.get(voice, voice)
-        if vers in names and names[vers].casefold() != name.casefold():
-            meeting.propositions.setdefault(vers, name)
+        into = membership.get(voice, voice)
+        if into in names and names[into].casefold() != name.casefold():
+            meeting.propositions.setdefault(into, name)
             continue
-        names[vers] = name
+        names[into] = name
     meeting.names = names
     meeting.propositions = {
         membership.get(v, v): n for v, n in meeting.propositions.items()
@@ -451,10 +451,10 @@ def _reconnaitre_a_nouveau(
     known = bank.people()
     if not known:
         return
-    groupes: dict[str, list[Any]] = {}
+    groups: dict[str, list[Any]] = {}
     for voice, listing in voiceprints.items():
-        groupes.setdefault(membership.get(voice, voice), []).extend(listing)
-    for voice, listing in groupes.items():
+        groups.setdefault(membership.get(voice, voice), []).extend(listing)
+    for voice, listing in groups.items():
         if voice in meeting.names or not listing:
             continue
         match = voix_domaine.recognise(voix_domaine.aggregate(listing), known)

@@ -20,7 +20,7 @@ from greffier.domain.voiceprints import aggregate, normalise, similarity
 
 audio = Path(sys.argv[1])
 nb_personnes = int(sys.argv[2]) if len(sys.argv) > 2 else 0
-DUREE_MINIMALE = 3.0
+MINIMUM_LENGTH = 3.0
 
 MODELS = Path.home() / "reunions/models/diarisation"
 config = sherpa_onnx.OfflineSpeakerDiarizationConfig(
@@ -60,23 +60,23 @@ extractor = sherpa_onnx.SpeakerEmbeddingExtractor(
 
 
 def voiceprint(start: float, end: float):
-    flux = extractor.create_stream()
-    flux.accept_waveform(
+    stream = extractor.create_stream()
+    stream.accept_waveform(
         sample_rate=frequency,
         waveform=signal[int(start * frequency) : int(end * frequency)],
     )
-    flux.input_finished()
-    return normalise(extractor.compute(flux), source_duration=end - start)
+    stream.input_finished()
+    return normalise(extractor.compute(stream), source_duration=end - start)
 
 
 per_voice: dict[int, list] = {}
 for segment in segments:
     duration = segment.end - segment.start
-    if duration < DUREE_MINIMALE:
+    if duration < MINIMUM_LENGTH:
         continue
     per_voice.setdefault(segment.speaker, []).append(voiceprint(segment.start, segment.end))
 
-print(f"\nsegments retenus (≥ {DUREE_MINIMALE:.0f} s) :")
+print(f"\nsegments retenus (≥ {MINIMUM_LENGTH:.0f} s) :")
 for voice, voiceprints in sorted(per_voice.items()):
     total = sum(e.source_duration for e in voiceprints)
     print(f"  voix {voice} : {len(voiceprints):3d} extraits, {total / 60:.1f} min de parole")

@@ -55,7 +55,7 @@ class TestFusion:
         board = Board("Oasis")
         join(board, [Contribution("Le PDF ne se régénère pas", kind=Kind.PROBLEM)])
         join(board, [Contribution("Forcer la régénération", kind=Kind.LEAD,
-                                 sous="Le PDF ne se régénère pas")])
+                                 under="Le PDF ne se régénère pas")])
         assert board.root is not None
         probleme = board.root.enfant("Le PDF ne se régénère pas")
         assert probleme is not None
@@ -64,7 +64,7 @@ class TestFusion:
     def test_un_parent_introuvable_ne_perd_pas_l_apport(self):
         """Mal placé, il reste corrigeable ; perdu, il faut réécouter la réunion."""
         board = Board("Oasis")
-        join(board, [Contribution("Une piste", sous="un parent qui n'existe pas")])
+        join(board, [Contribution("Une piste", under="un parent qui n'existe pas")])
         assert board.root is not None
         assert board.root.enfant("Une piste") is not None
 

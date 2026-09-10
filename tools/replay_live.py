@@ -87,11 +87,11 @@ def replay(suite: list) -> tuple[LiveThread, list[tuple[str, int]], list[bool]]:
     thread = LiveThread()
     attribue: list[tuple[str, int]] = []
     for start, end, vraie, voiceprint in suite:
-        voice = thread.attach(voiceprint=voiceprint, locale=False)
+        voice = thread.attach(voiceprint=voiceprint, local=False)
         thread.record_turn(
             Block(
                 utterances=(Utterance(span=Span(start, end), text="x"),),
-                locale=False,
+                local=False,
             ),
             voice,
         )
@@ -100,10 +100,10 @@ def replay(suite: list) -> tuple[LiveThread, list[tuple[str, int]], list[bool]]:
             thread.stitch()
     thread.stitch()
     final = {t.number: t.voice for t in thread.turns}
-    groupes: dict[str, Counter] = {}
+    groups: dict[str, Counter] = {}
     for vraie, number in attribue:
-        groupes.setdefault(final.get(number, "?"), Counter())[vraie] += 1
-    majorite = {v: c.most_common(1)[0][0] for v, c in groupes.items()}
+        groups.setdefault(final.get(number, "?"), Counter())[vraie] += 1
+    majorite = {v: c.most_common(1)[0][0] for v, c in groups.items()}
     justes = [majorite.get(final.get(n)) == vraie for vraie, n in attribue]
     return thread, attribue, justes
 

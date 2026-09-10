@@ -76,7 +76,7 @@ class TestMatiere:
         attachments_file.write(base, "r", "pave.txt", "x" * 50_000)
         rendered = attachments_file.material(base, "r")
         assert "tronqué" in rendered
-        assert len(rendered) < attachments_file.AU_PLUS + 200
+        assert len(rendered) < attachments_file.AT_MOST + 200
 
     def test_un_pave_ne_chasse_pas_les_autres_documents(self, base):
         """Sans borne par document, les trois autres n'apparaissaient pas du tout."""

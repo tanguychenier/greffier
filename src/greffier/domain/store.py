@@ -77,9 +77,9 @@ def offer(
         "ni un document texte",
     )
 
-def _plural(destination: Destination, combien: int) -> str:
+def _plural(destination: Destination, how_many: int) -> str:
     """The mark that turns « réunion » into « réunions », never « contextes »."""
-    return "s" if combien > 1 and destination is not Destination.CONTEXT else ""
+    return "s" if how_many > 1 and destination is not Destination.CONTEXT else ""
 
 def summarise(propositions: list[Suggestion]) -> str:
     """A sentence saying what the batch will become, before approval."""
@@ -90,9 +90,9 @@ def summarise(propositions: list[Suggestion]) -> str:
         ou = proposition.destination
         by_destination[ou] = by_destination.get(ou, 0) + 1
     chunks = [
-        f"{combien} {destination}{_plural(destination, combien)}"
-        for destination, combien in by_destination.items()
+        f"{how_many} {destination}{_plural(destination, how_many)}"
+        for destination, how_many in by_destination.items()
     ]
-    bloques = sum(1 for p in propositions if p.blocked_by)
-    phrase = ", ".join(chunks)
-    return phrase + (f" — dont {bloques} en attente d'un outil" if bloques else "")
+    blocked = sum(1 for p in propositions if p.blocked_by)
+    sentence = ", ".join(chunks)
+    return sentence + (f" — dont {blocked} en attente d'un outil" if blocked else "")

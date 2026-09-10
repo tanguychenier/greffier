@@ -11,10 +11,10 @@ from greffier.wiring import assistant, writer
 
 
 def config(**conversation) -> Config:
-    reglages = Config()
+    settings = Config()
     for key, value in conversation.items():
-        setattr(reglages.conversation, key, value)
-    return reglages
+        setattr(settings.conversation, key, value)
+    return settings
 
 
 class TestLeRedacteurNaJamaisDOutil:

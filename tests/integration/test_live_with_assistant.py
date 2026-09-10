@@ -92,7 +92,7 @@ def test_appele_pendant_la_reunion_il_repond(meeting, tmp_path):
         watch_rules=WatchRules(keyword="greffier"),
         log=tmp_path / "propositions.jsonl",
         transcriber=transcriber,
-        situer=lambda: Position(morceau=meeting, ecrit=duration, decalage=0.0),
+        situer=lambda: Position(morceau=meeting, written=duration, offset=0.0),
         assistant_of=assistant,
     )
     watcher.transcription_turn(watcher.situer(), tmp_path)
@@ -138,7 +138,7 @@ def test_la_transcription_n_attend_pas_la_reponse(meeting, tmp_path):
         watch_rules=WatchRules(keyword="greffier"),
         log=tmp_path / "propositions.jsonl",
         transcriber=transcriber,
-        situer=lambda: Position(morceau=meeting, ecrit=duration, decalage=0.0),
+        situer=lambda: Position(morceau=meeting, written=duration, offset=0.0),
         assistant_of=assistant,
     )
     depart = time.monotonic()
@@ -175,8 +175,8 @@ def test_une_phrase_ordinaire_ne_le_fait_pas_parler(tmp_path):
         watch_rules=WatchRules(keyword="greffier"),
         log=tmp_path / "propositions.jsonl",
         transcriber=transcriber,
-        situer=lambda: Position(morceau=audio, ecrit=soundfile.info(str(audio)).duration,
-                                decalage=0.0),
+        situer=lambda: Position(morceau=audio, written=soundfile.info(str(audio)).duration,
+                                offset=0.0),
         assistant_of=assistant,
     )
     watcher.transcription_turn(watcher.situer(), tmp_path)
@@ -195,8 +195,8 @@ def test_l_assistant_absent_ne_change_rien(meeting, tmp_path):
         log=tmp_path / "propositions.jsonl",
         transcriber=transcriber,
         situer=lambda: Position(morceau=meeting,
-                                ecrit=soundfile.info(str(meeting)).duration,
-                                decalage=0.0),
+                                written=soundfile.info(str(meeting)).duration,
+                                offset=0.0),
     )
     watcher.transcription_turn(watcher.situer(), tmp_path)
 
@@ -234,10 +234,10 @@ class TestLaBoucleSurUnFilReel:
         from greffier.domain.models import Span, Utterance
 
         dites = []
-        for texte, depart, combien in self.OBSERVE:
+        for texte, depart, how_many in self.OBSERVE:
             dites += [
                 Utterance(span=Span(depart + i, depart + i + 1), text=texte)
-                for i in range(combien)
+                for i in range(how_many)
             ]
         return sorted(dites, key=lambda u: u.span.start)
 
@@ -340,8 +340,8 @@ initiative = false
             transcriber=transcriber,
             situer=lambda: Position(
                 morceau=meeting,
-                ecrit=soundfile.info(str(meeting)).duration,
-                decalage=0.0,
+                written=soundfile.info(str(meeting)).duration,
+                offset=0.0,
             ),
             assistant_of=assistant,
             # Ce que la veille lit du fichier : la voix est donnée, pas

@@ -7,9 +7,9 @@ import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
-AU_PLUS = 24_000
+AT_MOST = 24_000
 
-PAR_PIECE = 8_000
+PER_ITEM = 8_000
 
 HEADER = "# "
 
@@ -52,7 +52,7 @@ def lister(base: Path, identifier: str) -> list[Attachment]:
     folder = attachments_folder(base, identifier)
     if not identifier.strip() or not folder.is_dir():
         return []
-    trouvees: list[Attachment] = []
+    found: list[Attachment] = []
     for file in sorted(folder.glob("*.txt"), key=lambda f: f.stat().st_mtime):
         try:
             content = file.read_text(encoding="utf-8", errors="replace")
@@ -60,26 +60,26 @@ def lister(base: Path, identifier: str) -> list[Attachment]:
             continue
         header, _, corps = content.partition("\n")
         name = header[len(HEADER):].strip() if header.startswith(HEADER) else file.stem
-        trouvees.append(Attachment(name=name, file=file, caracteres=len(corps)))
-    return trouvees
+        found.append(Attachment(name=name, file=file, caracteres=len(corps)))
+    return found
 
-def material(base: Path, identifier: str, au_plus: int = AU_PLUS) -> str:
+def material(base: Path, identifier: str, at_most: int = AT_MOST) -> str:
     """The text of the documents, ready to hand to the assistant."""
     chunks: list[str] = []
-    reste = au_plus
+    remaining = at_most
     for piece in lister(base, identifier):
-        if reste <= 0:
+        if remaining <= 0:
             break
         try:
             content = piece.file.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
         _, _, corps = content.partition("\n")
-        garde = min(PAR_PIECE, reste)
+        garde = min(PER_ITEM, remaining)
         coupe = corps[:garde].strip()
         if not coupe:
             continue
         suite = "\n[…] document tronqué" if len(corps) > garde else ""
         chunks.append(f"Document « {piece.name} » :\n{coupe}{suite}")
-        reste -= len(coupe)
+        remaining -= len(coupe)
     return "\n\n".join(chunks)

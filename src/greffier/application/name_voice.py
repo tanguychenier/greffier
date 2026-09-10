@@ -13,8 +13,8 @@ from greffier.domain.models import Span
 from greffier.domain.voiceprints import aggregate
 from greffier.ports import outbound
 
-DUREE_EXTRAIT = 10.0
-DUREE_UTILE = 3.0
+EXTRACT_LENGTH = 10.0
+USEFUL_LENGTH = 3.0
 
 @dataclass
 class VoiceToName:
@@ -51,16 +51,16 @@ def voices_to_name(meeting: StoredMeeting, minimum: float = 10.0) -> list[VoiceT
 
 def best_excerpt(intervalles: list[Span]) -> Span | None:
     """The most representative passage to play back."""
-    utiles = [i for i in intervalles if i.duration >= DUREE_UTILE]
+    utiles = [i for i in intervalles if i.duration >= USEFUL_LENGTH]
     if not utiles:
         utiles = intervalles
     if not utiles:
         return None
-    plus_long = max(utiles, key=lambda i: i.duration)
-    if plus_long.duration <= DUREE_EXTRAIT:
-        return plus_long
-    start = plus_long.start + min(1.0, (plus_long.duration - DUREE_EXTRAIT) / 2)
-    return Span(start, start + DUREE_EXTRAIT)
+    longer = max(utiles, key=lambda i: i.duration)
+    if longer.duration <= EXTRACT_LENGTH:
+        return longer
+    start = longer.start + min(1.0, (longer.duration - EXTRACT_LENGTH) / 2)
+    return Span(start, start + EXTRACT_LENGTH)
 
 def extract_audio(audio: Path, span: Span, destination: Path) -> Path:
     """Cuts an excerpt out, to listen to it."""
@@ -98,7 +98,7 @@ class Naming:
         voiceprints = self.extractor.extract_spans(meeting.audio, intervalles)
         if not voiceprints:
             raise ValueError(
-                f"La voix « {voice} » n'a aucun passage d'au moins {DUREE_UTILE:.0f} s : "
+                f"La voix « {voice} » n'a aucun passage d'au moins {USEFUL_LENGTH:.0f} s : "
                 "trop peu de matière pour une empreinte fiable."
             )
         aggregate_of = replace(aggregate(voiceprints), origin=identifier)
@@ -110,10 +110,10 @@ class Naming:
         meeting.propositions.pop(voice, None)
         temps = meeting.speaking_time()
         homonymes = [v for v in meeting.voice_named(name) if v != voice]
-        for autre in homonymes:
+        for other in homonymes:
             gardee, absorbee = (
-                (voice, autre) if temps.get(voice, 0.0) >= temps.get(autre, 0.0)
-                else (autre, voice)
+                (voice, other) if temps.get(voice, 0.0) >= temps.get(other, 0.0)
+                else (other, voice)
             )
             meeting.join_into(absorbee, gardee)
             meeting.names[gardee] = name

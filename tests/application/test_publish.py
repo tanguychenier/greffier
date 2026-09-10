@@ -96,30 +96,30 @@ class TestExecution:
         source.parent.mkdir()
         source.write_bytes(b"x" * 300_000)
         proposition = Suggestion(source, Destination.MEETING, "enregistrement sonore")
-        fait = run_chain(proposition, tmp_path / "enregistrements")
-        assert fait.produit is not None and fait.produit.exists()
-        assert fait.trouble == ""
+        done = run_chain(proposition, tmp_path / "enregistrements")
+        assert done.produit is not None and done.produit.exists()
+        assert done.trouble == ""
 
     def test_un_fichier_bloque_est_rapporte_et_non_tente(self, tmp_path):
         proposition = Suggestion(
             tmp_path / "x.mp4", Destination.VIDEO, "vidéo",
             blocked_by="ffmpeg est introuvable",
         )
-        fait = run_chain(proposition, tmp_path / "enregistrements")
-        assert "ffmpeg" in fait.trouble
+        done = run_chain(proposition, tmp_path / "enregistrements")
+        assert "ffmpeg" in done.trouble
 
     def test_un_document_sans_redacteur_le_dit(self, tmp_path):
         file = tmp_path / "note.md"
         file.write_text("du texte", encoding="utf-8")
-        fait = run_chain(
+        done = run_chain(
             Suggestion(file, Destination.CONTEXT, "texte"),
             tmp_path / "enregistrements", writer=None,
         )
-        assert "aucun rédacteur" in fait.trouble
+        assert "aucun rédacteur" in done.trouble
 
 
 class TestOutils:
     def test_les_outils_presents_sont_ceux_du_poste(self):
-        trouves = tools_present()
-        assert isinstance(trouves, frozenset)
-        assert trouves <= {"ffmpeg", "pdftotext", "textutil"}
+        found = tools_present()
+        assert isinstance(found, frozenset)
+        assert found <= {"ffmpeg", "pdftotext", "textutil"}

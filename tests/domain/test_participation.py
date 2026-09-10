@@ -312,5 +312,5 @@ class TestSonNomNeSortJamaisDeSaBouche:
             "Lucie, tu as compris le sujet Lucie ?",
             "Dis-moi Lucie",
         ):
-            reste = without_own_name(question, "Lucie")
-            assert not called_by_name(reste, "Lucie"), reste
+            remaining = without_own_name(question, "Lucie")
+            assert not called_by_name(remaining, "Lucie"), remaining

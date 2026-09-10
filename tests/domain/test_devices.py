@@ -104,8 +104,8 @@ class TestBranchementsSuccessifs:
 
     def test_un_second_casque_branche_est_pris_si_le_premier_manque(self) -> None:
         watch_rules = WatchRules(wanted_mic="Casque absent")
-        autre = Device("Poly Blackwire", "poly:1", entrees=1)
-        apres = Hardware((BLACKHOLE, MICRO_INTEGRE, autre, AGREGE))
+        other = Device("Poly Blackwire", "poly:1", entrees=1)
+        apres = Hardware((BLACKHOLE, MICRO_INTEGRE, other, AGREGE))
         decision = watch_rules.examine(SANS_CASQUE, apres)
         assert decision.action is Action.RECONSTRUIRE
         # Un micro externe mono passe devant le micro intégré : c'est la forme

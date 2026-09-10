@@ -67,7 +67,7 @@ def read(file: Path) -> Registry:
                 name=str(input.get("nom", "")).strip(),
                 kind=Kind(str(input.get("genre", "")).strip().casefold()),
                 adresse=str(input.get("adresse", "")).strip().rstrip("/"),
-                projet=str(input.get("projet", "")).strip(),
+                project=str(input.get("projet", "")).strip(),
                 droit=Right(str(input.get("droit", "lecture")).strip().casefold()),
                 token=str(input.get("jeton", "")).strip(),
             ))
@@ -95,8 +95,8 @@ def _from_the_keychain(service: str) -> str:
     """The generic password from the macOS keychain."""
     if platform.system() != "Darwin" or shutil.which("security") is None:
         return ""
-    fait = subprocess.run(
+    done = subprocess.run(
         ["security", "find-generic-password", "-s", service, "-w"],
         capture_output=True, text=True, check=False,
     )
-    return fait.stdout.strip() if fait.returncode == 0 else ""
+    return done.stdout.strip() if done.returncode == 0 else ""
