@@ -27,7 +27,7 @@ import tarfile
 import urllib.request
 from pathlib import Path
 
-STORE = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent
 SYSTEM = platform.system()  # Darwin | Linux | Windows
 
 # --------------------------------------------------------------------- sortie
@@ -124,7 +124,7 @@ class Context:
 # peuvent pas se contredire sur l'endroit où sont les modèles.
 def _charger_emplacements():
     specification = importlib.util.spec_from_file_location(
-        "greffier_locations", STORE / "src/greffier/locations.py"
+        "greffier_locations", ROOT / "src/greffier/locations.py"
     )
     module = importlib.util.module_from_spec(specification)
     specification.loader.exec_module(module)
@@ -194,7 +194,7 @@ def sound_server_present():
 #: l'installeur tourne avant que quoi que ce soit ne soit installé.
 def _charger_langues():
     specification = importlib.util.spec_from_file_location(
-        "greffier_langues", STORE / "src/greffier/domain/languages.py"
+        "greffier_langues", ROOT / "src/greffier/domain/languages.py"
     )
     module = importlib.util.module_from_spec(specification)
     try:
@@ -677,7 +677,7 @@ def etape_modele_whisper(ctx, engine, python):
         [str(python), "-c",
          "from faster_whisper import WhisperModel;"
          f"WhisperModel('{MODELE_WHISPER}', device='cpu', compute_type='int8')"],
-        capture_output=True, text=True, cwd=STORE, check=False,
+        capture_output=True, text=True, cwd=ROOT, check=False,
     )
     if outcome.returncode == 0:
         ok(f"modèle {MODELE_WHISPER} prêt")
@@ -692,7 +692,7 @@ def etape_modele_whisper(ctx, engine, python):
 
 def etape_environnement(ctx, engine):
     title("5. Environnement Python")
-    venv = STORE / ".venv"
+    venv = ROOT / ".venv"
     python = venv / ("Scripts/python.exe" if SYSTEM == "Windows" else "bin/python")
 
     extras = "dev" + (",transcription" if engine == "faster-whisper" else "")
@@ -732,8 +732,8 @@ def etape_environnement(ctx, engine):
 
     if shutil.which("uv"):
         if not python.exists():
-            run_job(["uv", "venv", "--python", "3.13"], cwd=STORE)
-        run_job(["uv", "pip", "install", "-q", "-e", f".[{extras}]"], cwd=STORE)
+            run_job(["uv", "venv", "--python", "3.13"], cwd=ROOT)
+        run_job(["uv", "pip", "install", "-q", "-e", f".[{extras}]"], cwd=ROOT)
     else:
         alerte("uv absent — repli sur venv + pip, plus lent")
         if not python.exists():
@@ -745,7 +745,7 @@ def etape_environnement(ctx, engine):
             erreur("l'environnement Python n'a pas pu être créé. Sous Debian et "
                    "Ubuntu, « apt install python3-venv » le fournit.")
             raise SystemExit(1)
-        run_job([str(python), "-m", "pip", "install", "-q", "-e", f".[{extras}]"], cwd=STORE)
+        run_job([str(python), "-m", "pip", "install", "-q", "-e", f".[{extras}]"], cwd=ROOT)
     ok(f"dépendances installées ({extras})")
     return python
 
@@ -885,7 +885,7 @@ def etape_bureau(ctx):
     title("7. Intégration au bureau")
 
     if SYSTEM == "Darwin":
-        if not (STORE / "macos/construire.sh").exists():
+        if not (ROOT / "macos/construire.sh").exists():
             alerte("script de construction introuvable dans ce dépôt")
             return
         # /Applications d'abord : ~/Applications n'est indexé ni par Spotlight ni
@@ -901,7 +901,7 @@ def etape_bureau(ctx):
         # Autonome et signée de façon stable (voir macos/construire.sh) : les
         # autorisations micro et Outlook, données une fois, ne sont plus
         # redemandées à la reconstruction suivante.
-        if run_job([str(STORE / "macos/construire.sh")]).returncode != 0:
+        if run_job([str(ROOT / "macos/construire.sh")]).returncode != 0:
             alerte("construction de l'application échouée")
             return
         pose = next((c for c in candidates if c.exists()), None)
@@ -946,7 +946,7 @@ def etape_skill(ctx):
     # multipliés (assister une réunion en est un second), et un installeur qui
     # en copie un et oublie les autres est un piège pour la fois suivante.
     sources = sorted(
-        path for path in (STORE / "skills").glob("*/SKILL.md") if path.exists()
+        path for path in (ROOT / "skills").glob("*/SKILL.md") if path.exists()
     )
     if not sources:
         alerte("aucun skill trouvé dans ce dépôt")
@@ -984,8 +984,8 @@ def etape_verification(ctx, python):
         return False
 
     outcome = subprocess.run(
-        [str(python), "-m", "pytest", str(STORE / "tests")],
-        capture_output=True, text=True, cwd=STORE, check=False,
+        [str(python), "-m", "pytest", str(ROOT / "tests")],
+        capture_output=True, text=True, cwd=ROOT, check=False,
     )
     resume = [
         line for line in outcome.stdout.splitlines()
@@ -1006,7 +1006,7 @@ def etape_verification(ctx, python):
          "sys.path.insert(0, 'src');"
          "from greffier.adapters.voiceprints_titanet import ExtracteurTitaNet;"
          f"ExtracteurTitaNet(pathlib.Path(r'{voiceprints}'))"],
-        capture_output=True, text=True, cwd=STORE, check=False,
+        capture_output=True, text=True, cwd=ROOT, check=False,
     )
     if controle.returncode != 0:
         erreur("le modèle d'empreintes ne se charge pas")
@@ -1071,7 +1071,7 @@ def main():
         if ctx.oui or ctx.ask("Configurer maintenant (rédacteur, courriel, vocabulaire) ?"):
             greffier = python.parent / ("greffier.exe" if SYSTEM == "Windows" else "greffier")
             if greffier.exists():
-                subprocess.run([str(greffier), "configurer"], cwd=STORE, check=False)
+                subprocess.run([str(greffier), "configurer"], cwd=ROOT, check=False)
             else:
                 info("Lance « greffier configurer » quand tu voudras.")
         else:
