@@ -408,14 +408,16 @@ class Assistant(BaseModel):
     réunion, et de la façon dont il se fait entendre.
     """
 
-    #: Vrai par défaut : l'assistant suit la réunion, prend des notes et répond
-    #: quand on l'appelle. C'est son travail, et il n'y a pas de raison de le
-    #: débrancher.
+    #: Plus consulté, et gardé pour ne pas faire échouer la lecture des anciens
+    #: fichiers. L'assistant participe **toujours** : il suit la réunion, prend
+    #: des notes et répond quand on l'appelle — c'est son travail.
     #:
-    #: Il était faux, et le jour où l'interface a cessé d'exposer ce réglage —
-    #: un seul bouton, pour la voix — plus rien ne permettait de l'activer :
-    #: l'assistant ne répondait pas, et personne ne pouvait savoir pourquoi.
-    #: Constaté en réunion, ce qui est le pire moment.
+    #: Passer le défaut à vrai n'a pas suffi. Un fichier écrit auparavant
+    #: gardait `actif = false`, l'interface n'exposait plus le bouton
+    #: correspondant, donc plus rien ne pouvait le remettre à vrai : Lucie ne
+    #: répondait pas quand on l'appelait par son nom, et rien ne le disait.
+    #: Constaté deux fois en réunion, ce qui est le pire moment. Un réglage que
+    #: l'interface n'expose plus ne doit pas continuer à décider.
     #:
     #: Ce qui se règle, c'est la **voix** (`voix`) et l'**initiative**
     #: (`initiative`) : se faire entendre dans la pièce et parler sans qu'on
@@ -639,13 +641,14 @@ _COMMENTAIRES = {
                      "# « rien », « annoncé » ou « accord ». Une voix est une donnée\n"
                      "# biométrique ; le compte rendu porte la mention correspondante."),
     "assistant": ("L'assistant comme participant : le nom auquel il répond, et\n"
-                  "# s'il se fait entendre. « actif » est le bouton de l'onglet En\n"
-                  "# direct, et il se relit pendant la réunion : on peut le faire\n"
-                  "# taire sans rien arrêter. « voix » : kokoro (neuronale, un\n"
+                  "# s'il se fait entendre. Il participe toujours — il écoute,\n"
+                  "# prend des notes, pose ses questions par écrit ; le seul\n"
+                  "# réglage est « voix », qui se relit pendant la réunion : on\n"
+                  "# peut le faire taire sans rien arrêter. kokoro (neuronale, un\n"
                   "# modèle à télécharger), systeme (livrée par l'ordinateur), ou\n"
-                  "# aucun (il participe par écrit). « repos » : secondes entre deux\n"
-                  "# prises de parole spontanées. Être appelé par son nom ne compte\n"
-                  "# pas : on répond tout de suite."),
+                  "# aucun. « repos » : secondes entre deux prises de parole\n"
+                  "# spontanées. Être appelé par son nom ne compte pas : on\n"
+                  "# répond tout de suite."),
     "apparence": "systeme suit le réglage clair/sombre du poste.",
 }
 

@@ -503,9 +503,17 @@ class Fenetre:
             largeur=230, hauteur=34,
             principal=self.config.assistant.voix != "aucun")
         self.bouton_voix.grid(row=0, column=0, sticky="w")
+        # L'initiative est l'autre chose qui dépend de la réunion, et elle est
+        # plus délicate que la voix : une intervention non sollicitée coupe
+        # quelqu'un. Elle était donc livrée éteinte, sans moyen de l'allumer.
+        self.bouton_initiative = Bouton(
+            barre, self._intitule_initiative(), self._basculer_l_initiative,
+            self.couleurs, largeur=250, hauteur=34,
+            principal=self.config.assistant.initiative)
+        self.bouton_initiative.grid(row=0, column=1, sticky="w", padx=(10, 0))
         Bouton(barre, "Fournir un document", self._fournir_un_document,
                self.couleurs, largeur=190, hauteur=34).grid(
-                   row=0, column=1, sticky="w", padx=(10, 0))
+                   row=0, column=2, sticky="w", padx=(10, 0))
         # Sur sa propre ligne, et non à côté des boutons : à côté, la place
         # restante dépend de la largeur de la fenêtre, et le texte se faisait
         # couper au milieu d'un mot, constaté à la capture.
@@ -584,6 +592,35 @@ class Fenetre:
         if hasattr(self, "reglage_voix_assistant"):
             self.reglage_voix_assistant.choisir(self.config.assistant.voix)
 
+    def _intitule_initiative(self) -> str:
+        nom = self.config.assistant.nom
+        return (f"{nom} n'intervient que si on l'appelle"
+                if self.config.assistant.initiative
+                else f"Laisser {nom} intervenir d'elle-même")
+
+    def _basculer_l_initiative(self) -> None:
+        """Lui permet de parler sans qu'on l'ait appelée, ou le lui retire.
+
+        Éteinte, elle ne dit un mot que si son nom est prononcé — c'est la règle
+        qui la rend supportable en réunion. Allumée, elle peut signaler une
+        décision sans responsable, une question restée en l'air, un écart avec
+        un document fourni. Jamais plus d'une fois par « repos », et jamais dans
+        une phrase de quelqu'un : la politesse est dans `participation`.
+        """
+        from greffier.adaptateurs import configuration as reglages
+
+        avant = self.config.assistant.initiative
+        self.config.assistant.initiative = not avant
+        try:
+            reglages.sauver(self.config)
+        except OSError as souci:
+            self.config.assistant.initiative = avant
+            messagebox.showerror("Greffier", f"Réglage non enregistré : {souci}")
+            return
+        self.bouton_initiative.intituler(self._intitule_initiative())
+        self.bouton_initiative.mettre_en_avant(self.config.assistant.initiative)
+        self._dire_la_participation()
+
     def _dire_la_participation(self) -> None:
         """Ce que le bouton vient de changer, en clair.
 
@@ -597,6 +634,9 @@ class Fenetre:
         else:
             mot = (f"{nom} peut prendre la parole. Appelez-la par son nom pour "
                    "lui poser une question.")
+        mot += (" Elle peut aussi intervenir d'elle-même."
+                if self.config.assistant.initiative
+                else " Elle n'intervient jamais sans qu'on l'appelle.")
         self.mot_participation.configure(text=mot)
 
 
