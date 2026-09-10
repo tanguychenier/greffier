@@ -17,8 +17,6 @@ from greffier.domain.arithmetic import compute_threads
 from greffier.domain.models import Span, Voiceprint
 from greffier.domain.voiceprints import normalise
 
-# En deçà, l'extrait ne porte pas assez de voix pour une empreinte fiable : le
-# vecteur obtenu tient davantage du bruit de la pièce que de la personne.
 DUREE_MINIMALE = 1.5
 
 DUREE_MAXIMALE = 60.0

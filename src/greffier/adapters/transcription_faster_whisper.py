@@ -60,8 +60,6 @@ class TranscripteurFasterWhisper:
         self._model = None
 
     def _load(self) -> object:
-        # Chargement tardif : le modèle pèse plus d'un gigaoctet en mémoire, il
-        # n'a pas à être là quand on se contente de lister des réunions.
         if self._model is None:
             _show_cuda_to_the_loader()
             from faster_whisper import WhisperModel
@@ -77,12 +75,6 @@ class TranscripteurFasterWhisper:
         except RuntimeError:
             if self.peripherique == "cpu":
                 raise
-            # « auto » retient la carte graphique dès qu'il en voit une, sans
-            # vérifier que les bibliothèques CUDA l'accompagnent. Sur un poste
-            # doté d'une carte mais sans cuBLAS — le cas ordinaire sous Linux,
-            # où rien ne les installe — le modèle se chargeait sans broncher,
-            # puis la transcription échouait au premier bloc audio. Le
-            # processeur est plus lent, mais il transcrit.
             self.peripherique = "cpu"
             self._model = None
             return self._utterances(audio, language, prompt_seed)
@@ -90,17 +82,10 @@ class TranscripteurFasterWhisper:
     def _utterances(self, audio: Path, language: str, prompt_seed: str) -> list[Utterance]:
         segments, _ = self._load().transcribe(  # type: ignore[attr-defined]
             str(audio),
-            # None, pas la chaîne « auto » : faster-whisper refuse un code de
-            # langue inconnu, là où l'absence de code déclenche la détection.
             language=language or None,
             initial_prompt=prompt_seed or None,
-            # Le découpage par détection de parole évite que le modèle brode sur
-            # les silences — travers classique de whisper sur les longs blancs.
             vad_filter=True,
         )
-        # La liste est construite ici, et non rendue paresseusement : les
-        # segments sont un générateur, et c'est en le parcourant que le calcul a
-        # lieu — donc aussi qu'échoue une carte graphique inutilisable.
         return [
             Utterance(span=Span(s.start, s.end), text=s.text.strip())
             for s in segments

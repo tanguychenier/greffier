@@ -64,7 +64,6 @@ def sound_server_present() -> bool:
 def speedup() -> str:
     """Le calcul disponible pour la transcription."""
     if SYSTEM == "Darwin" and platform.machine() == "arm64":
-        # Toute puce Apple Silicon expose Metal : whisper.cpp s'en sert seul.
         return "metal"
     if shutil.which("nvidia-smi"):
         return "cuda"
@@ -85,8 +84,6 @@ def recorder(data_folder: Path | None = None) -> Recorder:
         disque_libre_go=round(libre, 1),
         speedup=speedup(),
     )
-
-# --------------------------------------------------------------- Claude Code
 
 def claude_installed() -> bool:
     return shutil.which("claude") is not None
@@ -155,14 +152,10 @@ COMMANDE_INSTALLER_CLAUDE = {
     "Windows": "irm https://claude.ai/install.ps1 | iex",
 }
 
-# ------------------------------------------------------------------- courriel
-
 def outlook_present() -> bool:
     if SYSTEM != "Darwin":
         return False
     return Path("/Applications/Microsoft Outlook.app").exists()
-
-# ----------------------------------------------------------------------- audio
 
 def system_capture() -> Constat:
     """De quoi réenregistrer ce que jouent les haut-parleurs.

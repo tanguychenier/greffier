@@ -21,7 +21,6 @@ import unicodedata
 
 from greffier.domain.texts import short_voiceprint
 
-# Palette sobre : un compte rendu se lit, il ne se contemple pas.
 _INK = "#24242b"
 _ENCRE_PALE = "#5b5b66"
 _FILET = "#e0e0e6"
@@ -32,8 +31,6 @@ _POLICE_FIXE = "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
 _STYLES = {
     "h1": f"margin:0 0 7px;font:600 25px/1.25 {_FONT};color:{_INK};"
           f"letter-spacing:-.01em",
-    # Un intertitre qui a la taille du corps ne se voit pas : la hiérarchie se
-    # lit à la taille et au filet, pas au gras seul.
     "h2": f"margin:38px 0 15px;padding-bottom:8px;border-bottom:2px solid {_INK};"
           f"font:600 12px/1.3 {_FONT};color:{_INK};letter-spacing:.1em;"
           f"text-transform:uppercase",
@@ -46,13 +43,8 @@ _STYLES = {
     "th": f"background:{_FOND_ENTETE};border:1px solid {_FILET};padding:9px 11px;"
           f"text-align:left;font-weight:600;color:{_INK};white-space:nowrap",
     "td": f"border:1px solid {_FILET};padding:9px 11px;vertical-align:top;color:{_INK}",
-    # Première colonne : « Kerann, Camilo, Tanguy » se cassait sur trois lignes
-    # alors que la place existait.
     "td_premiere": f"border:1px solid {_FILET};padding:9px 11px;vertical-align:top;"
                    f"color:{_INK};min-width:96px",
-    # Une échéance non dite ne doit pas peser autant qu'une vraie date : répétée
-    # dix fois dans une colonne, elle attirait l'œil plus que les deux qui
-    # portaient un jour.
     "td_absent": f"border:1px solid {_FILET};padding:9px 11px;vertical-align:top;"
                  f"color:#9a9aa4;font-style:italic",
     "blockquote": f"margin:14px 0;padding:9px 15px;border-left:3px solid {_FILET};"
@@ -160,7 +152,6 @@ def as_html(markdown: str) -> str:
             level = len(nue) - len(nue.lstrip("#"))
             name = f"h{min(level, 3)}"
             text = nue.lstrip("#").strip()
-            # Ancre sur les sections seulement : c'est là que le sommaire mène.
             ancre = f' id="{_ancre(text)}"' if level == 2 else ""
             output.append(_balise(name, _as_line(text), ancre))
             i += 1
@@ -171,7 +162,6 @@ def as_html(markdown: str) -> str:
             i += 1
             continue
 
-        # Tableau : une ligne de cellules suivie d'une ligne de séparateurs.
         if "|" in nue and i + 1 < len(lines) and _SEPARATEUR_TABLEAU.match(lines[i + 1]):
             entetes = _cellules(nue)
             i += 2
@@ -209,7 +199,6 @@ def as_html(markdown: str) -> str:
                     items.append(re.sub(r"^([-*+]|\d+[.)])\s+", "", courante))
                     i += 1
                 elif courante and not courante.startswith("#") and items:
-                    # Continuation d'un item sur la ligne suivante.
                     items[-1] += " " + courante
                     i += 1
                 else:
@@ -218,7 +207,6 @@ def as_html(markdown: str) -> str:
             output.append(_balise("ol" if ordonnee else "ul", content))
             continue
 
-        # Paragraphe : tout ce qui suit jusqu'à une ligne vide.
         bloc = []
         while (i < len(lines) and lines[i].strip()
                and not lines[i].strip().startswith(("#", ">", "|"))):

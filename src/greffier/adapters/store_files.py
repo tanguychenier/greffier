@@ -19,11 +19,7 @@ from pathlib import Path
 from greffier.domain.meeting import StoredMeeting, held_on
 from greffier.domain.models import Source, Span, SpeakerTurn, Utterance
 
-# 2 ajoute « commencee_le » et « terminee_le ». Un fichier de format 1 se relit
-# sans elles : la lecture les laisse vides, et l'affichage retombe sur
-# l'horodatage de l'identifiant, comme avant.
 FORMAT = 2
-
 
 class DepotFichiers:
     """Range et relit les fichiers maîtres, un par réunion."""
@@ -62,8 +58,6 @@ class DepotFichiers:
             ],
         }
         path = self._path(meeting.identifier)
-        # Écriture puis renommage : une interruption ne doit pas laisser un
-        # fichier maître à moitié écrit à la place de l'ancien, valide.
         temporary = path.with_suffix(".json.partiel")
         temporary.write_text(
             json.dumps(content, ensure_ascii=False, indent=2), encoding="utf-8"

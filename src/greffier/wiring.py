@@ -47,12 +47,9 @@ def _transcriber(config: Config) -> outbound.Transcriber:
             model=models / "ggml-large-v3-turbo.bin",
             vad=models / "ggml-silero-v5.1.2.bin",
         )
-    # Import tardif : faster-whisper n'est installé que là où il sert, et
-    # l'importer inconditionnellement casserait un poste macOS sans cet extra.
     from greffier.adapters.transcription_faster_whisper import TranscripteurFasterWhisper
 
     return TranscripteurFasterWhisper(taille=config.transcription.model)
-
 
 def _live_model(config: Config) -> str:
     """Le modèle que cette machine fait tourner dans le budget d'une tranche.
@@ -66,7 +63,6 @@ def _live_model(config: Config) -> str:
     from greffier.adapters import system_diagnostic as diagnostic
 
     return diagnostic.recorder(config.paths.data).advised_model
-
 
 def light_transcriber(config: Config) -> outbound.Transcriber | None:
     """Le modèle de la transcription en direct : rapide plutôt que juste.
@@ -89,13 +85,10 @@ def light_transcriber(config: Config) -> outbound.Transcriber | None:
             return None
         from greffier.adapters.transcription_whisper_cpp import TranscripteurWhisperCpp
 
-        # Pas de détection d'activité vocale : elle coûte un modèle de plus à
-        # charger à chaque tranche, pour une tranche qui en dure dix secondes.
         return TranscripteurWhisperCpp(model=model, vad=None)
     from greffier.adapters.transcription_faster_whisper import TranscripteurFasterWhisper
 
     return TranscripteurFasterWhisper(taille=taille)
-
 
 def follower(config: Config, identifier: str) -> Follower:
     """Le fil affiché pendant la réunion, et ce qui le corrige.
@@ -125,12 +118,9 @@ def follower(config: Config, identifier: str) -> Follower:
         identifier=identifier,
     )
 
-
 def writer(config: Config) -> outbound.Writer | None:
     """Le rédacteur seul, pour régénérer un compte rendu sans tout réassembler."""
     engine = config.minutes.engine
-    # La langue du document : celle qu'on a demandée, sinon celle de la réunion.
-    # Vide des deux côtés, le rédacteur garde ses consignes françaises.
     language = config.minutes.language or config.transcription.language
     if engine == "ollama":
         return RedacteurOllama(config.minutes.effective_model, language=language)
@@ -143,7 +133,6 @@ def writer(config: Config) -> outbound.Writer | None:
             language=language,
         )
     return None
-
 
 def assistant(config: Config) -> outbound.Writer | None:
     """Qui répond dans la conversation — pas qui rédige le compte rendu.
@@ -160,7 +149,6 @@ def assistant(config: Config) -> outbound.Writer | None:
     """
     engine = config.minutes.engine
     if engine == "ollama":
-        # Un modèle local ne cherche rien : il répond sur ce qu'il a lu.
         return RedacteurOllama(config.minutes.effective_model,
                                language=config.minutes.language)
     if engine != "claude":
@@ -178,7 +166,6 @@ def assistant(config: Config) -> outbound.Writer | None:
                 if config.conversation.recherche_web else ()),
         consignes_propres=CONSIGNES_CONVERSATION,
     )
-
 
 def cartographe(config: Config) -> outbound.Writer | None:
     """Qui extrait les points d'une carte. Ni le rédacteur, ni l'assistant.
@@ -210,11 +197,9 @@ def cartographe(config: Config) -> outbound.Writer | None:
         consignes_propres=GUIDANCE,
     )
 
-
 def store(config: Config) -> DepotFichiers:
     """Les fichiers maîtres, source de vérité d'une réunion traitée."""
     return DepotFichiers(config.paths.data / "reunions")
-
 
 def naming(config: Config) -> Naming:
     """Le cas d'usage « donner un nom à une voix », après la réunion."""
@@ -224,7 +209,6 @@ def naming(config: Config) -> Naming:
         bank=BanqueFichiers(config.paths.voice_bank),
         extractor=ExtracteurTitaNet(diarisation / "nemo_en_titanet_large.onnx"),
     )
-
 
 def context(config: Config) -> WorkContext:
     """Ce que l'outil sait du milieu, fondu depuis ses trois sources.
@@ -245,7 +229,6 @@ def context(config: Config) -> WorkContext:
     names = [p.name for p in known_people(BanqueFichiers(config.paths.voice_bank))]
     fondu = fondu.join(context_file.from_the_bank(names))
     return fondu.join(context_file.read(config.paths.context))
-
 
 def _sender(config: Config, exiger_destinataire: bool = True) -> outbound.Sender | None:
     """Comment part le compte rendu.
@@ -271,24 +254,17 @@ def _sender(config: Config, exiger_destinataire: bool = True) -> outbound.Sender
         return OutlookSender()
     return FileSender(config.paths.minutes_folder)
 
-
 def _audio_recorder(config: Config) -> FfmpegRecorder:
     """La capture audio. Une seule construction, trois appelants."""
     return FfmpegRecorder(config.audio.input, config.audio.duree_maximale)
 
-
 def lister(config: Config) -> CoreAudioLister:
     """Lecture du matériel audio, pour la veille et le diagnostic."""
     source = Path(__file__).resolve().parent.parent.parent / "macos/creer-peripheriques.swift"
-    # Depuis le paquet macOS, l'exécutable est Contents/MacOS/Greffier : le
-    # listeur compilé par construire.sh vit alors à côté, dans Resources, et
-    # c'est lui qu'on exécute — jamais un binaire recompilé dans ~/.local,
-    # qu'un garde du poste conteste à chaque relevé.
     prete = Path(sys.executable).resolve().parent.parent / "Resources/lister-peripheriques"
     return CoreAudioLister(
         source, config.paths.data / "cache", prete if prete.exists() else None
     )
-
 
 def recording(config: Config) -> Recording:
     """La machine à états de l'enregistrement, partagée entre deux commandes."""
@@ -297,7 +273,6 @@ def recording(config: Config) -> Recording:
         dossier_audio=config.paths.recordings,
         fichier_etat=config.paths.data / "etat.json",
     )
-
 
 def wire_up(config: Config) -> Chain:
     models = config.paths.models
@@ -314,13 +289,8 @@ def wire_up(config: Config) -> Chain:
         bank=BanqueFichiers(config.paths.voice_bank),
         writer=writer(config),
         sender=_sender(config),
-        # Le journal est posé par l'appelant, qui sait de **quelle** réunion il
-        # s'agit : « assembler » ne le sait pas, et un journal qui publie sans
-        # cette précaution peut arrêter une capture en cours.
         log=None,
         notificateur=NotificateurSysteme(),
-        # Câblés ici, donc pour tous les appelants : la fenêtre garde la
-        # réunion comme la ligne de commande, ce qui n'était pas le cas.
         store=store(config),
         dossier_transcriptions=config.paths.transcripts,
         dossier_comptes_rendus=config.paths.minutes_folder,
@@ -332,7 +302,6 @@ def wire_up(config: Config) -> Chain:
         recipient=config.minutes.recipient,
         disclosure=config.conversation.disclosure,
     )
-
 
 def assistant_voice(config: Config) -> Any | None:
     """Ce qui prononce, ou rien si l'assistant participe par écrit.
@@ -361,7 +330,6 @@ def assistant_voice(config: Config) -> Any | None:
     system = SystemVoice()
     return system if system.available else None
 
-
 def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
     """L'assistant en tant que participant à la réunion.
 
@@ -389,18 +357,9 @@ def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
         voice=assistant_voice(config),
         tracer=tracer,
     )
-    # Le même moteur que la conversation, mais avec les consignes de l'oral :
-    # ce qui sort du haut-parleur n'a ni titre, ni tableau, ni adresse web. Un
-    # rédacteur configuré pour écrire répondrait en Markdown, et la synthèse
-    # prononcerait les dièses.
     cerveau = assistant(config)
     if cerveau is not None and hasattr(cerveau, "consignes_propres"):
-        # `hasattr` et non un type : le port `Redacteur` ne promet que
-        # `rediger`, et c'est bien ainsi — un rédacteur Ollama n'a ni consignes
-        # séparées ni outils. On règle ce qui est réglable, sur ce qui l'expose.
         cerveau.consignes_propres = lui.guidance()
-        # Rien à chercher en ligne quand on répond à voix haute : la réponse
-        # doit venir en deux secondes, et une adresse ne se prononce pas.
         cerveau.outils = ()  # type: ignore[attr-defined]
     lui.cerveau = cerveau
     return lui

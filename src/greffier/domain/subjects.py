@@ -61,8 +61,6 @@ class Registre:
         registre. Le comptage est insensible à la casse et aux accents, sur des
         mots entiers — « prod » ne doit pas se compter dans « production ».
         """
-        # Dans l'ordre du texte, sans tri : compter une suite de mots suppose
-        # que l'adjacence soit préservée.
         words = content_words(text)
         present: dict[str, int] = {}
         for subject in self.subjects:

@@ -26,8 +26,6 @@ from typing import ClassVar
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
-# Les emplacements vivent dans un module sans dépendance : l'installeur les lit
-# avant que pydantic ne soit installé, et doit dire la même chose que nous.
 from greffier.locations import config_folder, data_folder
 
 
@@ -165,8 +163,6 @@ class Paths(BaseModel):
 class Audio(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    # Sur macOS, deux périphériques à créer une fois. Ailleurs, le système
-    # expose déjà de quoi réenregistrer sa propre sortie.
     input: str = Field(
         default="Reunion Entree" if platform.system() == "Darwin" else "default",
         validation_alias="entree",
@@ -175,12 +171,7 @@ class Audio(BaseModel):
         default="Reunion Sortie" if platform.system() == "Darwin" else "default.monitor",
         validation_alias="sortie",
     )
-    # Micro que le périphérique agrégé doit porter. Vide : le meilleur micro
-    # réellement branché au moment de démarrer. C'est ce réglage que la veille
-    # cherche à retrouver quand le matériel change en cours de réunion.
     mic: str = Field(default="", validation_alias="micro")
-    # Garde-fou : sans second clic, l'enregistrement tournerait jusqu'à remplir
-    # le disque (~115 Mo/h). Quatre heures couvrent largement une réunion.
     duree_maximale: int = Field(default=14_400, validation_alias="duree_maximale")
 
 class Transcription(BaseModel):
@@ -190,12 +181,8 @@ class Transcription(BaseModel):
         default="whisper.cpp" if platform.system() == "Darwin" else "faster-whisper",
         validation_alias="moteur",
     )
-    # Taille du modèle pour faster-whisper ; ignoré par whisper.cpp, qui prend le
-    # fichier téléchargé par l'installeur.
     model: str = Field(default="large-v3", validation_alias="modele")
     language: str = Field(default="fr", validation_alias="langue")
-    # Passé au modèle en amorce : c'est ce qui améliore le plus la transcription
-    # des noms propres et des acronymes rares.
     vocabulary: list[str] = Field(default_factory=list, validation_alias="vocabulaire")
 
     @property
@@ -222,10 +209,7 @@ class Live(BaseModel):
 class Speakers(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    # Mots que la détection des prénoms ne doit jamais retenir : noms de
-    # projets, d'outils, de produits.
     not_first_names: list[str] = Field(default_factory=list, validation_alias="pas_des_prenoms")
-    # Laissé vide, le nombre de participants est déduit par recollage des voix.
     people: int | None = Field(default=None, validation_alias="personnes")
 
 MODELES_CLAUDE: list[tuple[str, str]] = [
@@ -420,17 +404,12 @@ class Config(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        # L'environnement l'emporte sur le .env, qui l'emporte sur le TOML :
-        # on doit pouvoir forcer un réglage le temps d'une commande sans
-        # modifier de fichier.
         return (init_settings, env_settings, dotenv_settings, _SourceToml(settings_cls))
 
     @classmethod
     def load(cls, file: Path | None = None) -> Config:
         """Lit la configuration, ou rend les valeurs par défaut si elle manque."""
         if file is not None:
-            # « model_validate » et non un dépliage : la structure vient d'un
-            # fichier, elle doit être validée, pas supposée conforme.
             return cls.model_validate(_read_toml(file))
         return cls()
 
@@ -458,32 +437,6 @@ class _SourceToml(PydanticBaseSettingsSource):
 
     def __call__(self) -> dict[str, object]:
         return _read_toml(config_folder() / "config.toml")
-
-# --------------------------------------------------------------- écriture
-#
-# Venu de `reglages`, qui vivait à la racine du paquet. C'est la moitié écriture
-# de ce module : même fichier cible, même dossier, même objet. Les tenir
-# séparés est ce qui rendait possible qu'ils divergent — et le dictionnaire
-# SECTIONS énumère à la main les champs à réécrire, si bien qu'un champ ajouté
-# ici et oublié là était perdu au premier enregistrement depuis la fenêtre.
-#
-# Écrit `config.toml`, ce que rien ne savait faire jusqu'ici.
-# 
-# La configuration était lue de trois sources et modifiable seulement à la main,
-# ou par l'assistant qui écrivait un `.env`. Régler le micro ou le rédacteur
-# depuis la fenêtre demande de savoir **écrire**, et d'écrire au même endroit que
-# celui d'où on lit — deux fichiers qui se contredisent valent moins que pas de
-# fichier du tout.
-# 
-# Le fichier est **régénéré**, pas rustiné : les commentaires sont réécrits à
-# partir de ce module, donc ils ne mentent jamais sur ce que vaut le réglage
-# voisin. Ce que l'utilisateur avait écrit lui-même dans le fichier est conservé
-# dans une sauvegarde `config.toml.precedent`, jamais silencieusement perdu.
-# 
-# Seuls les réglages que l'interface propose passent ici. Les chemins, le
-# vocabulaire et les mots qui ne sont pas des prénoms restent au fichier : ce sont
-# des listes qui se tiennent mieux dans un éditeur que dans un formulaire, et les
-# écrire depuis la fenêtre reviendrait à les tronquer.
 
 SECTIONS: dict[str, tuple[str, ...]] = {
     "audio": ("micro", "entree", "sortie", "duree_maximale"),
@@ -560,7 +513,6 @@ SOUS_MODELE: dict[str, str] = {
     "apparence": "appearance",
 }
 
-
 def _attribut(model: BaseModel, key: str) -> str:
     """Le nom du champ qui porte cette clef de fichier.
 
@@ -573,7 +525,6 @@ def _attribut(model: BaseModel, key: str) -> str:
             return name
     return key
 
-
 def render(config: Config) -> str:
     """Le contenu TOML de cette configuration. Fonction pure, éprouvable seule."""
     chunks = [_HEADER]
@@ -585,8 +536,6 @@ def render(config: Config) -> str:
         lines.append(f"[{section}]")
         for champ in champs:
             value = getattr(model, _attribut(model, champ))
-            # TOML n'a pas de « null » : un champ non renseigné s'omet, et la
-            # valeur par défaut reprend la main à la lecture.
             if value is None:
                 continue
             lines.append(f"{champ} = {_value(value)}")
@@ -623,8 +572,6 @@ def save_settings(config: Config, folder: Path | None = None) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
         shutil.copy2(target, target.with_suffix(".toml.precedent"))
-    # Le fichier temporaire naît dans le dossier de destination : un
-    # remplacement n'est atomique que sur le même système de fichiers.
     descripteur, temporary = tempfile.mkstemp(dir=target.parent, prefix=".config-",
                                                suffix=".toml")
     try:

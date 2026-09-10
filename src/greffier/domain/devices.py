@@ -63,8 +63,6 @@ class Decision:
     mic: str = ""
     audio_suspect: bool = False
 
-# Un casque USB expose micro et écouteurs sous le même nom : c'est le cas le plus
-# fréquent en réunion, et celui qu'il faut privilégier dès qu'il apparaît.
 def _headset_usable(materiel: Materiel, prefere: str) -> Peripherique | None:
     attendu = materiel.by_name(prefere)
     if attendu is not None and attendu.captured:
@@ -84,16 +82,6 @@ def _fallback_mic(materiel: Materiel, exclus: tuple[str, ...]) -> Peripherique |
     ]
     if not candidats:
         return None
-    # Ordre de préférence, du plus au moins probable comme micro de réunion :
-    #
-    #   1. un micro externe mono : c'est la forme d'un micro de casque ;
-    #   2. le micro intégré : toujours là, toujours branché ;
-    #   3. le reste, faute de mieux.
-    #
-    # Une entrée USB stéréo est presque toujours une entrée ligne de station
-    # d'accueil ou d'écran, sur laquelle rien n'est branché. La préférer au
-    # micro intégré donnait un enregistrement muet là où le portable aurait
-    # capté la voix : constaté en débranchant un casque sur un poste réel.
     casques = [p for p in candidats if not _est_integre(p.name) and p.entrees == 1]
     integres = [p for p in candidats if _est_integre(p.name)]
     return (casques or integres or candidats)[0]
@@ -133,7 +121,6 @@ class WatchRules:
         voulu_avant = avant.present(self.micro_voulu)
         voulu_apres = apres.present(self.micro_voulu)
 
-        # Le micro attendu revient : on le reprend, quoi qu'on ait fait entre-temps.
         if voulu_apres and not voulu_avant:
             self.events.append(f"{self.micro_voulu} branché en cours de réunion")
             return Decision(
@@ -144,7 +131,6 @@ class WatchRules:
                 audio_suspect=True,
             )
 
-        # Le micro attendu disparaît : sans repli, l'agrégé n'a plus de micro.
         if voulu_avant and not voulu_apres:
             self.events.append(f"{self.micro_voulu} débranché en cours de réunion")
             repli = _fallback_mic(apres, exclus=(self.micro_voulu, self.agrege))
@@ -163,7 +149,6 @@ class WatchRules:
                 audio_suspect=True,
             )
 
-        # Le micro attendu est absent depuis le début, et un casque apparaît.
         if not voulu_apres:
             repli = _fallback_mic(apres, exclus=(self.micro_voulu, self.agrege))
             avant_repli = _fallback_mic(avant, exclus=(self.micro_voulu, self.agrege))
@@ -176,8 +161,6 @@ class WatchRules:
                     audio_suspect=True,
                 )
 
-        # Le reste du matériel a bougé sans toucher au micro : un écran, une
-        # enceinte. Rien à faire, mais on le note : la sortie a pu changer.
         return Decision(Action.RIEN)
 
 PLANCHER_MUET_DB = -68.0
@@ -222,7 +205,6 @@ def choose_by_listening(
         return None
     ranking = sorted(essais.items(), key=lambda x: -x[1])
     name, level = ranking[0]
-    # Un casque qui n'est pas déjà premier, et qui capte : il passe devant.
     if casques:
         vivants = [
             (autre, db) for autre, db in ranking
@@ -254,8 +236,6 @@ def candidates_to_listen_to(materiel: Materiel, prefere: str) -> list[str]:
     if prefere and prefere in utiles:
         utiles.remove(prefere)
         utiles.insert(0, prefere)
-    # Un micro externe mono d'abord, puis l'intégré, puis le reste : même ordre
-    # que le repli, pour que l'écoute confirme ou infirme ce choix.
     return sorted(
         utiles,
         key=lambda name: (

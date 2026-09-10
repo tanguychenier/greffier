@@ -31,11 +31,6 @@ class OutlookSender:
     toujours quand le traitement tourne détaché — d'où le message explicite.
     """
 
-    # Sujet et corps passent par des **fichiers**, relus explicitement en UTF-8.
-    # « system attribute » les rendait en MacRoman : chaque « é » arrivait en
-    # « √© » et chaque tiret cadratin en « ,Äî ». Tout compte rendu en français
-    # était donc illisible. Un fichier écarte aussi le risque qu'un guillemet du
-    # compte rendu casse le script.
     SOURCE = """on run argv
   set cheminCorps to item 1 of argv
   set cheminSujet to item 2 of argv
@@ -143,8 +138,6 @@ class SmtpSender:
         message["From"] = self.sender
         message["To"] = recipient
         message["Subject"] = subject
-        # Repli texte d'abord, HTML ensuite : les clients affichent le dernier
-        # qu'ils savent rendre, et ceux qui refusent le HTML gardent le Markdown.
         message.set_content(corps)
         message.add_alternative(email_template.email(corps), subtype="html")
         for piece in pieces:
@@ -173,10 +166,6 @@ class SmtpSender:
         with classe(self.server, self.port, timeout=60) as session:
             if classe is smtplib.SMTP:
                 session.starttls()
-            # RFC 3207 : après STARTTLS, le client resalue — les capacités
-            # annoncées en clair ne valent plus. `smtplib` le fait au moment de
-            # s'authentifier ou d'expédier ; le faire ici rend la session
-            # complète dès son ouverture, `AUTH` compris.
             session.ehlo()
             if self.user and self.mot_de_passe:
                 session.login(self.user, self.mot_de_passe)

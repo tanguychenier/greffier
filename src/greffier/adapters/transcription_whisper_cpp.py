@@ -17,10 +17,8 @@ _HORAIRE = re.compile(
     r"(\d\d):(\d\d):(\d\d)[,.](\d\d\d)\s*-->\s*(\d\d):(\d\d):(\d\d)[,.](\d\d\d)"
 )
 
-
 def _seconds(h: str, m: str, s: str, ms: str) -> float:
     return int(h) * 3600 + int(m) * 60 + int(s) + int(ms) / 1000
-
 
 def lire_srt(path: Path) -> list[Utterance]:
     """Extrait les répliques d'un fichier de sous-titres."""
@@ -39,8 +37,6 @@ def lire_srt(path: Path) -> list[Utterance]:
             line.strip() for line in lines
             if not _HORAIRE.search(line) and not line.strip().isdigit()
         )
-        # whisper --diarize préfixe « (speaker N) » : la diarisation sérieuse se
-        # fait ailleurs, on retire l'étiquette.
         text = re.sub(r"^\(speaker \d+\)\s*", "", text).strip()
         if text:
             utterances.append(Utterance(
@@ -49,7 +45,6 @@ def lire_srt(path: Path) -> list[Utterance]:
                 text=text,
             ))
     return utterances
-
 
 class TranscripteurWhisperCpp:
     def __init__(self, model: Path, vad: Path | None = None, fils: int = 8) -> None:
@@ -64,9 +59,6 @@ class TranscripteurWhisperCpp:
             base = Path(folder) / audio.stem
             command = [
                 "whisper-cli", "-m", str(self.model), "-f", str(audio),
-                # Langue vide : « auto », et whisper la reconnaît lui-même. La
-                # même convention que le micro vide, qui laisse choisir à
-                # l'écoute plutôt qu'à la forme.
                 "-l", language or "auto", "-t", str(self.fils), "-osrt", "-of", str(base),
             ]
             if self.vad:

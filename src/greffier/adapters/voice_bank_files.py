@@ -23,7 +23,6 @@ from greffier.domain.voiceprints import EMPREINTES_PAR_PERSONNE, enrichir
 
 FORMAT = 1
 
-
 def _file_at(name: str) -> str:
     """Nom de fichier sûr, dérivé du nom de la personne.
 
@@ -41,13 +40,10 @@ def _file_at(name: str) -> str:
     reduit = re.sub(r"[^a-zA-Z0-9]+", "-", without_accents).strip("-").lower()
     return reduit or short_voiceprint(name)
 
-
 class BanqueFichiers:
     def __init__(self, folder: Path, maximum: int = EMPREINTES_PAR_PERSONNE) -> None:
         self.folder = folder
         self.maximum = maximum
-
-    # ------------------------------------------------------------- lecture
 
     def people(self) -> list[Person]:
         if not self.folder.exists():
@@ -63,8 +59,6 @@ class BanqueFichiers:
         try:
             content = json.loads(file.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
-            # Un fichier abîmé ne doit pas empêcher de reconnaître les autres :
-            # on l'ignore plutôt que de faire échouer toute la réunion.
             return None
         if content.get("format", 0) > FORMAT:
             return None
@@ -84,8 +78,6 @@ class BanqueFichiers:
     def find(self, name: str) -> Person | None:
         file = self.folder / f"{_file_at(name)}.json"
         return self._read(file) if file.exists() else None
-
-    # ------------------------------------------------------------ écriture
 
     def forget_a_meeting(self, identifier: str) -> dict[str, int]:
         """Retire de toute la banque les empreintes venues d'une réunion.

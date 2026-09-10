@@ -85,9 +85,6 @@ def extract(
     """
     if not material.strip():
         return []
-    # Le sujet et la matière seulement : les consignes sont portées par le
-    # rédacteur (`composition.cartographe`). Les répéter ici les faisait arriver
-    # après celles du compte rendu, et le modèle suivait les premières.
     invite = [f"Sujet à cartographier : {subject}"]
     if deja:
         invite.append(
@@ -137,9 +134,6 @@ def analyser(rendered: str, maximum: int = 12) -> list[Apport]:
         apports.append(Apport(
             text=text,
             kind=_KINDS.get(str(item.get("genre", "")).strip(), Genre.CONSTAT),
-            # Le défaut est « en discussion », et un état non reconnu y retombe :
-            # se tromper vers la prudence ne coûte qu'une couleur, se tromper
-            # vers « acté » fait dire à la carte une chose fausse.
             state=_ETATS.get(str(item.get("etat", "")).strip(), RecorderState.EN_DISCUSSION)
             if str(item.get("etat", "")).strip() != str(RecorderState.DEPASSE)
             else RecorderState.EN_DISCUSSION,

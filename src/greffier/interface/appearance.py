@@ -90,7 +90,6 @@ class Button(tk.Canvas):
             fill=self._plain_background(),
             outline=self.colours.rule if not self.principal else "",
         )
-        # La forme est créée après le texte : sans ce rappel, elle le recouvre.
         self.tag_lower(self._forme, self._text)
         self.coords(self._text, width / 2, self._height / 2)
 
@@ -178,12 +177,8 @@ class Liste(tk.Canvas):
         self._text = self.create_text(
             12, height / 2, text="", anchor="w", fill=colours.ink, font=font(12),
         )
-        # Un chevron, deux segments : la flèche pleine de Tk est le détail qui
-        # trahit le plus le composant d'origine.
         pointe = width - 15
         milieu = height / 2
-        # Les points en une seule liste : la signature à coordonnées libres
-        # n'accepte que deux points, un chevron en demande trois.
         self._chevron = self.create_line(
             [pointe - 5, milieu - 2, pointe, milieu + 3, pointe + 5, milieu - 2],
             fill=colours.ink_pale, width=1.6, capstyle="round", joinstyle="round",
@@ -221,8 +216,6 @@ class Liste(tk.Canvas):
         return ""
 
     def _show(self) -> None:
-        # Tronqué au caractère près plutôt que laissé déborder sous le chevron :
-        # un libellé long recouvrait la flèche et donnait un composant cassé.
         place = self.width - 34
         label_text = self._label_text()
         while label_text and self._text_width(label_text) > place:
@@ -254,13 +247,8 @@ class Liste(tk.Canvas):
                        borderwidth=0, relief="flat", activeborderwidth=0)
         for key, label_text in self._choix:
             marque = "✓ " if key == self._key else "   "
-            # `functools.partial` et non une lambda à valeur par défaut : la
-            # seconde ferme bien sur la bonne clef, mais mypy ne sait pas en
-            # inférer le type, et l'intention se lit mieux ainsi.
             menu.add_command(label=f"{marque}{label_text}",
                              command=functools.partial(self._retenir, key))
-        # Déployé sous le composant, aligné à gauche : le menu prolonge le
-        # champ au lieu de surgir sous le curseur.
         menu.post(self.winfo_rootx(), self.winfo_rooty() + self.height)
 
     def _retenir(self, key: str) -> None:
@@ -305,23 +293,16 @@ class Defileur(tk.Canvas):
         self._draw()
 
     def _tint(self, hover: bool) -> None:
-        # `filet`, prévu pour un trait à peine visible entre deux zones, se
-        # fondait dans le fond : un ascenseur qu'on ne voit pas ne dit pas
-        # qu'il y a davantage à lire. `calme` reste discret mais se remarque.
         self.itemconfigure(
             self._pouce, fill=self.colours.ink_pale if hover else self.colours.calm
         )
 
     def _draw(self) -> None:
         height = self.winfo_height()
-        # Rien à défiler : le pouce couvrirait toute la piste, autant le taire
-        # plutôt que d'afficher un ascenseur qui ne mène nulle part.
         if height <= 1 or self._dernier - self._premier >= 0.999:
             self.itemconfigure(self._pouce, state="hidden")
             return
         self.itemconfigure(self._pouce, state="normal")
-        # Un pouce minimal même sur une très longue liste : en dessous d'une
-        # certaine taille, il devient un point qu'on ne peut plus attraper.
         minimum = min(24, height)
         haut = self._premier * height
         bas = max(self._dernier * height, haut + minimum)
@@ -331,8 +312,6 @@ class Defileur(tk.Canvas):
 
     def _move(self, event: tk.Event) -> None:
         height = self.winfo_height() or 1
-        # Centre le pouce sous le doigt plutôt que d'aligner son sommet : sans
-        # ça, cliquer plus bas que le pouce le fait sauter vers le haut.
         portee = self._dernier - self._premier
         target = event.y / height - portee / 2
         self.command("moveto", max(0.0, min(1.0 - portee, target)))
@@ -368,10 +347,6 @@ class Vumetre(tk.Canvas):
             self._pas()
 
     def _pas(self) -> None:
-        # Le glissement est réarmé toutes les 30 ms : si la fenêtre est
-        # reconstruite entre deux pas — un changement de thème le fait — le
-        # canevas n'existe plus et chaque pas restant lèverait une TclError
-        # dans la boucle de Tk, sans autre effet que de salir le journal.
         if not self.winfo_exists():
             self._glisse = None
             return
@@ -381,8 +356,6 @@ class Vumetre(tk.Canvas):
             self._draw()
             self._glisse = None
             return
-        # Un tiers de l'écart restant à chaque pas : vite sur un grand saut,
-        # doux sur les derniers pourcents.
         self._value += gap * 0.32
         self._draw()
         self._glisse = self.after(30, self._pas)
@@ -396,8 +369,6 @@ class Vumetre(tk.Canvas):
         length = max(self.height, part * self.width)
         self.coords(self._jauge, *_rounded_points(0, 0, length, self.height,
                                                    self.height / 2))
-        # Le vert au-dessous de 70 %, l'ambre au-delà : une entrée qui frôle la
-        # saturation dégrade la transcription, autant que ça se voie.
         self.itemconfigure(
             self._jauge, fill=self.colours.amber if part > 0.7 else self.colours.green
         )
@@ -566,7 +537,6 @@ class Onglets(tk.Frame):
         for name, segment in self._segments.items():
             segment.paint(name == caption)
         self._current = caption
-        # Vue, la pastille n'a plus rien à signaler.
         segment_courant = self._segments.get(caption)
         if segment_courant is not None:
             segment_courant.mark(0)

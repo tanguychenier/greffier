@@ -137,7 +137,6 @@ class Reunion:
     phase: Phase = Phase.REST
     utterances: list[Utterance] = field(default_factory=list)
     turns: list[SpeakerTurn] = field(default_factory=list)
-    # voix acoustique → nom, une fois l'identification faite
     names: dict[str, str] = field(default_factory=dict)
     personnes_en_salle: int | None = None
 
