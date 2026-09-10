@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-MEMOIRE_GRAND_MODELE_GO = 8.0
+LARGE_MODEL_MEMORY_GB = 8.0
 DISQUE_NECESSAIRE_GO = 3.0
 
 @dataclass
@@ -29,7 +29,7 @@ class Recorder:
 
     @property
     def supports_large_model(self) -> bool:
-        return self.memory_gb >= MEMOIRE_GRAND_MODELE_GO
+        return self.memory_gb >= LARGE_MODEL_MEMORY_GB
 
     @property
     def advised_model(self) -> str:

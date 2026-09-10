@@ -18,23 +18,23 @@ class TestReglesImpossibles:
 
 class TestCompression:
     def test_avant_le_delai_on_ne_touche_a_rien(self):
-        assert Rule(compresser_apres=7).decide(3, True, False) is Gesture.RIEN
+        assert Rule(compresser_apres=7).decide(3, True, False) is Gesture.NOTHING
 
     def test_apres_le_delai_on_compresse(self):
         assert Rule(compresser_apres=7).decide(8, True, False) is Gesture.COMPRESSER
 
     def test_un_audio_deja_compresse_est_laisse(self):
-        assert Rule(compresser_apres=7).decide(30, True, True) is Gesture.RIEN
+        assert Rule(compresser_apres=7).decide(30, True, True) is Gesture.NOTHING
 
     def test_un_delai_nul_desactive_la_compression(self):
-        assert Rule(compresser_apres=0).decide(999, True, False) is Gesture.RIEN
+        assert Rule(compresser_apres=0).decide(999, True, False) is Gesture.NOTHING
 
 
 class TestEffacement:
     def test_desactive_par_defaut(self):
         """Effacer perd la seule pièce qu'on ne peut pas refaire."""
         assert Rule().effacer_apres == 0
-        assert Rule().decide(9999, True, True) is Gesture.RIEN
+        assert Rule().decide(9999, True, True) is Gesture.NOTHING
 
     def test_active_il_efface_au_dela_du_delai(self):
         regle = Rule(compresser_apres=7, effacer_apres=90)
@@ -49,8 +49,8 @@ class TestUneReunionNonTranscriteEstIntouchable:
     """Son audio est tout ce qui existe d'elle."""
 
     def test_jamais_compressee(self):
-        assert Rule(compresser_apres=1).decide(365, False, False) is Gesture.RIEN
+        assert Rule(compresser_apres=1).decide(365, False, False) is Gesture.NOTHING
 
     def test_jamais_effacee(self):
         regle = Rule(compresser_apres=7, effacer_apres=30)
-        assert regle.decide(365, False, True) is Gesture.RIEN
+        assert regle.decide(365, False, True) is Gesture.NOTHING

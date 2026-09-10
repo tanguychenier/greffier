@@ -5,14 +5,14 @@ from pathlib import Path
 from greffier.application.tidy import Places, forget, pieces_de, readable
 
 
-def locations(racine: Path) -> Places:
+def locations(root: Path) -> Places:
     ou = Places(
-        meetings=racine / "reunions",
-        recordings=racine / "enregistrements",
-        transcripts=racine / "transcriptions",
-        minutes_folder=racine / "comptes-rendus",
-        live=racine / "direct",
-        propositions=racine / "propositions",
+        meetings=root / "reunions",
+        recordings=root / "enregistrements",
+        transcripts=root / "transcriptions",
+        minutes_folder=root / "comptes-rendus",
+        live=root / "direct",
+        propositions=root / "propositions",
     )
     for folder in (ou.meetings, ou.recordings, ou.transcripts,
                     ou.minutes_folder, ou.live, ou.propositions):

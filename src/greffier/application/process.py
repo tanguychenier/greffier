@@ -81,8 +81,8 @@ class Outcome:
     warnings: list[str] = field(default_factory=list)
     hardware_events: list[str] = field(default_factory=list)
     profil: LanguageProfile = NEUTRAL
-    commencee_le: datetime | None = None
-    terminee_le: datetime | None = None
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
     subject: str = ""
 
     @property
@@ -90,7 +90,7 @@ class Outcome:
         """The word count, counted the way the language separates them."""
         return sum(self.profil.decoupage.count_them(r.text) for r in self.utterances)
 
-    def nom_de(self, voice: str | None) -> str:
+    def name_of(self, voice: str | None) -> str:
         if voice is None:
             return "Indéterminé"
         return self.names.get(voice, f"Personne {voice}")
@@ -366,15 +366,15 @@ class Chain:
         audio: Path,
         send: bool = True,
         hardware_events: list[str] | None = None,
-        commencee_le: datetime | None = None,
-        terminee_le: datetime | None = None,
+        started_at: datetime | None = None,
+        ended_at: datetime | None = None,
     ) -> Outcome:
         self.hardware_events = list(hardware_events or [])
         outcome = Outcome(
             audio=audio,
             hardware_events=self.hardware_events,
-            commencee_le=commencee_le,
-            terminee_le=terminee_le,
+            started_at=started_at,
+            ended_at=ended_at,
         )
 
         self._phase(Phase.TRANSCRIPTION, "Vérification de l'enregistrement…")
@@ -436,8 +436,8 @@ class Chain:
             + context_header(audio.stem, duration,
                             names=[outcome.names[v] for v in entendues if v in outcome.names],
                             voix_entendues=len(entendues),
-                            commencee_le=outcome.commencee_le,
-                            terminee_le=outcome.terminee_le)
+                            started_at=outcome.started_at,
+                            ended_at=outcome.ended_at)
             + hardware_header(self.hardware_events)
             + reliability_header(outcome)
             + disclosure_header(self.disclosure)
@@ -536,7 +536,7 @@ def _as_stored_meeting(outcome: Outcome, duration: float) -> StoredMeeting:
     return StoredMeeting(
         identifier=outcome.audio.stem,
         audio=outcome.audio,
-        traitee_le=datetime.now(UTC),
+        processed_at=datetime.now(UTC),
         duration=duration,
         utterances=outcome.utterances,
         turns=outcome.turns,
@@ -545,6 +545,6 @@ def _as_stored_meeting(outcome: Outcome, duration: float) -> StoredMeeting:
         warnings=list(outcome.warnings),
         hardware_events=list(outcome.hardware_events),
         subject=outcome.subject,
-        commencee_le=outcome.commencee_le,
-        terminee_le=outcome.terminee_le,
+        started_at=outcome.started_at,
+        ended_at=outcome.ended_at,
     )

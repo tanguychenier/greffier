@@ -42,7 +42,7 @@ class Hardware:
 class Action(Enum):
     """What the recording should do about the change observed."""
 
-    RIEN = "rien"
+    NOTHING = "rien"
     RECONSTRUIRE = "reconstruire"
     ALERTER = "alerter"
 
@@ -67,8 +67,8 @@ def _fallback_mic(materiel: Hardware, exclus: tuple[str, ...]) -> Device | None:
     ]
     if not candidats:
         return None
-    casques = [p for p in candidats if not _est_integre(p.name) and p.entrees == 1]
-    integres = [p for p in candidats if _est_integre(p.name)]
+    casques = [p for p in candidats if not _is_built_in(p.name) and p.entrees == 1]
+    integres = [p for p in candidats if _is_built_in(p.name)]
     return (casques or integres or candidats)[0]
 
 def _is_aggregated(peripherique: Device) -> bool:
@@ -78,56 +78,56 @@ def _is_aggregated(peripherique: Device) -> bool:
 def _is_loopback(name: str) -> bool:
     return any(marque in name.lower() for marque in ("blackhole", "loopback", "soundflower"))
 
-def _est_integre(name: str) -> bool:
+def _is_built_in(name: str) -> bool:
     return any(marque in name.lower() for marque in ("macbook", "built-in", "intégré", "integre"))
 
 @dataclass
 class WatchRules:
     """Follows the hardware during a recording and says when to react."""
 
-    micro_voulu: str
+    wanted_mic: str
     agrege: str = "Reunion Entree"
     events: list[str] = field(default_factory=list)
 
     def examine(self, avant: Hardware, apres: Hardware) -> Decision:
         """Compares two hardware states and decides."""
         if avant.devices == apres.devices:
-            return Decision(Action.RIEN)
+            return Decision(Action.NOTHING)
 
-        voulu_avant = avant.present(self.micro_voulu)
-        voulu_apres = apres.present(self.micro_voulu)
+        voulu_avant = avant.present(self.wanted_mic)
+        voulu_apres = apres.present(self.wanted_mic)
 
         if voulu_apres and not voulu_avant:
-            self.events.append(f"{self.micro_voulu} branché en cours de réunion")
+            self.events.append(f"{self.wanted_mic} branché en cours de réunion")
             return Decision(
                 Action.RECONSTRUIRE,
-                f"« {self.micro_voulu} » vient d'être branché : "
+                f"« {self.wanted_mic} » vient d'être branché : "
                 "la capture reprend dessus, le début de la réunion ne l'a pas eu.",
-                mic=self.micro_voulu,
+                mic=self.wanted_mic,
                 audio_suspect=True,
             )
 
         if voulu_avant and not voulu_apres:
-            self.events.append(f"{self.micro_voulu} débranché en cours de réunion")
-            repli = _fallback_mic(apres, exclus=(self.micro_voulu, self.agrege))
+            self.events.append(f"{self.wanted_mic} débranché en cours de réunion")
+            repli = _fallback_mic(apres, exclus=(self.wanted_mic, self.agrege))
             if repli is None:
                 return Decision(
                     Action.ALERTER,
-                    f"« {self.micro_voulu} » a été débranché et aucun autre micro "
+                    f"« {self.wanted_mic} » a été débranché et aucun autre micro "
                     "n'est disponible : ta voix n'est plus enregistrée.",
                     audio_suspect=True,
                 )
             return Decision(
                 Action.RECONSTRUIRE,
-                f"« {self.micro_voulu} » a été débranché : la capture reprend sur "
+                f"« {self.wanted_mic} » a été débranché : la capture reprend sur "
                 f"« {repli.name} ».",
                 mic=repli.name,
                 audio_suspect=True,
             )
 
         if not voulu_apres:
-            repli = _fallback_mic(apres, exclus=(self.micro_voulu, self.agrege))
-            avant_repli = _fallback_mic(avant, exclus=(self.micro_voulu, self.agrege))
+            repli = _fallback_mic(apres, exclus=(self.wanted_mic, self.agrege))
+            avant_repli = _fallback_mic(avant, exclus=(self.wanted_mic, self.agrege))
             if repli is not None and (avant_repli is None or repli.name != avant_repli.name):
                 self.events.append(f"{repli.name} branché en cours de réunion")
                 return Decision(
@@ -137,7 +137,7 @@ class WatchRules:
                     audio_suspect=True,
                 )
 
-        return Decision(Action.RIEN)
+        return Decision(Action.NOTHING)
 
 PLANCHER_MUET_DB = -68.0
 
@@ -146,10 +146,10 @@ class MicChoice:
     """The mic kept after listening, and what needs saying about it."""
 
     name: str
-    niveau_db: float
+    level_db: float
     ecartes: tuple[tuple[str, float], ...] = ()
-    tous_muets: bool = False
-    casque_prefere: bool = False
+    all_silent: bool = False
+    preferred_headset: bool = False
 
 def choose_by_listening(
     essais: dict[str, float], casques: frozenset[str] = frozenset()
@@ -176,10 +176,10 @@ def choose_by_listening(
             ]
     return MicChoice(
         name=name,
-        niveau_db=level,
+        level_db=level,
         ecartes=tuple(ranking[1:]),
-        tous_muets=max(essais.values()) < PLANCHER_MUET_DB,
-        casque_prefere=bool(casques) and name in casques,
+        all_silent=max(essais.values()) < PLANCHER_MUET_DB,
+        preferred_headset=bool(casques) and name in casques,
     )
 
 def candidates_to_listen_to(materiel: Hardware, prefere: str) -> list[str]:
@@ -195,7 +195,7 @@ def candidates_to_listen_to(materiel: Hardware, prefere: str) -> list[str]:
         utiles,
         key=lambda name: (
             name != prefere,
-            _est_integre(name),
+            _is_built_in(name),
             name not in {p.name for p in materiel.mics if p.entrees == 1},
         ),
     )
@@ -215,7 +215,7 @@ def headsets_among(materiel: Hardware) -> frozenset[str]:
         if p.name in sorties
         and p.entrees == 1
         and not _is_loopback(p.name) and not _is_aggregated(p)
-        and not _est_integre(p.name)
+        and not _is_built_in(p.name)
     )
 
 def advised_mic(materiel: Hardware, prefere: str) -> str:

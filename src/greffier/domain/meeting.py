@@ -43,7 +43,7 @@ class StoredMeeting:
 
     identifier: str
     audio: Path
-    traitee_le: datetime
+    processed_at: datetime
     duration: float
     utterances: list[Utterance]
     turns: list[SpeakerTurn]
@@ -52,8 +52,8 @@ class StoredMeeting:
     warnings: list[str]
     hardware_events: list[str] = field(default_factory=list)
     subject: str = ""
-    commencee_le: datetime | None = None
-    terminee_le: datetime | None = None
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
     joins: list[Join] = field(default_factory=list)
 
     def attendees(self, minimum: float = 10.0) -> list[str]:
@@ -152,7 +152,7 @@ class StoredMeeting:
             manques.append(Span(precedent, self.duration))
         return manques
 
-    def nom_de(self, voice: str | None) -> str:
+    def name_of(self, voice: str | None) -> str:
         if voice is None:
             return "Indéterminé"
         return self.names.get(voice, f"Personne {voice}")

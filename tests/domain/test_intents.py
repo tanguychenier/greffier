@@ -34,7 +34,7 @@ class TestCeQuiEstCompris:
     def test_une_personne_et_son_role(self):
         appris = understand("note que Maud est cheffe de projet Oasis")
         assert appris is not None
-        assert appris.quoi is What.PERSONNE
+        assert appris.quoi is What.NOBODY
         assert appris.subject == "Maud"
         assert "cheffe de projet" in appris.precision
 

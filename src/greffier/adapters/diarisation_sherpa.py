@@ -14,7 +14,7 @@ import soundfile as sf
 
 from greffier.adapters.channels_file import TRAME_S, levels_per_frame, separer_canaux
 from greffier.domain.arithmetic import compute_threads
-from greffier.domain.channels import VOIX_LOCALE, local_turns, remove
+from greffier.domain.channels import LOCAL_VOICE, local_turns, remove
 from greffier.domain.models import Source, Span, SpeakerTurn
 
 
@@ -79,7 +79,7 @@ class SherpaDiariser:
         distants = [t for t in distants if t.span in gardes]
 
         turns = distants + [
-            SpeakerTurn(span=x, voice=VOIX_LOCALE, source=Source.MIC)
+            SpeakerTurn(span=x, voice=LOCAL_VOICE, source=Source.MIC)
             for x in locaux
         ]
         return sorted(turns, key=lambda t: t.span.start)

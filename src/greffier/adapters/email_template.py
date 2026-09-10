@@ -46,7 +46,7 @@ _STYLES = {
 _GRAS = re.compile(r"\*\*(.+?)\*\*")
 _ITALIQUE = re.compile(r"(?<![\w*])\*([^*\n]+)\*(?![\w*])")
 _CODE = re.compile(r"`([^`\n]+)`")
-_LIEN = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
+_LINK = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
 _SEPARATEUR_TABLEAU = re.compile(r"^\s*\|?[\s:|-]+\|[\s:|-]*$")
 
 def _balise(style: str, content: str, extra: str = "", name: str = "") -> str:
@@ -66,7 +66,7 @@ def _as_line(text: str) -> str:
     output = _CODE.sub(lambda m: _balise("code", m.group(1)), output)
     output = _GRAS.sub(r"<strong>\1</strong>", output)
     output = _ITALIQUE.sub(r"<em>\1</em>", output)
-    return _LIEN.sub(
+    return _LINK.sub(
         lambda m: f'<a href="{m.group(2)}" style="color:#2c5aa0">{m.group(1)}</a>', output
     )
 

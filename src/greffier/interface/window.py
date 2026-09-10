@@ -67,10 +67,10 @@ _LABEL_TEXT = 84
 _NOMBRES = frozenset({"voix", "mots", "duree", "part"})
 
 _LIBELLES_VOIX = {
-    WhoSpeaks.PERSONNE: "",
-    WhoSpeaks.TOI: "tu parles",
-    WhoSpeaks.LES_AUTRES: "les autres parlent",
-    WhoSpeaks.LES_DEUX: "vous parlez en même temps",
+    WhoSpeaks.NOBODY: "",
+    WhoSpeaks.YOU: "tu parles",
+    WhoSpeaks.THE_OTHERS: "les autres parlent",
+    WhoSpeaks.BOTH: "vous parlez en même temps",
 }
 
 @dataclass
@@ -107,14 +107,14 @@ class Window:
         self._menu: tk.Menu | None = None
 
         locate_tcl()
-        self.racine = tk.Tk()
-        self.racine.title("Greffier")
+        self.root = tk.Tk()
+        self.root.title("Greffier")
         with contextlib.suppress(tk.TclError):
-            self.racine.tk.call("tk", "appname", "Greffier")
-        self.racine.minsize(880, 660)
-        self.racine.protocol("WM_DELETE_WINDOW", self._close_window)
-        self.racine.geometry("880x660")
-        self.racine.configure(bg=self.colours.ground)
+            self.root.tk.call("tk", "appname", "Greffier")
+        self.root.minsize(880, 660)
+        self.root.protocol("WM_DELETE_WINDOW", self._close_window)
+        self.root.geometry("880x660")
+        self.root.configure(bg=self.colours.ground)
         self._style_the_lists()
         self._construire()
         self._refresh()
@@ -164,7 +164,7 @@ class Window:
             ("*TCombobox*Listbox.font", "TkDefaultFont"),
         ):
             with contextlib.suppress(tk.TclError):
-                self.racine.option_add(option, value)
+                self.root.option_add(option, value)
 
     def _text(self, parent: tk.Misc, content: str, taille: int = 13,
                gras: bool = False, pale: bool = False, **options: Any) -> tk.Label:
@@ -195,9 +195,9 @@ class Window:
 
     def _construire(self) -> None:
         c = self.colours
-        self.racine.columnconfigure(0, weight=1)
-        self.racine.rowconfigure(0, weight=1)
-        corps = tk.Frame(self.racine, bg=c.ground)
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+        corps = tk.Frame(self.root, bg=c.ground)
         corps.grid(row=0, column=0, sticky="nsew", padx=24, pady=22)
         corps.columnconfigure(0, weight=1)
         corps.rowconfigure(1, weight=1)
@@ -603,7 +603,7 @@ class Window:
             return
         voice = self._thread.voice.get(turn.voice)
         names = self._thread.suggestable_names()
-        menu = tk.Menu(self.racine, tearoff=0, font=font(12))
+        menu = tk.Menu(self.root, tearoff=0, font=font(12))
         if voice is not None and voice.nameable:
             menu.add_command(
                 label=f"Toute la voix « {self._thread.label(turn.voice)} » est :",
@@ -661,7 +661,7 @@ class Window:
         from tkinter import simpledialog
 
         name = simpledialog.askstring(
-            "Greffier", "Qui parle ?", parent=self.racine
+            "Greffier", "Qui parle ?", parent=self.root
         )
         if name and name.strip():
             self._correct_the_live_thread(number, name.strip(), whole_voice)
@@ -928,7 +928,7 @@ class Window:
 
         self._wire_the_settings()
         page.bind("<Map>", lambda _e: self._say_the_count())
-        self.racine.bind("<FocusIn>", self._au_retour, add="+")
+        self.root.bind("<FocusIn>", self._au_retour, add="+")
         self._listen_to_the_wheel(inside)
         self._fill_the_settings()
         self._say_the_count()
@@ -1063,7 +1063,7 @@ class Window:
     def _close_for_the_update(self) -> None:
         """The relay waits for this process to end before touching the bundle."""
         self.version_line.configure(text="Mise à jour en cours, fermeture…")
-        self.racine.after(400, self.racine.destroy)
+        self.root.after(400, self.root.destroy)
 
     def _wire_the_settings(self) -> None:
         """Makes every change a save."""
@@ -1325,9 +1325,9 @@ class Window:
             if signature() != avant:
                 self._say_the_count()
                 return
-            self.racine.after(3000, lambda: look(restants - 1))
+            self.root.after(3000, lambda: look(restants - 1))
 
-        self.racine.after(3000, lambda: look(turns))
+        self.root.after(3000, lambda: look(turns))
 
     def _update_claude(self) -> None:
         """Runs `claude update`, in a thread: it downloads."""
@@ -1365,9 +1365,9 @@ class Window:
     def _apply_the_theme(self, theme: str, mot: str = "") -> None:
         """Repaints the window without restarting it."""
         self.colours = palette(theme)
-        self.racine.configure(bg=self.colours.ground)
+        self.root.configure(bg=self.colours.ground)
         self._style_the_lists()
-        for enfant in self.racine.winfo_children():
+        for enfant in self.root.winfo_children():
             enfant.destroy()
         self._phase_peinte = None
         self._micros_connus = ()
@@ -1420,7 +1420,7 @@ class Window:
         mot = " · ".join(words)
         self.mot_reglages.configure(text=mot)
         if neuf.appearance.theme != theme_avant:
-            self.racine.after(0, lambda: self._apply_the_theme(neuf.appearance.theme, mot))
+            self.root.after(0, lambda: self._apply_the_theme(neuf.appearance.theme, mot))
 
     def _load_mics(self) -> None:
         """Offers the mics actually plugged in, the configured one first."""
@@ -1452,14 +1452,14 @@ class Window:
         with contextlib.suppress(OSError, ValueError):
             self._paint(self.recorder.read())
         self._clear_messages()
-        self.racine.after(PERIODE_MS, self._refresh)
+        self.root.after(PERIODE_MS, self._refresh)
 
     def _follow_the_mics(self) -> None:
         """Keeps the mic list up to date, without reopening anything."""
         if self._phase_peinte in (None, Phase.REST):
             with contextlib.suppress(OSError, RuntimeError):
                 self._load_mics()
-        self.racine.after(PERIODE_MICROS_MS, self._follow_the_mics)
+        self.root.after(PERIODE_MICROS_MS, self._follow_the_mics)
 
     def _breathe(self) -> None:
         """Pulses the red dot while recording."""
@@ -1467,7 +1467,7 @@ class Window:
             c = self.colours
             part = (math.sin(2 * math.pi * time.time() / PULSATION_S) + 1) / 2
             self.pastille.itemconfigure(self._point, fill=blend(c.active, c.board, part * 0.65))
-        self.racine.after(PULSATION_MS, self._breathe)
+        self.root.after(PULSATION_MS, self._breathe)
 
     def _paint(self, state: Any) -> None:
         c = self.colours
@@ -1575,7 +1575,7 @@ class Window:
             with contextlib.suppress(RuntimeError):
                 state = self.recorder.stop_recording()
                 _restore_the_output(state.sortie_precedente)
-        self.racine.destroy()
+        self.root.destroy()
 
     def _terminate(self) -> None:
         from greffier.cli import _restore_the_output
@@ -1591,7 +1591,7 @@ class Window:
             return
         self._run_job(Job(
             caption="traitement",
-            do_it=self._chaine(audio, state.events, state.start, state.terminee_le),
+            do_it=self._chaine(audio, state.events, state.start, state.ended_at),
             done=lambda outcome, trouble: self._processing_done(audio, outcome, trouble),
         ))
 
@@ -1599,8 +1599,8 @@ class Window:
         self,
         audio: Path,
         events: list[str] | None = None,
-        commencee_le: datetime | None = None,
-        terminee_le: datetime | None = None,
+        started_at: datetime | None = None,
+        ended_at: datetime | None = None,
     ) -> Callable[[Callable[[str], None]], Any]:
         """Prepares the chain's run, progress reported to the screen."""
 
@@ -1622,8 +1622,8 @@ class Window:
                 audio,
                 send=bool(self.config.minutes.recipient),
                 hardware_events=events,
-                commencee_le=commencee_le,
-                terminee_le=terminee_le,
+                started_at=started_at,
+                ended_at=ended_at,
             )
 
         return do_it
@@ -1769,7 +1769,7 @@ class Window:
                 outcome = job.do_it(job.messages.put)
             except Exception as attrape:  # noqa: BLE001 - remonté à l'interface
                 trouble = attrape
-            self.racine.after(0, lambda: self._finish(job, outcome, trouble))
+            self.root.after(0, lambda: self._finish(job, outcome, trouble))
 
         threading.Thread(target=courir, daemon=True).start()
 
@@ -1893,7 +1893,7 @@ class Window:
         from greffier.domain.store import offer, summarise
 
         choisis = filedialog.askopenfilenames(
-            parent=self.racine,
+            parent=self.root,
             title="Déposer des enregistrements, des vidéos ou des documents",
         )
         if not choisis:
@@ -1904,8 +1904,8 @@ class Window:
             for path in choisis
         ]
         detail = "\n".join(
-            f"  {p.destin:9} {p.file.name}"
-            + (f"\n             ⚠ {p.bloque_par}" if p.bloque_par else "")
+            f"  {p.destination:9} {p.file.name}"
+            + (f"\n             ⚠ {p.blocked_by}" if p.blocked_by else "")
             for p in propositions
         )
         if not messagebox.askyesno(
@@ -1942,7 +1942,7 @@ class Window:
         from greffier.domain.store import Destination
         from greffier.wiring import cartographe
 
-        if not any(p.destin is Destination.CONTEXT and p.feasible for p in propositions):
+        if not any(p.destination is Destination.CONTEXT and p.feasible for p in propositions):
             return None
         from greffier.adapters.writer_claude import ClaudeWriter
         from greffier.application.publish import CONSIGNES_DOCUMENT
@@ -2026,7 +2026,7 @@ class Window:
             initialvalue=gardee.subject or readable_subject(
                 identifier, self.config.paths.minutes_folder / f"{identifier}.md"
             ),
-            parent=self.racine,
+            parent=self.root,
         )
         if propose is None:
             return
@@ -2501,7 +2501,7 @@ class Window:
             return True
 
         ajout = (
-            context_file.add_a_person if appris.quoi is What.PERSONNE
+            context_file.add_a_person if appris.quoi is What.NOBODY
             else context_file.add_a_term
         )
         pose = False
@@ -2538,7 +2538,7 @@ class Window:
         from greffier.domain.store import Destination, offer
 
         choisis = filedialog.askopenfilenames(
-            parent=self.racine,
+            parent=self.root,
             title="Fournir des documents pour cette réunion",
         )
         if not choisis:
@@ -2548,8 +2548,8 @@ class Window:
             offer(Path(path), Path(path).stat().st_size, tools)
             for path in choisis
         ]
-        documents = [p for p in propositions if p.destin is Destination.CONTEXT]
-        autres = [p for p in propositions if p.destin is not Destination.CONTEXT]
+        documents = [p for p in propositions if p.destination is Destination.CONTEXT]
+        autres = [p for p in propositions if p.destination is not Destination.CONTEXT]
         if autres:
             self._say("note", (
                 f"{len(autres)} fichier(s) sont des sons ou des vidéos : ils "
@@ -2664,9 +2664,9 @@ class Window:
         ))
 
     def spin(self) -> None:
-        self.racine.after(600, self._report_missing_minutes)
-        self.racine.after(900, self._remind_of_the_disclosure)
-        self.racine.mainloop()
+        self.root.after(600, self._report_missing_minutes)
+        self.root.after(900, self._remind_of_the_disclosure)
+        self.root.mainloop()
 
     def _remind_of_the_disclosure(self) -> None:
         """Reminds once per session that the attendees must be able to know."""

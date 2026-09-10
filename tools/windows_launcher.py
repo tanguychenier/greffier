@@ -96,10 +96,10 @@ def _dire_a_l_ecran(message: str) -> None:
         import tkinter as tk
         from tkinter import messagebox
 
-        racine = tk.Tk()
-        racine.withdraw()
+        root = tk.Tk()
+        root.withdraw()
         messagebox.showerror("Greffier", message)
-        racine.destroy()
+        root.destroy()
     except Exception:  # noqa: BLE001
         print(message, file=sys.stderr)
 

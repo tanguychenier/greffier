@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from greffier.domain.channels import VOIX_LOCALE
+from greffier.domain.channels import LOCAL_VOICE
 from greffier.domain.live import (
     NOM_INDETERMINE,
     NOM_LOCAL,
@@ -51,9 +51,9 @@ class TestQuiParleEnDirect:
         # Le canal, pas l'empreinte : aucun modèle n'est consulté, et la
         # certitude est celle du câblage.
         thread = LiveThread()
-        assert thread.attach(voiceprint=None, locale=True) == VOIX_LOCALE
-        assert thread.label(VOIX_LOCALE) == NOM_LOCAL
-        assert thread.voice[VOIX_LOCALE].certitude is Certainty.CANAL
+        assert thread.attach(voiceprint=None, locale=True) == LOCAL_VOICE
+        assert thread.label(LOCAL_VOICE) == NOM_LOCAL
+        assert thread.voice[LOCAL_VOICE].certitude is Certainty.CANAL
 
     def test_deux_extraits_proches_sont_la_meme_voix(self) -> None:
         thread = LiveThread()
@@ -180,7 +180,7 @@ class TestPasDeuxFoisLaMemePhrase:
         # Les tranches se recouvrent de 5 s pour qu'une phrase à cheval reste
         # entière dans l'une des deux. Sans ce filtre, elle s'affiche deux fois.
         thread = LiveThread()
-        thread.record_turn(blocks([utterance(0, 8)], [])[0], VOIX_LOCALE)
+        thread.record_turn(blocks([utterance(0, 8)], [])[0], LOCAL_VOICE)
         kept = thread.retenir([utterance(0, 8), utterance(8, 12)])
         assert [r.span.start for r in kept] == [8]
 
@@ -189,13 +189,13 @@ class TestPasDeuxFoisLaMemePhrase:
         # 13,60 dans une tranche et 12,80 dans la suivante. Filtrer sur le seul
         # début la jetait — une phrase perdue sur six.
         thread = LiveThread()
-        thread.record_turn(blocks([utterance(4.8, 13.2)], [])[0], VOIX_LOCALE)
+        thread.record_turn(blocks([utterance(4.8, 13.2)], [])[0], LOCAL_VOICE)
         kept = thread.retenir([utterance(12.8, 19.3)])
         assert [r.span.start for r in kept] == [12.8]
 
     def test_la_meme_phrase_redite_a_l_identique_ne_passe_pas_deux_fois(self) -> None:
         thread = LiveThread()
-        thread.record_turn(blocks([utterance(4.8, 9.4)], [])[0], VOIX_LOCALE)
+        thread.record_turn(blocks([utterance(4.8, 9.4)], [])[0], LOCAL_VOICE)
         assert thread.retenir([utterance(5.26, 9.4)]) == []
 
     def test_une_phrase_vide_n_encombre_pas_le_fil(self) -> None:
@@ -240,7 +240,7 @@ class TestRecouvrementDeTexte:
     def test_le_fil_retire_le_recouvrement_a_l_affichage(self) -> None:
         thread = LiveThread()
         thread.record_turn(
-            blocks([utterance(0, 8, text="c'est notre dernier.")], [])[0], VOIX_LOCALE
+            blocks([utterance(0, 8, text="c'est notre dernier.")], [])[0], LOCAL_VOICE
         )
         kept = thread.retenir(
             [utterance(8, 14, text="dernier. Sandy, tu peux nous dire où on en est ?")]
@@ -254,10 +254,10 @@ class TestCorrection:
         thread = LiveThread()
         distante = thread.attach(MEME_VOIX[0], locale=False)
         thread.record_turn(blocks([utterance(0, 5)], [])[0], distante)
-        thread.record_turn(blocks([utterance(5, 9)], [])[0], VOIX_LOCALE)
+        thread.record_turn(blocks([utterance(5, 9)], [])[0], LOCAL_VOICE)
         thread.attach(MEME_VOIX[1], locale=False)
         thread.record_turn(blocks([utterance(9, 14)], [])[0], distante)
-        return thread, distante, VOIX_LOCALE
+        return thread, distante, LOCAL_VOICE
 
     def test_corriger_une_phrase_renomme_toute_la_voix(self) -> None:
         # C'est le cas courant : quand l'outil se trompe de personne, il se
@@ -471,7 +471,7 @@ class TestRecollageEnDirect:
     def test_la_voix_locale_et_le_fourre_tout_sont_epargnes(self):
         """« Toi » est désigné par le canal, le fourre-tout mélange tout le monde."""
         thread = LiveThread()
-        thread.voice[VOIX_LOCALE].voiceprints.append(voiceprint(1.0, 0.0, duration=12.0))
+        thread.voice[LOCAL_VOICE].voiceprints.append(voiceprint(1.0, 0.0, duration=12.0))
         thread.voice[VOIX_INDETERMINEE] = LiveVoice(
             identifier=VOIX_INDETERMINEE, voiceprints=[voiceprint(0.99, 0.14, duration=12.0)])
         assert thread.stitch() == []
@@ -530,7 +530,7 @@ class TestPlafondDesParticipants:
         empreintes — rien n'est prélevé sur la voix locale."""
         thread = self._thread(people=3)
         thread.turns.append(LiveTurn(number=1, span=Span(0, 2),
-                                    text="je parle", voice=VOIX_LOCALE))
+                                    text="je parle", voice=LOCAL_VOICE))
         # Trois participants dont celui qui enregistre : deux voix distantes
         # attendues, deux existent, le plafond est donc atteint.
         assert thread.attach(voiceprint(0.9, 0.4, duration=3.0), locale=False) == "v1"

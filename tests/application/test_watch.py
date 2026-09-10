@@ -65,7 +65,7 @@ class TestJournal:
         lines = (tmp_path / "propositions.jsonl").read_text().strip().splitlines()
         assert len(lines) == 2
         premier = json.loads(lines[0])
-        assert premier["genre"] == Kind.LIEN.value
+        assert premier["genre"] == Kind.LINK.value
         assert premier["instant"] == 7.0
 
     def test_le_journal_s_ajoute_et_ne_se_reecrit_pas(self, tmp_path, monkeypatch):
@@ -351,7 +351,7 @@ class TestAmorceRelueEnCoursDeReunion:
 
     def veilleur_avec(self, prompt_seed: str, relire=None):
         return Watcher(
-            watch_rules=WatchRules(mot_cle="greffier"),
+            watch_rules=WatchRules(keyword="greffier"),
             log=pathlib.Path("/tmp/greffier-essai.jsonl"),
             transcriber=None,
             situer=lambda: None,
@@ -471,7 +471,7 @@ class TestLesDeuxBoutonsEnCoursDeReunion:
         from greffier.domain.instructions import WatchRules
 
         return Watcher(
-            watch_rules=WatchRules(mot_cle="greffier"),
+            watch_rules=WatchRules(keyword="greffier"),
             log=Path("/tmp/inutilise.jsonl"),
             assistant_of=assistant_of,
             reread_participation=lambda: buttons,

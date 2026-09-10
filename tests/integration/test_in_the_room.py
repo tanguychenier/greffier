@@ -31,7 +31,7 @@ import pytest
 
 from greffier.adapters.configuration import Config
 from greffier.application.process import Chain
-from greffier.domain.channels import VOIX_LOCALE
+from greffier.domain.channels import LOCAL_VOICE
 
 RACINE = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(RACINE / "tools"))
@@ -122,7 +122,7 @@ class TestChaineEnPresentiel:
 
     def test_personne_n_est_etiquete_comme_la_voix_locale(self, outcome):
         """Le défaut que le présentiel pouvait faire apparaître, en toutes lettres."""
-        assert VOIX_LOCALE not in outcome.speaking_time()
+        assert LOCAL_VOICE not in outcome.speaking_time()
 
     def test_les_participants_ne_sont_pas_fondus_en_une_seule_voix(self, outcome):
         """Trois personnes autour d'une table restent plusieurs voix.
@@ -139,7 +139,7 @@ class TestChaineEnPresentiel:
 
     def test_l_auto_presentation_reste_juste_sans_le_secours_du_canal(self, outcome):
         """« moi c'est Jacques » désigne celui qui parle, canal ou pas."""
-        assert outcome.nom_de(outcome.utterances[0].voice) == "Jacques"
+        assert outcome.name_of(outcome.utterances[0].voice) == "Jacques"
 
     def test_aucune_phrase_a_cheval_n_est_attribuee(self, outcome):
         """Une phrase que deux voix se partagent ne doit désigner personne.

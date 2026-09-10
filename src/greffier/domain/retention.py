@@ -7,7 +7,7 @@ from enum import StrEnum
 
 
 class Gesture(StrEnum):
-    RIEN = "rien"
+    NOTHING = "rien"
     COMPRESSER = "compresser"
     EFFACER = "effacer"
 
@@ -27,13 +27,13 @@ class Rule:
                 "sinon l'audio disparaît avant d'avoir été compressé"
             )
 
-    def decide(self, jours: float, transcrite: bool, deja_compresse: bool) -> Gesture:
+    def decide(self, jours: float, transcrite: bool, already_compressed: bool) -> Gesture:
         """The gesture owed for a meeting of this age."""
         if not transcrite:
-            return Gesture.RIEN
+            return Gesture.NOTHING
         if self.effacer_apres and jours >= self.effacer_apres:
             return Gesture.EFFACER
         if (self.compresser_apres and jours >= self.compresser_apres
-                and not deja_compresse):
+                and not already_compressed):
             return Gesture.COMPRESSER
-        return Gesture.RIEN
+        return Gesture.NOTHING

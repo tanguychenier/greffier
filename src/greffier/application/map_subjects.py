@@ -99,10 +99,10 @@ def analyser(rendered: str, maximum: int = 12) -> list[Contribution]:
             continue
         apports.append(Contribution(
             text=text,
-            kind=_KINDS.get(str(item.get("genre", "")).strip(), Kind.CONSTAT),
-            state=_STANDINGS.get(str(item.get("etat", "")).strip(), Standing.EN_DISCUSSION)
-            if str(item.get("etat", "")).strip() != str(Standing.DEPASSE)
-            else Standing.EN_DISCUSSION,
+            kind=_KINDS.get(str(item.get("genre", "")).strip(), Kind.OBSERVATION),
+            state=_STANDINGS.get(str(item.get("etat", "")).strip(), Standing.UNDER_DISCUSSION)
+            if str(item.get("etat", "")).strip() != str(Standing.OVERTAKEN)
+            else Standing.UNDER_DISCUSSION,
             sous=str(item.get("sous", "")).strip(),
         ))
     return apports
