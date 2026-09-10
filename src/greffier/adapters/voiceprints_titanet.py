@@ -1,8 +1,9 @@
-"""Extraction d'empreintes vocales par TitaNet, en local.
+"""Extracting voiceprints with TitaNet, locally.
 
-Adaptateur : c'est le seul endroit du projet qui sait que le modèle s'appelle
-TitaNet et qu'il tourne sous sherpa-onnx. Le domaine, lui, ne manipule que des
-vecteurs normalisés, ce qui permet de changer de modèle sans toucher aux règles.
+Measured against three better-ranked candidates on 931 turns of a real meeting:
+CAM++ and ResNet293 have a **negative** margin on 2.5-second excerpts, meaning
+no threshold separates "same person" from "different people". See
+docs/rex-2026-09-10.md. TitaNet stays: +0.099 of margin at 14.6 ms per excerpt.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ DUREE_MINIMALE = 1.5
 DUREE_MAXIMALE = 60.0
 
 class TitaNetExtractor:
-    """Transforme un extrait de parole en empreinte vocale."""
+    """Turns an excerpt of speech into a voiceprint."""
 
     def __init__(self, model: Path) -> None:
         if not model.exists():

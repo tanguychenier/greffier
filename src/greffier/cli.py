@@ -1,21 +1,7 @@
-"""Ligne de commande de Greffier.
+"""Command line.
 
-    greffier traiter <audio>     transcrit, identifie les voix, rédige
-    greffier rediger             reprend la rédaction d'une réunion transcrite
-    greffier renommer <sujet>    donne un sujet lisible à une réunion
-    greffier oublier             efface une réunion et tout ce qui va avec
-    greffier contexte            ce que l'outil sait des sigles et des personnes
-    greffier ranger              applique la rétention aux enregistrements
-    greffier sauvegarder         copie les données, sans l'audio
-    greffier recuperer           reconstruit une réunion depuis le fil du direct
-    greffier deposer <fichiers>  classe des audios, vidéos et documents
-    greffier niveau              dit si le micro suffit à transcrire
-    greffier sources             les sources extérieures inscrites, et leur état
-    greffier carte               construit la carte d'un sujet depuis une réunion
-    greffier verifier            dit ce qui est prêt et ce qui manque
-
-Volontairement mince : elle lit la configuration, demande à la composition
-d'assembler la chaîne, et affiche. Toute la logique est ailleurs.
+The command names and their help text stay in French: they are what someone
+types and reads. Everything else here is code.
 """
 
 from __future__ import annotations
@@ -61,14 +47,10 @@ application = typer.Typer(
 )
 
 def _resume_the_thread(config: Config, identifier: str, the_follower: Any) -> float:
-    """Rejoue le fil déjà publié, et dit jusqu'où il va.
+    """Replays the thread already published, and says how far it goes.
 
-    Deux effets, tous deux nécessaires pour qu'une relance en cours de réunion
-    ne se voie pas : le `Fil` retrouve ses voix et ses noms, et la veille sait
-    à quelle seconde reprendre la transcription.
-
-    Rend 0 quand il n'y a rien à reprendre, ce qui est le cas normal — une
-    réunion qui commence.
+    What makes a watch restarted mid-meeting pick up where it left off rather than
+    start from nothing: 646 turns recovered at the fiftieth minute.
     """
     from greffier.application.follow import files, read_from, replay
 
@@ -90,18 +72,11 @@ def _resume_the_thread(config: Config, identifier: str, the_follower: Any) -> fl
     return jusqu_ou
 
 def _reread_the_buttons() -> tuple[bool, bool]:
-    """Où en sont les deux boutons de l'onglet En direct : la voix, l'initiative.
+    """Where the live tab's two buttons stand: the voice, the initiative.
 
-    Relus à chaque tranche : la fenêtre et la veille sont deux processus, et le
-    seul canal entre eux est le fichier de configuration. Un réglage que la
-    veille ne lit qu'à son démarrage est un bouton sans effet — et c'est ce
-    qu'était l'initiative.
-
-    L'assistant participe **toujours** : il écoute, prend des notes, pose ses
-    questions par écrit. Ce qui se règle, c'est s'il se fait entendre, et s'il
-    peut parler sans qu'on l'ait appelé. `actif` n'est plus consulté : ne pas
-    l'avoir retiré en même temps que son bouton a coûté une réunion, où le
-    fichier gardait `actif = false` sans que rien ne puisse le remettre à vrai.
+    Re-read at every slice: the window and the watch are two processes, and the
+    configuration file is the only channel between them. A setting the watch reads
+    only at startup is a button with no effect.
     """
     reglages = Config().assistant
     return reglages.voice != "aucun", reglages.initiative
@@ -109,12 +84,7 @@ def _reread_the_buttons() -> tuple[bool, bool]:
 def _live_material(
     config: Config, identifier: str, the_follower: Any
 ) -> Callable[[], str]:
-    """Ce que l'assistant a sous les yeux : le fil, et les documents fournis.
-
-    Relue à chaque appel plutôt que figée au démarrage : c'est en séance qu'on
-    dépose un document, et il doit servir à la question qui suit, pas à la
-    réunion d'après.
-    """
+    """What the assistant has in front of it: the thread, and the documents."""
     from greffier.adapters import attachments_file
 
     def material() -> str:
@@ -133,12 +103,7 @@ def _live_material(
 def _namer(
     the_follower: Any, config: Config, identifier: str
 ) -> Callable[[str, str], bool]:
-    """Donne à l'assistant le pouvoir de poser un nom sur une voix du fil.
-
-    Sans lui, demander « qui vient de parler » n'est qu'une politesse : la
-    réponse s'affiche et se perd. Avec lui, elle nomme la voix, entre en banque
-    et sert le compte rendu — c'est ce qui justifie d'avoir interrompu.
-    """
+    """Gives the assistant the power to put a name on a live voice."""
     from greffier.application.follow import ask, files
 
     _, requests = files(config.paths.live, identifier)
@@ -158,12 +123,7 @@ def _namer(
     return name_voice
 
 def _reunion_visee(config: Config, demandee: str | None) -> str:
-    """La réunion nommée, ou la dernière traitée.
-
-    Sortir ici plutôt que de laisser un « None » se propager : toutes les
-    commandes qui travaillent sur une réunion ont besoin du même message quand
-    il n'y en a aucune.
-    """
+    """The named meeting, or the last one processed."""
     if demandee:
         return demandee
     connues = store(config).lister()
@@ -174,12 +134,7 @@ def _reunion_visee(config: Config, demandee: str | None) -> str:
     return connues[0]
 
 def _hours_of(config: Config, audio: Path) -> tuple[datetime | None, datetime | None]:
-    """Les heures d'horloge de cette réunion, si l'état les a retenues.
-
-    Vérifie que l'état parle bien de **cet** enregistrement : traiter un vieux
-    fichier audio ne doit pas lui coller les heures de la dernière réunion. Sans
-    correspondance, le rédacteur retombe sur l'horodatage de l'identifiant.
-    """
+    """This meeting's clock times, when the state kept them."""
     try:
         state = recording(config).read()
     except (OSError, ValueError):
@@ -189,7 +144,7 @@ def _hours_of(config: Config, audio: Path) -> tuple[datetime | None, datetime | 
     return (state.start, state.terminee_le)
 
 def _locations(config: Config) -> ranger_module.Places:
-    """Où vivent les morceaux d'une réunion, d'après la configuration."""
+    """Where a meeting's pieces live, according to the configuration."""
     return ranger_module.Places(
         meetings=config.paths.data / "reunions",
         recordings=config.paths.recordings,
@@ -203,21 +158,7 @@ def _locations(config: Config) -> ranger_module.Places:
     )
 
 def _refuse_during_a_meeting(config: Config, quand_meme: bool) -> None:
-    """Refuse de traiter tant qu'une réunion s'enregistre.
-
-    Le fichier d'état est **unique** : c'est par lui que la fenêtre suit la
-    réunion en cours. Un traitement lancé en parallèle y publiait ses propres
-    phases, jusqu'à « terminé », et la fenêtre en concluait que la réunion était
-    finie — le fil du direct s'arrêtait, les processus d'écoute se retiraient,
-    alors que la capture continuait. Constaté deux fois en réunion réelle, dont
-    le 2026-09-09 où une réunion entière a été perdue sans laisser un octet.
-
-    **Le danger est désarmé depuis** : le journal de la chaîne n'écrit plus que
-    si l'état porte la réunion qu'il traite (`Enregistrement.pour`). Ce refus
-    reste, parce qu'il y a une seconde raison de ne pas traiter pendant une
-    réunion — transcrire mobilise le processeur que la capture et le direct se
-    partagent déjà — mais « --quand-meme » ne détruit plus rien.
-    """
+    """Refuses to process while a meeting is recording."""
     if quand_meme:
         return
     from greffier.domain.models import Phase
@@ -328,17 +269,7 @@ def process(
         typer.secho("Envoyé par mail.", fg=typer.colors.GREEN)
 
 def _ask_for_names(config: Config, identifier: str) -> bool:
-    """Réclame les noms manquants, tout de suite. Faux si on ne peut pas demander.
-
-    Le rappel « greffier voix … » ne suffit pas : une voix qu'on ne nomme pas
-    aujourd'hui n'entre pas en banque, donc n'est pas reconnue à la réunion
-    suivante, et le compte rendu continue de parler de « Personne 3 ». Autant
-    demander pendant que la réunion est fraîche.
-
-    Rien n'est demandé quand l'entrée n'est pas un terminal : le traitement peut
-    tourner détaché, lancé par l'icône de la barre de menus, et une question
-    posée à personne bloquerait la chaîne indéfiniment.
-    """
+    """Asks for the missing names, right away."""
     if not sys.stdin.isatty():
         return False
     try:
@@ -391,7 +322,7 @@ def _ask_for_names(config: Config, identifier: str) -> bool:
     return True
 
 def _listen(config: Config, identifier: str, candidate: VoiceToName) -> None:
-    """Joue l'extrait d'une voix, quand le système sait le faire."""
+    """Plays a voice's excerpt, when the system knows how."""
     player = shutil.which("afplay") or shutil.which("aplay") or shutil.which("ffplay")
     if not player:
         typer.echo("  (aucun lecteur audio disponible)")
@@ -412,12 +343,7 @@ def _listen(config: Config, identifier: str, candidate: VoiceToName) -> None:
     subprocess.run(arguments, check=False)
 
 def _regenerate(config: Config, identifier: str) -> bool:
-    """Rejoue la rédaction si un compte rendu existait déjà pour cette réunion.
-
-    Nommer une voix ne change ni la segmentation ni la transcription : pas
-    besoin de relancer tout le traitement pour que le compte rendu porte les
-    bonnes étiquettes.
-    """
+    """Replays the writing when minutes already existed for this meeting."""
     path = config.paths.minutes_folder / f"{identifier}.md"
     if not path.exists():
         return False
@@ -585,7 +511,7 @@ def _devices_swift() -> Path | None:
     return source if source.exists() else None
 
 def _swift(*arguments: str) -> subprocess.CompletedProcess[str]:
-    """Appelle l'utilitaire CoreAudio du dépôt."""
+    """Calls the repository's CoreAudio utility."""
     source = _devices_swift()
     if source is None:
         return subprocess.CompletedProcess([], 1, "", "utilitaire absent")
@@ -596,21 +522,7 @@ def _swift(*arguments: str) -> subprocess.CompletedProcess[str]:
 _GAIN_MINIMAL = 0.85
 
 def _prepare_capture(config: Config) -> str:
-    """Met le poste dans le meilleur état possible, sans rien demander.
-
-    Trois réglages, tous constatés manquants en usage réel :
-
-    - le micro de l'agrégé doit être celui qui est **réellement branché**. Le
-      défaut est codé sur un modèle de casque : démarrer avec ce casque
-      débranché donne une capture qui n'entend pas la personne qui enregistre.
-    - la sortie système doit passer par « Reunion Sortie ». Sans cela, le son
-      des autres ne traverse pas la boucle de capture : mesuré, les canaux
-      système restaient à -240 dB, donc muets.
-    - le gain du micro doit être haut. À 0,59 sur un poste réel, la voix
-      arrivait si bas que le modèle inventait des phrases.
-
-    Rend la sortie d'avant, pour qu'on puisse la rendre à la fin.
-    """
+    """Puts the machine in the best state it can, asking nothing."""
     if platform.system() != "Darwin" or _devices_swift() is None:
         return ""
 
@@ -644,11 +556,7 @@ def _prepare_capture(config: Config) -> str:
     return precedente
 
 def _listening_output(materiel: object) -> str:
-    """Par où la personne écoute la réunion, à dupliquer vers la boucle.
-
-    Un casque d'abord : c'est là qu'on écoute quand il est branché, et cela évite
-    que le micro réentende les enceintes. Les haut-parleurs sinon.
-    """
+    """Where the person hears the meeting, to duplicate into the loopback."""
     sorties = [p for p in getattr(materiel, "peripheriques", ()) if p.sorties > 0]
     utiles = [
         p.name for p in sorties
@@ -660,14 +568,7 @@ def _listening_output(materiel: object) -> str:
     return str((externes or utiles)[0])
 
 def _mic_by_listening(config: Config, materiel: object) -> str:
-    """Écoute les micros disponibles et retient celui qui capte le mieux.
-
-    Un micro peut être branché, reconnu, réglé au maximum, et muet : les casques
-    USB ont un bouton de sourdine sur leur boîtier. Mesuré sur un poste réel, un
-    Jabra rendait -78 dB quand le micro intégré rendait -58 dB dans le même
-    silence. Sans cette écoute, Greffier retenait le casque, enregistrait une
-    heure de silence, puis accusait l'autorisation micro.
-    """
+    """Listens to the available mics and keeps the one that captures best."""
     from greffier.domain.devices import (
         candidates_to_listen_to,
         choose_by_listening,
@@ -708,7 +609,7 @@ def _mic_by_listening(config: Config, materiel: object) -> str:
     return choix.name
 
 def _raise_the_gain(mic: str) -> None:
-    """Monte le gain du micro s'il est trop bas pour la transcription."""
+    """Raises the mic gain when it is too low to transcribe."""
     lecture = _swift("--get-gain", mic)
     if lecture.returncode != 0:
         return
@@ -728,18 +629,13 @@ def _raise_the_gain(mic: str) -> None:
         )
 
 def _restore_the_output(precedente: str) -> None:
-    """Remet la sortie système d'avant la réunion."""
+    """Puts back the system output from before the meeting."""
     if not precedente or platform.system() != "Darwin":
         return
     _swift("--set-output", precedente)
 
 def _lancer_veille(config: Config, config_file: Path | None) -> bool:
-    """Lance la veille du matériel, détachée. Faux si elle n'a pas pu partir.
-
-    Détachée : « greffier enregistrer » doit rendre la main tout de suite, et la
-    veille doit survivre à la fermeture du terminal. Son échec ne compromet que
-    l'adaptation au matériel, jamais la capture.
-    """
+    """Starts the hardware watch, detached."""
     if platform.system() != "Darwin":
         return False
     command = [sys.executable, "-m", "greffier", "veiller"]
@@ -758,13 +654,7 @@ def _lancer_veille(config: Config, config_file: Path | None) -> bool:
     return True
 
 def _lancer_direct(config: Config, config_file: Path | None) -> bool:
-    """Lance la transcription en direct, détachée. Faux si elle ne part pas.
-
-    Un processus séparé, comme la veille du matériel : whisper occupe plusieurs
-    secondes par tranche, ce qui gèlerait la fenêtre, et un modèle qui tombe ne
-    doit pas emporter l'interface. C'est ce qui manquait — la commande existait,
-    mais rien ne la lançait, donc personne ne l'a jamais vue tourner.
-    """
+    """Starts live transcription, detached."""
     if not config.live.active:
         return False
     command = [sys.executable, "-m", "greffier", "assister"]
@@ -1145,12 +1035,7 @@ def known(
     _say_the_bank_health(people)
 
 def _clean_an_entry(bank: FileVoiceBank, name: str) -> None:
-    """Retire d'une personne les empreintes qui désignent quelqu'un d'autre.
-
-    Effacer la personne entière pour une empreinte fautive perdait tout le
-    reste. Le grain qui décide de la reconnaissance est l'empreinte : c'est
-    donc à ce grain qu'on corrige.
-    """
+    """Removes from a person the voiceprints that belong to someone else."""
     from greffier.domain.voiceprints import intruding_voiceprints
 
     people = bank.people()
@@ -1180,13 +1065,7 @@ def _clean_an_entry(bank: FileVoiceBank, name: str) -> None:
     _say_the_bank_health(bank.people())
 
 def _say_the_bank_health(people: list) -> None:  # type: ignore[type-arg]
-    """Dit quelles entrées se ressemblent trop, et ce que ça coûte.
-
-    Une entrée déposée sous le nom d'un collègue mais portant une autre voix
-    empoisonne toute la banque : les deux noms deviennent inreconnaissables,
-    et rien ne le dit. C'est arrivé le 2026-09-02, découvert seulement parce
-    qu'un prénom avait été affirmé à tort en réunion.
-    """
+    """Says which entries resemble each other too much, and what it costs."""
     import itertools
 
     from greffier.domain.voiceprints import (
@@ -1248,12 +1127,7 @@ def _say_the_bank_health(people: list) -> None:  # type: ignore[type-arg]
         )
 
 def _say_the_intruders(people: list) -> None:  # type: ignore[type-arg]
-    """Nomme les empreintes fautives, une par une.
-
-    Savoir que deux entrées sont en conflit ne dit pas laquelle réparer, et
-    effacer une personne entière pour une empreinte perd tout le reste. La
-    question se pose empreinte par empreinte, et elle a une réponse.
-    """
+    """Names the offending voiceprints, one by one."""
     from greffier.domain.voiceprints import intruding_voiceprints
 
     trouvees = [
@@ -1452,7 +1326,7 @@ def board(
         _publier_la_carte(config, registre, name, the_board, identifier)
 
 def _board_labels(registre: object, name: str) -> tuple[str, ...]:
-    """Les libellés déjà sur la carte de ce sujet, s'il en a une."""
+    """The labels already on this subject's board, if it has one."""
     from greffier.adapters import board_miro
 
     connu = registre.by_name(name)  # type: ignore[attr-defined]
@@ -1464,10 +1338,7 @@ def _board_labels(registre: object, name: str) -> tuple[str, ...]:
         return ()
 
 def _action_texts(board: object) -> list[str]:
-    """Les libellés des points que le groupe a tranchés.
-
-    La racine est écartée : le sujet n'est ni acté ni en discussion, il est.
-    """
+    """The labels of the points the group settled."""
     from greffier.domain.board import Kind, Node, Standing
 
     trouves: list[str] = []
@@ -1484,7 +1355,7 @@ def _action_texts(board: object) -> list[str]:
     return trouves
 
 def _contributions_of_others(registre: object, name: str) -> tuple[str, ...]:
-    """Ce que des humains ont écrit sur la carte, et que l'outil n'a pas posé."""
+    """What humans wrote on the board, and the tool did not."""
     from greffier.adapters import board_miro
 
     connu = registre.by_name(name)  # type: ignore[attr-defined]
@@ -1498,7 +1369,7 @@ def _contributions_of_others(registre: object, name: str) -> tuple[str, ...]:
 def _publier_la_carte(
     config: Config, registre: object, name: str, the_board: object, identifier: str
 ) -> None:
-    """Écrit la carte sur Miro, en créant le tableau à la première fois."""
+    """Writes the board to Miro, creating it on first use."""
     from greffier.adapters import board_miro, subjects_file
 
     connu = registre.by_name(name)  # type: ignore[attr-defined]
@@ -1574,12 +1445,7 @@ def sources_(
     typer.echo(f"\n  registre  {config.paths.sources}")
 
 def _try_the_source(source: object, token: str) -> None:
-    """Un appel de lecture, pour dire si l'accès fonctionne vraiment.
-
-    Un registre qui se contente de dire « configuré » ne sert à rien : le
-    jeton peut être expiré, sa portée insuffisante, le projet invisible. Mieux
-    vaut l'apprendre ici qu'en pleine réunion.
-    """
+    """One read call, to say whether access really works."""
     from greffier.domain.sources import Kind, Source
 
     assert isinstance(source, Source)
@@ -1719,11 +1585,7 @@ def publish(
 def _offer_to_the_context(
     config: Config, appris: tuple[tuple[str, str, str], ...]
 ) -> None:
-    """Demande avant d'écrire dans le contexte, comme partout ailleurs.
-
-    Un document apporte vingt entrées d'un coup : les valider en bloc est le
-    seul geste raisonnable, mais il doit rester un geste.
-    """
+    """Asks before writing into the context, as everywhere else."""
     from greffier.adapters import context_file
 
     if not typer.confirm("\n  Ajouter ces entrées au contexte ?", default=True):
@@ -2297,11 +2159,7 @@ def watch(
     depart = player.read()
     voulu = config.audio.mic or advised_mic(depart, config.audio.mic or "")
     def captured_size() -> int | None:
-        """Les octets écrits dans le morceau en cours, pour savoir si ça avance.
-
-        Le dernier morceau et non le premier : un changement de matériel en
-        rouvre un, et c'est celui-là que ffmpeg alimente.
-        """
+        """The bytes written in the current chunk, to tell whether it advances."""
         try:
             etat_courant = recorder.read()
         except (OSError, ValueError):
@@ -2315,12 +2173,7 @@ def watch(
             return None
 
     def captured_level() -> float | None:
-        """Le niveau du micro sur ce qui vient d'être écrit.
-
-        Lu dans le fichier plutôt qu'en ouvrant le micro : celui-ci est déjà
-        pris par la capture, et l'ouvrir une seconde fois pour le mesurer est
-        le meilleur moyen de perdre les deux.
-        """
+        """The mic level on what was just written."""
         from greffier.adapters.live_levels import read_level
 
         try:

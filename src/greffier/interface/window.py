@@ -1,26 +1,9 @@
-"""La fenêtre de Greffier : une application qu'on lance, pas une icône.
+"""The window: an application you launch, not a terminal you learn.
 
-Il y avait trois demi-interfaces : une icône de barre de menus en Swift sur
-macOS, une icône de zone de notification ailleurs, et des questions posées dans
-un terminal que personne ne voit quand le traitement tourne détaché. Trois
-comportements à maintenir, aucun complet.
-
-Une fenêtre les remplace. Tkinter parce qu'il est dans la bibliothèque standard :
-rien à installer, comme l'installeur du projet qui ne dépend que d'elle. Son
-apparence ne vient pas de ses widgets, qui datent, mais de formes dessinées —
-voir `apparence`.
-
-Deux principes de mise en page, tirés de défauts constatés :
-
-- **tout est en grille avec des poids explicites.** Un `pack` en `expand` suivi
-  d'un bouton pousse ce bouton hors de la fenêtre dès qu'on la redimensionne ;
-  c'est arrivé au bouton « Demander ».
-- **les commandes disponibles suivent l'état.** Un bouton unique qui change de
-  texte n'apprend pas ce qu'on peut faire. À l'arrêt on démarre ; en cours on
-  suspend ou on termine ; en pause on reprend ou on termine.
-
-Ce module n'implémente aucune règle. Il lit l'état, affiche, et appelle. Tout ce
-qui décide vit dans le domaine et l'application, et se teste sans écran.
+Everything the command line can do has to be reachable here, and what happens
+during the meeting has to be correctable while it happens. Long work runs in a
+thread and reports back through the state file, so that a model falling over
+cannot take the window with it.
 """
 
 from __future__ import annotations
@@ -92,7 +75,7 @@ _LIBELLES_VOIX = {
 
 @dataclass
 class Job:
-    """Une tâche longue, portée par un fil, qui rend compte à la fenêtre."""
+    """A long task, carried by a thread, reporting back to the window."""
 
     caption: str
     do_it: Callable[[Callable[[str], None]], Any]
@@ -100,7 +83,7 @@ class Job:
     messages: queue.Queue[str] = field(default_factory=queue.Queue)
 
 class Window:
-    """Assemble l'interface et la tient à jour."""
+    """Assembles the interface and keeps it up to date."""
 
     def __init__(self, config: Config) -> None:
         from greffier.wiring import recording, store
@@ -138,7 +121,7 @@ class Window:
         self._follow_the_mics()
 
     def _style_the_lists(self) -> None:
-        """Les listes restent des widgets Tk : au moins qu'elles suivent la palette."""
+        """The lists stay Tk widgets: at least make them follow the theme."""
         c = self.colours
         style = ttk.Style()
         with contextlib.suppress(tk.TclError):
@@ -201,14 +184,7 @@ class Window:
         )
 
     def _board(self, parent: tk.Misc, sticky: str = "nsew") -> tk.Frame:
-        """Une carte avec un soupçon d'ombre portée.
-
-        Deux cadres dans la même cellule de grille plutôt qu'un `Canvas` : Tk
-        empile ce qui partage une cellule dans l'ordre de création, donc le
-        second (la carte) recouvre le premier (l'ombre), décalé de quelques
-        pixels en bas à droite — sans rien changer à la façon dont la taille
-        remonte des enfants, contrairement à un `place()` qui l'aurait cassée.
-        """
+        """A card with a hint of drop shadow."""
         c = self.colours
         ombre = tk.Frame(parent, bg=c.rule)
         ombre.grid(row=0, column=0, sticky=sticky, padx=(3, 0), pady=(3, 0))
@@ -288,16 +264,7 @@ class Window:
         return bar
 
     def _build_commands(self) -> None:
-        """Les trois jeux de commandes, construits une fois, montrés tour à tour.
-
-        Ils étaient détruits et reconstruits à chaque changement d'état, et cela
-        faisait tomber le processus : Tk envoie encore ses événements de survol
-        au bouton qu'on vient de cliquer, et le trouvait détruit. Le rapport de
-        plantage nomme « Tk_MacOSXGetTkWindow », sur le fil principal.
-
-        Montrer et cacher n'a pas ce défaut, et le clic reste toujours servi par
-        un widget vivant.
-        """
+        """The three sets of commands, built once, shown by state."""
         c = self.colours
         self.jeux: dict[Phase, tk.Frame] = {}
 
@@ -327,7 +294,7 @@ class Window:
         self._show_commands(Phase.REST)
 
     def _show_commands(self, phase: Phase) -> None:
-        """N'affiche que les commandes possibles dans cet état."""
+        """Shows only the commands that make sense in this state."""
         voulu = self.jeux.get(phase, self.jeux[Phase.REST])
         for jeu in self.jeux.values():
             if jeu is voulu:
@@ -395,13 +362,7 @@ class Window:
         self._load_meetings()
 
     def _live_tab(self) -> None:
-        """Ce qui se dit, pendant que ça se dit — et corrigeable d'un clic.
-
-        Un `Text` et non une liste : on lit une conversation, pas un tableau, et
-        une phrase de trente mots doit revenir à la ligne. Chaque nom de
-        locuteur porte son propre repère cliquable, ce qui permet de corriger
-        l'attribution sans quitter la réunion des yeux.
-        """
+        """What is being said, while it is said — and correctable there."""
         c = self.colours
         inside = self._page("En direct")
         self.direct_etat = self._text(
@@ -460,11 +421,11 @@ class Window:
                 else f"Donner la voix à {name}")
 
     def _toggle_the_voice(self) -> None:
-        """Lui donne la parole, ou la lui retire, sans la faire taire.
+        """Gives it the floor, or takes it away, without silencing it.
 
-        Distinct du bouton de participation : sans voix, elle pose toujours ses
-        questions, mais dans la conversation, et on lui répond au clavier. Avec,
-        elle se fait entendre dans la pièce. Deux réunions différentes.
+        Cut here and now rather than through the setting: the watch is another process
+        and only re-reads it at the next slice, up to fifteen seconds later. Measured
+        in a meeting — you press, it keeps talking, and the button looks broken.
         """
         from greffier.adapters import configuration as reglages
         from greffier.adapters.voice_neural import NeuralVoice, silence
@@ -498,14 +459,7 @@ class Window:
                 else f"Laisser {name} intervenir d'elle-même")
 
     def _toggle_initiative(self) -> None:
-        """Lui permet de parler sans qu'on l'ait appelée, ou le lui retire.
-
-        Éteinte, elle ne dit un mot que si son nom est prononcé — c'est la règle
-        qui la rend supportable en réunion. Allumée, elle peut signaler une
-        décision sans responsable, une question restée en l'air, un écart avec
-        un document fourni. Jamais plus d'une fois par « repos », et jamais dans
-        une phrase de quelqu'un : la politesse est dans `participation`.
-        """
+        """Lets it speak without being called, or takes that away."""
         from greffier.adapters import configuration as reglages
 
         avant = self.config.assistant.initiative
@@ -521,11 +475,7 @@ class Window:
         self._say_the_participation()
 
     def _say_the_participation(self) -> None:
-        """Ce que le bouton vient de changer, en clair.
-
-        Un bouton qui bascule sans rien dire laisse deviner dans quel état on
-        est, et ici l'état s'entend dans la pièce : autant l'écrire.
-        """
+        """What the button just changed, in plain words."""
         name = self.config.assistant.name
         if self.config.assistant.voice == "aucun":
             mot = (f"{name} suit la réunion et pose ses questions dans l'onglet "
@@ -539,11 +489,7 @@ class Window:
         self.participation_line.configure(text=mot)
 
     def _follow_the_live_thread(self, state: Any) -> None:
-        """Lit ce que le processus d'écoute a publié depuis la dernière fois.
-
-        Quatre fois par seconde, mais en ne lisant que les octets ajoutés : une
-        heure de réunion relue à chaque tour coûterait pour rien.
-        """
+        """Reads what the listening process published since last time."""
         if state.identifier != self._fil_reunion:
             self._forget_the_live_thread(state.identifier)
         if not self._fil_reunion:
@@ -567,12 +513,7 @@ class Window:
         self._follow_the_questions()
 
     def _follow_the_questions(self) -> None:
-        """Affiche ce que l'outil demande, et pose le compte sur l'onglet.
-
-        Rien ne surgit : une boîte de dialogue au milieu d'une réunion coûte
-        plus qu'elle n'apporte. La pastille signale qu'il y a quelque chose à
-        voir, on y va quand on veut.
-        """
+        """Shows what the tool is asking, and puts the count on the tab."""
         from greffier.adapters import questions_file
 
         if not self._fil_reunion:
@@ -592,7 +533,7 @@ class Window:
         self.tabs.mark("Conversation", len(awaiting))
 
     def _forget_the_live_thread(self, identifier: str) -> None:
-        """Repart de zéro : une autre réunion, un autre fil."""
+        """Starts over: another meeting, another thread."""
         self._thread = LiveThread()
         self._fil_reunion = identifier
         self._fil_position = 0
@@ -655,13 +596,7 @@ class Window:
         )
 
     def _speaker_menu(self, event: Any, number: int) -> None:
-        """Le menu de correction : qui parle vraiment.
-
-        Deux portées, et la première est le cas courant : quand l'outil se
-        trompe de personne, il se trompe pour tous les passages de cette voix.
-        « Seulement cette phrase » sert aux chevauchements, où le groupe est bon
-        mais un passage y est tombé par erreur.
-        """
+        """The correction menu: who is really speaking."""
         turn = next((t for t in self._thread.turns if t.number == number), None)
         if turn is None:
             return
@@ -714,7 +649,7 @@ class Window:
         )
 
     def _names_held_elsewhere(self, number: int) -> set[str]:
-        """Les noms que porte déjà une **autre** voix que celle-ci."""
+        """The names already held by **another** voice than this one."""
         turn = next((t for t in self._thread.turns if t.number == number), None)
         return {
             voice.name for identifier, voice in self._thread.voice.items()
@@ -731,12 +666,7 @@ class Window:
             self._correct_the_live_thread(number, name.strip(), whole_voice)
 
     def _split_in_the_live_thread(self, identifier: str) -> None:
-        """Défait la dernière réunion qui a produit cette voix.
-
-        Ici d'abord, comme la correction : un clic doit se voir tout de suite.
-        Le processus d'écoute rend ensuite chaque empreinte à sa voix — lui seul
-        les tient, et c'est de ça que dépend ce qui entrera en banque.
-        """
+        """Undoes the last join that produced this voice."""
         defaite = self._thread.split(identifier)
         if defaite is None:
             messagebox.showinfo(
@@ -758,12 +688,9 @@ class Window:
         )
 
     def _correct_the_live_thread(self, number: int, name: str, whole_voice: bool) -> None:
-        """Applique la correction ici, et la transmet à qui écoute.
+        """Applies the correction here, and passes it to whoever is listening.
 
-        Ici d'abord : un clic doit se voir tout de suite, pas dans dix secondes.
-        Le processus d'écoute la reprendra à sa prochaine tranche, la publiera
-        en confirmation, et versera l'empreinte à la banque de voix — c'est ce
-        qui fait que le compte rendu final retrouvera la personne tout seul.
+        Here first: a click has to show at once, not in ten seconds.
         """
         try:
             self._thread.correct(number, name, whole_voice)
@@ -879,13 +806,7 @@ class Window:
                        ("20.0", "20 s — économe, l'affichage suit de loin"))
 
     def _settings_tab(self) -> None:
-        """Les réglages qu'on change vraiment, sans ouvrir un fichier.
-
-        Ceux qui sont des listes — vocabulaire, mots qui ne sont jamais des
-        prénoms — restent au fichier : un formulaire les tronquerait, et un
-        éditeur les tient mieux. Ce qui est réglé ici est écrit dans
-        `config.toml`, la source d'où le reste de la chaîne lit déjà.
-        """
+        """The settings people actually change, without opening a file."""
         page = self._page("Réglages")
         header = tk.Frame(page, bg=self.colours.board)
         header.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
@@ -999,23 +920,13 @@ class Window:
         self._say_the_version()
 
     def _au_retour(self, _event: object = None) -> None:
-        """Relit ce qui a pu changer pendant qu'on était ailleurs.
-
-        Le compte se lit dans un fichier, sans appel réseau : le relire à chaque
-        retour de focus ne coûte rien, et c'est le seul moment où l'on peut
-        attraper une session ouverte dans un terminal.
-        """
+        """Re-reads what may have changed while we were elsewhere."""
         if self.tabs.current == "Réglages":
             with contextlib.suppress(Exception):
                 self._say_the_count()
 
     def _say_the_version(self) -> None:
-        """Affiche la version installée, sans rien demander au réseau.
-
-        Sans ce repère, personne ne pouvait dire quelle version tournait : le
-        numéro n'existait que dans le paquet macOS, et l'application, elle, ne
-        le lisait pas.
-        """
+        """Shows the installed version, asking the network nothing."""
         from greffier.adapters.updates import installed_version
 
         installed = installed_version()
@@ -1025,11 +936,7 @@ class Window:
         )
 
     def _look_for_an_update(self) -> None:
-        """Demande à GitHub s'il existe mieux. N'installe rien.
-
-        Remplacer l'application pendant qu'elle tourne est un problème distinct :
-        le faire en effet de bord d'une vérification serait le pire moment.
-        """
+        """Asks GitHub whether there is better. Installs nothing."""
         from greffier.adapters.updates import check
 
         self.bouton_maj_greffier.activer(False)
@@ -1052,13 +959,7 @@ class Window:
         ))
 
     def _offer_the_install(self, verdict: Any) -> None:
-        """Propose d'installer, par la voie qui existe sur ce poste.
-
-        Deux voies, et la seconde est celle de presque tout le monde : depuis le
-        dépôt quand il est là — c'est le poste de qui développe — et sinon
-        depuis le **binaire publié pour ce système**. Auparavant il n'y avait
-        que la première, donc le bouton ne servait à personne d'autre qu'à moi.
-        """
+        """Offers to install, by whichever way exists on this machine."""
         from greffier.adapters.updates import installable
 
         depuis_le_depot, because = installable()
@@ -1096,12 +997,7 @@ class Window:
         self._close_for_the_update()
 
     def _install_from_the_binary(self, verdict: Any) -> None:
-        """Télécharge l'archive publiée pour ce système, puis remplace le paquet.
-
-        Le téléchargement se fait dans un fil : cent cinquante mégaoctets
-        figeraient la fenêtre une minute ou deux, et une fenêtre figée sans
-        rien dire passe pour cassée.
-        """
+        """Downloads the archive published for this system, then swaps the bundle."""
         import platform
 
         from greffier.adapters.updates import (
@@ -1150,27 +1046,19 @@ class Window:
         self._run_job(Job(caption="mise à jour", do_it=do_it, done=done))
 
     def _close_for_the_update(self) -> None:
-        """Le relais attend la fin de ce processus avant de toucher au paquet :
-        se fermer fait partie de la mise à jour."""
+        """The relay waits for this process to end before touching the bundle."""
         self.version_line.configure(text="Mise à jour en cours, fermeture…")
         self.racine.after(400, self.racine.destroy)
 
     def _wire_the_settings(self) -> None:
-        """Fait de chaque changement un enregistrement.
-
-        Les listes et la case enregistrent au choix. Les deux champs de saisie
-        enregistrent quand on les quitte ou qu'on valide, jamais à la frappe :
-        écrire un fichier à chaque lettre d'une adresse courriel produirait une
-        vingtaine de fichiers et autant de sauvegardes, dont la plupart avec une
-        adresse incomplète.
-        """
+        """Makes every change a save."""
         self.reglage_redacteur.on_choice = lambda _key: self._chosen_writer()
         self.case_direct.configure(command=self._save_settings)
         self.reglage_destinataire.bind("<FocusOut>", lambda _e: self._save_settings())
         self.reglage_destinataire.bind("<Return>", lambda _e: self._save_settings())
 
     def _chosen_writer(self, _event: Any = None) -> None:
-        """Changer de rédacteur change la liste des modèles, puis enregistre."""
+        """Changing writer changes the model list, then saves."""
         self._match_the_writer_model()
         self._save_settings()
 
@@ -1181,18 +1069,7 @@ class Window:
             self._listen_to_the_wheel(enfant)
 
     def _scrolling_area(self, page: tk.Frame) -> tk.Frame:
-        """Une zone qui défile, et rend le cadre où poser le contenu.
-
-        Un formulaire est plus haut que la fenêtre dès qu'on réduit celle-ci, et
-        Tk ne défile pas de lui-même : sans cela, les derniers réglages sont
-        simplement hors d'atteinte, sans rien qui l'indique — constaté, la
-        rédaction et l'apparence étaient invisibles et inaccessibles.
-
-        `Canvas` plutôt qu'un `Frame` : c'est le seul conteneur Tk qui sache
-        montrer une fenêtre plus grande que lui. La largeur du contenu est
-        recalée sur celle du canevas, sans quoi la grille se tasserait à gauche
-        au lieu d'occuper la carte.
-        """
+        """A scrolling area, returning the frame to put content in."""
         c = self.colours
         page.rowconfigure(0, weight=0)   # la ligne d'état, en tête
         page.rowconfigure(1, weight=1)   # la zone qui défile
@@ -1232,7 +1109,7 @@ class Window:
         return content
 
     def _bloc(self, parent: tk.Frame, rank: int, title: str, sous_titre: str) -> int:
-        """Un intitulé de bloc. Rend le rang suivant, pour ne pas les compter à la main."""
+        """A block heading. Returns the next row, so as not to count by hand."""
         haut = 0 if rank == 0 else 13
         self._text(parent, title, taille=12, gras=True).grid(
             row=rank, column=0, columnspan=2, sticky="w", pady=(haut, 1))
@@ -1259,12 +1136,7 @@ class Window:
         return champ
 
     def _settable_first_names(self) -> list[tuple[str, str]]:
-        """Les prénoms éprouvés, chacun avec le genre de sa voix.
-
-        Le genre est dit parce qu'il est imposé par le prénom : on choisit
-        « Martin » et on obtient une voix masculine, sans réglage de plus à
-        accorder.
-        """
+        """The tested first names, each with the gender of its voice."""
         from greffier.adapters.configuration import FIRST_NAMES, KINDS
 
         choix = [(first_name, f"{first_name} — {KINDS[speaker_index]}")
@@ -1275,11 +1147,7 @@ class Window:
         return choix
 
     def _settable_voices(self) -> list[tuple[str, str]]:
-        """Les voix proposées, en disant laquelle est installée.
-
-        Proposer la voix neuronale sans dire qu'elle manque enverrait chercher
-        un défaut là où il n'y a qu'un modèle à télécharger.
-        """
+        """The voices offered, saying which one is installed."""
         from greffier.adapters.voice_neural import NeuralVoice
 
         installed = NeuralVoice(self.config.paths.synthetic_voice).installed
@@ -1291,7 +1159,7 @@ class Window:
         ]
 
     def _fill_the_settings(self) -> None:
-        """Remplit le formulaire depuis la configuration en vigueur."""
+        """Fills the form from the configuration in force."""
         from greffier.adapters.configuration import MODELES_CLAUDE
 
         self.reglage_micro.fill_menu(list(self._settable_mics()), self.config.audio.mic)
@@ -1316,12 +1184,7 @@ class Window:
                                          str(people) if people else "")
 
     def _settable_mics(self) -> tuple[tuple[str, str], ...]:
-        """Les micros branchés, plus le mode automatique — dont la valeur est vide.
-
-        Vide et non « automatique » : c'est ce que la configuration attend, et
-        c'est le réglage qui laisse l'écoute décider au démarrage plutôt que de
-        promettre un micro qu'un bouton de sourdine écarterait.
-        """
+        """The mics plugged in, plus automatic mode."""
         from greffier.wiring import lister
 
         names: list[str] = []
@@ -1351,12 +1214,7 @@ class Window:
                  f"{self.config.transcription.model} — aucun modèle trouvé sur le disque"),)
 
     def _match_the_writer_model(self) -> None:
-        """La liste des modèles suit le rédacteur choisi.
-
-        Un alias Claude Code n'a aucun sens pour Ollama, et l'inverse non plus :
-        proposer les deux ensemble laisserait enregistrer une combinaison qui
-        échouerait à la première rédaction.
-        """
+        """The model list follows the chosen writer."""
         engine = self.reglage_redacteur.value()
         if engine == "claude":
             choix = self._modeles_claude
@@ -1374,7 +1232,7 @@ class Window:
         self.reglage_modele_redaction.activer(engine != "aucun")
 
     def _say_the_count(self) -> None:
-        """Affiche l'état du compte, et accorde les boutons à cet état."""
+        """Shows the account state, and matches the buttons to it."""
         from greffier.adapters import system_diagnostic as diagnostic
 
         if not diagnostic.claude_installed():
@@ -1401,17 +1259,7 @@ class Window:
         self.bouton_session.set_caption("Changer de compte")
 
     def _claude_session(self) -> None:
-        """Ouvre un terminal sur « claude », où la session se règle.
-
-        La connexion est interactive : elle ouvre un navigateur et attend un
-        code. Rien de tout cela ne se pilote depuis une fenêtre Tk, et il ne
-        faut pas essayer — c'est le terminal qui sait le faire.
-
-        Un fichier `.command` ouvert par `open` plutôt qu'un `osascript` qui
-        pilote Terminal : le second réclamerait l'autorisation
-        « Automatisation », donc un dialogue système de plus, pour le même
-        résultat.
-        """
+        """Opens a terminal on `claude`, where the session is settled."""
         import tempfile
 
         from greffier.adapters import system_diagnostic as diagnostic
@@ -1444,11 +1292,11 @@ class Window:
         self._watch_the_session(turns=60)
 
     def _watch_the_session(self, turns: int) -> None:
-        """Relit le compte toutes les trois secondes, le temps qu'il change."""
+        """Re-reads the account every three seconds, while it is being settled."""
         from greffier.adapters import system_diagnostic as diagnostic
 
         def signature() -> tuple[str, str, str] | None:
-            """De quoi voir qu'on a changé de compte, sans lire aucun jeton."""
+            """What shows the account changed, without reading any token."""
             count = diagnostic.claude_account()
             if count is None:
                 return None
@@ -1467,7 +1315,7 @@ class Window:
         self.racine.after(3000, lambda: look(turns))
 
     def _update_claude(self) -> None:
-        """Lance « claude update », dans un fil : il télécharge."""
+        """Runs `claude update`, in a thread: it downloads."""
         from greffier.adapters import system_diagnostic as diagnostic
 
         if not diagnostic.claude_installed():
@@ -1500,18 +1348,7 @@ class Window:
         self._run_job(Job(caption="Mise à jour de Claude Code", do_it=do_it, done=done))
 
     def _apply_the_theme(self, theme: str, mot: str = "") -> None:
-        """Repeint la fenêtre sans la relancer.
-
-        Les couleurs sont lues à la construction de chaque composant — plusieurs
-        les dessinent eux-mêmes sur un canevas — donc les changer demande de
-        reconstruire l'intérieur de la fenêtre. Ce qui porte l'état ne bouge
-        pas : la capture vit dans un processus séparé, la veille et le direct
-        aussi, et le fil affiché se relit du journal. Seuls les composants sont
-        refaits.
-
-        Les boucles d'animation déjà armées se taisent d'elles-mêmes quand leur
-        canevas disparaît (voir `Vumetre._pas`).
-        """
+        """Repaints the window without restarting it."""
         self.colours = palette(theme)
         self.racine.configure(bg=self.colours.ground)
         self._style_the_lists()
@@ -1529,7 +1366,7 @@ class Window:
             self._paint(self.recorder.read())
 
     def _save_settings(self) -> None:
-        """Écrit `config.toml`, puis applique ce qui peut l'être sans relancer."""
+        """Writes config.toml, then applies what can be applied at once."""
         from greffier.adapters import configuration as reglages
 
         engine = self.reglage_redacteur.value()
@@ -1571,7 +1408,7 @@ class Window:
             self.racine.after(0, lambda: self._apply_the_theme(neuf.appearance.theme, mot))
 
     def _load_mics(self) -> None:
-        """Propose les micros réellement branchés, celui de la config en tête."""
+        """Offers the mics actually plugged in, the configured one first."""
         from greffier.wiring import lister
 
         try:
@@ -1603,23 +1440,14 @@ class Window:
         self.racine.after(PERIODE_MS, self._refresh)
 
     def _follow_the_mics(self) -> None:
-        """Tient la liste des micros à jour, sans qu'on ait à rouvrir la fenêtre.
-
-        Brancher ou retirer un casque doit se voir tout de suite : c'est le
-        moment où l'on vérifie qu'on a choisi le bon, juste avant de démarrer.
-        """
+        """Keeps the mic list up to date, without reopening anything."""
         if self._phase_peinte in (None, Phase.REST):
             with contextlib.suppress(OSError, RuntimeError):
                 self._load_mics()
         self.racine.after(PERIODE_MICROS_MS, self._follow_the_mics)
 
     def _breathe(self) -> None:
-        """Fait pulser le point rouge pendant l'enregistrement.
-
-        Un fondu vers la couleur de la carte plutôt qu'un vrai canal alpha :
-        Tk ne sait pas dessiner de transparence sur un canvas, mais un point
-        qui se rapproche du fond produit le même effet à l'œil.
-        """
+        """Pulses the red dot while recording."""
         if self._phase_peinte is Phase.RECORDING:
             c = self.colours
             part = (math.sin(2 * math.pi * time.time() / PULSATION_S) + 1) / 2
@@ -1687,14 +1515,10 @@ class Window:
         self._probe_the_send()
 
     def _probe_the_send(self) -> None:
-        """Vérifie maintenant que le compte rendu pourra partir.
+        """Checks now that the minutes will be able to leave.
 
-        Maintenant et non à la fin, et c'est tout l'objet : le 2026-09-10,
-        l'envoi d'une réunion de 1 h 42 a échoué à 12 h 17 devant un écran
-        verrouillé, deux heures après le moment où quelqu'un était au clavier
-        et où un clic suffisait. Une sonde sans effet, dite dans la
-        conversation et non en fenêtre : c'est une information sur le poste,
-        pas une raison d'interrompre le démarrage d'une réunion.
+        Now and not at the end, and that is the whole point: a send failed at 12:17 in
+        front of a locked screen, two hours after someone was at the keyboard.
         """
         from greffier.wiring import _sender
 
@@ -1720,14 +1544,7 @@ class Window:
             messagebox.showerror("Greffier", str(trouble))
 
     def _close_window(self) -> None:
-        """Ferme la fenêtre — en terminant d'abord la réunion, s'il y en a une.
-
-        La réunion est arrêtée proprement (audio recollé, sortie système
-        rendue), pas traitée : quitter n'est pas demander un compte rendu, et
-        la réunion reste dans la liste pour être traitée plus tard. Les
-        processus détachés (veille, direct) s'arrêtent d'eux-mêmes en voyant
-        l'enregistrement finir — c'est leur contrat, pas besoin de les tuer.
-        """
+        """Closes the window — ending the meeting first, if there is one."""
         phase = None
         with contextlib.suppress(OSError, ValueError):
             phase = self.recorder.read().phase
@@ -1770,7 +1587,7 @@ class Window:
         commencee_le: datetime | None = None,
         terminee_le: datetime | None = None,
     ) -> Callable[[Callable[[str], None]], Any]:
-        """Prépare l'exécution de la chaîne, l'avancement remonté à l'écran."""
+        """Prepares the chain's run, progress reported to the screen."""
 
         def do_it(say: Callable[[str], None]) -> Any:
             from greffier.wiring import recording, wire_up
@@ -1810,12 +1627,7 @@ class Window:
         self._back_up_quietly()
 
     def _back_up_quietly(self) -> None:
-        """Copie les données après une réunion traitée, sans rien demander.
-
-        Le moment est le bon : le travail vient d'être produit, et personne n'y
-        pense après. Sans bruit parce qu'une sauvegarde réussie n'a rien à dire
-        — seul un échec mérite un mot, et il ne doit pas non plus interrompre.
-        """
+        """Copies the data after a processed meeting, asking nothing."""
         if not self.config.backup.apres_chaque_reunion:
             return
         from greffier.application import back_up
@@ -1841,13 +1653,11 @@ class Window:
             ))
 
     def _processing_failed(self, audio: Path, trouble: Exception) -> None:
-        """Dit ce qui reste, et propose de reprendre là où ça s'est arrêté.
+        """Says what is left, and offers to resume where it stopped.
 
-        « Command timed out after 900 seconds » n'indiquait aucune action, alors
-        que la transcription était sauvée et qu'un clic suffisait — constaté le
-        2026-09-09, où la réponse « le compte rendu n'est pas arrivé » a coûté
-        une demi-heure de recherche. Une alerte qui ne dit pas quoi faire fait
-        croire que tout est perdu.
+        Published and written **before** any dialog: the failure used to be reported
+        only by a modal window and the note written only after the click. Locked
+        screen, nobody to click, and the state stayed frozen on the phase under way.
         """
         self.status_line.configure(text=f"Échec : {trouble}")
         self._publish_the_failure(audio.stem, trouble)
@@ -1868,11 +1678,7 @@ class Window:
             self._write_up_only(audio.stem)
 
     def _publish_the_failure(self, identifier: str, trouble: Exception) -> None:
-        """Écrit l'échec dans l'état de la réunion, pour les autres processus.
-
-        Sans rien lever : on est déjà dans le traitement d'une erreur, et une
-        seconde erreur ici ferait perdre le message de la première.
-        """
+        """Writes the failure into the meeting's state, for the other processes."""
         from greffier.wiring import recording
 
         with contextlib.suppress(Exception):
@@ -1881,7 +1687,7 @@ class Window:
                 log.publish(Phase.ECHEC.value, f"Échec : {trouble}")
 
     def _write_up_only(self, identifier: str) -> None:
-        """Rejoue la seule rédaction, sans réécouter ni retranscrire."""
+        """Replays the writing only, without listening or transcribing again."""
         from greffier.application.render import regenerate_minutes
         from greffier.wiring import writer
 
@@ -1914,12 +1720,7 @@ class Window:
                              do_it=do_it, done=done))
 
     def _offer_what_comes_next(self, identifier: str, outcome: Any) -> None:
-        """Ce que Greffier demande de lui-même, une fois le compte rendu écrit.
-
-        Le but de l'outil est de produire un compte rendu et de l'envoyer : la
-        question est posée à chaque fois, plutôt que laissée à l'initiative de
-        qui aurait pensé à aller la chercher.
-        """
+        """What the tool asks of its own accord, once the minutes are ready."""
         self._say("greffier", f"Le compte rendu de « {identifier} » est prêt.")
         significatives: dict[str, float] = getattr(outcome, "voix_significatives", dict)()
         names: dict[str, str] = getattr(outcome, "noms", {})
@@ -1965,16 +1766,12 @@ class Window:
         job.done(outcome, trouble)
 
     def _selection(self) -> str | None:
-        """L'identifiant technique de la réunion choisie.
-
-        La colonne affiche le sujet déduit du compte rendu ; l'identifiant vit
-        sur la ligne elle-même, pour que renommer l'affichage ne casse rien.
-        """
+        """The technical identifier of the chosen meeting."""
         choix = self.listing.selection()
         return str(choix[0]) if choix else None
 
     def _choose(self, identifier: str) -> None:
-        """Sélectionne une réunion, pour que les autres onglets suivent."""
+        """Selects a meeting, so the other tabs follow."""
         if self.listing.exists(identifier):
             self.listing.selection_set(identifier)
             self.listing.see(identifier)
@@ -2002,12 +1799,7 @@ class Window:
             self._choose(garde)
 
     def _load_the_conversation(self) -> None:
-        """Réaffiche ce qui a déjà été dit sur la réunion choisie.
-
-        Relu du disque plutôt que gardé en mémoire : c'est ce qui fait qu'une
-        conversation survit à une fermeture de la fenêtre, à une mise à jour, et
-        à un plantage.
-        """
+        """Shows again what was already said about the chosen meeting."""
         from greffier.adapters import conversations_file
 
         identifier = self._fil_reunion or self._selection()
@@ -2071,7 +1863,7 @@ class Window:
         ))
 
     def _write_up_selection(self) -> None:
-        """Rejoue la rédaction de la réunion choisie, sans la retranscrire."""
+        """Replays the writing of the chosen meeting, without transcribing."""
         identifier = self._selection()
         if identifier is None:
             self.status_line.configure(text="Choisis une réunion dans la liste.")
@@ -2079,13 +1871,7 @@ class Window:
         self._write_up_only(identifier)
 
     def _drop_files(self) -> None:
-        """Choisit des fichiers, montre ce qu'il en ferait, puis demande.
-
-        Le classement s'affiche avant d'agir : une vidéo de deux heures mal
-        classée coûte une transcription pour rien, et un document classé en
-        réunion produirait le compte rendu d'un texte que personne n'a
-        prononcé.
-        """
+        """Picks files, shows what it would do with them, then asks."""
         from tkinter import filedialog
 
         from greffier.application import publish as job
@@ -2137,7 +1923,7 @@ class Window:
         self._run_job(Job(caption="dépôt", do_it=do_it, done=done))
 
     def _document_writer(self, propositions: list) -> Any:  # type: ignore[type-arg]
-        """Le rédacteur chargé de lire les documents, s'il y en a."""
+        """The writer in charge of reading the documents, if there is one."""
         from greffier.domain.store import Destination
         from greffier.wiring import cartographe
 
@@ -2152,7 +1938,7 @@ class Window:
         return engine
 
     def _report_the_store(self, faits: list) -> None:  # type: ignore[type-arg]
-        """Dit ce que le dépôt a produit, et propose ce qu'il a appris."""
+        """Says what the drop produced, and offers what it learned."""
         a_transcrire: list[str] = []
         appris: list[tuple[str, str, str]] = []
         for fait in faits:
@@ -2174,12 +1960,7 @@ class Window:
         self._offer_to_the_context(appris)
 
     def _offer_to_the_context(self, appris: list) -> None:  # type: ignore[type-arg]
-        """Montre ce qu'un document a appris, et l'écrit si on l'accepte.
-
-        La même confirmation que pour une phrase tapée : un document apporte
-        vingt entrées d'un coup, donc la liste est montrée en entier avant
-        d'écrire — c'est ce qui la rend relisable.
-        """
+        """Shows what a document taught, and writes it if accepted."""
         from greffier.adapters import context_file
 
         if not appris:
@@ -2212,11 +1993,7 @@ class Window:
         ))
 
     def _rename_selection(self) -> None:
-        """Donne un sujet lisible à la réunion choisie.
-
-        Un libellé, pas un renommage de fichiers : l'identifiant porte la date,
-        qui ordonne la liste et date le compte rendu.
-        """
+        """Gives the chosen meeting a readable subject."""
         identifier = self._selection()
         if identifier is None:
             self.status_line.configure(text="Choisis une réunion dans la liste.")
@@ -2251,12 +2028,7 @@ class Window:
         )
 
     def _forget_selection(self) -> None:
-        """Efface une réunion, après avoir dit exactement ce qui part.
-
-        L'audio est le seul morceau qu'on ne puisse pas refaire : la
-        confirmation le nomme et le pèse, plutôt que de demander « supprimer ? »
-        sans dire de quoi.
-        """
+        """Erases a meeting, after saying exactly what goes."""
         from greffier.application import tidy
 
         identifier = self._selection()
@@ -2289,7 +2061,7 @@ class Window:
         )
 
     def _locations(self) -> Any:
-        """Où vivent les morceaux d'une réunion, d'après la configuration."""
+        """Where a meeting's pieces live, according to the configuration."""
         from greffier.application.tidy import Places
 
         paths = self.config.paths
@@ -2396,13 +2168,7 @@ class Window:
         self._regenerate_after_naming(identifier)
 
     def _report_a_newer_bundle(self) -> None:
-        """Dit si l'application qui tourne n'est plus celle qui est installée.
-
-        macOS garde en mémoire l'exemplaire lancé : reconstruire ne remplace
-        rien tant qu'on n'a pas quitté. Coût mesuré : deux heures passées à
-        chercher trois boutons dans une fenêtre ouverte la veille, alors qu'ils
-        étaient dans le paquet depuis le matin, et rien ne le disait.
-        """
+        """Says when the running application is no longer the installed one."""
         from greffier.adapters.updates import bundle_is_newer
 
         if not bundle_is_newer():
@@ -2415,16 +2181,7 @@ class Window:
         )
 
     def _report_resumable_meetings(self) -> None:
-        """Dit s'il reste une réunion transcrite dont le compte rendu manque.
-
-        Une rédaction interrompue — l'application fermée, la machine endormie,
-        le rédacteur qui échoue — ne laissait aucune trace : la transcription
-        était sur le disque, le compte rendu n'existait pas, et rien ne le
-        remarquait. Une réunion d'une heure quarante a été perdue ainsi.
-
-        On le dit, on ne le fait pas : relancer une rédaction sans qu'on l'ait
-        demandé consommerait le quota du rédacteur à l'ouverture de la fenêtre.
-        """
+        """Says whether a transcribed meeting is still waiting for its minutes."""
         from greffier.application.render import to_resume
 
         try:
@@ -2446,12 +2203,7 @@ class Window:
         )
 
     def _forget_the_name(self) -> None:
-        """Retire le nom d'une voix, après confirmation.
-
-        La confirmation parce que le geste défait un travail : sur une réunion
-        où l'on vient de nommer cinq personnes, un clic de trop au mauvais
-        endroit se répare mal de mémoire.
-        """
+        """Removes a voice's name, after confirmation."""
         from greffier.wiring import naming
 
         identifier, voice = self._selection(), self._selected_voice()
@@ -2474,8 +2226,7 @@ class Window:
         self.status_line.configure(text=f"La voix {voice} n'a plus de nom.")
 
     def _regenerate_after_naming(self, identifier: str) -> None:
-        """Rejoue la rédaction, dans un fil séparé : le rédacteur peut appeler
-        une API distante, et bloquerait la fenêtre le temps de répondre."""
+        """Replays the writing, in a separate thread."""
         from greffier.application.render import regenerate_minutes
         from greffier.wiring import store, writer
 
@@ -2540,11 +2291,7 @@ class Window:
         self._paint_the_turn(qui, text)
 
     def _keep_the_turn(self, qui: str, text: str) -> None:
-        """Écrit le tour sous la réunion dont il parle, s'il y en a une.
-
-        Sans réunion identifiable, on ne garde rien : ranger un échange sous
-        une réunion au hasard rendrait le fichier trompeur.
-        """
+        """Writes the turn under the meeting it is about, if there is one."""
         from greffier.adapters import conversations_file
 
         identifier = self._fil_reunion or self._selection()
@@ -2567,12 +2314,7 @@ class Window:
         self.thread.configure(state="disabled")
 
     def _answer_the_question(self, response: str) -> bool:
-        """Traite la saisie comme une réponse à la question en attente.
-
-        Rend Faux si la saisie n'en est manifestement pas une : une phrase
-        longue est une nouvelle question, pas une correction d'orthographe, et
-        la confondre ferait perdre les deux.
-        """
+        """Treats the input as an answer to the question awaiting one."""
         from greffier.adapters import context_file, questions_file
         from greffier.domain.intents import agreement
 
@@ -2611,13 +2353,7 @@ class Window:
         return True
 
     def _hear_an_intent(self, phrase: str) -> bool:
-        """Reconnaît « retiens que… » et demande confirmation avant d'écrire.
-
-        Reconnu par motifs et non en interrogeant le rédacteur : faire analyser
-        chaque phrase tapée coûterait un appel distant, y compris pour une
-        question ordinaire. Un motif se trompe, d'où la confirmation — un faux
-        positif coûte une question, pas une entrée fausse dans le contexte.
-        """
+        """Recognises "remember that…" and asks for confirmation first."""
         from greffier.domain.intents import understand
 
         appris = understand(phrase)
@@ -2630,13 +2366,7 @@ class Window:
         return True
 
     def _confirm_the_learning(self, response: str) -> bool:
-        """Écrit dans le contexte si la réponse confirme. Faux si ce n'en est pas une.
-
-        Une phrase qui n'est ni oui ni non est une nouvelle demande : la
-        prendre pour un refus la perdrait. L'apprentissage est alors abandonné,
-        parce qu'un accord donné trois messages plus tard ne porterait plus sur
-        ce qu'on a sous les yeux.
-        """
+        """Writes into the context when the answer confirms."""
         from greffier.adapters import context_file
         from greffier.domain.intents import What, agreement
 
@@ -2671,7 +2401,7 @@ class Window:
         return True
 
     def _with_the_documents(self, material: str, identifier: str) -> str:
-        """Ajoute à la matière le texte des documents fournis pour cette réunion."""
+        """Adds to the material the text of the documents supplied."""
         from greffier.adapters import attachments_file
 
         documents = attachments_file.material(self.config.paths.pieces, identifier)
@@ -2682,14 +2412,7 @@ class Window:
         )
 
     def _supply_a_document(self) -> None:
-        """Donne un document à l'outil pendant la réunion, en un geste, deux effets.
-
-        Le texte reste attaché à la réunion, donc l'assistant répond dessus ;
-        et le vocabulaire qu'il porte est proposé au contexte, donc les
-        tranches suivantes du direct l'écrivent juste. Les deux comptent : un
-        ordre du jour fourni en début de réunion nomme la moitié des sigles
-        qu'on va entendre.
-        """
+        """Hands the tool a document during the meeting, in one gesture."""
         from tkinter import filedialog
 
         from greffier.adapters import attachments_file
@@ -2828,27 +2551,14 @@ class Window:
         self.racine.mainloop()
 
     def _remind_of_the_disclosure(self) -> None:
-        """Rappelle une fois par session que les participants doivent savoir.
-
-        Une fois, et dans la conversation : une mention qu'on lit avant chaque
-        réunion devient un bouton qu'on clique sans lire. Le compte rendu
-        portera de toute façon la phrase qui dit ce qui a été fait, y compris
-        « rien n'a été tracé ».
-        """
+        """Reminds once per session that the attendees must be able to know."""
         from greffier.domain.consent import RAPPEL, read, to_draw
 
         if to_draw(read(self.config.conversation.disclosure)):
             self._paint_the_turn("greffier", RAPPEL)
 
     def _report_missing_minutes(self) -> None:
-        """Dit quelles réunions attendent encore leur compte rendu.
-
-        Une rédaction qui échoue laissait une réunion transcrite sur le disque
-        et personne pour y penser : il fallait remarquer soi-même qu'un compte
-        rendu n'était jamais arrivé, ce qui prend des heures ou des jours. La
-        liste le montre colonne « Compte rendu », mais rien ne le portait à
-        l'attention.
-        """
+        """Says which meetings are still waiting for their minutes."""
         from greffier.domain.meeting import held_on
 
         with contextlib.suppress(OSError, ValueError):
@@ -2872,5 +2582,5 @@ class Window:
             self.tabs.mark("Conversation", len(manquantes))
 
 def open_it(config: Config) -> None:
-    """Point d'entrée de la fenêtre."""
+    """The window's entry point."""
     Window(config).spin()
