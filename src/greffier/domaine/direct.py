@@ -31,6 +31,8 @@ from enum import StrEnum
 
 from greffier.domaine.canaux import VOIX_LOCALE
 from greffier.domaine.empreintes import (
+    MATIERE_ETABLIE,
+    SEUIL_ADOPTION,
     SEUIL_FUSION,
     agreger,
     reconnaitre,
@@ -55,6 +57,17 @@ from greffier.domaine.questions import distance
 #: Rien à voir avec le seuil de ressemblance : une bribe peut ressembler
 #: fortement à la mauvaise personne, c'est sa brièveté qui la rend suspecte.
 MATIERE_MINIMALE_VOIX = 2.0
+
+#: Écart exigé avec la deuxième voix établie, pour qu'une phrase la rejoigne.
+#:
+#: Non nul, contrairement au recollage d'après réunion, et pour une raison qui
+#: tient au moment : après coup, on compare des **agrégats** de plusieurs
+#: minutes, et se tromper ne coûte qu'un « greffier revoir ». Ici on compare une
+#: phrase, souvent brève, et l'attribution s'affiche tout de suite sous les yeux
+#: des participants. Une marge écarte les cas où deux voix se disputent la
+#: phrase à égalité — ceux-là méritent le fourre-tout plutôt qu'un choix
+#: arbitraire, qu'un clic devrait ensuite défaire.
+MARGE_ADOPTION_DIRECT = 0.06
 
 #: Nom affiché pour la personne qui enregistre. Son micro la désigne : elle n'a
 #: pas à être reconnue, et son nom n'a pas à être demandé.
@@ -501,6 +514,10 @@ class Fil:
             # la plus ressemblante ; s'il n'y en a aucune, elle attend qu'une
             # vraie voix existe.
             proche = self._la_moins_eloignee(empreinte) or VOIX_INDETERMINEE
+        if proche is None:
+            # Une voix déjà fournie l'emporte sur une voix de plus : c'est
+            # l'adoption du recollage final, appliquée pendant la réunion.
+            proche = self._voix_etablie_proche(empreinte)
         if proche is None and self._au_complet():
             # Le nombre de participants est annoncé et toutes les voix
             # existent : une empreinte qui ne franchit pas le seuil rejoint
@@ -552,6 +569,38 @@ class Fil:
             key=lambda x: (-x[0], x[1]),
         )
         return classement[0][1] if classement else None
+
+    def _voix_etablie_proche(self, empreinte: Empreinte) -> str | None:
+        """Une voix **déjà fournie** que cette empreinte rejoint sans hésitation.
+
+        C'est la question de l'adoption du recollage final, posée pendant la
+        réunion : « laquelle des voix établies ressemble le plus, et nettement
+        plus ». Elle vaut ici pour la même raison qu'après coup — comparer une
+        phrase à une voix qui porte une minute de parole est mieux posé que la
+        comparer à une autre phrase.
+
+        Ce qu'elle répare : sans nombre de participants annoncé, chaque prise de
+        parole fondait une voix, parce que deux phrases d'une même personne ne
+        se ressemblent qu'à 0,69 en médiane, sous le seuil de 0,75. Mesuré sur
+        une réunion réelle de trois personnes, **cent onze voix** dans le fil.
+
+        Le risque est borné par construction : seules les voix déjà fournies
+        peuvent adopter, il faut une marge nette avec la suivante, et un clic
+        défait l'attribution.
+        """
+        etablies = [
+            (similarite(empreinte, agreger(v.empreintes)), v.identifiant)
+            for v in self._nommables()
+            if sum(e.duree_source for e in v.empreintes) >= MATIERE_ETABLIE
+        ]
+        if not etablies:
+            return None
+        classement = sorted(etablies, key=lambda x: (-x[0], x[1]))
+        meilleur, laquelle = classement[0]
+        second = classement[1][0] if len(classement) > 1 else -1.0
+        if meilleur < SEUIL_ADOPTION or meilleur - second < MARGE_ADOPTION_DIRECT:
+            return None
+        return laquelle
 
     def _voix_la_plus_proche(self, empreinte: Empreinte) -> str | None:
         """La voix de cette réunion qui ressemble le plus, au-dessus du seuil.
