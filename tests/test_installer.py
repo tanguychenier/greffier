@@ -368,7 +368,7 @@ class TestEnvironnementHerite:
 
     def _preparer(self, installer, tmp_path, monkeypatch, avec_uv):
         lancees = []
-        monkeypatch.setattr(installer, "STORE", tmp_path)
+        monkeypatch.setattr(installer, "ROOT", tmp_path)
         monkeypatch.setattr(installer, "SYSTEM", "Linux")
         monkeypatch.setattr(installer.shutil, "which",
                             lambda name: "/usr/bin/uv" if (name == "uv" and avec_uv) else None)
