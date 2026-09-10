@@ -7,8 +7,8 @@ hardware, the acoustics or the model change.
 ## Method
 
 ```sh
-.venv/bin/python outils/calibrer_seuils.py <enregistrement.wav>
-.venv/bin/python outils/verifier_fusion.py <enregistrement.wav>
+.venv/bin/python tools/calibrate_thresholds.py <enregistrement.wav>
+.venv/bin/python tools/check_joins.py <enregistrement.wav>
 ```
 
 The first segments the recording, extracts one voice print per speaking turn of
@@ -49,7 +49,7 @@ the threshold had never been questioned downwards.
 The AMI Meeting Corpus supplies it. Its meetings come in series with the **same
 participants**, each wearing their own headset microphone, so two "Headset-N"
 files from two sittings of one series are the same person twice over, with no
-annotation to interpret. `outils/calibrer_sur_corpus.py` runs it.
+annotation to interpret. `tools/calibrate_on_corpus.py` runs it.
 
 Series ES2002, sittings a and b, two participants, 240 s read from the middle
 of each recording:
@@ -157,14 +157,14 @@ depended on.
 The `threshold = 0.8` of `DiariseurSherpa` (passed to `FastClusteringConfig`)
 had never been measured the way `SEUIL_RECONNAISSANCE`/`SEUIL_FUSION` above
 are — it came from the sherpa-onnx examples. On a synthetic test set with three
-speakers (`outils/fabriquer_cas_difficiles.py --cas trois-voix`, two close
+speakers (`tools/make_hard_cases.py --cas trois-voix`, two close
 timbres), it merged two distinct speakers into one at the raw clustering stage,
 **before `fusionner_voix` even came into play**: segmentation returned only 2
 voices for 3 people, and `fusionner_voix` cannot separate what has already been
 fused upstream.
 
 Direct measurement (`DiariseurSherpa.decouper` in isolation, outside the full
-chain), on two fixtures — `deux-voix` (`outils/fabriquer_reunion.py`, existing
+chain), on two fixtures — `deux-voix` (`tools/make_meeting.py`, existing
 reference) and `trois-voix` — sweeping `threshold`:
 
 | `threshold` | `deux-voix` | `trois-voix` |
@@ -178,7 +178,7 @@ The meaning of the parameter is counter-intuitive: the **lower** it is, the more
 sensitive the clustering and the more voices it tells apart, up to over-splitting
 at 0.30. The range `[0.40 ; 0.50]` is correct on both fixtures.
 `threshold = 0.45` chosen (middle of the range). To be revalidated on a real
-recording via `outils/calibrer_seuils.py`/`outils/verifier_fusion.py` — this
+recording via `tools/calibrate_thresholds.py`/`tools/check_joins.py` — this
 measurement covered only speech synthesis.
 
 ## Material guard before merging

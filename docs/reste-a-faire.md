@@ -223,7 +223,7 @@ recording with certainty. Around a table, everyone speaks into the same
 microphone: provenance no longer designates anyone. The case is now held by a
 replayable proof.
 
-The test file (`outils/fabriquer_reunion.py --presentiel`) is **stereo**, like
+The test file (`tools/make_meeting.py --presentiel`) is **stereo**, like
 what the device returns: three synthetic voices on the microphone, and on the
 system loopback the leak measured on the real table meeting, -53 dB instead of
 the expected silence. A silent second channel would have made the trial too
@@ -305,7 +305,7 @@ announced in the clear no longer holding; `smtplib` does it on demand,
 
 ### The window opens under Linux
 
-`outils/preuve-fenetre-linux.Dockerfile` builds a bare Debian trixie image,
+`tools/window-proof-linux.Dockerfile` builds a bare Debian trixie image,
 puts `python3-tk` on it — the interface's only system dependency, exactly the
 README line — and opens the real window under `xvfb`. Measured: **Tk 8.6 /
 Tcl 8.6**, an 880x660 window, **five tabs painted, no exception raised**.
@@ -328,7 +328,7 @@ own copies.
 `fenetre.py` imports Tk and no continuous integration runner starts it — sets
 `TCL_LIBRARY` and `TK_LIBRARY` from `sys.base_prefix` when they are empty, and
 touches nothing otherwise — a machine whose Tk comes from the system keeps its
-own. The window now opens both ways, and `outils/preuve_fenetre.py` serves the
+own. The window now opens both ways, and `tools/window_proof.py` serves the
 proof on both systems.
 
 ## Second pass over the interface, screenshots in hand (2026-09-03)
@@ -703,7 +703,7 @@ flag it in an appendix rather than writing down an invented value.
 ## First run on a real Linux machine (2026-09-08)
 
 Ubuntu, PipeWire, GeForce GTX 1660 Ti, no CUDA library installed.
-`python3 outils/installer.py --oui` runs to the end: `uv` installs CPython
+`python3 tools/install.py --oui` runs to the end: `uv` installs CPython
 3.13.13, the segmentation and voice print models download, `large-v3` is ready,
 the configuration is written. What the container proof did not show, a desktop
 machine showed straight away.
@@ -813,7 +813,7 @@ does not change: only the time moves.
 - **`skills/greffier/SKILL.md` is not in the repository.** Three
   `test_installeur.py` tests fail on a fresh clone, whatever the system: the
   file exists on the original machine without ever having been tracked.
-- **`outils/fabriquer_reunion.py` depends on `say`**, hence on macOS: eighteen
+- **`tools/make_meeting.py` depends on `say`**, hence on macOS: eighteen
   integration tests are skipped elsewhere. They are skipped twice over, since
   they also require `ggml-large-v3-turbo.bin` and `whisper-cli`, two
   whisper.cpp artefacts — so the Linux chain is never proven by them, full
@@ -828,7 +828,7 @@ does not change: only the time moves.
   not crisp.
 
   One lead, which is a decision and not a fix: the whole source compiles under
-  Python 3.12 (`python3 -m compileall src outils tests` passes, and nothing
+  Python 3.12 (`python3 -m compileall src tools tests` passes, and nothing
   uses an API specific to 3.13), while Ubuntu 24.04 — the most widespread LTS —
   ships only 3.12. Lowering `requires-python` to `>=3.12` would allow using the
   system Python there, with its antialiased Tk. To be weighed against the macOS
@@ -913,7 +913,7 @@ measured threshold.
 ### Still open, and why
 
 - **The publication workflow has never run.** It waits in
-  `outils/publier.yml.a-mettre-en-place`: an OAuth token without the `workflow`
+  `tools/publier.yml.a-mettre-en-place`: an OAuth token without the `workflow`
   scope can neither create nor update a file under `.github/workflows/`, and
   GitHub rejects the whole push when one appears. Two `git mv` from an account
   that has the right, and it runs. Until then the Windows and Linux artefacts
@@ -930,7 +930,7 @@ measured threshold.
   `~/Documents/greffier-avant-anonymisation-2026-09-10.bundle`.
 - **Windows has still not been run on a real machine.** Sixteen tests cover the
   system-specific paths — cursor, PowerShell literal, executable path, voice
-  player — and `outils/lanceur_windows.py` answers `--version`. Nobody has
+  player — and `tools/windows_launcher.py` answers `--version`. Nobody has
   double-clicked it.
 - **No AppImage for Linux**, only the source tree and its installer.
 - **The assistant does not read the connected sources** (GitLab, Jira, Trello)
