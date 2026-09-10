@@ -288,6 +288,7 @@ class Fenetre:
         # Après tous les onglets : l'annonce s'écrit dans la Conversation, qui
         # n'existe pas encore quand l'onglet Réunions se construit.
         self._signaler_les_reprises()
+        self._signaler_un_paquet_plus_recent()
 
     def _construire_etat(self, parent: tk.Frame) -> None:
         c = self.couleurs
@@ -2492,6 +2493,25 @@ class Fenetre:
             self._dire("greffier", acte.doute)
             messagebox.showwarning("Greffier", acte.doute)
         self._regenerer_apres_nommage(identifiant)
+
+    def _signaler_un_paquet_plus_recent(self) -> None:
+        """Dit si l'application qui tourne n'est plus celle qui est installée.
+
+        macOS garde en mémoire l'exemplaire lancé : reconstruire ne remplace
+        rien tant qu'on n'a pas quitté. Coût mesuré : deux heures passées à
+        chercher trois boutons dans une fenêtre ouverte la veille, alors qu'ils
+        étaient dans le paquet depuis le matin, et rien ne le disait.
+        """
+        from greffier.adaptateurs.mises_a_jour import paquet_plus_recent
+
+        if not paquet_plus_recent():
+            return
+        self._dire(
+            "greffier",
+            "Une version plus récente de Greffier est installée, mais cette "
+            "fenêtre tourne encore sur la précédente. Quitte l'application "
+            "(⌘Q) et relance-la pour en profiter.",
+        )
 
     def _signaler_les_reprises(self) -> None:
         """Dit s'il reste une réunion transcrite dont le compte rendu manque.
