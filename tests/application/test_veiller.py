@@ -2,6 +2,7 @@
 
 import json
 import pathlib
+from pathlib import Path
 
 from greffier.application import veiller
 from greffier.application.suivre import Position, Suivi
@@ -445,3 +446,76 @@ class TestLaFenetreDeContexte:
         repliques = [Replique(Intervalle(2, 6), "du texte")]
         assert veiller._dans_la_tranche(repliques, 0.0) == repliques
 
+
+
+class TestLesDeuxBoutonsEnCoursDeReunion:
+    """La fenêtre et la veille sont deux processus.
+
+    Les boutons écrivent dans la configuration, la veille la relit à chaque
+    tranche. Sans quoi il faudrait redémarrer la réunion pour faire taire
+    l'assistant, ce qui n'a aucun sens.
+    """
+
+    def _veilleur(self, participant, boutons, voix_neuve=None):
+        from greffier.application.veiller import Veilleur
+        from greffier.domaine.instructions import Veille
+
+        return Veilleur(
+            veille=Veille(mot_cle="greffier"),
+            journal=Path("/tmp/inutilise.jsonl"),
+            participant=participant,
+            relire_la_participation=lambda: boutons,
+            rendre_la_voix=(lambda: voix_neuve) if voix_neuve else None,
+        )
+
+    def _participant(self, avec_voix=True):
+        from greffier.application.participer import Participant
+        from greffier.domaine.participation import Politique
+
+        class Voix:
+            def __init__(self):
+                self.tue = False
+
+            def dire(self, _t):
+                return True
+
+            def se_taire(self):
+                self.tue = True
+
+            def parle(self):
+                return False
+
+        return Participant(nom="Lucie", voix=Voix() if avec_voix else None,
+                           politique=Politique(actif=True))
+
+    def test_le_faire_taire_l_interrompt_tout_de_suite(self):
+        """Appuyer pendant qu'il parle doit couper, pas attendre la fin."""
+        lui = self._participant()
+        voix = lui.voix
+        self._veilleur(lui, (False, True))._appliquer_les_boutons(False, True)
+        assert not lui.politique.actif and voix.tue
+
+    def test_retirer_la_voix_le_laisse_participer_par_ecrit(self):
+        lui = self._participant()
+        self._veilleur(lui, (True, False))._appliquer_les_boutons(True, False)
+        assert lui.politique.actif and lui.voix is None
+
+    def test_lui_rendre_la_voix_la_recharge_une_fois(self):
+        """Charger un modèle coûte : on ne le fait qu'à la demande."""
+        lui = self._participant(avec_voix=False)
+        neuve = object()
+        veilleur = self._veilleur(lui, (True, True), voix_neuve=neuve)
+        veilleur._appliquer_les_boutons(True, True)
+        assert lui.voix is neuve
+
+    def test_sans_moyen_de_la_rendre_il_reste_muet(self):
+        """Aucun modèle installé : il participe par écrit, sans se plaindre."""
+        lui = self._participant(avec_voix=False)
+        self._veilleur(lui, (True, True))._appliquer_les_boutons(True, True)
+        assert lui.voix is None and lui.politique.actif
+
+    def test_rien_ne_change_quand_rien_ne_change(self):
+        lui = self._participant()
+        voix = lui.voix
+        self._veilleur(lui, (True, True))._appliquer_les_boutons(True, True)
+        assert lui.politique.actif and lui.voix is voix and not voix.tue

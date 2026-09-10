@@ -20,6 +20,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from greffier.application.participer import Participant
 from greffier.application.suivre import TRANCHE_MINIMALE_S, Position, Suivi
@@ -177,12 +178,20 @@ class Veilleur:
     #: L'assistant, quand il participe à la réunion. Absent, la veille est ce
     #: qu'elle a toujours été : elle écoute et n'ouvre pas la bouche.
     participant: Participant | None = None
-    #: Relit si l'assistant participe toujours. La fenêtre et la veille sont
-    #: deux processus : le bouton écrit dans la configuration, et c'est ici
-    #: qu'on s'en aperçoit. Même mécanisme que pour l'amorce, et pour la même
-    #: raison — on doit pouvoir le faire taire en pleine réunion, pas à la
-    #: suivante.
-    relire_la_participation: Callable[[], bool] | None = None
+    #: Relit si l'assistant participe toujours, et s'il a la parole. La fenêtre
+    #: et la veille sont deux processus : les boutons écrivent dans la
+    #: configuration, et c'est ici qu'on s'en aperçoit. Même mécanisme que pour
+    #: l'amorce, et pour la même raison — on doit pouvoir le faire taire en
+    #: pleine réunion, pas à la suivante.
+    #:
+    #: Rend le couple (participe, parle à voix haute). Les deux se règlent
+    #: séparément : sans la voix, l'assistant pose toujours ses questions, mais
+    #: dans la conversation.
+    relire_la_participation: Callable[[], tuple[bool, bool]] | None = None
+    #: De quoi rendre la parole à l'assistant quand on la lui redonne en cours
+    #: de réunion. Construire une voix charge un modèle : on ne le fait qu'une
+    #: fois, à la première demande.
+    rendre_la_voix: Callable[[], Any] | None = None
     #: Matière au-delà de laquelle une voix sans nom mérite qu'on demande à qui
     #: elle est. Trente secondes : en deçà, c'est un « oui, d'accord » dont le
     #: compte rendu se passera, et interrompre pour cela serait ridicule.
@@ -320,14 +329,7 @@ class Veilleur:
             return
         if self.relire_la_participation is not None:
             with contextlib.suppress(OSError):
-                voulu = self.relire_la_participation()
-                if voulu != self.participant.politique.actif:
-                    self.participant.politique.actif = voulu
-                    if not voulu and self.participant.voix is not None:
-                        # On se tait tout de suite, phrase en cours comprise :
-                        # appuyer sur le bouton pendant qu'il parle doit
-                        # l'interrompre, pas attendre la fin de sa tirade.
-                        self.participant.voix.se_taire()
+                self._appliquer_les_boutons(*self.relire_la_participation())
         retenue = self.participant.tour(
             repliques, maintenant,
             tours=self._bornes_des_tours(),
@@ -347,6 +349,27 @@ class Veilleur:
             # de soi-même, si.
             self.participant.attente = retenue
         self.participant.repondre_a_part(retenue, maintenant)
+
+    def _appliquer_les_boutons(self, participe: bool, a_voix_haute: bool) -> None:
+        """Suit les deux boutons de la fenêtre, sans redémarrer quoi que ce soit.
+
+        Se taire est immédiat, phrase en cours comprise : appuyer sur le bouton
+        pendant qu'il parle doit l'interrompre, pas attendre la fin de sa
+        tirade. Reprendre la parole ne coûte le chargement du modèle qu'une
+        fois, et seulement si on la lui redonne.
+        """
+        if self.participant is None:
+            return
+        lui = self.participant
+        if participe != lui.politique.actif:
+            lui.politique.actif = participe
+            if not participe and lui.voix is not None:
+                lui.voix.se_taire()
+        if not a_voix_haute and lui.voix is not None:
+            lui.voix.se_taire()
+            lui.voix = None
+        elif a_voix_haute and lui.voix is None and self.rendre_la_voix is not None:
+            lui.voix = self.rendre_la_voix()
 
     def _bornes_des_tours(self) -> list[tuple[float, float]]:
         """Les tours de parole affichés, pour mesurer la densité de la discussion."""
