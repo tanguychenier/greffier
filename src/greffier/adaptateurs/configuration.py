@@ -23,7 +23,7 @@ import tempfile
 from pathlib import Path
 from typing import ClassVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 # Les emplacements vivent dans un module sans dépendance : l'installeur les lit
@@ -36,8 +36,13 @@ else:  # pragma: no cover - repli pour les postes en 3.9/3.10
     import tomli as tomllib
 
 class Chemins(BaseModel):
-    modeles: Path = Field(default_factory=lambda: dossier_donnees() / "modeles")
-    donnees: Path = Field(default_factory=dossier_donnees)
+    model_config = ConfigDict(populate_by_name=True)
+
+    modeles: Path = Field(
+        default_factory=lambda: dossier_donnees() / "modeles",
+        validation_alias="modeles",
+    )
+    donnees: Path = Field(default_factory=dossier_donnees, validation_alias="donnees")
 
     @property
     def enregistrements(self) -> Path:
@@ -162,27 +167,40 @@ class Chemins(BaseModel):
         return self.donnees / "sauvegardes"
 
 class Audio(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     # Sur macOS, deux périphériques à créer une fois. Ailleurs, le système
     # expose déjà de quoi réenregistrer sa propre sortie.
-    entree: str = "Reunion Entree" if platform.system() == "Darwin" else "default"
-    sortie: str = "Reunion Sortie" if platform.system() == "Darwin" else "default.monitor"
+    entree: str = Field(
+        default="Reunion Entree" if platform.system() == "Darwin" else "default",
+        validation_alias="entree",
+    )
+    sortie: str = Field(
+        default="Reunion Sortie" if platform.system() == "Darwin" else "default.monitor",
+        validation_alias="sortie",
+    )
     # Micro que le périphérique agrégé doit porter. Vide : le meilleur micro
     # réellement branché au moment de démarrer. C'est ce réglage que la veille
     # cherche à retrouver quand le matériel change en cours de réunion.
-    micro: str = ""
+    micro: str = Field(default="", validation_alias="micro")
     # Garde-fou : sans second clic, l'enregistrement tournerait jusqu'à remplir
     # le disque (~115 Mo/h). Quatre heures couvrent largement une réunion.
-    duree_maximale: int = 14_400
+    duree_maximale: int = Field(default=14_400, validation_alias="duree_maximale")
 
 class Transcription(BaseModel):
-    moteur: str = "whisper.cpp" if platform.system() == "Darwin" else "faster-whisper"
+    model_config = ConfigDict(populate_by_name=True)
+
+    moteur: str = Field(
+        default="whisper.cpp" if platform.system() == "Darwin" else "faster-whisper",
+        validation_alias="moteur",
+    )
     # Taille du modèle pour faster-whisper ; ignoré par whisper.cpp, qui prend le
     # fichier téléchargé par l'installeur.
-    modele: str = "large-v3"
-    langue: str = "fr"
+    modele: str = Field(default="large-v3", validation_alias="modele")
+    langue: str = Field(default="fr", validation_alias="langue")
     # Passé au modèle en amorce : c'est ce qui améliore le plus la transcription
     # des noms propres et des acronymes rares.
-    vocabulaire: list[str] = Field(default_factory=list)
+    vocabulaire: list[str] = Field(default_factory=list, validation_alias="vocabulaire")
 
     @property
     def amorce(self) -> str:
@@ -199,16 +217,20 @@ class Direct(BaseModel):
     découvrir l'erreur dans le compte rendu.
     """
 
-    actif: bool = True
-    periode: float = 10.0
-    modele: str = ""
+    model_config = ConfigDict(populate_by_name=True)
+
+    actif: bool = Field(default=True, validation_alias="actif")
+    periode: float = Field(default=10.0, validation_alias="periode")
+    modele: str = Field(default="", validation_alias="modele")
 
 class Locuteurs(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     # Mots que la détection des prénoms ne doit jamais retenir : noms de
     # projets, d'outils, de produits.
-    pas_des_prenoms: list[str] = Field(default_factory=list)
+    pas_des_prenoms: list[str] = Field(default_factory=list, validation_alias="pas_des_prenoms")
     # Laissé vide, le nombre de participants est déduit par recollage des voix.
-    personnes: int | None = None
+    personnes: int | None = Field(default=None, validation_alias="personnes")
 
 MODELES_CLAUDE: list[tuple[str, str]] = [
     ("opus", "Opus — recommandé : la synthèse est excellente et le quota tient"),
@@ -227,11 +249,13 @@ class CompteRendu(BaseModel):
     100 % local, au prix d'une synthèse plus grossière.
     """
 
-    moteur: str = "claude"       # claude | ollama | aucun
-    langue: str = ""
-    modele: str = ""
-    destinataire: str = ""
-    delai: int = 1800
+    model_config = ConfigDict(populate_by_name=True)
+
+    moteur: str = Field(default="claude", validation_alias="moteur")       # claude | ollama | aucun
+    langue: str = Field(default="", validation_alias="langue")
+    modele: str = Field(default="", validation_alias="modele")
+    destinataire: str = Field(default="", validation_alias="destinataire")
+    delai: int = Field(default=1800, validation_alias="delai")
 
     CLAUDE_PAR_DEFAUT: ClassVar[str] = "opus"
     OLLAMA_PAR_DEFAUT: ClassVar[str] = "qwen3:8b"
@@ -254,9 +278,11 @@ class Sauvegarde(BaseModel):
     réunion transcrite reste utilisable sans son enregistrement.
     """
 
-    dossier: str = ""
-    apres_chaque_reunion: bool = True
-    gardees: int = 7
+    model_config = ConfigDict(populate_by_name=True)
+
+    dossier: str = Field(default="", validation_alias="dossier")
+    apres_chaque_reunion: bool = Field(default=True, validation_alias="apres_chaque_reunion")
+    gardees: int = Field(default=7, validation_alias="gardees")
 
 class Retention(BaseModel):
     """Combien de temps les enregistrements restent, et sous quelle forme.
@@ -266,8 +292,10 @@ class Retention(BaseModel):
     la banque de voix réunis.
     """
 
-    compresser_apres_jours: int = 7
-    effacer_apres_jours: int = 0
+    model_config = ConfigDict(populate_by_name=True)
+
+    compresser_apres_jours: int = Field(default=7, validation_alias="compresser_apres_jours")
+    effacer_apres_jours: int = Field(default=0, validation_alias="effacer_apres_jours")
 
 class Conversation(BaseModel):
     """Ce que l'assistant a le droit de faire quand on lui parle.
@@ -277,8 +305,10 @@ class Conversation(BaseModel):
     document ne sont pas la même chose.
     """
 
-    recherche_web: bool = True
-    information: str = "rien"
+    model_config = ConfigDict(populate_by_name=True)
+
+    recherche_web: bool = Field(default=True, validation_alias="recherche_web")
+    information: str = Field(default="rien", validation_alias="information")
 
 PRENOMS: dict[str, int] = {
     "Lucie": 0,
@@ -304,20 +334,22 @@ class Assistant(BaseModel):
     réunion, et de la façon dont il se fait entendre.
     """
 
-    actif: bool = True
-    nom: str = "Lucie"
-    voix: str = "kokoro"
-    vitesse: float = 0.95
-    locuteur: int = 0
+    model_config = ConfigDict(populate_by_name=True)
+
+    actif: bool = Field(default=True, validation_alias="actif")
+    nom: str = Field(default="Lucie", validation_alias="nom")
+    voix: str = Field(default="kokoro", validation_alias="voix")
+    vitesse: float = Field(default=0.95, validation_alias="vitesse")
+    locuteur: int = Field(default=0, validation_alias="locuteur")
 
     @property
     def locuteur_effectif(self) -> int:
         """La voix qui va avec ce prénom, quand il est de la liste."""
         return PRENOMS.get(self.nom, self.locuteur)
-    repos: float = 180.0
-    creux_minimal: float = 2.0
-    demander_les_voix: bool = False
-    initiative: bool = False
+    repos: float = Field(default=180.0, validation_alias="repos")
+    creux_minimal: float = Field(default=2.0, validation_alias="creux_minimal")
+    demander_les_voix: bool = Field(default=False, validation_alias="demander_les_voix")
+    initiative: bool = Field(default=False, validation_alias="initiative")
 
 class Apparence(BaseModel):
     """Ce que la fenêtre montre, indépendamment de ce qu'elle fait.
@@ -327,7 +359,9 @@ class Apparence(BaseModel):
     Les deux autres valeurs forcent, pour qui préfère.
     """
 
-    theme: str = "systeme"       # systeme | clair | sombre
+    model_config = ConfigDict(populate_by_name=True)
+
+    theme: str = Field(default="systeme", validation_alias="theme")       # systeme | clair | sombre
 
 class Courriel(BaseModel):
     """Envoi par SMTP, pour les postes sans Outlook.
@@ -337,10 +371,12 @@ class Courriel(BaseModel):
     secrets plutôt que par un fichier.
     """
 
-    serveur: str = ""
-    port: int = 587
-    utilisateur: str = ""
-    expediteur: str = ""
+    model_config = ConfigDict(populate_by_name=True)
+
+    serveur: str = Field(default="", validation_alias="serveur")
+    port: int = Field(default=587, validation_alias="port")
+    utilisateur: str = Field(default="", validation_alias="utilisateur")
+    expediteur: str = Field(default="", validation_alias="expediteur")
 
 class Config(BaseSettings):
     model_config = SettingsConfigDict(
