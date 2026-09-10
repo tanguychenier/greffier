@@ -320,3 +320,38 @@ def attribuer(mentions: list[Mention], tours: list[TourDeParole]) -> Resultat:
 
     resultat.propositions.sort(key=lambda a: -a.score)
     return resultat
+
+
+def reunir_les_homonymes(
+    noms: dict[str, str], poids: dict[str, float]
+) -> dict[str, str]:
+    """Deux voix que l'on nomme pareil sont la même personne.
+
+    L'information est déjà là et ne coûte rien : quand la chaîne conclut
+    « Lise » sur sept voix distinctes, elle a déjà dit que ces sept voix sont
+    de Lise. Attendre que leurs empreintes se ressemblent assez pour être
+    recollées, c'est refuser ce qu'on tient — et le compte rendu annonce alors
+    sept participants de plus.
+
+    Mesuré sur une réunion réelle de 1 h 42 : **« Lise » sur sept voix**, dont
+    six d'un seul tour de parole. La même règle existait déjà pour le direct ;
+    elle manquait à la chaîne d'après réunion.
+
+    La voix la plus fournie l'emporte : c'est celle dont l'extrait est le plus
+    représentatif, et celle que la banque de voix a le plus de raisons d'avoir
+    reconnue. Rend l'appartenance de chaque voix, y compris celles qui ne
+    bougent pas.
+    """
+    portantes: dict[str, list[str]] = {}
+    for voix, nom in noms.items():
+        replie = _sans_accent(nom.strip().casefold())
+        if replie:
+            portantes.setdefault(replie, []).append(voix)
+    appartenance = {voix: voix for voix in noms}
+    for ensemble in portantes.values():
+        if len(ensemble) < 2:
+            continue
+        gardee = max(ensemble, key=lambda v: (poids.get(v, 0.0), v))
+        for voix in ensemble:
+            appartenance[voix] = gardee
+    return appartenance
