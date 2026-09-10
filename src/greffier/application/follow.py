@@ -1,19 +1,12 @@
-"""Suivre la réunion pendant qu'elle a lieu, et se laisser corriger.
+"""Following the meeting while it happens, and taking corrections.
 
-Deux processus, un fichier. Celui qui écoute transcrit, attribue et **ajoute** au
-journal ; la fenêtre le lit au fil de l'eau et y dépose ses corrections. Aucun
-démon, aucun port réseau : le même choix que pour l'état de l'enregistrement, et
-pour la même raison — un fichier survit à tout, et se relit après un plantage.
+Two processes, one file. The listening one transcribes, attributes and
+**appends** to the log; the window reads it as it goes and drops its
+corrections in. No daemon, no network port: a file survives anything and can be
+read back after a crash.
 
-Pourquoi deux processus plutôt qu'un fil dans la fenêtre : whisper occupe
-plusieurs secondes de calcul par tranche, ce qui gèlerait l'interface, et un
-modèle qui tombe ne doit pas emporter la fenêtre avec lui. C'est arrivé — voir
-le rapport de plantage cité dans `fenetre`.
-
-Le journal est **en ajout seul**, y compris pour les corrections : une
-correction ne réécrit pas les lignes passées, elle en publie une qui dit ce
-qu'elle change. La fenêtre applique la même règle à son propre exemplaire du
-fil, ce qui la rend réactive au clic sans attendre la tranche suivante.
+The log is append-only, corrections included: a correction does not rewrite past
+lines, it publishes one saying what it changes.
 """
 
 from __future__ import annotations
@@ -50,12 +43,10 @@ GENRE_SEPARATION = "separation"
 
 @dataclass(frozen=True, slots=True)
 class Position:
-    """Où en est l'enregistrement, d'après ce qui est réellement écrit.
+    """Where the recording is, according to what is actually written.
 
-    L'horloge de la réunion ne convient pas : elle retire les pauses, alors que
-    le fichier, lui, ne contient que ce qui a été capté. Les deux divergent de
-    tout le temps d'arrêt, et transcrire à la position de l'horloge relit un
-    passage déjà vu — ou lit au-delà du fichier, donc rien.
+    The meeting clock will not do: it subtracts the pauses, while the file holds
+    only what was captured.
     """
 
     morceau: Path
@@ -69,12 +60,7 @@ class Position:
 def position(
     chunks: list[Path], duration: Callable[[Path], float | None]
 ) -> Position | None:
-    """La position dans le dernier morceau, et le temps déjà enregistré avant.
-
-    Un enregistrement se coupe en plusieurs morceaux dès qu'on met en pause ou
-    qu'on branche un casque. Le direct suit **le dernier**, et cumule les
-    précédents pour que l'horodatage affiché reste celui de la réunion.
-    """
+    """The position in the last chunk, and the time already recorded before."""
     present_line = [m for m in chunks if duration(m) is not None]
     if not present_line:
         return None
@@ -85,11 +71,10 @@ def position(
     return Position(morceau=dernier, ecrit=duration(dernier) or 0.0, decalage=decalage)
 
 def files(folder: Path, identifier: str) -> tuple[Path, Path]:
-    """Le journal du direct et le dépôt des corrections, pour une réunion.
+    """The live log and the corrections drop, for one meeting.
 
-    Deux fichiers plutôt qu'un : celui qui écoute écrit dans le premier et lit le
-    second, la fenêtre fait l'inverse. Aucun des deux n'écrit là où l'autre écrit,
-    donc aucun verrou à poser.
+    Two files rather than one: neither process writes where the other writes, so
+    there is no lock to take.
     """
     return (
         folder / f"{identifier}.jsonl",
@@ -97,12 +82,7 @@ def files(folder: Path, identifier: str) -> tuple[Path, Path]:
     )
 
 def _ligne_tour(turn: LiveTurn, voice: LiveVoice) -> dict[str, Any]:
-    """Ce qu'une phrase publie d'elle-même.
-
-    L'état de la voix voyage avec chaque phrase : la fenêtre peut alors se
-    reconstruire depuis n'importe quel point du journal, sans supposer avoir vu
-    les lignes précédentes.
-    """
+    """What a sentence publishes about itself."""
     return {
         "genre": GENRE_TOUR,
         "numero": turn.number,
@@ -128,11 +108,7 @@ def _ligne_reunion(source: str, target: str) -> dict[str, Any]:
     return {"genre": GENRE_REUNION, "voix": source, "vers": target}
 
 def _ligne_separation(fusion: Join) -> dict[str, Any]:
-    """De quoi rendre la séparation à la fenêtre, et à un fil repris.
-
-    La fenêtre ne calcule aucune empreinte : elle a besoin du **résultat**, donc
-    des numéros de tours et de l'état rendu à la voix, pas de quoi le refaire.
-    """
+    """What it takes to hand a split back to the window, and to a resumed thread."""
     return {
         "genre": GENRE_SEPARATION,
         "voix": fusion.source,
@@ -146,11 +122,7 @@ def _ligne_separation(fusion: Join) -> dict[str, Any]:
     }
 
 def add(log: Path, lines: list[dict[str, Any]]) -> None:
-    """Ajoute au journal, une ligne par événement.
-
-    En ajout et non réécrit : la fenêtre peut le suivre sans jamais tomber sur
-    un fichier à moitié écrit, et une interruption ne perd pas ce qui précède.
-    """
+    """Appends to the log, one line per event."""
     if not lines:
         return
     log.parent.mkdir(parents=True, exist_ok=True)
@@ -159,13 +131,7 @@ def add(log: Path, lines: list[dict[str, Any]]) -> None:
             flux.write(json.dumps(line, ensure_ascii=False) + "\n")
 
 def read_from(log: Path, position_octets: int = 0) -> tuple[list[dict[str, Any]], int]:
-    """Les lignes ajoutées depuis la dernière lecture, et où reprendre.
-
-    Une lecture incrémentale, parce que la fenêtre relit quatre fois par
-    seconde : relire une heure de réunion à chaque fois coûterait pour rien.
-    Une ligne incomplète — le fichier est en cours d'écriture — est laissée pour
-    la fois suivante.
-    """
+    """The lines added since the last read, and where to resume."""
     if not log.exists():
         return [], position_octets
     try:
@@ -192,10 +158,10 @@ def read_from(log: Path, position_octets: int = 0) -> tuple[list[dict[str, Any]]
     return lines, position_octets + complet + 1
 
 def replay(lines: list[dict[str, Any]], thread: LiveThread | None = None) -> LiveThread:
-    """Reconstruit le fil depuis le journal, pour l'afficher.
+    """Rebuilds the thread from the log, to display it.
 
-    La fenêtre travaille ainsi sur les mêmes objets que le processus qui écoute,
-    donc avec les mêmes règles de correction — sans jamais charger un modèle.
+    The window then works on the same objects as the listening process, so under
+    the same correction rules — without ever loading a model.
     """
     thread = thread if thread is not None else LiveThread()
     for line in lines:
@@ -211,12 +177,7 @@ def replay(lines: list[dict[str, Any]], thread: LiveThread | None = None) -> Liv
     return thread
 
 def _replay_split(thread: LiveThread, line: dict[str, Any]) -> None:
-    """Rejoue une séparation : les tours nommés repassent à la voix rendue.
-
-    Sans partage des empreintes, que la fenêtre n'a pas : elle n'a besoin que de
-    savoir qui parle. Ce que le fil garde, c'est la paire tenue à part, pour
-    qu'une reprise de fil ne refasse pas la fusion défaite.
-    """
+    """Replays a split: the named turns go back to the returned voice."""
     rendue, target = str(line.get("voix", "")), str(line.get("de", ""))
     if not rendue or not target or rendue == target:
         return
@@ -247,12 +208,7 @@ def _certitude(value: Any) -> Certainty:
         return Certainty.INCONNUE
 
 def _replay_join(thread: LiveThread, line: dict[str, Any]) -> None:
-    """Rejoue une réunion de voix : les tours de la source passent à la cible.
-
-    La fenêtre reconstruit le fil depuis le journal, sans jamais calculer
-    d'empreinte : il lui faut donc le **résultat** du recollage, pas de quoi le
-    refaire.
-    """
+    """Replays a voice join: the source's turns move to the target."""
     source, target = str(line.get("voix", "")), str(line.get("vers", ""))
     if not source or not target or source == target:
         return
@@ -307,23 +263,13 @@ def _replay_correction(thread: LiveThread, line: dict[str, Any]) -> None:
             return
 
 def request_a_split(requests: Path, voice: str) -> None:
-    """Dépose une séparation pour le processus qui écoute.
-
-    Même canal que les corrections, et pour la même raison : c'est lui qui tient
-    les empreintes, donc lui seul peut les rendre à chaque voix — et c'est de ça
-    que dépend ce qui entrera en banque.
-    """
+    """Drops a split for the listening process."""
     requests.parent.mkdir(parents=True, exist_ok=True)
     with requests.open("a", encoding="utf-8") as flux:
         flux.write(json.dumps({"separer": voice}, ensure_ascii=False) + "\n")
 
 def ask(requests: Path, number: int, name: str, whole_voice: bool = True) -> None:
-    """Dépose une correction pour le processus qui écoute.
-
-    La fenêtre l'applique déjà à son propre affichage : ce fichier sert à ce que
-    les tranches suivantes en tiennent compte, et à ce que l'empreinte entre en
-    banque de voix.
-    """
+    """Drops a correction for the listening process."""
     requests.parent.mkdir(parents=True, exist_ok=True)
     with requests.open("a", encoding="utf-8") as flux:
         flux.write(json.dumps(
@@ -333,12 +279,7 @@ def ask(requests: Path, number: int, name: str, whole_voice: bool = True) -> Non
 
 @dataclass
 class Follower:
-    """Attribue et publie ce qui se dit, tranche après tranche.
-
-    Ne transcrit pas lui-même : les répliques lui arrivent, parce que la veille
-    des propositions les utilise aussi et qu'il serait absurde de transcrire deux
-    fois la même tranche.
-    """
+    """Attributes and publishes what is said, slice after slice."""
 
     thread: LiveThread
     log: Path
@@ -353,12 +294,7 @@ class Follower:
     def take_in(
         self, tranche: Path, utterances: list[Utterance], decalage: float
     ) -> list[LiveTurn]:
-        """Attribue les phrases d'une tranche et les publie.
-
-        `repliques` est daté dans la tranche ; `decalage` remet à l'heure de la
-        réunion. Les deux repères sont nécessaires : l'empreinte se prélève dans
-        la tranche, l'affichage se fait à l'heure de la réunion.
-        """
+        """Attributes a slice's sentences and publishes them."""
         self.apply_requests()
         locaux = self.channels.local_passages(tranche) if self.channels else []
         globaux = [
@@ -394,17 +330,7 @@ class Follower:
     def _voiceprint(
         self, tranche: Path, bloc: Block, locaux: list[Span], decalage: float
     ) -> Voiceprint | None:
-        """L'empreinte d'un passage distant, prélevée sur ce qui est vraiment distant.
-
-        Rien n'est prélevé sur la voix locale : le micro l'a déjà identifiée, et
-        dépenser du calcul pour confirmer ce qui est certain n'apporte rien.
-
-        Les portions locales sont **ôtées** de l'extrait avant le prélèvement.
-        La transcription coupe à la phrase, pas au changement de locuteur : sans
-        ce nettoyage, 0,6 s de voix locale restée en tête d'un extrait de 1,5 s
-        suffisait à faire de la même personne deux participants — mesuré, et
-        c'est ce qui empêchait une correction de se propager.
-        """
+        """The voiceprint of a remote passage, taken from what is not local."""
         if bloc.locale or self.extractor is None:
             return None
         within_the_slice = Span(
@@ -423,12 +349,10 @@ class Follower:
         return trouvees[0] if len(trouvees) == 1 else aggregate(trouvees)
 
     def apply_requests(self) -> list[Correction]:
-        """Prend en compte ce que la fenêtre a corrigé depuis la dernière fois.
+        """Takes in what the window corrected since last time.
 
-        Deux conséquences, et la seconde est celle qui compte : les tranches
-        suivantes portent le bon nom, et l'empreinte entre en **banque de voix**.
-        C'est ce qui fait que le compte rendu final retrouve la personne tout
-        seul, sans qu'on ait à recorriger après la réunion.
+        Two consequences, and the second is the one that counts: the following slices
+        carry the right name, and the voiceprint enters the **voice bank**.
         """
         lines, self._lues = read_from(self.requests, self._lues)
         faites: list[Correction] = []
@@ -459,14 +383,7 @@ class Follower:
             return None
 
     def learn_named_voices(self) -> list[str]:
-        """Verse en banque les voix qu'un humain a nommées, dès qu'elles ont de quoi.
-
-        Une correction se saisit dès la première phrase — c'est bien le but —
-        alors que l'empreinte n'a pas encore la matière du seuil. Refuser une
-        fois pour toutes revenait à perdre la correction : elle s'affichait,
-        puis ne servait ni à la réunion suivante, ni au compte rendu. On repasse
-        donc à chaque tranche, jusqu'à ce qu'il y ait de quoi apprendre.
-        """
+        """Pours into the bank the voices a human named, as soon as there is enough."""
         if self.bank is None:
             return []
         appris: list[str] = []
@@ -486,19 +403,11 @@ class Follower:
         return appris
 
     def annoncer(self, message: str, active: bool = True) -> None:
-        """Dit à la fenêtre ce que le direct peut faire, ou pourquoi il ne peut pas.
-
-        Sans cela, un modèle absent se traduisait par un onglet vide, qui se lit
-        comme « personne ne parle » plutôt que comme « rien n'écoute ».
-        """
+        """Tells the window what the live thread can do, or why it cannot."""
         add(self.log, [{"genre": GENRE_ETAT, "message": message, "actif": active}])
 
 def known_people(bank: outbound.VoiceBank | None) -> list[Person]:
-    """La banque de voix, ou rien si elle n'est pas lisible.
-
-    Le direct doit démarrer même sans banque : c'est le cas de la première
-    réunion, où personne n'est encore connu.
-    """
+    """The voice bank, or nothing when it cannot be read."""
     if bank is None:
         return []
     try:
