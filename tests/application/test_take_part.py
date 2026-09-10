@@ -561,3 +561,49 @@ class TestStoppedForGood:
         elle = self._elle()
         assert elle.answer(self._appel(), now=12.0).remark
         assert elle.voice.remark
+
+
+class TestSheKnowsTheSetting:
+    """The glossary of the organisation goes to the assistant, not only to the
+    writer of the minutes.
+
+    This room says "CASA", "visa", "OTP" and "recette" for things no general
+    model knows, and the writer has been told about them since the beginning
+    while the assistant answered on the words alone.
+    """
+
+    def _elle(self, milieu=None):
+        return AssistantSettings(
+            name="Lucie", cerveau=FakeBrain(), manners=Manners(active=True),
+            setting=milieu,
+        )
+
+    def test_the_glossary_opens_the_guidance(self):
+        elle = self._elle(lambda: "[Contexte] CASA : gestion des logements.\n\n")
+        consignes = elle.guidance()
+        assert consignes.startswith("[Contexte] CASA")
+        assert "Lucie" in consignes, "elle garde ses propres consignes"
+
+    def test_without_a_setting_the_guidance_does_not_change(self):
+        assert "Contexte" not in self._elle().guidance()
+
+    def test_an_empty_setting_adds_nothing(self):
+        assert self._elle(lambda: "").guidance() == self._elle().guidance()
+
+    def test_a_setting_that_fails_to_read_does_not_silence_her(self):
+        """The context file can be missing or unreadable: she still answers."""
+
+        def tomber():
+            raise OSError("contexte.toml illisible")
+
+        consignes = self._elle(tomber).guidance()
+        assert "Lucie" in consignes and consignes
+
+    def test_the_setting_is_read_when_asked_for_and_not_before(self):
+        """It is read at each call, so a term added mid-meeting is taken in."""
+        appels = []
+        elle = self._elle(lambda: appels.append(1) or "[Contexte] X.\n\n")
+        assert not appels
+        elle.guidance()
+        elle.guidance()
+        assert len(appels) == 2
