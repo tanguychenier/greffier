@@ -1,16 +1,4 @@
-"""Niveaux audio pendant l'enregistrement, lus dans le fichier en cours d'écriture.
-
-L'interface doit montrer qui parle, maintenant. Ouvrir une seconde fois le
-périphérique de capture, en parallèle de ffmpeg, demanderait une bibliothèque
-audio de plus et risquerait le conflit d'accès. On lit donc la queue du fichier
-que ffmpeg est en train d'écrire : c'est exactement ce qui sera transcrit, et
-aucun périphérique n'est ouvert deux fois.
-
-Le fichier n'est pas encore refermé, donc son en-tête annonce une taille fausse
-ou nulle. On ne se fie qu'au format déclaré dans les premiers octets, et on lit
-les derniers échantillons directement, sans passer par un lecteur qui exigerait
-un fichier complet.
-"""
+"""Audio levels during the recording, read from the file being written."""
 
 from __future__ import annotations
 
@@ -28,7 +16,7 @@ FENETRE_S = 0.25
 
 @dataclass(frozen=True)
 class Shape:
-    """Ce que l'en-tête du fichier dit du format."""
+    """What the file header says about the format."""
 
     channels: int
     frequency: int
@@ -41,7 +29,7 @@ class Shape:
 
 @dataclass(frozen=True)
 class LevelReading:
-    """Un instantané des niveaux, prêt pour l'affichage."""
+    """A snapshot of the levels, ready to display."""
 
     micro_db: float
     systeme_db: float
@@ -49,7 +37,7 @@ class LevelReading:
 
     @property
     def micro_part(self) -> float:
-        """Niveau du micro ramené entre 0 et 1, pour un vumètre."""
+        """The mic level brought between 0 and 1, for a meter."""
         return _part(self.micro_db)
 
     @property
@@ -57,20 +45,11 @@ class LevelReading:
         return _part(self.systeme_db)
 
 def _part(db: float) -> float:
-    """Convertit des décibels en fraction affichable.
-
-    L'échelle va de -60 dB (silence) à -10 dB (parole forte) : au-delà, un
-    vumètre saturé n'apprend plus rien, et en dessous il ne montre que du bruit.
-    """
+    """Converts decibels into a displayable fraction."""
     return max(0.0, min(1.0, (db + 60.0) / 50.0))
 
 def lire_forme(audio: Path) -> Shape | None:
-    """Lit le format et l'endroit où commencent les échantillons.
-
-    Les chunks sont parcourus jusqu'à « data » plutôt que d'en supposer la
-    longueur : l'en-tête d'un enregistrement réel fait 102 octets, pas 44, et
-    lire à la mauvaise base entrelace les canaux de travers.
-    """
+    """Reads the format and where the samples start."""
     try:
         with audio.open("rb") as file:
             header = file.read(1024)
@@ -99,11 +78,7 @@ def lire_forme(audio: Path) -> Shape | None:
     return None
 
 def read_level(audio: Path, fenetre_s: float = FENETRE_S) -> LevelReading | None:
-    """Les niveaux des dernières fractions de seconde écrites.
-
-    Rend `None` quand il n'y a encore rien d'exploitable : l'appelant affiche
-    alors un état d'attente plutôt qu'un zéro, qui se lirait comme du silence.
-    """
+    """The levels of the last fractions of a second written."""
     forme = lire_forme(audio)
     if forme is None or forme.octets_par_echantillon != 2:
         return None
@@ -141,17 +116,7 @@ def _decibels(signal: np.ndarray) -> float:
     return float(20 * np.log10(max(float(np.sqrt(np.mean(signal**2))), 1e-12)))
 
 def written_duration(audio: Path) -> float | None:
-    """Combien de son le fichier porte réellement, pendant qu'il s'écrit.
-
-    Pas `soundfile`, pas l'en-tête : tant que ffmpeg n'a pas refermé le fichier,
-    la taille qu'il annonce est fausse ou nulle. On compte les octets présents,
-    ce qui donne la seule position juste dans l'enregistrement.
-
-    C'est cette durée que suit la transcription en direct, et non l'horloge de la
-    réunion : après une pause, les deux ont divergé de tout le temps d'arrêt, et
-    transcrire à la position de l'horloge relisait un passage déjà vu — ou lisait
-    au-delà de ce qui est écrit, donc rien.
-    """
+    """How much sound the file actually holds."""
     forme = lire_forme(audio)
     if forme is None:
         return None

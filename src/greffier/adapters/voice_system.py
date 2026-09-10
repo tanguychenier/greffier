@@ -1,22 +1,7 @@
-"""Faire parler l'assistant, avec la voix du système et rien d'autre.
+"""Making the assistant speak, with the system's own voice.
 
-Aucun service distant n'est appelé : ce que l'assistant dit dans la réunion ne
-sort pas du poste, ce qui est la moindre des choses pour un outil qui écoute
-une salle. Anthropic n'expose d'ailleurs aucune API vocale — l'API Messages
-accepte du texte, des images et des documents, pas du son — donc le mode vocal
-de l'application web n'est pas réutilisable, et il ne le sera pas en le
-souhaitant très fort.
-
-Les trois systèmes savent parler sans qu'on installe rien :
-
-- macOS : `say`, qui rend les mêmes voix qu'`AVSpeechSynthesizer` ;
-- Linux : `spd-say` (speech-dispatcher) ou `espeak-ng` ;
-- Windows : `System.Speech` par PowerShell, présent depuis toujours.
-
-La qualité tient à la voix choisie, pas au programme qui la joue. macOS livre
-des voix « compactes » qui sonnent robotiques et propose au téléchargement des
-voix améliorées, autrement meilleures ; `meilleure_voix()` prend la meilleure
-installée et `voix_amelioree_disponible()` dit s'il faut aller la chercher.
+The fallback: no model to download, and it works the moment the tool is
+installed. It sounds like a machine, which is why the neural voice exists.
 """
 
 from __future__ import annotations
@@ -36,7 +21,7 @@ COMPACTES_ACCEPTABLES = ("Thomas", "Amélie", "Audrey", "Aurelie")
 DEBIT = 165
 
 def _say_voice() -> list[tuple[str, str]]:
-    """Les voix françaises que `say` connaît, avec leur nom exact."""
+    """The French voices `say` knows, best first."""
     if SYSTEM != "Darwin" or shutil.which("say") is None:
         return []
     try:
@@ -53,12 +38,7 @@ def _say_voice() -> list[tuple[str, str]]:
     return voice
 
 def best_voice() -> str | None:
-    """Le nom de la meilleure voix française installée, ou rien.
-
-    Rien n'est un résultat normal : sur un système sans voix française, mieux
-    vaut laisser la synthèse choisir sa voix par défaut que d'en imposer une
-    qui lirait le français avec un accent anglais.
-    """
+    """The name of the best French voice installed."""
     voice = _say_voice()
     if not voice:
         return None
@@ -74,23 +54,13 @@ def best_voice() -> str | None:
     return voice[0][0]
 
 def better_voice_available() -> bool:
-    """Une voix neuronale est-elle installée ?
-
-    Sert au diagnostic : sans elle, l'assistant parle, mais il s'entend. Le
-    téléchargement se fait dans Réglages Système ▸ Accessibilité ▸ Contenu
-    énoncé ▸ Voix système ▸ Gérer les voix, et prend une minute.
-    """
+    """Is a neural voice installed?"""
     return any(
         f"({qualite})" in name for name, _ in _say_voice() for qualite in QUALITES
     )
 
 class SystemVoice:
-    """Prononce un texte par le synthétiseur du système, sans jamais bloquer.
-
-    Sans jamais bloquer, parce que l'appelant est la boucle qui suit la réunion :
-    la faire attendre la fin d'une phrase, ce sont dix secondes d'audio non
-    transcrit à chaque intervention.
-    """
+    """Pronounces a text through the system synthesiser."""
 
     def __init__(self, voice: str | None = None, debit: int = DEBIT) -> None:
         self.voice = voice if voice is not None else best_voice()
@@ -126,12 +96,7 @@ class SystemVoice:
         return []
 
     def say(self, text: str) -> bool:
-        """Lance la phrase et rend la main. Faux si le système ne parle pas.
-
-        Une intervention en cours est interrompue : ce qu'on avait à dire il y a
-        dix secondes ne vaut plus rien, et deux voix superposées ne valent rien
-        du tout.
-        """
+        """Starts the sentence and hands back. False when the system refuses."""
         remark = text.strip()
         if not remark:
             return False
@@ -154,7 +119,7 @@ class SystemVoice:
             return self._in_progress is not None and self._in_progress.poll() is None
 
     def go_quiet(self) -> None:
-        """Coupe la phrase en cours. Sans effet s'il n'y en a pas."""
+        """Cuts the current sentence. No effect when there is none."""
         with self._verrou:
             in_progress, self._in_progress = self._in_progress, None
         if in_progress is not None and in_progress.poll() is None:
@@ -165,7 +130,7 @@ class SystemVoice:
                 in_progress.kill()
 
     def attendre(self, timeout: float = 30.0) -> None:
-        """Attend la fin de la phrase. Pour la ligne de commande et les essais."""
+        """Waits for the sentence to finish. For the command line."""
         with self._verrou:
             in_progress = self._in_progress
         if in_progress is not None:
