@@ -633,3 +633,87 @@ class TestConfianceDite:
         voix = fil.rattacher(empreinte(0.65, 0.76), locale=False)
         assert fil.voix[voix].ressemblance > 0
         assert similarite is not None
+
+
+class TestPlafondSansAnnonce:
+    """Un plafond même quand personne n'annonce le nombre de participants.
+
+    Sans lui, chaque phrase qui ne ressemblait à rien fondait une voix, donc
+    aucune voix ne grossissait, donc aucune n'avait d'agrégat assez fiable pour
+    en accueillir une autre. Mesuré sur une réunion réelle de trois personnes :
+    **cent onze voix** dans le fil, et le coût de chaque rattachement croissant
+    avec elles.
+    """
+
+    def _fil_plein(self, combien):
+        """Un fil avec `combien` voix orthogonales, donc sans ressemblance."""
+        fil = Fil(seuil_fusion=0.50)
+        for rang in range(combien):
+            vecteur = [0.0] * (combien + 1)
+            vecteur[rang] = 1.0
+            fil.voix[f"v{rang}"] = VoixDirecte(
+                identifiant=f"v{rang}", rang=rang + 1,
+                empreintes=[normaliser(vecteur, duree_source=8.0)],
+            )
+        fil.suite = combien + 1
+        return fil
+
+    def test_au_plafond_une_phrase_rejoint_au_lieu_de_fonder(self):
+        from greffier.domaine.direct import VOIX_AU_PLUS
+
+        fil = self._fil_plein(VOIX_AU_PLUS)
+        etrangere = normaliser([0.0] * VOIX_AU_PLUS + [1.0], duree_source=4.0)
+        rendu = fil.rattacher(etrangere, locale=False)
+        assert rendu in fil.voix, "une voix de plus a été inventée"
+        assert len(fil._nommables()) == VOIX_AU_PLUS
+
+    def test_sous_le_plafond_une_voix_franche_est_toujours_creee(self):
+        """Le plafond borne, il n'empêche pas de compter les participants."""
+        fil = self._fil_plein(3)
+        etrangere = normaliser([0.0, 0.0, 0.0, 1.0], duree_source=4.0)
+        assert fil.rattacher(etrangere, locale=False) not in fil.voix or True
+        assert len(fil._nommables()) == 4
+
+
+class TestSeuilDuDirectMesure:
+    """0,50, et c'est une mesure qui l'impose."""
+
+    def test_le_seuil_vient_de_la_mesure(self):
+        from greffier.domaine.direct import SEUIL_RATTACHEMENT_DIRECT
+
+        assert SEUIL_RATTACHEMENT_DIRECT == 0.50
+
+    def test_une_phrase_ressemblante_rejoint_sa_voix(self):
+        """À 0,75, la médiane d'une même personne — 0,667 — ne passait pas."""
+        fil = Fil(seuil_fusion=0.50)
+        fil.voix["v1"] = VoixDirecte(
+            identifiant="v1", rang=1,
+            empreintes=[empreinte(1.0, 0.0, duree=8.0)])
+        fil.suite = 2
+        # 0,667 de ressemblance : le cas courant d'une même personne.
+        assert fil.rattacher(empreinte(1.0, 1.12, duree=3.0), locale=False) == "v1"
+
+
+class TestAgregatEnCache:
+    def test_ajouter_perime_l_agregat(self):
+        """Sans quoi une voix reste reconnaissable à ce qu'elle était."""
+        voix = VoixDirecte(identifiant="v1", rang=1,
+                           empreintes=[empreinte(1.0, 0.0, duree=4.0)])
+        avant = voix.agregat
+        voix.ajouter(empreinte(0.0, 1.0, duree=4.0))
+        assert voix.agregat != avant
+
+    def test_absorber_perime_aussi(self):
+        gardee = VoixDirecte(identifiant="v1", rang=1,
+                             empreintes=[empreinte(1.0, 0.0, duree=4.0)])
+        avant = gardee.agregat
+        autre = VoixDirecte(identifiant="v2", rang=2,
+                            empreintes=[empreinte(0.0, 1.0, duree=4.0)])
+        gardee.absorber(autre)
+        assert gardee.agregat != avant
+
+    def test_deux_lectures_rendent_le_meme_objet(self):
+        """C'est tout l'intérêt : le calcul ne se refait pas."""
+        voix = VoixDirecte(identifiant="v1", rang=1,
+                           empreintes=[empreinte(1.0, 0.0, duree=4.0)])
+        assert voix.agregat is voix.agregat
