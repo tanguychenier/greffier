@@ -1,91 +1,90 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 330" width="880" height="330"
-     role="img" aria-labelledby="titre desc">
-  <title id="titre">The five views of Greffier's window</title>
+     role="img" aria-labelledby="title desc">
+  <title id="title">The five views of Greffier's window</title>
   <desc id="desc">One window, five tabs cycling through: Réunions, En direct,
     Voix, Conversation, Réglages. Each one shows what it holds. The window itself
     is in French.</desc>
 
   <style>
     :root {
-      --fond: #ffffff; --encre: #1d1d20; --pale: #6e6e78;
+      --ground: #ffffff; --ink: #1d1d20; --pale: #6e6e78;
       --filet: #d2d2da; --accent: #3b4cca; --carte: #f5f5f7;
       --vert: #1e8a58; --actif: #d64541;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --fond: #1a1a1d; --encre: #f2f2f4; --pale: #9a9aa4;
+        --ground: #1a1a1d; --ink: #f2f2f4; --pale: #9a9aa4;
         --filet: #3d3d46; --accent: #7b8cf0; --carte: #242428;
         --vert: #3fb47c; --actif: #e05c58;
       }
     }
-    .fond { fill: var(--fond); }
+    .ground { fill: var(--ground); }
     .carte { fill: var(--carte); stroke: var(--filet); stroke-width: 1; }
     .barre { fill: var(--filet); }
-    .titre { fill: var(--encre); font: 600 13px -apple-system, "Segoe UI", system-ui, sans-serif; }
+    .title { fill: var(--ink); font: 600 13px -apple-system, "Segoe UI", system-ui, sans-serif; }
     .note  { fill: var(--pale);  font: 400 11px -apple-system, "Segoe UI", system-ui, sans-serif; }
-    .onglet { fill: var(--pale); font: 500 12px -apple-system, "Segoe UI", system-ui, sans-serif; }
-    /* Même graisse que « .onglet », et non plus gras : le libellé actif se
-       superpose au libellé inerte, et en gras il était de quatre à douze
-       pixels plus large — « En direct » se lisait « En direcct ». La sélection
-       se dit par le soulignement, comme dans la vraie fenêtre. */
-    .actif  { fill: var(--accent); font: 500 12px -apple-system, "Segoe UI", system-ui, sans-serif; }
-    .souligne { fill: var(--accent); }
+    .tab { fill: var(--pale); font: 500 12px -apple-system, "Segoe UI", system-ui, sans-serif; }
+    /* Same weight as the inert label, not bolder: the active label sits on top
+       of it, and in bold it was four to twelve pixels wider, so "En direct"
+       read "En direcct". The selection shows through the underline. */
+    .active  { fill: var(--accent); font: 500 12px -apple-system, "Segoe UI", system-ui, sans-serif; }
+    .underlined { fill: var(--accent); }
 
-    /* Cinq vues, deux secondes chacune : l'onglet choisi et son panneau
-       apparaissent ensemble, puis cèdent la place au suivant. */
-    .vue, .marque { animation: paraitre 10s linear infinite; opacity: 0; }
+    /* Five views, two seconds each: the chosen tab and its panel appear
+       together, then give way to the next one. */
+    .view, .mark { animation: appear 10s linear infinite; opacity: 0; }
     .v1 { animation-delay: 0s } .v2 { animation-delay: 2s } .v3 { animation-delay: 4s }
     .v4 { animation-delay: 6s } .v5 { animation-delay: 8s }
-    @keyframes paraitre {
+    @keyframes appear {
       0%, 1%    { opacity: 0; }
       3%, 18%   { opacity: 1; }
       20%, 100% { opacity: 0; }
     }
-    /* Le point d'enregistrement respire, comme dans la vraie fenêtre. */
+    /* The recording dot breathes, as in the real window. */
     #point { animation: respirer 2.4s ease-in-out infinite; }
     @keyframes respirer { 0%,100% { opacity: 1 } 50% { opacity: 0.35 } }
     @media (prefers-reduced-motion: reduce) {
-      .vue, .marque, #point { animation: none; }
-      .v1, .marque.v1 { opacity: 1; }
+      .view, .mark, #point { animation: none; }
+      .v1, .mark.v1 { opacity: 1; }
       #point { opacity: 1; }
     }
   </style>
 
-  <rect class="fond" x="0" y="0" width="880" height="330" rx="10"/>
-  <text class="titre" x="24" y="30">One window, five views</text>
+  <rect class="ground" x="0" y="0" width="880" height="330" rx="10"/>
+  <text class="title" x="24" y="30">One window, five views</text>
   <text class="note"  x="24" y="48">Everything without a terminal, the same on macOS, Linux and Windows. The window is in French.</text>
 
-  <!-- Le cadre de la fenêtre -->
+  <!-- The window frame -->
   <rect class="carte" x="24" y="64" width="832" height="242" rx="10"/>
 
-  <!-- La barre du haut : point, sujet, vumètres, bouton -->
-  <circle id="point" cx="48" cy="92" r="5" fill="var(--actif)"/>
-  <text class="titre" x="62" y="96">réunion du mardi</text>
+  <!-- The top bar: dot, subject, level meters, button -->
+  <circle id="dot" cx="48" cy="92" r="5" fill="var(--actif)"/>
+  <text class="title" x="62" y="96">réunion du mardi</text>
   <rect class="barre" x="24" y="112" width="832" height="1"/>
 
-  <!-- Les onglets, avec la marque de celui qui est montré -->
+  <!-- The tabs, with the mark on the one being shown -->
   <g>
-    <text class="onglet" x="48"  y="136">Réunions</text>
-    <text class="onglet" x="140" y="136">En direct</text>
-    <text class="onglet" x="228" y="136">Voix</text>
-    <text class="onglet" x="284" y="136">Conversation</text>
-    <text class="onglet" x="392" y="136">Réglages</text>
-    <text class="actif marque v1" x="48"  y="136">Réunions</text>
-    <text class="actif marque v2" x="140" y="136">En direct</text>
-    <text class="actif marque v3" x="228" y="136">Voix</text>
-    <text class="actif marque v4" x="284" y="136">Conversation</text>
-    <text class="actif marque v5" x="392" y="136">Réglages</text>
-    <rect class="souligne marque v1" x="48"  y="142" width="55" height="2" rx="1"/>
-    <rect class="souligne marque v2" x="140" y="142" width="55" height="2" rx="1"/>
-    <rect class="souligne marque v3" x="228" y="142" width="25" height="2" rx="1"/>
-    <rect class="souligne marque v4" x="284" y="142" width="78" height="2" rx="1"/>
-    <rect class="souligne marque v5" x="392" y="142" width="54" height="2" rx="1"/>
+    <text class="tab" x="48"  y="136">Réunions</text>
+    <text class="tab" x="140" y="136">En direct</text>
+    <text class="tab" x="228" y="136">Voix</text>
+    <text class="tab" x="284" y="136">Conversation</text>
+    <text class="tab" x="392" y="136">Réglages</text>
+    <text class="active marque v1" x="48"  y="136">Réunions</text>
+    <text class="active marque v2" x="140" y="136">En direct</text>
+    <text class="active marque v3" x="228" y="136">Voix</text>
+    <text class="active marque v4" x="284" y="136">Conversation</text>
+    <text class="active marque v5" x="392" y="136">Réglages</text>
+    <rect class="underlined marque v1" x="48"  y="142" width="55" height="2" rx="1"/>
+    <rect class="underlined marque v2" x="140" y="142" width="55" height="2" rx="1"/>
+    <rect class="underlined marque v3" x="228" y="142" width="25" height="2" rx="1"/>
+    <rect class="underlined marque v4" x="284" y="142" width="78" height="2" rx="1"/>
+    <rect class="underlined marque v5" x="392" y="142" width="54" height="2" rx="1"/>
   </g>
   <rect class="barre" x="24" y="148" width="832" height="1"/>
 
-  <!-- 1. Réunions : une liste, et ce qu'on en fait -->
-  <g class="vue v1">
-    <text class="titre" x="48" y="176">Past meetings</text>
+  <!-- 1. Meetings: a list, and what to do with it -->
+  <g class="view v1">
+    <text class="title" x="48" y="176">Past meetings</text>
     <rect class="barre" x="48" y="190" width="420" height="7" rx="3"/>
     <rect class="barre" x="48" y="206" width="320" height="7" rx="3"/>
     <rect class="barre" x="48" y="222" width="380" height="7" rx="3"/>
@@ -94,8 +93,8 @@
   </g>
 
   <!-- 2. En direct : le fil de ce qui se dit -->
-  <g class="vue v2">
-    <text class="titre" x="48" y="176">What is being said, while it is being said</text>
+  <g class="view v2">
+    <text class="title" x="48" y="176">What is being said, while it is being said</text>
     <text class="note" x="48" y="200">Toi — « On garde la signature par cachet serveur ? »</text>
     <text class="note" x="48" y="222">Voix 2 — « Oui, mais il faut tracer l'étape visa. »</text>
     <text class="note" x="48" y="244">Toi — « Sandy, tu peux ouvrir le ticket ? »</text>
@@ -103,8 +102,8 @@
   </g>
 
   <!-- 3. Voix : nommer une fois, reconnaître ensuite -->
-  <g class="vue v3">
-    <text class="titre" x="48" y="176">The voices, named just once</text>
+  <g class="view v3">
+    <text class="title" x="48" y="176">The voices, named just once</text>
     <circle cx="60" cy="200" r="9" fill="var(--vert)" opacity="0.9"/>
     <text class="note" x="80" y="204">Sophie — reconnue, 12 min de parole</text>
     <circle cx="60" cy="228" r="9" fill="var(--accent)" opacity="0.9"/>
@@ -112,18 +111,18 @@
     <text class="note" x="48" y="272">The bank then recognises them on its own, from one meeting to the next.</text>
   </g>
 
-  <!-- 4. Conversation : poser une question sur la réunion -->
-  <g class="vue v4">
-    <text class="titre" x="48" y="176">Asking a question about the meeting</text>
+  <!-- 4. Conversation: ask a question about the meeting -->
+  <g class="view v4">
+    <text class="title" x="48" y="176">Asking a question about the meeting</text>
     <rect class="carte" x="48" y="192" width="500" height="30" rx="8"/>
     <text class="note" x="62" y="212">Qu'est-ce qui a été décidé sur les relances ?</text>
     <text class="note" x="48" y="248">The answer leans on the attributed transcription, not on a summary.</text>
     <text class="note" x="48" y="266">What was not said is flagged as such.</text>
   </g>
 
-  <!-- 5. Réglages : ce qui se change sans ouvrir un fichier -->
-  <g class="vue v5">
-    <text class="titre" x="48" y="176">What is set without opening a file</text>
+  <!-- 5. Settings: what changes without opening a file -->
+  <g class="view v5">
+    <text class="title" x="48" y="176">What is set without opening a file</text>
     <rect class="carte" x="48" y="192" width="240" height="26" rx="7"/>
     <text class="note" x="60" y="209">Micro — automatique</text>
     <rect class="carte" x="304" y="192" width="240" height="26" rx="7"/>
