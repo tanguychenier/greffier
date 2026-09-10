@@ -26,7 +26,7 @@ pytestmark = pytest.mark.integration
 PHRASE = "Lucie, est-ce que tu peux nous rappeler ce qui reste à faire ?"
 
 
-class VoixFactice:
+class FakeVoiceAdapter:
     def __init__(self):
         self.remark = []
 
@@ -41,7 +41,7 @@ class VoixFactice:
         return False
 
 
-class CerveauFactice:
+class FakeBrain:
     """Le cerveau est doublé : on éprouve le montage, pas le modèle distant."""
 
     def __init__(self):
@@ -77,7 +77,7 @@ def test_appele_pendant_la_reunion_il_repond(meeting, tmp_path):
     if transcriber is None:
         pytest.skip("aucun modèle de transcription installé")
 
-    voice, cerveau = VoixFactice(), CerveauFactice()
+    voice, cerveau = FakeVoiceAdapter(), FakeBrain()
     assistant = AssistantSettings(
         name="Lucie", voice=voice, cerveau=cerveau,
         # Un creux large : le fichier s'arrête sur la phrase, donc la fin de la
@@ -120,14 +120,14 @@ def test_la_transcription_n_attend_pas_la_reponse(meeting, tmp_path):
 
     parti = threading.Event()
 
-    class CerveauLent(CerveauFactice):
+    class SlowBrain(FakeBrain):
         def write_up(self, text):
             parti.set()
             time.sleep(5.0)
             return "…"
 
     assistant = AssistantSettings(
-        name="Lucie", voice=VoixFactice(), cerveau=CerveauLent(),
+        name="Lucie", voice=FakeVoiceAdapter(), cerveau=SlowBrain(),
         manners=Manners(creux_minimal=0.0),
         context=lambda: "Réunion.",
     )
@@ -167,7 +167,7 @@ def test_une_phrase_ordinaire_ne_le_fait_pas_parler(tmp_path):
                     str(brut), "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le",
                     str(audio)], check=False, capture_output=True)
 
-    voice = VoixFactice()
+    voice = FakeVoiceAdapter()
     assistant = AssistantSettings(name="Lucie", voice=voice, manners=Manners(creux_minimal=0.0))
     import soundfile
 

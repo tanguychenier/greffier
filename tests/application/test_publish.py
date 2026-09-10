@@ -12,7 +12,7 @@ from greffier.application.publish import (
 from greffier.domain.store import Destination, Suggestion
 
 
-class RedacteurFactice:
+class FakeWriter:
     def __init__(self, rendered: str) -> None:
         self.rendered = rendered
         self.recu = ""
@@ -47,7 +47,7 @@ class TestApprentissageDepuisUnDocument:
     def test_les_entrees_sont_lues(self, tmp_path):
         file = tmp_path / "specs.md"
         file.write_text("FAST et CASA.", encoding="utf-8")
-        writer = RedacteurFactice(
+        writer = FakeWriter(
             '[{"ecriture": "FAST", "sens": "un circuit", "genre": "terme"},'
             ' {"ecriture": "Morgane", "sens": "pilote", "genre": "personne"}]'
         )
@@ -58,20 +58,20 @@ class TestApprentissageDepuisUnDocument:
     def test_un_document_vide_n_appelle_pas_le_redacteur(self, tmp_path):
         file = tmp_path / "vide.md"
         file.write_text("   ", encoding="utf-8")
-        writer = RedacteurFactice("[]")
+        writer = FakeWriter("[]")
         assert learn_from_document(file, writer) == ()
         assert writer.recu == ""
 
     def test_une_reponse_illisible_ne_rend_rien(self, tmp_path):
         file = tmp_path / "specs.md"
         file.write_text("du texte", encoding="utf-8")
-        assert learn_from_document(file, RedacteurFactice("je ne sais pas")) == ()
+        assert learn_from_document(file, FakeWriter("je ne sais pas")) == ()
 
     def test_un_bloc_de_code_est_accepte(self, tmp_path):
         file = tmp_path / "specs.md"
         file.write_text("du texte", encoding="utf-8")
         appris = learn_from_document(
-            file, RedacteurFactice('```json\\n[{"ecriture": "FAST"}]\\n```')
+            file, FakeWriter('```json\\n[{"ecriture": "FAST"}]\\n```')
         )
         assert appris == (("FAST", "", "terme"),)
 
@@ -79,7 +79,7 @@ class TestApprentissageDepuisUnDocument:
         """Cent pages ne se lisent pas pour en tirer vingt mots."""
         file = tmp_path / "gros.md"
         file.write_text("x" * (LU_AU_PLUS * 2), encoding="utf-8")
-        writer = RedacteurFactice("[]")
+        writer = FakeWriter("[]")
         learn_from_document(file, writer)
         assert len(writer.recu) <= len(CONSIGNES_DOCUMENT) + LU_AU_PLUS
 

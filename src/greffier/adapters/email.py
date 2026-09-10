@@ -27,18 +27,24 @@ class OutlookSender:
   set leDest to item 3 of argv
   set leCorps to (read (POSIX file cheminCorps) as «class utf8»)
   set leSujet to (read (POSIX file cheminSujet) as «class utf8»)
-  tell application "Microsoft Outlook"
-    set m to make new outgoing message with properties {subject:leSujet, content:leCorps}
-    make new recipient at m with properties {email address:{address:leDest}}
-    repeat with i from 4 to (count of argv)
-      make new attachment at m with properties {file:(POSIX file (item i of argv))}
-    end repeat
-    send m
-  end tell
+  with timeout of 600 seconds
+    tell application "Microsoft Outlook"
+      set m to make new outgoing message with properties {subject:leSujet, content:leCorps}
+      make new recipient at m with properties {email address:{address:leDest}}
+      repeat with i from 4 to (count of argv)
+        make new attachment at m with properties {file:(POSIX file (item i of argv))}
+      end repeat
+      send m
+    end tell
+  end timeout
 end run
 """
 
-    SONDE = 'tell application "Microsoft Outlook" to get name'
+    SONDE = (
+        "with timeout of 60 seconds\n"
+        '  tell application "Microsoft Outlook" to get name\n'
+        "end timeout"
+    )
 
     def probe(self) -> str | None:
         """What would stop the send, or nothing when the way is clear.
@@ -88,7 +94,18 @@ end run
                 "macOS refuse de piloter Outlook. Autorise « Greffier » dans "
                 "Réglages Système ▸ Confidentialité et sécurité ▸ Automatisation."
             )
-        raise RuntimeError(f"Envoi impossible : {output.strip().splitlines()[-1:] or output}")
+        if "-1712" in output:
+            raise TimeoutError(
+                "Outlook n'a pas répondu à temps. Le compte rendu est gardé ; "
+                "« greffier envoyer » réessaie. Si cela se répète, laisse "
+                "Outlook ouvert et au premier plan pendant l'envoi."
+            )
+        if "-1728" in output or "not running" in output.lower():
+            raise RuntimeError(
+                "Outlook n'est pas lancé. Ouvre-le, puis « greffier envoyer »."
+            )
+        derniere = output.strip().splitlines()[-1:] or [output.strip()]
+        raise RuntimeError(f"Envoi impossible : {derniere[0]}")
 
 class SmtpSender:
     """Direct sending, for machines without Outlook."""
