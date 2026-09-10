@@ -1898,9 +1898,9 @@ class Window:
         )
         if not choisis:
             return
-        outils = job.tools_present()
+        tools = job.tools_present()
         propositions = [
-            offer(Path(path), Path(path).stat().st_size, outils)
+            offer(Path(path), Path(path).stat().st_size, tools)
             for path in choisis
         ]
         detail = "\n".join(
@@ -2543,9 +2543,9 @@ class Window:
         )
         if not choisis:
             return
-        outils = job.tools_present()
+        tools = job.tools_present()
         propositions = [
-            offer(Path(path), Path(path).stat().st_size, outils)
+            offer(Path(path), Path(path).stat().st_size, tools)
             for path in choisis
         ]
         documents = [p for p in propositions if p.destin is Destination.CONTEXT]

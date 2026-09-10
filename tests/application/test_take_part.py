@@ -484,7 +484,7 @@ class TestElleALeDroitDeChercher:
 
         cerveau = assistant(Config(conversation={"recherche_web": True}))
         assert isinstance(cerveau, ClaudeWriter)
-        assert cerveau.outils == ClaudeWriter.OUTILS_DE_RECHERCHE
+        assert cerveau.tools == ClaudeWriter.SEARCH_TOOLS
 
     def test_le_reglage_les_retire_vraiment(self):
         """Qui ne veut rien laisser sortir du poste doit pouvoir l'obtenir."""
@@ -494,7 +494,7 @@ class TestElleALeDroitDeChercher:
 
         cerveau = assistant(Config(conversation={"recherche_web": False}))
         assert isinstance(cerveau, ClaudeWriter)
-        assert cerveau.outils == ()
+        assert cerveau.tools == ()
 
 
 class TestStoppedForGood:

@@ -4,7 +4,7 @@
 # doit détecter et poser ffmpeg, les modèles et l'environnement. Si cette image
 # se construit, c'est qu'un collègue sous Linux peut installer Greffier.
 #
-#     docker build -f outils/preuve-linux.Dockerfile -t greffier-preuve-linux .
+#     docker build -f tools/install-proof-linux.Dockerfile -t greffier-preuve-linux .
 #
 # Le contexte est le dépôt lui-même, et non son dossier parent : c'est ce qui
 # fait que le « .dockerignore » du dépôt s'applique. Sans lui, le « .venv » du
@@ -28,7 +28,7 @@ ENV GREFFIER_MODELE_WHISPER=small \
     GREFFIER_CONFIG=/travail/config \
     NO_COLOR=1
 
-RUN python3 outils/installer.py --oui
+RUN python3 tools/install.py --oui
 
 # Au-delà de l'installation : la chaîne tourne-t-elle vraiment sous Linux ?
 RUN .venv/bin/python -m pytest tests/ \

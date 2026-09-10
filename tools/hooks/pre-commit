@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Refuses a commit that does not pass the checks.
+#
+# Three times in a row a quality remark went through in a commit because the
+# checks were run "beside" the path rather than across it. Here they block,
+# which is the only reliable way.
+#
+# Install: tools/hooks/install.sh
+# Deliberate bypass: git commit --no-verify
+set -euo pipefail
+
+DEPOT="$(git rev-parse --show-toplevel)"
+PYTHON="$DEPOT/.venv/bin/python"
+[ -x "$PYTHON" ] || { echo "⚠ no environment, checks skipped"; exit 0; }
+
+echec=0
+controler() {
+  local nom="$1"; shift
+  if "$@" >/tmp/greffier-controle.$$ 2>&1; then
+    printf '  ✓ %s\n' "$nom"
+  else
+    printf '  ✗ %s\n' "$nom"
+    tail -12 /tmp/greffier-controle.$$
+    echec=1
+  fi
+  rm -f /tmp/greffier-controle.$$
+}
+
+echo "Checks before commit"
+controler "ruff"   "$PYTHON" -m ruff check src tests tools
+controler "mypy"   "$PYTHON" -m mypy
+# The integration tests are left out: they load 1.7 GB of models and count in
+# tens of seconds. They run before a merge, not here.
+controler "pytest" "$PYTHON" -m pytest -q
+
+if [ $echec -ne 0 ]; then
+  echo
+  echo "Commit refused. Use \"git commit --no-verify\" to go past it knowingly."
+  exit 1
+fi

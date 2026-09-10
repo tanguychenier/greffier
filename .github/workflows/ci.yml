@@ -30,7 +30,7 @@ jobs:
       # Blocking, not "tolerated": a quality remark let through ends up hiding a
       # real regression.
       - name: ruff
-        run: ruff check src tests outils
+        run: ruff check src tests tools
 
       - name: mypy
         run: mypy
@@ -53,4 +53,4 @@ jobs:
       - name: Proof of installation
         run: |
           mkdir -p contexte && cp -r . contexte/greffier
-          docker build -f outils/preuve-linux.Dockerfile -t greffier-preuve contexte
+          docker build -f tools/install-proof-linux.Dockerfile -t greffier-preuve contexte

@@ -63,7 +63,7 @@ One command, on all three systems:
 ```sh
 git clone https://github.com/tanguychenier/greffier.git
 cd greffier
-python3 outils/installer.py          # Windows: python outils\installer.py
+python3 tools/install.py          # Windows: python tools\install.py
 ```
 
 The installer **finds what is missing and installs it**, rather than printing a
@@ -99,8 +99,8 @@ greffier diagnostic      # report without changing anything
 ```
 
 ```
-python3 outils/installer.py --verifier   # report without installing anything
-python3 outils/installer.py --oui        # without asking
+python3 tools/install.py --verifier   # report without installing anything
+python3 tools/install.py --oui        # without asking
 ```
 
 It uses nothing but the Python standard library: it has to run *before*
@@ -292,7 +292,7 @@ folder), the tests passed, voice print model loaded.
 **Installation on Linux, bare image** — reproducible by you:
 
 ```sh
-docker build -f outils/preuve-linux.Dockerfile -t greffier-preuve .
+docker build -f tools/install-proof-linux.Dockerfile -t greffier-preuve .
 ```
 
 From a `python:3.13-slim` with nothing but git, the installer puts ffmpeg in
@@ -433,10 +433,10 @@ src/greffier/
 │                  concrete adapters and the use cases, so it sits outside the
 │                  layers rather than in one of them
 └── locations.py   where files live per system. An adapter by nature, kept here
-                   because its path is a published contract: outils/installer.py
+                   because its path is a published contract: tools/install.py
                    loads it literally, before anything else exists
 macos/             audio device creation (Swift) and the .app bundle
-outils/            the installer and the proof harnesses
+tools/            the installer and the proof harnesses
 skills/            what a coding assistant needs to repair an installation
 ```
 
@@ -459,7 +459,7 @@ pipx install dist/greffier-*.whl     # or pip install, in a dedicated environmen
 ```
 
 The wheel holds the code only: the models are fetched on the first run of
-`outils/installer.py`.
+`tools/install.py`.
 
 ## Development
 
@@ -467,8 +467,8 @@ The installer already does everything needed. To recalibrate the voice
 recognition thresholds on a recording of your own:
 
 ```sh
-.venv/bin/python outils/calibrer_seuils.py <recording.wav>
-.venv/bin/python outils/verifier_fusion.py <recording.wav>
+.venv/bin/python tools/calibrate_thresholds.py <recording.wav>
+.venv/bin/python tools/check_joins.py <recording.wav>
 ```
 
 The method and the thresholds in force are in
@@ -477,7 +477,7 @@ The method and the thresholds in force are in
 Install the git hooks once and for all:
 
 ```sh
-./outils/crochets/installer.sh
+./tools/hooks/install.sh
 ```
 
 A commit that does not pass `ruff`, `mypy` and the tests is then **refused**.
