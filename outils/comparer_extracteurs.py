@@ -36,8 +36,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from greffier.domaine.empreintes import agreger, recoller, similarite  # noqa: E402
-from greffier.emplacements import dossier_donnees  # noqa: E402
+from greffier.domain.voiceprints import aggregate, similarity, stitch  # noqa: E402
+from greffier.locations import data_folder  # noqa: E402
 
 CATALOGUE = ("https://github.com/k2-fsa/sherpa-onnx/releases/download/"
              "speaker-recongition-models/")
@@ -57,90 +57,90 @@ CANDIDATS = {
 
 #: La longueur des extraits mesurés. C'est celle d'un bloc de tranche en direct,
 #: donc celle où le choix du modèle se joue.
-FENETRE = 2.5
+WINDOW = 2.5
 CACHE = Path("/tmp/greffier-extracteurs")
 
 
-def telecharger(nom: str, cible: Path) -> Path:
-    if cible.exists():
-        return cible
-    cible.parent.mkdir(parents=True, exist_ok=True)
-    print(f"  téléchargement de {nom}…", file=sys.stderr)
-    partiel = cible.with_suffix(".partiel")
-    with urllib.request.urlopen(CATALOGUE + nom) as flux, partiel.open("wb") as sortie:
+def download(name: str, target: Path) -> Path:
+    if target.exists():
+        return target
+    target.parent.mkdir(parents=True, exist_ok=True)
+    print(f"  téléchargement de {name}…", file=sys.stderr)
+    partiel = target.with_suffix(".partiel")
+    with urllib.request.urlopen(CATALOGUE + name) as flux, partiel.open("wb") as output:
         while morceau := flux.read(1 << 20):
-            sortie.write(morceau)
-    partiel.replace(cible)
-    return cible
+            output.write(morceau)
+    partiel.replace(target)
+    return target
 
 
-def empreintes(modele: Path, reunion: dict, clef: str) -> list:
+def voiceprints(model: Path, meeting: dict, key: str) -> list:
     """Une empreinte par fenêtre, dans l'ordre du temps. Mise en cache."""
-    fichier = CACHE / f"{clef}.pickle"
-    if fichier.exists():
-        return pickle.loads(fichier.read_bytes())
+    file = CACHE / f"{key}.pickle"
+    if file.exists():
+        return pickle.loads(file.read_bytes())
 
     import numpy as np
     import soundfile as sf
 
-    from greffier.adaptateurs.empreintes_titanet import DUREE_MINIMALE, ExtracteurTitaNet
+    from greffier.adapters.voiceprints_titanet import DUREE_MINIMALE, TitaNetExtractor
 
-    extracteur = ExtracteurTitaNet(modele)
-    rendu = []
-    with sf.SoundFile(str(reunion["audio"])) as flux:
-        frequence = flux.samplerate
-        for tour in reunion["tours"]:
-            instant = tour["debut"]
-            while instant + DUREE_MINIMALE <= tour["fin"]:
-                bout = min(instant + FENETRE, tour["fin"])
-                flux.seek(int(instant * frequence))
-                bloc = flux.read(int((bout - instant) * frequence),
+    extractor = TitaNetExtractor(model)
+    rendered = []
+    with sf.SoundFile(str(meeting["audio"])) as flux:
+        frequency = flux.samplerate
+        for turn in meeting["tours"]:
+            at_instant = turn["debut"]
+            while at_instant + DUREE_MINIMALE <= turn["fin"]:
+                bout = min(at_instant + WINDOW, turn["fin"])
+                flux.seek(int(at_instant * frequency))
+                bloc = flux.read(int((bout - at_instant) * frequency),
                                  dtype="float32", always_2d=True)
-                if len(bloc) >= DUREE_MINIMALE * frequence:
+                if len(bloc) >= DUREE_MINIMALE * frequency:
                     signal = np.ascontiguousarray(bloc.mean(axis=1))
-                    rendu.append((instant, extracteur.extraire(signal, frequence)))
-                instant = bout
-    rendu.sort()
-    fichier.parent.mkdir(parents=True, exist_ok=True)
-    fichier.write_bytes(pickle.dumps(rendu))
-    return rendu
+                    rendered.append((at_instant, extractor.extract(signal, frequency)))
+                at_instant = bout
+    rendered.sort()
+    file.parent.mkdir(parents=True, exist_ok=True)
+    file.write_bytes(pickle.dumps(rendered))
+    return rendered
 
 
-def verite(reunion: dict) -> list:
+def verite(meeting: dict) -> list:
     """Qui parlait quand, d'après le recollage final de la réunion."""
-    cache = Path("/tmp/greffier-empreintes") / f"{reunion['identifiant']}.pickle"
+    cache = Path("/tmp/greffier-empreintes") / f"{meeting['identifiant']}.pickle"
     if not cache.exists():
         raise SystemExit(
             "La vérité terrain manque : lance d'abord "
             "« outils/rejouer_recollage.py » sur cette réunion."
         )
-    par_voix = pickle.loads(cache.read_bytes())
-    appartenance = recoller(par_voix)
+    per_voice = pickle.loads(cache.read_bytes())
+    membership = stitch(per_voice)
     return sorted(
-        (t["debut"], t["fin"], appartenance.get(str(t["voix"]), str(t["voix"])))
-        for t in reunion["tours"]
+        (t["debut"], t["fin"], membership.get(str(t["voix"]), str(t["voix"])))
+        for t in meeting["tours"]
     )
 
 
-def noter(etiquetees: list) -> dict:
+def grade(etiquetees: list) -> dict:
     """L'écart entre « même personne » et « personnes différentes ».
 
     Sur les agrégats, parce que c'est la comparaison que fait le rattachement :
     une phrase contre une voix accumulée, jamais deux phrases entre elles.
     """
     par = defaultdict(list)
-    for qui, empreinte in etiquetees:
-        par[qui].append(empreinte)
+    for qui, voiceprint in etiquetees:
+        par[qui].append(voiceprint)
     gros = sorted(par, key=lambda q: -len(par[q]))[:3]
     if len(gros) < 2:
         return {}
     memes, autres = [], []
     for qui in gros:
-        reference = agreger(par[qui][:40])
-        memes += [similarite(e, reference) for e in par[qui][40:140]]
+        reference = aggregate(par[qui][:40])
+        memes += [similarity(e, reference) for e in par[qui][40:140]]
         for autre in gros:
             if autre != qui:
-                autres += [similarite(e, reference) for e in par[autre][40:140]]
+                autres += [similarity(e, reference) for e in par[autre][40:140]]
     if len(memes) < 10 or len(autres) < 10:
         return {}
     memes.sort()
@@ -161,34 +161,34 @@ def main() -> int:
     parseur.add_argument("reunion")
     arguments = parseur.parse_args()
 
-    chemin = dossier_donnees() / "reunions" / f"{arguments.reunion}.json"
-    reunion = json.loads(chemin.read_text())
-    reunion["identifiant"] = arguments.reunion
-    tours = verite(reunion)
+    path = data_folder() / "reunions" / f"{arguments.meeting}.json"
+    meeting = json.loads(path.read_text())
+    meeting["identifiant"] = arguments.meeting
+    turns = verite(meeting)
 
-    def qui(instant: float) -> str | None:
-        for debut, fin, voix in tours:
-            if debut <= instant < fin:
-                return voix
+    def qui(at_instant: float) -> str | None:
+        for start, end, voice in turns:
+            if start <= at_instant < end:
+                return voice
         return None
 
-    print(f"{len(tours)} tours, fenêtres de {FENETRE} s\n")
+    print(f"{len(turns)} tours, fenêtres de {WINDOW} s\n")
     print(f"{'modèle':16} {'même':>7} {'décile':>7} │ {'autre':>7} {'décile':>7} │ "
           f"{'marge':>7} {'ms/extrait':>11}")
     print("─" * 74)
-    for clef, nom in CANDIDATS.items():
-        modele = telecharger(nom, CACHE / nom)
+    for key, name in CANDIDATS.items():
+        model = download(name, CACHE / name)
         depart = time.time()
-        extraits = empreintes(modele, reunion, clef)
+        extraits = voiceprints(model, meeting, key)
         cout = 1000 * (time.time() - depart) / max(1, len(extraits))
         etiquetees = [(qui(t), e) for t, e in extraits]
-        note = noter([(q, e) for q, e in etiquetees if q])
-        if not note:
-            print(f"{clef:16} pas assez de matière étiquetée")
+        scores = grade([(q, e) for q, e in etiquetees if q])
+        if not scores:
+            print(f"{key:16} pas assez de matière étiquetée")
             continue
-        print(f"{clef:16} {note['meme']:7.3f} {note['meme_bas']:7.3f} │ "
-              f"{note['autre']:7.3f} {note['autre_haut']:7.3f} │ "
-              f"{note['marge']:+7.3f} {cout:10.1f}")
+        print(f"{key:16} {scores['meme']:7.3f} {scores['meme_bas']:7.3f} │ "
+              f"{scores['autre']:7.3f} {scores['autre_haut']:7.3f} │ "
+              f"{scores['marge']:+7.3f} {cout:10.1f}")
     print("\nLa marge est ce qui décide : c'est la place qui reste entre le "
           "premier décile\ndes mêmes et le neuvième des autres. Négative, aucun "
           "seuil ne les sépare.")
