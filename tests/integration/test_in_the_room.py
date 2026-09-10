@@ -72,9 +72,9 @@ def outcome(config: Config, table: Path):
     from greffier.wiring import wire_up
 
     config.minutes.engine = "aucun"
-    chaine: Chain = wire_up(config)
-    chaine.writer = None
-    return chaine.run_chain(table, send=False)
+    chain: Chain = wire_up(config)
+    chain.writer = None
+    return chain.run_chain(table, send=False)
 
 
 class TestVerdictDeCanal:

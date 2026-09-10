@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -17,7 +18,11 @@ from greffier.domain import names as noms_domaine
 from greffier.domain import profiles
 from greffier.domain import voiceprints as voix_domaine
 from greffier.domain.attribution import voice_of
-from greffier.domain.boilerplate import is_an_annotation, is_boilerplate
+from greffier.domain.boilerplate import (
+    collapse_loops,
+    is_an_annotation,
+    is_boilerplate,
+)
 from greffier.domain.language import LanguageProfile
 from greffier.domain.meeting import StoredMeeting
 from greffier.domain.minutes import title as titre_du_compte_rendu
@@ -37,6 +42,21 @@ COUVERTURE_BASSE = 0.80
 MOTS_MINIMUM = 20
 
 AVERTISSEMENT_SANS_BOUCLE = "· boucle système muette, à préciser"
+
+MATERIAL_TO_RECOGNISE = 6.0
+"""Seconds of speech required before the voice bank may name a voice.
+
+Measured on the meeting of 2026-09-10: the bank put "Sophie" on a voice holding
+**3.1 seconds**, and Sophie was not in the room. It also named the nine
+fragments of one Lise, each between 2.5 and 8.1 seconds. A few seconds of
+speech resemble too many people, and a wrong label in minutes is worse than an
+unnamed voice, because it is believed.
+
+Six seconds, twice the calibration threshold below which an excerpt carries the
+noise of the room more than the timbre. The same floor already guards the live
+thread.
+"""
+
 
 class ChainStopped(Exception):
     """Deliberate stop of the chain, with a reason fit to show."""
@@ -136,6 +156,7 @@ class Chain:
     language: str = "fr"
     prompt_seed: str = ""
     context_header: str = ""
+    instructions: Callable[[str], list[str]] | None = None
     people: int | None = None
     not_first_names: frozenset[str] = frozenset()
     recipient: str = ""
@@ -261,6 +282,8 @@ class Chain:
         for turn in turns:
             per_voice.setdefault(turn.voice, []).append(turn.span)
         for voice, intervalles in per_voice.items():
+            if sum(i.duration for i in intervalles) < MATERIAL_TO_RECOGNISE:
+                continue
             extraits = self.extractor.extract_spans(audio, intervalles)
             if not extraits:
                 continue
@@ -367,10 +390,10 @@ class Chain:
             )
         profil = profiles.pour(self.language)
         outcome.profil = profil
-        outcome.utterances = [
+        outcome.utterances = collapse_loops([
             r for r in brutes
             if not is_boilerplate(r.text, profil) and not is_an_annotation(r.text)
-        ]
+        ])
         if outcome.words < MOTS_MINIMUM:
             raise ChainStopped(
                 Phase.ECHEC,
@@ -409,7 +432,8 @@ class Chain:
             v for v in outcome.significant_voices() if v
         ] + [v for v in outcome.names if v not in outcome.significant_voices()]
         header = (
-            context_header(audio.stem, duration,
+            self._instructions_of(audio.stem)
+            + context_header(audio.stem, duration,
                             names=[outcome.names[v] for v in entendues if v in outcome.names],
                             voix_entendues=len(entendues),
                             commencee_le=outcome.commencee_le,
@@ -456,6 +480,20 @@ class Chain:
         )
         self._notify_user("Greffier", "Compte rendu prêt.")
         return outcome
+
+    def _instructions_of(self, identifier: str) -> str:
+        """What was asked of the tool during this meeting, for the writer.
+
+        Never raises: minutes are worth more than a header, and a conversation
+        that cannot be read must not cost the meeting.
+        """
+        from greffier.application.render import instructions_header
+
+        if self.instructions is None:
+            return ""
+        with contextlib.suppress(Exception):
+            return instructions_header(self.instructions(identifier))
+        return ""
 
     def _keep(self, audio: Path, outcome: Outcome) -> None:
         """Writes the master file, the transcript and the minutes."""
