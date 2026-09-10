@@ -223,7 +223,7 @@ recording with certainty. Around a table, everyone speaks into the same
 microphone: provenance no longer designates anyone. The case is now held by a
 replayable proof.
 
-The test file (`tools/make_meeting.py --presentiel`) is **stereo**, like
+The test file (`tools/make_meeting.py --in-the-room`) is **stereo**, like
 what the device returns: three synthetic voices on the microphone, and on the
 system loopback the leak measured on the real table meeting, -53 dB instead of
 the expected silence. A silent second channel would have made the trial too

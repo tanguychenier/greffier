@@ -48,8 +48,8 @@ def coherence(voiceprints: list[Voiceprint]) -> list[float]:
 
 def main() -> int:
     analyse = argparse.ArgumentParser(description=__doc__)
-    analyse.add_argument("reunion")
-    analyse.add_argument("--combien", type=int, default=6,
+    analyse.add_argument("meeting")
+    analyse.add_argument("--how-many", type=int, default=6,
                          help="Combien de voix examiner (les plus grosses)")
     arguments = analyse.parse_args()
 
@@ -58,7 +58,12 @@ def main() -> int:
         print("Les empreintes manquent : lance d'abord "
               "« tools/replay_stitching.py » sur cette réunion.", file=sys.stderr)
         return 1
-    per_voice: dict[str, list[Voiceprint]] = pickle.loads(cache.read_bytes())
+    try:
+        per_voice: dict[str, list[Voiceprint]] = pickle.loads(cache.read_bytes())
+    except (pickle.UnpicklingError, ModuleNotFoundError, AttributeError, EOFError):
+        print("Cache illisible : relance « tools/replay_stitching.py » "
+              "sur cette réunion, il le refera.", file=sys.stderr)
+        return 1
     grosses = sorted(
         per_voice.items(), key=lambda kv: -sum(e.source_duration for e in kv[1])
     )[: arguments.how_many]
