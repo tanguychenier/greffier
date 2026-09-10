@@ -456,8 +456,14 @@ class TestLesDeuxBoutonsEnCoursDeReunion:
     """La fenêtre et la veille sont deux processus.
 
     Les boutons écrivent dans la configuration, la veille la relit à chaque
-    tranche. Sans quoi il faudrait redémarrer la réunion pour faire taire
-    l'assistant, ce qui n'a aucun sens.
+    tranche. Sans quoi il faudrait redémarrer la réunion pour changer d'avis,
+    ce qui n'a aucun sens.
+
+    Deux boutons : **la voix**, s'il se fait entendre dans la pièce, et
+    **l'initiative**, s'il peut parler sans qu'on l'ait appelé. Il participe
+    toujours — écouter, prendre des notes, poser ses questions par écrit est son
+    travail, et un troisième réglage qui le débranchait a fait qu'il ne
+    répondait plus à son nom sans que rien ne le dise.
     """
 
     def _veilleur(self, participant, boutons, voix_neuve=None):
@@ -492,31 +498,54 @@ class TestLesDeuxBoutonsEnCoursDeReunion:
         return Participant(nom="Lucie", voix=Voix() if avec_voix else None,
                            politique=Politique(actif=True))
 
-    def test_le_faire_taire_l_interrompt_tout_de_suite(self):
+    def test_couper_la_voix_l_interrompt_tout_de_suite(self):
         """Appuyer pendant qu'il parle doit couper, pas attendre la fin."""
         lui = self._participant()
         voix = lui.voix
-        self._veilleur(lui, (False, True))._appliquer_les_boutons(False, True)
-        assert not lui.politique.actif and voix.tue
+        self._veilleur(lui, (False, False))._appliquer_les_boutons(False, False)
+        assert voix.tue
 
     def test_retirer_la_voix_le_laisse_participer_par_ecrit(self):
         lui = self._participant()
-        self._veilleur(lui, (True, False))._appliquer_les_boutons(True, False)
-        assert lui.politique.actif and lui.voix is None
+        self._veilleur(lui, (False, False))._appliquer_les_boutons(False, False)
+        assert lui.voix is None
+        assert lui.politique.actif, "il participe toujours, sans se faire entendre"
 
     def test_lui_rendre_la_voix_la_recharge_une_fois(self):
         """Charger un modèle coûte : on ne le fait qu'à la demande."""
         lui = self._participant(avec_voix=False)
         neuve = object()
-        veilleur = self._veilleur(lui, (True, True), voix_neuve=neuve)
-        veilleur._appliquer_les_boutons(True, True)
+        veilleur = self._veilleur(lui, (True, False), voix_neuve=neuve)
+        veilleur._appliquer_les_boutons(True, False)
         assert lui.voix is neuve
 
     def test_sans_moyen_de_la_rendre_il_reste_muet(self):
         """Aucun modèle installé : il participe par écrit, sans se plaindre."""
         lui = self._participant(avec_voix=False)
-        self._veilleur(lui, (True, True))._appliquer_les_boutons(True, True)
+        self._veilleur(lui, (True, False))._appliquer_les_boutons(True, False)
         assert lui.voix is None and lui.politique.actif
+
+    def test_l_initiative_se_prend_en_cours_de_reunion(self):
+        """Le bouton n'agissait qu'à la réunion suivante, ce qui ne se devine pas."""
+        lui = self._participant()
+        veilleur = self._veilleur(lui, (True, True))
+        assert not veilleur.initiative, "livrée éteinte"
+        veilleur._appliquer_les_boutons(True, True)
+        assert veilleur.initiative
+
+    def test_l_initiative_se_reprend_aussi(self):
+        lui = self._participant()
+        veilleur = self._veilleur(lui, (True, False))
+        veilleur.initiative = True
+        veilleur._appliquer_les_boutons(True, False)
+        assert not veilleur.initiative
+
+    def test_sans_initiative_il_ne_demande_pas_qui_parle(self):
+        """La règle qui le rend supportable : un mot seulement si on l'appelle."""
+        lui = self._participant()
+        veilleur = self._veilleur(lui, (True, False))
+        veilleur._appliquer_les_boutons(True, False)
+        assert veilleur._voix_a_demander(maintenant=600.0) == []
 
     def test_rien_ne_change_quand_rien_ne_change(self):
         lui = self._participant()
