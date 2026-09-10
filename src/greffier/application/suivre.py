@@ -31,6 +31,7 @@ from greffier.domaine.direct import (
     Certitude,
     Correction,
     Fil,
+    Fusion,
     TourDirect,
     VoixDirecte,
     blocs,
@@ -50,6 +51,8 @@ GENRE_CORRECTION = "correction"
 GENRE_ETAT = "etat"
 #: Deux voix reconnues comme la même personne, une fois la matière accumulée.
 GENRE_REUNION = "reunion"
+#: Une réunion de voix défaite à la main : elles ne sont pas la même personne.
+GENRE_SEPARATION = "separation"
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,11 +137,31 @@ def _ligne_correction(correction: Correction) -> dict[str, Any]:
         "nom": correction.nom,
         "voix": correction.voix,
         "numeros": list(correction.numeros),
+        "toute_la_voix": correction.toute_la_voix,
     }
 
 
 def _ligne_reunion(source: str, cible: str) -> dict[str, Any]:
     return {"genre": GENRE_REUNION, "voix": source, "vers": cible}
+
+
+def _ligne_separation(fusion: Fusion) -> dict[str, Any]:
+    """De quoi rendre la séparation à la fenêtre, et à un fil repris.
+
+    La fenêtre ne calcule aucune empreinte : elle a besoin du **résultat**, donc
+    des numéros de tours et de l'état rendu à la voix, pas de quoi le refaire.
+    """
+    return {
+        "genre": GENRE_SEPARATION,
+        "voix": fusion.source,
+        "de": fusion.cible,
+        "numeros": list(fusion.numeros),
+        "nom": fusion.nom,
+        "certitude": fusion.certitude.value,
+        "rang": fusion.rang,
+        "nom_cible": fusion.nom_cible,
+        "certitude_cible": fusion.certitude_cible.value,
+    }
 
 
 def ajouter(journal: Path, lignes: list[dict[str, Any]]) -> None:
@@ -204,7 +227,50 @@ def rejouer(lignes: list[dict[str, Any]], fil: Fil | None = None) -> Fil:
             _rejouer_correction(fil, ligne)
         elif genre == GENRE_REUNION:
             _rejouer_reunion(fil, ligne)
+        elif genre == GENRE_SEPARATION:
+            _rejouer_separation(fil, ligne)
     return fil
+
+
+def _rejouer_separation(fil: Fil, ligne: dict[str, Any]) -> None:
+    """Rejoue une séparation : les tours nommés repassent à la voix rendue.
+
+    Sans partage des empreintes, que la fenêtre n'a pas : elle n'a besoin que de
+    savoir qui parle. Ce que le fil garde, c'est la paire tenue à part, pour
+    qu'une reprise de fil ne refasse pas la fusion défaite.
+    """
+    rendue, cible = str(ligne.get("voix", "")), str(ligne.get("de", ""))
+    if not rendue or not cible or rendue == cible:
+        return
+    # Consignée d'abord, et sans condition : c'est le seul fait qui doit
+    # survivre à tout, y compris à un journal dont on n'a lu que la fin. Sans
+    # lui, la tranche suivante refait la fusion et le clic n'a servi à rien.
+    fil.separees.add(frozenset({rendue, cible}))
+    gardee = fil.voix.get(cible)
+    if rendue in fil.voix or gardee is None:
+        return
+    numeros = {int(n) for n in ligne.get("numeros", [])}
+    fil.retenir_l_identifiant(rendue)
+    fil.voix[rendue] = VoixDirecte(
+        identifiant=rendue,
+        nom=ligne.get("nom"),
+        certitude=_certitude(ligne.get("certitude")),
+        rang=int(ligne.get("rang", 0)),
+    )
+    if gardee.certitude is not Certitude.HUMAINE:
+        gardee.nom = ligne.get("nom_cible")
+        gardee.certitude = _certitude(ligne.get("certitude_cible"))
+    for tour in fil.tours:
+        if tour.voix == cible and tour.numero in numeros:
+            tour.voix = rendue
+    fil.separees.add(frozenset({rendue, cible}))
+
+
+def _certitude(valeur: Any) -> Certitude:
+    try:
+        return Certitude(str(valeur))
+    except ValueError:
+        return Certitude.INCONNUE
 
 
 def _rejouer_reunion(fil: Fil, ligne: dict[str, Any]) -> None:
@@ -217,23 +283,30 @@ def _rejouer_reunion(fil: Fil, ligne: dict[str, Any]) -> None:
     source, cible = str(ligne.get("voix", "")), str(ligne.get("vers", ""))
     if not source or not cible or source == cible:
         return
-    for tour in fil.tours:
-        if tour.voix == source:
-            tour.voix = cible
-    avalee = fil.voix.pop(source, None)
-    gardee = fil.voix.get(cible)
-    if avalee is not None and gardee is not None:
-        gardee.empreintes.extend(avalee.empreintes)
-        # Le nom le plus sûr des deux survit : une voix anonyme absorbée par une
-        # voix nommée ne doit pas effacer ce nom, ni l'inverse.
-        if not gardee.certitude.ferme and avalee.certitude.ferme:
-            gardee.nom, gardee.certitude = avalee.nom, avalee.certitude
+    avalee, gardee = fil.voix.get(source), fil.voix.get(cible)
+    if avalee is None or gardee is None:
+        # Journal tronqué, ou voix jamais vue de ce côté : on retague quand même,
+        # pour que la phrase s'affiche sous la voix qui a survécu.
+        for tour in fil.tours:
+            if tour.voix == source:
+                tour.voix = cible
+        fil.voix.pop(source, None)
+        return
+    ferme_avant = avalee.certitude.ferme
+    nom_avant, certitude_avant = avalee.nom, avalee.certitude
+    # Par `reunir` et non à la main : c'est ce qui garde de quoi séparer ensuite.
+    fil.reunir(source, cible)
+    # Le nom le plus sûr des deux survit : une voix anonyme absorbée par une
+    # voix nommée ne doit pas effacer ce nom, ni l'inverse.
+    if not gardee.certitude.ferme and ferme_avant:
+        gardee.nom, gardee.certitude = nom_avant, certitude_avant
 
 
 def _rejouer_tour(fil: Fil, ligne: dict[str, Any]) -> None:
     identifiant = str(ligne.get("voix", ""))
     if not identifiant:
         return
+    fil.retenir_l_identifiant(identifiant)
     voix = fil.voix.get(identifiant)
     if voix is None:
         voix = VoixDirecte(identifiant=identifiant)
@@ -262,14 +335,31 @@ def _rejouer_correction(fil: Fil, ligne: dict[str, Any]) -> None:
     nom = str(ligne.get("nom", "")).strip()
     if not nom or not numeros:
         return
+    # La portée telle qu'elle a été décidée. Déduite du nombre de numéros
+    # auparavant, ce qui rejouait en « seulement cette phrase » une correction
+    # portant sur toute une voix qui n'avait alors qu'un tour : à la reprise du
+    # fil, les tours suivants de cette voix perdaient le nom.
+    toute_la_voix = bool(ligne.get("toute_la_voix", len(numeros) > 1))
     connus = {t.numero for t in fil.tours}
     for numero in numeros:
         if numero in connus:
-            fil.corriger(numero, nom, toute_la_voix=len(numeros) > 1)
+            fil.corriger(numero, nom, toute_la_voix=toute_la_voix)
             return
 
 
 # ----------------------------------------------------- les corrections humaines
+
+
+def demander_une_separation(demandes: Path, voix: str) -> None:
+    """Dépose une séparation pour le processus qui écoute.
+
+    Même canal que les corrections, et pour la même raison : c'est lui qui tient
+    les empreintes, donc lui seul peut les rendre à chaque voix — et c'est de ça
+    que dépend ce qui entrera en banque.
+    """
+    demandes.parent.mkdir(parents=True, exist_ok=True)
+    with demandes.open("a", encoding="utf-8") as flux:
+        flux.write(json.dumps({"separer": voix}, ensure_ascii=False) + "\n")
 
 
 def demander(demandes: Path, numero: int, nom: str, toute_la_voix: bool = True) -> None:
@@ -408,6 +498,11 @@ class Suivi:
         faites: list[Correction] = []
         confirmations: list[dict[str, Any]] = []
         for ligne in lignes:
+            if "separer" in ligne:
+                defaite = self.fil.separer(str(ligne["separer"]))
+                if defaite is not None:
+                    confirmations.append(_ligne_separation(defaite))
+                continue
             correction = self._appliquer(ligne)
             if correction is None:
                 continue
