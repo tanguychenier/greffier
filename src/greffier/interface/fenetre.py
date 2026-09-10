@@ -553,10 +553,15 @@ class Fenetre:
         elle se fait entendre dans la pièce. Deux réunions différentes.
         """
         from greffier.adaptateurs import configuration as reglages
-        from greffier.adaptateurs.voix_neuronale import VoixNeuronale
+        from greffier.adaptateurs.voix_neuronale import VoixNeuronale, faire_taire
 
         avant = self.config.assistant.voix
         if avant != "aucun":
+            # Coupé ici, tout de suite, et non par le réglage : la veille est un
+            # autre processus et ne le relit qu'à la tranche suivante, soit
+            # jusqu'à quinze secondes plus tard. Mesuré en réunion — on appuie,
+            # elle continue de parler, et le bouton paraît cassé.
+            faire_taire(self.config.chemins.baillon)
             self.config.assistant.voix = "aucun"
         else:
             # La meilleure voix disponible, sans demander : la neuronale si son

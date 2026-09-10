@@ -61,6 +61,36 @@ application = typer.Typer(
 )
 
 
+def _reprendre_le_fil(config: Config, identifiant: str, le_suivi: Any) -> float:
+    """Rejoue le fil déjà publié, et dit jusqu'où il va.
+
+    Deux effets, tous deux nécessaires pour qu'une relance en cours de réunion
+    ne se voie pas : le `Fil` retrouve ses voix et ses noms, et la veille sait
+    à quelle seconde reprendre la transcription.
+
+    Rend 0 quand il n'y a rien à reprendre, ce qui est le cas normal — une
+    réunion qui commence.
+    """
+    from greffier.application.suivre import fichiers, lire_depuis, rejouer
+
+    journal, _ = fichiers(config.chemins.direct, identifiant)
+    if not journal.exists():
+        return 0.0
+    try:
+        lignes, _ = lire_depuis(journal)
+    except OSError:
+        return 0.0
+    if not lignes:
+        return 0.0
+    fil = rejouer(lignes, le_suivi.fil if le_suivi is not None else None)
+    if not fil.tours:
+        return 0.0
+    jusqu_ou = max(t.intervalle.fin for t in fil.tours)
+    typer.echo(f"  reprise          : {len(fil.tours)} tours déjà publiés, "
+               f"transcription reprise à {jusqu_ou / 60:.0f} min")
+    return jusqu_ou
+
+
 def _relire_les_boutons() -> tuple[bool, bool]:
     """Où en sont les deux boutons de l'onglet En direct.
 
@@ -906,6 +936,12 @@ def assister(
         for question in interrogateur.examiner(texte):
             questions_fichier.deposer(fichier_questions, question)
     le_suivi = suivi(config, etat.identifiant) if config.direct.actif else None
+    # Ce que la veille précédente avait déjà entendu, s'il y en a eu une. Sans
+    # cette reprise, relancer la veille au milieu d'une réunion retranscrivait
+    # tout depuis le début et doublait chaque phrase du fil — ce qui rendait la
+    # relance inutilisable, alors que c'est le seul moyen de rattraper un
+    # réglage manqué au démarrage ou une veille qui a lâché.
+    reprise = _reprendre_le_fil(config, etat.identifiant, le_suivi)
     lui = participant(config, etat.identifiant)
     if lui is not None and le_suivi is not None:
         lui.nommer = _nommeur(le_suivi, config, etat.identifiant)
@@ -933,6 +969,7 @@ def assister(
         # servir à la phrase suivante, pas à la réunion d'après.
         relire_l_amorce=lambda: contexte(config).amorce(),
         interroger=interroger,
+        traite=reprise,
         participant=lui,
         initiative=config.assistant.initiative,
         relire_la_participation=_relire_les_boutons,
