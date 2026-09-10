@@ -28,18 +28,18 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, "src")
-from greffier.adaptateurs.configuration import Config
-from greffier.composition import transcripteur_leger
-from greffier.domaine.participation import appelee
+from greffier.adapters.configuration import Config
+from greffier.domain.participation import called_by_name
+from greffier.wiring import light_transcriber
 
 FEMININS = ["Lucie", "Camille", "Alice", "Manon", "Louise", "Élise", "Iris"]
 MASCULINS = ["Martin", "Julien", "Antoine", "Nicolas", "Marius", "Léon", "Basile"]
 
 #: Deux tournures, deux voix : un prénom qui ne passe qu'une fois sur deux ne
 #: vaut rien, puisqu'on l'appelle une fois et on attend.
-PHRASES = ["{}, est-ce que tu peux noter ça ?",
+SENTENCES = ["{}, est-ce que tu peux noter ça ?",
            "Du coup {}, tu en penses quoi ?"]
-VOIX = ["Thomas", "Amélie"]
+VOICE = ["Thomas", "Amélie"]
 
 #: Ce sur quoi le prénom ne doit **pas** se déclencher. Le piège de
 #: « Greffier », que « le greffe du tribunal » suffisait à réveiller.
@@ -51,14 +51,14 @@ PIEGES = [
     "on a vu ça lundi avec l'équipe de Bordeaux",
 ]
 
-transcripteur = transcripteur_leger(Config())
-if transcripteur is None:
+transcriber = light_transcriber(Config())
+if transcriber is None:
     raise SystemExit("aucun modèle de transcription")
 
 
-def entendu(voix, phrase, dossier):
-    brut, wav = dossier / "p.aiff", dossier / "p.wav"
-    subprocess.run(["say", "-v", voix, "-o", str(brut), phrase],
+def entendu(voice, phrase, folder):
+    brut, wav = folder / "p.aiff", folder / "p.wav"
+    subprocess.run(["say", "-v", voice, "-o", str(brut), phrase],
                    check=False, capture_output=True)
     if not brut.exists():
         return ""
@@ -68,26 +68,26 @@ def entendu(voix, phrase, dossier):
     brut.unlink(missing_ok=True)
     if not wav.exists():
         return ""
-    rendu = " ".join(r.texte for r in transcripteur.transcrire(wav, "fr", ""))
+    rendered = " ".join(r.text for r in transcriber.transcribe(wav, "fr", ""))
     wav.unlink(missing_ok=True)
-    return rendu
+    return rendered
 
 
 print(f"{'prénom':10} {'appels reconnus':>16} {'faux positifs':>15}   exemple entendu")
 print("─" * 84)
 with tempfile.TemporaryDirectory() as brut:
-    dossier = Path(brut)
-    for prenom in FEMININS + MASCULINS:
+    folder = Path(brut)
+    for first_name in FEMININS + MASCULINS:
         reconnus, total, exemple = 0, 0, ""
-        for voix in VOIX:
-            for phrase in PHRASES:
-                texte = entendu(voix, phrase.format(prenom), dossier)
+        for voice in VOICE:
+            for phrase in SENTENCES:
+                text = entendu(voice, phrase.format(first_name), folder)
                 total += 1
-                if appelee(texte, prenom):
+                if called_by_name(text, first_name):
                     reconnus += 1
                 elif not exemple:
-                    exemple = texte[:44]
-        faux = sum(1 for p in PIEGES if appelee(p, prenom))
+                    exemple = text[:44]
+        faux = sum(1 for p in PIEGES if called_by_name(p, first_name))
         marque = "  ✓" if reconnus == total and faux == 0 else "  ✗"
-        print(f"{prenom:10} {reconnus:>10}/{total}      {faux:>10}/{len(PIEGES)}"
+        print(f"{first_name:10} {reconnus:>10}/{total}      {faux:>10}/{len(PIEGES)}"
               f"{marque} {exemple}")

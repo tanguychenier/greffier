@@ -12,7 +12,7 @@ est précisément la question.
 
 from pathlib import Path
 
-from greffier.adaptateurs.configuration import Config
+from greffier.adapters.configuration import Config
 
 #: Les endroits qu'une mise à jour remplace. Un chemin de données qui tomberait
 #: là-dedans serait perdu à la première reconstruction.
@@ -20,28 +20,28 @@ REMPLACES = ("/Applications/", "site-packages", "/Contents/")
 
 
 def tous_les_chemins(config: Config) -> dict[str, Path]:
-    chemins = config.chemins
+    paths = config.paths
     return {
-        "donnees": chemins.donnees,
-        "modeles": chemins.modeles,
-        "enregistrements": chemins.enregistrements,
-        "transcriptions": chemins.transcriptions,
-        "comptes_rendus": chemins.comptes_rendus,
-        "banque_de_voix": chemins.banque_de_voix,
-        "direct": chemins.direct,
-        "propositions": chemins.propositions,
-        "questions": chemins.questions,
-        "conversations": chemins.conversations,
-        "contexte": chemins.contexte,
+        "donnees": paths.data,
+        "modeles": paths.models,
+        "enregistrements": paths.recordings,
+        "transcriptions": paths.transcripts,
+        "comptes_rendus": paths.minutes_folder,
+        "banque_de_voix": paths.voice_bank,
+        "direct": paths.live,
+        "propositions": paths.propositions,
+        "questions": paths.questions,
+        "conversations": paths.conversations,
+        "contexte": paths.context,
     }
 
 
 class TestRienNeVitDansLePaquet:
     def test_aucun_chemin_de_donnees_ne_tombe_dans_ce_qu_une_maj_remplace(self):
         fautifs = {
-            nom: chemin
-            for nom, chemin in tous_les_chemins(Config()).items()
-            if any(morceau in str(chemin) for morceau in REMPLACES)
+            name: path
+            for name, path in tous_les_chemins(Config()).items()
+            if any(morceau in str(path) for morceau in REMPLACES)
         }
         assert not fautifs, f"perdu à la prochaine mise à jour : {fautifs}"
 
@@ -52,17 +52,17 @@ class TestRienNeVitDansLePaquet:
         prévisible : un chemin relatif désignerait un endroit différent à chaque
         démarrage, et les réunions de la veille deviendraient introuvables.
         """
-        for nom, chemin in tous_les_chemins(Config()).items():
-            assert chemin.is_absolute(), f"{nom} est relatif : {chemin}"
+        for name, path in tous_les_chemins(Config()).items():
+            assert path.is_absolute(), f"{name} est relatif : {path}"
 
     def test_tout_est_rassemble_sous_un_seul_dossier_de_donnees(self):
         """Ce qui permet de sauvegarder, et de dire ce qu'une purge emporte."""
         config = Config()
-        racine = config.chemins.donnees
-        for nom, chemin in tous_les_chemins(config).items():
-            if nom in {"donnees", "contexte"}:
+        racine = config.paths.data
+        for name, path in tous_les_chemins(config).items():
+            if name in {"donnees", "contexte"}:
                 continue
-            assert racine in chemin.parents or chemin == racine, f"{nom} hors de {racine}"
+            assert racine in path.parents or path == racine, f"{name} hors de {racine}"
 
 
 class TestUnAncienFichierResteLisible:
@@ -70,17 +70,17 @@ class TestUnAncienFichierResteLisible:
 
     def test_le_format_du_fichier_maitre_n_a_qu_un_numero(self):
         """Deux définitions du format finiraient par se contredire."""
-        from greffier.adaptateurs import depot_fichiers
+        from greffier.adapters import store_files
 
-        assert isinstance(depot_fichiers.FORMAT, int)
-        assert depot_fichiers.FORMAT >= 2, "le format a évolué : la lecture doit suivre"
+        assert isinstance(store_files.FORMAT, int)
+        assert store_files.FORMAT >= 2, "le format a évolué : la lecture doit suivre"
 
     def test_une_reunion_sans_les_champs_recents_se_lit(self, tmp_path):
         """Le cas d'une réunion écrite avant la mise à jour."""
         import json
         from datetime import UTC, datetime
 
-        from greffier.adaptateurs.depot_fichiers import DepotFichiers
+        from greffier.adapters.store_files import DepotFichiers
 
         minimal = {
             "format": 1,
@@ -91,9 +91,9 @@ class TestUnAncienFichierResteLisible:
             "repliques": [{"debut": 0.0, "fin": 5.0, "texte": "Bonjour."}],
             "tours": [{"debut": 0.0, "fin": 5.0, "voix": "1"}],
         }
-        chemin = tmp_path / "2026-08-01_09h00_ancienne.json"
-        chemin.write_text(json.dumps(minimal), encoding="utf-8")
-        relue = DepotFichiers(tmp_path).lire("2026-08-01_09h00_ancienne")
-        assert relue.repliques[0].texte == "Bonjour."
-        assert relue.sujet == ""
+        path = tmp_path / "2026-08-01_09h00_ancienne.json"
+        path.write_text(json.dumps(minimal), encoding="utf-8")
+        relue = DepotFichiers(tmp_path).read("2026-08-01_09h00_ancienne")
+        assert relue.utterances[0].text == "Bonjour."
+        assert relue.subject == ""
         assert relue.commencee_le is None

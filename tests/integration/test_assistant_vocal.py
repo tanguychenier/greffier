@@ -14,72 +14,72 @@ from pathlib import Path
 
 import pytest
 
-from greffier.adaptateurs.configuration import Config
-from greffier.composition import transcripteur_leger
-from greffier.domaine.participation import appelee, question_posee
+from greffier.adapters.configuration import Config
+from greffier.domain.participation import called_by_name, question_asked
+from greffier.wiring import light_transcriber
 
-NOM = "Lucie"
+NAME = "Lucie"
 
 #: Ce qu'on prononce, et ce qu'on attend. La dernière ne l'appelle pas : sans
 #: elle, le test ne prouverait que la moitié de ce qui compte — un assistant
 #: qui répond à tout est aussi inutilisable qu'un assistant sourd.
-PHRASES = [
-    ("Thomas", f"{NOM}, est-ce que tu nous entends bien ?", True),
-    ("Amélie", f"Du coup {NOM}, tu peux nous rappeler ce qu'on a décidé ?", True),
+SENTENCES = [
+    ("Thomas", f"{NAME}, est-ce que tu nous entends bien ?", True),
+    ("Amélie", f"Du coup {NAME}, tu peux nous rappeler ce qu'on a décidé ?", True),
     ("Thomas", "On passe au point suivant, il n'y a plus rien à dire là-dessus.", False),
 ]
 
 
-def _synthetiser(voix: str, texte: str, cible: Path) -> Path | None:
+def _synthetiser(voice: str, text: str, target: Path) -> Path | None:
     """Un vrai fichier audio, par la synthèse du système. macOS pour l'instant."""
     if shutil.which("say") is None or shutil.which("ffmpeg") is None:
         return None
-    brut = cible.with_suffix(".aiff")
-    subprocess.run(["say", "-v", voix, "-o", str(brut), texte],
+    brut = target.with_suffix(".aiff")
+    subprocess.run(["say", "-v", voice, "-o", str(brut), text],
                    check=False, capture_output=True)
     if not brut.exists():
         return None
     subprocess.run(
         ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(brut),
-         "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", str(cible)],
+         "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", str(target)],
         check=False, capture_output=True,
     )
-    return cible if cible.exists() else None
+    return target if target.exists() else None
 
 
 @pytest.fixture(scope="module")
-def transcripteur():
-    outil = transcripteur_leger(Config())
+def transcriber():
+    outil = light_transcriber(Config())
     if outil is None:
         pytest.skip("aucun modèle de transcription installé")
     return outil
 
 
-@pytest.mark.parametrize("voix,phrase,attendu", PHRASES)
+@pytest.mark.parametrize("voice,phrase,attendu", SENTENCES)
 def test_son_nom_est_entendu_dans_du_vrai_son(
-    voix, phrase, attendu, transcripteur, tmp_path
+    voice, phrase, attendu, transcriber, tmp_path
 ):
-    audio = _synthetiser(voix, phrase, tmp_path / "phrase.wav")
+    audio = _synthetiser(voice, phrase, tmp_path / "phrase.wav")
     if audio is None:
         pytest.skip("« say » ou ffmpeg absent : synthèse impossible")
-    repliques = transcripteur.transcrire(audio, "fr", f"{NOM}, l'assistante de réunion.")
-    texte = " ".join(r.texte for r in repliques)
-    assert appelee(texte, NOM) is attendu, f"transcrit : {texte!r}"
+    utterances = transcriber.transcribe(audio, "fr", f"{NAME}, l'assistante de réunion.")
+    text = " ".join(r.text for r in utterances)
+    assert called_by_name(text, NAME) is attendu, f"transcrit : {text!r}"
 
 
-def test_la_question_est_extraite_sans_le_nom(transcripteur, tmp_path):
+def test_la_question_est_extraite_sans_le_nom(transcriber, tmp_path):
     """Ce qu'on transmet au modèle est la demande, pas l'apostrophe.
 
     « Lucie, est-ce que tu nous entends ? » se traite mieux en « est-ce que tu
     nous entends ? » : le nom n'apporte rien et encombre la question.
     """
-    audio = _synthetiser("Thomas", f"{NOM}, est-ce que tu nous entends bien ?",
+    audio = _synthetiser("Thomas", f"{NAME}, est-ce que tu nous entends bien ?",
                          tmp_path / "phrase.wav")
     if audio is None:
         pytest.skip("« say » ou ffmpeg absent : synthèse impossible")
-    texte = " ".join(
-        r.texte for r in transcripteur.transcrire(audio, "fr", f"{NOM}.")
+    text = " ".join(
+        r.text for r in transcriber.transcribe(audio, "fr", f"{NAME}.")
     )
-    question = question_posee(texte, NOM)
-    assert NOM.lower() not in question.lower()
+    question = question_asked(text, NAME)
+    assert NAME.lower() not in question.lower()
     assert "entends" in question

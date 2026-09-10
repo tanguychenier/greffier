@@ -2,43 +2,43 @@
 
 import pytest
 
-from greffier.domaine.sujets import MENTIONS_MINIMALES, Registre, Sujet
+from greffier.domain.subjects import MENTIONS_MINIMALES, Registre, Subject
 
 
 class TestUnSujetEtSesAppellations:
     def test_un_sujet_sans_nom_est_refuse(self):
         with pytest.raises(ValueError, match="sans nom"):
-            Sujet("  ")
+            Subject("  ")
 
     def test_il_se_reconnait_sous_son_nom(self):
-        assert Sujet("Oasis").reconnait("oasis") is True
+        assert Subject("Oasis").recognises("oasis") is True
 
     def test_il_se_reconnait_sous_ses_alias(self):
         """Personne ne peut deviner qu'« esup-oasis » désigne « Oasis »."""
-        sujet = Sujet("Oasis", ("esup-oasis",))
-        assert sujet.reconnait("esup oasis") is True
+        subject = Subject("Oasis", ("esup-oasis",))
+        assert subject.recognises("esup oasis") is True
 
     def test_il_ne_se_reconnait_pas_ailleurs(self):
-        assert Sujet("Oasis").reconnait("Copernic") is False
+        assert Subject("Oasis").recognises("Copernic") is False
 
 
 class TestComptage:
     def test_toutes_les_appellations_comptent_ensemble(self):
         """C'est tout l'intérêt du registre."""
-        registre = Registre([Sujet("Oasis", ("esup-oasis",))])
-        comptes = registre.compter("On parle d'Oasis, puis d'esup-oasis, puis d'Oasis.")
+        registre = Registre([Subject("Oasis", ("esup-oasis",))])
+        comptes = registre.count_them("On parle d'Oasis, puis d'esup-oasis, puis d'Oasis.")
         assert comptes == {"Oasis": 3}
 
     def test_le_comptage_ignore_la_casse_et_les_accents(self):
-        registre = Registre([Sujet("recette")])
-        assert registre.compter("La Recette, la recette, la RECETTE") == {"recette": 3}
+        registre = Registre([Subject("recette")])
+        assert registre.count_them("La Recette, la recette, la RECETTE") == {"recette": 3}
 
     def test_un_sujet_absent_n_apparait_pas(self):
-        assert Registre([Sujet("Oasis")]).compter("On parle d'autre chose.") == {}
+        assert Registre([Subject("Oasis")]).count_them("On parle d'autre chose.") == {}
 
     def test_un_mot_plus_long_ne_compte_pas(self):
         """« prod » ne doit pas se compter dans « production »."""
-        assert Registre([Sujet("prod")]).compter("la production tourne") == {}
+        assert Registre([Subject("prod")]).count_them("la production tourne") == {}
 
     def test_un_alias_qui_contient_le_nom_ne_compte_pas_double(self):
         """« esup-oasis » contient « oasis » : c'est une mention, pas deux.
@@ -46,43 +46,43 @@ class TestComptage:
         Additionner les occurrences de chaque appellation faisait de trois
         mentions d'Oasis quatre.
         """
-        registre = Registre([Sujet("Oasis", ("esup-oasis",))])
-        assert registre.compter("Oasis, puis esup-oasis, puis Oasis") == {"Oasis": 3}
+        registre = Registre([Subject("Oasis", ("esup-oasis",))])
+        assert registre.count_them("Oasis, puis esup-oasis, puis Oasis") == {"Oasis": 3}
 
     def test_l_appellation_la_plus_longue_gagne(self):
-        registre = Registre([Sujet("Oasis", ("esup-oasis",))])
-        assert registre.compter("On parle d'esup-oasis") == {"Oasis": 1}
+        registre = Registre([Subject("Oasis", ("esup-oasis",))])
+        assert registre.count_them("On parle d'esup-oasis") == {"Oasis": 1}
 
 
 class TestSujetsRetenus:
     def test_les_sujets_traites_sortent_du_plus_present_au_moins(self):
-        registre = Registre([Sujet("Oasis"), Sujet("recette")])
-        texte = "Oasis " * 10 + "recette " * 4
-        assert registre.sujets_de(texte) == ["Oasis", "recette"]
+        registre = Registre([Subject("Oasis"), Subject("recette")])
+        text = "Oasis " * 10 + "recette " * 4
+        assert registre.subjects_of(text) == ["Oasis", "recette"]
 
     def test_une_allusion_n_est_pas_un_sujet(self):
         """Ouvrir une carte pour chaque allusion la remplirait de bruit."""
-        registre = Registre([Sujet("Docker")])
-        assert registre.sujets_de("On a parlé de Docker une fois.") == []
+        registre = Registre([Subject("Docker")])
+        assert registre.subjects_of("On a parlé de Docker une fois.") == []
 
     def test_le_seuil_reste_bas_mais_non_nul(self):
         assert 1 < MENTIONS_MINIMALES <= 5
 
     def test_le_seuil_est_reglable(self):
-        registre = Registre([Sujet("Docker")])
-        assert registre.sujets_de("Docker une fois.", minimum=1) == ["Docker"]
+        registre = Registre([Subject("Docker")])
+        assert registre.subjects_of("Docker une fois.", minimum=1) == ["Docker"]
 
 
 class TestRetrouverUnSujet:
     def test_par_son_nom(self):
-        registre = Registre([Sujet("Oasis", carte="uXjV1=")])
-        trouve = registre.par_nom("Oasis")
-        assert trouve is not None and trouve.carte == "uXjV1="
+        registre = Registre([Subject("Oasis", board="uXjV1=")])
+        trouve = registre.by_name("Oasis")
+        assert trouve is not None and trouve.board == "uXjV1="
 
     def test_par_un_alias(self):
-        registre = Registre([Sujet("Oasis", ("esup-oasis",), carte="uXjV1=")])
-        trouve = registre.par_nom("esup-oasis")
-        assert trouve is not None and trouve.carte == "uXjV1="
+        registre = Registre([Subject("Oasis", ("esup-oasis",), board="uXjV1=")])
+        trouve = registre.by_name("esup-oasis")
+        assert trouve is not None and trouve.board == "uXjV1="
 
     def test_un_sujet_inconnu_rend_rien(self):
-        assert Registre([Sujet("Oasis")]).par_nom("Copernic") is None
+        assert Registre([Subject("Oasis")]).by_name("Copernic") is None

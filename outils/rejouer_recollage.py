@@ -24,12 +24,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from greffier.domaine import empreintes as domaine  # noqa: E402
-from greffier.domaine.modeles import Empreinte, Intervalle  # noqa: E402
-from greffier.emplacements import dossier_donnees  # noqa: E402
+from greffier.domain import voiceprints as domain  # noqa: E402
+from greffier.domain.models import Span, Voiceprint  # noqa: E402
+from greffier.locations import data_folder  # noqa: E402
 
 
-def empreintes_par_voix(reunion: dict, cache: Path) -> dict[str, list[Empreinte]]:
+def voiceprints_per_voice(meeting: dict, cache: Path) -> dict[str, list[Voiceprint]]:
     """Une liste d'empreintes par voix, calculée une fois et gardée."""
     if cache.exists():
         return pickle.loads(cache.read_bytes())
@@ -37,78 +37,79 @@ def empreintes_par_voix(reunion: dict, cache: Path) -> dict[str, list[Empreinte]
     import numpy as np
     import soundfile as sf
 
-    from greffier.adaptateurs.empreintes_titanet import (
+    from greffier.adapters.voiceprints_titanet import (
         DUREE_MAXIMALE,
         DUREE_MINIMALE,
         ExtracteurTitaNet,
     )
 
-    modele = dossier_donnees() / "modeles/diarisation/nemo_en_titanet_large.onnx"
-    extracteur = ExtracteurTitaNet(modele)
+    model = data_folder() / "modeles/diarisation/nemo_en_titanet_large.onnx"
+    extractor = ExtracteurTitaNet(model)
 
-    par_voix: dict[str, list[Intervalle]] = defaultdict(list)
-    for tour in reunion["tours"]:
-        par_voix[str(tour["voix"])].append(Intervalle(tour["debut"], tour["fin"]))
+    per_voice: dict[str, list[Span]] = defaultdict(list)
+    for turn in meeting["tours"]:
+        per_voice[str(turn["voix"])].append(Span(turn["debut"], turn["fin"]))
 
-    resultat: dict[str, list[Empreinte]] = defaultdict(list)
+    outcome: dict[str, list[Voiceprint]] = defaultdict(list)
     # Un seul parcours du fichier : `extraire_intervalles` le relit en entier à
     # chaque voix, ce qui ferait 298 lectures d'un fichier de 531 Mo.
-    with sf.SoundFile(str(reunion["audio"])) as fichier:
-        frequence = fichier.samplerate
-        total = sum(len(v) for v in par_voix.values())
+    with sf.SoundFile(str(meeting["audio"])) as file:
+        frequency = file.samplerate
+        total = sum(len(v) for v in per_voice.values())
         fait = 0
-        for voix, intervalles in par_voix.items():
-            for intervalle in intervalles:
+        for voice, intervalles in per_voice.items():
+            for span in intervalles:
                 fait += 1
                 if fait % 100 == 0:
                     print(f"  {fait}/{total} extraits…", file=sys.stderr)
-                if intervalle.duree < DUREE_MINIMALE:
+                if span.duration < DUREE_MINIMALE:
                     continue
-                debut, fin = intervalle.debut, intervalle.fin
-                if fin - debut > DUREE_MAXIMALE:
-                    milieu = (debut + fin) / 2
-                    debut, fin = milieu - DUREE_MAXIMALE / 2, milieu + DUREE_MAXIMALE / 2
-                fichier.seek(int(debut * frequence))
-                bloc = fichier.read(int((fin - debut) * frequence), dtype="float32",
+                start, end = span.start, span.end
+                if end - start > DUREE_MAXIMALE:
+                    milieu = (start + end) / 2
+                    start, end = milieu - DUREE_MAXIMALE / 2, milieu + DUREE_MAXIMALE / 2
+                file.seek(int(start * frequency))
+                bloc = file.read(int((end - start) * frequency), dtype="float32",
                                     always_2d=True)
-                if len(bloc) < DUREE_MINIMALE * frequence:
+                if len(bloc) < DUREE_MINIMALE * frequency:
                     continue
                 signal = np.ascontiguousarray(bloc.mean(axis=1))
-                resultat[voix].append(extracteur.extraire(signal, frequence))
+                outcome[voice].append(extractor.extract(signal, frequency))
 
     cache.parent.mkdir(parents=True, exist_ok=True)
-    cache.write_bytes(pickle.dumps(dict(resultat)))
-    return dict(resultat)
+    cache.write_bytes(pickle.dumps(dict(outcome)))
+    return dict(outcome)
 
 
-def noter(appartenance: dict[str, str], reunion: dict,
-          par_voix: dict[str, list[Empreinte]]) -> dict:
+def note(membership: dict[str, str], meeting: dict,
+          per_voice: dict[str, list[Voiceprint]]) -> dict:
     """Ce que vaut un recollage, contre les noms posés à la main."""
-    verite = {str(v): n for v, n in reunion["noms"].items()}
-    duree = defaultdict(float)
-    for tour in reunion["tours"]:
-        duree[appartenance.get(str(tour["voix"]), str(tour["voix"]))] += tour["fin"] - tour["debut"]
+    verite = {str(v): n for v, n in meeting["noms"].items()}
+    duration = defaultdict(float)
+    for turn in meeting["tours"]:
+        voice = membership.get(str(turn["voix"]), str(turn["voix"]))
+        duration[voice] += turn["fin"] - turn["debut"]
 
     groupes: dict[str, Counter] = defaultdict(Counter)
-    for voix, nom in verite.items():
-        groupes[appartenance.get(voix, voix)][nom] += sum(
-            e.duree_source for e in par_voix.get(voix, [])) or 1.0
+    for voice, name in verite.items():
+        groupes[membership.get(voice, voice)][name] += sum(
+            e.source_duration for e in per_voice.get(voice, [])) or 1.0
 
     melanges = {g: dict(c) for g, c in groupes.items() if len(c) > 1}
     eclats = Counter()
     for c in groupes.values():
         eclats[c.most_common(1)[0][0]] += 1
-    total = sum(duree.values()) or 1.0
-    gros = sorted(duree.items(), key=lambda x: -x[1])[:6]
+    total = sum(duration.values()) or 1.0
+    gros = sorted(duration.items(), key=lambda x: -x[1])[:6]
     return {
-        "voix": len(set(appartenance.values())),
+        "voix": len(set(membership.values())),
         "melanges": melanges,
         "eclats": dict(eclats),
         "gros": [(g, round(s), round(100 * s / total)) for g, s in gros],
     }
 
 
-def adoption(par_voix, seuil, marge, matiere) -> dict[str, str]:
+def adoption(per_voice, seuil, marge, material) -> dict[str, str]:
     """Rattache les petits groupes au grand qui leur ressemble le plus.
 
     Le recollage par paires s'arrête dès qu'aucune paire ne franchit son seuil,
@@ -117,33 +118,33 @@ def adoption(par_voix, seuil, marge, matiere) -> dict[str, str]:
     groupes établis ressemble le plus, et **nettement** plus ». Seuil et marge,
     donc, et non un seuil seul.
     """
-    appartenance = domaine.fusionner_voix(par_voix)
-    groupes: dict[str, list[Empreinte]] = defaultdict(list)
-    for voix, vers in appartenance.items():
-        groupes[vers].extend(par_voix.get(voix, []))
+    membership = domain.join_voices(per_voice)
+    groupes: dict[str, list[Voiceprint]] = defaultdict(list)
+    for voice, vers in membership.items():
+        groupes[vers].extend(per_voice.get(voice, []))
     groupes = {g: e for g, e in groupes.items() if e}
-    matieres = {g: sum(x.duree_source for x in e) for g, e in groupes.items()}
-    etablis = {g: domaine.agreger(e) for g, e in groupes.items() if matieres[g] >= matiere}
+    matieres = {g: sum(x.source_duration for x in e) for g, e in groupes.items()}
+    etablis = {g: domain.aggregate(e) for g, e in groupes.items() if matieres[g] >= material}
     if not etablis:
-        return appartenance
-    for petit, empreintes in groupes.items():
+        return membership
+    for petit, voiceprints in groupes.items():
         if petit in etablis:
             continue
-        agregat = domaine.agreger(empreintes)
-        classement = sorted(
-            ((domaine.similarite(agregat, a), g) for g, a in etablis.items()),
+        aggregate_of = domain.aggregate(voiceprints)
+        ranking = sorted(
+            ((domain.similarity(aggregate_of, a), g) for g, a in etablis.items()),
             key=lambda x: (-x[0], x[1]),
         )
-        meilleur, gagnant = classement[0]
-        second = classement[1][0] if len(classement) > 1 else -1.0
-        if meilleur >= seuil and meilleur - second >= marge:
-            for voix, vers in appartenance.items():
+        best, gagnant = ranking[0]
+        second = ranking[1][0] if len(ranking) > 1 else -1.0
+        if best >= seuil and best - second >= marge:
+            for voice, vers in membership.items():
                 if vers == petit:
-                    appartenance[voix] = gagnant
-    return appartenance
+                    membership[voice] = gagnant
+    return membership
 
 
-def consolidation(par_voix, seuil_adoption, marge, matiere, seuil_final) -> dict[str, str]:
+def consolidation(per_voice, seuil_adoption, marge, material, seuil_final) -> dict[str, str]:
     """Adoption, puis les groupes établis se comparent entre eux.
 
     Une fois les fragments rattachés, un groupe établi porte des minutes de
@@ -151,38 +152,38 @@ def consolidation(par_voix, seuil_adoption, marge, matiere, seuil_final) -> dict
     deux groupes qui sont la même personne peuvent enfin se reconnaître à un
     seuil que des fragments n'auraient pas mérité.
     """
-    appartenance = adoption(par_voix, seuil_adoption, marge, matiere)
+    membership = adoption(per_voice, seuil_adoption, marge, material)
     while True:
-        groupes: dict[str, list[Empreinte]] = defaultdict(list)
-        for voix, vers in appartenance.items():
-            groupes[vers].extend(par_voix.get(voix, []))
+        groupes: dict[str, list[Voiceprint]] = defaultdict(list)
+        for voice, vers in membership.items():
+            groupes[vers].extend(per_voice.get(voice, []))
         etablis = {g: e for g, e in groupes.items()
-                   if sum(x.duree_source for x in e) >= matiere}
-        agregats = {g: domaine.agreger(e) for g, e in etablis.items()}
-        noms = sorted(agregats)
+                   if sum(x.source_duration for x in e) >= material}
+        agregats = {g: domain.aggregate(e) for g, e in etablis.items()}
+        names = sorted(agregats)
         meilleure = None
-        for i, a in enumerate(noms):
-            for b in noms[i + 1:]:
-                score = domaine.similarite(agregats[a], agregats[b])
+        for i, a in enumerate(names):
+            for b in names[i + 1:]:
+                score = domain.similarity(agregats[a], agregats[b])
                 if score >= seuil_final and (meilleure is None or score > meilleure[0]):
                     meilleure = (score, a, b)
         if meilleure is None:
-            return appartenance
+            return membership
         _, garde, absorbe = meilleure
-        if sum(x.duree_source for x in etablis[absorbe]) > sum(
-                x.duree_source for x in etablis[garde]):
+        if sum(x.source_duration for x in etablis[absorbe]) > sum(
+                x.source_duration for x in etablis[garde]):
             garde, absorbe = absorbe, garde
-        for voix, vers in appartenance.items():
+        for voice, vers in membership.items():
             if vers == absorbe:
-                appartenance[voix] = garde
+                membership[voice] = garde
 
 
-def significatives(appartenance, reunion, minimum=10.0) -> int:
-    duree = defaultdict(float)
-    for tour in reunion["tours"]:
-        duree[appartenance.get(str(tour["voix"]), str(tour["voix"]))] += (
-            tour["fin"] - tour["debut"])
-    return sum(1 for d in duree.values() if d >= minimum)
+def significatives(membership, meeting, minimum=10.0) -> int:
+    duration = defaultdict(float)
+    for turn in meeting["tours"]:
+        duration[membership.get(str(turn["voix"]), str(turn["voix"]))] += (
+            turn["fin"] - turn["debut"])
+    return sum(1 for d in duration.values() if d >= minimum)
 
 
 def main() -> int:
@@ -190,33 +191,33 @@ def main() -> int:
     parseur.add_argument("reunion")
     arguments = parseur.parse_args()
 
-    chemin = dossier_donnees() / "reunions" / f"{arguments.reunion}.json"
-    reunion = json.loads(chemin.read_text())
-    cache = Path("/tmp/greffier-empreintes") / f"{arguments.reunion}.pickle"
-    print(f"Empreintes de {arguments.reunion}…", file=sys.stderr)
-    par_voix = empreintes_par_voix(reunion, cache)
-    print(f"{len(par_voix)} voix portent au moins une empreinte.\n")
+    path = data_folder() / "reunions" / f"{arguments.meeting}.json"
+    meeting = json.loads(path.read_text())
+    cache = Path("/tmp/greffier-empreintes") / f"{arguments.meeting}.pickle"
+    print(f"Empreintes de {arguments.meeting}…", file=sys.stderr)
+    per_voice = voiceprints_per_voice(meeting, cache)
+    print(f"{len(per_voice)} voix portent au moins une empreinte.\n")
 
     print("== recollage actuel, par seuil ==")
     for seuil in (0.75, 0.70, 0.65, 0.60, 0.55, 0.50, 0.45):
-        note = noter(domaine.fusionner_voix(par_voix, seuil=seuil), reunion, par_voix)
+        note = note(domain.join_voices(per_voice, seuil=seuil), meeting, per_voice)
         print(f"seuil {seuil:.2f} → {note['voix']:4d} voix, "
               f"éclats {note['eclats']}, mélanges {len(note['melanges'])}")
 
     print("\n== recollage puis adoption des petits groupes ==")
     for seuil in (0.60, 0.55, 0.50, 0.45, 0.40, 0.35, 0.30):
         for marge in (0.0, 0.05, 0.10):
-            note = noter(adoption(par_voix, seuil, marge, 30.0), reunion, par_voix)
+            note = note(adoption(per_voice, seuil, marge, 30.0), meeting, per_voice)
             print(f"seuil {seuil:.2f} marge {marge:.2f} → {note['voix']:4d} voix, "
                   f"éclats {note['eclats']}, mélanges {len(note['melanges'])}, "
                   f"gros {note['gros'][:4]}")
     print("\n== adoption puis consolidation des établis ==")
     for adopt in (0.45, 0.40, 0.35):
         for final in (0.70, 0.65, 0.60, 0.55, 0.50):
-            a = consolidation(par_voix, adopt, 0.0, 30.0, final)
-            note = noter(a, reunion, par_voix)
+            a = consolidation(per_voice, adopt, 0.0, 30.0, final)
+            note = note(a, meeting, per_voice)
             print(f"adoption {adopt:.2f} / consolidation {final:.2f} → "
-                  f"{note['voix']:4d} voix ({significatives(a, reunion)} significatives), "
+                  f"{note['voix']:4d} voix ({significatives(a, meeting)} significatives), "
                   f"éclats {note['eclats']}, mélanges {len(note['melanges'])}, "
                   f"gros {note['gros'][:5]}")
     return 0

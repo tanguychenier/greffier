@@ -25,50 +25,50 @@ class Palette:
     invisibles paraît plate quoi qu'on fasse par ailleurs.
     """
 
-    fond: str
-    carte: str
-    encre: str
-    encre_pale: str
-    filet: str
+    ground: str
+    board: str
+    ink: str
+    ink_pale: str
+    rule: str
     accent: str
-    accent_encre: str
-    actif: str
-    calme: str
-    vert: str
-    ambre: str
-    survol: str
+    accent_ink: str
+    active: str
+    calm: str
+    green: str
+    amber: str
+    hover: str
 
 CLAIR = Palette(
-    fond="#f5f5f7",
-    carte="#ffffff",
-    encre="#1d1d20",
-    encre_pale="#6e6e78",
-    filet="#d2d2da",
+    ground="#f5f5f7",
+    board="#ffffff",
+    ink="#1d1d20",
+    ink_pale="#6e6e78",
+    rule="#d2d2da",
     accent="#3b4cca",
-    accent_encre="#ffffff",
-    actif="#d64541",
-    calme="#b4b4bd",
-    vert="#1e8a58",
-    ambre="#b8860b",
-    survol="#f0f0f3",
+    accent_ink="#ffffff",
+    active="#d64541",
+    calm="#b4b4bd",
+    green="#1e8a58",
+    amber="#b8860b",
+    hover="#f0f0f3",
 )
 
 SOMBRE = Palette(
-    fond="#1a1a1d",
-    carte="#242428",
-    encre="#f2f2f4",
-    encre_pale="#9a9aa4",
-    filet="#3d3d46",
+    ground="#1a1a1d",
+    board="#242428",
+    ink="#f2f2f4",
+    ink_pale="#9a9aa4",
+    rule="#3d3d46",
     accent="#7b8cf0",
-    accent_encre="#1a1a1d",
-    actif="#e05c58",
-    calme="#55555e",
-    vert="#3fb47c",
-    ambre="#d9a441",
-    survol="#2e2e34",
+    accent_ink="#1a1a1d",
+    active="#e05c58",
+    calm="#55555e",
+    green="#3fb47c",
+    amber="#d9a441",
+    hover="#2e2e34",
 )
 
-def systeme_en_sombre() -> bool:
+def system_is_dark() -> bool:
     """Suit le réglage du système, plutôt que d'imposer un goût.
 
     Les trois systèmes le disent, chacun à sa façon, et aucun ne coûte plus de
@@ -76,13 +76,13 @@ def systeme_en_sombre() -> bool:
     sombre recevoir une interface claire, ce qui saute aux yeux à côté de toutes
     les autres fenêtres.
     """
-    systeme = platform.system()
-    if systeme == "Darwin":
-        return _sortie(["defaults", "read", "-g", "AppleInterfaceStyle"]) == "Dark"
-    if systeme == "Windows":
+    system = platform.system()
+    if system == "Darwin":
+        return _output(["defaults", "read", "-g", "AppleInterfaceStyle"]) == "Dark"
+    if system == "Windows":
         # 0 veut dire sombre : la clé dit si les applications utilisent le
         # thème **clair**, ce qui se lit à l'envers de ce qu'on cherche.
-        lu = _sortie([
+        lu = _output([
             "reg", "query",
             r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
             "/v", "AppsUseLightTheme",
@@ -91,7 +91,7 @@ def systeme_en_sombre() -> bool:
     # Linux et les autres : la clé portable de freedesktop d'abord, que GNOME,
     # KDE et les bureaux récents renseignent tous ; le réglage GNOME ensuite,
     # pour les versions qui ne l'exposent pas encore.
-    portail = _sortie([
+    portail = _output([
         "gdbus", "call", "--session", "--dest", "org.freedesktop.portal.Desktop",
         "--object-path", "/org/freedesktop/portal/desktop",
         "--method", "org.freedesktop.portal.Settings.Read",
@@ -101,14 +101,14 @@ def systeme_en_sombre() -> bool:
         # La réponse est un variant imbriqué, « (<<uint32 1>>,) » : 1 est
         # sombre, 2 est clair, 0 est « sans préférence ».
         return "uint32 1" in portail
-    reglage = _sortie(["gsettings", "get", "org.gnome.desktop.interface",
+    reglage = _output(["gsettings", "get", "org.gnome.desktop.interface",
                        "color-scheme"])
     if reglage:
         return "dark" in reglage.lower()
-    theme = _sortie(["gsettings", "get", "org.gnome.desktop.interface", "gtk-theme"])
+    theme = _output(["gsettings", "get", "org.gnome.desktop.interface", "gtk-theme"])
     return "dark" in theme.lower()
 
-def _sortie(commande: list[str]) -> str:
+def _output(command: list[str]) -> str:
     """Ce qu'une commande écrit, ou rien si elle manque ou échoue.
 
     Rien est le cas courant : `gdbus` n'existe pas sur un poste sans D-Bus,
@@ -116,7 +116,7 @@ def _sortie(commande: list[str]) -> str:
     fenêtre qui ne s'ouvre pas ne l'est pas.
     """
     try:
-        fait = subprocess.run(commande, capture_output=True, text=True,
+        fait = subprocess.run(command, capture_output=True, text=True,
                               check=False, timeout=2)
     except (OSError, subprocess.SubprocessError):
         return ""
@@ -128,9 +128,9 @@ def palette(theme: str = "systeme") -> Palette:
         return CLAIR
     if theme == "sombre":
         return SOMBRE
-    return SOMBRE if systeme_en_sombre() else CLAIR
+    return SOMBRE if system_is_dark() else CLAIR
 
-def police(taille: int, gras: bool = False) -> tuple[str, int, str]:
+def font(taille: int, gras: bool = False) -> tuple[str, int, str]:
     """La police de l'interface du système, avec un repli sûr.
 
     La taille part en négatif, ce que Tk lit comme des pixels. Un nombre positif
@@ -155,13 +155,13 @@ def police(taille: int, gras: bool = False) -> tuple[str, int, str]:
 # Descendues de `fenetre`, où elles étaient privées et donc jamais éprouvées.
 # `degrade` tomberait aujourd'hui sur une couleur mal formée sans qu'aucun test
 # ne le dise, et c'est de la couleur, pas du Tk : sa place est ici.
-def degrade(depuis: str, vers: str, part: float) -> str:
+def blend(depuis: str, vers: str, part: float) -> str:
     """Une couleur entre deux autres, en hexadécimal — le fondu du point rouge."""
     a = tuple(int(depuis[i : i + 2], 16) for i in (1, 3, 5))
     b = tuple(int(vers[i : i + 2], 16) for i in (1, 3, 5))
     return "#" + "".join(f"{round(x + (y - x) * part):02x}" for x, y in zip(a, b, strict=True))
 
-def police_titre(taille: int) -> tuple[str, int, str]:
+def title_font(taille: int) -> tuple[str, int, str]:
     """Une empreinte plus éditoriale pour le nom de la réunion.
 
     Le seul texte de la fenêtre qui n'a pas besoin de ressembler à un bouton.

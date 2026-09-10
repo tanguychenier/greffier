@@ -10,63 +10,63 @@ from pathlib import Path
 
 import pytest
 
-from greffier.application.traiter import (
+from greffier.application.process import (
     MOTS_MINIMUM,
-    ChaineInterrompue,
-    Traitement,
+    Chain,
+    ChainStopped,
 )
-from greffier.domaine.modeles import Intervalle, Personne, Phase, Replique, TourDeParole
+from greffier.domain.models import Person, Phase, Span, SpeakerTurn, Utterance
 
 AUDIO = Path("/tmp/reunion.wav")
 
 
 class EnregistreurFactice:
-    def __init__(self, niveaux=(-30.0, -35.0)):
-        self._niveaux = list(niveaux)
+    def __init__(self, levels=(-30.0, -35.0)):
+        self._levels = list(levels)
         self.prepares = []
 
-    def demarrer(self, destination):
+    def start_recording(self, destination):
         return 4242
 
-    def arreter(self, processus):
+    def stop_recording(self, processus):
         pass
 
-    def preparer_transcription(self, audio, destination):
+    def prepare_transcript(self, audio, destination):
         # Le double ne normalise rien : il rend l'audio tel quel, ce qui suffit
         # à vérifier que la chaîne transcrit bien ce qu'on lui a préparé.
         self.prepares.append(audio)
         return audio
 
-    def assembler(self, morceaux, destination):
+    def wire_up(self, chunks, destination):
         return destination
 
-    def niveaux(self, audio):
-        return self._niveaux
+    def levels(self, audio):
+        return self._levels
 
 
 class TranscripteurFactice:
-    def __init__(self, repliques):
-        self.repliques = repliques
+    def __init__(self, utterances):
+        self.utterances = utterances
         self.amorce_recue = None
 
-    def transcrire(self, audio, langue, amorce):
-        self.amorce_recue = amorce
-        return list(self.repliques)
+    def transcribe(self, audio, language, prompt_seed):
+        self.amorce_recue = prompt_seed
+        return list(self.utterances)
 
 
 class DiariseurFactice:
-    def __init__(self, tours):
-        self._tours = tours
+    def __init__(self, turns):
+        self._turns = turns
 
-    def decouper(self, audio, personnes):
-        return list(self._tours)
+    def segment(self, audio, people):
+        return list(self._turns)
 
 
 class RedacteurFactice:
     def __init__(self):
         self.recu = None
 
-    def rediger(self, transcription):
+    def write_up(self, transcription):
         self.recu = transcription
         return "# Compte rendu\n\nTout va bien."
 
@@ -75,62 +75,62 @@ class ExpediteurFactice:
     def __init__(self):
         self.envois = []
 
-    def envoyer(self, destinataire, sujet, corps, pieces):
-        self.envois.append((destinataire, sujet, corps))
+    def send(self, recipient, subject, corps, pieces):
+        self.envois.append((recipient, subject, corps))
 
 
 class JournalFactice:
     def __init__(self):
         self.phases = []
 
-    def publier(self, phase, message=""):
+    def publish(self, phase, message=""):
         self.phases.append(phase)
 
 
-def replique(debut, fin, texte):
-    return Replique(intervalle=Intervalle(debut, fin), texte=texte)
+def utterance(start, end, text):
+    return Utterance(span=Span(start, end), text=text)
 
 
-def tour(debut, fin, voix):
-    return TourDeParole(intervalle=Intervalle(debut, fin), voix=voix)
+def turn(start, end, voice):
+    return SpeakerTurn(span=Span(start, end), voice=voice)
 
 
 BAVARDAGE = [
-    replique(0, 5, "Bonjour à tous, moi c'est Tanguy, on commence par le point recette."),
-    replique(6, 12, "La recette est décalée à jeudi, il reste deux anomalies bloquantes."),
-    replique(13, 20, "Merci Tanguy. De mon côté le déploiement est prêt depuis lundi."),
-    replique(21, 28, "On valide donc jeudi, et on prévient les utilisateurs mercredi soir."),
+    utterance(0, 5, "Bonjour à tous, moi c'est Tanguy, on commence par le point recette."),
+    utterance(6, 12, "La recette est décalée à jeudi, il reste deux anomalies bloquantes."),
+    utterance(13, 20, "Merci Tanguy. De mon côté le déploiement est prêt depuis lundi."),
+    utterance(21, 28, "On valide donc jeudi, et on prévient les utilisateurs mercredi soir."),
 ]
-TOURS = [tour(0, 12, "1"), tour(13, 20, "2"), tour(21, 28, "1")]
+TURNS = [turn(0, 12, "1"), turn(13, 20, "2"), turn(21, 28, "1")]
 
 
-def chaine(**remplacements):
+def chaine(**overrides):
     defauts = dict(
-        enregistreur=EnregistreurFactice(),
-        transcripteur=TranscripteurFactice(BAVARDAGE),
-        diariseur=DiariseurFactice(TOURS),
-        redacteur=RedacteurFactice(),
+        audio_recorder=EnregistreurFactice(),
+        transcriber=TranscripteurFactice(BAVARDAGE),
+        diariser=DiariseurFactice(TURNS),
+        writer=RedacteurFactice(),
     )
-    defauts.update(remplacements)
-    return Traitement(**defauts)
+    defauts.update(overrides)
+    return Chain(**defauts)
 
 
 class TestGardeFous:
     def test_un_enregistrement_muet_arrete_tout(self):
         """Le bug du 2026-08-20 : sans ça, un CR était fabriqué puis envoyé."""
-        traitement = chaine(enregistreur=EnregistreurFactice(niveaux=(-120.0, -120.0)))
-        with pytest.raises(ChaineInterrompue) as arret:
-            traitement.executer(AUDIO)
+        processing = chaine(audio_recorder=EnregistreurFactice(levels=(-120.0, -120.0)))
+        with pytest.raises(ChainStopped) as arret:
+            processing.run_chain(AUDIO)
         assert arret.value.phase is Phase.ECHEC
-        assert "muet" in arret.value.raison
+        assert "muet" in arret.value.because
 
     def test_une_transcription_vide_n_est_pas_redigee(self):
-        transcripteur = TranscripteurFactice([replique(0, 2, "Bonjour.")])
-        redacteur = RedacteurFactice()
-        traitement = chaine(transcripteur=transcripteur, redacteur=redacteur)
-        with pytest.raises(ChaineInterrompue, match="quasi vide"):
-            traitement.executer(AUDIO)
-        assert redacteur.recu is None, "le rédacteur ne doit pas être appelé"
+        transcriber = TranscripteurFactice([utterance(0, 2, "Bonjour.")])
+        writer = RedacteurFactice()
+        processing = chaine(transcriber=transcriber, writer=writer)
+        with pytest.raises(ChainStopped, match="quasi vide"):
+            processing.run_chain(AUDIO)
+        assert writer.recu is None, "le rédacteur ne doit pas être appelé"
 
     def test_un_nombre_de_participants_qui_contredit_l_audio_est_signale(self):
         """Annoncer un nombre force exactement autant de groupes, en silence.
@@ -139,211 +139,211 @@ class TestGardeFous:
         poste et la réunion en comptait davantage : deux personnes ont été
         confondues sans que rien ne le dise.
         """
-        traitement = chaine()
-        traitement.personnes = 9
-        resultat = traitement.executer(AUDIO)
-        assert any("9 participants sont annoncés" in a for a in resultat.avertissements)
+        processing = chaine()
+        processing.people = 9
+        outcome = processing.run_chain(AUDIO)
+        assert any("9 participants sont annoncés" in a for a in outcome.warnings)
 
     def test_un_nombre_juste_ne_dit_rien(self):
-        traitement = chaine()
-        traitement.personnes = len(chaine().executer(AUDIO).voix_significatives())
-        resultat = traitement.executer(AUDIO)
-        assert not any("annoncés" in a for a in resultat.avertissements)
+        processing = chaine()
+        processing.people = len(chaine().run_chain(AUDIO).significant_voices())
+        outcome = processing.run_chain(AUDIO)
+        assert not any("annoncés" in a for a in outcome.warnings)
 
     def test_sans_nombre_annonce_il_n_y_a_rien_a_contredire(self):
-        resultat = chaine().executer(AUDIO)
-        assert not any("annoncés" in a for a in resultat.avertissements)
+        outcome = chaine().run_chain(AUDIO)
+        assert not any("annoncés" in a for a in outcome.warnings)
 
     def test_le_seuil_de_mots_reste_bas_mais_non_nul(self):
         assert 0 < MOTS_MINIMUM <= 50
 
     def test_un_micro_muet_avertit_sans_bloquer(self):
-        traitement = chaine(enregistreur=EnregistreurFactice(niveaux=(-120.0, -30.0)))
-        resultat = traitement.executer(AUDIO)
-        assert any("micro" in a for a in resultat.avertissements)
-        assert resultat.compte_rendu
+        processing = chaine(audio_recorder=EnregistreurFactice(levels=(-120.0, -30.0)))
+        outcome = processing.run_chain(AUDIO)
+        assert any("micro" in a for a in outcome.warnings)
+        assert outcome.minutes
 
     def test_aucun_son_systeme_avertit_sans_bloquer(self):
-        traitement = chaine(enregistreur=EnregistreurFactice(niveaux=(-30.0, -120.0)))
-        resultat = traitement.executer(AUDIO)
-        assert any("système" in a for a in resultat.avertissements)
+        processing = chaine(audio_recorder=EnregistreurFactice(levels=(-30.0, -120.0)))
+        outcome = processing.run_chain(AUDIO)
+        assert any("système" in a for a in outcome.warnings)
 
 
 class TestEnchainement:
     def test_les_phases_se_suivent(self):
-        journal = JournalFactice()
-        chaine(journal=journal).executer(AUDIO)
-        assert journal.phases[0] == Phase.TRANSCRIPTION.value
-        assert Phase.LOCUTEURS.value in journal.phases
-        assert journal.phases[-1] == Phase.TERMINE.value
+        log = JournalFactice()
+        chaine(log=log).run_chain(AUDIO)
+        assert log.phases[0] == Phase.TRANSCRIPTION.value
+        assert Phase.LOCUTEURS.value in log.phases
+        assert log.phases[-1] == Phase.TERMINE.value
 
     def test_le_vocabulaire_est_transmis_au_transcripteur(self):
-        transcripteur = TranscripteurFactice(BAVARDAGE)
-        traitement = chaine(transcripteur=transcripteur)
-        traitement.amorce = "Vocabulaire : Copernic."
-        traitement.executer(AUDIO)
-        assert transcripteur.amorce_recue == "Vocabulaire : Copernic."
+        transcriber = TranscripteurFactice(BAVARDAGE)
+        processing = chaine(transcriber=transcriber)
+        processing.prompt_seed = "Vocabulaire : Copernic."
+        processing.run_chain(AUDIO)
+        assert transcriber.amorce_recue == "Vocabulaire : Copernic."
 
     def test_sans_redacteur_la_transcription_reste_disponible(self):
-        resultat = chaine(redacteur=None).executer(AUDIO)
-        assert resultat.repliques and resultat.compte_rendu == ""
+        outcome = chaine(writer=None).run_chain(AUDIO)
+        assert outcome.utterances and outcome.minutes == ""
 
     def test_l_envoi_n_a_lieu_qu_avec_un_destinataire(self):
-        expediteur = ExpediteurFactice()
-        traitement = chaine(expediteur=expediteur)
-        assert traitement.executer(AUDIO).envoye is False
-        traitement.destinataire = "moi@exemple.fr"
-        assert traitement.executer(AUDIO).envoye is True
-        assert expediteur.envois[0][0] == "moi@exemple.fr"
+        sender = ExpediteurFactice()
+        processing = chaine(sender=sender)
+        assert processing.run_chain(AUDIO).envoye is False
+        processing.recipient = "moi@exemple.fr"
+        assert processing.run_chain(AUDIO).envoye is True
+        assert sender.envois[0][0] == "moi@exemple.fr"
 
     def test_on_peut_traiter_sans_envoyer(self):
-        expediteur = ExpediteurFactice()
-        traitement = chaine(expediteur=expediteur)
-        traitement.destinataire = "moi@exemple.fr"
-        resultat = traitement.executer(AUDIO, envoyer=False)
-        assert resultat.compte_rendu and not resultat.envoye and not expediteur.envois
+        sender = ExpediteurFactice()
+        processing = chaine(sender=sender)
+        processing.recipient = "moi@exemple.fr"
+        outcome = processing.run_chain(AUDIO, send=False)
+        assert outcome.minutes and not outcome.envoye and not sender.envois
 
 
 class TestAttributionDesVoix:
     def test_chaque_replique_recoit_la_voix_dominante(self):
-        resultat = chaine().executer(AUDIO)
-        assert [r.voix for r in resultat.repliques] == ["1", "1", "2", "1"]
+        outcome = chaine().run_chain(AUDIO)
+        assert [r.voice for r in outcome.utterances] == ["1", "1", "2", "1"]
 
     def test_l_auto_presentation_nomme_le_locuteur(self):
         """« moi c'est Tanguy » désigne celui qui parle."""
-        resultat = chaine().executer(AUDIO)
-        assert resultat.noms["1"] == "Tanguy"
+        outcome = chaine().run_chain(AUDIO)
+        assert outcome.names["1"] == "Tanguy"
 
     def test_le_vocabulaire_metier_n_est_pas_pris_pour_un_prenom(self):
-        transcripteur = TranscripteurFactice([
-            replique(0, 6, "Merci Copernic pour la démonstration de ce matin, c'était clair."),
-            replique(7, 14, "On enchaîne sur le sujet suivant, à savoir la reprise des données."),
-            replique(15, 22, "Très bien, je note que la reprise démarre la semaine prochaine."),
+        transcriber = TranscripteurFactice([
+            utterance(0, 6, "Merci Copernic pour la démonstration de ce matin, c'était clair."),
+            utterance(7, 14, "On enchaîne sur le sujet suivant, à savoir la reprise des données."),
+            utterance(15, 22, "Très bien, je note que la reprise démarre la semaine prochaine."),
         ])
-        traitement = chaine(transcripteur=transcripteur)
-        traitement.pas_des_prenoms = frozenset({"copernic"})
-        resultat = traitement.executer(AUDIO)
-        assert "Copernic" not in resultat.noms.values()
-        assert "Copernic" not in resultat.propositions.values()
+        processing = chaine(transcriber=transcriber)
+        processing.not_first_names = frozenset({"copernic"})
+        outcome = processing.run_chain(AUDIO)
+        assert "Copernic" not in outcome.names.values()
+        assert "Copernic" not in outcome.propositions.values()
 
     def test_la_transcription_rendue_porte_les_noms_et_les_horaires(self):
-        redacteur = RedacteurFactice()
-        chaine(redacteur=redacteur).executer(AUDIO)
-        assert "[Tanguy]" in redacteur.recu
-        assert "00:00" in redacteur.recu
+        writer = RedacteurFactice()
+        chaine(writer=writer).run_chain(AUDIO)
+        assert "[Tanguy]" in writer.recu
+        assert "00:00" in writer.recu
         # Une voix sans nom reste identifiée, jamais inventée.
-        assert "[Personne 2]" in redacteur.recu
+        assert "[Personne 2]" in writer.recu
 
 
 class ExtracteurFactice:
     """Rend une empreinte par intervalle, dictée par la voix attendue."""
 
-    def __init__(self, vecteurs):
-        self.vecteurs = vecteurs
+    def __init__(self, vectors):
+        self.vectors = vectors
         self.appels = []
 
-    def extraire_intervalles(self, audio, intervalles):
-        from greffier.domaine.empreintes import normaliser
+    def extract_spans(self, audio, intervalles):
+        from greffier.domain.voiceprints import normalise
 
         self.appels.append(list(intervalles))
         # Un vecteur par intervalle, et non celui du premier appliqué à tous :
         # le vrai extracteur lit chaque extrait. Les rendre solidaires faisait
         # passer un appel groupé pour une seule et même voix.
         return [
-            normaliser(self.vecteurs[(i.debut, i.fin)], duree_source=i.duree)
+            normalise(self.vectors[(i.start, i.end)], source_duration=i.duration)
             for i in intervalles
         ]
 
 
 class BanqueFactice:
-    def __init__(self, personnes):
-        self._personnes = personnes
+    def __init__(self, people):
+        self._people = people
         self.ajouts = []
 
-    def personnes(self):
-        return list(self._personnes)
+    def people(self):
+        return list(self._people)
 
-    def enregistrer(self, nom, empreinte):
-        self.ajouts.append(nom)
+    def record(self, name, voiceprint):
+        self.ajouts.append(name)
 
 
 class TestBanqueDeVoix:
     def test_une_voix_connue_est_nommee_sans_qu_on_la_nomme(self):
         """Le cœur du besoin : « Josiane » et non « Personne 2 »."""
-        from greffier.domaine.empreintes import normaliser
+        from greffier.domain.voiceprints import normalise
 
-        vecteurs = {(0.0, 12.0): [1.0, 0.0, 0.0], (13.0, 20.0): [0.0, 1.0, 0.0],
+        vectors = {(0.0, 12.0): [1.0, 0.0, 0.0], (13.0, 20.0): [0.0, 1.0, 0.0],
                     (21.0, 28.0): [1.0, 0.0, 0.0]}
-        banque = BanqueFactice([Personne("Josiane", [normaliser([0.02, 1.0, 0.0])])])
-        traitement = chaine(extracteur=ExtracteurFactice(vecteurs), banque=banque)
-        resultat = traitement.executer(AUDIO)
-        assert resultat.noms["2"] == "Josiane"
+        bank = BanqueFactice([Person("Josiane", [normalise([0.02, 1.0, 0.0])])])
+        processing = chaine(extractor=ExtracteurFactice(vectors), bank=bank)
+        outcome = processing.run_chain(AUDIO)
+        assert outcome.names["2"] == "Josiane"
 
     def test_un_desaccord_entre_banque_et_reunion_est_signale(self):
         """La banque a été validée par un humain : elle prime, mais on le dit."""
-        from greffier.domaine.empreintes import normaliser
+        from greffier.domain.voiceprints import normalise
 
-        vecteurs = {(0.0, 12.0): [1.0, 0.0, 0.0], (13.0, 20.0): [0.0, 1.0, 0.0],
+        vectors = {(0.0, 12.0): [1.0, 0.0, 0.0], (13.0, 20.0): [0.0, 1.0, 0.0],
                     (21.0, 28.0): [1.0, 0.0, 0.0]}
-        banque = BanqueFactice([Personne("Michel", [normaliser([1.0, 0.02, 0.0])])])
-        traitement = chaine(extracteur=ExtracteurFactice(vecteurs), banque=banque)
-        resultat = traitement.executer(AUDIO)
-        assert resultat.noms["1"] == "Michel"
-        assert any("Michel" in a and "Tanguy" in a for a in resultat.avertissements)
+        bank = BanqueFactice([Person("Michel", [normalise([1.0, 0.02, 0.0])])])
+        processing = chaine(extractor=ExtracteurFactice(vectors), bank=bank)
+        outcome = processing.run_chain(AUDIO)
+        assert outcome.names["1"] == "Michel"
+        assert any("Michel" in a and "Tanguy" in a for a in outcome.warnings)
 
     def test_une_banque_vide_ne_gene_pas(self):
-        vecteurs = {(0.0, 12.0): [1.0, 0.0, 0.0], (13.0, 20.0): [0.0, 1.0, 0.0],
+        vectors = {(0.0, 12.0): [1.0, 0.0, 0.0], (13.0, 20.0): [0.0, 1.0, 0.0],
                     (21.0, 28.0): [1.0, 0.0, 0.0]}
-        traitement = chaine(extracteur=ExtracteurFactice(vecteurs), banque=BanqueFactice([]))
-        assert traitement.executer(AUDIO).noms["1"] == "Tanguy"
+        processing = chaine(extractor=ExtracteurFactice(vectors), bank=BanqueFactice([]))
+        assert processing.run_chain(AUDIO).names["1"] == "Tanguy"
 
 
 class TestLectureDuResultat:
     def test_les_fragments_ne_sont_pas_des_participants(self):
         """La segmentation laisse une traîne de fragments d'une seconde."""
-        resultat = chaine().executer(AUDIO)
-        resultat.tours = resultat.tours + [tour(29, 29.5, "bruit")]
-        assert "bruit" in resultat.temps_de_parole()
-        assert "bruit" not in resultat.voix_significatives()
+        outcome = chaine().run_chain(AUDIO)
+        outcome.turns = outcome.turns + [turn(29, 29.5, "bruit")]
+        assert "bruit" in outcome.speaking_time()
+        assert "bruit" not in outcome.significant_voices()
 
     def test_le_temps_de_parole_va_du_plus_bavard_au_moins(self):
-        resultat = chaine().executer(AUDIO)
-        durees = list(resultat.temps_de_parole().values())
+        outcome = chaine().run_chain(AUDIO)
+        durees = list(outcome.speaking_time().values())
         assert durees == sorted(durees, reverse=True)
 
 
 class TestFiabilite:
     def test_la_couverture_dit_ce_qui_manque(self):
         """25 s de texte sur 28 s de parole : seules les respirations manquent."""
-        resultat = chaine().executer(AUDIO)
-        assert resultat.couverture == pytest.approx(25 / 28, abs=0.01)
+        outcome = chaine().run_chain(AUDIO)
+        assert outcome.coverage == pytest.approx(25 / 28, abs=0.01)
 
     def test_un_trou_de_transcription_est_repere(self):
-        transcripteur = TranscripteurFactice([
-            replique(0, 10, "On commence par le point sur la recette de la semaine."),
-            replique(120, 130, "Voilà, je crois qu'on a fait le tour des sujets prévus."),
+        transcriber = TranscripteurFactice([
+            utterance(0, 10, "On commence par le point sur la recette de la semaine."),
+            utterance(120, 130, "Voilà, je crois qu'on a fait le tour des sujets prévus."),
         ])
-        diariseur = DiariseurFactice([tour(0, 10, "1"), tour(120, 130, "2")])
-        resultat = chaine(transcripteur=transcripteur, diariseur=diariseur).executer(AUDIO)
-        trous = resultat.trous(minimum=8)
-        assert any(t.duree > 100 for t in trous)
+        diariser = DiariseurFactice([turn(0, 10, "1"), turn(120, 130, "2")])
+        outcome = chaine(transcriber=transcriber, diariser=diariser).run_chain(AUDIO)
+        gaps = outcome.gaps(minimum=8)
+        assert any(t.duration > 100 for t in gaps)
 
     def test_le_redacteur_est_prevenu_de_ce_qui_manque(self):
         """Sans cet en-tête, le compte rendu présente comme complet un texte
         qui ne l'est pas."""
-        from greffier.application.restituer import entete_fiabilite
+        from greffier.application.render import reliability_header
 
-        transcripteur = TranscripteurFactice([
-            replique(0, 10, "On commence par le point sur la recette de la semaine."),
-            replique(120, 130, "Voilà, je crois qu'on a fait le tour des sujets prévus."),
+        transcriber = TranscripteurFactice([
+            utterance(0, 10, "On commence par le point sur la recette de la semaine."),
+            utterance(120, 130, "Voilà, je crois qu'on a fait le tour des sujets prévus."),
         ])
-        diariseur = DiariseurFactice([tour(0, 10, "1"), tour(120, 130, "2")])
-        redacteur = RedacteurFactice()
-        chaine(transcripteur=transcripteur, diariseur=diariseur,
-               redacteur=redacteur).executer(AUDIO)
-        assert "Fiabilité de la transcription" in redacteur.recu
-        assert "ne comble" in redacteur.recu
-        assert entete_fiabilite(chaine().executer(AUDIO)) == "", \
+        diariser = DiariseurFactice([turn(0, 10, "1"), turn(120, 130, "2")])
+        writer = RedacteurFactice()
+        chaine(transcriber=transcriber, diariser=diariser,
+               writer=writer).run_chain(AUDIO)
+        assert "Fiabilité de la transcription" in writer.recu
+        assert "ne comble" in writer.recu
+        assert reliability_header(chaine().run_chain(AUDIO)) == "", \
             "une transcription complète ne doit pas être affublée d'un avertissement"
 
 
@@ -355,47 +355,47 @@ class TestEnteteContexte:
     """
 
     def test_la_date_et_l_heure_sortent_du_nom_de_fichier(self) -> None:
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
-        entete = entete_contexte("2026-08-25_14h33_reunion-essai-reel")
-        assert "25 août 2026" in entete
-        assert "14 h 33" in entete
+        header = context_header("2026-08-25_14h33_reunion-essai-reel")
+        assert "25 août 2026" in header
+        assert "14 h 33" in header
 
     def test_le_redacteur_est_prie_de_ne_pas_prendre_la_date_du_jour(self) -> None:
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
-        assert "jamais celle du jour" in entete_contexte("2026-01-09_09h05_point")
+        assert "jamais celle du jour" in context_header("2026-01-09_09h05_point")
 
     def test_le_mois_est_en_francais_sans_dependre_de_la_locale(self) -> None:
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
-        assert "9 janvier 2026" in entete_contexte("2026-01-09_09h05_point")
-        assert "1 décembre 2025" in entete_contexte("2025-12-01_08h00_point")
+        assert "9 janvier 2026" in context_header("2026-01-09_09h05_point")
+        assert "1 décembre 2025" in context_header("2025-12-01_08h00_point")
 
     def test_la_duree_est_rendue_en_heures_et_minutes(self) -> None:
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
-        assert "durée 1 h 00." in entete_contexte("2026-08-25_14h33_x", 3606)
-        assert "durée 2 h 05." in entete_contexte("2026-08-25_14h33_x", 7500)
+        assert "durée 1 h 00." in context_header("2026-08-25_14h33_x", 3606)
+        assert "durée 2 h 05." in context_header("2026-08-25_14h33_x", 7500)
 
     def test_une_reunion_courte_est_dite_en_minutes(self) -> None:
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
-        assert "durée 12 min." in entete_contexte("2026-08-25_14h33_x", 720)
+        assert "durée 12 min." in context_header("2026-08-25_14h33_x", 720)
 
     def test_une_date_sans_heure_reste_valide(self) -> None:
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
-        entete = entete_contexte("2026-08-25_import-telephone")
-        assert "25 août 2026" in entete
-        assert " h " not in entete.split("2026")[1].split(".")[0]
+        header = context_header("2026-08-25_import-telephone")
+        assert "25 août 2026" in header
+        assert " h " not in header.split("2026")[1].split(".")[0]
 
     def test_l_heure_de_fin_se_deduit_de_la_duree(self) -> None:
         """Demandé à l'usage : le compte rendu doit dire début et fin."""
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
-        entete = entete_contexte("2026-09-02_16h46_reunion", 1020.0)
-        assert "de 16 h 46 à 17 h 03" in entete
+        header = context_header("2026-09-02_16h46_reunion", 1020.0)
+        assert "de 16 h 46 à 17 h 03" in header
 
     def test_les_heures_d_horloge_l_emportent_sur_la_duree_transcrite(self) -> None:
         """Ce que l'enregistrement a retenu vaut mieux que ce qu'on déduit.
@@ -408,139 +408,139 @@ class TestEnteteContexte:
         """
         from datetime import datetime
 
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
         # Datées dans le fuseau du poste : c'est l'heure que la personne a lue
         # sur sa montre qui doit figurer au compte rendu. L'état, lui, les garde
         # en UTC, et l'entête les y ramène.
-        entete = entete_contexte(
+        header = context_header(
             "2026-09-09_10h05_reunion",
             1620.0,  # la transcription s'arrête à 10 h 32
             commencee_le=datetime(2026, 9, 9, 10, 5).astimezone(),
             terminee_le=datetime(2026, 9, 9, 10, 37).astimezone(),
         )
-        assert "de 10 h 05 à 10 h 37" in entete
-        assert "10 h 32" not in entete
-        assert "durée 32 min" in entete
+        assert "de 10 h 05 à 10 h 37" in header
+        assert "10 h 32" not in header
+        assert "durée 32 min" in header
 
     def test_sans_heures_retenues_la_fin_reste_deduite(self) -> None:
         """Les réunions déjà sur le disque n'ont pas ces heures : rien ne casse."""
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
-        entete = entete_contexte("2026-09-02_16h46_reunion", 1020.0)
-        assert "de 16 h 46 à 17 h 03" in entete
+        header = context_header("2026-09-02_16h46_reunion", 1020.0)
+        assert "de 16 h 46 à 17 h 03" in header
 
     def test_la_mention_sur_l_enregistrement_est_dictee(self) -> None:
         """Une mention légale n'est pas matière à style : un modèle qui la
         reformule la rend inexploitable, on ne peut plus la chercher."""
-        from greffier.application.restituer import entete_information
+        from greffier.application.render import disclosure_header
 
-        entete = entete_information("rien")
-        assert "telle quelle" in entete
-        assert "n'a pas été tracée" in entete
+        header = disclosure_header("rien")
+        assert "telle quelle" in header
+        assert "n'a pas été tracée" in header
 
     def test_la_mention_suit_ce_qui_a_ete_fait(self) -> None:
-        from greffier.application.restituer import entete_information
+        from greffier.application.render import disclosure_header
 
-        assert "informés" in entete_information("annoncé")
-        assert "accord" in entete_information("accord")
+        assert "informés" in disclosure_header("annoncé")
+        assert "accord" in disclosure_header("accord")
 
     def test_une_valeur_inconnue_ne_pretend_a_aucun_accord(self) -> None:
-        from greffier.application.restituer import entete_information
+        from greffier.application.render import disclosure_header
 
-        assert "n'a pas été tracée" in entete_information("peut-être")
+        assert "n'a pas été tracée" in disclosure_header("peut-être")
 
     def test_le_redacteur_recoit_la_mention(self) -> None:
-        redacteur = RedacteurFactice()
-        traitement = chaine(redacteur=redacteur)
-        traitement.information = "annoncé"
-        traitement.executer(AUDIO)
-        assert "Mention sur l'enregistrement" in redacteur.recu
+        writer = RedacteurFactice()
+        processing = chaine(writer=writer)
+        processing.disclosure = "annoncé"
+        processing.run_chain(AUDIO)
+        assert "Mention sur l'enregistrement" in writer.recu
 
     def test_les_participants_nommes_sont_listes(self) -> None:
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
-        entete = entete_contexte("2026-09-02_16h46_x", 600.0,
-                                 noms=["Paul", "Camilo"], voix_entendues=2)
-        assert "Participants : Paul, Camilo." in entete
+        header = context_header("2026-09-02_16h46_x", 600.0,
+                                 names=["Paul", "Camilo"], voix_entendues=2)
+        assert "Participants : Paul, Camilo." in header
 
     def test_les_voix_non_nommees_sont_comptees_a_part(self) -> None:
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
-        entete = entete_contexte("2026-09-02_16h46_x", 600.0,
-                                 noms=["Paul"], voix_entendues=3)
-        assert "Paul, et 2 voix non nommées." in entete
+        header = context_header("2026-09-02_16h46_x", 600.0,
+                                 names=["Paul"], voix_entendues=3)
+        assert "Paul, et 2 voix non nommées." in header
 
     def test_sans_aucun_nom_on_dit_combien_de_personnes(self) -> None:
         """Constaté : un compte rendu ne disait pas du tout qui était présent."""
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
-        entete = entete_contexte("2026-09-02_17h04_x", 190.0, voix_entendues=3)
-        assert "3 personnes ont parlé, aucune nommée." in entete
+        header = context_header("2026-09-02_17h04_x", 190.0, voix_entendues=3)
+        assert "3 personnes ont parlé, aucune nommée." in header
 
     def test_la_ligne_est_dictee_mot_pour_mot(self) -> None:
         """Deux comptes rendus du même jour la formataient différemment."""
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
-        assert "telle quelle" in entete_contexte("2026-09-02_17h04_x", 190.0)
+        assert "telle quelle" in context_header("2026-09-02_17h04_x", 190.0)
 
     def test_un_nom_sans_date_ne_fait_rien_inventer(self) -> None:
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
-        assert entete_contexte("import-sans-date") == ""
+        assert context_header("import-sans-date") == ""
 
     def test_une_duree_nulle_n_est_pas_annoncee(self) -> None:
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
-        assert "Durée" not in entete_contexte("2026-08-25_14h33_x", 0)
+        assert "Durée" not in context_header("2026-08-25_14h33_x", 0)
 
 
 class TestEnteteMateriel:
     """Un branchement en cours de réunion change ce que le compte rendu peut dire."""
 
     def test_sans_evenement_rien_n_est_ajoute(self) -> None:
-        from greffier.application.restituer import entete_materiel
+        from greffier.application.render import hardware_header
 
-        assert entete_materiel([]) == ""
+        assert hardware_header([]) == ""
 
     def test_chaque_constat_est_repris(self) -> None:
-        from greffier.application.restituer import entete_materiel
+        from greffier.application.render import hardware_header
 
-        entete = entete_materiel(["casque branché", "casque débranché"])
-        assert "- casque branché" in entete
-        assert "- casque débranché" in entete
+        header = hardware_header(["casque branché", "casque débranché"])
+        assert "- casque branché" in header
+        assert "- casque débranché" in header
 
     def test_le_redacteur_est_averti_qu_un_echange_peut_etre_a_sens_unique(self) -> None:
         # C'est le vrai risque : la voix de la personne qui enregistre manque au
         # début, et le compte rendu présente comme complet un échange dont il
         # n'a entendu qu'un côté.
-        from greffier.application.restituer import entete_materiel
+        from greffier.application.render import hardware_header
 
-        entete = entete_materiel(["casque branché en cours de réunion"])
-        assert "un seul côté" in entete
-        assert "recollés" in entete
+        header = hardware_header(["casque branché en cours de réunion"])
+        assert "un seul côté" in header
+        assert "recollés" in header
 
 
 class TestDureeLisible:
     def test_sous_la_minute_on_donne_les_secondes(self) -> None:
         # « 0 min » serait faux : un extrait de trente secondes existe, et le
         # rédacteur doit savoir qu'il n'a qu'un extrait.
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
-        assert "30 s" in entete_contexte("extrait", 30.5)
+        assert "30 s" in context_header("extrait", 30.5)
 
     def test_un_fichier_sans_date_n_annonce_pas_une_date_absente(self) -> None:
         # Sinon le compte rendu s'ouvre sur « Date non précisée ».
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
-        entete = entete_contexte("import-telephone", 720)
-        assert "Date" not in entete
-        assert "12 min" in entete
+        header = context_header("import-telephone", 720)
+        assert "Date" not in header
+        assert "12 min" in header
 
     def test_sans_date_ni_duree_rien_n_est_dit(self) -> None:
-        from greffier.application.restituer import entete_contexte
+        from greffier.application.render import context_header
 
-        assert entete_contexte("import-telephone", 0) == ""
+        assert context_header("import-telephone", 0) == ""
 
 
 class TestMiseANiveauAvantTranscription:
@@ -553,12 +553,12 @@ class TestMiseANiveauAvantTranscription:
     """
 
     def test_l_audio_est_prepare_avant_d_etre_transcrit(self, tmp_path):
-        enregistreur = EnregistreurFactice()
-        traitement = chaine(enregistreur=enregistreur)
+        audio_recorder = EnregistreurFactice()
+        processing = chaine(audio_recorder=audio_recorder)
         audio = tmp_path / "reunion.wav"
         audio.write_bytes(b"RIFF----WAVEfmt ")
-        traitement.executer(audio, envoyer=False)
-        assert enregistreur.prepares == [audio]
+        processing.run_chain(audio, send=False)
+        assert audio_recorder.prepares == [audio]
 
 
 class TestLaChaineGardeLaReunion:
@@ -575,23 +575,23 @@ class TestLaChaineGardeLaReunion:
         deposees = []
 
         class DepotEspion:
-            def enregistrer(self, reunion):
-                deposees.append(reunion)
+            def record(self, meeting):
+                deposees.append(meeting)
                 return tmp_path / "reunions/essai.json"
 
-        resultat = chaine(depot=DepotEspion()).executer(AUDIO)
+        outcome = chaine(store=DepotEspion()).run_chain(AUDIO)
         assert deposees, "la chaîne doit déposer la réunion"
-        assert resultat.fichier_maitre == tmp_path / "reunions/essai.json"
+        assert outcome.fichier_maitre == tmp_path / "reunions/essai.json"
 
     def test_la_transcription_et_le_compte_rendu_sont_ecrits(self, tmp_path):
-        resultat = chaine(
+        outcome = chaine(
             dossier_transcriptions=tmp_path / "transcriptions",
             dossier_comptes_rendus=tmp_path / "comptes-rendus",
-        ).executer(AUDIO)
-        assert resultat.transcription_ecrite is not None
-        assert resultat.transcription_ecrite.exists()
-        assert resultat.compte_rendu_ecrit is not None
-        assert resultat.compte_rendu_ecrit.read_text(encoding="utf-8")
+        ).run_chain(AUDIO)
+        assert outcome.transcript_written is not None
+        assert outcome.transcript_written.exists()
+        assert outcome.compte_rendu_ecrit is not None
+        assert outcome.compte_rendu_ecrit.read_text(encoding="utf-8")
 
     def test_garde_avant_envoi(self, tmp_path):
         """Un serveur de courriel indisponible ne doit rien faire perdre.
@@ -603,19 +603,19 @@ class TestLaChaineGardeLaReunion:
         """
 
         class ExpediteurQuiTombe:
-            def envoyer(self, *_args, **_options):
+            def send(self, *_args, **_options):
                 raise RuntimeError("serveur injoignable")
 
-        traitement = chaine(
+        processing = chaine(
             dossier_transcriptions=tmp_path / "transcriptions",
             dossier_comptes_rendus=tmp_path / "comptes-rendus",
-            expediteur=ExpediteurQuiTombe(),
-            destinataire="moi@exemple.fr",
+            sender=ExpediteurQuiTombe(),
+            recipient="moi@exemple.fr",
         )
-        resultat = traitement.executer(AUDIO)
+        outcome = processing.run_chain(AUDIO)
         assert (tmp_path / "comptes-rendus").exists(), "le compte rendu survit à l'envoi"
-        assert resultat.envoye is False
-        assert any("injoignable" in a for a in resultat.avertissements)
+        assert outcome.envoye is False
+        assert any("injoignable" in a for a in outcome.warnings)
 
     def test_garde_avant_de_rediger(self, tmp_path):
         """Un rédacteur qui expire ne doit pas faire perdre la transcription.
@@ -628,28 +628,28 @@ class TestLaChaineGardeLaReunion:
         """
 
         class RedacteurQuiExpire:
-            def rediger(self, transcription):
+            def write_up(self, transcription):
                 raise subprocess.TimeoutExpired(cmd="redacteur", timeout=900)
 
         deposees = []
 
         class DepotEspion:
-            def enregistrer(self, reunion):
-                deposees.append(reunion)
+            def record(self, meeting):
+                deposees.append(meeting)
                 return tmp_path / "reunions/essai.json"
 
-        traitement = chaine(
-            redacteur=RedacteurQuiExpire(),
-            depot=DepotEspion(),
+        processing = chaine(
+            writer=RedacteurQuiExpire(),
+            store=DepotEspion(),
             dossier_transcriptions=tmp_path / "transcriptions",
             dossier_comptes_rendus=tmp_path / "comptes-rendus",
         )
         with pytest.raises(subprocess.TimeoutExpired):
-            traitement.executer(AUDIO)
+            processing.run_chain(AUDIO)
 
         assert deposees, "la réunion doit être déposée avant la rédaction"
-        assert deposees[0].repliques, "la transcription doit y être"
-        assert deposees[0].tours, "l'attribution des voix doit y être"
+        assert deposees[0].utterances, "la transcription doit y être"
+        assert deposees[0].turns, "l'attribution des voix doit y être"
         transcription = tmp_path / "transcriptions" / f"{AUDIO.stem}.txt"
         assert transcription.exists(), "la transcription lisible survit"
         assert not (tmp_path / "comptes-rendus").exists(), "aucun compte rendu tronqué"
@@ -661,55 +661,55 @@ class TestLaChaineGardeLaReunion:
         personne n'est mieux placé pour nommer la réunion.
         """
         class RedacteurQuiTitre:
-            def rediger(self, transcription):
+            def write_up(self, transcription):
                 return "# Compte rendu : point d'avancement des projets\n\nTexte."
 
         deposees = []
 
         class DepotEspion:
-            def enregistrer(self, reunion):
-                deposees.append(reunion)
+            def record(self, meeting):
+                deposees.append(meeting)
                 return tmp_path / "reunions/essai.json"
 
-            def lire(self, identifiant):
-                raise FileNotFoundError(identifiant)
+            def read(self, identifier):
+                raise FileNotFoundError(identifier)
 
-        chaine(redacteur=RedacteurQuiTitre(), depot=DepotEspion()).executer(AUDIO)
-        assert deposees[-1].sujet == "point d'avancement des projets"
+        chaine(writer=RedacteurQuiTitre(), store=DepotEspion()).run_chain(AUDIO)
+        assert deposees[-1].subject == "point d'avancement des projets"
 
     def test_un_sujet_saisi_a_la_main_survit_au_retraitement(self, tmp_path):
         """Une correction que la chaîne écraserait ne servirait à rien."""
         from datetime import UTC, datetime
 
-        from greffier.domaine.reunion import ReunionEnregistree
+        from greffier.domain.meeting import StoredMeeting
 
         class RedacteurQuiTitre:
-            def rediger(self, transcription):
+            def write_up(self, transcription):
                 return "# Compte rendu : titre automatique\n\nTexte."
 
         deposees = []
 
         class DepotAvecSujet:
-            def enregistrer(self, reunion):
-                deposees.append(reunion)
+            def record(self, meeting):
+                deposees.append(meeting)
                 return tmp_path / "reunions/essai.json"
 
-            def lire(self, identifiant):
-                return ReunionEnregistree(
-                    identifiant=identifiant, audio=AUDIO,
-                    traitee_le=datetime.now(UTC), duree=1.0,
-                    repliques=[], tours=[], noms={}, propositions={},
-                    avertissements=[], sujet="Point Oasis",
+            def read(self, identifier):
+                return StoredMeeting(
+                    identifier=identifier, audio=AUDIO,
+                    traitee_le=datetime.now(UTC), duration=1.0,
+                    utterances=[], turns=[], names={}, propositions={},
+                    warnings=[], subject="Point Oasis",
                 )
 
-        chaine(redacteur=RedacteurQuiTitre(), depot=DepotAvecSujet()).executer(AUDIO)
-        assert deposees[-1].sujet == "Point Oasis"
+        chaine(writer=RedacteurQuiTitre(), store=DepotAvecSujet()).run_chain(AUDIO)
+        assert deposees[-1].subject == "Point Oasis"
 
     def test_sans_dossier_la_chaine_reste_utilisable(self):
         """Les tests d'intégration s'en servent en mémoire, sans rien écrire."""
-        resultat = chaine().executer(AUDIO)
-        assert resultat.transcription_ecrite is None
-        assert resultat.compte_rendu_ecrit is None
+        outcome = chaine().run_chain(AUDIO)
+        assert outcome.transcript_written is None
+        assert outcome.compte_rendu_ecrit is None
 
     def test_sans_redacteur_la_reunion_est_gardee(self, tmp_path):
         """Le cas de qui ne veut rien laisser sortir du poste.
@@ -724,31 +724,31 @@ class TestLaChaineGardeLaReunion:
         deposees = []
 
         class DepotEspion:
-            def enregistrer(self, reunion):
-                deposees.append(reunion)
+            def record(self, meeting):
+                deposees.append(meeting)
                 return tmp_path / "reunions/essai.json"
 
-        resultat = chaine(
-            redacteur=None,
-            depot=DepotEspion(),
+        outcome = chaine(
+            writer=None,
+            store=DepotEspion(),
             dossier_transcriptions=tmp_path / "transcriptions",
-        ).executer(AUDIO)
+        ).run_chain(AUDIO)
 
         assert deposees, "la réunion doit être déposée même sans compte rendu"
-        assert resultat.transcription_ecrite is not None
-        assert resultat.transcription_ecrite.exists()
+        assert outcome.transcript_written is not None
+        assert outcome.transcript_written.exists()
 
     def test_sans_redacteur_aucun_compte_rendu_n_est_ecrit(self, tmp_path):
         """Garder la réunion ne doit pas fabriquer un compte rendu vide."""
-        resultat = chaine(
-            redacteur=None,
+        outcome = chaine(
+            writer=None,
             dossier_transcriptions=tmp_path / "transcriptions",
             dossier_comptes_rendus=tmp_path / "comptes-rendus",
-        ).executer(AUDIO)
+        ).run_chain(AUDIO)
 
-        assert resultat.compte_rendu_ecrit is None
+        assert outcome.compte_rendu_ecrit is None
         assert not (tmp_path / "comptes-rendus").exists()
-        assert resultat.fichier_maitre is None
+        assert outcome.fichier_maitre is None
 
 
 class TestCanauxEnPresentiel:
@@ -761,48 +761,48 @@ class TestCanauxEnPresentiel:
         lit ces avertissements — lui laisser croire qu'il manque du monde lui
         fait écrire un compte rendu prudent sur une transcription complète.
         """
-        from greffier.application.traiter import AVERTISSEMENT_SANS_BOUCLE, Resultat
+        from greffier.application.process import AVERTISSEMENT_SANS_BOUCLE, Outcome
 
-        resultat = Resultat(audio=AUDIO)
-        resultat.avertissements.append(AVERTISSEMENT_SANS_BOUCLE)
-        resultat.tours = [
-            TourDeParole(Intervalle(0, 40), "0"),
-            TourDeParole(Intervalle(40, 90), "1"),
+        outcome = Outcome(audio=AUDIO)
+        outcome.warnings.append(AVERTISSEMENT_SANS_BOUCLE)
+        outcome.turns = [
+            SpeakerTurn(Span(0, 40), "0"),
+            SpeakerTurn(Span(40, 90), "1"),
         ]
-        chaine()._preciser_les_canaux(resultat)
-        assert resultat.avertissements == []
+        chaine()._preciser_les_canaux(outcome)
+        assert outcome.warnings == []
 
     def test_une_seule_voix_sans_boucle_est_signalee(self):
         """Là, une visio mal branchée a bien pu perdre tout le monde."""
-        from greffier.application.traiter import AVERTISSEMENT_SANS_BOUCLE, Resultat
+        from greffier.application.process import AVERTISSEMENT_SANS_BOUCLE, Outcome
 
-        resultat = Resultat(audio=AUDIO)
-        resultat.avertissements.append(AVERTISSEMENT_SANS_BOUCLE)
-        resultat.tours = [TourDeParole(Intervalle(0, 90), "0")]
-        chaine()._preciser_les_canaux(resultat)
-        assert len(resultat.avertissements) == 1
-        assert "visio" in resultat.avertissements[0]
+        outcome = Outcome(audio=AUDIO)
+        outcome.warnings.append(AVERTISSEMENT_SANS_BOUCLE)
+        outcome.turns = [SpeakerTurn(Span(0, 90), "0")]
+        chaine()._preciser_les_canaux(outcome)
+        assert len(outcome.warnings) == 1
+        assert "visio" in outcome.warnings[0]
 
     def test_le_message_provisoire_ne_survit_jamais(self):
         """Il n'est pas fait pour être lu : c'est une marque, pas une phrase."""
-        from greffier.application.traiter import AVERTISSEMENT_SANS_BOUCLE, Resultat
+        from greffier.application.process import AVERTISSEMENT_SANS_BOUCLE, Outcome
 
-        for tours in ([TourDeParole(Intervalle(0, 90), "0")],
-                      [TourDeParole(Intervalle(0, 40), "0"),
-                       TourDeParole(Intervalle(40, 90), "1")]):
-            resultat = Resultat(audio=AUDIO)
-            resultat.avertissements.append(AVERTISSEMENT_SANS_BOUCLE)
-            resultat.tours = tours
-            chaine()._preciser_les_canaux(resultat)
-            assert AVERTISSEMENT_SANS_BOUCLE not in resultat.avertissements
+        for turns in ([SpeakerTurn(Span(0, 90), "0")],
+                      [SpeakerTurn(Span(0, 40), "0"),
+                       SpeakerTurn(Span(40, 90), "1")]):
+            outcome = Outcome(audio=AUDIO)
+            outcome.warnings.append(AVERTISSEMENT_SANS_BOUCLE)
+            outcome.turns = turns
+            chaine()._preciser_les_canaux(outcome)
+            assert AVERTISSEMENT_SANS_BOUCLE not in outcome.warnings
 
     def test_sans_marque_rien_n_est_ajoute(self):
-        from greffier.application.traiter import Resultat
+        from greffier.application.process import Outcome
 
-        resultat = Resultat(audio=AUDIO)
-        resultat.tours = [TourDeParole(Intervalle(0, 90), "0")]
-        chaine()._preciser_les_canaux(resultat)
-        assert resultat.avertissements == []
+        outcome = Outcome(audio=AUDIO)
+        outcome.turns = [SpeakerTurn(Span(0, 90), "0")]
+        chaine()._preciser_les_canaux(outcome)
+        assert outcome.warnings == []
 
 
 class TestHomonymesApresReunion:
@@ -819,50 +819,50 @@ class TestHomonymesApresReunion:
     """
 
     #: 0,700 entre elles, 0,92 de Josiane chacune.
-    VECTEURS = {
+    VECTORS = {
         (0.0, 12.0): [1.0, 0.0, 0.0],
         (21.0, 28.0): [1.0, 0.0, 0.0],
         (13.0, 20.0): [0.7, 0.714, 0.0],
     }
 
-    def _resultat(self):
-        from greffier.domaine.empreintes import normaliser
+    def _outcome(self):
+        from greffier.domain.voiceprints import normalise
 
-        banque = BanqueFactice([Personne("Josiane", [normaliser([0.92, 0.39, 0.0])])])
-        traitement = chaine(extracteur=ExtracteurFactice(self.VECTEURS), banque=banque)
-        return traitement.executer(AUDIO)
+        bank = BanqueFactice([Person("Josiane", [normalise([0.92, 0.39, 0.0])])])
+        processing = chaine(extractor=ExtracteurFactice(self.VECTORS), bank=bank)
+        return processing.run_chain(AUDIO)
 
     def test_une_seule_voix_porte_le_nom(self):
-        resultat = self._resultat()
-        assert list(resultat.noms.values()) == ["Josiane"], resultat.noms
+        outcome = self._outcome()
+        assert list(outcome.names.values()) == ["Josiane"], outcome.names
 
     def test_la_voix_la_plus_fournie_garde_les_tours(self):
         """Dix-neuf secondes contre sept : c'est le meilleur extrait des deux."""
-        resultat = self._resultat()
-        gardee = next(iter(resultat.noms))
-        assert {t.voix for t in resultat.tours} == {gardee}
+        outcome = self._outcome()
+        gardee = next(iter(outcome.names))
+        assert {t.voice for t in outcome.turns} == {gardee}
 
     def test_les_repliques_suivent(self):
         """Sinon le compte rendu attribue encore à une voix qui n'existe plus."""
-        resultat = self._resultat()
-        gardee = next(iter(resultat.noms))
-        portees = {r.voix for r in resultat.repliques if r.voix is not None}
+        outcome = self._outcome()
+        gardee = next(iter(outcome.names))
+        portees = {r.voice for r in outcome.utterances if r.voice is not None}
         assert portees == {gardee}, portees
 
     def test_deux_personnes_distinctes_restent_deux(self):
         """Le garde-fou : la règle ne doit pas tout replier sur une voix."""
-        from greffier.domaine.empreintes import normaliser
+        from greffier.domain.voiceprints import normalise
 
-        banque = BanqueFactice([
-            Personne("Josiane", [normaliser([1.0, 0.02, 0.0])]),
-            Personne("Michel", [normaliser([0.02, 1.0, 0.0])]),
+        bank = BanqueFactice([
+            Person("Josiane", [normalise([1.0, 0.02, 0.0])]),
+            Person("Michel", [normalise([0.02, 1.0, 0.0])]),
         ])
-        vecteurs = {(0.0, 12.0): [1.0, 0.0, 0.0], (21.0, 28.0): [1.0, 0.0, 0.0],
+        vectors = {(0.0, 12.0): [1.0, 0.0, 0.0], (21.0, 28.0): [1.0, 0.0, 0.0],
                     (13.0, 20.0): [0.0, 1.0, 0.0]}
-        resultat = chaine(
-            extracteur=ExtracteurFactice(vecteurs), banque=banque
-        ).executer(AUDIO)
-        assert sorted(resultat.noms.values()) == ["Josiane", "Michel"]
+        outcome = chaine(
+            extractor=ExtracteurFactice(vectors), bank=bank
+        ).run_chain(AUDIO)
+        assert sorted(outcome.names.values()) == ["Josiane", "Michel"]
 
 
 class TestUnEnvoiQuiEchoue:
@@ -877,39 +877,39 @@ class TestUnEnvoiQuiEchoue:
     """
 
     class ExpediteurQuiTombe:
-        def envoyer(self, destinataire, sujet, corps, pieces):
+        def send(self, recipient, subject, corps, pieces):
             raise PermissionError("macOS refuse de piloter Outlook.")
 
-    def _resultat(self, journal):
-        traitement = chaine(
-            expediteur=self.ExpediteurQuiTombe(),
-            destinataire="tanguy@example.org",
-            journal=journal,
+    def _outcome(self, log):
+        processing = chaine(
+            sender=self.ExpediteurQuiTombe(),
+            recipient="tanguy@example.org",
+            log=log,
         )
-        return traitement.executer(AUDIO)
+        return processing.run_chain(AUDIO)
 
     def test_la_chaine_va_jusqu_au_bout(self):
-        journal = JournalFactice()
-        self._resultat(journal)
-        assert journal.phases[-1] == Phase.TERMINE.value, journal.phases
+        log = JournalFactice()
+        self._outcome(log)
+        assert log.phases[-1] == Phase.TERMINE.value, log.phases
 
     def test_la_phase_envoi_ne_reste_pas_la_derniere(self):
         """C'est elle qui mentait : « Envoi du compte rendu… », pour toujours."""
-        journal = JournalFactice()
-        self._resultat(journal)
-        assert Phase.ENVOI.value in journal.phases
-        assert journal.phases[-1] != Phase.ENVOI.value
+        log = JournalFactice()
+        self._outcome(log)
+        assert Phase.ENVOI.value in log.phases
+        assert log.phases[-1] != Phase.ENVOI.value
 
     def test_la_raison_est_dite(self):
-        resultat = self._resultat(JournalFactice())
-        assert any("Outlook" in a for a in resultat.avertissements), resultat.avertissements
-        assert any("greffier envoyer" in a for a in resultat.avertissements)
+        outcome = self._outcome(JournalFactice())
+        assert any("Outlook" in a for a in outcome.warnings), outcome.warnings
+        assert any("greffier envoyer" in a for a in outcome.warnings)
 
     def test_le_compte_rendu_n_est_pas_annonce_comme_parti(self):
-        assert self._resultat(JournalFactice()).envoye is False
+        assert self._outcome(JournalFactice()).envoye is False
 
     def test_le_compte_rendu_est_bien_la(self):
-        assert self._resultat(JournalFactice()).compte_rendu
+        assert self._outcome(JournalFactice()).minutes
 
 
 class TestLigneDesParticipants:
@@ -921,38 +921,38 @@ class TestLigneDesParticipants:
     en tête d'un compte rendu envoyé par courriel.
     """
 
-    def _ligne(self, noms, entendues: int) -> str:
-        from greffier.application.restituer import entete_contexte
+    def _line(self, names, entendues: int) -> str:
+        from greffier.application.render import context_header
 
-        return entete_contexte(
-            "2026-09-10_10h10_reunion", 6120.0, noms=noms, voix_entendues=entendues
+        return context_header(
+            "2026-09-10_10h10_reunion", 6120.0, names=names, voix_entendues=entendues
         )
 
     def test_une_seule_voix_anonyme_est_dite_au_singulier(self):
-        ligne = self._ligne(["Paul", "Benjamin"], 3)
-        assert "et 1 voix non nommée." in ligne
-        assert "non nommées" not in ligne
+        line = self._line(["Paul", "Benjamin"], 3)
+        assert "et 1 voix non nommée." in line
+        assert "non nommées" not in line
 
     def test_plusieurs_voix_anonymes_au_pluriel(self):
-        assert "et 3 voix non nommées." in self._ligne(["Paul"], 4)
+        assert "et 3 voix non nommées." in self._line(["Paul"], 4)
 
     def test_toutes_nommees_ne_laisse_aucune_traine(self):
-        ligne = self._ligne(["Paul", "Benjamin"], 2)
-        assert "Participants : Paul, Benjamin." in ligne
-        assert "non nomm" not in ligne
+        line = self._line(["Paul", "Benjamin"], 2)
+        assert "Participants : Paul, Benjamin." in line
+        assert "non nomm" not in line
 
     def test_une_seule_personne_sans_nom_accorde_le_verbe(self):
         """« 1 personne ont parlé » s'écrivait tel quel."""
-        ligne = self._ligne([], 1)
-        assert "1 personne a parlé, non nommée." in ligne
-        assert "ont parlé" not in ligne
+        line = self._line([], 1)
+        assert "1 personne a parlé, non nommée." in line
+        assert "ont parlé" not in line
 
     def test_plusieurs_personnes_sans_nom_accordent_le_verbe(self):
-        ligne = self._ligne([], 4)
-        assert "4 personnes ont parlé" in ligne
+        line = self._line([], 4)
+        assert "4 personnes ont parlé" in line
 
     def test_un_nom_repete_ne_compte_qu_une_fois(self):
         """La réunion des homonymes le fait en amont ; la ligne ne doit pas
         le défaire si un nom arrive deux fois."""
-        ligne = self._ligne(["Laura", "Laura", "Paul"], 3)
-        assert "Participants : Laura, Paul, et 1 voix non nommée." in ligne
+        line = self._line(["Laura", "Laura", "Paul"], 3)
+        assert "Participants : Laura, Paul, et 1 voix non nommée." in line

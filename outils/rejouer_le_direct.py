@@ -26,10 +26,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from greffier.domaine.direct import Bloc, Fil  # noqa: E402
-from greffier.domaine.modeles import Empreinte, Intervalle, Replique  # noqa: E402
-from greffier.domaine.noms import reunir_les_homonymes  # noqa: E402
-from greffier.emplacements import dossier_donnees  # noqa: E402
+from greffier.domain.live import Block, LiveThread  # noqa: E402
+from greffier.domain.models import Span, Utterance, Voiceprint  # noqa: E402
+from greffier.domain.names import join_namesakes  # noqa: E402
+from greffier.locations import data_folder  # noqa: E402
 
 #: Tous les combien de phrases le fil recolle ses voix, comme en séance.
 RECOLLAGE_TOUS_LES = 40
@@ -39,8 +39,8 @@ TRANCHES = 6
 
 
 def suite_chronologique(
-    reunion: dict, par_voix: dict[str, list[Empreinte]], nommees: set[str]
-) -> list[tuple[float, float, str, Empreinte]]:
+    meeting: dict, per_voice: dict[str, list[Voiceprint]], nommees: set[str]
+) -> list[tuple[float, float, str, Voiceprint]]:
     """Les tours dans l'ordre du temps, avec leur empreinte et leur vraie voix.
 
     La Nième empreinte d'une voix correspond au Nième tour de cette voix : c'est
@@ -49,63 +49,63 @@ def suite_chronologique(
     """
     rangs: Counter = Counter()
     suite = []
-    for tour in sorted(reunion["tours"], key=lambda t: float(t["debut"])):
-        voix = str(tour["voix"])
-        rang = rangs[voix]
-        rangs[voix] += 1
-        empreintes = par_voix.get(voix, [])
-        if voix not in nommees or rang >= len(empreintes):
+    for turn in sorted(meeting["tours"], key=lambda t: float(t["debut"])):
+        voice = str(turn["voix"])
+        rank = rangs[voice]
+        rangs[voice] += 1
+        voiceprints = per_voice.get(voice, [])
+        if voice not in nommees or rank >= len(voiceprints):
             continue
         suite.append(
-            (float(tour["debut"]), float(tour["fin"]), voix, empreintes[rang])
+            (float(turn["debut"]), float(turn["fin"]), voice, voiceprints[rank])
         )
     return suite
 
 
-def verite_nommee(reunion: dict) -> set[str]:
+def verite_nommee(meeting: dict) -> set[str]:
     """Les voix nommées, une par personne.
 
     Passe par la réunion des homonymes : sur la réunion du 2026-09-10, le
     fichier porte seize voix nommées dont **neuf « Laura »**. Les compter comme
     neuf personnes fausserait la vérité terrain autant que le compte rendu.
     """
-    noms = {str(v): nom for v, nom in (reunion.get("noms") or {}).items()}
+    names = {str(v): name for v, name in (meeting.get("noms") or {}).items()}
     poids: Counter = Counter()
-    for tour in reunion["tours"]:
-        poids[str(tour["voix"])] += float(tour["fin"]) - float(tour["debut"])
-    appartenance = reunir_les_homonymes(noms, dict(poids))
-    return {voix for voix, gardee in appartenance.items() if voix == gardee}
+    for turn in meeting["tours"]:
+        poids[str(turn["voix"])] += float(turn["fin"]) - float(turn["debut"])
+    membership = join_namesakes(names, dict(poids))
+    return {voice for voice, gardee in membership.items() if voice == gardee}
 
 
-def rejouer(suite: list) -> tuple[Fil, list[tuple[str, int]], list[bool]]:
+def replay(suite: list) -> tuple[LiveThread, list[tuple[str, int]], list[bool]]:
     """Refait le fil phrase par phrase, et dit lesquelles sont justes.
 
     Une voix du fil vaut pour la personne majoritaire qu'elle contient : le fil
     ne connaît pas les noms, et le juger sur ses identifiants n'aurait aucun
     sens.
     """
-    fil = Fil()
+    thread = LiveThread()
     attribue: list[tuple[str, int]] = []
-    for debut, fin, vraie, empreinte in suite:
-        voix = fil.rattacher(empreinte=empreinte, locale=False)
-        fil.inscrire(
-            Bloc(
-                repliques=(Replique(intervalle=Intervalle(debut, fin), texte="x"),),
+    for start, end, vraie, voiceprint in suite:
+        voice = thread.attach(voiceprint=voiceprint, locale=False)
+        thread.record_turn(
+            Block(
+                utterances=(Utterance(span=Span(start, end), text="x"),),
                 locale=False,
             ),
-            voix,
+            voice,
         )
-        attribue.append((vraie, len(fil.tours)))
+        attribue.append((vraie, len(thread.turns)))
         if len(attribue) % RECOLLAGE_TOUS_LES == 0:
-            fil.recoller()
-    fil.recoller()
-    final = {t.numero: t.voix for t in fil.tours}
+            thread.stitch()
+    thread.stitch()
+    final = {t.number: t.voice for t in thread.turns}
     groupes: dict[str, Counter] = {}
-    for vraie, numero in attribue:
-        groupes.setdefault(final.get(numero, "?"), Counter())[vraie] += 1
+    for vraie, number in attribue:
+        groupes.setdefault(final.get(number, "?"), Counter())[vraie] += 1
     majorite = {v: c.most_common(1)[0][0] for v, c in groupes.items()}
     justes = [majorite.get(final.get(n)) == vraie for vraie, n in attribue]
-    return fil, attribue, justes
+    return thread, attribue, justes
 
 
 def main() -> int:
@@ -113,29 +113,29 @@ def main() -> int:
     analyse.add_argument("reunion")
     arguments = analyse.parse_args()
 
-    chemin = dossier_donnees() / "reunions" / f"{arguments.reunion}.json"
-    cache = Path("/tmp/greffier-empreintes") / f"{arguments.reunion}.pickle"
+    path = data_folder() / "reunions" / f"{arguments.meeting}.json"
+    cache = Path("/tmp/greffier-empreintes") / f"{arguments.meeting}.pickle"
     if not cache.exists():
         print("Les empreintes manquent : lance d'abord "
               "« outils/rejouer_recollage.py » sur cette réunion.", file=sys.stderr)
         return 1
-    reunion = json.loads(chemin.read_text())
-    par_voix = pickle.loads(cache.read_bytes())
-    nommees = verite_nommee(reunion)
+    meeting = json.loads(path.read_text())
+    per_voice = pickle.loads(cache.read_bytes())
+    nommees = verite_nommee(meeting)
     if not nommees:
         print("Aucune voix nommée : il n'y a pas de vérité terrain à comparer.",
               file=sys.stderr)
         return 1
 
-    suite = suite_chronologique(reunion, par_voix, nommees)
+    suite = suite_chronologique(meeting, per_voice, nommees)
     if not suite:
         print("Aucun tour étiqueté.", file=sys.stderr)
         return 1
-    fil, attribue, justes = rejouer(suite)
+    thread, attribue, justes = replay(suite)
 
     print(f"{len(suite)} tours étiquetés, de {suite[0][0] / 60:.0f} "
           f"à {suite[-1][1] / 60:.0f} min")
-    print(f"voix créées : {len(fil.voix) - 1} pour {len(nommees)} personnes nommées")
+    print(f"voix créées : {len(thread.voice) - 1} pour {len(nommees)} personnes nommées")
     print(f"justesse du direct : {sum(justes)}/{len(justes)} "
           f"= {sum(justes) / len(justes):.1%}")
 
@@ -150,20 +150,20 @@ def main() -> int:
               f"{sum(part) / len(part):>8.1%}")
 
     print("\n== ce que pèsent les voix du fil ==")
-    final = {t.numero: t.voix for t in fil.tours}
+    final = {t.number: t.voice for t in thread.turns}
     poids: Counter = Counter()
-    tours: Counter = Counter()
-    contenu: dict[str, Counter] = {}
-    for vraie, numero in attribue:
-        voix = final.get(numero, "?")
-        tours[voix] += 1
-        contenu.setdefault(voix, Counter())[vraie] += 1
-    for tour in fil.tours:
-        poids[final.get(tour.numero, "?")] += tour.intervalle.duree
+    turns: Counter = Counter()
+    content: dict[str, Counter] = {}
+    for vraie, number in attribue:
+        voice = final.get(number, "?")
+        turns[voice] += 1
+        content.setdefault(voice, Counter())[vraie] += 1
+    for turn in thread.turns:
+        poids[final.get(turn.number, "?")] += turn.span.duration
     print(f"{'voix':>6} {'tours':>6} {'secondes':>9}  qui elle contient")
-    for voix, secondes in poids.most_common():
-        dit = ", ".join(f"{n} × {q}" for n, q in contenu.get(voix, Counter()).most_common())
-        print(f"{voix:>6} {tours[voix]:>6} {secondes:>9.0f}  {dit}")
+    for voice, seconds in poids.most_common():
+        dit = ", ".join(f"{n} × {q}" for n, q in content.get(voice, Counter()).most_common())
+        print(f"{voice:>6} {turns[voice]:>6} {seconds:>9.0f}  {dit}")
     return 0
 
 

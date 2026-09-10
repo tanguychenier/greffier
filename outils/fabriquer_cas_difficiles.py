@@ -157,19 +157,19 @@ CAS: dict[str, tuple[dict, list[tuple[str, str]]]] = {
 
 
 def main() -> int:
-    lecteur = argparse.ArgumentParser(description=__doc__)
-    lecteur.add_argument("dossier", type=Path, help="Où écrire les fichiers")
-    lecteur.add_argument("--cas", choices=sorted(CAS), help="Un seul cas")
-    arguments = lecteur.parse_args()
+    player = argparse.ArgumentParser(description=__doc__)
+    player.add_argument("dossier", type=Path, help="Où écrire les fichiers")
+    player.add_argument("--cas", choices=sorted(CAS), help="Un seul cas")
+    arguments = player.parse_args()
 
     voulus = [arguments.cas] if arguments.cas else sorted(CAS)
-    arguments.dossier.mkdir(parents=True, exist_ok=True)
-    for nom in voulus:
-        voix, dialogue = CAS[nom]
-        cible = arguments.dossier / f"cas-{nom}.wav"
-        fabriquer(cible, voix=voix, dialogue=dialogue)
-        taille = cible.stat().st_size / 1024
-        print(f"  {cible.name:<26} {taille:6.0f} Ko  {len(dialogue)} répliques")
+    arguments.folder.mkdir(parents=True, exist_ok=True)
+    for name in voulus:
+        voice, dialogue = CAS[name]
+        target = arguments.folder / f"cas-{name}.wav"
+        fabriquer(target, voice=voice, dialogue=dialogue)
+        taille = target.stat().st_size / 1024
+        print(f"  {target.name:<26} {taille:6.0f} Ko  {len(dialogue)} répliques")
     return 0
 
 

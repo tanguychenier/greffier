@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from greffier.adaptateurs import transcription_faster_whisper as adaptateur
+from greffier.adapters import transcription_faster_whisper as adaptateur
 
 
 @pytest.fixture
@@ -21,38 +21,38 @@ def roues(monkeypatch, tmp_path):
     for relatif in ("cublas/lib/libcublas.so.12", "cublas/lib/libcublasLt.so.12",
                     "cudnn/lib/libcudnn.so.9", "cudnn/lib/libcudnn_graph.so.9",
                     "cuda_nvrtc/lib/libnvrtc.so.12"):
-        chemin = tmp_path / relatif
-        chemin.parent.mkdir(parents=True, exist_ok=True)
-        chemin.touch()
+        path = tmp_path / relatif
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
     monkeypatch.setattr(
         adaptateur.importlib.util, "find_spec",
-        lambda _nom: SimpleNamespace(submodule_search_locations=[str(tmp_path)]),
+        lambda _name: SimpleNamespace(submodule_search_locations=[str(tmp_path)]),
     )
     return tmp_path
 
 
 class TestBibliothequesTrouvees:
     def test_toutes_les_bibliotheques_sont_rendues(self, roues):
-        noms = [chemin.name for chemin in adaptateur.bibliotheques_cuda()]
-        assert set(noms) == {"libcublasLt.so.12", "libcublas.so.12", "libcudnn.so.9",
+        names = [path.name for path in adaptateur.cuda_libraries()]
+        assert set(names) == {"libcublasLt.so.12", "libcublas.so.12", "libcudnn.so.9",
                              "libcudnn_graph.so.9", "libnvrtc.so.12"}
 
     def test_cublaslt_vient_avant_cublas(self, roues):
         """cuBLAS en dépend : chargée la première, elle ne la trouverait pas."""
-        noms = [chemin.name for chemin in adaptateur.bibliotheques_cuda()]
-        assert noms.index("libcublasLt.so.12") < noms.index("libcublas.so.12")
+        names = [path.name for path in adaptateur.cuda_libraries()]
+        assert names.index("libcublasLt.so.12") < names.index("libcublas.so.12")
 
     def test_sans_les_roues_il_n_y_a_rien_a_charger(self, monkeypatch):
         """Le cas ordinaire : elles ne servent qu'à une carte NVIDIA."""
-        monkeypatch.setattr(adaptateur.importlib.util, "find_spec", lambda _nom: None)
-        assert adaptateur.bibliotheques_cuda() == []
+        monkeypatch.setattr(adaptateur.importlib.util, "find_spec", lambda _name: None)
+        assert adaptateur.cuda_libraries() == []
 
     def test_un_paquet_sans_dossier_ne_fait_pas_echouer(self, monkeypatch):
         monkeypatch.setattr(
             adaptateur.importlib.util, "find_spec",
-            lambda _nom: SimpleNamespace(submodule_search_locations=None),
+            lambda _name: SimpleNamespace(submodule_search_locations=None),
         )
-        assert adaptateur.bibliotheques_cuda() == []
+        assert adaptateur.cuda_libraries() == []
 
 
 class TestChargement:
@@ -61,12 +61,12 @@ class TestChargement:
         renoncer à transcrire pour autant serait pire que lent."""
         essais = []
 
-        def chargeur_qui_tombe(chemin, **_options):
-            essais.append(chemin)
+        def chargeur_qui_tombe(path, **_options):
+            essais.append(path)
             raise OSError("format non reconnu")
 
         with pytest.MonkeyPatch.context() as patch:
             patch.setattr(adaptateur.ctypes, "CDLL", chargeur_qui_tombe)
-            adaptateur._montrer_cuda_au_chargeur()
+            adaptateur._show_cuda_to_the_loader()
 
         assert len(essais) == 5, "chaque bibliothèque doit avoir été tentée"

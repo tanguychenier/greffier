@@ -29,9 +29,9 @@ from pathlib import Path
 
 import pytest
 
-from greffier.adaptateurs.configuration import Config
-from greffier.application.traiter import Traitement
-from greffier.domaine.canaux import VOIX_LOCALE
+from greffier.adapters.configuration import Config
+from greffier.application.process import Chain
+from greffier.domain.channels import VOIX_LOCALE
 
 RACINE = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(RACINE / "outils"))
@@ -39,10 +39,10 @@ sys.path.insert(0, str(RACINE / "outils"))
 pytestmark = pytest.mark.integration
 
 
-def modeles_presents(config: Config) -> bool:
-    diarisation = config.chemins.modeles / "diarisation"
+def models_present(config: Config) -> bool:
+    diarisation = config.paths.models / "diarisation"
     return (
-        (config.chemins.modeles / "ggml-large-v3-turbo.bin").exists()
+        (config.paths.models / "ggml-large-v3-turbo.bin").exists()
         and (diarisation / "nemo_en_titanet_large.onnx").exists()
         and (diarisation / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx").exists()
     )
@@ -51,7 +51,7 @@ def modeles_presents(config: Config) -> bool:
 @pytest.fixture(scope="session")
 def config() -> Config:
     configuration = Config()
-    if not modeles_presents(configuration):
+    if not models_present(configuration):
         pytest.skip("modèles absents — lance outils/installer.py")
     if not shutil.which("whisper-cli"):
         pytest.skip("whisper.cpp absent")
@@ -68,40 +68,40 @@ def table(tmp_path_factory) -> Path:
 
 
 @pytest.fixture(scope="session")
-def resultat(config: Config, table: Path):
-    from greffier.composition import assembler
+def outcome(config: Config, table: Path):
+    from greffier.wiring import wire_up
 
-    config.compte_rendu.moteur = "aucun"
-    chaine: Traitement = assembler(config)
-    chaine.redacteur = None
-    return chaine.executer(table, envoyer=False)
+    config.minutes.engine = "aucun"
+    chaine: Chain = wire_up(config)
+    chaine.writer = None
+    return chaine.run_chain(table, send=False)
 
 
 class TestVerdictDeCanal:
     def test_la_fuite_dans_la_boucle_ne_fait_pas_conclure_visio(self, table: Path):
         import soundfile as sf
 
-        from greffier.adaptateurs.canaux_fichier import niveaux_par_trame
-        from greffier.domaine.canaux import en_visio
+        from greffier.adapters.channels_file import levels_per_frame
+        from greffier.domain.channels import over_video
 
-        donnees, frequence = sf.read(table, dtype="float32", always_2d=True)
-        assert donnees.shape[1] == 2, "le fichier d'essai doit être stéréo"
-        micro = niveaux_par_trame(donnees[:, 0], frequence)
-        boucle = niveaux_par_trame(donnees[:, 1], frequence)
+        data, frequency = sf.read(table, dtype="float32", always_2d=True)
+        assert data.shape[1] == 2, "le fichier d'essai doit être stéréo"
+        mic = levels_per_frame(data[:, 0], frequency)
+        boucle = levels_per_frame(data[:, 1], frequency)
         assert max(boucle) < -45.0, "la fuite doit rester sous le plancher de bruit"
-        assert not en_visio(micro, boucle)
+        assert not over_video(mic, boucle)
 
     def test_le_micro_sert_de_reference_aux_deux_canaux(self, table: Path):
         """En présentiel, la boucle n'a rien à apporter : on ne s'en sert plus."""
         import numpy as np
         import soundfile as sf
 
-        from greffier.adaptateurs.canaux_fichier import separer_canaux
+        from greffier.adapters.channels_file import separer_canaux
 
-        donnees, frequence = sf.read(table, dtype="float32", always_2d=True)
-        canaux = separer_canaux(donnees, frequence)
-        assert canaux.distante is False
-        assert np.array_equal(canaux.systeme, canaux.micro)
+        data, frequency = sf.read(table, dtype="float32", always_2d=True)
+        channels = separer_canaux(data, frequency)
+        assert channels.distante is False
+        assert np.array_equal(channels.system, channels.mic)
 
     def test_aucun_passage_n_est_declare_local(self, table: Path):
         """Le canal ne désigne personne : mieux vaut rien que « Toi » à tort.
@@ -111,52 +111,52 @@ class TestVerdictDeCanal:
         une seule et même personne — mesuré : trois locuteurs ramenés à une
         étiquette « moi ».
         """
-        from greffier.adaptateurs.canaux_fichier import LecteurCanauxFichier
+        from greffier.adapters.channels_file import LecteurCanauxFichier
 
-        assert LecteurCanauxFichier().passages_locaux(table) == []
+        assert LecteurCanauxFichier().local_passages(table) == []
 
 
 class TestChaineEnPresentiel:
-    def test_la_reunion_est_transcrite(self, resultat):
-        assert resultat.mots > 60, "la transcription a perdu l'essentiel du dialogue"
+    def test_la_reunion_est_transcrite(self, outcome):
+        assert outcome.words > 60, "la transcription a perdu l'essentiel du dialogue"
 
-    def test_personne_n_est_etiquete_comme_la_voix_locale(self, resultat):
+    def test_personne_n_est_etiquete_comme_la_voix_locale(self, outcome):
         """Le défaut que le présentiel pouvait faire apparaître, en toutes lettres."""
-        assert VOIX_LOCALE not in resultat.temps_de_parole()
+        assert VOIX_LOCALE not in outcome.speaking_time()
 
-    def test_les_participants_ne_sont_pas_fondus_en_une_seule_voix(self, resultat):
+    def test_les_participants_ne_sont_pas_fondus_en_une_seule_voix(self, outcome):
         """Trois personnes autour d'une table restent plusieurs voix.
 
         Le compte exact dépend du timbre des voix de synthèse — deux d'entre
         elles se ressemblent assez pour être recollées — donc on vérifie qu'on
         n'a ni une seule voix, ni un participant par réplique.
         """
-        significatives = resultat.voix_significatives()
-        assert 2 <= len(significatives) <= len(resultat.repliques)
+        significatives = outcome.significant_voices()
+        assert 2 <= len(significatives) <= len(outcome.utterances)
 
-    def test_les_fragments_ne_comptent_pas_comme_des_participants(self, resultat):
-        assert all(duree >= 10 for duree in resultat.voix_significatives().values())
+    def test_les_fragments_ne_comptent_pas_comme_des_participants(self, outcome):
+        assert all(duration >= 10 for duration in outcome.significant_voices().values())
 
-    def test_l_auto_presentation_reste_juste_sans_le_secours_du_canal(self, resultat):
+    def test_l_auto_presentation_reste_juste_sans_le_secours_du_canal(self, outcome):
         """« moi c'est Jacques » désigne celui qui parle, canal ou pas."""
-        assert resultat.nom_de(resultat.repliques[0].voix) == "Jacques"
+        assert outcome.nom_de(outcome.utterances[0].voice) == "Jacques"
 
-    def test_aucune_phrase_a_cheval_n_est_attribuee(self, resultat):
+    def test_aucune_phrase_a_cheval_n_est_attribuee(self, outcome):
         """Une phrase que deux voix se partagent ne doit désigner personne.
 
         C'est la règle de `domaine/attribution.py`, éprouvée ici sur la vraie
         chaîne : rien ne garantit que la découpe de whisper tombe sur un
         changement de locuteur, et le présentiel n'a pas le canal pour rattraper.
         """
-        from greffier.domaine.attribution import PART_MINIMALE, temps_par_voix
+        from greffier.domain.attribution import PART_MINIMALE, time_per_voice
 
-        for replique in resultat.repliques:
-            cumuls = temps_par_voix(replique.intervalle, resultat.tours)
+        for utterance in outcome.utterances:
+            cumuls = time_per_voice(utterance.span, outcome.turns)
             if not cumuls:
                 continue
             part = max(cumuls.values()) / sum(cumuls.values())
             if part < PART_MINIMALE:
-                assert replique.voix is None, (
-                    f"« {replique.texte[:40]} » est partagée à {part:.0%} "
+                assert utterance.voice is None, (
+                    f"« {utterance.text[:40]} » est partagée à {part:.0%} "
                     "et se voit pourtant attribuer une voix"
                 )
