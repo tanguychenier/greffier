@@ -58,7 +58,7 @@ class TestVoixANommer:
         assert longue.part == 1.0
 
 
-class DepotFactice:
+class FakeStore:
     def __init__(self, meeting):
         self.meeting = meeting
         self.ecritures = 0
@@ -71,7 +71,7 @@ class DepotFactice:
         self.ecritures += 1
 
 
-class BanqueFactice:
+class FakeBank:
     def __init__(self):
         self.ajouts = []
 
@@ -82,7 +82,7 @@ class BanqueFactice:
         self.ajouts.append(name)
 
 
-class ExtracteurFactice:
+class FakeExtractor:
     def extract_spans(self, _audio, intervalles):
         from greffier.domain.voiceprints import normalise
 
@@ -92,8 +92,8 @@ class ExtracteurFactice:
 def nommage_factice(meeting):
     from greffier.application.name_voice import Naming
 
-    store = DepotFactice(meeting)
-    return Naming(store=store, bank=BanqueFactice(), extractor=ExtracteurFactice())
+    store = FakeStore(meeting)
+    return Naming(store=store, bank=FakeBank(), extractor=FakeExtractor())
 
 
 class TestNommerReunitLesVoix:

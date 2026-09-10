@@ -6,7 +6,7 @@ from greffier.application.map_subjects import UnreadableOutput, analyser, extrac
 from greffier.domain.board import Kind, Standing
 
 
-class RedacteurFactice:
+class FakeWriter:
     def __init__(self, rendered: str) -> None:
         self.rendered = rendered
         self.recu = ""
@@ -94,7 +94,7 @@ class TestPrudenceSurLEtat:
 
 class TestExtraction:
     def test_le_sujet_et_la_matiere_sont_transmis(self):
-        writer = RedacteurFactice('[{"texte": "Un point"}]')
+        writer = FakeWriter('[{"texte": "Un point"}]')
         extract(writer, "Oasis", "On a parlé d'Oasis longuement.")
         assert "Oasis" in writer.recu
         assert "On a parlé d'Oasis longuement." in writer.recu
@@ -105,12 +105,12 @@ class TestExtraction:
         Répétées ici, elles arrivaient après celles du compte rendu et le
         modèle suivait les premières.
         """
-        writer = RedacteurFactice('[{"texte": "Un point"}]')
+        writer = FakeWriter('[{"texte": "Un point"}]')
         extract(writer, "Oasis", "matière")
         assert "Tu extrais" not in writer.recu
 
     def test_une_matiere_vide_n_appelle_pas_le_redacteur(self):
-        writer = RedacteurFactice("[]")
+        writer = FakeWriter("[]")
         assert extract(writer, "Oasis", "   ") == []
         assert writer.recu == "", "aucun appel ne doit partir"
 
@@ -136,18 +136,18 @@ class TestCompleterSansDupliquer:
     """
 
     def test_les_libelles_existants_sont_donnes_au_redacteur(self):
-        writer = RedacteurFactice('[{"texte": "Un point"}]')
+        writer = FakeWriter('[{"texte": "Un point"}]')
         extract(writer, "Oasis", "matière",
                  deja=("Pré-production du client en retard de deux versions",))
         assert "Pré-production du client en retard" in writer.recu
 
     def test_il_lui_est_demande_de_les_reprendre_mot_pour_mot(self):
-        writer = RedacteurFactice("[]")
+        writer = FakeWriter("[]")
         extract(writer, "Oasis", "matière", deja=("Un point existant",))
         assert "mot pour mot" in writer.recu
 
     def test_sans_carte_existante_rien_n_est_ajoute_a_l_invite(self):
-        writer = RedacteurFactice("[]")
+        writer = FakeWriter("[]")
         extract(writer, "Oasis", "matière")
         assert "Déjà sur la carte" not in writer.recu
 

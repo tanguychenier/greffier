@@ -20,7 +20,7 @@ def source(droit: Right = Right.LECTURE) -> Source:
     )
 
 
-class Reponse(BytesIO):
+class Response(BytesIO):
     def __enter__(self):
         return self
 
@@ -28,14 +28,14 @@ class Reponse(BytesIO):
         return False
 
 
-class FauxJira:
+class FakeJira:
     def __init__(self) -> None:
         self.appels: list = []
         self.charge: object = {"issues": []}
 
     def __call__(self, requete, timeout=None):
         self.appels.append(requete)
-        return Reponse(json.dumps(self.charge).encode("utf-8"))
+        return Response(json.dumps(self.charge).encode("utf-8"))
 
     @property
     def premier(self):
@@ -43,8 +43,8 @@ class FauxJira:
 
 
 @pytest.fixture
-def jira(monkeypatch) -> FauxJira:
-    faux = FauxJira()
+def jira(monkeypatch) -> FakeJira:
+    faux = FakeJira()
     monkeypatch.setattr(jira_api.urllib.request, "urlopen", faux)
     return faux
 

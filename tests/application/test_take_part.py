@@ -9,7 +9,7 @@ def dit(text, start=10.0, end=12.0):
     return Utterance(span=Span(start, end), text=text)
 
 
-class VoixFactice:
+class FakeVoiceAdapter:
     def __init__(self, marche=True):
         self.marche = marche
         self.remark = []
@@ -25,7 +25,7 @@ class VoixFactice:
         return False
 
 
-class CerveauFactice:
+class FakeBrain:
     """Comme `RedacteurClaude` : il porte des consignes qu'on remplace.
 
     L'attribut compte : `_interroger` s'en sert pour poser des consignes le
@@ -59,7 +59,7 @@ class TestEtreAppele:
 
     def test_il_repond_par_la_voix_et_laisse_une_trace(self):
         traces = []
-        voice, cerveau = VoixFactice(), CerveauFactice()
+        voice, cerveau = FakeVoiceAdapter(), FakeBrain()
         assistant = AssistantSettings(name="Lucie", voice=voice, cerveau=cerveau,
                                 tracer=lambda qui, quoi: traces.append((qui, quoi)))
         opening = Opening(because=Because.APPELE, remark="tu nous entends ?", born_at=10.0)
@@ -71,7 +71,7 @@ class TestEtreAppele:
     def test_sans_voix_il_participe_quand_meme_par_ecrit(self):
         """Tout le monde ne veut pas d'une voix dans la pièce."""
         traces = []
-        assistant = AssistantSettings(name="Lucie", cerveau=CerveauFactice(),
+        assistant = AssistantSettings(name="Lucie", cerveau=FakeBrain(),
                                 tracer=lambda qui, quoi: traces.append(quoi))
         rendered = assistant.answer(
             Opening(because=Because.APPELE, remark="?", born_at=1.0), now=2.0)
@@ -137,7 +137,7 @@ class TestLeCycleQuiVautDExister:
 
     def test_demander_qui_parle_ne_demande_pas_de_modele(self):
         """Cette question doit être immédiate : rien de distant ne la formule."""
-        assistant = AssistantSettings(name="Lucie", voice=VoixFactice())
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter())
         question = assistant.ask_who_is_speaking("7", now=50.0)
         rendered = assistant.answer(question, now=50.0)
         assert "prénom" in rendered.remark and assistant.cerveau is None
@@ -174,12 +174,12 @@ class TestPolitesse:
 
 class TestEchecs:
     def test_un_cerveau_muet_ne_fait_rien_prononcer(self):
-        class Casse:
+        class Broken:
             def write_up(self, _):
                 raise RuntimeError("modèle absent")
 
-        voice = VoixFactice()
-        assistant = AssistantSettings(name="Lucie", voice=voice, cerveau=Casse())
+        voice = FakeVoiceAdapter()
+        assistant = AssistantSettings(name="Lucie", voice=voice, cerveau=Broken())
         rendered = assistant.answer(
             Opening(because=Because.APPELE, remark="?", born_at=1.0), now=2.0)
         assert rendered == Remark(remark="", because=Because.APPELE, a=2.0)
@@ -188,8 +188,8 @@ class TestEchecs:
     def test_une_synthese_qui_echoue_laisse_la_trace_ecrite(self):
         """Ce qu'il avait à dire ne se perd pas parce que le son a manqué."""
         traces = []
-        assistant = AssistantSettings(name="Lucie", voice=VoixFactice(marche=False),
-                                cerveau=CerveauFactice(),
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(marche=False),
+                                cerveau=FakeBrain(),
                                 tracer=lambda qui, quoi: traces.append(quoi))
         rendered = assistant.answer(
             Opening(because=Because.APPELE, remark="?", born_at=1.0), now=2.0)
@@ -205,7 +205,7 @@ class TestUnProposDejaEcritNeRepasseParPersonne:
     """
 
     def test_le_remerciement_est_prononce_mot_pour_mot(self):
-        voice, cerveau = VoixFactice(), CerveauFactice("Parfait, je vous laisse.")
+        voice, cerveau = FakeVoiceAdapter(), FakeBrain("Parfait, je vous laisse.")
         assistant = AssistantSettings(
             name="Lucie", voice=voice, cerveau=cerveau,
             name_voice=lambda _v, _p: True,
@@ -219,15 +219,15 @@ class TestUnProposDejaEcritNeRepasseParPersonne:
 
     def test_la_question_sur_une_voix_ne_passe_pas_non_plus(self):
         """Elle doit être immédiate : rien de distant ne la formule."""
-        cerveau = CerveauFactice("autre chose")
-        assistant = AssistantSettings(name="Lucie", voice=VoixFactice(), cerveau=cerveau)
+        cerveau = FakeBrain("autre chose")
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), cerveau=cerveau)
         question = assistant.ask_who_is_speaking("7", now=50.0)
         rendered = assistant.answer(question, now=50.0)
         assert "prénom" in rendered.remark and cerveau.requests == []
 
     def test_une_vraie_question_passe_toujours_par_le_modele(self):
-        cerveau = CerveauFactice("Oui, je vous entends.")
-        assistant = AssistantSettings(name="Lucie", voice=VoixFactice(), cerveau=cerveau,
+        cerveau = FakeBrain("Oui, je vous entends.")
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), cerveau=cerveau,
                                 context=lambda: "réunion")
         rendered = assistant.answer(
             Opening(because=Because.APPELE, remark="tu nous entends ?", born_at=1.0),
@@ -240,8 +240,8 @@ class TestLEchangeSePoursuit:
     distrait, et laisse celui qui a répondu se demander s'il a été entendu."""
 
     def test_elle_reagit_a_la_reponse_qu_on_lui_fait(self):
-        cerveau = CerveauFactice("Très bien, donc c'est Hugo qui s'en occupe.")
-        assistant = AssistantSettings(name="Lucie", voice=VoixFactice(), cerveau=cerveau)
+        cerveau = FakeBrain("Très bien, donc c'est Hugo qui s'en occupe.")
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), cerveau=cerveau)
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte la migration ?", born_at=100.0)
         suite = assistant.turn([dit("c'est Hugo qui prend", 104.0, 106.0)],
@@ -252,8 +252,8 @@ class TestLEchangeSePoursuit:
 
     def test_la_question_posee_est_donnee_au_modele(self):
         """Sans elle, il réagirait à une réponse dont il ignore la question."""
-        cerveau = CerveauFactice("…")
-        assistant = AssistantSettings(name="Lucie", voice=VoixFactice(), cerveau=cerveau)
+        cerveau = FakeBrain("…")
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), cerveau=cerveau)
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte la migration ?", born_at=100.0)
         assistant.turn([dit("Hugo", 104.0, 106.0)], now=109.0)
@@ -261,23 +261,23 @@ class TestLEchangeSePoursuit:
 
     def test_un_rien_la_fait_se_taire(self):
         """Deux répliques de plus feraient d'elle un participant de trop."""
-        assistant = AssistantSettings(name="Lucie", voice=VoixFactice(),
-                                cerveau=CerveauFactice("RIEN"))
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(),
+                                cerveau=FakeBrain("RIEN"))
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte la migration ?", born_at=100.0)
         assert assistant.turn([dit("bon, on passe", 104.0, 106.0)],
                               now=109.0) is None
 
     def test_sans_cerveau_elle_ne_poursuit_pas(self):
-        assistant = AssistantSettings(name="Lucie", voice=VoixFactice())
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter())
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte ça ?", born_at=100.0)
         assert assistant.turn([dit("Hugo", 104.0, 106.0)], now=109.0) is None
 
     def test_elle_n_attend_pas_indefiniment(self):
         """Une phrase quelconque referme l'attente : on ne guette pas sans fin."""
-        assistant = AssistantSettings(name="Lucie", voice=VoixFactice(),
-                                cerveau=CerveauFactice("RIEN"))
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(),
+                                cerveau=FakeBrain("RIEN"))
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte ça ?", born_at=100.0)
         assistant.turn([dit("autre chose", 104.0, 106.0)], now=109.0)
@@ -293,8 +293,8 @@ class TestElleContinueTantQuElleADesQuestions:
 
     def test_une_question_de_suite_garde_l_echange_ouvert(self):
         assistant = AssistantSettings(
-            name="Lucie", voice=VoixFactice(),
-            cerveau=CerveauFactice("Et qui valide, une fois que c'est fait ?"))
+            name="Lucie", voice=FakeVoiceAdapter(),
+            cerveau=FakeBrain("Et qui valide, une fois que c'est fait ?"))
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte la migration ?", born_at=100.0)
         suite = assistant.turn([dit("Hugo s'en charge", 104.0, 106.0)],
@@ -304,8 +304,8 @@ class TestElleContinueTantQuElleADesQuestions:
 
     def test_une_conclusion_referme_l_echange(self):
         assistant = AssistantSettings(
-            name="Lucie", voice=VoixFactice(),
-            cerveau=CerveauFactice("Très bien, c'est noté."))
+            name="Lucie", voice=FakeVoiceAdapter(),
+            cerveau=FakeBrain("Très bien, c'est noté."))
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte la migration ?", born_at=100.0)
         assistant.turn([dit("Hugo s'en charge", 104.0, 106.0)], now=109.0)
@@ -318,8 +318,8 @@ class TestElleContinueTantQuElleADesQuestions:
         réponse pendant trois minutes, ce qui est pire que de ne rien demander.
         """
         assistant = AssistantSettings(
-            name="Lucie", voice=VoixFactice(),
-            cerveau=CerveauFactice("Et pour quand ?"))
+            name="Lucie", voice=FakeVoiceAdapter(),
+            cerveau=FakeBrain("Et pour quand ?"))
         assistant.manners.has_spoken(
             Opening(because=Because.CONTRIBUTION, remark="Qui porte ça ?", born_at=100.0),
             now=100.0)

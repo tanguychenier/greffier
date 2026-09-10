@@ -26,7 +26,7 @@ pytestmark = pytest.mark.integration
 PHRASE = "Lucie, est-ce que tu peux nous rappeler ce qui reste à faire ?"
 
 
-class VoixFactice:
+class FakeVoiceAdapter:
     def __init__(self):
         self.remark = []
 
@@ -41,7 +41,7 @@ class VoixFactice:
         return False
 
 
-class CerveauFactice:
+class FakeBrain:
     """Le cerveau est doublé : on éprouve le montage, pas le modèle distant."""
 
     def __init__(self):
@@ -77,7 +77,7 @@ def test_appele_pendant_la_reunion_il_repond(meeting, tmp_path):
     if transcriber is None:
         pytest.skip("aucun modèle de transcription installé")
 
-    voice, cerveau = VoixFactice(), CerveauFactice()
+    voice, cerveau = FakeVoiceAdapter(), FakeBrain()
     assistant = AssistantSettings(
         name="Lucie", voice=voice, cerveau=cerveau,
         # Un creux large : le fichier s'arrête sur la phrase, donc la fin de la
@@ -120,14 +120,14 @@ def test_la_transcription_n_attend_pas_la_reponse(meeting, tmp_path):
 
     parti = threading.Event()
 
-    class CerveauLent(CerveauFactice):
+    class SlowBrain(FakeBrain):
         def write_up(self, text):
             parti.set()
             time.sleep(5.0)
             return "…"
 
     assistant = AssistantSettings(
-        name="Lucie", voice=VoixFactice(), cerveau=CerveauLent(),
+        name="Lucie", voice=FakeVoiceAdapter(), cerveau=SlowBrain(),
         manners=Manners(creux_minimal=0.0),
         context=lambda: "Réunion.",
     )
@@ -167,7 +167,7 @@ def test_une_phrase_ordinaire_ne_le_fait_pas_parler(tmp_path):
                     str(brut), "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le",
                     str(audio)], check=False, capture_output=True)
 
-    voice = VoixFactice()
+    voice = FakeVoiceAdapter()
     assistant = AssistantSettings(name="Lucie", voice=voice, manners=Manners(creux_minimal=0.0))
     import soundfile
 
@@ -211,3 +211,54 @@ def test_la_raison_de_parler_est_l_appel(meeting, tmp_path):
     retenue = assistant.turn(utterances, now=max(
         r.span.end for r in utterances) + 1.0)
     assert retenue is not None and retenue.because is Because.APPELE
+
+
+@pytest.mark.integration
+class TestLaBoucleSurUnFilReel:
+    """La boucle du transcripteur, sur le fil d'une vraie réunion.
+
+    Reconstitué depuis le fil du 2026-09-10 à 13 h 08, tel qu'il a été publié :
+    cent vingt-cinq tours dont soixante-cinq de répétition, quatre boucles
+    distinctes, la plus longue de douze segments d'une seconde.
+    """
+
+    #: Les quatre boucles réellement observées, dans l'ordre du fil.
+    OBSERVE = [
+        ("Est-ce que tu entends Lucie ?", 30.0, 11),
+        ("- C'est ça qu'on va faire.", 125.0, 12),
+        ("Je vais vous créer la vache.", 166.0, 11),
+        ("Est-ce que tu n'as pas fait ?", 41.0, 9),
+    ]
+
+    def _fil(self):
+        from greffier.domain.models import Span, Utterance
+
+        dites = []
+        for texte, depart, combien in self.OBSERVE:
+            dites += [
+                Utterance(span=Span(depart + i, depart + i + 1), text=texte)
+                for i in range(combien)
+            ]
+        return sorted(dites, key=lambda u: u.span.start)
+
+    def test_les_quatre_boucles_se_replient(self):
+        from greffier.domain.boilerplate import collapse_loops
+
+        avant = self._fil()
+        apres = collapse_loops(avant)
+        assert len(avant) == 43
+        assert len(apres) == 4, [u.text for u in apres]
+
+    def test_chaque_phrase_gardee_couvre_son_passage(self):
+        from greffier.domain.boilerplate import collapse_loops
+
+        for gardee in collapse_loops(self._fil()):
+            attendu = next(c for t, _d, c in self.OBSERVE if t == gardee.text)
+            assert gardee.span.end - gardee.span.start == attendu
+
+    def test_le_fil_publie_ne_porte_plus_la_repetition(self):
+        """Ce que la fenêtre affiche : une ligne par phrase dite."""
+        from greffier.domain.boilerplate import collapse_loops
+
+        textes = [u.text for u in collapse_loops(self._fil())]
+        assert len(textes) == len(set(textes))

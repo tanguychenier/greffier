@@ -9,7 +9,7 @@ from greffier.application.record import RecorderState, Recording, _identifier
 from greffier.domain.models import Phase
 
 
-class EnregistreurFactice:
+class FakeRecorder:
     def __init__(self, pid=4242):
         self.pid = pid
         self.demarre = []
@@ -37,7 +37,7 @@ class EnregistreurFactice:
 
 @pytest.fixture
 def audio_recorder():
-    return EnregistreurFactice()
+    return FakeRecorder()
 
 
 @pytest.fixture
@@ -100,7 +100,7 @@ class TestCycle:
         """Deux commandes séparées d'une heure : l'état est sur le disque."""
         recorder.start_recording("copil")
         autre = Recording(
-            audio_recorder=EnregistreurFactice(),
+            audio_recorder=FakeRecorder(),
             dossier_audio=tmp_path / "enregistrements",
             fichier_etat=tmp_path / "etat.json",
         )
@@ -318,7 +318,7 @@ class TestJournalParReunion:
         from greffier.application.record import RecorderState, Recording
         from greffier.domain.models import Phase
 
-        class EnregistreurMuet:
+        class SilentRecorder:
             def start_recording(self, destination):
                 return 1
 
@@ -335,7 +335,7 @@ class TestJournalParReunion:
                 return []
 
         recorder = Recording(
-            EnregistreurMuet(), tmp_path / "audio", tmp_path / "etat.json"
+            SilentRecorder(), tmp_path / "audio", tmp_path / "etat.json"
         )
         if identifier:
             # Un processus vivant, sans quoi `lire` déclare l'enregistrement
@@ -385,7 +385,7 @@ class TestEtatFigeParUnProcessusMort:
 
     def _state(self, tmp_path, phase, pid):
         recorder = Recording(
-            audio_recorder=EnregistreurFactice(),
+            audio_recorder=FakeRecorder(),
             dossier_audio=tmp_path / "audio",
             fichier_etat=tmp_path / "etat.json",
         )

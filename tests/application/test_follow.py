@@ -37,7 +37,7 @@ def utterance(start: float, end: float, text: str = "on cale la recette jeudi") 
     return Utterance(span=Span(start, end), text=text)
 
 
-class CanauxDits:
+class StatedChannels:
     """Dit d'avance quels passages viennent du micro."""
 
     def __init__(self, locaux: list[Span] | None = None) -> None:
@@ -47,7 +47,7 @@ class CanauxDits:
         return self.locaux
 
 
-class ExtracteurDeSuite:
+class SequenceExtractor:
     """Rend les empreintes préparées, et retient ce qu'on lui a demandé."""
 
     def __init__(self, voiceprints: list[Voiceprint] | None = None) -> None:
@@ -61,7 +61,7 @@ class ExtracteurDeSuite:
         return [self.voiceprints.pop(0)] if self.voiceprints else []
 
 
-class BanqueEnMemoire:
+class InMemoryBank:
     def __init__(self, connues: list[Person] | None = None) -> None:
         self.connues = list(connues or [])
         self.recues: list[tuple[str, Voiceprint]] = []
@@ -79,7 +79,7 @@ class BanqueEnMemoire:
 def follower(tmp_path: Path, **overrides: object) -> Follower:
     log, requests = files(tmp_path, "2026-08-27_10h00_reunion")
     defauts: dict[str, object] = dict(
-        thread=LiveThread(), log=log, requests=requests, channels=CanauxDits()
+        thread=LiveThread(), log=log, requests=requests, channels=StatedChannels()
     )
     defauts.update(overrides)
     return Follower(**defauts)  # type: ignore[arg-type]
@@ -156,10 +156,10 @@ class TestPublication:
         assert [x["numero"] for x in lines] == [1, 2]
 
     def test_le_micro_affiche_toi_sans_consulter_de_modele(self, tmp_path: Path) -> None:
-        extractor = ExtracteurDeSuite()
+        extractor = SequenceExtractor()
         instance = follower(
             tmp_path,
-            channels=CanauxDits([Span(0, 4)]),
+            channels=StatedChannels([Span(0, 4)]),
             extractor=extractor,
         )
         instance.take_in(tmp_path / "tranche.wav", [utterance(0, 4)], decalage=0.0)
@@ -172,7 +172,7 @@ class TestPublication:
     def test_l_empreinte_est_prelevee_aux_temps_de_la_tranche(self, tmp_path: Path) -> None:
         # L'affichage est à l'heure de la réunion, l'audio découpé ne l'est pas :
         # prélever à 1802 s dans une tranche de 10 s ne donnerait rien.
-        extractor = ExtracteurDeSuite([voiceprint(1, 0)])
+        extractor = SequenceExtractor([voiceprint(1, 0)])
         instance = follower(tmp_path, extractor=extractor)
         instance.take_in(tmp_path / "tranche.wav", [utterance(2, 9)], decalage=1800.0)
         assert extractor.requests[0][0].start == 2.0
@@ -182,10 +182,10 @@ class TestPublication:
         # La transcription coupe à la phrase, pas au changement de locuteur : un
         # passage distant peut porter la fin d'une phrase locale. Prélever sur le
         # tout mêlait deux voix, et faisait de la même personne deux participants.
-        extractor = ExtracteurDeSuite([voiceprint(1, 0)])
+        extractor = SequenceExtractor([voiceprint(1, 0)])
         instance = follower(
             tmp_path,
-            channels=CanauxDits([Span(9.5, 13.8)]),
+            channels=StatedChannels([Span(9.5, 13.8)]),
             extractor=extractor,
         )
         instance.take_in(tmp_path / "tranche.wav", [utterance(13.2, 14.7)], decalage=0.0)
@@ -209,17 +209,17 @@ class TestPublication:
         instance = follower(
             tmp_path,
             thread=LiveThread(connues=[marc]),
-            extractor=ExtracteurDeSuite([voiceprint(1, 0)]),
+            extractor=SequenceExtractor([voiceprint(1, 0)]),
         )
         instance.take_in(tmp_path / "tranche.wav", [utterance(0, 8)], decalage=0.0)
         assert lignes_du(instance.log)[0]["nom"] == "Marc"
 
     def test_un_modele_qui_tombe_n_interrompt_pas_la_reunion(self, tmp_path: Path) -> None:
-        class Casse:
+        class Broken:
             def extract_spans(self, audio: Path, intervalles: list[Span]):
                 raise RuntimeError("BroadcastIterator::Init")
 
-        instance = follower(tmp_path, extractor=Casse())
+        instance = follower(tmp_path, extractor=Broken())
         instance.take_in(tmp_path / "tranche.wav", [utterance(0, 8)], decalage=0.0)
         # La phrase s'affiche sans nom, et se corrige d'un clic.
         assert len(instance.thread.turns) == 1
@@ -229,8 +229,8 @@ class TestCorrectionsRecues:
     def _un_fil(self, tmp_path: Path) -> Follower:
         instance = follower(
             tmp_path,
-            extractor=ExtracteurDeSuite([voiceprint(1, 0)]),
-            bank=BanqueEnMemoire(),
+            extractor=SequenceExtractor([voiceprint(1, 0)]),
+            bank=InMemoryBank(),
         )
         instance.take_in(tmp_path / "tranche.wav", [utterance(0, 8)], decalage=0.0)
         return instance
@@ -257,10 +257,10 @@ class TestCorrectionsRecues:
     def test_une_correction_verse_l_empreinte_en_banque(self, tmp_path: Path) -> None:
         # Le point de tout l'échange : corriger une fois pendant la réunion, et
         # que le compte rendu final retrouve la personne tout seul.
-        bank = BanqueEnMemoire()
+        bank = InMemoryBank()
         instance = follower(
             tmp_path,
-            extractor=ExtracteurDeSuite([voiceprint(1, 0)]),
+            extractor=SequenceExtractor([voiceprint(1, 0)]),
             bank=bank,
         )
         instance.take_in(tmp_path / "tranche.wav", [utterance(0, 8)], decalage=0.0)
@@ -271,8 +271,8 @@ class TestCorrectionsRecues:
     def test_toi_n_entre_jamais_en_banque(self, tmp_path: Path) -> None:
         # Le micro identifie déjà la personne qui enregistre : stocker sa voix
         # comme celle d'un participant n'apporterait rien et l'exposerait.
-        bank = BanqueEnMemoire()
-        instance = follower(tmp_path, channels=CanauxDits([Span(0, 8)]), bank=bank)
+        bank = InMemoryBank()
+        instance = follower(tmp_path, channels=StatedChannels([Span(0, 8)]), bank=bank)
         instance.take_in(tmp_path / "tranche.wav", [utterance(0, 8)], decalage=0.0)
         ask(instance.requests, number=1, name="Tanguy")
         instance.apply_requests()
@@ -288,10 +288,10 @@ class TestCorrectionsRecues:
         correction : elle s'affichait, puis ne servait ni à la réunion suivante
         ni au compte rendu.
         """
-        bank = BanqueEnMemoire()
+        bank = InMemoryBank()
         instance = follower(
             tmp_path,
-            extractor=ExtracteurDeSuite(
+            extractor=SequenceExtractor(
                 # 2,5 s : de quoi fonder une voix (le plancher est à 2,0 s,
                 # mesuré) mais pas de quoi la verser en banque.
                 [voiceprint(1, 0, duration=2.5), voiceprint(0.95, 0.31, duration=4.0)]
@@ -308,10 +308,10 @@ class TestCorrectionsRecues:
         assert [name for name, _ in bank.recues] == ["Sandy"]
 
     def test_une_voix_n_est_apprise_qu_une_fois(self, tmp_path: Path) -> None:
-        bank = BanqueEnMemoire()
+        bank = InMemoryBank()
         instance = follower(
             tmp_path,
-            extractor=ExtracteurDeSuite([voiceprint(1, 0), voiceprint(0.95, 0.31)]),
+            extractor=SequenceExtractor([voiceprint(1, 0), voiceprint(0.95, 0.31)]),
             bank=bank,
         )
         instance.take_in(tmp_path / "t1.wav", [utterance(0, 8)], decalage=0.0)
@@ -335,8 +335,8 @@ class TestCorrectionsRecues:
     def test_les_phrases_suivantes_portent_le_nom_corrige(self, tmp_path: Path) -> None:
         instance = follower(
             tmp_path,
-            extractor=ExtracteurDeSuite([voiceprint(1, 0), voiceprint(0.9, 0.44)]),
-            bank=BanqueEnMemoire(),
+            extractor=SequenceExtractor([voiceprint(1, 0), voiceprint(0.9, 0.44)]),
+            bank=InMemoryBank(),
         )
         instance.take_in(tmp_path / "t1.wav", [utterance(0, 8)], decalage=0.0)
         ask(instance.requests, number=1, name="Marc")
@@ -346,7 +346,7 @@ class TestCorrectionsRecues:
 
 class TestRejouerPourAfficher:
     def test_le_fil_se_reconstruit_depuis_le_journal(self, tmp_path: Path) -> None:
-        instance = follower(tmp_path, extractor=ExtracteurDeSuite([voiceprint(1, 0)]))
+        instance = follower(tmp_path, extractor=SequenceExtractor([voiceprint(1, 0)]))
         instance.take_in(
             tmp_path / "t.wav", [utterance(0, 4, "bonjour"), utterance(4, 8)], decalage=0.0
         )
@@ -359,8 +359,8 @@ class TestRejouerPourAfficher:
     ) -> None:
         instance = follower(
             tmp_path,
-            extractor=ExtracteurDeSuite([voiceprint(1, 0)]),
-            bank=BanqueEnMemoire(),
+            extractor=SequenceExtractor([voiceprint(1, 0)]),
+            bank=InMemoryBank(),
         )
         instance.take_in(tmp_path / "t.wav", [utterance(0, 8)], decalage=0.0)
         ask(instance.requests, number=1, name="Marc")
@@ -414,8 +414,8 @@ class TestSeparationEntreLesDeuxProcessus:
     def _deux_voix_reunies(self, tmp_path: Path) -> Follower:
         instance = follower(
             tmp_path,
-            extractor=ExtracteurDeSuite([voiceprint(1, 0), voiceprint(0, 1)]),
-            bank=BanqueEnMemoire(),
+            extractor=SequenceExtractor([voiceprint(1, 0), voiceprint(0, 1)]),
+            bank=InMemoryBank(),
         )
         instance.take_in(
             tmp_path / "un.wav", [utterance(0, 8, "on cale la recette jeudi")],
