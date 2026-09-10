@@ -1,20 +1,7 @@
-"""Reconstruire une réunion depuis le seul fil du direct.
+"""Rebuilding a meeting from the live thread alone.
 
-Le fil s'écrit tour par tour pendant la réunion, mais il ne devient une réunion
-qu'au traitement final. Si celui-ci ne démarre jamais — c'est arrivé le
-2026-09-09, un traitement lancé à côté ayant fait croire à la fenêtre que la
-réunion était finie — il reste un fichier `.jsonl` que rien ne sait lire :
-l'onglet Réunions ne montre rien, aucun compte rendu ne peut s'écrire, et
-pourtant tout ce qui a été dit est là.
-
-Ce que cette reconstruction rend est **moins bon** qu'un traitement, et il faut
-le dire : la transcription vient du modèle rapide du direct, les voix ne sont
-pas recollées par empreinte, et une phrase à cheval sur deux locuteurs n'a pas
-été arbitrée. Mais une réunion imparfaite existe, se relit, et son compte rendu
-s'écrit. C'est la différence entre approximatif et perdu.
-
-Ce module ne lit aucun fichier : il reçoit des lignes déjà relues et rend une
-réunion.
+The last resort when the audio is gone: the thread holds what was said and who
+said it, which is enough for minutes.
 """
 
 from __future__ import annotations
@@ -39,12 +26,7 @@ def depuis_le_fil(
     lines: list[dict[str, Any]],
     audio: Path | None = None,
 ) -> StoredMeeting:
-    """La réunion que ce fil permet de reconstituer.
-
-    Les corrections humaines du fil sont rejouées : c'est justement ce que le
-    direct apporte de mieux qu'une transcription brute — quelqu'un a nommé des
-    voix pendant la réunion, et ce travail ne doit pas se perdre.
-    """
+    """The meeting this thread makes it possible to reconstitute."""
     thread = LiveThread()
     from greffier.application.follow import replay
 
@@ -92,13 +74,7 @@ def depuis_le_fil(
     )
 
 def join_spans(turns: list[SpeakerTurn]) -> list[SpeakerTurn]:
-    """Recolle les tours consécutifs d'une même voix.
-
-    Le direct découpe par tranche de dix secondes, donc une personne qui parle
-    une minute produit six tours. Les garder tels quels ferait compter six
-    prises de parole là où il y en a une, ce qui faussé le temps de parole et
-    le nombre de participants.
-    """
+    """Stitches together consecutive turns of one voice."""
     if not turns:
         return []
     recolles = [SpeakerTurn(turns[0].span, turns[0].voice, turns[0].source)]

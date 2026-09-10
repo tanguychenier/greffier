@@ -1,20 +1,4 @@
-"""Tirer d'une réunion les points qui nourrissent la carte d'un sujet.
-
-Ce que le rédacteur sait faire — distinguer un problème d'une piste, une
-décision d'une intention — est exactement ce qu'il faut ici, et c'est hors de
-portée d'une règle. Il rend donc une liste structurée, et ce module la traduit
-en apports.
-
-Deux exigences qui gouvernent tout :
-
-- **Le format doit être relisible par une machine.** Une carte construite à
-  partir de prose libre serait fausse une fois sur trois. On demande du JSON, on
-  refuse ce qui ne s'analyse pas, et on ne devine rien.
-- **Rien n'est acté par défaut.** La carte s'écrit pendant la réunion : tout ce
-  qui vient du fil du direct est « en discussion » tant qu'une décision
-  explicite n'est pas relevée. Présenter une idée lancée à l'oral comme une
-  décision de l'équipe est le défaut le plus grave possible ici.
-"""
+"""Drawing from a meeting the points that feed a subject's board."""
 
 from __future__ import annotations
 
@@ -74,15 +58,7 @@ def extract(
     maximum: int = 12,
     deja: Sequence[str] = (),
 ) -> list[Contribution]:
-    """Les apports que cette réunion fournit sur ce sujet.
-
-    `deja` porte les libellés qui sont **déjà** sur la carte. Les donner est ce
-    qui permet de compléter au lieu de dupliquer : sans eux, le rédacteur
-    reformule d'une extraction à l'autre — « Pré-production du client en retard
-    de deux versions » puis « Pré-prod cliente en retard de deux versions » —
-    et chaque reformulation ouvre une branche de plus. Mesuré : treize points
-    devenus vingt-six à la seconde publication.
-    """
+    """The contributions this meeting brings on this subject."""
     if not material.strip():
         return []
     invite = [f"Sujet à cartographier : {subject}"]
@@ -95,20 +71,10 @@ def extract(
     return analyser(writer.write_up("\n".join(invite)), maximum=maximum)
 
 class UnreadableOutput(ValueError):
-    """La réponse ne contenait pas de tableau. Distinct de « rien trouvé ».
-
-    Confondre les deux est ce qui a fait passer un échec pour un résultat : la
-    commande annonçait « rien à ajouter » alors que le modèle avait répondu en
-    prose sans jamais produire de JSON.
-    """
+    """The answer held no table. Distinct from an empty answer."""
 
 def analyser(rendered: str, maximum: int = 12) -> list[Contribution]:
-    """Traduit la réponse du rédacteur en apports. Ignore ce qui ne va pas.
-
-    Chaque élément est validé séparément : un objet mal formé au milieu de la
-    liste ne doit pas faire perdre les onze autres. En revanche, une réponse
-    **sans aucun tableau** lève : c'est une panne, pas un résultat vide.
-    """
+    """Turns the writer's answer into contributions."""
     trouve = _BLOC.search(rendered)
     brut = trouve.group(1) if trouve else rendered
     start, end = brut.find("["), brut.rfind("]")
