@@ -233,12 +233,12 @@ def system_language():
     transcription.
     """
     languages = _charger_langues()
-    connues = {code for code, _ in languages.LANGUAGES} if languages else {"fr"}
+    known = {code for code, _ in languages.LANGUAGES} if languages else {"fr"}
     for variable in ("LC_ALL", "LC_MESSAGES", "LANG"):
         value = os.environ.get(variable, "")
         if value:
             code = value.split(".")[0].split("_")[0].lower()
-            if code in connues:
+            if code in known:
                 return code
     return "fr"
 
@@ -806,7 +806,7 @@ destinataire = ""
 '''
 
 
-def etape_configuration(ctx, engine, redaction):
+def etape_configuration(ctx, engine, wording):
     title("6. Configuration")
     ctx.config.mkdir(parents=True, exist_ok=True)
     file = ctx.config / "config.toml"
@@ -824,8 +824,8 @@ def etape_configuration(ctx, engine, redaction):
             output="Reunion Sortie" if SYSTEM == "Darwin" else "default.monitor",
             engine=engine,
             language=system_language(),
-            writer=redaction["moteur"],
-            model=redaction["modele"],
+            writer=wording["moteur"],
+            model=wording["modele"],
         ),
         encoding="utf-8",
     )
@@ -1062,10 +1062,10 @@ def main():
         engine = system_tools_step(ctx)
         etape_audio(ctx)
         etape_modeles(ctx, engine)
-        redaction = etape_redaction(ctx)
+        wording = etape_redaction(ctx)
         python = etape_environnement(ctx, engine)
         etape_modele_whisper(ctx, engine, python)
-        etape_configuration(ctx, engine, redaction)
+        etape_configuration(ctx, engine, wording)
         etape_bureau(ctx)
         etape_skill(ctx)
         saine = etape_verification(ctx, python)

@@ -6,14 +6,14 @@ import pytest
 
 from greffier.domain.models import Person
 from greffier.domain.voiceprints import (
-    MARGE_ADOPTION,
-    MARGE_MINIMALE,
-    MATIERE_ETABLIE,
-    MATIERE_MINIMALE_FUSION,
-    SEUIL_ADOPTION,
-    SEUIL_CONSOLIDATION,
-    SEUIL_FUSION,
-    SEUIL_RECONNAISSANCE,
+    ADOPTION_MARGIN,
+    ADOPTION_THRESHOLD,
+    CONSOLIDATION_THRESHOLD,
+    ESTABLISHED_MATERIAL,
+    JOIN_THRESHOLD,
+    MINIMUM_JOIN_MATERIAL,
+    MINIMUM_MARGIN,
+    RECOGNITION_THRESHOLD,
     aggregate,
     conflicting_names,
     enrichir,
@@ -100,7 +100,7 @@ class TestReconnaissance:
         # 0,26 de similarité : sous le seuil mesuré de 0,45.
         lointaine = voice(0.26, 0.966, 0.0)
         assert recognise(lointaine, bank) is None
-        assert recognise(lointaine, bank, seuil=0.2) is not None
+        assert recognise(lointaine, bank, threshold=0.2) is not None
 
 
 class TestEnrichissement:
@@ -125,9 +125,9 @@ class TestEnrichissement:
         au lieu de 3, sans aucune confusion. Ce test garde la borne basse pour
         que le prochain changement soit lui aussi mesuré.
         """
-        assert SEUIL_RECONNAISSANCE >= 0.4
-        assert MARGE_MINIMALE > 0, "c'est la marge qui rend le seuil bas sans danger"
-        assert MARGE_MINIMALE > 0
+        assert RECOGNITION_THRESHOLD >= 0.4
+        assert MINIMUM_MARGIN > 0, "c'est la marge qui rend le seuil bas sans danger"
+        assert MINIMUM_MARGIN > 0
 
 
 class TestFusionDesVoix:
@@ -172,7 +172,7 @@ class TestFusionDesVoix:
             "b": [voice(0.7, 0.7, 0.0, duration=10.0)],
             "c": [voice(0.0, 1.0, 0.0, duration=10.0)],
         }
-        membership = join_voices(per_voice, seuil=0.70)
+        membership = join_voices(per_voice, threshold=0.70)
         assert membership["a"] != membership["c"]
 
     def test_un_groupe_vide_est_ignore(self):
@@ -188,17 +188,17 @@ class TestFusionDesVoix:
         0,45 en reconnaît 4, et 0,30 en reconnaîtrait 5 au prix d'une
         confusion.
         """
-        assert SEUIL_RECONNAISSANCE == 0.45
+        assert RECOGNITION_THRESHOLD == 0.45
 
     def test_declarer_un_conflit_exige_davantage(self):
         """Un conflit fait taire un nom : le déclarer à la légère revient à ne
         plus reconnaître personne. Deux personnes différentes se mesurent
         jusqu'à 0,652 sur le corpus."""
-        from greffier.domain.voiceprints import SEUIL_CONFLIT
+        from greffier.domain.voiceprints import CONFLICT_THRESHOLD
 
-        assert SEUIL_CONFLIT > SEUIL_RECONNAISSANCE
-        assert SEUIL_CONFLIT >= 0.7
-        assert SEUIL_FUSION > SEUIL_RECONNAISSANCE
+        assert CONFLICT_THRESHOLD > RECOGNITION_THRESHOLD
+        assert CONFLICT_THRESHOLD >= 0.7
+        assert JOIN_THRESHOLD > RECOGNITION_THRESHOLD
 
     def test_deux_petits_groupes_ne_fusionnent_pas_sur_un_accident(self):
         """Un agrégat tiré de peu de matière est bruité : la similarité seule
@@ -224,7 +224,7 @@ class TestFusionDesVoix:
         assert membership["fragment"] == membership["etablie"] == "etablie"
 
     def test_la_garde_de_matiere_est_documentee(self):
-        assert MATIERE_MINIMALE_FUSION > 0
+        assert MINIMUM_JOIN_MATERIAL > 0
 
 
 class TestBanqueAmbigue:
@@ -243,9 +243,9 @@ class TestBanqueAmbigue:
         bank = [Person(name="Camilo", voiceprints=[une]),
                   Person(name="Tanguy", voiceprints=[presque]),
                   Person(name="Sophie", voiceprints=[voice(0.0, 0.0, 1.0)])]
-        conflits = conflicting_names(bank)
-        assert conflits == {"Camilo": {"Tanguy"}, "Tanguy": {"Camilo"}}
-        assert "Sophie" not in conflits
+        conflicts = conflicting_names(bank)
+        assert conflicts == {"Camilo": {"Tanguy"}, "Tanguy": {"Camilo"}}
+        assert "Sophie" not in conflicts
 
     def test_une_banque_saine_ne_signale_rien(self):
         bank = [Person(name="Sophie", voiceprints=[voice(1.0, 0.0, 0.0)]),
@@ -376,7 +376,7 @@ class TestRecollage:
         dix secondes, soit le nombre exact de personnes présentes. Aucun groupe
         ne réunit deux personnes, contrôlé contre les noms posés à la main.
         """
-        assert SEUIL_ADOPTION == 0.45
-        assert MARGE_ADOPTION == 0.0
-        assert SEUIL_CONSOLIDATION == 0.70
-        assert MATIERE_ETABLIE == 30.0
+        assert ADOPTION_THRESHOLD == 0.45
+        assert ADOPTION_MARGIN == 0.0
+        assert CONSOLIDATION_THRESHOLD == 0.70
+        assert ESTABLISHED_MATERIAL == 30.0

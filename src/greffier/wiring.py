@@ -86,7 +86,7 @@ def follower(config: Config, identifier: str) -> Follower:
     except FileNotFoundError:
         extractor = None
     return Follower(
-        thread=LiveThread(connues=known_people(bank),
+        thread=LiveThread(known=known_people(bank),
                 people=config.speakers.people),
         log=log,
         requests=requests,

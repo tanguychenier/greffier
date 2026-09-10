@@ -14,9 +14,9 @@ import pytest
 
 from greffier.domain.channels import LOCAL_VOICE
 from greffier.domain.live import (
-    NOM_INDETERMINE,
-    NOM_LOCAL,
-    VOIX_INDETERMINEE,
+    LOCAL_NAME,
+    UNDETERMINED_NAME,
+    UNDETERMINED_VOICE,
     Certainty,
     LiveThread,
     LiveTurn,
@@ -52,8 +52,8 @@ class TestQuiParleEnDirect:
         # certitude est celle du câblage.
         thread = LiveThread()
         assert thread.attach(voiceprint=None, locale=True) == LOCAL_VOICE
-        assert thread.label(LOCAL_VOICE) == NOM_LOCAL
-        assert thread.voice[LOCAL_VOICE].certitude is Certainty.CANAL
+        assert thread.label(LOCAL_VOICE) == LOCAL_NAME
+        assert thread.voice[LOCAL_VOICE].certainty is Certainty.CANAL
 
     def test_deux_extraits_proches_sont_la_meme_voix(self) -> None:
         thread = LiveThread()
@@ -74,15 +74,15 @@ class TestQuiParleEnDirect:
         # comme des personnes ferait vingt participants à une réunion de cinq.
         thread = LiveThread()
         for _ in range(5):
-            assert thread.attach(voiceprint=None, locale=False) == VOIX_INDETERMINEE
-        assert thread.label(VOIX_INDETERMINEE) == NOM_INDETERMINE
+            assert thread.attach(voiceprint=None, locale=False) == UNDETERMINED_VOICE
+        assert thread.label(UNDETERMINED_VOICE) == UNDETERMINED_NAME
         assert [v for v in thread.voice if v.startswith("v")] == []
 
 
 class TestReconnaissanceParLaBanque:
     def test_une_voix_deja_en_banque_est_nommee_seule(self) -> None:
         marc = Person(name="Marc", voiceprints=[voiceprint(1, 0, duration=30)])
-        thread = LiveThread(connues=[marc])
+        thread = LiveThread(known=[marc])
         voice = thread.attach(MEME_VOIX[0], locale=False)
         assert thread.voice[voice].name == "Marc"
 
@@ -90,14 +90,14 @@ class TestReconnaissanceParLaBanque:
         # Le point d'interrogation est la seule chose qui distingue, à l'écran,
         # une reconnaissance d'une certitude. Sans lui, personne ne corrige.
         marc = Person(name="Marc", voiceprints=[voiceprint(1, 0, duration=30)])
-        thread = LiveThread(connues=[marc])
+        thread = LiveThread(known=[marc])
         voice = thread.attach(MEME_VOIX[0], locale=False)
-        assert thread.voice[voice].certitude is not Certainty.HUMAINE
+        assert thread.voice[voice].certainty is not Certainty.HUMAINE
         assert thread.label(voice) == "Marc ?"
 
     def test_une_voix_inconnue_de_la_banque_reste_sans_nom(self) -> None:
         marc = Person(name="Marc", voiceprints=[voiceprint(1, 0, duration=30)])
-        thread = LiveThread(connues=[marc])
+        thread = LiveThread(known=[marc])
         voice = thread.attach(AUTRE_VOIX, locale=False)
         assert thread.voice[voice].name is None
         assert thread.label(voice) == "Voix 1"
@@ -114,7 +114,7 @@ class TestReconnaissanceParLaBanque:
         # est désormais reconnue dès sa première bribe, ce qui est précisément
         # l'effet voulu par l'abaissement du 2026-09-09.
         julie = Person(name="Julie", voiceprints=[voiceprint(1, 0, duration=30)])
-        thread = LiveThread(connues=[julie])
+        thread = LiveThread(known=[julie])
         voice = thread.attach(voiceprint(0.42, 0.9075), locale=False)
         assert thread.voice[voice].name is None
         thread.attach(voiceprint(0.61, 0.7924), locale=False)
@@ -131,7 +131,7 @@ class TestReconnaissanceParLaBanque:
         le test suivant, qui est l'autre moitié de la règle.
         """
         julie = Person(name="Julie", voiceprints=[voiceprint(1, 0, duration=30)])
-        thread = LiveThread(connues=[julie])
+        thread = LiveThread(known=[julie])
         voice = thread.attach(voiceprint(0.65, 0.76, duration=8.0), locale=False)
         assert thread.voice[voice].name == "Julie"
 
@@ -145,7 +145,7 @@ class TestReconnaissanceParLaBanque:
         qu'un « Voix 12 » : on la croit.
         """
         julie = Person(name="Julie", voiceprints=[voiceprint(1, 0, duration=30)])
-        thread = LiveThread(connues=[julie])
+        thread = LiveThread(known=[julie])
         voice = thread.attach(voiceprint(0.9, 0.2, duration=3.0), locale=False)
         assert thread.voice[voice].name is None
 
@@ -181,7 +181,7 @@ class TestPasDeuxFoisLaMemePhrase:
         # entière dans l'une des deux. Sans ce filtre, elle s'affiche deux fois.
         thread = LiveThread()
         thread.record_turn(blocks([utterance(0, 8)], [])[0], LOCAL_VOICE)
-        kept = thread.retenir([utterance(0, 8), utterance(8, 12)])
+        kept = thread.hold([utterance(0, 8), utterance(8, 12)])
         assert [r.span.start for r in kept] == [8]
 
     def test_une_phrase_recoupee_plus_tot_reste_une_phrase_neuve(self) -> None:
@@ -190,17 +190,17 @@ class TestPasDeuxFoisLaMemePhrase:
         # début la jetait — une phrase perdue sur six.
         thread = LiveThread()
         thread.record_turn(blocks([utterance(4.8, 13.2)], [])[0], LOCAL_VOICE)
-        kept = thread.retenir([utterance(12.8, 19.3)])
+        kept = thread.hold([utterance(12.8, 19.3)])
         assert [r.span.start for r in kept] == [12.8]
 
     def test_la_meme_phrase_redite_a_l_identique_ne_passe_pas_deux_fois(self) -> None:
         thread = LiveThread()
         thread.record_turn(blocks([utterance(4.8, 9.4)], [])[0], LOCAL_VOICE)
-        assert thread.retenir([utterance(5.26, 9.4)]) == []
+        assert thread.hold([utterance(5.26, 9.4)]) == []
 
     def test_une_phrase_vide_n_encombre_pas_le_fil(self) -> None:
         thread = LiveThread()
-        assert thread.retenir([utterance(0, 2, text="  ")]) == []
+        assert thread.hold([utterance(0, 2, text="  ")]) == []
 
 
 class TestRecouvrementDeTexte:
@@ -242,7 +242,7 @@ class TestRecouvrementDeTexte:
         thread.record_turn(
             blocks([utterance(0, 8, text="c'est notre dernier.")], [])[0], LOCAL_VOICE
         )
-        kept = thread.retenir(
+        kept = thread.hold(
             [utterance(8, 14, text="dernier. Sandy, tu peux nous dire où on en est ?")]
         )
         assert kept[0].text == "Sandy, tu peux nous dire où on en est ?"
@@ -264,9 +264,9 @@ class TestCorrection:
         # trompe pour tous les passages de cette voix.
         thread, distante, _ = self._fil_avec_deux_voix()
         correction = thread.correct(number=1, name="Marc")
-        assert correction.numeros == (1, 3)
+        assert correction.numbers == (1, 3)
         assert thread.label(distante) == "Marc"
-        assert thread.voice[distante].certitude is Certainty.HUMAINE
+        assert thread.voice[distante].certainty is Certainty.HUMAINE
 
     def test_une_correction_verse_l_empreinte_a_la_banque(self) -> None:
         # C'est ce qui fait qu'on ne corrige qu'une fois : la réunion suivante
@@ -287,7 +287,7 @@ class TestCorrection:
         # Le défaut le plus vicieux à éviter : corriger un nom, puis le voir
         # revenir à la tranche suivante parce que le modèle a un avis.
         marc = Person(name="Marc", voiceprints=[voiceprint(1, 0, duration=30)])
-        thread = LiveThread(connues=[marc])
+        thread = LiveThread(known=[marc])
         voice = thread.attach(MEME_VOIX[0], locale=False)
         thread.record_turn(blocks([utterance(0, 5)], [])[0], voice)
         thread.correct(number=1, name="Julie")
@@ -300,7 +300,7 @@ class TestCorrection:
         # groupe, mais le groupe lui-même est bon.
         thread, distante, _ = self._fil_avec_deux_voix()
         correction = thread.correct(number=3, name="Julie", whole_voice=False)
-        assert correction.numeros == (3,)
+        assert correction.numbers == (3,)
         assert thread.turns[0].voice == distante
         assert thread.label(thread.turns[2].voice) == "Julie"
 
@@ -309,7 +309,7 @@ class TestCorrection:
         thread.correct(number=1, name="Marc")
         thread.correct(number=2, name="Marc", whole_voice=False)
         assert thread.turns[1].voice == distante
-        assert thread.label(locale) == NOM_LOCAL
+        assert thread.label(locale) == LOCAL_NAME
 
     def test_deux_voix_nommees_pareil_sont_reunies(self) -> None:
         # L'outil a découpé une personne en deux, faute de matière pour la
@@ -322,7 +322,7 @@ class TestCorrection:
 
         thread.correct(number=1, name="Marc")
         correction = thread.correct(number=2, name="Marc")
-        assert correction.numeros == (1, 2)
+        assert correction.numbers == (1, 2)
         assert len({t.voice for t in thread.turns}) == 1
 
     def test_le_fourre_tout_ne_se_nomme_jamais_en_entier(self) -> None:
@@ -330,10 +330,10 @@ class TestCorrection:
         # attribuerait à quelqu'un les réponses des autres.
         thread = LiveThread()
         for start in (0.0, 5.0):
-            thread.record_turn(blocks([utterance(start, start + 2)], [])[0], VOIX_INDETERMINEE)
+            thread.record_turn(blocks([utterance(start, start + 2)], [])[0], UNDETERMINED_VOICE)
         correction = thread.correct(number=1, name="Marc", whole_voice=True)
-        assert correction.numeros == (1,)
-        assert thread.turns[1].voice == VOIX_INDETERMINEE
+        assert correction.numbers == (1,)
+        assert thread.turns[1].voice == UNDETERMINED_VOICE
 
     def test_un_nom_vide_ne_corrige_rien(self) -> None:
         thread, _, _ = self._fil_avec_deux_voix()
@@ -349,11 +349,11 @@ class TestNomsProposables:
     def test_le_menu_offre_la_reunion_puis_la_banque(self) -> None:
         # Les personnes de la réunion en cours d'abord : ce sont les plus
         # probables. Les habitués de la banque ensuite.
-        thread = LiveThread(connues=[Person(name="Bertrand"), Person(name="Marc")])
+        thread = LiveThread(known=[Person(name="Bertrand"), Person(name="Marc")])
         voice = thread.attach(MEME_VOIX[0], locale=False)
         thread.record_turn(blocks([utterance(0, 5)], [])[0], voice)
         thread.correct(number=1, name="Marc")
-        assert thread.suggestable_names() == [NOM_LOCAL, "Marc", "Bertrand"]
+        assert thread.suggestable_names() == [LOCAL_NAME, "Marc", "Bertrand"]
 
 
 class TestReunirDesVoix:
@@ -381,7 +381,7 @@ class TestReunirDesVoix:
         thread.correct(2, "Tanguy")
         restantes = {t.voice for t in thread.turns if t.number in (1, 2, 4, 5)}
         assert len(restantes) == 1, "les tours des deux voix doivent tenir ensemble"
-        nommees = {v.name for v in thread.voice.values() if v.name and v.name != NOM_LOCAL}
+        nommees = {v.name for v in thread.voice.values() if v.name and v.name != LOCAL_NAME}
         assert nommees == {"Tanguy"}
 
     def test_autant_de_voix_qu_il_le_faut(self):
@@ -407,8 +407,8 @@ class TestReunirDesVoix:
         thread = self._fil_a_trois_voix()
         thread.correct(1, "Tanguy")
         voice = next(v for v in thread.voice.values() if v.name == "Tanguy")
-        assert voice.certitude is Certainty.HUMAINE
-        assert voice.certitude.firm
+        assert voice.certainty is Certainty.HUMAINE
+        assert voice.certainty.firm
 
 
 class TestRecollageEnDirect:
@@ -451,16 +451,16 @@ class TestRecollageEnDirect:
     def test_deux_noms_humains_differents_ne_se_reunissent_jamais(self):
         """Une correction humaine ne se laisse pas défaire par une mesure."""
         thread = self._fil_de_deux_voix_proches()
-        thread.voice["v1"].name, thread.voice["v1"].certitude = "Sophie", Certainty.HUMAINE
-        thread.voice["v2"].name, thread.voice["v2"].certitude = "Kerann", Certainty.HUMAINE
+        thread.voice["v1"].name, thread.voice["v1"].certainty = "Sophie", Certainty.HUMAINE
+        thread.voice["v2"].name, thread.voice["v2"].certainty = "Kerann", Certainty.HUMAINE
         assert thread.stitch() == []
         assert {"v1", "v2"} <= set(thread.voice)
 
     def test_une_voix_nommee_absorbe_une_voix_anonyme(self):
         thread = self._fil_de_deux_voix_proches()
-        thread.voice["v1"].name, thread.voice["v1"].certitude = "Sophie", Certainty.HUMAINE
+        thread.voice["v1"].name, thread.voice["v1"].certainty = "Sophie", Certainty.HUMAINE
         thread.stitch()
-        survivantes = {v.name for v in thread.voice.values() if v.name and v.name != NOM_LOCAL}
+        survivantes = {v.name for v in thread.voice.values() if v.name and v.name != LOCAL_NAME}
         assert survivantes == {"Sophie"}, "le nom humain survit à la réunion"
 
     def test_rien_a_recoller_ne_casse_rien(self):
@@ -472,8 +472,8 @@ class TestRecollageEnDirect:
         """« Toi » est désigné par le canal, le fourre-tout mélange tout le monde."""
         thread = LiveThread()
         thread.voice[LOCAL_VOICE].voiceprints.append(voiceprint(1.0, 0.0, duration=12.0))
-        thread.voice[VOIX_INDETERMINEE] = LiveVoice(
-            identifier=VOIX_INDETERMINEE, voiceprints=[voiceprint(0.99, 0.14, duration=12.0)])
+        thread.voice[UNDETERMINED_VOICE] = LiveVoice(
+            identifier=UNDETERMINED_VOICE, voiceprints=[voiceprint(0.99, 0.14, duration=12.0)])
         assert thread.stitch() == []
 
 
@@ -542,7 +542,7 @@ class TestPlafondDesParticipants:
 
     def test_ni_la_voix_locale_ni_le_fourre_tout_ne_comptent(self):
         thread = self._thread(people=2)
-        thread.voice[VOIX_INDETERMINEE] = LiveVoice(identifier=VOIX_INDETERMINEE)
+        thread.voice[UNDETERMINED_VOICE] = LiveVoice(identifier=UNDETERMINED_VOICE)
         nameable_ones = {v.identifier for v in thread._nameable_ones()}
         assert nameable_ones == {"v1", "v2"}
 
@@ -583,13 +583,13 @@ class TestPlancherDeMatiere:
         """Elle attend qu'une vraie voix existe, au lieu d'en fonder une."""
         thread = LiveThread()
         assert thread.attach(voiceprint(1.0, 0.0, duration=0.8), locale=False) \
-            == VOIX_INDETERMINEE
+            == UNDETERMINED_VOICE
 
     def test_le_plancher_reste_sous_la_plus_petite_voix_reelle(self):
         """3,0 s est la plus courte prise de parole ayant fondé une vraie voix."""
-        from greffier.domain.live import MATIERE_MINIMALE_VOIX
+        from greffier.domain.live import MINIMUM_VOICE_MATERIAL
 
-        assert 1.5 < MATIERE_MINIMALE_VOIX < 3.0
+        assert 1.5 < MINIMUM_VOICE_MATERIAL < 3.0
 
 
 class TestConfianceDite:
@@ -599,11 +599,11 @@ class TestConfianceDite:
     trompeur est celui où le nom est peut-être celui du voisin.
     """
 
-    def voix_nommee(self, likeness: float, gap: float, certitude):
+    def voix_nommee(self, likeness: float, gap: float, certainty):
         from greffier.domain.live import LiveVoice
 
         return LiveVoice(
-            identifier="v1", name="Sophie", certitude=certitude,
+            identifier="v1", name="Sophie", certainty=certainty,
             likeness=likeness, gap=gap,
         )
 
@@ -649,7 +649,7 @@ class TestConfianceDite:
         from greffier.domain.voiceprints import similarity
 
         julie = Person(name="Julie", voiceprints=[voiceprint(1, 0, duration=30)])
-        thread = LiveThread(connues=[julie])
+        thread = LiveThread(known=[julie])
         # Huit secondes : la banque ne nomme personne sur moins de six.
         voice = thread.attach(voiceprint(0.65, 0.76, duration=8.0), locale=False)
         assert thread.voice[voice].likeness > 0
@@ -668,7 +668,7 @@ class TestPlafondSansAnnonce:
 
     def _fil_plein(self, combien):
         """Un fil avec `combien` voix orthogonales, donc sans ressemblance."""
-        thread = LiveThread(seuil_fusion=0.50)
+        thread = LiveThread(join_threshold=0.50)
         for rank in range(combien):
             vector = [0.0] * (combien + 1)
             vector[rank] = 1.0
@@ -680,13 +680,13 @@ class TestPlafondSansAnnonce:
         return thread
 
     def test_au_plafond_une_phrase_rejoint_au_lieu_de_fonder(self):
-        from greffier.domain.live import VOIX_AU_PLUS
+        from greffier.domain.live import VOICES_AT_MOST
 
-        thread = self._fil_plein(VOIX_AU_PLUS)
-        etrangere = normalise([0.0] * VOIX_AU_PLUS + [1.0], source_duration=4.0)
+        thread = self._fil_plein(VOICES_AT_MOST)
+        etrangere = normalise([0.0] * VOICES_AT_MOST + [1.0], source_duration=4.0)
         rendered = thread.attach(etrangere, locale=False)
         assert rendered in thread.voice, "une voix de plus a été inventée"
-        assert len(thread._nameable_ones()) == VOIX_AU_PLUS
+        assert len(thread._nameable_ones()) == VOICES_AT_MOST
 
     def test_sous_le_plafond_une_voix_franche_est_toujours_creee(self):
         """Le plafond borne, il n'empêche pas de compter les participants."""
@@ -700,13 +700,13 @@ class TestSeuilDuDirectMesure:
     """0,50, et c'est une mesure qui l'impose."""
 
     def test_le_seuil_vient_de_la_mesure(self):
-        from greffier.domain.live import SEUIL_RATTACHEMENT_DIRECT
+        from greffier.domain.live import LIVE_ATTACH_THRESHOLD
 
-        assert SEUIL_RATTACHEMENT_DIRECT == 0.50
+        assert LIVE_ATTACH_THRESHOLD == 0.50
 
     def test_une_phrase_ressemblante_rejoint_sa_voix(self):
         """À 0,75, la médiane d'une même personne — 0,667 — ne passait pas."""
-        thread = LiveThread(seuil_fusion=0.50)
+        thread = LiveThread(join_threshold=0.50)
         thread.voice["v1"] = LiveVoice(
             identifier="v1", rank=1,
             voiceprints=[voiceprint(1.0, 0.0, duration=8.0)])
@@ -751,7 +751,7 @@ class TestReunirLesHomonymes:
     """
 
     def _thread(self):
-        thread = LiveThread(seuil_fusion=0.50)
+        thread = LiveThread(join_threshold=0.50)
         for rank, (identifier, vector) in enumerate(
             (("v1", (1.0, 0.0)), ("v2", (0.0, 1.0)), ("v3", (0.0, 0.0))), start=1
         ):
@@ -767,7 +767,7 @@ class TestReunirLesHomonymes:
         thread = self._thread()
         for identifier in ("v1", "v2", "v3"):
             thread.voice[identifier].name = "Tanguy"
-            thread.voice[identifier].certitude = Certainty.PROBABLE
+            thread.voice[identifier].certainty = Certainty.PROBABLE
         faits = thread._join_namesakes()
         assert len(faits) == 2
         restantes = [v for v in thread.voice.values() if v.name == "Tanguy"]
@@ -777,7 +777,7 @@ class TestReunirLesHomonymes:
         """C'est celle dont l'extrait est le plus représentatif."""
         thread = self._thread()
         thread.voice["v1"].name = thread.voice["v3"].name = "Tanguy"
-        thread.voice["v1"].certitude = thread.voice["v3"].certitude = Certainty.PROBABLE
+        thread.voice["v1"].certainty = thread.voice["v3"].certainty = Certainty.PROBABLE
         thread._join_namesakes()
         assert thread.voice["v1"].name == "Tanguy"
         assert "v3" not in thread.voice or thread.voice["v3"].name != "Tanguy"
@@ -785,14 +785,14 @@ class TestReunirLesHomonymes:
     def test_deux_noms_differents_ne_sont_jamais_reunis(self):
         thread = self._thread()
         thread.voice["v1"].name, thread.voice["v2"].name = "Tanguy", "Garance"
-        thread.voice["v1"].certitude = thread.voice["v2"].certitude = Certainty.PROBABLE
+        thread.voice["v1"].certainty = thread.voice["v2"].certainty = Certainty.PROBABLE
         assert thread._join_namesakes() == []
         assert thread.voice["v1"].name == "Tanguy" and thread.voice["v2"].name == "Garance"
 
     def test_la_casse_ne_cree_pas_deux_personnes(self):
         thread = self._thread()
         thread.voice["v1"].name, thread.voice["v2"].name = "Tanguy", "tanguy"
-        thread.voice["v1"].certitude = thread.voice["v2"].certitude = Certainty.PROBABLE
+        thread.voice["v1"].certainty = thread.voice["v2"].certainty = Certainty.PROBABLE
         assert len(thread._join_namesakes()) == 1
 
     def test_une_voix_sans_nom_n_est_pas_concernee(self):
@@ -804,7 +804,7 @@ class TestReunirLesHomonymes:
         thread = self._thread()
         for identifier in ("v1", "v2"):
             thread.voice[identifier].name = "Tanguy"
-            thread.voice[identifier].certitude = Certainty.PROBABLE
+            thread.voice[identifier].certainty = Certainty.PROBABLE
         assert thread.stitch(), "le recollage n'a rien réuni"
         assert len([v for v in thread.voice.values() if v.name == "Tanguy"]) == 1
 
@@ -888,7 +888,7 @@ class TestSeparerDeuxVoixReunies:
         thread = self._fil_a_deux_voix()
         for identifier in ("v1", "v2"):
             thread.voice[identifier].name = "Tanguy"
-            thread.voice[identifier].certitude = Certainty.RECONNUE
+            thread.voice[identifier].certainty = Certainty.RECONNUE
         thread.stitch()
         target = next(iter(v.identifier for v in thread.voice.values()
                           if v.name == "Tanguy"))
@@ -923,10 +923,10 @@ class TestSeparerDeuxVoixReunies:
         """Une voix anonyme qui a absorbé une voix nommée redevient anonyme."""
         thread = self._fil_a_deux_voix()
         thread.voice["v2"].name = "Tanguy"
-        thread.voice["v2"].certitude = Certainty.RECONNUE
+        thread.voice["v2"].certainty = Certainty.RECONNUE
         thread._absorb("v1", "v2")
         assert thread.voice["v2"].name == "Tanguy"
-        thread.voice["v2"].name, thread.voice["v2"].certitude = "Marie", Certainty.RECONNUE
+        thread.voice["v2"].name, thread.voice["v2"].certainty = "Marie", Certainty.RECONNUE
         thread.split("v2")
         assert thread.voice["v2"].name == "Tanguy", "l'état d'avant la fusion"
         assert thread.voice["v1"].name is None

@@ -64,11 +64,11 @@ def capturer(window: object, target: Path) -> bool:
     # le redimensionnement et la capture cadre à côté.
     # Un peu large : l'ombre portée de la fenêtre déborde de sa géométrie, et
     # une capture au pixel près coupe le bord droit, celui qui pose problème.
-    marge = 24
-    x = root.winfo_rootx() - marge
-    y = root.winfo_rooty() - marge
-    width = root.winfo_width() + 2 * marge
-    height = root.winfo_height() + 2 * marge
+    margin = 24
+    x = root.winfo_rootx() - margin
+    y = root.winfo_rooty() - margin
+    width = root.winfo_width() + 2 * margin
+    height = root.winfo_height() + 2 * margin
     target.parent.mkdir(parents=True, exist_ok=True)
     fait = subprocess.run(
         ["screencapture", "-x", "-o", f"-R{x},{y},{width},{height}", str(target)],

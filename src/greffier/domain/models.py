@@ -46,7 +46,7 @@ class Source(StrEnum):
 
     MIC = "micro"          # la personne qui tient le Mac
     SYSTEM = "systeme"      # les participants distants
-    INCONNUE = "inconnue"    # présentiel : une seule source pour tout le monde
+    UNKNOWN = "inconnue"    # présentiel : une seule source pour tout le monde
 
 @dataclass(frozen=True, slots=True)
 class Span:
@@ -71,7 +71,7 @@ class SpeakerTurn:
 
     span: Span
     voice: str          # identifiant acoustique, pas un nom : « v1 », « v2 »…
-    source: Source = Source.INCONNUE
+    source: Source = Source.UNKNOWN
 
 @dataclass(slots=True)
 class Utterance:
@@ -80,7 +80,7 @@ class Utterance:
     span: Span
     text: str
     voice: str | None = None
-    source: Source = Source.INCONNUE
+    source: Source = Source.UNKNOWN
 
 @dataclass(frozen=True, slots=True)
 class Voiceprint:

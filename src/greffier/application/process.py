@@ -88,7 +88,7 @@ class Outcome:
     @property
     def words(self) -> int:
         """The word count, counted the way the language separates them."""
-        return sum(self.profil.decoupage.count_them(r.text) for r in self.utterances)
+        return sum(self.profil.splitting.count_them(r.text) for r in self.utterances)
 
     def name_of(self, voice: str | None) -> str:
         if voice is None:
@@ -274,8 +274,8 @@ class Chain:
         """Names from the voice bank, for people already known."""
         if self.extractor is None or self.bank is None:
             return {}
-        connues = self.bank.people()
-        if not connues:
+        known = self.bank.people()
+        if not known:
             return {}
         trouves: dict[str, str] = {}
         per_voice: dict[str, list[Span]] = {}
@@ -287,7 +287,7 @@ class Chain:
             extraits = self.extractor.extract_spans(audio, intervalles)
             if not extraits:
                 continue
-            match = voix_domaine.recognise(voix_domaine.aggregate(extraits), connues)
+            match = voix_domaine.recognise(voix_domaine.aggregate(extraits), known)
             if match and match.sure:
                 trouves[voice] = match.name
         return trouves

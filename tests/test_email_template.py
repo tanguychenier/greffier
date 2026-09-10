@@ -42,8 +42,8 @@ class TestTableaux:
 
     def test_les_cellules_gardent_leur_contenu(self) -> None:
         html = as_html(self.ACTIONS)
-        for attendu in ("Camilo", "Tests iPhone", "après la réunion", "Sophie", "—"):
-            assert attendu in html
+        for expected in ("Camilo", "Tests iPhone", "après la réunion", "Sophie", "—"):
+            assert expected in html
 
     def test_aucune_barre_verticale_ne_subsiste(self) -> None:
         # Le symptôme constaté : un mail plein de « | ».
@@ -91,8 +91,8 @@ class TestAccents:
     def test_les_accents_traversent_la_conversion(self) -> None:
         # Le défaut d'origine : « réunion » arrivait en « r√©union ».
         html = as_html("## Réunion du 25 août — décisions prises")
-        for attendu in ("Réunion", "août", "—", "décisions"):
-            assert attendu in html
+        for expected in ("Réunion", "août", "—", "décisions"):
+            assert expected in html
 
     def test_le_document_declare_son_encodage(self) -> None:
         assert 'charset="utf-8"' in email("# Titre")
@@ -217,8 +217,8 @@ class TestEnteteDuCourriel:
 
     def test_aucun_contenu_n_est_perdu_par_le_decoupage(self) -> None:
         html = email(self.SOURCE)
-        for attendu in ("Point Casa", "25 août 2026", "Une décision", "Une action", "Un point"):
-            assert attendu in html
+        for expected in ("Point Casa", "25 août 2026", "Une décision", "Une action", "Un point"):
+            assert expected in html
 
 
 class TestAncresNonLatines:

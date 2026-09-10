@@ -13,7 +13,7 @@ from greffier.domain.profiles.french import FRENCH
 def utterance(start: float, end: float, text: str) -> Utterance:
     return Utterance(span=Span(start, end), text=text)
 
-def _mentions(utterances, exclus=None):
+def _mentions(utterances, excluded=None):
     """Le profil français, explicite, comme la chaîne le résout à l'exécution.
 
     Ces trente tests gardent les règles de reconnaissance des prénoms depuis les
@@ -21,7 +21,7 @@ def _mentions(utterances, exclus=None):
     assertions ne change, et c'est ce qui prouve que le déplacement n'a rien
     coûté.
     """
-    return spot_mentions(utterances, FRENCH, exclus)
+    return spot_mentions(utterances, FRENCH, excluded)
 
 
 def turn(start: float, end: float, voice: str) -> SpeakerTurn:
@@ -56,7 +56,7 @@ class TestReperage:
     def test_exclusions_supplementaires_de_la_configuration(self):
         mentions = _mentions(
             [utterance(0, 2, "Merci Oasis pour le retour.")],
-            exclus=frozenset({"oasis"}),
+            excluded=frozenset({"oasis"}),
         )
         assert mentions == []
 
