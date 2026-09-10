@@ -143,7 +143,8 @@ qui faisait perdre une réunion entière quand le rédacteur échouait.
 | Une personne connue n'est plus reconnue du tout | la banque a une **paire en conflit** : deux entrées trop ressemblantes font taire les deux noms. `greffier connus` la nomme, et dit quelle empreinte est fautive. `greffier connus --nettoyer <nom>` la retire sans effacer la personne |
 | Une réunion a versé de fausses empreintes | `greffier connus --oublier-reunion <réunion>` défait ce qu'elle a déposé, sous tous les noms d'un coup |
 | L'assistant ne répond pas à son prénom | il ne participe pas : bouton dans l'onglet **En direct**. Vérifier ensuite `assistant.nom` : un prénom court et distinct vaut mieux que « Greffier », que « le greffe » suffit à réveiller |
-| L'assistant parle avec une voix de robot | le modèle de voix manque, il s'est replié sur celle du système. `python3 outils/installer.py` le télécharge (325 Mo, dans `modeles/voix`) |
+| L'assistant parle avec une voix de robot | le modèle de voix manque, il s'est replié sur celle du système. `python3 outils/installer.py` le télécharge (80 Mo, dans `modeles/voix`) |
+| L'assistant parle mais personne ne l'entend | la sortie système est sur « Reunion Sortie », le périphérique de capture. La réunion la repose en quittant ; en cours de réunion, la remettre à la main |
 | L'assistant coupe la parole, ou ne dit jamais rien | `assistant.repos` et `assistant.creux_minimal`. Être appelé par son nom passe outre les deux, à dessein |
 | L'assistant se répond à lui-même | il ne devrait pas : ses propres prises de parole sont exclues de ce qu'il réécoute. Si cela arrive, le haut-parleur est très en avance sur l'horloge de la réunion — le signaler avec le journal |
 | Sous Linux, l'installation s'arrête sans rien dire | corrigé le 2026-09-10 : un `.venv` venu d'une autre machine était pris pour valide. Si cela se reproduit, effacer `.venv` et relancer |

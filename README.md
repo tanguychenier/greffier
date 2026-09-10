@@ -249,7 +249,8 @@ seconds without restarting anything.
 [assistant]
 actif = true          # the button writes this
 nom = "Lucie"         # the first name it answers to
-voix = "kokoro"       # kokoro | systeme | aucun
+voix = "kokoro"       # kokoro (le modèle installé) | systeme | aucun
+locuteur = 0          # quand le modèle porte plusieurs voix
 repos = 180.0         # seconds between two unprompted remarks
 creux_minimal = 2.0   # silence required before speaking at all
 ```
@@ -258,9 +259,11 @@ Give it a first name rather than leaving "Greffier": a transcription model
 renders a first name reliably, whereas "greffier" sits two edits away from
 several common French words, and "le greffe du tribunal" is enough to wake it.
 
-The voice is Kokoro, run by the sherpa-onnx already loaded for segmentation, so
-there is no new dependency and nothing leaves the machine. The installer fetches
-it (325 MB). Without it the assistant falls back on the system voice, which every
+The voice is run by the sherpa-onnx already loaded for segmentation, so there is
+no new dependency and nothing leaves the machine. The model is a French VITS,
+picked **by ear** against three others, and it wins on the numbers too: 48x real
+time, four seconds of speech computed in eight hundredths, 80 MB. The installer
+fetches it. Without it the assistant falls back on the system voice, which every
 machine ships and which everyone can hear is a machine.
 
 ## Does it actually work?

@@ -345,11 +345,12 @@ def voix_de_l_assistant(config: Config) -> Any | None:
     if voulu == "aucun":
         return None
     if voulu == "kokoro":
-        from greffier.adaptateurs.voix_kokoro import VoixKokoro
+        from greffier.adaptateurs.voix_neuronale import VoixNeuronale
 
-        neuronale = VoixKokoro(
+        neuronale = VoixNeuronale(
             config.chemins.voix_de_synthese,
             langue=config.transcription.langue or "fr",
+            voix=config.assistant.locuteur,
             vitesse=config.assistant.vitesse,
         )
         if neuronale.disponible:

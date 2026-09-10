@@ -406,10 +406,15 @@ SEGMENTATION = (
     "speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2"
 )
 
-# La voix de l'assistant, quand il participe à la réunion. Kokoro, quatre-vingt
-# deux millions de paramètres, tenu par le sherpa-onnx déjà installé pour la
-# segmentation : aucune dépendance nouvelle. Trois cent vingt-cinq mégaoctets,
-# et la seule voix française du modèle multilingue.
+# La voix de l'assistant, quand il participe à la réunion. Un VITS français,
+# tenu par le sherpa-onnx déjà installé pour la segmentation : aucune dépendance
+# nouvelle, aucun appel réseau.
+#
+# Retenu à l'écoute contre trois autres, dont Kokoro multilingue qui servait
+# jusqu'ici. Il gagne sur les deux tableaux : plus naturel, et **quarante-huit
+# fois le temps réel** contre cinq — quatre secondes de parole calculées en
+# huit centièmes, là où l'autre en prenait presque une seconde. Quatre-vingts
+# mégaoctets contre trois cent vingt-cinq.
 #
 # Facultatif. Sans lui, l'assistant se replie sur la voix du système, qui est
 # livrée partout et s'entend tout de suite : c'est jouable, mais on ne montre
@@ -418,12 +423,15 @@ SEGMENTATION = (
 # installation à l'étroit.
 VOIX = (
     "https://github.com/k2-fsa/sherpa-onnx/releases/download/"
-    "tts-models/kokoro-multi-lang-v1_0.tar.bz2"
+    "tts-models/vits-piper-fr_FR-upmc-medium.tar.bz2"
 )
 
-#: Ce que l'archive de la voix contient et qui ne sert pas au français : les
-#: lexiques anglais et chinois, et les grammaires de nombres chinoises. Quatorze
-#: mégaoctets qu'on ne garde pas.
+#: Le dossier que l'archive dépose, à renommer en « voix ».
+VOIX_DOSSIER = "vits-piper-fr_FR-upmc-medium"
+
+#: Ce qu'une archive de voix peut contenir sans servir au français : les
+#: lexiques et grammaires d'autres langues, que le modèle multilingue traînait.
+#: Absents d'un modèle français, d'où la suppression tolérante.
 VOIX_INUTILES = ("lexicon-gb-en.txt", "lexicon-us-en.txt", "lexicon-zh.txt",
                  "date-zh.fst", "number-zh.fst", "phone-zh.fst")
 
@@ -543,7 +551,7 @@ def _installer_la_voix(ctx):
         alerte("voix de l'assistant manquante (il se repliera sur celle du système)")
         return
     archive = ctx.modeles / "voix.tar.bz2"
-    info("téléchargement de la voix de l'assistant (325 Mo)…")
+    info("téléchargement de la voix de l'assistant (80 Mo)…")
     try:
         telecharger(VOIX, archive)
         with tarfile.open(archive, "r:bz2") as paquet:
@@ -551,7 +559,7 @@ def _installer_la_voix(ctx):
                 paquet.extractall(ctx.modeles, filter="data")
             else:
                 paquet.extractall(ctx.modeles)  # noqa: S202
-        extrait = ctx.modeles / "kokoro-multi-lang-v1_0"
+        extrait = ctx.modeles / VOIX_DOSSIER
         if extrait.exists():
             if dossier.exists():
                 shutil.rmtree(dossier)
