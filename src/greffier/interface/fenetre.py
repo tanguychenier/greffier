@@ -59,6 +59,7 @@ from greffier.domaine.direct import Fil, TourDirect
 from greffier.domaine.modeles import Phase
 from greffier.emplacements import situer_tcl
 from greffier.interface.apparence import (
+    MAIN,
     BarreDeBoutons,
     Bouton,
     Defileur,
@@ -690,7 +691,7 @@ class Fenetre:
             functools.partial(self._menu_locuteur, numero=tour.numero),
         )
         self.fil_texte.tag_bind(
-            repere, "<Enter>", lambda _e: self.fil_texte.configure(cursor="pointinghand")
+            repere, "<Enter>", lambda _e: self.fil_texte.configure(cursor=MAIN)
         )
         self.fil_texte.tag_bind(
             repere, "<Leave>", lambda _e: self.fil_texte.configure(cursor="arrow")
