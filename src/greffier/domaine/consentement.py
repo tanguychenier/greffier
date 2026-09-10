@@ -24,19 +24,10 @@ from enum import StrEnum
 class Information(StrEnum):
     """Ce qui a été fait vis-à-vis des participants."""
 
-    #: Rien n'a été dit ni tracé. L'état par défaut, et il est dit tel quel :
-    #: prétendre le contraire serait pire que de l'avouer.
     RIEN = "rien"
-    #: Les participants ont été informés que la réunion était enregistrée.
     ANNONCE = "annoncé"
-    #: Chacun a explicitement accepté. Le plus exigeant, et le seul qui
-    #: convienne quand l'enregistrement n'est pas nécessaire au service.
     ACCORD = "accord"
 
-
-#: La phrase que le compte rendu porte, selon ce qui a été fait. Écrite ici et
-#: non laissée au rédacteur : une mention légale n'est pas matière à style, et
-#: un modèle qui la reformule à chaque fois la rend inexploitable.
 MENTIONS = {
     Information.RIEN: (
         "Cette réunion a été enregistrée et transcrite automatiquement. "
@@ -52,25 +43,19 @@ MENTIONS = {
     ),
 }
 
-#: Ce que l'outil rappelle avant de démarrer, quand rien n'est tracé. Court, et
-#: une seule fois par session : une mention qu'on lit à chaque réunion devient
-#: un bouton qu'on clique sans lire.
 RAPPEL = (
     "Une voix est une donnée biométrique. Pense à prévenir les participants "
     "que la réunion est enregistrée — et note-le dans « conversation.information » "
     "pour que le compte rendu le dise."
 )
 
-
 def mention(information: Information) -> str:
     """La phrase à porter au compte rendu."""
     return MENTIONS[information]
 
-
 def a_tracer(information: Information) -> bool:
     """Vrai s'il reste quelque chose à faire pour être en règle avec soi-même."""
     return information is Information.RIEN
-
 
 def lire(brut: str) -> Information:
     """Ce que dit la configuration, ou « rien » si elle ne dit rien de valable.

@@ -34,26 +34,16 @@ from enum import StrEnum
 class Etat(StrEnum):
     """Ce que la carte affirme d'un nœud."""
 
-    #: Le groupe l'a arrêté. Seule une décision explicite le mérite.
     ACTE = "acté"
-    #: Évoqué, pas tranché. L'état par défaut de tout ce qui vient du direct.
     EN_DISCUSSION = "en discussion"
-    #: Quelqu'un l'a marqué comme dépassé. Le nœud **reste** : la carte garde
-    #: la trace de ce qui a été envisagé, ce qui évite d'y revenir en boucle.
     DEPASSE = "dépassé"
 
-
 class Genre(StrEnum):
-    #: La racine : le sujet lui-même. Ni décidé ni en discussion — il **est**.
-    #: Sans ce genre, la règle qui interdit d'acter un problème dégradait la
-    #: racine en « en discussion », si bien que la carte d'Oasis annonçait
-    #: qu'Oasis était en discussion.
     SUJET = "sujet"
     PROBLEME = "problème"
     PISTE = "piste"
     ACTION = "action"
     CONSTAT = "constat"
-
 
 def mots_porteurs(texte: str) -> list[str]:
     """Les mots qui portent le sens, dans **l'ordre**, sans accents ni ponctuation.
@@ -69,7 +59,6 @@ def mots_porteurs(texte: str) -> list[str]:
     tous = [mot for mot in re.split(r"[^a-z0-9]+", nu) if mot]
     porteurs = [mot for mot in tous if mot not in _VIDES]
     return porteurs or tous
-
 
 def clef(texte: str) -> str:
     """De quoi reconnaître deux formulations du même point.
@@ -87,28 +76,15 @@ def clef(texte: str) -> str:
     # dupliquer. `mots_porteurs` garde donc tous les mots dans ce cas.
     return " ".join(sorted(porteurs))
 
-
-#: Mots qui ne portent pas le sens et dont la présence varie d'une formulation à
-#: l'autre. Volontairement court : une liste longue rapprocherait des points
-#: distincts, ce qui est le défaut le plus coûteux ici.
 _VIDES = frozenset({
     "le", "la", "les", "un", "une", "des", "du", "de", "d", "l", "au", "aux",
     "et", "ou", "a", "en", "sur", "pour", "par", "avec", "sans", "dans",
     "que", "qui", "se", "ce", "cette", "il", "elle", "on", "est", "sont",
 })
 
-
-#: Les genres pour lesquels « acté » veut dire quelque chose. Une piste peut
-#: être retenue, une action décidée. Un **problème** est constaté, pas décidé :
-#: le marquer « acté » n'a pas de sens et le lecteur y lit « le groupe a tranché
-#: là-dessus », ce qui est faux. Mesuré sur une extraction réelle du
-#: 2026-09-09 : sept problèmes sur douze revenaient marqués « acté », le
-#: rédacteur ayant lu « acté » comme « établi ».
 GENRES_DECIDABLES = frozenset({Genre.PISTE, Genre.ACTION})
 
-#: Les genres qui ne portent pas d'état lisible. La racine en est.
 SANS_ETAT = frozenset({Genre.SUJET})
-
 
 def etat_possible(genre: Genre, etat: Etat) -> Etat:
     """L'état que ce genre peut porter. Ramène à « en discussion » sinon.
@@ -122,25 +98,11 @@ def etat_possible(genre: Genre, etat: Etat) -> Etat:
         return Etat.EN_DISCUSSION
     return etat
 
-
-#: Part des mots porteurs qu'il faut avoir en commun pour que deux libellés
-#: désignent le même point. Mesuré sur les reformulations réelles du rédacteur :
-#: « Pré-production du client en retard de deux versions » et « Pré-prod cliente
-#: en retard de deux versions » partagent cinq mots sur huit, soit 0,62. Deux
-#: points réellement distincts d'une même carte tombent bien plus bas — ils ne
-#: partagent que les mots du domaine.
 PART_COMMUNE = 0.6
 
-#: Écart toléré entre deux mots pour les compter comme le même. Deux, parce que
-#: les reformulations jouent sur les terminaisons — « client » et « cliente »,
-#: « production » et « productions » — et une transposition suffit à séparer des
-#: mots identiques à l'oreille.
 ECART_MOT = 2
 
-#: En dessous, comparer deux mots par leur distance ne veut rien dire : « prod »
-#: et « prof » sont à un écart et n'ont aucun rapport.
 LONGUEUR_COMPARABLE = 5
-
 
 def _proches(un: str, autre: str) -> bool:
     """Deux mots désignent-ils la même chose, à une terminaison près."""
@@ -151,7 +113,6 @@ def _proches(un: str, autre: str) -> bool:
     from greffier.domaine.questions import distance
 
     return distance(un, autre) <= ECART_MOT
-
 
 def meme_point(un: str, autre: str) -> bool:
     """Vrai si ces deux libellés désignent le même point de la carte.
@@ -178,7 +139,6 @@ def meme_point(un: str, autre: str) -> bool:
     # Sur le plus **long** des deux : un fragment ne doit pas absorber le tout.
     return communs / max(len(mots_un), len(mots_autre)) >= PART_COMMUNE
 
-
 @dataclass
 class Noeud:
     """Un point de la carte, et ce qui s'y rattache."""
@@ -190,8 +150,6 @@ class Noeud:
     def __post_init__(self) -> None:
         self.etat = etat_possible(self.genre, self.etat)
     enfants: list[Noeud] = field(default_factory=list)
-    #: Réunions qui ont parlé de ce point. Sert à dire d'où vient une branche,
-    #: ce qui est la première question de qui découvre une carte.
     reunions: list[str] = field(default_factory=list)
 
     @property
@@ -205,7 +163,6 @@ class Noeud:
     def compte(self) -> int:
         """Nombre de nœuds, celui-ci compris."""
         return 1 + sum(enfant.compte() for enfant in self.enfants)
-
 
 @dataclass
 class Carte:
@@ -222,7 +179,6 @@ class Carte:
     def compte(self) -> int:
         return self.racine.compte() if self.racine else 0
 
-
 @dataclass(frozen=True, slots=True)
 class Apport:
     """Ce qu'une réunion apporte : un point, et où l'accrocher.
@@ -237,24 +193,17 @@ class Apport:
     etat: Etat = Etat.EN_DISCUSSION
     sous: str = ""
 
-
 @dataclass(frozen=True, slots=True)
 class Bilan:
     """Ce qu'une fusion a changé. Rien n'est jamais supprimé."""
 
     ajoutes: tuple[str, ...] = ()
-    #: Points déjà présents dont l'état a été relevé — « en discussion » devenu
-    #: « acté ». L'inverse n'a pas lieu : une décision prise ne se dé-décide pas
-    #: parce qu'une réunion suivante en reparle.
     actes: tuple[str, ...] = ()
-    #: Points déjà présents et inchangés. Comptés pour pouvoir dire « rien de
-    #: neuf sur ce sujet » plutôt que de republier une carte identique.
     connus: tuple[str, ...] = ()
 
     @property
     def vide(self) -> bool:
         return not self.ajoutes and not self.actes
-
 
 def fusionner(carte: Carte, apports: list[Apport], reunion: str = "") -> Bilan:
     """Verse les apports dans la carte. **N'efface rien, jamais.**
@@ -297,7 +246,6 @@ def fusionner(carte: Carte, apports: list[Apport], reunion: str = "") -> Bilan:
 
     return Bilan(tuple(ajoutes), tuple(actes), tuple(connus))
 
-
 def _trouver(noeud: Noeud, texte: str) -> Noeud | None:
     """Le nœud portant ce libellé, où qu'il soit dans l'arbre."""
     if meme_point(noeud.texte, texte):
@@ -307,7 +255,6 @@ def _trouver(noeud: Noeud, texte: str) -> Noeud | None:
         if trouve is not None:
             return trouve
     return None
-
 
 def marquer_depasse(carte: Carte, texte: str) -> bool:
     """Marque un point comme dépassé. Le nœud reste dans la carte.

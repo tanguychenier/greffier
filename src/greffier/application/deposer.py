@@ -22,8 +22,6 @@ from pathlib import Path
 
 from greffier.domaine.depot import Destin, Proposition
 
-#: Ce qu'on demande au rédacteur en lui donnant un document. Volontairement
-#: étroit : on ne veut ni résumé, ni analyse, seulement du vocabulaire.
 CONSIGNES_DOCUMENT = """Tu lis un document de travail pour en extraire le
 vocabulaire qu'une transcription automatique ne pourrait pas deviner.
 
@@ -47,23 +45,16 @@ Règles :
 Document :
 """
 
-#: Combien de caractères du document on donne à lire. Un document de cent pages
-#: ne se lit pas entièrement pour en tirer vingt mots, et le début porte
-#: presque toujours les définitions.
 LU_AU_PLUS = 40_000
-
 
 @dataclass(frozen=True, slots=True)
 class Fait:
     """Ce qu'un dépôt a produit."""
 
     proposition: Proposition
-    #: Le fichier produit, pour une vidéo devenue audio.
     produit: Path | None = None
-    #: Les entrées de contexte proposées, pour un document.
     appris: tuple[tuple[str, str, str], ...] = ()
     souci: str = ""
-
 
 def outils_presents() -> frozenset[str]:
     """Les commandes d'extraction réellement disponibles sur ce poste."""
@@ -71,7 +62,6 @@ def outils_presents() -> frozenset[str]:
     if platform.system() == "Darwin" and shutil.which("textutil"):
         trouvees.add("textutil")
     return frozenset(trouvees)
-
 
 def extraire_le_son(video: Path, destination: Path) -> Path:
     """Sort la piste sonore d'une vidéo, au format que la chaîne attend.
@@ -95,7 +85,6 @@ def extraire_le_son(video: Path, destination: Path) -> Path:
             + (f" : {details[-1][:160]}" if details else "")
         )
     return destination
-
 
 def lire_le_texte(document: Path) -> str:
     """Le texte d'un document, quel que soit son format. Vide si illisible.
@@ -127,7 +116,6 @@ def lire_le_texte(document: Path) -> str:
     fait = subprocess.run(commande, capture_output=True, text=True, check=False)
     return fait.stdout if fait.returncode == 0 else ""
 
-
 def apprendre_du_document(
     document: Path, redacteur: object, maximum: int = 20
 ) -> tuple[tuple[str, str, str], ...]:
@@ -138,7 +126,6 @@ def apprendre_du_document(
     c'est un humain qui décide ce qui entre dans le contexte.
     """
     return apprendre_du_texte(lire_le_texte(document), redacteur, maximum)
-
 
 def apprendre_du_texte(
     texte: str, redacteur: object, maximum: int = 20
@@ -179,7 +166,6 @@ def apprendre_du_texte(
         genre = "personne" if str(element.get("genre", "")).strip() == "personne" else "terme"
         retenus.append((ecriture, str(element.get("sens", "")).strip(), genre))
     return tuple(retenus)
-
 
 def executer(
     proposition: Proposition,

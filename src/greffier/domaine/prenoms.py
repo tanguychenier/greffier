@@ -17,25 +17,19 @@ from __future__ import annotations
 import re
 import unicodedata
 
-#: Ce que l'interface affiche à la place d'un nom. Les accepter comme prénoms
-#: revient à mettre l'étiquette du champ dans le champ.
 LIBELLES = frozenset({
     "a nommer", "à nommer", "anommer", "sans nom", "inconnu", "inconnue",
     "les autres", "personne", "indetermine", "indéterminé", "moi", "toi",
     "voix", "non", "oui", "aucun", "aucune", "?", "-", "—",
 })
 
-#: Deux lettres suffisent à un prénom (« Li », « Bo ») ; une seule est une
-#: faute de frappe. Au-delà de trente, c'est une phrase.
 LONGUEUR = (2, 30)
-
 
 def _sans_accents(mot: str) -> str:
     return "".join(
         c for c in unicodedata.normalize("NFD", mot)
         if unicodedata.category(c) != "Mn"
     )
-
 
 def refus(nom: str) -> str:
     """Pourquoi ce nom ne peut pas entrer en banque, ou une chaîne vide.
@@ -66,10 +60,8 @@ def refus(nom: str) -> str:
         return f"« {propre} » est une étiquette de Greffier, pas un prénom."
     return ""
 
-
 def valable(nom: str) -> bool:
     return not refus(nom)
-
 
 def normaliser(nom: str) -> str:
     """La forme sous laquelle un prénom est retenu.

@@ -67,22 +67,17 @@ _CODE = re.compile(r"`([^`\n]+)`")
 _LIEN = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
 _SEPARATEUR_TABLEAU = re.compile(r"^\s*\|?[\s:|-]+\|[\s:|-]*$")
 
-
 def _balise(style: str, contenu: str, extra: str = "", nom: str = "") -> str:
     """Balise HTML stylée. `nom` diffère de `style` quand plusieurs styles
     s'appliquent à la même balise, comme les variantes de cellule."""
     return f'<{nom or style} style="{_STYLES[style]}"{extra}>{contenu}</{nom or style}>'
 
-
-#: Valeurs qui disent l'absence d'une donnée plutôt qu'une donnée.
 _ABSENCES = frozenset({"non dit", "à attribuer", "a attribuer", "non précisé", "sans objet"})
-
 
 def _style_cellule(contenu: str, rang: int) -> str:
     if contenu.strip().lower() in _ABSENCES:
         return "td_absent"
     return "td_premiere" if rang == 0 else "td"
-
 
 def _en_ligne(texte: str) -> str:
     """Échappe le texte, puis rend gras, italique, code et liens."""
@@ -93,7 +88,6 @@ def _en_ligne(texte: str) -> str:
     return _LIEN.sub(
         lambda m: f'<a href="{m.group(2)}" style="color:#2c5aa0">{m.group(1)}</a>', sortie
     )
-
 
 def _ancre(titre: str) -> str:
     """Identifiant stable pour une section, sans accent ni espace.
@@ -108,7 +102,6 @@ def _ancre(titre: str) -> str:
     reduit = re.sub(r"[^a-z0-9]+", "-", sans_accent.lower()).strip("-")
     return "s-" + (reduit or empreinte_courte(titre))
 
-
 def sections(compte_rendu: str) -> list[str]:
     """Intitulés des sections de deuxième niveau, dans l'ordre du document."""
     return [
@@ -116,7 +109,6 @@ def sections(compte_rendu: str) -> list[str]:
         for ligne in compte_rendu.splitlines()
         if ligne.strip().startswith("## ")
     ]
-
 
 def _sommaire(compte_rendu: str) -> str:
     """Sommaire en tête du courriel, sur toute la largeur.
@@ -148,10 +140,8 @@ def _sommaire(compte_rendu: str) -> str:
         f"{entrees}</div>"
     )
 
-
 def _cellules(ligne: str) -> list[str]:
     return [c.strip() for c in ligne.strip().strip("|").split("|")]
-
 
 def en_html(markdown: str) -> str:
     """Convertit le compte rendu en fragment HTML, styles en ligne compris."""
@@ -241,7 +231,6 @@ def en_html(markdown: str) -> str:
 
     return "\n".join(sortie)
 
-
 def _entete(compte_rendu: str) -> tuple[str, str]:
     """Sépare le titre et la ligne de contexte du reste du document.
 
@@ -276,7 +265,6 @@ def _entete(compte_rendu: str) -> tuple[str, str]:
     )
     return bloc, "\n".join(lignes[reste:])
 
-
 def courriel(compte_rendu: str, pied: str = "") -> str:
     """Enveloppe le compte rendu dans un document complet, prêt à envoyer."""
     entete, suite = _entete(compte_rendu)
@@ -295,5 +283,4 @@ def courriel(compte_rendu: str, pied: str = "") -> str:
         f"{corps}{signature}"
         "</div></body></html>"
     )
-
 

@@ -23,24 +23,18 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-#: Au-delà, on ne relit plus une conversation, on la parcourt. Les plus récents
-#: tours sont ceux qu'on cherche en réouvrant la fenêtre.
 TOURS_RELUS = 60
-
 
 @dataclass(frozen=True, slots=True)
 class Tour:
     """Une réplique de la conversation, telle qu'elle a été dite."""
 
-    #: « moi », « greffier », ou « note » pour ce que l'interface signale.
     qui: str
     texte: str
     quand: datetime | None = None
 
-
 def fichier_de(dossier: Path, identifiant: str) -> Path:
     return dossier / f"{identifiant}.jsonl"
-
 
 def ajouter(fichier: Path, qui: str, texte: str) -> None:
     """Ajoute un tour. N'échoue jamais bruyamment.
@@ -58,7 +52,6 @@ def ajouter(fichier: Path, qui: str, texte: str) -> None:
                  "quand": datetime.now(UTC).isoformat()},
                 ensure_ascii=False,
             ) + "\n")
-
 
 def lire(fichier: Path, derniers: int = TOURS_RELUS) -> list[Tour]:
     """Les derniers tours de la conversation, du plus ancien au plus récent."""

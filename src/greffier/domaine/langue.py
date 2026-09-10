@@ -29,11 +29,7 @@ from dataclasses import dataclass, field
 
 from greffier.domaine.modeles import TypeMention
 
-#: Un motif de reconnaissance : ce qu'il désigne, comment il s'écrit, et s'il
-#: n'est qu'une confirmation. Un motif de confirmation est trop large pour
-#: établir un prénom à lui seul ; il ne compte que sur un nom déjà repéré.
 Motif = tuple[TypeMention, "re.Pattern[str]", bool]
-
 
 @dataclass(frozen=True, slots=True)
 class Detection:
@@ -47,13 +43,9 @@ class Detection:
     active: bool
     motifs: tuple[Motif, ...] = ()
     exclus: frozenset[str] = frozenset()
-    #: En deçà, un mot est trop court pour être un prénom distinctif.
     longueur_minimale: int = 3
-    #: Suffixe adverbial à écarter, et longueur à partir de laquelle l'écarter.
-    #: Vide : la langue n'a pas de règle de ce genre.
     suffixe_adverbial: str = ""
     longueur_du_suffixe: int = 0
-
 
 @dataclass(frozen=True, slots=True)
 class Decoupage:
@@ -73,7 +65,6 @@ class Decoupage:
             return len(texte.split())
         return len(texte.replace(" ", ""))
 
-
 @dataclass(frozen=True, slots=True)
 class Redaction:
     """Ce que la langue change à la lecture de ce qui a été dit.
@@ -84,7 +75,6 @@ class Redaction:
 
     generiques: frozenset[str] = frozenset()
     motifs_de_decision: tuple[re.Pattern[str], ...] = ()
-
 
 @dataclass(frozen=True, slots=True)
 class ProfilLinguistique:

@@ -23,7 +23,6 @@ def horloge(secondes: float) -> str:
         return f"{heures}:{minutes:02d}:{restantes:02d}"
     return f"{minutes}:{restantes:02d}"
 
-
 def sujet_lisible(identifiant: str, compte_rendu: Path, sujet: str = "") -> str:
     """Le sujet de la réunion : celui qu'on a choisi, sinon celui du compte rendu.
 
@@ -48,11 +47,7 @@ def sujet_lisible(identifiant: str, compte_rendu: Path, sujet: str = "") -> str:
                 return sans_prefixe or titre
     return identifiant
 
-
-#: Jusqu'où une colonne s'étire au-delà de ce que son libellé demande. Un quart
-#: suffit à remplir une barre sans que « Ouvrir » ne devienne une bannière.
 ETIREMENT_MAXIMUM = 1.25
-
 
 def grille_de_boutons(
     largeurs: list[int], offerte: int, ecart: int = 9
@@ -98,7 +93,6 @@ def grille_de_boutons(
     colonne = max(demandee, min(plafond, disponible))
     return (par_rang, colonne)
 
-
 def marque_de_pastille(compte: int) -> str:
     """Ce qu'une pastille d'onglet affiche pour ce compte. Vide pour rien.
 
@@ -112,7 +106,6 @@ def marque_de_pastille(compte: int) -> str:
     if compte <= 0:
         return ""
     return str(compte) if compte < 10 else "9+"
-
 
 def etat_du_direct(en_reunion: bool, annonce: str, phrases: int) -> str:
     """La ligne qui dit ce que le fil est en train de faire, ou pourquoi rien.
