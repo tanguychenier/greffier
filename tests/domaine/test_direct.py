@@ -34,7 +34,10 @@ def empreinte(x: float, y: float, duree: float = 4.0) -> Empreinte:
 
 #: Deux vecteurs à 0,8 de cosinus : au-dessus du seuil de fusion (0,75), donc la
 #: même personne aux yeux du fil.
-MEME_VOIX = (empreinte(1, 0), empreinte(0.8, 0.6))
+# Huit secondes chacun : la banque ne nomme personne sur moins de six
+# (`MATIERE_POUR_RECONNAITRE`), et ces deux extraits servent aux essais de
+# reconnaissance.
+MEME_VOIX = (empreinte(1, 0, duree=8.0), empreinte(0.8, 0.6, duree=8.0))
 #: Cosinus nul : deux personnes, sans ambiguïté possible.
 AUTRE_VOIX = empreinte(0, 1)
 
@@ -117,17 +120,34 @@ class TestReconnaissanceParLaBanque:
         fil.rattacher(empreinte(0.61, 0.7924), locale=False)
         assert fil.voix[voix].nom == "Julie"
 
-    def test_une_voix_franche_est_reconnue_des_sa_premiere_bribe(self) -> None:
+    def test_une_voix_franche_est_reconnue_des_sa_premiere_prise(self) -> None:
         """Ce que l'abaissement du seuil apporte : reconnaître plus tôt.
 
         À 0,65, il fallait auparavant attendre un second extrait pour que
         l'agrégat franchisse 0,70. Une personne restait donc « Voix 1 » pendant
         ses premières phrases, dans le fil que tout le monde regarde.
+
+        « Prise » et non « bribe » : une prise de parole, pas trois mots. Voir
+        le test suivant, qui est l'autre moitié de la règle.
         """
         julie = Personne(nom="Julie", empreintes=[empreinte(1, 0, duree=30)])
         fil = Fil(connues=[julie])
-        voix = fil.rattacher(empreinte(0.65, 0.76), locale=False)
+        voix = fil.rattacher(empreinte(0.65, 0.76, duree=8.0), locale=False)
         assert fil.voix[voix].nom == "Julie"
+
+    def test_une_bribe_ne_recoit_aucun_nom_de_la_banque(self) -> None:
+        """Reconnaître demande plus de matière que rattacher.
+
+        Mesuré en séance sur une réunion de trente-deux minutes : la banque a
+        collé « Kevin ? » sur une voix de trois tours et « Fantin ? » sur une de
+        quatre, alors que ni l'un ni l'autre n'était présent. Quelques secondes
+        de parole ressemblent à trop de monde, et une étiquette fausse est pire
+        qu'un « Voix 12 » : on la croit.
+        """
+        julie = Personne(nom="Julie", empreintes=[empreinte(1, 0, duree=30)])
+        fil = Fil(connues=[julie])
+        voix = fil.rattacher(empreinte(0.9, 0.2, duree=3.0), locale=False)
+        assert fil.voix[voix].nom is None
 
 
 class TestDecoupageEnBlocs:
@@ -630,7 +650,8 @@ class TestConfianceDite:
 
         julie = Personne(nom="Julie", empreintes=[empreinte(1, 0, duree=30)])
         fil = Fil(connues=[julie])
-        voix = fil.rattacher(empreinte(0.65, 0.76), locale=False)
+        # Huit secondes : la banque ne nomme personne sur moins de six.
+        voix = fil.rattacher(empreinte(0.65, 0.76, duree=8.0), locale=False)
         assert fil.voix[voix].ressemblance > 0
         assert similarite is not None
 
@@ -717,3 +738,72 @@ class TestAgregatEnCache:
         voix = VoixDirecte(identifiant="v1", rang=1,
                            empreintes=[empreinte(1.0, 0.0, duree=4.0)])
         assert voix.agregat is voix.agregat
+
+
+class TestReunirLesHomonymes:
+    """Deux voix que la banque nomme pareil sont la même personne.
+
+    Mesuré en séance sur une réunion de trente-deux minutes : « Tanguy »
+    s'affichait sur trois voix à la fois, dont deux avec un point
+    d'interrogation. Le compte rendu en aurait annoncé trois. Attendre que
+    leurs empreintes se ressemblent assez pour être réunies, c'est refuser une
+    information qu'on tient déjà.
+    """
+
+    def _fil(self):
+        fil = Fil(seuil_fusion=0.50)
+        for rang, (identifiant, vecteur) in enumerate(
+            (("v1", (1.0, 0.0)), ("v2", (0.0, 1.0)), ("v3", (0.0, 0.0))), start=1
+        ):
+            fil.voix[identifiant] = VoixDirecte(
+                identifiant=identifiant, rang=rang,
+                empreintes=[empreinte(*vecteur, duree=10.0)]
+                if any(vecteur) else [normaliser([0.0, 0.0, 1.0], duree_source=4.0)],
+            )
+        fil.suite = 4
+        return fil
+
+    def test_trois_voix_du_meme_nom_deviennent_une(self):
+        fil = self._fil()
+        for identifiant in ("v1", "v2", "v3"):
+            fil.voix[identifiant].nom = "Tanguy"
+            fil.voix[identifiant].certitude = Certitude.PROBABLE
+        faits = fil._reunir_les_homonymes()
+        assert len(faits) == 2
+        restantes = [v for v in fil.voix.values() if v.nom == "Tanguy"]
+        assert len(restantes) == 1
+
+    def test_la_plus_fournie_garde_son_identifiant(self):
+        """C'est celle dont l'extrait est le plus représentatif."""
+        fil = self._fil()
+        fil.voix["v1"].nom = fil.voix["v3"].nom = "Tanguy"
+        fil.voix["v1"].certitude = fil.voix["v3"].certitude = Certitude.PROBABLE
+        fil._reunir_les_homonymes()
+        assert fil.voix["v1"].nom == "Tanguy"
+        assert "v3" not in fil.voix or fil.voix["v3"].nom != "Tanguy"
+
+    def test_deux_noms_differents_ne_sont_jamais_reunis(self):
+        fil = self._fil()
+        fil.voix["v1"].nom, fil.voix["v2"].nom = "Tanguy", "Garance"
+        fil.voix["v1"].certitude = fil.voix["v2"].certitude = Certitude.PROBABLE
+        assert fil._reunir_les_homonymes() == []
+        assert fil.voix["v1"].nom == "Tanguy" and fil.voix["v2"].nom == "Garance"
+
+    def test_la_casse_ne_cree_pas_deux_personnes(self):
+        fil = self._fil()
+        fil.voix["v1"].nom, fil.voix["v2"].nom = "Tanguy", "tanguy"
+        fil.voix["v1"].certitude = fil.voix["v2"].certitude = Certitude.PROBABLE
+        assert len(fil._reunir_les_homonymes()) == 1
+
+    def test_une_voix_sans_nom_n_est_pas_concernee(self):
+        fil = self._fil()
+        assert fil._reunir_les_homonymes() == []
+
+    def test_le_recollage_les_reunit_de_lui_meme(self):
+        """C'est là que l'auto-correction se produit, à chaque tranche."""
+        fil = self._fil()
+        for identifiant in ("v1", "v2"):
+            fil.voix[identifiant].nom = "Tanguy"
+            fil.voix[identifiant].certitude = Certitude.PROBABLE
+        assert fil.recoller(), "le recollage n'a rien réuni"
+        assert len([v for v in fil.voix.values() if v.nom == "Tanguy"]) == 1
