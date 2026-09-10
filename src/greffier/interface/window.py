@@ -734,6 +734,8 @@ class Window:
                width=140, height=34).pack(side="left")
         Button(entry, "Retirer le nom", self._forget_the_name, self.colours,
                width=150, height=34).pack(side="left", padx=(9, 0))
+        Button(entry, "Séparer les deux voix", self._split_the_voice,
+               self.colours, width=190, height=34).pack(side="left", padx=(9, 0))
 
     def _conversation_tab(self) -> None:
         c = self.colours
@@ -2201,6 +2203,30 @@ class Window:
             + ". Sélectionne-la dans Réunions et clique « Rédiger » : la "
             "transcription est gardée, seule la rédaction reste à refaire.",
         )
+
+    def _split_the_voice(self) -> None:
+        """Undoes the last join that produced the chosen voice.
+
+        Naming two voices alike joins them, which is what one wants when the
+        tool split one person in two. It was one click to do and nothing to
+        undo, and two people joined by mistake stayed one until the minutes.
+        """
+        from greffier.wiring import naming
+
+        identifier, voice = self._selection(), self._selected_voice()
+        if not (identifier and voice):
+            messagebox.showinfo("Greffier", "Choisis une réunion, puis une voix.")
+            return
+        try:
+            naming(self.config).split(identifier, voice)
+        except (KeyError, RuntimeError, ValueError, OSError) as souci:
+            messagebox.showerror("Greffier", str(souci))
+            return
+        self._load_voices()
+        self.status_line.configure(
+            text=f"La voix {voice} est séparée : les deux sont de nouveau distinctes."
+        )
+        self._regenerate_after_naming(identifier)
 
     def _forget_the_name(self) -> None:
         """Removes a voice's name, after confirmation."""

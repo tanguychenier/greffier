@@ -263,8 +263,12 @@ signer() { codesign --force --sign "$IDENTITE" --timestamp=none "$@"; }
 # hoc, codesign le dit pour chacune — des dizaines de lignes sans information.
 # Filtré ; les vraies erreurs passent.
 sans_bruit() { grep -v "replacing existing signature" >&2 || true; }
+# En parallele, et par paquets : signer quelques milliers de bibliotheques une
+# par une prend des dizaines de minutes. Mesure sur l'executeur d'integration
+# continue de la premiere publication : cinquante minutes, pendant lesquelles
+# rien n'etait telechargeable.
 find "$CONTENU/lib" -type f \( -name '*.so' -o -name '*.dylib' \) -print0 \
-  | xargs -0 codesign --force --sign "$IDENTITE" --timestamp=none 2> >(sans_bruit)
+  | xargs -0 -n 40 -P 8 codesign --force --sign "$IDENTITE" --timestamp=none 2> >(sans_bruit)
 [ -x "$CONTENU/Resources/lister-peripheriques" ] \
   && signer --identifier "$IDENTIFIANT.lister-peripheriques" "$CONTENU/Resources/lister-peripheriques" 2> >(sans_bruit)
 signer --identifier "$IDENTIFIANT" "$PAQUET" 2> >(sans_bruit)
