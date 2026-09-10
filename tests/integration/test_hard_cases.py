@@ -55,11 +55,11 @@ def _fabriquer_cas(name: str, tmp_path_factory) -> Path:
     if platform.system() != "Darwin":
         pytest.skip("la synthèse vocale « say » n'existe que sur macOS")
     from make_hard_cases import CAS
-    from make_meeting import fabriquer
+    from make_meeting import make
 
     voice, dialogue = CAS[name]
     destination = tmp_path_factory.mktemp("audio") / f"cas-{name}.wav"
-    return fabriquer(destination, voice=voice, dialogue=dialogue)
+    return make(destination, voice=voice, dialogue=dialogue)
 
 
 def _process(config: Config, audio: Path):
