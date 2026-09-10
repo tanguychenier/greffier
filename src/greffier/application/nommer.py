@@ -29,7 +29,6 @@ DUREE_EXTRAIT = 10.0
 # l'empreinte.
 DUREE_UTILE = 3.0
 
-
 @dataclass
 class VoixANommer:
     """Une voix de la réunion, telle qu'elle est présentée à l'utilisateur."""
@@ -44,7 +43,6 @@ class VoixANommer:
     @property
     def a_nommer(self) -> bool:
         return self.nom is None
-
 
 def voix_a_nommer(reunion: ReunionEnregistree, minimum: float = 10.0) -> list[VoixANommer]:
     """Les voix de la réunion, de la plus bavarde à la moins, avec un extrait.
@@ -72,7 +70,6 @@ def voix_a_nommer(reunion: ReunionEnregistree, minimum: float = 10.0) -> list[Vo
         ))
     return resultat
 
-
 def meilleur_extrait(intervalles: list[Intervalle]) -> Intervalle | None:
     """Le passage le plus représentatif à faire écouter.
 
@@ -91,7 +88,6 @@ def meilleur_extrait(intervalles: list[Intervalle]) -> Intervalle | None:
     debut = plus_long.debut + min(1.0, (plus_long.duree - DUREE_EXTRAIT) / 2)
     return Intervalle(debut, debut + DUREE_EXTRAIT)
 
-
 def extraire_audio(audio: Path, intervalle: Intervalle, destination: Path) -> Path:
     """Découpe un extrait, pour l'écouter."""
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -103,7 +99,6 @@ def extraire_audio(audio: Path, intervalle: Intervalle, destination: Path) -> Pa
     )
     return destination
 
-
 @dataclass
 class Nommage:
     """Associe une voix à un nom, et fait entrer l'empreinte en banque."""
@@ -111,9 +106,6 @@ class Nommage:
     depot: sortants.DepotReunions
     banque: sortants.BanqueDeVoix
     extracteur: sortants.ExtracteurEmpreintes
-    #: Ce que le dernier nommage a de suspect, en clair. Vide quand tout va
-    #: bien. L'appelant l'affiche : c'est le seul moment où l'utilisateur peut
-    #: encore se raviser sans effort.
     doute: str = ""
 
     def nommer(self, identifiant: str, voix: str, nom: str) -> ReunionEnregistree:

@@ -35,7 +35,6 @@ if sys.version_info >= (3, 11):
 else:  # pragma: no cover - repli pour les postes en 3.9/3.10
     import tomli as tomllib
 
-
 class Chemins(BaseModel):
     modeles: Path = Field(default_factory=lambda: dossier_donnees() / "modeles")
     donnees: Path = Field(default_factory=dossier_donnees)
@@ -162,7 +161,6 @@ class Chemins(BaseModel):
         """
         return self.donnees / "sauvegardes"
 
-
 class Audio(BaseModel):
     # Sur macOS, deux périphériques à créer une fois. Ailleurs, le système
     # expose déjà de quoi réenregistrer sa propre sortie.
@@ -176,16 +174,11 @@ class Audio(BaseModel):
     # le disque (~115 Mo/h). Quatre heures couvrent largement une réunion.
     duree_maximale: int = 14_400
 
-
 class Transcription(BaseModel):
     moteur: str = "whisper.cpp" if platform.system() == "Darwin" else "faster-whisper"
     # Taille du modèle pour faster-whisper ; ignoré par whisper.cpp, qui prend le
     # fichier téléchargé par l'installeur.
     modele: str = "large-v3"
-    #: Code de langue à deux lettres. **Vide : le modèle la reconnaît lui-même**,
-    #: ce qu'il faut pour une réunion qui bascule d'une langue à l'autre. Le
-    #: défaut reste le français : l'annoncer vaut mieux que la faire deviner
-    #: quand on la connaît.
     langue: str = "fr"
     # Passé au modèle en amorce : c'est ce qui améliore le plus la transcription
     # des noms propres et des acronymes rares.
@@ -197,7 +190,6 @@ class Transcription(BaseModel):
             return ""
         return "Réunion de travail. Vocabulaire : " + ", ".join(self.vocabulaire) + "."
 
-
 class Direct(BaseModel):
     """La transcription affichée pendant que la réunion a lieu.
 
@@ -208,23 +200,8 @@ class Direct(BaseModel):
     """
 
     actif: bool = True
-    #: Toutes les combien de secondes une tranche est transcrite. Trente ne se
-    #: vivent pas comme du direct : on parle, et rien n'apparaît pendant une
-    #: demi-minute. Dix laissent le temps d'une phrase entière tout en gardant
-    #: l'impression que l'outil suit.
     periode: float = 10.0
-    #: Taille du modèle de transcription du direct. **Vide : celui que la
-    #: machine fait tourner sans souffrir**, le même que la transcription
-    #: définitive quand elle en a les moyens.
-    #:
-    #: « small » était le défaut, au motif qu'il faut être rapide plutôt que
-    #: juste. Mesuré sur un Mac Apple Silicon, tranche réelle de dix secondes :
-    #: 0,72 s avec `small` pour trois fragments faux, 1,44 s avec
-    #: `large-v3-turbo` pour une phrase cohérente. Le budget d'une tranche est
-    #: de dix secondes : le grand modèle tient avec sept fois la marge, et le
-    #: petit rendait le fil du direct illisible pour rien.
     modele: str = ""
-
 
 class Locuteurs(BaseModel):
     # Mots que la détection des prénoms ne doit jamais retenir : noms de
@@ -233,21 +210,12 @@ class Locuteurs(BaseModel):
     # Laissé vide, le nombre de participants est déduit par recollage des voix.
     personnes: int | None = None
 
-
-#: Les modèles que Claude Code accepte comme alias, du plus puissant au plus
-#: léger. Le libellé dit à quoi sert chacun ici, pas ce que vaut le modèle en
-#: général : c'est le choix « pour rédiger un compte rendu » qu'on présente.
-#:
-#: Ici et non dans l'assistant de première configuration : la fenêtre s'en sert
-#: aussi, et allait le chercher dans un assistant en terminal dont elle n'a que
-#: faire. Le défaut, lui, est juste à côté — CLAUDE_PAR_DEFAUT.
 MODELES_CLAUDE: list[tuple[str, str]] = [
     ("opus", "Opus — recommandé : la synthèse est excellente et le quota tient"),
     ("fable", "Fable — le haut de la gamme, plus coûteux pour un compte rendu identique"),
     ("sonnet", "Sonnet — plus léger et plus rapide, synthèse un peu moins fine"),
     ("haiku", "Haiku — le plus économique, à réserver aux réunions courtes"),
 ]
-
 
 class CompteRendu(BaseModel):
     """Qui rédige, et où va le résultat.
@@ -260,30 +228,11 @@ class CompteRendu(BaseModel):
     """
 
     moteur: str = "claude"       # claude | ollama | aucun
-    #: La langue du DOCUMENT. Vide : celle de la réunion.
-    #:
-    #: Distincte de `transcription.langue`, dont le vide veut dire « reconnais-la
-    #: toi-même » et ne dit rien de la langue dans laquelle écrire. On peut tenir
-    #: une réunion en anglais et vouloir son compte rendu en français.
     langue: str = ""
-    #: Le modèle du moteur choisi. Vide : celui que `modele_effectif` désigne,
-    #: qui dépend du moteur — un nom de modèle Ollama n'a aucun sens pour Claude
-    #: Code, et l'inverse non plus.
     modele: str = ""
     destinataire: str = ""
-    #: Secondes accordées au rédacteur avant de renoncer. Réglable parce que la
-    #: bonne valeur dépend de la longueur des réunions et de la charge du
-    #: service : 900 s codées en dur ont fait échouer la rédaction d'une réunion
-    #: de 32 minutes le 2026-09-09, sans recours pour qui la relançait. Dépasser
-    #: ce délai ne perd plus rien — la transcription est gardée avant, et
-    #: « greffier rediger » reprend.
     delai: int = 1800
 
-    #: Ce que Claude Code utilise quand rien n'est demandé. **Pas le modèle le
-    #: plus puissant, le second** : rédiger un compte rendu à partir d'une
-    #: transcription déjà attribuée est un travail de synthèse, pas de
-    #: raisonnement long. Le premier de la gamme coûte plus cher sans rendre un
-    #: meilleur document, et une réunion par jour suffirait à entamer un quota.
     CLAUDE_PAR_DEFAUT: ClassVar[str] = "opus"
     OLLAMA_PAR_DEFAUT: ClassVar[str] = "qwen3:8b"
 
@@ -298,7 +247,6 @@ class CompteRendu(BaseModel):
             return self.OLLAMA_PAR_DEFAUT
         return ""
 
-
 class Sauvegarde(BaseModel):
     """Où sont copiées les données, et combien de copies on garde.
 
@@ -306,22 +254,9 @@ class Sauvegarde(BaseModel):
     réunion transcrite reste utilisable sans son enregistrement.
     """
 
-    #: Où écrire les archives. Vide : à côté des données, ce qui protège d'un
-    #: effacement accidentel mais **pas** de la perte du disque.
-    #:
-    #: Un espace synchronisé fait une vraie sauvegarde, mais **envoie les
-    #: données chez son hébergeur** : les transcriptions, les comptes rendus et
-    #: la banque de voix — qui contient des empreintes vocales de collègues, donc
-    #: des données personnelles de tiers. Vers le nuage d'un employeur, cela ne
-    #: se décide pas à la place de qui utilise l'outil. Un disque externe n'a pas
-    #: ce défaut.
     dossier: str = ""
-    #: Sauvegarder de soi-même après chaque réunion traitée. Le moment est
-    #: naturel : le travail vient d'être produit, et personne n'y pense après.
     apres_chaque_reunion: bool = True
-    #: Combien d'archives garder. Sept jours de travail, sept fois 3 Mo.
     gardees: int = 7
-
 
 class Retention(BaseModel):
     """Combien de temps les enregistrements restent, et sous quelle forme.
@@ -331,16 +266,8 @@ class Retention(BaseModel):
     la banque de voix réunis.
     """
 
-    #: Jours avant de compresser un enregistrement transcrit. Ne perd rien
-    #: d'utile : 115 Mo par heure en WAV, une dizaine en Opus, et l'audio ne
-    #: sert plus qu'à réécouter un passage. Zéro désactive.
     compresser_apres_jours: int = 7
-    #: Jours avant d'effacer l'audio. **Zéro, donc désactivé** : c'est la seule
-    #: pièce qu'on ne peut pas refaire. À régler par qui veut pouvoir dire « les
-    #: enregistrements sont effacés au bout de N jours » — une voix est une
-    #: donnée biométrique, et l'énoncé n'a de valeur que s'il est vrai.
     effacer_apres_jours: int = 0
-
 
 class Conversation(BaseModel):
     """Ce que l'assistant a le droit de faire quand on lui parle.
@@ -350,38 +277,9 @@ class Conversation(BaseModel):
     document ne sont pas la même chose.
     """
 
-    #: Autorise la recherche en ligne pour répondre. Ce qui sort du poste est le
-    #: **terme cherché**, jamais la transcription : les consignes l'interdisent
-    #: explicitement. Réglable parce qu'il y a des réunions où même cela ne se
-    #: fait pas.
     recherche_web: bool = True
-    #: Ce qui a été fait vis-à-vis des participants : « rien », « annoncé » ou
-    #: « accord ». Une voix est une donnée biométrique, et la mention portée au
-    #: compte rendu suit ce réglage. « rien » est le défaut, et il est dit tel
-    #: quel : prétendre le contraire serait pire que de l'avouer.
     information: str = "rien"
 
-
-#: Les prénoms auxquels l'assistant peut répondre, et la voix de chacun.
-#:
-#: Une liste et non un champ libre, parce qu'un prénom saisi au hasard n'est pas
-#: forcément rendu par le modèle de transcription — et que rien ne le dirait.
-#: Chacun de ceux-ci a été soumis à quatre épreuves (deux tournures, deux voix
-#: de synthèse) puis transcrit par le vrai modèle, et à cinq pièges : des
-#: phrases sans le prénom, pour vérifier qu'il ne s'y déclenche pas.
-#:
-#: Retenus : quatre appels sur quatre, zéro faux positif sur cinq.
-#: Écartés : « Élise », que « elle a lu ci et ça » réveille — et « Greffier »
-#: lui-même, que « le greffe du tribunal » suffisait à appeler.
-#:
-#: La valeur est le locuteur du modèle de voix installé, dont le genre a été
-#: relevé à la fréquence fondamentale : 237 Hz pour le premier, 129 Hz pour le
-#: second. Choisir le prénom pose donc la voix du même geste, et aucune
-#: combinaison incohérente n'est possible.
-#:
-#: Ce que cette épreuve ne dit pas : ce qu'un prénom devient prononcé par une
-#: vraie voix, à trois mètres d'un micro de table. C'est un plancher, pas une
-#: garantie.
 PRENOMS: dict[str, int] = {
     "Lucie": 0,
     "Camille": 0,
@@ -396,9 +294,7 @@ PRENOMS: dict[str, int] = {
     "Léon": 1,
 }
 
-#: Comment nommer la voix d'un prénom, à l'écran.
 GENRES = {0: "voix féminine", 1: "voix masculine"}
-
 
 class Assistant(BaseModel):
     """L'assistant en tant que participant : son nom, sa voix, sa retenue.
@@ -408,63 +304,20 @@ class Assistant(BaseModel):
     réunion, et de la façon dont il se fait entendre.
     """
 
-    #: Plus consulté, et gardé pour ne pas faire échouer la lecture des anciens
-    #: fichiers. L'assistant participe **toujours** : il suit la réunion, prend
-    #: des notes et répond quand on l'appelle — c'est son travail.
-    #:
-    #: Passer le défaut à vrai n'a pas suffi. Un fichier écrit auparavant
-    #: gardait `actif = false`, l'interface n'exposait plus le bouton
-    #: correspondant, donc plus rien ne pouvait le remettre à vrai : Lucie ne
-    #: répondait pas quand on l'appelait par son nom, et rien ne le disait.
-    #: Constaté deux fois en réunion, ce qui est le pire moment. Un réglage que
-    #: l'interface n'expose plus ne doit pas continuer à décider.
-    #:
-    #: Ce qui se règle, c'est la **voix** (`voix`) et l'**initiative**
-    #: (`initiative`) : se faire entendre dans la pièce et parler sans qu'on
-    #: l'ait appelé sont les deux choses qui dépendent de la réunion.
     actif: bool = True
-    #: Le nom auquel il répond. Lui donner un prénom vaut mieux que « Greffier »,
-    #: qui ressemble à trop de mots courants : « le greffe du tribunal » suffit à
-    #: le réveiller, un prénom non.
     nom: str = "Lucie"
-    #: « kokoro » : la voix neuronale, celle qu'on écoute sans grincer des dents.
-    #: « systeme » : la voix livrée par l'ordinateur, disponible partout, mais
-    #: qui s'entend. « aucun » : il participe par écrit dans le fil.
     voix: str = "kokoro"
-    #: Le débit. En dessous de 1, on parle à des gens occupés ; au-dessus, on
-    #: parle à quelqu'un qui écoute.
     vitesse: float = 0.95
-    #: Le locuteur du modèle de voix, quand il en porte plusieurs. Déduit du
-    #: prénom par `PRENOMS` : les choisir séparément permettrait « Martin » avec
-    #: une voix féminine, ce que personne ne veut et que rien ne rattrape.
-    #: Réglable tout de même, pour un prénom hors liste.
     locuteur: int = 0
 
     @property
     def locuteur_effectif(self) -> int:
         """La voix qui va avec ce prénom, quand il est de la liste."""
         return PRENOMS.get(self.nom, self.locuteur)
-    #: Secondes entre deux prises de parole **spontanées**. Être appelé ne compte
-    #: pas : on répond tout de suite, quel que soit le repos restant.
     repos: float = 180.0
-    #: Secondes de silence exigées avant de s'insérer. En dessous, quelqu'un
-    #: parle encore, et prendre la parole revient à couper.
     creux_minimal: float = 2.0
-    #: L'autorise à demander qui vient de parler quand une voix lui échappe.
-    #: C'est ce qui vaut un nom au compte rendu plutôt qu'un « Personne 12 ».
-    #: Faux par défaut : c'est une intervention de sa propre initiative, et
-    #: `initiative` en décide.
     demander_les_voix: bool = False
-    #: L'autorise à ouvrir la bouche sans qu'on l'ait appelée : relever une
-    #: décision sans responsable, une question restée en l'air, demander à qui
-    #: est une voix.
-    #:
-    #: **Faux par défaut.** Répondre quand on l'appelle est sans risque : la
-    #: question vient d'un humain, qui juge du moment. Parler de soi-même
-    #: demande de bien juger, et une intervention de trop coûte la confiance de
-    #: toute la salle — devant public, cela ne se tente pas sans l'avoir voulu.
     initiative: bool = False
-
 
 class Apparence(BaseModel):
     """Ce que la fenêtre montre, indépendamment de ce qu'elle fait.
@@ -475,7 +328,6 @@ class Apparence(BaseModel):
     """
 
     theme: str = "systeme"       # systeme | clair | sombre
-
 
 class Courriel(BaseModel):
     """Envoi par SMTP, pour les postes sans Outlook.
@@ -489,7 +341,6 @@ class Courriel(BaseModel):
     port: int = 587
     utilisateur: str = ""
     expediteur: str = ""
-
 
 class Config(BaseSettings):
     model_config = SettingsConfigDict(
@@ -536,7 +387,6 @@ class Config(BaseSettings):
             return cls.model_validate(_lire_toml(fichier))
         return cls()
 
-
 def _lire_toml(chemin: Path) -> dict[str, object]:
     """Contenu d'un fichier TOML, vide s'il n'existe pas.
 
@@ -551,7 +401,6 @@ def _lire_toml(chemin: Path) -> dict[str, object]:
     except tomllib.TOMLDecodeError as erreur:
         raise ValueError(f"{chemin} est illisible : {erreur}") from erreur
 
-
 class _SourceToml(PydanticBaseSettingsSource):
     """Lit `config.toml` s'il existe, en dernier recours."""
 
@@ -562,7 +411,6 @@ class _SourceToml(PydanticBaseSettingsSource):
 
     def __call__(self) -> dict[str, object]:
         return _lire_toml(dossier_config() / "config.toml")
-
 
 # --------------------------------------------------------------- écriture
 #
@@ -590,16 +438,6 @@ class _SourceToml(PydanticBaseSettingsSource):
 # des listes qui se tiennent mieux dans un éditeur que dans un formulaire, et les
 # écrire depuis la fenêtre reviendrait à les tronquer.
 
-
-#: Ce qui est écrit, section par section, dans cet ordre. **Tout** ce que la
-#: configuration porte de significatif y figure, pas seulement ce que la fenêtre
-#: règle : le fichier est régénéré, donc un champ absent d'ici serait perdu — le
-#: vocabulaire d'une équipe, par exemple, qui se compte en dizaines de mots et
-#: dont la perte dégraderait chaque transcription suivante sans rien annoncer.
-#:
-#: `chemins` en est délibérément absent. L'y écrire figerait les dossiers dans
-#: le fichier : c'est ce que faisait la version précédente, et un poste dont les
-#: données ont déménagé continuait de lire l'ancien emplacement.
 SECTIONS: dict[str, tuple[str, ...]] = {
     "audio": ("micro", "entree", "sortie", "duree_maximale"),
     "transcription": ("moteur", "modele", "langue", "vocabulaire"),
@@ -662,10 +500,8 @@ _ENTETE = """# Configuration de Greffier.
 # La version précédente de ce fichier est conservée en « config.toml.precedent ».
 """
 
-
 def fichier_config(dossier: Path | None = None) -> Path:
     return (dossier or dossier_config()) / "config.toml"
-
 
 def rendre(config: Config) -> str:
     """Le contenu TOML de cette configuration. Fonction pure, éprouvable seule."""
@@ -686,7 +522,6 @@ def rendre(config: Config) -> str:
         morceaux.append("\n".join(lignes))
     return "\n\n".join(morceaux) + "\n"
 
-
 def _valeur(valeur: object) -> str:
     """Un scalaire ou une liste, en TOML.
 
@@ -704,7 +539,6 @@ def _valeur(valeur: object) -> str:
         return "[" + ", ".join(_valeur(v) for v in valeur) + "]"
     texte = str(valeur).replace("\\", "\\\\").replace('"', '\\"')
     return f'"{texte}"'
-
 
 def sauver(config: Config, dossier: Path | None = None) -> Path:
     """Écrit la configuration, en gardant une copie de la précédente.

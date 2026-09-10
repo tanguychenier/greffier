@@ -21,16 +21,7 @@ from greffier.domaine.modeles import Empreinte, Intervalle
 # vecteur obtenu tient davantage du bruit de la pièce que de la personne.
 DUREE_MINIMALE = 1.5
 
-#: Au-delà, le modèle tombe. Mesuré : 120 s passent, 150 s échouent avec
-#: « BroadcastIterator::Init: axis == 1 || axis == largest was false », une
-#: erreur d'ONNX Runtime dans le nœud « Where » de l'encodeur. C'est arrivé sur
-#: une réunion de 33 minutes tenue autour d'une table, où la segmentation avait
-#: produit un long tour de parole continu.
-#:
-#: Soixante secondes, donc, avec de la marge : une empreinte vocale n'a pas
-#: besoin de davantage, et le calibrage montre qu'elle se stabilise bien avant.
 DUREE_MAXIMALE = 60.0
-
 
 class ExtracteurTitaNet:
     """Transforme un extrait de parole en empreinte vocale."""

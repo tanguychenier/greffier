@@ -49,9 +49,7 @@ GABARIT = '''# Les sources extérieures que Greffier a le droit de consulter.
 # jeton = "trousseau:greffier-jira"
 '''
 
-#: Ce qui, dans le champ « jeton », désigne le trousseau plutôt qu'une variable.
 PREFIXE_TROUSSEAU = "trousseau:"
-
 
 def lire(fichier: Path) -> Registre:
     """Les sources inscrites. Vide si le fichier n'existe pas.
@@ -84,7 +82,6 @@ def lire(fichier: Path) -> Registre:
             continue
     return Registre(sources)
 
-
 def poser_le_gabarit(fichier: Path) -> bool:
     """Écrit le fichier d'exemple s'il n'existe pas. Vrai s'il a été créé."""
     if fichier.exists():
@@ -92,7 +89,6 @@ def poser_le_gabarit(fichier: Path) -> bool:
     fichier.parent.mkdir(parents=True, exist_ok=True)
     fichier.write_text(GABARIT, encoding="utf-8")
     return True
-
 
 def jeton_de(source: Source) -> str:
     """Le secret de cette source, lu là où le registre dit qu'il est.
@@ -106,7 +102,6 @@ def jeton_de(source: Source) -> str:
     if source.jeton.startswith(PREFIXE_TROUSSEAU):
         return _du_trousseau(source.jeton[len(PREFIXE_TROUSSEAU):])
     return os.environ.get(source.jeton, "").strip()
-
 
 def _du_trousseau(service: str) -> str:
     """Le mot de passe générique du trousseau macOS, ou rien.

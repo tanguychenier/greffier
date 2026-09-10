@@ -22,17 +22,11 @@ import soundfile as sf
 from greffier.domaine.canaux import en_visio, tours_locaux
 from greffier.domaine.modeles import Intervalle
 
-#: Fenêtre de mesure des niveaux. 25 ms est la durée usuelle d'une trame de
-#: parole : plus court mesure du bruit, plus long noie les débuts de mot.
 TRAME_S = 0.025
 
-#: En deçà de ce niveau efficace, un canal de la boucle est tenu pour muet :
-#: aucun son n'y a été joué.
 _PLANCHER_RMS = 1e-5
 
-#: Plancher du logarithme, pour qu'un silence numérique ne donne pas -inf.
 _PLANCHER_LOG = 1e-12
-
 
 @dataclass(frozen=True)
 class Canaux:
@@ -40,11 +34,7 @@ class Canaux:
 
     micro: np.ndarray | None
     systeme: np.ndarray
-    #: Réunion tenue à distance. Faux pour un portable posé sur une table : la
-    #: boucle système ne porte alors rien, tout le monde parle dans le micro, et
-    #: la provenance n'identifie plus personne.
     distante: bool
-
 
 def niveaux_par_trame(signal: np.ndarray, frequence: int) -> list[float]:
     """Niveau de chaque trame, en décibels. Le domaine ne veut que ça."""
@@ -55,7 +45,6 @@ def niveaux_par_trame(signal: np.ndarray, frequence: int) -> list[float]:
     trames = signal[: utiles * pas].reshape(utiles, pas)
     rms = np.sqrt(np.mean(trames.astype(np.float64) ** 2, axis=1))
     return [float(x) for x in 20 * np.log10(np.maximum(rms, _PLANCHER_LOG))]
-
 
 def separer_canaux(
     donnees: np.ndarray, frequence: int = 16000, distante: bool | None = None
@@ -107,7 +96,6 @@ def separer_canaux(
     ):
         return Canaux(micro=micro, systeme=micro, distante=False)
     return Canaux(micro=micro, systeme=systeme, distante=True)
-
 
 class LecteurCanauxFichier:
     """Lit un enregistrement et rend les passages venus du micro.

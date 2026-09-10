@@ -33,18 +33,11 @@ from greffier.emplacements import dossier_config, dossier_donnees
 
 SYSTEME = platform.system()
 
-
 @dataclass
 class Reponses:
     """Ce que l'assistant a retenu, prêt à devenir un `.env`."""
 
     valeurs: dict[str, str] = field(default_factory=dict)
-    #: Ce qui va dans `config.toml`, et surtout PAS dans le `.env`.
-    #:
-    #: L'ordre de priorité est environnement, puis `.env`, puis `config.toml`.
-    #: Une valeur écrite ici dans le `.env` primerait donc pour toujours, et la
-    #: liste déroulante de l'onglet Réglages — qui écrit le TOML — deviendrait
-    #: inerte sans que rien ne le dise. Un test l'interdit.
     reglages: dict[str, dict[str, str]] = field(default_factory=dict)
     a_faire: list[str] = field(default_factory=list)
     installations: list[str] = field(default_factory=list)
@@ -66,7 +59,6 @@ class Reponses:
             lignes.append(f"{clef}={valeur}")
         return "\n".join(lignes) + "\n"
 
-
 @dataclass
 class Dialogue:
     """Les entrées/sorties de l'assistant, remplaçables pour les tests."""
@@ -75,7 +67,6 @@ class Dialogue:
     confirmer: Callable[[str, bool], bool]
     afficher: Callable[[str], None]
     choisir: Callable[[str, list[tuple[str, str]], int], str]
-
 
 # --------------------------------------------------------------- les étapes
 
@@ -117,7 +108,6 @@ def etape_langue(dialogue: Dialogue, etat: Diagnostic, reponses: Reponses) -> No
     )
     reponses.regler("compte_rendu", "langue", document)
 
-
 def _langue_du_poste() -> str:
     """Le code à deux lettres que le système annonce, s'il est au catalogue."""
     for variable in ("LC_ALL", "LC_MESSAGES", "LANG"):
@@ -127,7 +117,6 @@ def _langue_du_poste() -> str:
             if code in dict(LANGUES):
                 return code
     return "fr"
-
 
 def etape_materiel(dialogue: Dialogue, etat: Diagnostic, reponses: Reponses) -> None:
     """Constate la machine et annonce ce qui en découle."""
@@ -153,7 +142,6 @@ def etape_materiel(dialogue: Dialogue, etat: Diagnostic, reponses: Reponses) -> 
         "GREFFIER_TRANSCRIPTION__MOTEUR",
         "whisper.cpp" if machine.systeme == "Darwin" else "faster-whisper",
     )
-
 
 def etape_redacteur(dialogue: Dialogue, etat: Diagnostic, reponses: Reponses) -> None:
     """Claude Code : installé ? authentifié ? sinon rien ne pourra être rédigé."""
@@ -197,7 +185,6 @@ def etape_redacteur(dialogue: Dialogue, etat: Diagnostic, reponses: Reponses) ->
     elif moteur == "claude":
         reponses.poser("GREFFIER_COMPTE_RENDU__MODELE", _modele_claude(dialogue))
 
-
 def _modele_claude(dialogue: Dialogue) -> str:
     """Quel modèle Claude Code doit rédiger. Le second de la gamme par défaut.
 
@@ -213,12 +200,10 @@ def _modele_claude(dialogue: Dialogue) -> str:
     )
     return dialogue.choisir("Modèle qui rédige", MODELES_CLAUDE, 0)
 
-
 def _ollama_utilisable() -> bool:
     import shutil
 
     return shutil.which("ollama") is not None
-
 
 def _modele_ollama(dialogue: Dialogue, reponses: Reponses) -> str:
     presents = modeles_disponibles()
@@ -227,7 +212,6 @@ def _modele_ollama(dialogue: Dialogue, reponses: Reponses) -> str:
         return dialogue.demander("Lequel utiliser", presents[0])
     reponses.a_faire.append("ollama pull qwen3:8b")
     return "qwen3:8b"
-
 
 def etape_livraison(dialogue: Dialogue, etat: Diagnostic, reponses: Reponses) -> None:
     """Par courriel, ou dans un dossier ?"""
@@ -282,7 +266,6 @@ def etape_livraison(dialogue: Dialogue, etat: Diagnostic, reponses: Reponses) ->
     )
     reponses.a_faire.append("export GREFFIER_SMTP_MOT_DE_PASSE='…'")
 
-
 def etape_vocabulaire(dialogue: Dialogue, etat: Diagnostic, reponses: Reponses) -> None:
     """Le réglage qui change le plus la qualité de la transcription."""
     dialogue.afficher("\n— Vocabulaire de tes réunions —")
@@ -299,9 +282,7 @@ def etape_vocabulaire(dialogue: Dialogue, etat: Diagnostic, reponses: Reponses) 
         reponses.poser("GREFFIER_LOCUTEURS__PAS_DES_PRENOMS",
                        json.dumps(mots, ensure_ascii=False))
 
-
 ETAPES = [etape_langue, etape_materiel, etape_redacteur, etape_livraison, etape_vocabulaire]
-
 
 def executer(dialogue: Dialogue, etat: Diagnostic | None = None) -> Reponses:
     """Déroule l'assistant et rend ce qu'il a retenu."""
@@ -310,7 +291,6 @@ def executer(dialogue: Dialogue, etat: Diagnostic | None = None) -> Reponses:
     for etape in ETAPES:
         etape(dialogue, etat, reponses)
     return reponses
-
 
 def ecrire(reponses: Reponses, fichier: Path | None = None) -> Path:
     """Range la configuration là où toutes les commandes la liront."""
@@ -324,7 +304,6 @@ def ecrire(reponses: Reponses, fichier: Path | None = None) -> Path:
     cible.write_text(reponses.rendre_env(), encoding="utf-8")
     appliquer_les_reglages(reponses)
     return cible
-
 
 def appliquer_les_reglages(reponses: Reponses) -> None:
     """Écrit dans `config.toml` ce que la fenêtre doit pouvoir rechanger.

@@ -27,9 +27,6 @@ from greffier.domaine.machine import (
 
 SYSTEME = platform.system()
 
-#: Le constat et la décision sont séparés : les seuils, la machine et le
-#: verdict vivent dans le domaine, où ils s'éprouvent sans débrancher un micro.
-
 def memoire_go() -> float:
     try:
         if SYSTEME == "Darwin":
@@ -51,7 +48,6 @@ def memoire_go() -> float:
         pass
     return 0.0
 
-
 def serveur_de_son_present() -> bool:
     """Si la session a un serveur de son auquel se brancher.
 
@@ -65,7 +61,6 @@ def serveur_de_son_present() -> bool:
     execution = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
     return (Path(execution) / "pulse" / "native").exists()
 
-
 def acceleration() -> str:
     """Le calcul disponible pour la transcription."""
     if SYSTEME == "Darwin" and platform.machine() == "arm64":
@@ -74,7 +69,6 @@ def acceleration() -> str:
     if shutil.which("nvidia-smi"):
         return "cuda"
     return "processeur"
-
 
 def machine(dossier_donnees: Path | None = None) -> Machine:
     cible = dossier_donnees or Path.home()
@@ -92,12 +86,10 @@ def machine(dossier_donnees: Path | None = None) -> Machine:
         acceleration=acceleration(),
     )
 
-
 # --------------------------------------------------------------- Claude Code
 
 def claude_installe() -> bool:
     return shutil.which("claude") is not None
-
 
 def claude_version() -> str:
     if not claude_installe():
@@ -105,7 +97,6 @@ def claude_version() -> str:
     sortie = subprocess.run(["claude", "--version"], capture_output=True, text=True,
                             check=False, timeout=20).stdout
     return sortie.strip().split()[0] if sortie.strip() else ""
-
 
 def claude_authentifie() -> bool:
     """Vérifie que la session Claude Code existe.
@@ -124,7 +115,6 @@ def claude_authentifie() -> bool:
         return False
     return bool(contenu.get("oauthAccount") or contenu.get("userID"))
 
-
 @dataclass(frozen=True)
 class CompteClaude:
     """Qui rédige, vu du poste. Lu du fichier de session, jamais du réseau."""
@@ -136,7 +126,6 @@ class CompteClaude:
     def __str__(self) -> str:
         morceaux = [m for m in (self.adresse, self.organisation) if m]
         return " · ".join(morceaux) if morceaux else "session ouverte"
-
 
 def compte_claude() -> CompteClaude | None:
     """Le compte Claude Code connecté, ou None si aucune session.
@@ -160,13 +149,11 @@ def compte_claude() -> CompteClaude | None:
         formule=str(compte.get("seatTier") or compte.get("billingType") or ""),
     )
 
-
 COMMANDE_INSTALLER_CLAUDE = {
     "Darwin": "curl -fsSL https://claude.ai/install.sh | bash",
     "Linux": "curl -fsSL https://claude.ai/install.sh | bash",
     "Windows": "irm https://claude.ai/install.ps1 | iex",
 }
-
 
 # ------------------------------------------------------------------- courriel
 
@@ -174,7 +161,6 @@ def outlook_present() -> bool:
     if SYSTEME != "Darwin":
         return False
     return Path("/Applications/Microsoft Outlook.app").exists()
-
 
 # ----------------------------------------------------------------------- audio
 
@@ -208,7 +194,6 @@ def capture_systeme() -> Constat:
         detail="boucle WASAPI intégrée à Windows",
     )
 
-
 def micro_present() -> Constat:
     detail = ""
     present = False
@@ -225,7 +210,6 @@ def micro_present() -> Constat:
         detail = "supposé présent"
     return Constat(nom="Micro", present=present, detail=detail,
                    remede="branche un micro ou un casque", bloquant=True)
-
 
 def examiner(dossier_donnees: Path | None = None) -> Diagnostic:
     """Tout ce qu'il faut savoir avant de configurer quoi que ce soit."""

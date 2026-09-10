@@ -20,12 +20,7 @@ from pathlib import Path
 
 from greffier.domaine.modeles import Intervalle, Replique, TourDeParole
 
-#: Les enregistrements sont nommés « 2026-08-25_14h33_sujet » : la date de la
-#: réunion est donc dans son identifiant, et c'est la seule source sûre — la
-#: date d'écriture du fichier est celle du traitement, qui peut être rejoué des
-#: semaines plus tard.
 HORODATAGE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})(?:_(\d{2})h(\d{2}))?")
-
 
 def tenue_le(identifiant: str) -> tuple[int, int, int, int, int] | None:
     """Quand la réunion s'est tenue, d'après son identifiant. None s'il se taît.
@@ -40,7 +35,6 @@ def tenue_le(identifiant: str) -> tuple[int, int, int, int, int] | None:
     annee, mois, jour, heure, minute = trouve.groups()
     return (int(annee), int(mois), int(jour), int(heure or 0), int(minute or 0))
 
-
 @dataclass
 class ReunionEnregistree:
     """Une réunion traitée, telle qu'elle est rangée sur le disque."""
@@ -54,19 +48,8 @@ class ReunionEnregistree:
     noms: dict[str, str]
     propositions: dict[str, str]
     avertissements: list[str]
-    #: Constats de la veille sur le matériel, pour que régénérer la rédaction
-    #: plus tard n'y perde pas ce que la première rédaction savait.
     evenements_materiel: list[str] = field(default_factory=list)
-    #: Le sujet, choisi à la main. Il l'emporte sur le titre du compte rendu à
-    #: l'affichage. Un **libellé** et non un renommage de l'identifiant : celui-ci
-    #: porte la date, qui ordonne les réunions et date le compte rendu, et sert
-    #: de clé à l'audio, à la transcription et au fil du direct. Le remplacer par
-    #: « point du lundi » perdrait tout cela d'un coup.
     sujet: str = ""
-    #: Quand la réunion a commencé et quand elle a été arrêtée, à l'horloge.
-    #: Absentes d'une réunion traitée depuis un fichier audio seul : on retombe
-    #: alors sur l'horodatage de l'identifiant. `duree` ne suffit pas à déduire
-    #: la fin — elle s'arrête au dernier mot prononcé, pas à l'arrêt.
     commencee_le: datetime | None = None
     terminee_le: datetime | None = None
 

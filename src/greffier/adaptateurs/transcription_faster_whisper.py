@@ -13,15 +13,12 @@ from pathlib import Path
 
 from greffier.domaine.modeles import Intervalle, Replique
 
-#: Les bibliothèques CUDA à charger, dans cet ordre : cuBLASLt avant cuBLAS,
-#: qui en dépend, et cuDNN avant que CTranslate2 ne le réclame.
 _BIBLIOTHEQUES_CUDA = (
     "cublas/lib/libcublasLt.so*",
     "cublas/lib/libcublas.so*",
     "cudnn/lib/libcudnn*.so*",
     "cuda_nvrtc/lib/libnvrtc.so*",
 )
-
 
 def bibliotheques_cuda() -> list[Path]:
     """Les bibliothèques que posent les roues « nvidia-* », prêtes à charger.
@@ -45,7 +42,6 @@ def bibliotheques_cuda() -> list[Path]:
         for chemin in sorted(racine.glob(motif))
     ]
 
-
 def _montrer_cuda_au_chargeur() -> None:
     """Charge ce que `bibliotheques_cuda` a trouvé, sans jamais faire échouer.
 
@@ -56,7 +52,6 @@ def _montrer_cuda_au_chargeur() -> None:
     for chemin in bibliotheques_cuda():
         with contextlib.suppress(OSError):
             ctypes.CDLL(str(chemin), mode=ctypes.RTLD_GLOBAL)
-
 
 class TranscripteurFasterWhisper:
     def __init__(self, taille: str = "large-v3", peripherique: str = "auto") -> None:
