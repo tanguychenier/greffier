@@ -150,6 +150,11 @@ class AssistantSettings:
     _job: threading.Thread | None = None
     _search: threading.Thread | None = None
 
+    @property
+    def busy(self) -> bool:
+        """True while it is phrasing or speaking: nothing more to hand it."""
+        return self._job is not None and self._job.is_alive()
+
     def stop(self) -> None:
         """Ends it for good: nothing more comes out of its mouth.
 
