@@ -30,12 +30,12 @@ def espion(monkeypatch):
 
 
 class TestModele:
-    def test_le_modele_demande_est_transmis(self, espion):
+    def test_the_model_asked_for_is_passed_on(self, espion):
         ClaudeWriter("opus").write_up("Sandy : bonjour.")
         assert "--model" in espion["commande"]
         assert espion["commande"][espion["commande"].index("--model") + 1] == "opus"
 
-    def test_sans_modele_rien_n_est_impose(self, espion):
+    def test_with_no_model_nothing_is_imposed(self, espion):
         """Utile pour éprouver l'outil tel qu'il est réglé sur le poste."""
         ClaudeWriter().write_up("Sandy : bonjour.")
         assert "--model" not in espion["commande"]
@@ -46,7 +46,7 @@ class TestModele:
         assert "Sandy : bonjour." in espion["entree"]
         assert not any("Sandy" in morceau for morceau in espion["commande"])
 
-    def test_aucun_outil_n_est_autorise(self, espion):
+    def test_no_tool_is_allowed(self, espion):
         """Le rédacteur écrit un document, il n'a rien à lire ni à exécuter."""
         command = espion if False else None
         ClaudeWriter("opus").write_up("x")
@@ -56,13 +56,13 @@ class TestModele:
 
 
 class TestWhenThingsFail:
-    def test_claude_absent_le_dit_et_propose_la_solution(self, monkeypatch):
+    def test_a_missing_writer_says_so_and_offers_the_fix(self, monkeypatch):
         monkeypatch.setattr("greffier.adapters.writer_claude.shutil.which",
                             lambda _name: None)
         with pytest.raises(RuntimeError, match="ollama"):
             ClaudeWriter("opus").write_up("x")
 
-    def test_une_sortie_vide_est_une_erreur(self, monkeypatch):
+    def test_an_empty_output_is_an_error(self, monkeypatch):
         monkeypatch.setattr("greffier.adapters.writer_claude.shutil.which",
                             lambda _name: "/usr/local/bin/claude")
         monkeypatch.setattr(
