@@ -212,9 +212,9 @@ def _assistante(cerveau: CerveauDeTest, voice: HautParleur) -> AssistantSettings
 def _un_tour(veilleur: Watcher, assistante: AssistantSettings,
              dossier: Path) -> None:
     """Une tranche, puis on attend la réponse : elle est formulée à part."""
-    ou = veilleur.situer()
-    assert ou is not None
-    veilleur.transcription_turn(ou, dossier)
+    where_in = veilleur.situer()
+    assert where_in is not None
+    veilleur.transcription_turn(where_in, dossier)
     if assistante._job is not None:
         assistante._job.join(timeout=60)
 

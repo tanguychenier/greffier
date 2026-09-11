@@ -89,8 +89,8 @@ class TestReadingTheSetting:
 
     def test_la_ligne_montre_le_ticket_d_un_coup(self, gitlab):
         gitlab.charge = [UN_TICKET]
-        dit = gitlab_api.tickets(source(), "glpat-x")[0].say()
-        assert "#42" in dit and "Sophie" in dit and "recette" in dit
+        said = gitlab_api.tickets(source(), "glpat-x")[0].say()
+        assert "#42" in said and "Sophie" in said and "recette" in said
 
     def test_le_projet_du_registre_borne_l_appel(self, gitlab):
         """La portée vient du registre, jamais de la phrase tapée."""

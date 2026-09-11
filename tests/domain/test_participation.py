@@ -43,8 +43,8 @@ class TestNeverCuttingIn:
 class TestNeverComingBackTooOften:
     def test_it_rests_after_speaking(self):
         manners = Manners()
-        dit = opening(born_at=0.0)
-        manners.has_spoken(dit, now=0.0)
+        said = opening(born_at=0.0)
+        manners.has_spoken(said, now=0.0)
         refusal = manners.refusal(opening(born_at=60.0), now=60.0, lull=5.0)
         assert refusal is not None and "repos" in refusal
 
@@ -285,9 +285,9 @@ class TestItsOwnNameNeverLeavesItsMouth:
 
     def test_its_mangled_name_is_taken_out_too(self):
         """La transcription rend « Lucie » de vingt façons."""
-        for dit in ("Lucy, tu m'entends ?", "Lucie tu m'entends ?",
+        for said in ("Lucy, tu m'entends ?", "Lucie tu m'entends ?",
                     "Luci, tu m'entends ?"):
-            assert "uc" not in without_own_name(dit, "Lucie").lower(), dit
+            assert "uc" not in without_own_name(said, "Lucie").lower(), said
 
     def test_a_remark_without_its_name_is_untouched(self):
         """Le cas courant : elle ne doit pas voir sa phrase remaniée."""
