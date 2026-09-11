@@ -17,16 +17,16 @@ def config(**conversation) -> Config:
     return settings
 
 
-class TestLeRedacteurNaJamaisDOutil:
+class TestTheWriterNeverHasATool:
     def test_aucun_outil_par_defaut(self):
         assert ClaudeWriter().tools == ()
 
-    def test_le_redacteur_du_compte_rendu_n_en_recoit_aucun(self):
+    def test_the_writer_of_the_minutes_receives_none(self):
         engine = writer(config())
         assert isinstance(engine, ClaudeWriter)
         assert engine.tools == ()
 
-    def test_meme_si_la_recherche_est_activee(self):
+    def test_even_when_searching_is_switched_on(self):
         """Le réglage de la conversation ne doit pas fuir vers le compte rendu."""
         engine = writer(config(recherche_web=True))
         assert isinstance(engine, ClaudeWriter)
@@ -34,44 +34,44 @@ class TestLeRedacteurNaJamaisDOutil:
 
 
 class TestLAssistantPeutChercher:
-    def test_la_recherche_est_accordee_quand_elle_est_activee(self):
+    def test_searching_is_granted_when_it_is_switched_on(self):
         engine = assistant(config(recherche_web=True))
         assert isinstance(engine, ClaudeWriter)
         assert engine.tools == ClaudeWriter.SEARCH_TOOLS
 
-    def test_elle_s_eteint_depuis_les_reglages(self):
+    def test_it_can_be_switched_off_from_the_settings(self):
         """Il y a des réunions où même le terme cherché ne doit pas sortir."""
         engine = assistant(config(recherche_web=False))
         assert isinstance(engine, ClaudeWriter)
         assert engine.tools == ()
 
-    def test_l_assistant_ne_recite_pas_le_plan_du_compte_rendu(self):
+    def test_the_assistant_does_not_recite_the_plan_of_the_minutes(self):
         """Répondre « qui est Morgane ? » n'appelle pas Décisions / Actions."""
         engine = assistant(config())
         assert isinstance(engine, ClaudeWriter)
         assert engine.consignes_propres
         assert "Décisions" not in engine.consignes_propres
 
-    def test_il_lui_est_interdit_d_envoyer_les_propos_dehors(self):
+    def test_it_is_forbidden_to_send_what_was_said_outside(self):
         engine = assistant(config())
         assert isinstance(engine, ClaudeWriter)
         # Aplati : la consigne tient sur deux lignes dans le texte source.
         aplati = " ".join(engine.consignes_propres.split())
         assert "jamais la phrase de la réunion" in aplati
 
-    def test_il_doit_donner_l_adresse_de_ce_qu_il_trouve(self):
+    def test_it_must_give_the_address_of_what_it_finds(self):
         """Une réponse sans sa source ne se vérifie pas, et en réunion on veut
         pouvoir ouvrir le lien tout de suite."""
         aplati = " ".join(assistant(config()).consignes_propres.split())
         assert "donne l'adresse" in aplati
         assert "URL complète" in aplati
 
-    def test_il_propose_quelque_chose_sans_rien_inventer(self):
+    def test_it_offers_something_without_inventing_anything(self):
         aplati = " ".join(assistant(config()).consignes_propres.split())
         assert "À faire :" in aplati
         assert "N'invente rien pour remplir" in aplati
 
-    def test_il_peut_chercher_de_lui_meme(self):
+    def test_it_may_search_of_its_own_accord(self):
         """« Qu'il le fasse lui-même pour se donner du contexte » — demandé."""
         aplati = " ".join(assistant(config()).consignes_propres.split())
         assert "de ton propre chef" in aplati

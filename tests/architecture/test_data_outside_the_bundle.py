@@ -19,7 +19,7 @@ from greffier.adapters.configuration import Config
 REMPLACES = ("/Applications/", "site-packages", "/Contents/")
 
 
-def tous_les_chemins(config: Config) -> dict[str, Path]:
+def every_path(config: Config) -> dict[str, Path]:
     paths = config.paths
     return {
         "donnees": paths.data,
@@ -36,46 +36,46 @@ def tous_les_chemins(config: Config) -> dict[str, Path]:
     }
 
 
-class TestRienNeVitDansLePaquet:
-    def test_aucun_chemin_de_donnees_ne_tombe_dans_ce_qu_une_maj_remplace(self):
+class TestNothingLivesInsideTheBundle:
+    def test_no_data_path_falls_where_an_update_replaces_things(self):
         fautifs = {
             name: path
-            for name, path in tous_les_chemins(Config()).items()
+            for name, path in every_path(Config()).items()
             if any(morceau in str(path) for morceau in REMPLACES)
         }
         assert not fautifs, f"perdu à la prochaine mise à jour : {fautifs}"
 
-    def test_les_donnees_ne_dependent_pas_du_dossier_de_travail(self):
+    def test_the_data_does_not_depend_on_the_working_folder(self):
         """Lancer depuis un autre dossier ne doit pas changer où l'on écrit.
 
         L'application est lancée par le système, sans dossier de travail
         prévisible : un chemin relatif désignerait un endroit différent à chaque
         démarrage, et les réunions de la veille deviendraient introuvables.
         """
-        for name, path in tous_les_chemins(Config()).items():
+        for name, path in every_path(Config()).items():
             assert path.is_absolute(), f"{name} est relatif : {path}"
 
-    def test_tout_est_rassemble_sous_un_seul_dossier_de_donnees(self):
+    def test_everything_gathers_under_one_data_folder(self):
         """Ce qui permet de sauvegarder, et de dire ce qu'une purge emporte."""
         config = Config()
         root = config.paths.data
-        for name, path in tous_les_chemins(config).items():
+        for name, path in every_path(config).items():
             if name in {"donnees", "contexte"}:
                 continue
             assert root in path.parents or path == root, f"{name} hors de {root}"
 
 
-class TestUnAncienFichierResteLisible:
+class TestAnOlderFileStaysReadable:
     """Une mise à jour ne doit pas rendre illisible ce qui était déjà écrit."""
 
-    def test_le_format_du_fichier_maitre_n_a_qu_un_numero(self):
+    def test_the_master_file_format_has_a_single_number(self):
         """Deux définitions du format finiraient par se contredire."""
         from greffier.adapters import store_files
 
         assert isinstance(store_files.FORMAT, int)
         assert store_files.FORMAT >= 2, "le format a évolué : la lecture doit suivre"
 
-    def test_une_reunion_sans_les_champs_recents_se_lit(self, tmp_path):
+    def test_a_meeting_without_the_recent_fields_reads(self, tmp_path):
         """Le cas d'une réunion écrite avant la mise à jour."""
         import json
         from datetime import UTC, datetime

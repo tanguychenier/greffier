@@ -22,7 +22,7 @@ def meeting(identifier: str) -> StoredMeeting:
     )
 
 
-class TestOrdreDesReunions:
+class TestTheOrderOfTheMeetings:
     """« La dernière réunion » doit être la dernière **tenue**.
 
     Le tri était alphabétique inversé, ce qui marche tant que tout identifiant
@@ -32,7 +32,7 @@ class TestOrdreDesReunions:
     de la mauvaise réunion, et « greffier envoyer » l'aurait expédié.
     """
 
-    def test_les_reunions_datees_vont_de_la_plus_recente_a_la_plus_ancienne(self, tmp_path):
+    def test_dated_meetings_run_newest_to_oldest(self, tmp_path):
         store = FileStore(tmp_path)
         for identifier in ("2026-09-02_17h37_reunion", "2026-09-09_10h05_reunion",
                             "2026-09-09_08h30_reunion"):
@@ -43,14 +43,14 @@ class TestOrdreDesReunions:
             "2026-09-02_17h37_reunion",
         ]
 
-    def test_un_identifiant_sans_date_ne_passe_pas_devant_une_reunion_datee(self, tmp_path):
+    def test_an_undated_identifier_does_not_jump_ahead_of_a_dated_one(self, tmp_path):
         store = FileStore(tmp_path)
         store.record(meeting("2026-09-09_10h05_reunion"))
         store.record(meeting("fausse-reunion"))
         assert store.lister()[0] == "2026-09-09_10h05_reunion"
         assert "fausse-reunion" in store.lister()
 
-    def test_la_derniere_est_la_plus_recemment_tenue(self, tmp_path):
+    def test_the_latest_is_the_most_recently_held(self, tmp_path):
         store = FileStore(tmp_path)
         store.record(meeting("zzz-essai"))
         store.record(meeting("2026-09-09_10h05_reunion"))
@@ -58,57 +58,57 @@ class TestOrdreDesReunions:
         assert latest is not None
         assert latest.identifier == "2026-09-09_10h05_reunion"
 
-    def test_sans_dossier_la_liste_est_vide(self, tmp_path):
+    def test_with_no_folder_the_list_is_empty(self, tmp_path):
         assert FileStore(tmp_path / "rien").lister() == []
 
 
-class TestHorodatageDeLIdentifiant:
-    def test_la_date_et_l_heure_sont_lues(self):
+class TestTheTimestampInsideTheIdentifier:
+    def test_the_date_and_the_time_are_read(self):
         assert held_on("2026-09-09_10h05_reunion") == (2026, 9, 9, 10, 5)
 
-    def test_une_date_sans_heure_reste_lisible(self):
+    def test_a_date_with_no_time_stays_readable(self):
         assert held_on("2026-09-09_reunion") == (2026, 9, 9, 0, 0)
 
-    def test_un_identifiant_sans_date_ne_ment_pas(self):
+    def test_an_identifier_with_no_date_does_not_lie(self):
         assert held_on("fausse-reunion") is None
 
 
-class TestSujetChoisi:
+class TestASubjectChosenByHand:
     """Le sujet saisi à la main l'emporte sur le titre du compte rendu.
 
     Demandé à l'usage : la liste ne montrait que « 2026-09-09_10h05_reunion »
     tant qu'aucun compte rendu n'existait, et rien ne permettait de la nommer.
     """
 
-    def test_le_sujet_survit_a_l_ecriture(self, tmp_path):
+    def test_the_subject_survives_being_written(self, tmp_path):
         store = FileStore(tmp_path)
         gardee = meeting("2026-09-09_10h05_reunion")
         gardee.subject = "Point Oasis"
         store.record(gardee)
         assert store.read("2026-09-09_10h05_reunion").subject == "Point Oasis"
 
-    def test_sans_sujet_l_identifiant_nomme_la_reunion(self):
+    def test_with_no_subject_the_identifier_names_the_meeting(self):
         assert meeting("2026-09-09_10h05_reunion").caption == "2026-09-09_10h05_reunion"
 
-    def test_avec_un_sujet_c_est_lui_qui_nomme(self):
+    def test_with_a_subject_it_is_the_one_that_names(self):
         gardee = meeting("2026-09-09_10h05_reunion")
         gardee.subject = "Point Oasis"
         assert gardee.caption == "Point Oasis"
 
 
-class TestSuppression:
-    def test_le_fichier_maitre_part(self, tmp_path):
+class TestDeletingAMeeting:
+    def test_the_master_file_goes(self, tmp_path):
         store = FileStore(tmp_path)
         store.record(meeting("2026-09-09_10h05_reunion"))
         assert store.delete("2026-09-09_10h05_reunion") is True
         assert store.lister() == []
 
-    def test_supprimer_ce_qui_n_existe_pas_le_dit(self, tmp_path):
+    def test_deleting_what_does_not_exist_says_so(self, tmp_path):
         assert FileStore(tmp_path).delete("jamais-vue") is False
 
 
-class TestAllerRetour:
-    def test_ce_qui_est_ecrit_se_relit(self, tmp_path):
+class TestTheRoundTrip:
+    def test_what_is_written_reads_back(self, tmp_path):
         store = FileStore(tmp_path)
         store.record(meeting("2026-09-09_10h05_reunion"))
         relue = store.read("2026-09-09_10h05_reunion")
@@ -116,7 +116,7 @@ class TestAllerRetour:
         assert relue.turns[0].voice == "1"
 
 
-def reunie(identifier: str = "2026-09-10_10h10_reunion") -> StoredMeeting:
+def joined_meeting(identifier: str = "2026-09-10_10h10_reunion") -> StoredMeeting:
     """Une réunion où deux voix ont été réunies sous le même nom."""
     detail = StoredMeeting(
         identifier=identifier,
@@ -136,7 +136,7 @@ def reunie(identifier: str = "2026-09-10_10h10_reunion") -> StoredMeeting:
     return detail
 
 
-class TestSeparerDeuxVoixApresLaReunion:
+class TestSplittingTwoVoicesAfterTheMeeting:
     """Réunir deux voix se défaisait dans le direct, et par rien ensuite.
 
     Le geste existait des deux côtés — nommer deux voix pareil les réunit, ce
@@ -144,20 +144,20 @@ class TestSeparerDeuxVoixApresLaReunion:
     deux — mais seul le fil du direct savait revenir en arrière.
     """
 
-    def test_la_voix_absorbee_reprend_ses_tours(self):
-        detail = reunie()
+    def test_the_absorbed_voice_takes_its_turns_back(self):
+        detail = joined_meeting()
         assert {t.voice for t in detail.turns} == {"v1"}
         assert detail.split("v1") is not None
         assert {t.voice for t in detail.turns} == {"v1", "v2"}
 
-    def test_elle_reprend_ses_repliques(self):
-        detail = reunie()
+    def test_it_takes_its_utterances_back(self):
+        detail = joined_meeting()
         detail.split("v1")
         par_voix = {u.voice for u in detail.utterances}
         assert par_voix == {"v1", "v2"}
 
-    def test_elle_reprend_son_nom(self):
-        detail = reunie()
+    def test_it_takes_its_name_back(self):
+        detail = joined_meeting()
         detail.split("v1")
         assert detail.names == {"v1": "Tanguy", "v2": "Paul"}
 
@@ -166,22 +166,22 @@ class TestSeparerDeuxVoixApresLaReunion:
         assert detail.split("1") is None
         assert not detail.can_split("1")
 
-    def test_la_fusion_se_dit_avant_de_la_defaire(self):
-        detail = reunie()
+    def test_the_join_can_be_asked_about_before_undoing_it(self):
+        detail = joined_meeting()
         assert detail.can_split("v1")
         detail.split("v1")
         assert not detail.can_split("v1"), "une fois défaite, plus rien à défaire"
 
-    def test_la_fusion_survit_a_l_ecriture(self, tmp_path):
+    def test_the_join_survives_being_written(self, tmp_path):
         """Sans cela, séparer ne marche que tant que l'application est ouverte."""
         magasin = FileStore(tmp_path)
-        magasin.record(reunie())
+        magasin.record(joined_meeting())
         relue = magasin.read("2026-09-10_10h10_reunion")
         assert relue.can_split("v1")
         assert relue.split("v1") is not None
         assert {t.voice for t in relue.turns} == {"v1", "v2"}
 
-    def test_un_fichier_ecrit_avant_reste_lisible(self, tmp_path):
+    def test_a_file_written_before_stays_readable(self, tmp_path):
         """Aucune réunion déjà traitée ne doit devenir illisible."""
         import json
 
@@ -194,8 +194,8 @@ class TestSeparerDeuxVoixApresLaReunion:
         assert relue.joins == []
         assert not relue.can_split("1")
 
-    def test_deux_fusions_se_defont_dans_l_ordre_inverse(self):
-        detail = reunie()
+    def test_two_joins_come_apart_in_reverse_order(self):
+        detail = joined_meeting()
         detail.utterances.append(Utterance(Span(12, 17), "et la prod lundi", voice="v3"))
         detail.turns.append(SpeakerTurn(Span(12, 17), "v3"))
         detail.names["v3"] = "Sophie"

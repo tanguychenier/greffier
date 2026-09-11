@@ -6,7 +6,7 @@ from greffier.application.tidy import Places, forget, pieces_de, readable
 
 
 def locations(root: Path) -> Places:
-    ou = Places(
+    where_in = Places(
         meetings=root / "reunions",
         recordings=root / "enregistrements",
         transcripts=root / "transcriptions",
@@ -14,107 +14,107 @@ def locations(root: Path) -> Places:
         live=root / "direct",
         propositions=root / "propositions",
     )
-    for folder in (ou.meetings, ou.recordings, ou.transcripts,
-                    ou.minutes_folder, ou.live, ou.propositions):
+    for folder in (where_in.meetings, where_in.recordings, where_in.transcripts,
+                    where_in.minutes_folder, where_in.live, where_in.propositions):
         folder.mkdir(parents=True, exist_ok=True)
-    return ou
+    return where_in
 
 
-def poser_une_reunion(ou: Places, identifier: str = "2026-09-09_10h05_reunion") -> None:
-    (ou.recordings / f"{identifier}.wav").write_bytes(b"x" * 5000)
-    (ou.meetings / f"{identifier}.json").write_text("{}", encoding="utf-8")
-    (ou.transcripts / f"{identifier}.txt").write_text("bonjour", encoding="utf-8")
-    (ou.minutes_folder / f"{identifier}.md").write_text("# cr", encoding="utf-8")
-    (ou.live / f"{identifier}.jsonl").write_text("{}", encoding="utf-8")
-    (ou.propositions / f"{identifier}.jsonl").write_text("{}", encoding="utf-8")
+def lay_out_a_meeting(where_in: Places, identifier: str = "2026-09-09_10h05_reunion") -> None:
+    (where_in.recordings / f"{identifier}.wav").write_bytes(b"x" * 5000)
+    (where_in.meetings / f"{identifier}.json").write_text("{}", encoding="utf-8")
+    (where_in.transcripts / f"{identifier}.txt").write_text("bonjour", encoding="utf-8")
+    (where_in.minutes_folder / f"{identifier}.md").write_text("# cr", encoding="utf-8")
+    (where_in.live / f"{identifier}.jsonl").write_text("{}", encoding="utf-8")
+    (where_in.propositions / f"{identifier}.jsonl").write_text("{}", encoding="utf-8")
 
 
-class TestCeQuiVaPartir:
+class TestWhatWillGo:
     """Une confirmation qui ne dit pas ce qu'elle efface ne vaut rien.
 
     Supprimer le seul fichier maître laissait 158 Mo d'audio orphelins et un
     compte rendu que plus rien ne référençait.
     """
 
-    def test_toutes_les_pieces_sont_trouvees(self, tmp_path):
-        ou = locations(tmp_path)
-        poser_une_reunion(ou)
-        what = {p.what for p in pieces_de(ou, "2026-09-09_10h05_reunion")}
+    def test_every_piece_is_found(self, tmp_path):
+        where_in = locations(tmp_path)
+        lay_out_a_meeting(where_in)
+        what = {p.what for p in pieces_de(where_in, "2026-09-09_10h05_reunion")}
         assert what == {
             "enregistrement audio", "réunion transcrite", "transcription lisible",
             "compte rendu", "fil du direct", "propositions de noms",
         }
 
-    def test_l_audio_vient_en_tete_parce_qu_il_pese(self, tmp_path):
-        ou = locations(tmp_path)
-        poser_une_reunion(ou)
-        assert pieces_de(ou, "2026-09-09_10h05_reunion")[0].what == "enregistrement audio"
+    def test_the_audio_comes_first_because_it_weighs(self, tmp_path):
+        where_in = locations(tmp_path)
+        lay_out_a_meeting(where_in)
+        assert pieces_de(where_in, "2026-09-09_10h05_reunion")[0].what == "enregistrement audio"
 
-    def test_une_reunion_inconnue_ne_rend_rien(self, tmp_path):
+    def test_an_unknown_meeting_returns_nothing(self, tmp_path):
         assert pieces_de(locations(tmp_path), "jamais-vue") == []
 
-    def test_un_audio_compresse_est_reconnu(self, tmp_path):
+    def test_a_compressed_audio_is_recognised(self, tmp_path):
         """« greffier archiver » remplace le WAV par un Opus : il compte aussi."""
-        ou = locations(tmp_path)
-        (ou.recordings / "2026-09-09_x.opus").write_bytes(b"x" * 10)
-        assert [p.what for p in pieces_de(ou, "2026-09-09_x")] == ["enregistrement audio"]
+        where_in = locations(tmp_path)
+        (where_in.recordings / "2026-09-09_x.opus").write_bytes(b"x" * 10)
+        assert [p.what for p in pieces_de(where_in, "2026-09-09_x")] == ["enregistrement audio"]
 
 
-class TestOubli:
-    def test_tout_est_efface(self, tmp_path):
-        ou = locations(tmp_path)
-        poser_une_reunion(ou)
-        effacees = forget(ou, "2026-09-09_10h05_reunion")
+class TestForgettingAMeeting:
+    def test_everything_is_deleted(self, tmp_path):
+        where_in = locations(tmp_path)
+        lay_out_a_meeting(where_in)
+        effacees = forget(where_in, "2026-09-09_10h05_reunion")
         assert len(effacees) == 6
-        assert pieces_de(ou, "2026-09-09_10h05_reunion") == []
+        assert pieces_de(where_in, "2026-09-09_10h05_reunion") == []
 
-    def test_les_autres_reunions_ne_sont_pas_touchees(self, tmp_path):
-        ou = locations(tmp_path)
-        poser_une_reunion(ou, "2026-09-09_10h05_reunion")
-        poser_une_reunion(ou, "2026-09-02_17h37_reunion")
-        forget(ou, "2026-09-09_10h05_reunion")
-        assert len(pieces_de(ou, "2026-09-02_17h37_reunion")) == 6
+    def test_the_other_meetings_are_untouched(self, tmp_path):
+        where_in = locations(tmp_path)
+        lay_out_a_meeting(where_in, "2026-09-09_10h05_reunion")
+        lay_out_a_meeting(where_in, "2026-09-02_17h37_reunion")
+        forget(where_in, "2026-09-09_10h05_reunion")
+        assert len(pieces_de(where_in, "2026-09-02_17h37_reunion")) == 6
 
-    def test_oublier_deux_fois_ne_leve_rien(self, tmp_path):
-        ou = locations(tmp_path)
-        poser_une_reunion(ou)
-        forget(ou, "2026-09-09_10h05_reunion")
-        assert forget(ou, "2026-09-09_10h05_reunion") == []
+    def test_forgetting_twice_raises_nothing(self, tmp_path):
+        where_in = locations(tmp_path)
+        lay_out_a_meeting(where_in)
+        forget(where_in, "2026-09-09_10h05_reunion")
+        assert forget(where_in, "2026-09-09_10h05_reunion") == []
 
 
-class TestPoidsLisible:
-    def test_les_ordres_de_grandeur(self):
+class TestAWeightAPersonCanRead:
+    def test_the_orders_of_magnitude(self):
         assert readable(512) == "512 o"
         assert readable(2048) == "2 Ko"
         assert readable(158137446) == "151 Mo"
         assert readable(3 * 1024**3) == "3.0 Go"
 
 
-class TestRangementSelonLaRetention:
+class TestTidyingByTheRetentionRule:
     """Constater d'abord : effacer un enregistrement ne se rattrape pas."""
 
-    def regle_courante(self):
+    def the_usual_rule(self):
         from greffier.domain.retention import Rule
 
         return Rule(compresser_apres=7, effacer_apres=0)
 
-    def test_constater_ne_touche_a_rien(self, tmp_path):
+    def test_looking_touches_nothing(self, tmp_path):
         from greffier.application.tidy import tidy
 
-        ou = locations(tmp_path)
-        poser_une_reunion(ou, "2026-08-01_09h00_vieille")
-        audio = ou.recordings / "2026-08-01_09h00_vieille.wav"
-        faits = tidy(ou, self.regle_courante(),
+        where_in = locations(tmp_path)
+        lay_out_a_meeting(where_in, "2026-08-01_09h00_vieille")
+        audio = where_in.recordings / "2026-08-01_09h00_vieille.wav"
+        faits = tidy(where_in, self.the_usual_rule(),
                        [("2026-08-01_09h00_vieille", 40.0, True)],
                        compresser=lambda path: path)
         assert [f.geste for f in faits] == ["compresser"]
         assert audio.exists(), "rien ne doit bouger sans --faire"
 
-    def test_appliquer_compresse(self, tmp_path):
+    def test_applying_it_compresses(self, tmp_path):
         from greffier.application.tidy import tidy
 
-        ou = locations(tmp_path)
-        poser_une_reunion(ou, "2026-08-01_09h00_vieille")
+        where_in = locations(tmp_path)
+        lay_out_a_meeting(where_in, "2026-08-01_09h00_vieille")
         compresses = []
 
         def compresser(path):
@@ -124,65 +124,65 @@ class TestRangementSelonLaRetention:
             path.unlink()
             return produit
 
-        faits = tidy(ou, self.regle_courante(),
+        faits = tidy(where_in, self.the_usual_rule(),
                        [("2026-08-01_09h00_vieille", 40.0, True)],
                        compresser=compresser, for_real=True)
         assert compresses, "la compression doit être appelée"
         assert faits[0].gagne > 0
 
-    def test_une_reunion_recente_est_laissee(self, tmp_path):
+    def test_a_recent_meeting_is_left_alone(self, tmp_path):
         from greffier.application.tidy import tidy
 
-        ou = locations(tmp_path)
-        poser_une_reunion(ou, "2026-09-09_10h05_reunion")
-        assert tidy(ou, self.regle_courante(),
+        where_in = locations(tmp_path)
+        lay_out_a_meeting(where_in, "2026-09-09_10h05_reunion")
+        assert tidy(where_in, self.the_usual_rule(),
                       [("2026-09-09_10h05_reunion", 1.0, True)],
                       compresser=lambda c: c) == []
 
-    def test_une_reunion_non_transcrite_est_intouchable(self, tmp_path):
+    def test_a_meeting_not_yet_transcribed_is_untouchable(self, tmp_path):
         """Son audio est tout ce qui existe d'elle."""
         from greffier.application.tidy import tidy
 
-        ou = locations(tmp_path)
-        poser_une_reunion(ou, "2026-08-01_09h00_jamais-traitee")
-        assert tidy(ou, self.regle_courante(),
+        where_in = locations(tmp_path)
+        lay_out_a_meeting(where_in, "2026-08-01_09h00_jamais-traitee")
+        assert tidy(where_in, self.the_usual_rule(),
                       [("2026-08-01_09h00_jamais-traitee", 365.0, False)],
                       compresser=lambda c: c) == []
 
-    def test_une_compression_qui_echoue_est_rapportee(self, tmp_path):
+    def test_a_compression_that_fails_is_reported(self, tmp_path):
         """Un ffmpeg absent ne doit pas interrompre le rangement des autres."""
         from greffier.application.tidy import tidy
 
-        ou = locations(tmp_path)
-        poser_une_reunion(ou, "2026-08-01_09h00_vieille")
+        where_in = locations(tmp_path)
+        lay_out_a_meeting(where_in, "2026-08-01_09h00_vieille")
 
         def tomber(_path):
             raise OSError("ffmpeg introuvable")
 
-        faits = tidy(ou, self.regle_courante(),
+        faits = tidy(where_in, self.the_usual_rule(),
                        [("2026-08-01_09h00_vieille", 40.0, True)],
                        compresser=tomber, for_real=True)
         assert faits[0].trouble
-        assert (ou.recordings / "2026-08-01_09h00_vieille.wav").exists()
+        assert (where_in.recordings / "2026-08-01_09h00_vieille.wav").exists()
 
-    def test_l_effacement_libere_tout_l_audio(self, tmp_path):
+    def test_deleting_frees_all_the_audio(self, tmp_path):
         from greffier.application.tidy import tidy
         from greffier.domain.retention import Rule
 
-        ou = locations(tmp_path)
-        poser_une_reunion(ou, "2026-01-01_09h00_ancienne")
-        audio = ou.recordings / "2026-01-01_09h00_ancienne.wav"
-        faits = tidy(ou, Rule(compresser_apres=7, effacer_apres=90),
+        where_in = locations(tmp_path)
+        lay_out_a_meeting(where_in, "2026-01-01_09h00_ancienne")
+        audio = where_in.recordings / "2026-01-01_09h00_ancienne.wav"
+        faits = tidy(where_in, Rule(compresser_apres=7, effacer_apres=90),
                        [("2026-01-01_09h00_ancienne", 200.0, True)],
                        compresser=lambda c: c, for_real=True)
         assert faits[0].geste == "effacer"
         assert not audio.exists()
-        assert (ou.transcripts / "2026-01-01_09h00_ancienne.txt").exists(), (
+        assert (where_in.transcripts / "2026-01-01_09h00_ancienne.txt").exists(), (
             "la transcription porte le travail : elle reste"
         )
 
 
-class TestToutCeQuiAppartientALaReunion:
+class TestEverythingThatBelongsToTheMeeting:
     """Effacer une réunion doit tout prendre : sinon il reste des données.
 
     Les questions posées, la conversation tenue et les documents fournis
@@ -213,34 +213,34 @@ class TestToutCeQuiAppartientALaReunion:
             pieces=tmp_path / "pieces",
         )
 
-    def test_les_questions_et_la_conversation_sont_comptees(self, tmp_path):
+    def test_the_questions_and_the_conversation_are_counted(self, tmp_path):
         from greffier.application.tidy import pieces_de
 
         what = {p.what for p in pieces_de(self.place(tmp_path), "reunion-1")}
         assert "questions posées" in what
         assert "conversation avec l'assistant" in what
 
-    def test_les_documents_fournis_sont_comptes(self, tmp_path):
+    def test_the_documents_handed_in_are_counted(self, tmp_path):
         from greffier.application.tidy import pieces_de
 
         found = pieces_de(self.place(tmp_path), "reunion-1")
         assert any("document fourni" in p.what for p in found)
 
-    def test_oublier_retire_aussi_le_dossier_des_documents(self, tmp_path):
+    def test_forgetting_removes_the_documents_folder_too(self, tmp_path):
         """Un dossier vide laisse croire qu'il reste quelque chose."""
         from greffier.application.tidy import forget
 
-        ou = self.place(tmp_path)
-        forget(ou, "reunion-1")
+        where_in = self.place(tmp_path)
+        forget(where_in, "reunion-1")
         assert not (tmp_path / "pieces" / "reunion-1").exists()
         assert not (tmp_path / "questions" / "reunion-1.jsonl").exists()
 
-    def test_les_emplacements_facultatifs_restent_facultatifs(self, tmp_path):
+    def test_the_optional_places_stay_optional(self, tmp_path):
         """Les appels existants construisent six champs, pas neuf."""
         from greffier.application.tidy import Places, pieces_de
 
-        ou = Places(
+        where_in = Places(
             meetings=tmp_path, recordings=tmp_path, transcripts=tmp_path,
             minutes_folder=tmp_path, live=tmp_path, propositions=tmp_path,
         )
-        assert pieces_de(ou, "reunion-1") == []
+        assert pieces_de(where_in, "reunion-1") == []

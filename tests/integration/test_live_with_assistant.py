@@ -71,7 +71,7 @@ def meeting(tmp_path):
     return audio
 
 
-def test_appele_pendant_la_reunion_il_repond(meeting, tmp_path):
+def test_called_during_the_meeting_it_answers(meeting, tmp_path):
     """Le scénario de la démonstration, de bout en bout."""
     transcriber = light_transcriber(Config())
     if transcriber is None:
@@ -105,7 +105,7 @@ def test_appele_pendant_la_reunion_il_repond(meeting, tmp_path):
     assert assistant.manners.spoke_at is not None
 
 
-def test_la_transcription_n_attend_pas_la_reponse(meeting, tmp_path):
+def test_the_transcription_does_not_wait_for_the_answer(meeting, tmp_path):
     """Formuler prend des secondes ; les passer à attendre coûte de l'audio.
 
     On mesure que la main revient avant que le cerveau ait répondu, ce qui est
@@ -151,7 +151,7 @@ def test_la_transcription_n_attend_pas_la_reponse(meeting, tmp_path):
     assert rendered < 5.0, f"la veille a attendu la réponse ({rendered:.1f} s)"
 
 
-def test_une_phrase_ordinaire_ne_le_fait_pas_parler(tmp_path):
+def test_an_ordinary_sentence_does_not_make_it_speak(tmp_path):
     """Sans son nom, rien ne se déclenche : c'est le cas de toute la réunion."""
     if shutil.which("say") is None or shutil.which("ffmpeg") is None:
         pytest.skip("« say » ou ffmpeg absent")
@@ -183,7 +183,7 @@ def test_une_phrase_ordinaire_ne_le_fait_pas_parler(tmp_path):
     assert voice.remark == []
 
 
-def test_l_assistant_absent_ne_change_rien(meeting, tmp_path):
+def test_no_assistant_changes_nothing(meeting, tmp_path):
     """La veille sans assistant est ce qu'elle a toujours été."""
     transcriber = light_transcriber(Config())
     if transcriber is None:
@@ -201,7 +201,7 @@ def test_l_assistant_absent_ne_change_rien(meeting, tmp_path):
     watcher.transcription_turn(watcher.situer(), tmp_path)
 
 
-def test_la_raison_de_parler_est_l_appel(meeting, tmp_path):
+def test_the_reason_for_speaking_is_the_call(meeting, tmp_path):
     """Ce n'est pas un apport spontané : c'est qu'on l'a nommée."""
     transcriber = light_transcriber(Config())
     if transcriber is None:
@@ -214,7 +214,7 @@ def test_la_raison_de_parler_est_l_appel(meeting, tmp_path):
 
 
 @pytest.mark.integration
-class TestLaBoucleSurUnFilReel:
+class TestTheLoopOnARealThread:
     """La boucle du transcripteur, sur le fil d'une vraie réunion.
 
     Reconstitué depuis le fil du 2026-09-10 à 13 h 08, tel qu'il a été publié :
@@ -241,7 +241,7 @@ class TestLaBoucleSurUnFilReel:
             ]
         return sorted(dites, key=lambda u: u.span.start)
 
-    def test_les_quatre_boucles_se_replient(self):
+    def test_the_four_loops_fold_up(self):
         from greffier.domain.boilerplate import collapse_loops
 
         avant = self._fil()
@@ -249,14 +249,14 @@ class TestLaBoucleSurUnFilReel:
         assert len(avant) == 43
         assert len(apres) == 4, [u.text for u in apres]
 
-    def test_chaque_phrase_gardee_couvre_son_passage(self):
+    def test_every_kept_sentence_covers_its_run(self):
         from greffier.domain.boilerplate import collapse_loops
 
         for gardee in collapse_loops(self._fil()):
             expected = next(c for t, _d, c in self.OBSERVE if t == gardee.text)
             assert gardee.span.end - gardee.span.start == expected
 
-    def test_le_fil_publie_ne_porte_plus_la_repetition(self):
+    def test_the_published_thread_no_longer_carries_the_repetition(self):
         """Ce que la fenêtre affiche : une ligne par phrase dite."""
         from greffier.domain.boilerplate import collapse_loops
 
@@ -265,7 +265,7 @@ class TestLaBoucleSurUnFilReel:
 
 
 @pytest.mark.integration
-class TestUnAncienReglageNeRendPlusMuet:
+class TestAnOldSettingNoLongerSilencesIt:
     """Un réglage que l'interface n'expose plus ne doit plus décider.
 
     Le défaut, vécu deux fois en réunion : le fichier de configuration portait
@@ -300,13 +300,13 @@ initiative = false
             monkeypatch.delenv(clef, raising=False)
         return _reread_the_buttons()
 
-    def test_un_fichier_portant_actif_faux_ne_coupe_plus_la_voix(
+    def test_a_file_saying_active_false_no_longer_cuts_the_voice(
         self, tmp_path, monkeypatch
     ):
         a_voix_haute, _de_lui_meme = self._boutons(tmp_path, monkeypatch, self.ANCIEN)
         assert a_voix_haute, "la voix est réglée sur kokoro : elle doit parler"
 
-    def test_couper_la_voix_reste_possible(self, tmp_path, monkeypatch):
+    def test_cutting_the_voice_is_still_possible(self, tmp_path, monkeypatch):
         """Le seul réglage qui décide encore, et il doit décider."""
         a_voix_haute, _ = self._boutons(
             tmp_path, monkeypatch,
@@ -314,14 +314,14 @@ initiative = false
         )
         assert not a_voix_haute
 
-    def test_l_initiative_se_lit_dans_le_fichier(self, tmp_path, monkeypatch):
+    def test_the_initiative_is_read_from_the_file(self, tmp_path, monkeypatch):
         _, de_lui_meme = self._boutons(
             tmp_path, monkeypatch,
             '[assistant]\nnom = "Lucie"\nvoix = "kokoro"\ninitiative = true\n',
         )
         assert de_lui_meme
 
-    def test_appelee_elle_repond_malgre_l_ancien_reglage(self, meeting, tmp_path):
+    def test_called_it_answers_despite_the_old_setting(self, meeting, tmp_path):
         """Le scénario complet, avec le fichier qui l'avait rendue muette."""
         transcriber = light_transcriber(Config())
         if transcriber is None:

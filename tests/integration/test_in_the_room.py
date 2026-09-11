@@ -78,7 +78,7 @@ def outcome(config: Config, table: Path):
 
 
 class TestVerdictDeCanal:
-    def test_la_fuite_dans_la_boucle_ne_fait_pas_conclure_visio(self, table: Path):
+    def test_the_leak_into_the_loopback_does_not_conclude_a_call(self, table: Path):
         import soundfile as sf
 
         from greffier.adapters.channels_file import levels_per_frame
@@ -91,7 +91,7 @@ class TestVerdictDeCanal:
         assert max(boucle) < -45.0, "la fuite doit rester sous le plancher de bruit"
         assert not over_video(mic, boucle)
 
-    def test_le_micro_sert_de_reference_aux_deux_canaux(self, table: Path):
+    def test_the_mic_is_the_reference_for_both_channels(self, table: Path):
         """En présentiel, la boucle n'a rien à apporter : on ne s'en sert plus."""
         import numpy as np
         import soundfile as sf
@@ -103,7 +103,7 @@ class TestVerdictDeCanal:
         assert channels.distante is False
         assert np.array_equal(channels.system, channels.mic)
 
-    def test_aucun_passage_n_est_declare_local(self, table: Path):
+    def test_no_passage_is_declared_local(self, table: Path):
         """Le canal ne désigne personne : mieux vaut rien que « Toi » à tort.
 
         Sur une visio, ces passages sont la seule attribution qui ne se trompe
@@ -117,14 +117,14 @@ class TestVerdictDeCanal:
 
 
 class TestChaineEnPresentiel:
-    def test_la_reunion_est_transcrite(self, outcome):
+    def test_the_meeting_is_transcribed(self, outcome):
         assert outcome.words > 60, "la transcription a perdu l'essentiel du dialogue"
 
-    def test_personne_n_est_etiquete_comme_la_voix_locale(self, outcome):
+    def test_nobody_is_labelled_as_the_local_voice(self, outcome):
         """Le défaut que le présentiel pouvait faire apparaître, en toutes lettres."""
         assert LOCAL_VOICE not in outcome.speaking_time()
 
-    def test_les_participants_ne_sont_pas_fondus_en_une_seule_voix(self, outcome):
+    def test_the_participants_are_not_melted_into_one_voice(self, outcome):
         """Trois personnes autour d'une table restent plusieurs voix.
 
         Le compte exact dépend du timbre des voix de synthèse — deux d'entre
@@ -134,14 +134,14 @@ class TestChaineEnPresentiel:
         significatives = outcome.significant_voices()
         assert 2 <= len(significatives) <= len(outcome.utterances)
 
-    def test_les_fragments_ne_comptent_pas_comme_des_participants(self, outcome):
+    def test_fragments_do_not_count_as_participants(self, outcome):
         assert all(duration >= 10 for duration in outcome.significant_voices().values())
 
-    def test_l_auto_presentation_reste_juste_sans_le_secours_du_canal(self, outcome):
+    def test_introducing_oneself_stays_right_without_the_channel_s_help(self, outcome):
         """« moi c'est Jacques » désigne celui qui parle, canal ou pas."""
         assert outcome.name_of(outcome.utterances[0].voice) == "Jacques"
 
-    def test_aucune_phrase_a_cheval_n_est_attribuee(self, outcome):
+    def test_no_sentence_astride_is_attributed(self, outcome):
         """Une phrase que deux voix se partagent ne doit désigner personne.
 
         C'est la règle de `domain/attribution.py`, éprouvée ici sur la vraie

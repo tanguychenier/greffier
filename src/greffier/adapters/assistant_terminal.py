@@ -54,7 +54,7 @@ class Dialogue:
     """The assistant's input and output, replaceable for the tests."""
 
     ask: Callable[[str, str], str]
-    confirmer: Callable[[str, bool], bool]
+    confirm: Callable[[str, bool], bool]
     show: Callable[[str], None]
     choose: Callable[[str, list[tuple[str, str]], int], str]
 
@@ -127,7 +127,7 @@ def writer_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None
             "décision d'une hypothèse dépasse ce qu'un modèle de portable sait faire."
         )
         command = diagnostic.COMMANDE_INSTALLER_CLAUDE.get(SYSTEM, "")
-        if command and dialogue.confirmer(f"L'installer maintenant ? ({command})", True):
+        if command and dialogue.confirm(f"L'installer maintenant ? ({command})", True):
             dialogue.show(f"$ {command}")
             subprocess.run(command, shell=True, check=False)
             answers.installations.append("Claude Code")
@@ -183,7 +183,7 @@ def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
     """By email, or into a folder?"""
     dialogue.show("\n— Où arrive le compte rendu —")
 
-    if not dialogue.confirmer("Le recevoir par courriel ?", True):
+    if not dialogue.confirm("Le recevoir par courriel ?", True):
         defaut = str(data_folder() / "comptes-rendus")
         folder = dialogue.ask("Dans quel dossier l'enregistrer", defaut)
         answers.place("GREFFIER_PATHS__DATA", str(Path(folder).expanduser().parent))

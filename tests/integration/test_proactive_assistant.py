@@ -50,30 +50,30 @@ def _assistant(material: str):
     return lui
 
 
-def test_une_reunion_ordinaire_ne_lui_arrache_pas_un_mot():
+def test_an_ordinary_meeting_does_not_get_a_word_out_of_it():
     """Le cas de très loin le plus fréquent, et le plus facile à rater."""
     assert _assistant(ORDINAIRE).contribution(now=600.0) is None
 
 
-def test_une_decision_sans_personne_pour_la_porter_le_fait_parler():
+def test_a_decision_with_nobody_to_carry_it_makes_it_speak():
     opening = _assistant(SANS_RESPONSABLE).contribution(now=600.0)
     assert opening is not None
     assert "?" in opening.remark
 
 
-def test_une_question_laissee_en_l_air_le_fait_parler():
+def test_a_question_left_hanging_makes_it_speak():
     opening = _assistant(QUESTION_EN_L_AIR).contribution(now=600.0)
     assert opening is not None
 
 
-def test_il_ne_cherche_rien_pendant_son_repos():
+def test_it_looks_for_nothing_while_it_rests():
     """Un appel au modèle toutes les dix secondes pour un silence."""
     lui = _assistant(SANS_RESPONSABLE)
     lui.manners.spoke_at = 590.0
     assert lui.contribution(now=600.0) is None
 
 
-def test_ce_qu_il_dit_se_prononce(monkeypatch):
+def test_what_it_says_is_pronounced(monkeypatch):
     """Ni titre, ni liste, ni adresse : tout cela serait lu à voix haute."""
     opening = _assistant(SANS_RESPONSABLE).contribution(now=600.0)
     assert opening is not None

@@ -21,7 +21,7 @@ class FakeSegment:
         self.text = text
 
 
-class TestRepliSurLeProcesseur:
+class TestFallingBackToTheProcessor:
     def _transcriber(self, monkeypatch, refuse):
         """Un modèle qui échoue là où échoue une carte sans cuBLAS.
 
@@ -53,7 +53,7 @@ class TestRepliSurLeProcesseur:
         monkeypatch.setattr(transcriber, "_load", load, raising=False)
         return transcriber, requests
 
-    def test_le_processeur_prend_le_relais(self, monkeypatch):
+    def test_the_processor_takes_over(self, monkeypatch):
         transcriber, requests = self._transcriber(monkeypatch, refuse={"auto"})
 
         utterances = transcriber.transcribe(Path("reunion.wav"), "fr", "")
@@ -61,7 +61,7 @@ class TestRepliSurLeProcesseur:
         assert [utterance.text for utterance in utterances] == ["Bonjour à tous"]
         assert requests == ["auto", "cpu"]
 
-    def test_le_modele_est_recharge_pour_le_processeur(self, monkeypatch):
+    def test_the_model_is_reloaded_for_the_processor(self, monkeypatch):
         """Le modèle chargé porte la carte : le garder rejouerait la panne."""
         transcriber, _ = self._transcriber(monkeypatch, refuse={"auto"})
 
@@ -69,7 +69,7 @@ class TestRepliSurLeProcesseur:
 
         assert transcriber.peripherique == "cpu"
 
-    def test_une_panne_du_processeur_n_est_pas_masquee(self, monkeypatch):
+    def test_a_failure_of_the_processor_is_not_hidden(self, monkeypatch):
         """Sinon le repli tournerait en rond et cacherait la vraie cause."""
         transcriber, requests = self._transcriber(monkeypatch, refuse={"auto", "cpu"})
 
