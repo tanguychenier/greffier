@@ -1,13 +1,12 @@
-"""Les pièges déjà rencontrés, rejoués à travers la vraie chaîne.
+"""The traps already met, replayed through the real chain.
 
-`tools/make_hard_cases.py` fabrique un enregistrement par défaut
-constaté sur une vraie réunion ou rendu possible par la conception. Ce fichier
-les fait passer par la vraie chaîne — segmentation, reconnaissance, attribution
-des noms — plutôt que par des doublures, pour prouver que le défaut reste
-corrigé.
+`tools/make_hard_cases.py` builds one recording per defect seen in a real
+meeting or made possible by the design. This file puts them through the real
+chain — segmentation, recognition, name attribution — rather than through
+doubles, to prove the defect stays fixed.
 
-Lent (transcription comprise) et dépendant des modèles : marqué « integration »,
-et ignoré partout où les modèles ne sont pas installés.
+Slow, transcription included, and dependent on the models: marked
+"integration", and skipped anywhere the models are not installed.
 
     pytest -m integration
 """
@@ -73,10 +72,10 @@ def _process(config: Config, audio: Path):
 
 @pytest.fixture(scope="session")
 def resultat_trois_voix(config: Config, tmp_path_factory):
-    """Trois locuteurs, dont deux proches en timbre.
+    """Three speakers, two of them close in timbre.
 
-    La segmentation ne doit ni fusionner deux d'entre eux par accident, ni
-    sur-découper une même personne en plusieurs voix.
+    The segmentation must neither join two of them by accident nor over-cut one
+    person into several voices.
     """
     audio = _fabriquer_cas("trois-voix", tmp_path_factory)
     return _process(config, audio)
@@ -84,44 +83,48 @@ def resultat_trois_voix(config: Config, tmp_path_factory):
 
 class TestTroisVoix:
     def test_the_three_voices_are_told_apart(self, resultat_trois_voix):
-        """Trois voix distinctes, chacune avec plusieurs secondes de matière —
-        pas deux (fusion à tort) ni davantage (sur-découpage résiduel)."""
+        """Three distinct voices, each with several seconds of material: not two, which
+        would be a wrong join, and not more, which would be over-cutting left over.
+        """
         temps = resultat_trois_voix.speaking_time()
         assert len(temps) == 3
         assert all(duration >= 5.0 for duration in temps.values())
 
     def test_both_self_introductions_are_found(self, resultat_trois_voix):
-        """Jacques et Amélie se présentent ; la troisième voix reste sans nom
-        plutôt que d'hériter de celui d'un autre — un « merci Amélie » dit
-        juste après le tour de la troisième personne est un piège volontaire
-        du fixture (`tools/make_hard_cases.py`), à ne jamais
-        affirmer sans plus de matière."""
+        """Jacques and Amélie introduce themselves; the third voice stays unnamed rather
+        than inheriting somebody else's. A "merci Amélie" said just after the third
+        person's turn is a deliberate trap in the fixture
+        (`tools/make_hard_cases.py`), never to be asserted without more material.
+        """
         assert set(resultat_trois_voix.names.values()) == {"Jacques", "Amélie"}
         assert len(resultat_trois_voix.names) == 2
 
 
 @pytest.fixture(scope="session")
 def resultat_proposition_breve(config: Config, tmp_path_factory):
-    """C parle une seule fois, brièvement, et n'est jamais nommée par
-    elle-même : seul un renvoi juste après son tour la vise, un indice trop
-    faible pour être affirmé — mais qui ne doit pas se perdre pour autant."""
+    """C speaks once, briefly, and is never named by themselves: only a reference back
+    just after their turn points at them, a clue too weak to be asserted, but one
+    that must not be lost for all that.
+    """
     audio = _fabriquer_cas("proposition-breve", tmp_path_factory)
     return _process(config, audio)
 
 
 class TestPropositionBreve:
     def test_the_guess_is_there_in_the_outcome(self, resultat_proposition_breve):
-        """La donnée n'est jamais perdue : le renvoi produit bien une
-        proposition, jamais une certitude — un seul indice ne suffit pas."""
+        """The information is never lost: the reference back does produce a guess, never
+        a certainty, since one clue is not enough.
+        """
         temps = resultat_proposition_breve.speaking_time()
         voix_breve = min(temps, key=lambda v: temps[v])
         assert temps[voix_breve] < 10.0
         assert resultat_proposition_breve.propositions.get(voix_breve) is not None
         assert voix_breve not in resultat_proposition_breve.names
 
-    def test_la_proposition_survit_jusqu_a_l_ecran_de_nommage(self, resultat_proposition_breve):
-        """Le défaut corrigé : `voix_a_nommer` ne doit plus taire une voix
-        courte qui porte une proposition détectée."""
+    def test_the_guess_survives_to_the_naming_screen(self, resultat_proposition_breve):
+        """The defect fixed: the voices offered for naming must no longer silence a short
+        voice that carries a guess.
+        """
         meeting = depuis_resultat(resultat_proposition_breve, duration=60.0)
         voix_breve = min(
             resultat_proposition_breve.speaking_time(),
