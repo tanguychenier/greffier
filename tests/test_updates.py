@@ -61,8 +61,8 @@ class TestQuandIlYAMieux:
 
     def test_la_phrase_dit_les_deux_versions(self, monkeypatch, installee_0_2_0):
         answer(monkeypatch, {"tag_name": "v0.3.0"})
-        dit = updates.check().say()
-        assert "0.3.0" in dit and "0.2.0" in dit
+        said = updates.check().say()
+        assert "0.3.0" in said and "0.2.0" in said
 
 
 class TestQuandIlNYAPasMieux:
@@ -140,9 +140,9 @@ class TestInstallation:
     def test_un_depot_propre_est_accepte(self, monkeypatch, tmp_path):
         store = self.depot_git(tmp_path)
         monkeypatch.setenv("GREFFIER_DEPOT_SOURCE", str(store))
-        possible, ou = updates.installable()
+        possible, where_in = updates.installable()
         assert possible is True
-        assert ou == str(store)
+        assert where_in == str(store)
 
     def test_un_depot_modifie_est_refuse(self, monkeypatch, tmp_path):
         """« git pull » sur un arbre sale échoue à moitié : mieux vaut refuser avant."""
@@ -284,11 +284,11 @@ class TestTelechargerEtDeballer:
         bytes_read = b"x" * 300000
         repondre_octets(monkeypatch, bytes_read)
         vus: list[tuple[int, int]] = []
-        recu, ou = updates.download(
+        recu, where_in = updates.download(
             "https://exemple/a.zip", tmp_path / "a.zip",
             progress=lambda r, t: vus.append((r, t)),
         )
-        assert recu, ou
+        assert recu, where_in
         assert (tmp_path / "a.zip").read_bytes() == bytes_read
         assert vus and vus[-1][0] == len(bytes_read)
 
@@ -313,8 +313,8 @@ class TestTelechargerEtDeballer:
         archive = tmp_path / "Greffier-macos.zip"
         with zipfile.ZipFile(archive, "w") as z:
             z.writestr("Greffier.app/Contents/Info.plist", "<plist/>")
-        ouvert, ou = updates.unpack(archive, tmp_path / "dedans")
-        assert ouvert, ou
+        ouvert, where_in = updates.unpack(archive, tmp_path / "dedans")
+        assert ouvert, where_in
         assert (tmp_path / "dedans" / "Greffier.app" / "Contents").is_dir()
 
     def test_un_tar_gz_s_ouvre(self, tmp_path):
@@ -326,8 +326,8 @@ class TestTelechargerEtDeballer:
         archive = tmp_path / "Greffier-linux.tar.gz"
         with tarfile.open(archive, "w:gz") as a:
             a.add(source, arcname="greffier")
-        ouvert, ou = updates.unpack(archive, tmp_path / "dedans")
-        assert ouvert, ou
+        ouvert, where_in = updates.unpack(archive, tmp_path / "dedans")
+        assert ouvert, where_in
         assert (tmp_path / "dedans" / "greffier" / "LISEZMOI.md").exists()
 
     def test_un_format_inconnu_est_refuse(self, tmp_path):

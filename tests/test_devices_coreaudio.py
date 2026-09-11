@@ -49,7 +49,7 @@ BRANCHE = """Périphériques audio :
 """
 
 
-class TestAnalyse:
+class TestReadingWhatTheWriterReturned:
     def test_chaque_peripherique_est_reconnu(self) -> None:
         assert len(analyser(SEUL).devices) == 5
         assert len(analyser(BRANCHE).devices) == 9

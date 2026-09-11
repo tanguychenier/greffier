@@ -103,8 +103,8 @@ class TestReadingTheSetting:
 
     def test_la_ligne_montre_la_demande_d_un_coup(self, jira):
         jira.charge = {"issues": [UNE_DEMANDE]}
-        dit = jira_api.requests(source(), SECRET)[0].say()
-        assert "PROJ-12" in dit and "Sophie" in dit and "En cours" in dit
+        said = jira_api.requests(source(), SECRET)[0].say()
+        assert "PROJ-12" in said and "Sophie" in said and "En cours" in said
 
     def test_le_projet_du_registre_borne_la_requete(self, jira):
         jira_api.requests(source(), SECRET)

@@ -55,7 +55,7 @@ class TestModele:
         assert command is None
 
 
-class TestEchecs:
+class TestWhenThingsFail:
     def test_claude_absent_le_dit_et_propose_la_solution(self, monkeypatch):
         monkeypatch.setattr("greffier.adapters.writer_claude.shutil.which",
                             lambda _name: None)

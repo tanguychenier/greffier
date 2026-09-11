@@ -9,7 +9,7 @@ from greffier.domain.meeting import StoredMeeting
 from greffier.domain.models import Span, SpeakerTurn, Utterance
 
 
-def reunion_type(**overrides) -> StoredMeeting:
+def a_meeting(**overrides) -> StoredMeeting:
     defauts = dict(
         identifier="2026-08-24_reunion",
         audio=Path("/tmp/r.wav"),
@@ -36,40 +36,40 @@ class FakeWriter:
         return "# Compte rendu\n\nTout va bien."
 
 
-class TestRendreLaTranscription:
-    def test_fonctionne_directement_sur_une_reunion_relue(self) -> None:
+class TestRenderingTheTranscription:
+    def test_it_works_straight_off_a_meeting_read_back(self) -> None:
         """`ReunionEnregistree` doit satisfaire le même protocole que
         `Resultat`, sans conversion : c'est ce qui permet de rejouer la
         rédaction sans repasser par un traitement complet."""
-        text = render_transcript(reunion_type())
+        text = render_transcript(a_meeting())
         assert "[Josiane]" in text
         assert "[Personne 2]" in text
 
 
-class TestRegenererLeCompteRendu:
-    def test_le_redacteur_recoit_les_noms_a_jour(self) -> None:
-        meeting = reunion_type(names={"1": "Josiane", "2": "Marc"})
+class TestWritingTheMinutesAgain:
+    def test_the_writer_receives_the_names_as_they_stand(self) -> None:
+        meeting = a_meeting(names={"1": "Josiane", "2": "Marc"})
         writer = FakeWriter()
         regenerate_minutes(meeting, writer)
         assert "[Josiane]" in writer.recu
         assert "[Marc]" in writer.recu
 
-    def test_le_texte_rendu_est_celui_du_redacteur(self) -> None:
+    def test_the_text_returned_is_the_writer_s(self) -> None:
         assert (
-            regenerate_minutes(reunion_type(), FakeWriter())
+            regenerate_minutes(a_meeting(), FakeWriter())
             == "# Compte rendu\n\nTout va bien."
         )
 
-    def test_les_evenements_materiel_survivent_a_la_regeneration(self) -> None:
+    def test_the_hardware_events_survive_the_rewrite(self) -> None:
         """Le défaut visé : régénérer ne doit pas rendre le compte rendu moins
         fiable que l'original en perdant ce que la veille du matériel savait."""
-        meeting = reunion_type(hardware_events=["casque branché à 12:03"])
+        meeting = a_meeting(hardware_events=["casque branché à 12:03"])
         writer = FakeWriter()
         regenerate_minutes(meeting, writer)
         assert "casque branché à 12:03" in writer.recu
 
 
-class TestLesConsignesDeLaSeance:
+class TestTheInstructionsGivenDuringTheMeeting:
     """Ce qu'on a dit à l'outil pendant la réunion doit parvenir au rédacteur.
 
     Le défaut, rapporté mot pour mot : « j'avais pourtant dit dans le chat de
@@ -79,7 +79,7 @@ class TestLesConsignesDeLaSeance:
     disque et lus par personne.
     """
 
-    def test_chaque_consigne_est_dictee(self):
+    def test_every_instruction_is_dictated(self):
         entete = render.instructions_header([
             "Il n'y a pas de sophie dans la réunion",
             "Pascal n'a pas dit booting, mais blue team",
@@ -87,15 +87,15 @@ class TestLesConsignesDeLaSeance:
         assert "Il n'y a pas de sophie" in entete
         assert "blue team" in entete
 
-    def test_l_entete_dit_qu_elles_l_emportent(self):
+    def test_the_header_says_they_win(self):
         """Sans cela le rédacteur arbitre entre la consigne et la transcription."""
         entete = render.instructions_header(["Il n'y a pas de sophie"])
         assert "l'emportent" in entete
         assert "Applique-les" in entete
 
-    def test_sans_consigne_il_n_y_a_pas_d_entete(self):
+    def test_with_no_instruction_there_is_no_header(self):
         assert render.instructions_header([]) == ""
 
-    def test_l_entete_se_termine_proprement(self):
+    def test_the_header_ends_cleanly(self):
         """Il est collé aux autres : sans la ligne vide, deux blocs se touchent."""
         assert render.instructions_header(["une"]).endswith("\n\n")

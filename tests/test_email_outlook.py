@@ -127,9 +127,9 @@ class TestQuandOutlookNeRepondPas:
     def test_un_delai_depasse_dit_quoi_faire(self, monkeypatch):
         with pytest.raises(TimeoutError) as souci:
             self._envoyer(monkeypatch, "execution error: ... (-1712)")
-        dit = str(souci.value)
-        assert "n'a pas répondu à temps" in dit
-        assert "greffier envoyer" in dit, "il faut dire comment réessayer"
+        said = str(souci.value)
+        assert "n'a pas répondu à temps" in said
+        assert "greffier envoyer" in said, "il faut dire comment réessayer"
 
     def test_outlook_ferme_est_dit_autrement(self, monkeypatch):
         with pytest.raises(RuntimeError, match="n'est pas lancé"):
