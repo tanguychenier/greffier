@@ -1,14 +1,13 @@
-"""Bornes de l'extraction d'empreintes.
+"""The bounds of voiceprint extraction.
 
-Le cas nommé : une réunion de 33 minutes autour d'une table a fait tomber
-l'identification des locuteurs avec « BroadcastIterator::Init: axis == 1 ||
-axis == largest was false », une erreur d'ONNX Runtime dans le nœud « Where » de
-l'encodeur. La segmentation avait produit un long tour de parole continu, et le
-modèle n'accepte pas un extrait de cette longueur : mesuré, 120 s passent et
-150 s échouent.
+The case that named it: a 33-minute meeting round a table brought speaker
+identification down with "BroadcastIterator::Init: axis == 1 || axis == largest
+was false", an ONNX Runtime error in the encoder's "Where" node. The
+segmentation had produced one long continuous turn of speech, and the model
+does not accept an extract of that length: measured, 120 s pass and 150 s fail.
 
-Ces tests portent sur le bornage, qui ne demande pas de charger les 98 Mo du
-modèle : ils vérifient qu'on ne lui soumet jamais plus que ce qu'il accepte.
+These tests are about the bounding, which does not need the model's 98 MB to be
+loaded: they check that it is never given more than it accepts.
 """
 
 from __future__ import annotations
@@ -19,13 +18,13 @@ from greffier.adapters.voiceprints_titanet import MAXIMUM_LENGTH, MINIMUM_LENGTH
 
 
 class Recorded:
-    """Retient ce qu'on lui soumet, à la place du modèle."""
+    """Keeps what it is given, in place of the model."""
 
     def __init__(self) -> None:
         self.recus: list[int] = []
 
     def borner(self, echantillons: np.ndarray, frequency: int) -> np.ndarray:
-        # Reproduit le bornage de l'adaptateur, la seule règle en jeu.
+        # Reproduces the adapter's bounding, the only rule at play.
         borne = int(MAXIMUM_LENGTH * frequency)
         if len(echantillons) > borne:
             milieu = len(echantillons) // 2
@@ -36,7 +35,7 @@ class Recorded:
 
 class TestBornes:
     def test_the_bound_stays_under_the_measured_limit(self) -> None:
-        # 120 s passent, 150 s échouent : la borne doit être franchement en deçà.
+        # 120 s pass and 150 s fail: the bound has to sit clearly under that.
         assert MAXIMUM_LENGTH <= 120.0
         assert MAXIMUM_LENGTH >= MINIMUM_LENGTH
 
@@ -51,8 +50,8 @@ class TestBornes:
         assert garde.recus == [int(16000 * MAXIMUM_LENGTH)]
 
     def test_it_is_the_middle_of_the_passage_that_is_kept(self) -> None:
-        # Le début d'un long tour de parole porte volontiers une hésitation ou
-        # un « alors » qui ne dit rien du timbre.
+        # The start of a long turn of speech often carries a hesitation or an
+        # "alors" that says nothing about the timbre.
         frequency = 16000
         signal = np.arange(frequency * 600, dtype="float32")
         borne = int(MAXIMUM_LENGTH * frequency)

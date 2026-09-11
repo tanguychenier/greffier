@@ -1,4 +1,4 @@
-"""Oublier une réunion : dire ce qui part, puis l'effacer."""
+"""Forgetting a meeting: saying what goes, then deleting it."""
 
 from pathlib import Path
 
@@ -30,10 +30,10 @@ def lay_out_a_meeting(where_in: Places, identifier: str = "2026-09-09_10h05_reun
 
 
 class TestWhatWillGo:
-    """Une confirmation qui ne dit pas ce qu'elle efface ne vaut rien.
+    """A confirmation that does not say what it deletes is worth nothing.
 
-    Supprimer le seul fichier maître laissait 158 Mo d'audio orphelins et un
-    compte rendu que plus rien ne référençait.
+    Deleting the master file alone left 158 MB of orphaned audio and a set of
+    minutes nothing referred to any more.
     """
 
     def test_every_piece_is_found(self, tmp_path):
@@ -54,7 +54,7 @@ class TestWhatWillGo:
         assert pieces_de(locations(tmp_path), "jamais-vue") == []
 
     def test_a_compressed_audio_is_recognised(self, tmp_path):
-        """« greffier archiver » remplace le WAV par un Opus : il compte aussi."""
+        """`greffier archiver` replaces the WAV with an Opus: it counts too."""
         where_in = locations(tmp_path)
         (where_in.recordings / "2026-09-09_x.opus").write_bytes(b"x" * 10)
         assert [p.what for p in pieces_de(where_in, "2026-09-09_x")] == ["enregistrement audio"]
@@ -91,7 +91,7 @@ class TestAWeightAPersonCanRead:
 
 
 class TestTidyingByTheRetentionRule:
-    """Constater d'abord : effacer un enregistrement ne se rattrape pas."""
+    """Look first: deleting a recording cannot be taken back."""
 
     def the_usual_rule(self):
         from greffier.domain.retention import Rule
@@ -140,7 +140,7 @@ class TestTidyingByTheRetentionRule:
                       compresser=lambda c: c) == []
 
     def test_a_meeting_not_yet_transcribed_is_untouchable(self, tmp_path):
-        """Son audio est tout ce qui existe d'elle."""
+        """Its audio is all that exists of it."""
         from greffier.application.tidy import tidy
 
         where_in = locations(tmp_path)
@@ -150,7 +150,7 @@ class TestTidyingByTheRetentionRule:
                       compresser=lambda c: c) == []
 
     def test_a_compression_that_fails_is_reported(self, tmp_path):
-        """Un ffmpeg absent ne doit pas interrompre le rangement des autres."""
+        """A missing ffmpeg must not stop the others being tidied."""
         from greffier.application.tidy import tidy
 
         where_in = locations(tmp_path)
@@ -183,11 +183,11 @@ class TestTidyingByTheRetentionRule:
 
 
 class TestEverythingThatBelongsToTheMeeting:
-    """Effacer une réunion doit tout prendre : sinon il reste des données.
+    """Deleting a meeting has to take everything, or data is left behind.
 
-    Les questions posées, la conversation tenue et les documents fournis
-    vivaient hors de l'énumération : « effacer » laissait derrière lui ce que
-    la réunion avait produit de plus bavard.
+    The questions asked, the conversation held and the documents handed in lived
+    outside the enumeration: "forget" left behind the most talkative things the
+    meeting had produced.
     """
 
     def place(self, tmp_path, identifier="reunion-1"):

@@ -1,8 +1,8 @@
-"""Le compte rendu, mis en forme pour le courriel.
+"""The minutes, laid out for email.
 
-Ces tests portent sur ce qui a réellement cassé en usage : les accents rendus en
-MacRoman, les tableaux réduits à des barres verticales, et l'objet du message
-réduit à un nom de fichier horodaté.
+These tests are about what actually broke in use: accents rendered in MacRoman,
+tables reduced to pipe characters, and the subject line reduced to a timestamped
+file name.
 """
 
 from __future__ import annotations
@@ -153,7 +153,7 @@ class TestTheWholeDocument:
 
 
 class TestTheTableOfContents:
-    """Un sommaire, pour savoir ce que le document contient sans le dérouler."""
+    """A table of contents, to know what the document holds without scrolling it."""
 
     COMPLET = (
         "# Compte rendu — Point Casa\n\n"
@@ -193,7 +193,7 @@ class TestTheTableOfContents:
 
 
 class TestTheHeaderOfTheEmail:
-    """Titre et ligne de contexte forment l'en-tête, pas un paragraphe de plus."""
+    """The title and the context line form the header, not one more paragraph."""
 
     SOURCE = (
         "# Compte rendu — Point Casa\n\n"
@@ -208,7 +208,7 @@ class TestTheHeaderOfTheEmail:
     def test_the_context_line_is_set_apart(self) -> None:
         html = email(self.SOURCE)
         assert "Participants : Sophie, Katell." in html
-        # Rendue en gris pâle, sous le titre, et non comme un paragraphe normal.
+        # Shown in pale grey under the title, and not as an ordinary paragraph.
         assert html.index("Participants") < html.index("Sommaire")
 
     def test_a_document_with_no_title_still_passes(self) -> None:
@@ -222,11 +222,11 @@ class TestTheHeaderOfTheEmail:
 
 
 class TestNonLatinAnchors:
-    """Deux sections doivent avoir deux ancres.
+    """Two sections must have two anchors.
 
-    Un titre sans lettre ASCII se réduisait au seul préfixe : toutes les
-    sections portaient « s- », le document HTML avait des identifiants en
-    double, et chaque lien du sommaire menait à la première section.
+    A heading with no ASCII letter came down to the prefix alone: every section
+    carried "s-", the HTML document had duplicate identifiers, and every link in
+    the contents led to the first section.
     """
 
     def test_two_non_latin_headings_give_two_anchors(self):
@@ -240,5 +240,5 @@ class TestNonLatinAnchors:
         assert _ancre("Décisions") == "s-decisions"
 
     def test_the_contents_and_the_heading_point_at_one_anchor(self):
-        """La fonction est appelée des deux côtés : elles doivent coïncider."""
+        """The function is called from both sides: they have to agree."""
         assert _ancre("決定事項") == _ancre("決定事項")

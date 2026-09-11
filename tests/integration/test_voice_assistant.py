@@ -1,9 +1,9 @@
-"""L'assistant entend son nom, dans du vrai son, par le vrai modèle.
+"""The assistant hears its name, in real sound, through the real model.
 
-Les tests unitaires disent que la règle est juste ; ils ne disent pas que
-whisper rend « Lucie » de façon reconnaissable. C'est pourtant la question qui
-décide : un prénom que la transcription déforme systématiquement rendrait tout
-le reste inutile, et aucune doublure ne l'aurait montré.
+The unit tests say the rule is right; they do not say that whisper returns
+"Lucie" recognisably. That is the question that decides everything: a first name
+the transcription systematically mangles would make all the rest useless, and no
+double would have shown it.
 """
 
 from __future__ import annotations
@@ -20,9 +20,9 @@ from greffier.wiring import light_transcriber
 
 NAME = "Lucie"
 
-#: Ce qu'on prononce, et ce qu'on attend. La dernière ne l'appelle pas : sans
-#: elle, le test ne prouverait que la moitié de ce qui compte — un assistant
-#: qui répond à tout est aussi inutilisable qu'un assistant sourd.
+#: What is said, and what is expected. The last one does not call it: without
+#: that, the test would prove only half of what matters, since an assistant that
+#: answers everything is as useless as a deaf one.
 SENTENCES = [
     ("Thomas", f"{NAME}, est-ce que tu nous entends bien ?", True),
     ("Amélie", f"Du coup {NAME}, tu peux nous rappeler ce qu'on a décidé ?", True),
@@ -31,7 +31,7 @@ SENTENCES = [
 
 
 def _synthetiser(voice: str, text: str, target: Path) -> Path | None:
-    """Un vrai fichier audio, par la synthèse du système. macOS pour l'instant."""
+    """A real audio file, from the system's speech synthesis. macOS for now."""
     if shutil.which("say") is None or shutil.which("ffmpeg") is None:
         return None
     brut = target.with_suffix(".aiff")
@@ -68,10 +68,10 @@ def test_its_name_is_heard_in_real_sound(
 
 
 def test_the_question_is_taken_out_without_the_name(transcriber, tmp_path):
-    """Ce qu'on transmet au modèle est la demande, pas l'apostrophe.
+    """What is passed to the model is the request, not the vocative.
 
-    « Lucie, est-ce que tu nous entends ? » se traite mieux en « est-ce que tu
-    nous entends ? » : le nom n'apporte rien et encombre la question.
+    "Lucie, est-ce que tu nous entends ?" is better handled as "est-ce que tu nous
+    entends ?": the name adds nothing and clutters the question.
     """
     audio = _synthetiser("Thomas", f"{NAME}, est-ce que tu nous entends bien ?",
                          tmp_path / "phrase.wav")
