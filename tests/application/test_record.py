@@ -58,16 +58,16 @@ def recorder(tmp_path, monkeypatch, audio_recorder):
     )
 
 
-class TestIdentifiant:
-    def test_la_date_d_abord_pour_que_ca_se_trie(self):
+class TestTheMeetingIdentifier:
+    def test_the_date_first_so_that_it_sorts(self):
         when = datetime(2026, 8, 24, 14, 30)
         assert _identifier("Point Copernic", when) == "2026-08-24_14h30_point-copernic"
 
-    def test_les_accents_et_symboles_disparaissent(self):
+    def test_accents_and_symbols_disappear(self):
         when = datetime(2026, 8, 24, 9, 5)
         assert _identifier("Réunion #4 (été)", when) == "2026-08-24_09h05_reunion-4-ete"
 
-    def test_un_nom_vide_reste_utilisable(self):
+    def test_an_empty_name_stays_usable(self):
         """Et deux noms différents restent deux réunions.
 
         Ce test attendait le suffixe « _reunion », qui était le défaut même :
@@ -79,16 +79,16 @@ class TestIdentifiant:
         assert _identifier("???", minuit).startswith("2026-01-01_00h00_")
         assert _identifier("???", minuit) != _identifier("!!!", minuit)
 
-    def test_deux_sujets_non_latins_ne_s_ecrasent_pas(self):
+    def test_two_non_latin_subjects_do_not_overwrite_each_other(self):
         minuit = datetime(2026, 1, 1, 0, 0)
         assert _identifier("点検会議", minuit) != _identifier("Совещание", minuit)
 
 
-class TestCycle:
-    def test_au_repos_rien_n_est_en_cours(self, recorder):
+class TestTheRecordingCycle:
+    def test_at_rest_nothing_is_under_way(self, recorder):
         assert recorder.read().phase is Phase.REST
 
-    def test_demarrer_puis_arreter(self, recorder):
+    def test_start_then_stop(self, recorder):
         state = recorder.start_recording("point recette")
         assert state.phase is Phase.RECORDING
         assert recorder.read().phase is Phase.RECORDING
@@ -96,7 +96,7 @@ class TestCycle:
         assert arrete.phase is Phase.FINALISATION
         assert recorder.audio_recorder.arretes == [4242]
 
-    def test_l_etat_survit_a_un_autre_processus(self, recorder, tmp_path):
+    def test_the_state_survives_another_process(self, recorder, tmp_path):
         """Deux commandes séparées d'une heure : l'état est sur le disque."""
         recorder.start_recording("copil")
         other = Recording(
@@ -107,16 +107,16 @@ class TestCycle:
         assert other.read().name == "copil"
         assert other.read().phase is Phase.RECORDING
 
-    def test_deux_enregistrements_a_la_fois_sont_refuses(self, recorder):
+    def test_two_recordings_at_once_are_refused(self, recorder):
         recorder.start_recording("premier")
         with pytest.raises(RuntimeError, match="déjà en cours"):
             recorder.start_recording("second")
 
-    def test_arreter_sans_rien_enregistrer_est_une_erreur(self, recorder):
+    def test_stopping_with_nothing_recording_is_an_error(self, recorder):
         with pytest.raises(RuntimeError, match="Aucun enregistrement"):
             recorder.stop_recording()
 
-    def test_un_enregistrement_vide_est_signale(self, recorder, monkeypatch):
+    def test_an_empty_recording_is_flagged(self, recorder, monkeypatch):
         recorder.start_recording("muet")
         state = recorder.read()
         # L'audio capté vit dans les morceaux : c'est là qu'il faut regarder.
@@ -125,28 +125,28 @@ class TestCycle:
         with pytest.raises(RuntimeError, match="vide"):
             recorder.stop_recording()
 
-    def test_le_premier_morceau_est_numerote(self, recorder):
+    def test_the_first_piece_is_numbered(self, recorder):
         state = recorder.start_recording("point")
         assert len(state.chunks) == 1
         assert state.chunks[0].name.endswith("-01.wav")
         assert state.chunks[0] != state.audio
 
 
-class TestMaterielQuiChange:
+class TestHardwareThatChanges:
     """Brancher un casque en cours de réunion coupe la capture en morceaux."""
 
-    def test_reprendre_ouvre_un_morceau_suivant(self, recorder):
+    def test_resuming_opens_the_next_piece(self, recorder):
         recorder.start_recording("point")
         state = recorder.reprendre("Jabra branché en cours de réunion")
         assert len(state.chunks) == 2
         assert state.chunks[1].name.endswith("-02.wav")
 
-    def test_la_raison_est_conservee_pour_le_compte_rendu(self, recorder):
+    def test_the_reason_is_kept_for_the_minutes(self, recorder):
         recorder.start_recording("point")
         recorder.reprendre("Jabra branché en cours de réunion")
         assert recorder.read().events == ["Jabra branché en cours de réunion"]
 
-    def test_l_ancienne_capture_est_arretee_avant_la_nouvelle(self, recorder, audio_recorder):
+    def test_the_old_capture_is_stopped_before_the_new_one(self, recorder, audio_recorder):
         recorder.start_recording("point")
         recorder.reprendre("changement")
         # Un ffmpeg laissé vivant tiendrait le périphérique et empêcherait
@@ -154,7 +154,7 @@ class TestMaterielQuiChange:
         assert len(audio_recorder.arretes) == 1
         assert len(audio_recorder.demarre) == 2
 
-    def test_plusieurs_changements_s_empilent(self, recorder):
+    def test_several_changes_pile_up(self, recorder):
         recorder.start_recording("point")
         for rank in range(3):
             recorder.reprendre(f"changement {rank}")
@@ -163,7 +163,7 @@ class TestMaterielQuiChange:
         assert state.chunks[-1].name.endswith("-04.wav")
         assert len(state.events) == 3
 
-    def test_l_arret_recolle_tous_les_morceaux(self, recorder, audio_recorder):
+    def test_stopping_stitches_all_the_pieces(self, recorder, audio_recorder):
         recorder.start_recording("point")
         recorder.reprendre("changement")
         state = recorder.stop_recording()
@@ -175,25 +175,25 @@ class TestMaterielQuiChange:
         # Après recollage, l'état ne connaît plus qu'un fichier : le final.
         assert state.chunks == [state.audio]
 
-    def test_les_morceaux_sont_effaces_apres_recollage(self, recorder):
+    def test_the_pieces_are_deleted_once_stitched(self, recorder):
         recorder.start_recording("point")
         avant = recorder.reprendre("changement").chunks
         recorder.stop_recording()
         assert not any(m.exists() for m in avant)
 
-    def test_signaler_n_ouvre_aucun_morceau(self, recorder):
+    def test_reporting_opens_no_piece(self, recorder):
         recorder.start_recording("point")
         state = recorder.report("plus aucun micro disponible")
         assert len(state.chunks) == 1
         assert state.events == ["plus aucun micro disponible"]
 
-    def test_reprendre_hors_enregistrement_est_une_erreur(self, recorder):
+    def test_resuming_outside_a_recording_is_an_error(self, recorder):
         with pytest.raises(RuntimeError, match="Aucun enregistrement"):
             recorder.reprendre("changement")
 
 
 class TestWhatMustNotBreak:
-    def test_un_processus_mort_ne_passe_pas_pour_vivant(self, recorder, monkeypatch):
+    def test_a_dead_process_does_not_pass_for_a_live_one(self, recorder, monkeypatch):
         """Redémarrage pendant une réunion : l'état ment, les processus non."""
         recorder.start_recording("interrompue")
         monkeypatch.setattr("greffier.application.record._alive", lambda pid: False)
@@ -201,12 +201,12 @@ class TestWhatMustNotBreak:
         assert state.phase is Phase.ECHEC
         assert "conservé" in state.message
 
-    def test_un_fichier_d_etat_abime_ne_bloque_pas(self, recorder):
+    def test_a_damaged_state_file_does_not_block(self, recorder):
         recorder.fichier_etat.parent.mkdir(parents=True, exist_ok=True)
         recorder.fichier_etat.write_text("{ pas du json", encoding="utf-8")
         assert recorder.read().phase is Phase.REST
 
-    def test_la_chaine_publie_son_avancement_dans_le_meme_fichier(self, recorder):
+    def test_the_chain_publishes_its_progress_in_the_same_file(self, recorder):
         """C'est ce que lira l'icône de la barre, sans rien calculer."""
         recorder.start_recording("copil")
         recorder.publish("transcription", "Transcription…")
@@ -215,13 +215,13 @@ class TestWhatMustNotBreak:
         assert state.message == "Transcription…"
         assert state.name == "copil", "publier ne doit pas perdre le reste de l'état"
 
-    def test_le_chronometre_part_du_debut(self):
+    def test_the_clock_starts_at_the_beginning(self):
         state = RecorderState(start=datetime.now(UTC) - timedelta(minutes=5))
         assert 290 < state.seconds < 310
 
 
-class TestInterruption:
-    def test_on_interrompt_le_traitement_pas_l_audio(self, recorder, monkeypatch):
+class TestInterruptingTheWork:
+    def test_the_processing_is_interrupted_not_the_audio(self, recorder, monkeypatch):
         tues = []
         monkeypatch.setattr("greffier.application.record._kill_tree", tues.append)
         recorder.start_recording("copil")
@@ -231,11 +231,11 @@ class TestInterruption:
         assert "conservé" in state.message
         assert tues, "le processus de traitement doit être arrêté"
 
-    def test_interrompre_sans_traitement_est_une_erreur(self, recorder):
+    def test_interrupting_with_no_processing_is_an_error(self, recorder):
         with pytest.raises(RuntimeError, match="Aucun traitement"):
             recorder.abandon()
 
-    def test_publier_retient_le_processus_courant(self, recorder):
+    def test_publishing_records_the_current_process(self, recorder):
         """C'est lui qui porte la transcription puis la rédaction."""
         import os
 
@@ -244,14 +244,14 @@ class TestInterruption:
         assert recorder.read().pid == os.getpid()
 
 
-class TestPause:
+class TestPausing:
     """Une interruption en réunion ne doit pas obliger à clore la séance.
 
     Sans pause, il fallait arrêter, ce qui lance le traitement, puis relancer :
     deux enregistrements et deux comptes rendus pour une seule réunion.
     """
 
-    def test_suspendre_arrete_la_capture_sans_clore(self, recorder, audio_recorder):
+    def test_pausing_stops_the_capture_without_closing_it(self, recorder, audio_recorder):
         recorder.start_recording("point")
         state = recorder.pause()
         assert state.phase is Phase.PAUSE
@@ -260,7 +260,7 @@ class TestPause:
         # Le morceau déjà capté reste, rien n'est recollé pour l'instant.
         assert len(state.chunks) == 1
 
-    def test_relancer_ouvre_un_morceau_de_plus(self, recorder):
+    def test_resuming_opens_one_more_piece(self, recorder):
         recorder.start_recording("point")
         recorder.pause()
         state = recorder.resume()
@@ -268,7 +268,7 @@ class TestPause:
         assert len(state.chunks) == 2
         assert state.chunks[1].name.endswith("-02.wav")
 
-    def test_le_temps_de_pause_ne_compte_pas_dans_la_duree(self, recorder, monkeypatch):
+    def test_the_paused_time_does_not_count_in_the_length(self, recorder, monkeypatch):
         from datetime import UTC, datetime, timedelta
 
         recorder.start_recording("point")
@@ -281,7 +281,7 @@ class TestPause:
         # Le chronomètre montre le temps enregistré, pas le temps écoulé.
         assert repris.seconds < 60
 
-    def test_arreter_depuis_la_pause_recolle_tout(self, recorder, audio_recorder):
+    def test_stopping_from_a_pause_stitches_everything(self, recorder, audio_recorder):
         recorder.start_recording("point")
         recorder.pause()
         recorder.resume()
@@ -290,16 +290,16 @@ class TestPause:
         assert len(audio_recorder.assembles[0]) == 2
         assert state.chunks == [state.audio]
 
-    def test_suspendre_hors_enregistrement_est_une_erreur(self, recorder):
+    def test_pausing_outside_a_recording_is_an_error(self, recorder):
         with pytest.raises(RuntimeError, match="Aucun enregistrement"):
             recorder.pause()
 
-    def test_relancer_sans_pause_est_une_erreur(self, recorder):
+    def test_resuming_without_a_pause_is_an_error(self, recorder):
         recorder.start_recording("point")
         with pytest.raises(RuntimeError, match="pas en pause"):
             recorder.resume()
 
-    def test_la_pause_survit_a_la_relecture_de_l_etat(self, recorder):
+    def test_the_pause_survives_rereading_the_state(self, recorder):
         recorder.start_recording("point")
         recorder.pause()
         # L'interface relit le fichier : la pause doit y être.
@@ -307,7 +307,7 @@ class TestPause:
         assert recorder.read().suspendu_le is not None
 
 
-class TestJournalParReunion:
+class TestOneLogPerMeeting:
     """Le fichier d'état est unique, et c'est ce qui rendait --quand-meme
     dangereux : un traitement lancé pendant qu'une réunion s'enregistrait y
     publiait « terminé », la fenêtre en concluait que la réunion était finie, et
@@ -347,7 +347,7 @@ class TestJournalParReunion:
             ))
         return recorder
 
-    def test_une_autre_reunion_ne_publie_rien(self, tmp_path):
+    def test_another_meeting_publishes_nothing(self, tmp_path):
         recorder = self.recorder(tmp_path, "2026-09-09_11h00_en-cours")
         recorder.pour("2026-09-09_10h05_autre").publish("termine", "fini")
         relu = recorder.read()
@@ -357,24 +357,24 @@ class TestJournalParReunion:
         )
         assert relu.message == "Enregistrement en cours.", "rien n'a été publié"
 
-    def test_la_reunion_concernee_publie(self, tmp_path):
+    def test_the_meeting_concerned_publishes(self, tmp_path):
         recorder = self.recorder(tmp_path, "2026-09-09_10h05_reunion")
         recorder.pour("2026-09-09_10h05_reunion").publish("transcription", "en cours")
         assert recorder.read().message == "en cours"
 
-    def test_un_etat_au_repos_accepte_toute_publication(self, tmp_path):
+    def test_a_state_at_rest_accepts_any_publication(self, tmp_path):
         """Le cas ordinaire d'un traitement lancé après coup."""
         recorder = self.recorder(tmp_path)
         recorder.pour("2026-09-02_17h37_reunion").publish("transcription", "en cours")
         assert recorder.read().message == "en cours"
 
-    def test_un_etat_illisible_ne_fait_pas_echouer(self, tmp_path):
+    def test_an_unreadable_state_does_not_make_it_fail(self, tmp_path):
         recorder = self.recorder(tmp_path)
         (tmp_path / "etat.json").write_text("pas du JSON", encoding="utf-8")
         recorder.pour("x").publish("transcription", "en cours")
 
 
-class TestEtatFigeParUnProcessusMort:
+class TestAStateFrozenByADeadProcess:
     """Le fichier d'état survit à tout ; le processus, non.
 
     Le contrôle ne valait que pour l'enregistrement. Une rédaction interrompue
@@ -383,7 +383,7 @@ class TestEtatFigeParUnProcessusMort:
     annonçant une réunion en cours qui n'existait plus.
     """
 
-    def _state(self, tmp_path, phase, pid):
+    def _state_of(self, tmp_path, phase, pid):
         recorder = Recording(
             audio_recorder=FakeRecorder(),
             dossier_audio=tmp_path / "audio",
@@ -396,22 +396,22 @@ class TestEtatFigeParUnProcessusMort:
         recorder.write(depart)
         return recorder.read()
 
-    def test_une_redaction_dont_le_processus_est_mort_ne_tient_plus(self, tmp_path):
-        state = self._state(tmp_path, "redaction", 999_999)
+    def test_a_write_up_whose_process_died_no_longer_holds(self, tmp_path):
+        state = self._state_of(tmp_path, "redaction", 999_999)
         assert state.phase is Phase.ECHEC
         assert "Rédiger" in state.message
 
-    def test_un_enregistrement_mort_le_dit_autrement(self, tmp_path):
+    def test_a_dead_recording_says_it_differently(self, tmp_path):
         """Les deux se réparent différemment : autant ne pas les confondre."""
-        state = self._state(tmp_path, "enregistrement", 999_999)
+        state = self._state_of(tmp_path, "enregistrement", 999_999)
         assert state.phase is Phase.ECHEC
         assert "audio est conservé" in state.message
 
-    def test_un_processus_vivant_est_laisse_tranquille(self, tmp_path):
-        state = self._state(tmp_path, "redaction", os.getpid())
+    def test_a_living_process_is_left_alone(self, tmp_path):
+        state = self._state_of(tmp_path, "redaction", os.getpid())
         assert state.phase is Phase.REDACTION
 
-    def test_une_phase_terminee_n_est_pas_touchee(self, tmp_path):
+    def test_a_finished_phase_is_untouched(self, tmp_path):
         """« Terminé » n'attend aucun processus : il n'y a rien à vérifier."""
-        state = self._state(tmp_path, "termine", 999_999)
+        state = self._state_of(tmp_path, "termine", 999_999)
         assert state.phase is Phase.TERMINE

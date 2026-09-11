@@ -36,9 +36,9 @@ class TestGabarit:
 
     def test_le_gabarit_dit_ou_mettre_le_jeton_pas_le_jeton(self, file):
         sources_file.lay_the_template(file)
-        dit = file.read_text(encoding="utf-8")
-        assert "trousseau:" in dit
-        assert "security add-generic-password" in dit
+        said = file.read_text(encoding="utf-8")
+        assert "trousseau:" in said
+        assert "security add-generic-password" in said
 
 
 class TestReadingTheSetting:
