@@ -56,7 +56,7 @@ def transcriber():
 
 
 @pytest.mark.parametrize("voice,sentence,expected", SENTENCES)
-def test_son_nom_est_entendu_dans_du_vrai_son(
+def test_its_name_is_heard_in_real_sound(
     voice, sentence, expected, transcriber, tmp_path
 ):
     audio = _synthetiser(voice, sentence, tmp_path / "phrase.wav")
@@ -67,7 +67,7 @@ def test_son_nom_est_entendu_dans_du_vrai_son(
     assert called_by_name(text, NAME) is expected, f"transcrit : {text!r}"
 
 
-def test_la_question_est_extraite_sans_le_nom(transcriber, tmp_path):
+def test_the_question_is_taken_out_without_the_name(transcriber, tmp_path):
     """Ce qu'on transmet au modèle est la demande, pas l'apostrophe.
 
     « Lucie, est-ce que tu nous entends ? » se traite mieux en « est-ce que tu
