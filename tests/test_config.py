@@ -25,47 +25,47 @@ def without_an_environment(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
 
 
-class TestValeursParDefaut:
-    def test_claude_redige_par_defaut(self):
+class TestTheDefaults:
+    def test_claude_writes_the_minutes_by_default(self):
         """Choix explicite : la synthèse d'un compte rendu dépasse ce qu'un
         modèle de portable sait faire. Seul maillon non local, assumé."""
         assert Config().minutes.engine == "claude"
 
-    def test_un_poste_sans_configuration_fonctionne(self):
+    def test_a_machine_with_no_settings_works(self):
         config = Config()
         assert config.transcription.language == "fr"
         assert config.audio.maximum_length == 14_400
         assert config.speakers.people is None
 
-    def test_le_vocabulaire_vide_ne_produit_pas_d_amorce(self):
+    def test_an_empty_vocabulary_produces_no_seed(self):
         assert Config().transcription.prompt_seed == ""
 
-    def test_le_vocabulaire_devient_une_amorce(self):
+    def test_the_vocabulary_becomes_a_seed(self):
         config = Config(transcription={"vocabulaire": ["Jira", "recette"]})
         assert "Jira, recette" in config.transcription.prompt_seed
 
 
-class TestModeleDuRedacteur:
+class TestWhichModelWritesTheMinutes:
     """Quel modèle rédige, et pourquoi ce n'est pas le plus puissant."""
 
-    def test_claude_prend_le_second_de_la_gamme_par_defaut(self):
+    def test_claude_takes_the_second_of_the_range_by_default(self):
         """Rédiger depuis une transcription déjà attribuée est de la synthèse :
         le haut de gamme rend le même document en entamant un quota bien plus
         vite. Le choix reste offert, dans les deux sens."""
         assert Config().minutes.effective_model == "opus"
 
-    def test_le_reglage_explicite_l_emporte(self):
+    def test_an_explicit_setting_wins(self):
         config = Config(minutes={"moteur": "claude", "modele": "fable"})
         assert config.minutes.effective_model == "fable"
 
-    def test_ollama_a_son_propre_defaut(self):
+    def test_ollama_has_its_own_default(self):
         """Un alias Claude Code n'a aucun sens pour Ollama, et l'inverse non plus."""
         assert Config(minutes={"moteur": "ollama"}).minutes.effective_model == "qwen3:8b"
 
-    def test_sans_redacteur_il_n_y_a_pas_de_modele(self):
+    def test_with_no_writer_there_is_no_model(self):
         assert Config(minutes={"moteur": "aucun"}).minutes.effective_model == ""
 
-    def test_le_modele_se_regle_par_l_environnement(self):
+    def test_the_model_can_be_set_from_the_environment(self):
         """Pour forcer le temps d'une commande, sans toucher au fichier."""
         import os
 
@@ -76,51 +76,51 @@ class TestModeleDuRedacteur:
             del os.environ["GREFFIER_MINUTES__MODEL"]
 
 
-class TestLangue:
+class TestTheLanguage:
     """Le code de langue, et ce que veut dire son absence."""
 
-    def test_le_francais_par_defaut(self):
+    def test_french_by_default(self):
         """L'annoncer vaut mieux que la faire deviner quand on la connaît."""
         assert Config().transcription.language == "fr"
 
-    def test_vide_veut_dire_detection_automatique(self):
+    def test_empty_means_detect_it(self):
         """Même convention que le micro vide : on laisse la machine décider."""
         assert Config(transcription={"langue": ""}).transcription.language == ""
 
 
-class TestApparence:
-    def test_le_theme_suit_le_systeme_par_defaut(self):
+class TestTheLookOfTheWindow:
+    def test_the_theme_follows_the_system_by_default(self):
         """Une application qui impose son goût jure avec le reste de l'écran."""
         assert Config().appearance.theme == "systeme"
 
-    def test_le_theme_se_force(self):
+    def test_the_theme_can_be_forced(self):
         assert Config(appearance={"theme": "sombre"}).appearance.theme == "sombre"
 
 
-class TestSourcesDeConfiguration:
-    def test_l_environnement_prime(self, monkeypatch):
+class TestWhereTheSettingsComeFrom:
+    def test_the_environment_comes_first(self, monkeypatch):
         monkeypatch.setenv("GREFFIER_MINUTES__ENGINE", "ollama")
         assert Config().minutes.engine == "ollama"
 
-    def test_un_fichier_env_est_lu(self, tmp_path, monkeypatch):
+    def test_an_env_file_is_read(self, tmp_path, monkeypatch):
         (tmp_path / ".env").write_text(
             "GREFFIER_MINUTES__RECIPIENT=moi@exemple.fr\n", encoding="utf-8"
         )
         monkeypatch.chdir(tmp_path)
         assert Config().minutes.recipient == "moi@exemple.fr"
 
-    def test_l_environnement_l_emporte_sur_le_fichier_env(self, tmp_path, monkeypatch):
+    def test_the_environment_wins_over_the_env_file(self, tmp_path, monkeypatch):
         """On doit pouvoir forcer un réglage le temps d'une commande."""
         (tmp_path / ".env").write_text("GREFFIER_MINUTES__ENGINE=claude\n", encoding="utf-8")
         monkeypatch.chdir(tmp_path)
         monkeypatch.setenv("GREFFIER_MINUTES__ENGINE", "aucun")
         assert Config().minutes.engine == "aucun"
 
-    def test_les_listes_se_donnent_en_json(self, monkeypatch):
+    def test_lists_are_given_as_json(self, monkeypatch):
         monkeypatch.setenv("GREFFIER_SPEAKERS__NOT_FIRST_NAMES", '["Copernic","Trello"]')
         assert Config().speakers.not_first_names == ["Copernic", "Trello"]
 
-    def test_un_fichier_toml_explicite_est_lu(self, tmp_path):
+    def test_an_explicit_toml_file_is_read(self, tmp_path):
         file = tmp_path / "config.toml"
         file.write_text(
             '[compte_rendu]\nmoteur = "ollama"\nmodele = "qwen3:8b"\n', encoding="utf-8"
@@ -128,11 +128,11 @@ class TestSourcesDeConfiguration:
         config = Config.load(file)
         assert (config.minutes.engine, config.minutes.model) == ("ollama", "qwen3:8b")
 
-    def test_un_fichier_absent_n_est_pas_une_erreur(self, tmp_path):
+    def test_a_missing_file_is_not_an_error(self, tmp_path):
         """Cas d'un poste qui vient d'installer."""
         assert Config.load(tmp_path / "nulle-part.toml").minutes.engine == "claude"
 
-    def test_un_fichier_illisible_est_une_erreur(self, tmp_path):
+    def test_an_unreadable_file_is_an_error(self, tmp_path):
         """Mieux vaut le dire qu'appliquer autre chose que ce qui est écrit."""
         file = tmp_path / "casse.toml"
         file.write_text("[compte_rendu\nmoteur =", encoding="utf-8")
@@ -140,18 +140,18 @@ class TestSourcesDeConfiguration:
             Config.load(file)
 
 
-class TestChemins:
-    def test_les_sous_dossiers_derivent_des_donnees(self, tmp_path):
+class TestWhereThingsLive:
+    def test_the_subfolders_follow_from_the_data_folder(self, tmp_path):
         config = Config(paths={"donnees": tmp_path})
         assert config.paths.recordings == tmp_path / "enregistrements"
         assert config.paths.voice_bank == tmp_path / "banque-de-voix"
 
-    def test_le_chemin_des_donnees_est_configurable(self, monkeypatch):
+    def test_the_data_path_is_a_setting(self, monkeypatch):
         monkeypatch.setenv("GREFFIER_PATHS__DATA", "/ailleurs")
         assert Config().paths.data == Path("/ailleurs")
 
 
-class TestLAssistantEstActifParDefaut:
+class TestTheAssistantIsOnByDefault:
     """Il suit la réunion et répond : c'est son travail.
 
     Le jour où l'interface a cessé d'exposer ce réglage — un seul bouton, pour
@@ -160,12 +160,12 @@ class TestLAssistantEstActifParDefaut:
     pire moment.
     """
 
-    def test_il_est_actif_sans_rien_regler(self):
+    def test_it_is_on_with_nothing_set(self):
         from greffier.adapters.configuration import Config
 
         assert Config().assistant.active
 
-    def test_mais_il_ne_parle_pas_de_lui_meme(self):
+    def test_but_it_does_not_speak_of_its_own_accord(self):
         """Répondre est sans risque ; parler de soi-même se décide."""
         from greffier.adapters.configuration import Config
 
@@ -174,7 +174,7 @@ class TestLAssistantEstActifParDefaut:
         assert not assistant.demander_les_voix
 
 
-class TestPrenomsEprouves:
+class TestTheFirstNamesThatWereTested:
     """Une liste et non un champ libre.
 
     Un prénom saisi au hasard n'est pas forcément rendu par le modèle de
@@ -183,31 +183,31 @@ class TestPrenomsEprouves:
     deux voix de synthèse — et cinq pièges, des phrases sans le prénom.
     """
 
-    def test_chaque_prenom_porte_une_voix(self):
+    def test_every_first_name_carries_a_voice(self):
         from greffier.adapters.configuration import FIRST_NAMES, KINDS
 
         assert FIRST_NAMES, "la liste est vide"
         assert all(speaker_index in KINDS for speaker_index in FIRST_NAMES.values())
 
-    def test_les_deux_genres_sont_proposés(self):
+    def test_both_genders_are_offered(self):
         """Sinon le choix n'en est pas un."""
         from greffier.adapters.configuration import FIRST_NAMES
 
         assert set(FIRST_NAMES.values()) == {0, 1}
 
-    def test_le_prenom_pose_sa_voix(self):
+    def test_the_first_name_sets_its_voice(self):
         from greffier.adapters.configuration import AssistantSettings
 
         assert AssistantSettings(name="Lucie").effective_speaker == 0
         assert AssistantSettings(name="Martin").effective_speaker == 1
 
-    def test_un_prenom_hors_liste_garde_le_reglage(self):
+    def test_a_name_outside_the_list_keeps_the_setting(self):
         """Le fichier de configuration autorise un prénom libre."""
         from greffier.adapters.configuration import AssistantSettings
 
         assert AssistantSettings(name="Aurélien", speaker_index=1).effective_speaker == 1
 
-    def test_aucun_prenom_ecarte_ne_traine_dans_la_liste(self):
+    def test_no_dropped_name_lingers_in_the_list(self):
         """« Élise » se déclenche sur « elle a lu ci et ça », mesuré.
 
         « Greffier » lui-même est écarté pour la même raison : « le greffe du
@@ -218,7 +218,7 @@ class TestPrenomsEprouves:
         assert "Élise" not in FIRST_NAMES
         assert "Greffier" not in FIRST_NAMES
 
-    def test_chaque_prenom_se_reconnait_lui_meme(self):
+    def test_every_first_name_recognises_itself(self):
         """Le contrôle minimal : la règle d'appel doit le voir dans une phrase."""
         from greffier.adapters.configuration import FIRST_NAMES
         from greffier.domain.participation import called_by_name
@@ -226,7 +226,7 @@ class TestPrenomsEprouves:
         for first_name in FIRST_NAMES:
             assert called_by_name(f"{first_name}, tu peux noter ça ?", first_name), first_name
 
-    def test_aucun_prenom_ne_se_declenche_sur_une_phrase_ordinaire(self):
+    def test_no_first_name_fires_on_an_ordinary_sentence(self):
         from greffier.adapters.configuration import FIRST_NAMES
         from greffier.domain.participation import called_by_name
 
@@ -242,7 +242,7 @@ class TestPrenomsEprouves:
                 assert not called_by_name(piege, first_name), f"{first_name} sur « {piege} »"
 
 
-class TestLesClefsDuFichierNeBougentPas:
+class TestTheKeysOfTheFileNeverMove:
     """Le fichier de configuration des postes doit rester lisible.
 
     Chaque champ porte un `validation_alias` : le nom du champ en Python peut
@@ -283,7 +283,7 @@ theme = "sombre"
         file.write_text(self.EXISTANT, encoding="utf-8")
         return Config.load(file)
 
-    def test_chaque_section_est_relue(self, tmp_path):
+    def test_every_section_is_read_back(self, tmp_path):
         config = self._config_in(tmp_path)
         assert config.audio.mic == "Micro MacBook Pro"
         assert config.transcription.model == "large-v3"
@@ -296,7 +296,7 @@ theme = "sombre"
         assert config.assistant.initiative is False
         assert config.appearance.theme == "sombre"
 
-    def test_les_clefs_reecrites_sont_les_memes(self, tmp_path):
+    def test_the_keys_written_back_are_the_same(self, tmp_path):
         """Ce qui est réécrit doit pouvoir être relu : c'est le vrai cycle."""
         from greffier.adapters.configuration import Config, render
 
@@ -308,7 +308,7 @@ theme = "sombre"
         assert relu.minutes.recipient == "moi@exemple.fr"
         assert relu.appearance.theme == "sombre"
 
-    def test_une_clef_inconnue_ne_fait_pas_tomber(self, tmp_path):
+    def test_an_unknown_key_does_not_bring_it_down(self, tmp_path):
         """Un réglage retiré d'une version à l'autre ne doit rien casser."""
         from greffier.adapters.configuration import Config
 

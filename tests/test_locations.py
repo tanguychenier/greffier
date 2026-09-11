@@ -75,7 +75,7 @@ class TestAilleurs:
         assert locations.config_folder("Linux") == maison / "c/greffier"
         assert locations.data_folder("Linux") == maison / ".local/share/greffier"
 
-    def test_windows_utilise_appdata(self, maison, monkeypatch):
+    def test_windows_uses_appdata(self, maison, monkeypatch):
         monkeypatch.setenv("APPDATA", str(maison / "Roaming"))
         monkeypatch.setenv("LOCALAPPDATA", str(maison / "Local"))
         assert locations.config_folder("Windows") == maison / "Roaming/greffier"

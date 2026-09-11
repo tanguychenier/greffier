@@ -28,14 +28,14 @@ def ouvrir_la_prise(session):
 
 
 class TestServeurDeSon:
-    def test_la_prise_du_serveur_suffit(self, session):
+    def test_the_server_socket_is_enough(self, session):
         ouvrir_la_prise(session)
         assert diagnostic.sound_server_present()
 
     def test_sans_prise_ni_serveur_il_n_y_a_rien_a_capter(self, session):
         assert not diagnostic.sound_server_present()
 
-    def test_un_serveur_declare_est_cru(self, session, monkeypatch):
+    def test_a_declared_server_is_believed(self, session, monkeypatch):
         """Un serveur distant ou par socket nommé ne pose aucune prise ici."""
         monkeypatch.setenv("PULSE_SERVER", "tcp:192.168.1.10:4713")
         assert diagnostic.sound_server_present()

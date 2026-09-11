@@ -11,22 +11,22 @@ from greffier.adapters.email_template import _ancre, as_html, email
 from greffier.domain.minutes import title as subject
 
 
-class TestTitres:
-    def test_les_trois_niveaux_deviennent_des_balises(self) -> None:
+class TestHeadings:
+    def test_the_three_levels_become_tags(self) -> None:
         html = as_html("# Compte rendu\n\n## Décisions\n\n### Bug photos")
         assert "<h1" in html and "Compte rendu" in html
         assert "<h2" in html and "Décisions" in html
         assert "<h3" in html and "Bug photos" in html
 
-    def test_un_titre_plus_profond_est_ramene_au_troisieme_niveau(self) -> None:
+    def test_a_deeper_heading_comes_back_to_the_third_level(self) -> None:
         assert "<h3" in as_html("##### Trop profond")
 
-    def test_chaque_titre_porte_son_style_en_ligne(self) -> None:
+    def test_every_heading_carries_its_style_inline(self) -> None:
         # Les clients de messagerie suppriment volontiers une feuille de style.
         assert 'style="' in as_html("## Décisions")
 
 
-class TestTableaux:
+class TestTables:
     ACTIONS = (
         "| Qui | Quoi | Quand |\n"
         "|---|---|---|\n"
@@ -34,110 +34,110 @@ class TestTableaux:
         "| Sophie | Demander le rôle valideur | — |\n"
     )
 
-    def test_un_tableau_markdown_devient_un_vrai_tableau(self) -> None:
+    def test_a_markdown_table_becomes_a_real_one(self) -> None:
         html = as_html(self.ACTIONS)
         assert "<table" in html and "</table>" in html
         assert html.count("</th>") == 3
         assert html.count("<tr>") == 3  # une d'en-tête, deux de corps
 
-    def test_les_cellules_gardent_leur_contenu(self) -> None:
+    def test_the_cells_keep_their_content(self) -> None:
         html = as_html(self.ACTIONS)
         for expected in ("Camilo", "Tests iPhone", "après la réunion", "Sophie", "—"):
             assert expected in html
 
-    def test_aucune_barre_verticale_ne_subsiste(self) -> None:
+    def test_no_pipe_character_is_left(self) -> None:
         # Le symptôme constaté : un mail plein de « | ».
         assert "|" not in as_html(self.ACTIONS)
 
-    def test_un_tableau_sans_ligne_de_separateurs_reste_du_texte(self) -> None:
+    def test_a_table_with_no_separator_row_stays_text(self) -> None:
         html = as_html("| pas | un | tableau |")
         assert "<table" not in html
 
 
-class TestListes:
-    def test_les_puces_deviennent_une_liste(self) -> None:
+class TestLists:
+    def test_the_bullets_become_a_list(self) -> None:
         html = as_html("- Première décision\n- Seconde décision")
         assert "<ul" in html and html.count("<li") == 2
 
-    def test_une_liste_numerotee_est_ordonnee(self) -> None:
+    def test_a_numbered_list_is_ordered(self) -> None:
         assert "<ol" in as_html("1. Premier point\n2. Second point")
 
-    def test_une_puce_qui_court_sur_deux_lignes_reste_un_seul_item(self) -> None:
+    def test_a_bullet_running_over_two_lines_stays_one_item(self) -> None:
         html = as_html("- Étape de visa conservée avant la\n  signature Hervé")
         assert html.count("<li") == 1
         assert "signature Hervé" in html
 
 
-class TestTexteEnLigne:
-    def test_le_gras_et_l_italique(self) -> None:
+class TestInlineText:
+    def test_bold_and_italic(self) -> None:
         html = as_html("Une décision **ferme** et une piste *possible*.")
         assert "<strong>ferme</strong>" in html
         assert "<em>possible</em>" in html
 
-    def test_le_code_en_ligne(self) -> None:
+    def test_inline_code(self) -> None:
         assert "<code" in as_html("Le champ `destinataire` est vide.")
 
-    def test_un_lien_devient_cliquable(self) -> None:
+    def test_a_link_becomes_clickable(self) -> None:
         html = as_html("Voir [le ticket](https://exemple.fr/t/12).")
         assert 'href="https://exemple.fr/t/12"' in html
         assert ">le ticket</a>" in html
 
-    def test_une_citation(self) -> None:
+    def test_a_quotation(self) -> None:
         html = as_html("> Ça ne garde pas les photos")
         assert "<blockquote" in html and "Ça ne garde pas les photos" in html
 
 
-class TestAccents:
-    def test_les_accents_traversent_la_conversion(self) -> None:
+class TestAccentedCharacters:
+    def test_the_accents_survive_the_conversion(self) -> None:
         # Le défaut d'origine : « réunion » arrivait en « r√©union ».
         html = as_html("## Réunion du 25 août — décisions prises")
         for expected in ("Réunion", "août", "—", "décisions"):
             assert expected in html
 
-    def test_le_document_declare_son_encodage(self) -> None:
+    def test_the_document_declares_its_encoding(self) -> None:
         assert 'charset="utf-8"' in email("# Titre")
 
 
-class TestSurete:
-    def test_le_html_du_compte_rendu_est_echappe(self) -> None:
+class TestWhatMustNotBeExecuted:
+    def test_html_inside_the_minutes_is_escaped(self) -> None:
         # Une transcription peut contenir n'importe quoi ; rien n'est exécuté.
         html = as_html("Il a dit <script>alert(1)</script> en réunion.")
         assert "<script>" not in html
         assert "&lt;script&gt;" in html
 
-    def test_une_esperluette_reste_lisible(self) -> None:
+    def test_an_ampersand_stays_readable(self) -> None:
         assert "&amp;" in as_html("Dupont & Fils")
 
 
-class TestSujet:
-    def test_le_titre_du_compte_rendu_devient_l_objet(self) -> None:
+class TestTheSubjectLine:
+    def test_the_title_of_the_minutes_becomes_the_subject(self) -> None:
         obtenu = subject("# Compte rendu — Point Casa\n\nLe 25 août.", "défaut")
         assert obtenu == "Compte rendu — Point Casa"
 
-    def test_sans_titre_on_garde_le_defaut(self) -> None:
+    def test_with_no_title_the_default_is_kept(self) -> None:
         assert subject("Pas de titre ici.", "défaut") == "défaut"
 
-    def test_un_document_vide_garde_le_defaut(self) -> None:
+    def test_an_empty_document_keeps_the_default(self) -> None:
         assert subject("", "défaut") == "défaut"
 
-    def test_les_etoiles_du_titre_sont_retirees(self) -> None:
+    def test_the_asterisks_of_the_title_are_removed(self) -> None:
         assert subject("# Compte rendu **Casa**", "défaut") == "Compte rendu Casa"
 
 
-class TestDocumentComplet:
-    def test_le_document_est_autonome(self) -> None:
+class TestTheWholeDocument:
+    def test_the_document_stands_on_its_own(self) -> None:
         html = email("# Titre\n\n## Décisions\n\n- Une décision")
         assert html.startswith("<!DOCTYPE html>")
         assert html.rstrip().endswith("</html>")
 
-    def test_le_pied_de_page_avertit_le_lecteur(self) -> None:
+    def test_the_footer_warns_the_reader(self) -> None:
         html = email("# Titre", "Rédigé automatiquement, à relire.")
         assert "Rédigé automatiquement, à relire." in html
 
-    def test_sans_pied_aucune_signature_n_est_ajoutee(self) -> None:
+    def test_with_no_footer_no_signature_is_added(self) -> None:
         assert "border-top" not in email("# Titre")
 
-    def test_un_compte_rendu_complet_passe_entier(self) -> None:
+    def test_a_complete_set_of_minutes_passes_whole(self) -> None:
         source = (
             "# Compte rendu — Point Casa\n\n"
             "25 août 2026 · 1 h · Sophie, Kerann, Camilo\n\n"
@@ -152,7 +152,7 @@ class TestDocumentComplet:
         assert html.count("<ul") == 2
 
 
-class TestSommaire:
+class TestTheTableOfContents:
     """Un sommaire, pour savoir ce que le document contient sans le dérouler."""
 
     COMPLET = (
@@ -164,27 +164,27 @@ class TestSommaire:
         "## Détail par sujet\n\n### Un sujet\n\nDu texte.\n"
     )
 
-    def test_le_sommaire_liste_les_sections_dans_l_ordre(self) -> None:
+    def test_it_lists_the_sections_in_order(self) -> None:
         html = email(self.COMPLET)
         assert "Sommaire" in html
         position = [html.index(t) for t in ("Décisions", "Actions", "Points ouverts")]
         assert position == sorted(position)
 
-    def test_les_sections_sont_numerotees(self) -> None:
+    def test_the_sections_are_numbered(self) -> None:
         html = email(self.COMPLET)
         for number in ("1.", "2.", "3.", "4."):
             assert number in html
 
-    def test_chaque_entree_mene_a_son_ancre(self) -> None:
+    def test_every_entry_leads_to_its_anchor(self) -> None:
         html = email(self.COMPLET)
         assert 'href="#s-decisions"' in html
         assert 'id="s-decisions"' in html
 
-    def test_un_document_a_deux_sections_n_a_pas_besoin_de_sommaire(self) -> None:
+    def test_a_document_of_two_sections_needs_no_contents(self) -> None:
         court = "# Titre\n\nContexte.\n\n## Décisions\n\n- Une\n\n## Actions\n\n- Deux\n"
         assert "Sommaire" not in email(court)
 
-    def test_les_sections_sont_exposees_pour_la_ligne_de_commande(self) -> None:
+    def test_the_sections_are_exposed_for_the_command_line(self) -> None:
         from greffier.adapters.email_template import sections
 
         assert sections(self.COMPLET) == [
@@ -192,7 +192,7 @@ class TestSommaire:
         ]
 
 
-class TestEnteteDuCourriel:
+class TestTheHeaderOfTheEmail:
     """Titre et ligne de contexte forment l'en-tête, pas un paragraphe de plus."""
 
     SOURCE = (
@@ -202,26 +202,26 @@ class TestEnteteDuCourriel:
         "## Points ouverts\n\n- Un point\n"
     )
 
-    def test_le_titre_apparait_une_seule_fois(self) -> None:
+    def test_the_title_appears_once(self) -> None:
         assert email(self.SOURCE).count("<h1") == 1
 
-    def test_la_ligne_de_contexte_est_mise_en_retrait(self) -> None:
+    def test_the_context_line_is_set_apart(self) -> None:
         html = email(self.SOURCE)
         assert "Participants : Sophie, Kerann." in html
         # Rendue en gris pâle, sous le titre, et non comme un paragraphe normal.
         assert html.index("Participants") < html.index("Sommaire")
 
-    def test_un_document_sans_titre_passe_quand_meme(self) -> None:
+    def test_a_document_with_no_title_still_passes(self) -> None:
         html = email("## Décisions\n\n- Une\n\n## Actions\n\n- Deux\n\n## Points\n\n- Trois")
         assert "<h2" in html and "<h1" not in html
 
-    def test_aucun_contenu_n_est_perdu_par_le_decoupage(self) -> None:
+    def test_no_content_is_lost_by_the_splitting(self) -> None:
         html = email(self.SOURCE)
         for expected in ("Point Casa", "25 août 2026", "Une décision", "Une action", "Un point"):
             assert expected in html
 
 
-class TestAncresNonLatines:
+class TestNonLatinAnchors:
     """Deux sections doivent avoir deux ancres.
 
     Un titre sans lettre ASCII se réduisait au seul préfixe : toutes les
@@ -229,16 +229,16 @@ class TestAncresNonLatines:
     double, et chaque lien du sommaire menait à la première section.
     """
 
-    def test_deux_titres_non_latins_rendent_deux_ancres(self):
+    def test_two_non_latin_headings_give_two_anchors(self):
         assert _ancre("決定事項") != _ancre("Действия")
 
-    def test_une_ancre_reste_un_identifiant_valide(self):
+    def test_an_anchor_stays_a_valid_identifier(self):
         ancre = _ancre("決定事項")
         assert ancre.startswith("s-") and len(ancre) > 2
 
-    def test_les_titres_latins_ne_bougent_pas(self):
+    def test_the_latin_headings_do_not_move(self):
         assert _ancre("Décisions") == "s-decisions"
 
-    def test_le_sommaire_et_le_titre_visent_la_meme_ancre(self):
+    def test_the_contents_and_the_heading_point_at_one_anchor(self):
         """La fonction est appelée des deux côtés : elles doivent coïncider."""
         assert _ancre("決定事項") == _ancre("決定事項")
