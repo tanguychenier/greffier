@@ -380,3 +380,50 @@ class TestStitchingAfterTheMeeting:
         assert ADOPTION_MARGIN == 0.0
         assert CONSOLIDATION_THRESHOLD == 0.70
         assert ESTABLISHED_MATERIAL == 30.0
+
+
+class TestAVoiceThatHoldsSeveralPeople:
+    """What goes into the bank is the mean of everything a voice gathered.
+
+    A voice the cut got wrong therefore pours one person's voice into another's
+    file — and a file, once wrong, is wrong at every meeting that follows.
+    Measured on a real bank: an entry of 280 seconds answered to another
+    person's name at 0.71 while reaching its own at 0.48.
+    """
+
+    def test_one_voiceprint_is_always_one_person(self):
+        from greffier.domain.voiceprints import one_person
+
+        assert one_person([normalise([1.0, 0.0, 0.0])])
+
+    def test_nothing_is_always_one_person(self):
+        from greffier.domain.voiceprints import one_person
+
+        assert one_person([])
+
+    def test_voiceprints_that_resemble_each_other_are_one_person(self):
+        from greffier.domain.voiceprints import one_person
+
+        proche = normalise([1.0, 0.05, 0.0])
+        assert one_person([normalise([1.0, 0.0, 0.0]), proche])
+
+    def test_voiceprints_that_do_not_are_several(self):
+        from greffier.domain.voiceprints import one_person
+
+        assert not one_person([normalise([1.0, 0.0, 0.0]),
+                               normalise([0.0, 1.0, 0.0])])
+
+    def test_one_stranger_among_several_is_enough(self):
+        """It is the mean that is poured, so a single intruder spoils it."""
+        from greffier.domain.voiceprints import one_person
+
+        ensemble = [normalise([1.0, 0.0, 0.0]), normalise([1.0, 0.05, 0.0]),
+                    normalise([0.0, 1.0, 0.0])]
+        assert not one_person(ensemble)
+
+    def test_it_is_the_threshold_that_joins_two_voices(self):
+        """The same number, turned on a single voice."""
+        from greffier.domain.voiceprints import JOIN_THRESHOLD, one_person
+
+        assert one_person([normalise([1.0, 0.0]), normalise([1.0, 0.0])],
+                          threshold=JOIN_THRESHOLD)
