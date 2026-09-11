@@ -64,9 +64,9 @@ class TestTheSuggestionsLog:
         instance.clipboard_turn(7.0)
         lines = (tmp_path / "propositions.jsonl").read_text().strip().splitlines()
         assert len(lines) == 2
-        premier = json.loads(lines[0])
-        assert premier["genre"] == Kind.LINK.value
-        assert premier["instant"] == 7.0
+        first_call = json.loads(lines[0])
+        assert first_call["genre"] == Kind.LINK.value
+        assert first_call["instant"] == 7.0
 
     def test_the_log_is_appended_to_and_never_rewritten(self, tmp_path, monkeypatch):
         """Une interruption ne doit rien perdre de ce qui précède."""
