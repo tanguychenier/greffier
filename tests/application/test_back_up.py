@@ -102,7 +102,7 @@ class TestRetour:
             restore(tmp_path / "jamais.tar.gz", tmp_path / "ailleurs")
 
 
-class TestRotation:
+class TestKeepingOnlySoMany:
     def test_les_anciennes_partent(self, tmp_path):
         data = poser_des_donnees(tmp_path / "donnees")
         copies = tmp_path / "copies"

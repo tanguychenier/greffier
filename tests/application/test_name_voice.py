@@ -129,7 +129,7 @@ class TestNommerReunitLesVoix:
         rendered = nommage_factice(meeting).name_voice("2026-08-24_reunion", "petite", "Marcel")
         assert set(rendered.names) == {"grande"}
 
-    def test_la_casse_ne_cree_pas_deux_personnes(self):
+    def test_case_does_not_create_two_people(self):
         meeting = reunion_type(
             utterances=[Utterance(Span(0, 40), "a", "1"),
                        Utterance(Span(60, 80), "b", "2")],

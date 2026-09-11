@@ -74,7 +74,7 @@ UN_TICKET = {
 }
 
 
-class TestLecture:
+class TestReadingTheSetting:
     def test_les_tickets_sont_rendus_utilisables(self, gitlab):
         gitlab.charge = [UN_TICKET]
         found = gitlab_api.tickets(source(), "glpat-x")
