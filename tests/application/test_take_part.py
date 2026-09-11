@@ -1,4 +1,4 @@
-"""Le comportement de l'assistant en réunion, sans son ni modèle."""
+"""How the assistant behaves in a meeting, with no sound and no model."""
 
 from greffier.application.take_part import AssistantSettings, Remark
 from greffier.domain.models import Span, Utterance
@@ -26,19 +26,19 @@ class FakeVoiceAdapter:
 
 
 class FakeBrain:
-    """Comme `RedacteurClaude` : il porte des consignes qu'on remplace.
+    """Like `ClaudeWriter`: it carries guidance that gets replaced.
 
-    L'attribut compte : `_interroger` s'en sert pour poser des consignes le
-    temps d'un appel, et retombe sur un préfixe quand il n'existe pas. Une
-    doublure sans lui n'éprouverait pas le chemin réel.
+    The attribute matters: `_interrogate` uses it to set guidance for the length of
+    one call, and falls back to a prefix when it does not exist. A double without
+    it would not exercise the real path.
     """
 
     def __init__(self, response="Oui, je vous entends très bien."):
         self.response = response
         self.consignes_propres = ""
         self.requests = []
-        #: Les consignes en vigueur à chaque appel, et non à la fin : elles sont
-        #: reposées après coup, donc les lire ensuite ne dit rien.
+        #: The guidance in force at each call, and not at the end: it is put
+        #: back afterwards, so reading it later says nothing.
         self.consignes_vues = []
 
     def write_up(self, text):
@@ -49,7 +49,7 @@ class FakeBrain:
 
 class TestBeingCalledByName:
     def test_its_name_said_out_loud_makes_it_answer(self):
-        """« Lucie, est-ce que tu nous entends ? » — le cas qu'on démontre."""
+        """"Lucie, est-ce que tu nous entends ?" — the case being demonstrated."""
         assistant = AssistantSettings(name="Lucie")
         retenue = assistant.turn([said("Lucie, est-ce que tu nous entends bien ?")],
                                  now=13.0)
@@ -69,7 +69,7 @@ class TestBeingCalledByName:
         assert traces == [("lucie", "Oui, je vous entends très bien.")]
 
     def test_with_no_voice_it_still_takes_part_in_writing(self):
-        """Tout le monde ne veut pas d'une voix dans la pièce."""
+        """Not everybody wants a voice in the room."""
         traces = []
         assistant = AssistantSettings(name="Lucie", cerveau=FakeBrain(),
                                 tracer=lambda who, what: traces.append(what))
@@ -78,19 +78,18 @@ class TestBeingCalledByName:
         assert not rendered.prononce and traces == ["Oui, je vous entends très bien."]
 
     def test_an_ordinary_meeting_does_not_make_it_speak(self):
-        """Le cas courant, et de très loin : il n'a rien à dire."""
+        """The common case, by far: it has nothing to say."""
         assistant = AssistantSettings(name="Lucie")
         assert assistant.turn([said("on passe au point suivant")], now=13.0) is None
 
 
 class TestNotHearingItself:
-    """Sa voix sort par le haut-parleur et rentre par la boucle de capture.
+    """Its voice leaves through the loudspeaker and comes back through the capture.
 
-    Jugé sur ses **mots**, et non sur une fenêtre de temps. La fenêtre était
-    estimée d'après la longueur du texte, et le harnais de conversation a
-    montré ce qu'elle coûtait : elle englobait la question suivante, si bien
-    que la salle se retrouvait ignorée. Elle ne tranche plus que pour un propos
-    trop court pour être jugé sur ses mots.
+    Judged on its **words**, and not on a window of time. The window was estimated
+    from the length of the text, and the conversation harness showed what it cost:
+    it swallowed the next question, so the room went unheard. It now decides only
+    for a remark too short to be judged on its words.
     """
 
     def test_what_it_has_just_said_does_not_come_back_to_it(self):
@@ -105,20 +104,20 @@ class TestNotHearingItself:
         assert retenue is None
 
     def test_a_question_from_the_room_reaches_it(self):
-        """Même juste après qu'il a parlé : c'est l'autre moitié du problème."""
+        """Even right after it has spoken: that is the other half of the problem."""
         assistant = AssistantSettings(name="Lucie")
         assistant.its_own_words.append((9.0, own_words("Oui, je vous entends.")))
         assert assistant.turn([said("Lucie, tu peux répéter ?", 10.0, 12.0)],
                               now=13.0) is not None
 
     def test_too_short_an_echo_is_caught_by_the_clock(self):
-        """« Oui » n'a pas assez de mots pour être jugé : la fenêtre sert là."""
+        """"Oui" has too few words to be judged: the window serves there."""
         assistant = AssistantSettings(name="Lucie")
         assistant.its_own_turns.append((9.0, 15.0))
         assert assistant._is_his_own(said("oui", 10.0, 12.0), 16.0)
 
     def test_the_window_no_longer_decides_when_the_words_suffice(self):
-        """Le défaut mesuré : elle englobait la question suivante."""
+        """The measured defect: it swallowed the next question."""
         assistant = AssistantSettings(name="Lucie")
         assistant.its_own_turns.append((9.0, 15.0))
         assert not assistant._is_his_own(
@@ -129,7 +128,7 @@ class TestNotHearingItself:
 
 class TestTheCycleThatEarnsItsPlace:
     def test_it_asks_who_is_speaking_then_names_the_voice_and_thanks_them(self):
-        """Demander coûte une phrase et vaut un nom au compte rendu."""
+        """Asking costs one sentence and earns a name in the minutes."""
         nommees = []
         assistant = AssistantSettings(
             name="Lucie",
@@ -143,7 +142,7 @@ class TestTheCycleThatEarnsItsPlace:
         assert suite.remark == "Merci, c'est noté : je mets Michel sur cette voix."
 
     def test_an_answer_it_cannot_make_out_names_nobody(self):
-        """Mieux vaut ne rien nommer que d'appeler quelqu'un « Alors »."""
+        """Better to name nobody than to call somebody "Alors"."""
         nommees = []
         assistant = AssistantSettings(
             name="Lucie", name_voice=lambda v, p: (nommees.append((v, p)), True)[1])
@@ -153,14 +152,14 @@ class TestTheCycleThatEarnsItsPlace:
         assert nommees == [] and suite is None
 
     def test_the_question_does_not_wait_for_ever(self):
-        """Une phrase quelconque referme l'attente : on ne guette pas sans fin."""
+        """Any sentence closes the wait: nothing watches for ever."""
         assistant = AssistantSettings(name="Lucie", name_voice=lambda v, p: True)
         assistant.awaiting = assistant.ask_who_is_speaking("12", now=100.0)
         assistant.turn([said("bon, on reprend", 104.0, 106.0)], now=108.0)
         assert assistant.awaiting is None
 
     def test_asking_who_is_speaking_needs_no_model(self):
-        """Cette question doit être immédiate : rien de distant ne la formule."""
+        """This question has to be immediate: nothing remote phrases it."""
         assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter())
         question = assistant.ask_who_is_speaking("7", now=50.0)
         rendered = assistant.answer(question, now=50.0)
@@ -169,15 +168,14 @@ class TestTheCycleThatEarnsItsPlace:
 
 class TestManners:
     def test_it_does_not_cut_anyone_off(self):
-        """Le creux se mesure sur la fin de la dernière réplique entendue.
+        """The lull is measured from the end of the last utterance heard.
 
-        Sur une occasion spontanée : être appelé passe outre, et c'est voulu —
-        quelqu'un qui s'adresse à l'outil n'attend pas qu'il juge le moment
-        opportun.
+        On a spontaneous opening: being called overrides it, and that is deliberate.
+        Someone addressing the tool is not waiting for it to judge the moment.
         """
         assistant = AssistantSettings(name="Lucie", manners=Manners(creux_minimal=2.0))
         idee = Opening(because=Because.CONTRIBUTION, remark="une idée", born_at=11.0)
-        # La phrase finit à 12 s et on est à 12,5 s : quelqu'un parle encore.
+        # The sentence ends at 12 s and we are at 12.5 s: someone is still speaking.
         assert assistant.turn([said("on continue", 11.0, 12.0)], now=12.5,
                               occasions=[idee]) is None
 
@@ -210,7 +208,7 @@ class TestWhenThingsFail:
         assert voice.remark == []
 
     def test_a_phrasing_that_fails_still_leaves_the_written_trace(self):
-        """Ce qu'il avait à dire ne se perd pas parce que le son a manqué."""
+        """What it had to say is not lost because the sound failed."""
         traces = []
         assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(marche=False),
                                 cerveau=FakeBrain(),
@@ -221,11 +219,11 @@ class TestWhenThingsFail:
 
 
 class TestARemarkAlreadyWrittenGoesThroughNobody:
-    """Une phrase écrite pour être dite n'a rien à gagner d'un aller-retour.
+    """A sentence written to be said has nothing to gain from a round trip.
 
-    Le remerciement qui nomme la voix — « je mets Hugo sur cette voix » — était
-    repassé par le modèle, qui le remplaçait par une politesse vague et perdait
-    la seule information qui comptait.
+    The thanks that name the voice, "je mets Hugo sur cette voix", used to go
+    through the model, which replaced them with a vague courtesy and lost the one
+    piece of information that mattered.
     """
 
     def test_the_thanks_are_pronounced_word_for_word(self):
@@ -242,7 +240,7 @@ class TestARemarkAlreadyWrittenGoesThroughNobody:
         assert cerveau.requests == [], "le modèle a été appelé pour rien"
 
     def test_the_question_about_a_voice_does_not_go_through_either(self):
-        """Elle doit être immédiate : rien de distant ne la formule."""
+        """It has to be immediate: nothing remote phrases it."""
         cerveau = FakeBrain("autre chose")
         assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), cerveau=cerveau)
         question = assistant.ask_who_is_speaking("7", now=50.0)
@@ -260,8 +258,9 @@ class TestARemarkAlreadyWrittenGoesThroughNobody:
 
 
 class TestTheExchangeGoesOn:
-    """Poser une question puis rester muet quand on répond fait passer pour
-    distrait, et laisse celui qui a répondu se demander s'il a été entendu."""
+    """Asking a question then staying mute when answered looks absent-minded, and
+    leaves whoever answered wondering whether they were heard.
+    """
 
     def test_it_reacts_to_the_answer_it_is_given(self):
         cerveau = FakeBrain("Très bien, donc c'est Hugo qui s'en occupe.")
@@ -275,7 +274,7 @@ class TestTheExchangeGoesOn:
         assert suite.as_is, "une suite déjà formulée ne repasse pas par le modèle"
 
     def test_the_question_asked_is_given_to_the_model(self):
-        """Sans elle, il réagirait à une réponse dont il ignore la question."""
+        """Without it, it would react to an answer whose question it does not know."""
         cerveau = FakeBrain("…")
         assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), cerveau=cerveau)
         assistant.awaiting = Opening(
@@ -284,7 +283,7 @@ class TestTheExchangeGoesOn:
         assert any("Qui porte la migration ?" in c for c in cerveau.consignes_vues)
 
     def test_a_nothing_makes_it_go_quiet(self):
-        """Deux répliques de plus feraient d'elle un participant de trop."""
+        """Two more remarks would make it one participant too many."""
         assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(),
                                 cerveau=FakeBrain("RIEN"))
         assistant.awaiting = Opening(
@@ -299,7 +298,7 @@ class TestTheExchangeGoesOn:
         assert assistant.turn([said("Hugo", 104.0, 106.0)], now=109.0) is None
 
     def test_it_does_not_wait_for_ever(self):
-        """Une phrase quelconque referme l'attente : on ne guette pas sans fin."""
+        """Any sentence closes the wait: nothing watches for ever."""
         assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(),
                                 cerveau=FakeBrain("RIEN"))
         assistant.awaiting = Opening(
@@ -309,10 +308,10 @@ class TestTheExchangeGoesOn:
 
 
 class TestItGoesOnWhileItHasQuestions:
-    """Un dialogue, pas un aller-retour.
+    """A dialogue, not a round trip.
 
-    Le signal d'arrêt vient d'elle — le point d'interrogation final — et non
-    d'un compteur qui la couperait au milieu d'un sujet.
+    The stopping signal comes from it, the final question mark, and not from a
+    counter that would cut it off in the middle of a subject.
     """
 
     def test_a_follow_up_question_keeps_the_exchange_open(self):
@@ -336,10 +335,10 @@ class TestItGoesOnWhileItHasQuestions:
         assert assistant.awaiting is None
 
     def test_the_rest_does_not_cut_an_exchange_under_way(self):
-        """Une réponse à sa propre question passe outre le repos.
+        """An answer to its own question overrides the rest.
 
-        Sinon l'assistant poserait une question puis refuserait d'entendre la
-        réponse pendant trois minutes, ce qui est pire que de ne rien demander.
+        Otherwise the assistant would ask a question then refuse to hear the answer
+        for three minutes, which is worse than asking nothing.
         """
         assistant = AssistantSettings(
             name="Lucie", voice=FakeVoiceAdapter(),
@@ -354,13 +353,12 @@ class TestItGoesOnWhileItHasQuestions:
 
 
 class TestTheLoopCannotHappen:
-    """Les cas auxquels on n'avait pas pensé, et qu'une réunion a trouvés.
+    """The cases nobody had thought of, and that a meeting found.
 
-    Elle parle par le haut-parleur, et l'outil enregistre la sortie système
-    exprès — c'est ainsi qu'il entend les autres dans une visio. Sa voix
-    revient donc sur le canal des autres. Chaque garde ci-dessous suffirait
-    seul ; ensemble ils rendent le cycle impossible, quoi qu'il arrive par
-    ailleurs.
+    It speaks through the loudspeaker, and the tool records the system output on
+    purpose, which is how it hears the others on a video call. Its voice therefore
+    comes back on the others' channel. Each guard below would be enough on its
+    own; together they make the cycle impossible, whatever else happens.
     """
 
     QUESTION = "Lucie, est-ce que tu peux faire des recherches sur Internet ?"
@@ -372,7 +370,7 @@ class TestTheLoopCannotHappen:
         )
 
     def test_with_no_brain_it_keeps_quiet_instead_of_repeating(self):
-        """Elle répétait la question, son nom compris, et se rappelait ainsi."""
+        """It repeated the question, its own name included, and so called itself."""
         elle = self._her()
         rendu = elle.answer(
             Opening(because=Because.APPELE, remark=self.QUESTION, born_at=1.0), 2.0
@@ -393,7 +391,7 @@ class TestTheLoopCannotHappen:
         assert voice.remark and "Lucie" not in voice.remark[0]
 
     def test_it_does_not_react_to_its_own_words(self):
-        """Le cas exact : sa phrase revient par la boucle de capture."""
+        """The exact case: its sentence comes back through the capture loop."""
         class Cerveau:
             def write_up(self, _demande):
                 return "Je n'ai pas accès à Internet depuis cette réunion."
@@ -418,7 +416,7 @@ class TestTheLoopCannotHappen:
         assert elle.turn(abime, 15.0) is None
 
     def test_the_room_is_still_heard(self):
-        """Le garde ne doit pas la rendre sourde : c'est tout l'enjeu."""
+        """The guard must not make it deaf: that is the whole difficulty."""
         class Cerveau:
             def write_up(self, _demande):
                 return "Je n'ai pas accès à Internet."
@@ -432,7 +430,7 @@ class TestTheLoopCannotHappen:
         assert retenue is not None and retenue.because is Because.APPELE
 
     def test_it_forgets_its_words_after_a_while(self):
-        """Sinon un participant qui reprend son idée serait pris pour elle."""
+        """Otherwise a participant restating their idea would be taken for it."""
         class Cerveau:
             def write_up(self, _demande):
                 return "La migration en Symfony sept reste à confier à quelqu'un."
@@ -448,12 +446,12 @@ class TestTheLoopCannotHappen:
 
 
 class TestItMaySearch:
-    """Elle disait ne pas pouvoir chercher sur Internet, outils en main.
+    """It said it could not search the web, with the tools in hand.
 
-    Rapporté après une réunion. Les outils `WebSearch` et `WebFetch` étaient
-    bien accordés — `conversation.recherche_web` vaut vrai par défaut — mais la
-    consigne **orale**, qui remplace celle de la conversation écrite, lui
-    disait de s'en tenir à ce qui avait été dit. Elle obéissait.
+    Reported after a meeting. `WebSearch` and `WebFetch` were indeed granted,
+    `conversation.recherche_web` being true by default, but the **spoken**
+    guidance, which replaces the one for the written conversation, told it to stick
+    to what had been said. It obeyed.
     """
 
     def test_the_spoken_guidance_allows_searching(self):
@@ -464,7 +462,7 @@ class TestItMaySearch:
         assert "de ton propre chef" in consigne
 
     def test_it_names_the_source_without_saying_the_address(self):
-        """Une URL ne s'entend pas ; une source sans nom ne se vérifie pas."""
+        """A URL cannot be heard; a source with no name cannot be checked."""
         from greffier.application.take_part import CONSIGNES_ORALES
 
         consigne = CONSIGNES_ORALES.format(name="Lucie")
@@ -487,7 +485,7 @@ class TestItMaySearch:
         assert cerveau.tools == ClaudeWriter.SEARCH_TOOLS
 
     def test_the_setting_really_takes_them_away(self):
-        """Qui ne veut rien laisser sortir du poste doit pouvoir l'obtenir."""
+        """Whoever wants nothing to leave the machine must be able to have that."""
         from greffier.adapters.configuration import Config
         from greffier.adapters.writer_claude import ClaudeWriter
         from greffier.wiring import assistant
