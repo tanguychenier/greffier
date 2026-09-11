@@ -115,7 +115,7 @@ class TestSurveillancePendantLaReunion:
         raisons = [monitoring.observe(-80.0) for _ in range(RELEVES_AVANT_ALERTE)]
         assert not any(raisons)
 
-    def test_elle_ne_le_dit_qu_une_fois(self):
+    def test_it_says_so_only_once(self):
         """Le niveau ne se corrige pas sans interrompre : répéter n'ajoute rien."""
         from greffier.domain.level import RELEVES_AVANT_ALERTE
 

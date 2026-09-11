@@ -106,7 +106,7 @@ class TestNiveaux:
         assert levels_per_frame(np.zeros(10, dtype="float32"), 16000) == []
 
 
-class TestLecture:
+class TestReadingTheSetting:
     def test_un_fichier_illisible_n_interrompt_pas_la_reunion(self, tmp_path) -> None:
         # Une tranche découpée pendant l'écriture peut arriver tronquée : le
         # direct affiche alors la phrase sans « Toi », il ne s'arrête pas.

@@ -29,7 +29,7 @@ def voice(*composantes: float, duration: float = 10.0):
     return normalise(composantes, source_duration=duration)
 
 
-class TestNormalisation:
+class TestTidyingAName:
     def test_la_norme_vaut_un(self):
         e = voice(3.0, 4.0)
         assert math.isclose(math.sqrt(sum(x * x for x in e.vector)), 1.0)
