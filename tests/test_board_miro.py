@@ -25,7 +25,7 @@ class TestTableauxInterdits:
             board_miro.textes_presents(next(iter(INTERDITS)))
 
 
-class TestJeton:
+class TestWhereTheTokenComesFrom:
     def test_l_environnement_est_lu_d_abord(self, monkeypatch):
         monkeypatch.setenv("GREFFIER_MIRO_JETON", "abc")
         assert token() == "abc"
