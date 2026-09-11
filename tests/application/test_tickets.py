@@ -45,10 +45,10 @@ class TestWhatIsAskedOfTheWriter:
 class TestBuildingTheTickets:
     def test_the_fields_are_carried_over(self):
         proposition = depuis_reponse(RESPONSE)
-        premier = proposition.tickets[0]
-        assert premier.title == "Décaler la recette à jeudi"
-        assert premier.assigne == "Josiane"
-        assert premier.echeance == "jeudi"
+        first_call = proposition.tickets[0]
+        assert first_call.title == "Décaler la recette à jeudi"
+        assert first_call.assigne == "Josiane"
+        assert first_call.echeance == "jeudi"
 
     def test_a_ticket_with_no_title_is_dropped(self):
         assert depuis_reponse('[{"description": "sans titre"}]').tickets == []

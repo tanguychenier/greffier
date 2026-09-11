@@ -113,8 +113,8 @@ def _luminance(teinte: str) -> float:
     return 0.2126 * lineaires[0] + 0.7152 * lineaires[1] + 0.0722 * lineaires[2]
 
 
-def _contrast(premier: str, second: str) -> float:
-    a, b = _luminance(premier), _luminance(second)
+def _contrast(first_call: str, second: str) -> float:
+    a, b = _luminance(first_call), _luminance(second)
     light, dark = max(a, b), min(a, b)
     return (light + 0.05) / (dark + 0.05)
 
