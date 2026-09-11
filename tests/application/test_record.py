@@ -338,8 +338,8 @@ class TestOneLogPerMeeting:
             SilentRecorder(), tmp_path / "audio", tmp_path / "etat.json"
         )
         if identifier:
-            # Un processus vivant, sans quoi `lire` déclare l'enregistrement
-            # interrompu — règle légitime, mais qui rendrait ce test faux.
+            # A living process, or reading declares the recording interrupted,
+            # a legitimate rule that would make this test wrong.
             recorder.write(RecorderState(
                 phase=Phase.RECORDING, identifier=identifier,
                 name=identifier, pid=os.getpid(),
