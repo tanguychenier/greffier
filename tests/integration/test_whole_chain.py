@@ -1,18 +1,18 @@
-"""La chaîne réelle, de bout en bout, sur un vrai fichier audio.
+"""The real chain, end to end, on a real audio file.
 
-Les tests unitaires vérifient les règles ; celui-ci vérifie qu'elles tiennent
-face aux modèles. C'est lui qui a trouvé le défaut que les doublures ne
-pouvaient pas voir : whisper fait commencer sa première réplique à 00:00,00
-alors que la segmentation ne détecte la parole qu'à 00:00,30, si bien qu'une
-auto-présentation tombait entre deux tours de parole et ne désignait personne.
+The unit tests check the rules; this one checks that they hold in front of the
+models. It is the one that found the defect no double could see: whisper starts
+its first utterance at 00:00.00 while the segmentation only detects speech at
+00:00.30, so a self-introduction fell between two speaking turns and named
+nobody.
 
-L'audio est **synthétisé** : une vraie réunion contient des échanges de travail
-et des voix identifiables, elle ne peut pas servir de jeu d'essai. Deux voix du
-système suffisent à produire un fichier réel, passé par exactement le même
-chemin que n'importe quel enregistrement.
+The audio is **synthesised**: a real meeting holds work discussions and
+recognisable voices, and cannot serve as a test fixture. Two of the system's
+voices are enough to produce a real file, put through exactly the same path as
+any other recording.
 
-Lent (transcription comprise) et dépendant des modèles : marqué « integration »,
-et ignoré partout où les modèles ne sont pas installés.
+Slow, transcription included, and dependent on the models: marked
+"integration", and skipped anywhere the models are not installed.
 
     pytest -m integration
 """
