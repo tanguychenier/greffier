@@ -246,7 +246,7 @@ class TestTheRepairSkill:
 
         module.etape_skill(Context())
         pose = tmp_path / ".claude/skills/greffier/SKILL.md"
-        assert pose.is_file(), "le skill doit être posé une fois le lien mort écarté"
+        assert pose.is_file(), "the skill goes down once the dead link is out of the way"
 
     def test_with_no_coding_assistant_nothing_is_laid_down(self, under, monkeypatch, tmp_path):
         module = under("Darwin")
@@ -274,16 +274,16 @@ class TestTheCommandInThePath:
     """
 
     @staticmethod
-    def _un_environnement(tmp_path):
-        binaire = tmp_path / "depot/.venv/bin"
-        binaire.mkdir(parents=True)
-        (binaire / "python").write_text("")
-        lanceur = binaire / "greffier"
-        lanceur.write_text("")
-        return binaire / "python", lanceur
+    def _an_environment(tmp_path):
+        folder = tmp_path / "repository/.venv/bin"
+        folder.mkdir(parents=True)
+        (folder / "python").write_text("")
+        launcher = folder / "greffier"
+        launcher.write_text("")
+        return folder / "python", launcher
 
     @staticmethod
-    def _contexte(check_only=False):
+    def _a_context(check_only=False):
         class Context:
             yes = True
             to_do: list[str] = []
@@ -299,33 +299,33 @@ class TestTheCommandInThePath:
     def test_the_command_is_linked_where_the_shell_looks(self, under, monkeypatch, tmp_path):
         module = under("Linux")
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-        python, lanceur = self._un_environnement(tmp_path)
+        python, launcher = self._an_environment(tmp_path)
 
-        module.etape_bureau(self._contexte(), python)
+        module.etape_bureau(self._a_context(), python)
 
-        lien = tmp_path / ".local/bin/greffier"
-        assert lien.is_symlink(), "un lien, pour suivre le dépôt quand le code change"
-        assert lien.resolve() == lanceur.resolve()
+        link = tmp_path / ".local/bin/greffier"
+        assert link.is_symlink(), "a link, so it follows the repository when the code changes"
+        assert link.resolve() == launcher.resolve()
 
     def test_the_menu_entry_opens_the_window(self, under, monkeypatch, tmp_path):
         module = under("Linux")
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         monkeypatch.delenv("XDG_DATA_HOME", raising=False)
-        python, _ = self._un_environnement(tmp_path)
+        python, _ = self._an_environment(tmp_path)
 
-        module.etape_bureau(self._contexte(), python)
+        module.etape_bureau(self._a_context(), python)
 
-        entree = tmp_path / ".local/share/applications/greffier.desktop"
-        assert entree.exists(), "sans entrée de menu, elle ne se lance qu'au terminal"
-        assert f"Exec={tmp_path}/.local/bin/greffier fenetre" in entree.read_text(encoding="utf-8")
+        entry = tmp_path / ".local/share/applications/greffier.desktop"
+        assert entry.exists(), "with no menu entry the window only opens from a terminal"
+        assert f"Exec={tmp_path}/.local/bin/greffier fenetre" in entry.read_text(encoding="utf-8")
 
     def test_windows_is_told_where_the_command_is(self, under, monkeypatch, tmp_path, capsys):
         """No ~/.local/bin there, and the session PATH breaks more easily than it mends."""
         module = under("Windows")
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-        python, _ = self._un_environnement(tmp_path)
+        python, _ = self._an_environment(tmp_path)
 
-        module.etape_bureau(self._contexte(), python)
+        module.etape_bureau(self._a_context(), python)
 
         assert not (tmp_path / ".local/bin").exists()
         assert "PATH" in capsys.readouterr().out
@@ -333,9 +333,9 @@ class TestTheCommandInThePath:
     def test_checking_lays_nothing_down(self, under, monkeypatch, tmp_path):
         module = under("Linux")
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-        python, _ = self._un_environnement(tmp_path)
+        python, _ = self._an_environment(tmp_path)
 
-        module.etape_bureau(self._contexte(check_only=True), python)
+        module.etape_bureau(self._a_context(check_only=True), python)
 
         assert not (tmp_path / ".local/bin/greffier").exists()
         assert not (tmp_path / ".local/share/applications/greffier.desktop").exists()
@@ -344,41 +344,41 @@ class TestTheCommandInThePath:
         """A repository moved, and the old link points into the void."""
         module = under("Linux")
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-        python, lanceur = self._un_environnement(tmp_path)
-        ancien = tmp_path / ".local/bin/greffier"
-        ancien.parent.mkdir(parents=True)
-        ancien.symlink_to(tmp_path / "ailleurs/.venv/bin/greffier")
+        python, launcher = self._an_environment(tmp_path)
+        stale = tmp_path / ".local/bin/greffier"
+        stale.parent.mkdir(parents=True)
+        stale.symlink_to(tmp_path / "elsewhere/.venv/bin/greffier")
 
-        module.etape_bureau(self._contexte(), python)
+        module.etape_bureau(self._a_context(), python)
 
-        assert ancien.resolve() == lanceur.resolve()
+        assert stale.resolve() == launcher.resolve()
 
 
 class TestMakingAFolder:
     """A folder is created; a dead link occupying its name is not a folder."""
 
     def test_a_link_that_leads_nowhere_is_removed(self, the_installer, tmp_path):
-        lien = tmp_path / "skills"
-        lien.symlink_to(tmp_path / "parti")
-        the_installer.preparer_dossier(lien / "greffier")
-        assert (lien / "greffier").is_dir() and not lien.is_symlink()
+        link = tmp_path / "skills"
+        link.symlink_to(tmp_path / "gone")
+        the_installer.make_folder(link / "greffier")
+        assert (link / "greffier").is_dir() and not link.is_symlink()
 
     def test_a_link_to_a_folder_that_exists_is_left_alone(self, the_installer, tmp_path):
         """It is a choice of the person installing, not a leftover."""
-        ailleurs = tmp_path / "ailleurs"
-        ailleurs.mkdir()
-        lien = tmp_path / "skills"
-        lien.symlink_to(ailleurs)
-        the_installer.preparer_dossier(lien / "greffier")
-        assert lien.is_symlink(), "un lien qui mène quelque part reste"
-        assert (ailleurs / "greffier").is_dir()
+        elsewhere = tmp_path / "elsewhere"
+        elsewhere.mkdir()
+        link = tmp_path / "skills"
+        link.symlink_to(elsewhere)
+        the_installer.make_folder(link / "greffier")
+        assert link.is_symlink(), "a link that leads somewhere stays"
+        assert (elsewhere / "greffier").is_dir()
 
     def test_an_existing_folder_is_kept_as_it_is(self, the_installer, tmp_path):
-        deja = tmp_path / "modeles"
-        deja.mkdir()
-        (deja / "titanet.onnx").write_bytes(b"x")
-        the_installer.preparer_dossier(deja)
-        assert (deja / "titanet.onnx").exists()
+        already = tmp_path / "models"
+        already.mkdir()
+        (already / "titanet.onnx").write_bytes(b"x")
+        the_installer.make_folder(already)
+        assert (already / "titanet.onnx").exists()
 
 
 class TestWhatTheConsoleCanShow:

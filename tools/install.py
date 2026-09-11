@@ -84,25 +84,25 @@ def info(text):
     print(f"    {text}")
 
 
-def preparer_dossier(chemin):
-    """Crée un dossier, en écartant d'abord un lien mort qui en occuperait le nom.
+def make_folder(path):
+    """Creates a folder, first removing a dead link that would hold its name.
 
-    `mkdir(parents=True, exist_ok=True)` ne rattrape pas un lien symbolique dont
-    la cible a disparu : le nom est pris, `is_dir()` répond non, et l'erreur
-    remonte en trace de pile au milieu de l'installation. Le cas se rencontre
-    pour de bon — `~/.claude/skills` pointait vers un dépôt depuis déplacé, et
-    l'installateur s'arrêtait là, après avoir posé les modèles et les
-    dépendances, sans dire ce qui manquait.
+    `mkdir(parents=True, exist_ok=True)` does not cover a symbolic link whose
+    target is gone: the name is taken, `is_dir()` answers no, and the error
+    comes back as a stack trace in the middle of the installation. The case is
+    a real one -- `~/.claude/skills` pointed into a repository since moved, and
+    the installer stopped there, after the models and the dependencies were in
+    place, saying nothing about what was missing.
 
-    Un lien qui ne mène nulle part ne protège rien : on l'ôte, en le disant.
-    Un lien vers un dossier qui existe, lui, est un choix de l'utilisateur et
-    reste en place.
+    A link that leads nowhere protects nothing: it goes, and is said to go. A
+    link to a folder that exists is a choice of the person installing and is
+    left alone.
     """
-    for ancetre in [*reversed(chemin.parents), chemin]:
-        if ancetre.is_symlink() and not ancetre.exists():
-            info(f"lien mort écarté : {ancetre} → {os.readlink(ancetre)}")
-            ancetre.unlink()
-    chemin.mkdir(parents=True, exist_ok=True)
+    for ancestor in [*reversed(path.parents), path]:
+        if ancestor.is_symlink() and not ancestor.exists():
+            info(f"lien mort écarté : {ancestor} → {os.readlink(ancestor)}")
+            ancestor.unlink()
+    path.mkdir(parents=True, exist_ok=True)
 
 
 class Abandon(Exception):
@@ -522,7 +522,7 @@ def download(url, target):
 
 def etape_modeles(ctx, engine):
     title("3. Modèles locaux")
-    preparer_dossier(ctx.models / "diarisation")
+    make_folder(ctx.models / "diarisation")
 
     for model in MODELS:
         if model.get("requis_si") and model["requis_si"] != engine:
@@ -829,7 +829,7 @@ destinataire = ""
 
 def etape_configuration(ctx, engine, wording):
     title("6. Configuration")
-    preparer_dossier(ctx.config)
+    make_folder(ctx.config)
     file = ctx.config / "config.toml"
     if file.exists():
         ok(f"configuration existante conservée : {file}")
@@ -867,20 +867,20 @@ def dossier_autodemarrage():
     return Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "autostart"
 
 
-def dossier_des_commandes():
-    """Le dossier personnel que les shells mettent dans le PATH."""
+def commands_folder():
+    """The personal folder shells carry in their PATH."""
     return Path.home() / ".local/bin"
 
 
-def dossier_des_applications():
-    """Où le menu du bureau cherche les entrées de l'utilisateur."""
+def applications_folder():
+    """Where the desktop menu looks for the user's own entries."""
     return Path(
         os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")
     ) / "applications"
 
 
-def commande_greffier(python):
-    """Le lanceur posé par l'installation des dépendances, à côté de l'interpréteur."""
+def greffier_command(python):
+    """The launcher the dependency install lays next to the interpreter."""
     return python.parent / ("greffier.exe" if SYSTEM == "Windows" else "greffier")
 
 
@@ -932,56 +932,56 @@ def integrer_au_bureau(ctx, target, write=True):
     else:
         return None
     if write:
-        preparer_dossier(folder)
+        make_folder(folder)
         file.write_text(gabarit.format(target=target), encoding="utf-8")
     return file
 
 
-def poser_la_commande(ctx, python):
-    """Rend « greffier » appelable depuis n'importe quel terminal.
+def install_command(ctx, python):
+    """Makes « greffier » callable from any terminal.
 
-    Le lanceur vit dans le `.venv` du dépôt, que rien ne met dans le PATH.
-    L'installation annonçait pourtant « greffier fenetre », et le README la
-    même ligne : tapée après une installation qui venait de s'annoncer
-    terminée, elle répondait « command not found ». La fenêtre était là, et
-    inatteignable sans activer l'environnement à la main.
+    The launcher lives in the repository's `.venv`, which nothing puts in the
+    PATH. The installation announced « greffier fenetre » all the same, and the
+    README gives the same line: typed after an install that had just declared
+    itself finished, it answered `command not found`. The window was there, and
+    out of reach unless the environment was activated by hand.
 
-    Un lien dans `~/.local/bin`, que Debian, Ubuntu et Fedora ajoutent au PATH
-    à l'ouverture de session. Un lien et non une copie : il suit le dépôt quand
-    le code change, là où une copie figerait la version du jour.
+    A link in `~/.local/bin`, which Debian, Ubuntu and Fedora add to the PATH at
+    login. A link and not a copy: it follows the repository when the code
+    changes, where a copy would freeze the version of the day.
     """
-    lanceur = commande_greffier(python)
+    launcher = greffier_command(python)
     if SYSTEM == "Windows":
-        # Rien d'équivalent à ~/.local/bin : le dire, plutôt que de toucher au
-        # PATH de la session, qui se répare moins facilement qu'il ne se casse.
-        info(f"La commande est {lanceur} ; ajoute son dossier au PATH.")
+        # Nothing equivalent to ~/.local/bin: say where the command is, rather
+        # than touch a session PATH, which breaks more easily than it mends.
+        info(f"La commande est {launcher} ; ajoute son dossier au PATH.")
         return None
 
-    lien = dossier_des_commandes() / "greffier"
-    en_place = lien.is_symlink() and lien.exists() and lien.resolve() == lanceur.resolve()
+    link = commands_folder() / "greffier"
+    already_there = link.is_symlink() and link.exists() and link.resolve() == launcher.resolve()
     if ctx.check_only:
-        ok(f"commande « greffier » disponible ({lien})") if en_place else alerte(
+        ok(f"commande « greffier » disponible ({link})") if already_there else alerte(
             "commande « greffier » absente du PATH")
-        return lien if en_place else None
-    if en_place:
-        ok(f"commande « greffier » disponible ({lien})")
-    elif not lanceur.exists():
+        return link if already_there else None
+    if already_there:
+        ok(f"commande « greffier » disponible ({link})")
+    elif not launcher.exists():
         alerte("lanceur introuvable dans l'environnement Python")
         return None
-    elif not ctx.ask(f"Poser la commande « greffier » dans {lien.parent} ?"):
-        ctx.to_do.append(f"ln -sf {lanceur} {lien}")
+    elif not ctx.ask(f"Poser la commande « greffier » dans {link.parent} ?"):
+        ctx.to_do.append(f"ln -sf {launcher} {link}")
         return None
     else:
-        preparer_dossier(lien.parent)
-        if lien.is_symlink() or lien.exists():
-            lien.unlink()
-        lien.symlink_to(lanceur)
-        ok(f"commande « greffier » posée ({lien})")
+        make_folder(link.parent)
+        if link.is_symlink() or link.exists():
+            link.unlink()
+        link.symlink_to(launcher)
+        ok(f"commande « greffier » posée ({link})")
 
-    if str(lien.parent) not in os.environ.get("PATH", "").split(os.pathsep):
-        info(f"{lien.parent} n'est pas dans le PATH de ce terminal : "
+    if str(link.parent) not in os.environ.get("PATH", "").split(os.pathsep):
+        info(f"{link.parent} n'est pas dans le PATH de ce terminal : "
              "rouvre-en un, ou ajoute-le à ton profil.")
-    return lien
+    return link
 
 
 def etape_bureau(ctx, python):
@@ -1016,15 +1016,15 @@ def etape_bureau(ctx, python):
     # Ailleurs, la fenêtre se lance par la ligne de commande. Rien à compiler :
     # Tkinter vient avec Python, et l'interface est la même sur les trois
     # systèmes.
-    lien = poser_la_commande(ctx, python)
-    if SYSTEM == "Linux" and lien is not None and not ctx.check_only:
-        # La même entrée que l'autodémarrage sait écrire, mais dans le menu :
-        # se lancer à l'ouverture de session ne se demande pas, se trouver en
-        # tapant son nom, si.
-        entree = dossier_des_applications() / "greffier.desktop"
-        preparer_dossier(entree.parent)
-        entree.write_text(RACCOURCI_LINUX.format(target=f"{lien} fenetre"), encoding="utf-8")
-        ok(f"« Greffier » dans le menu ({entree})")
+    link = install_command(ctx, python)
+    if SYSTEM == "Linux" and link is not None and not ctx.check_only:
+        # The entry the autostart step already knows how to write, but in the
+        # menu: starting at login is nobody's request, being found by typing
+        # its name is.
+        entry = applications_folder() / "greffier.desktop"
+        make_folder(entry.parent)
+        entry.write_text(RACCOURCI_LINUX.format(target=f"{link} fenetre"), encoding="utf-8")
+        ok(f"« Greffier » dans le menu ({entry})")
     ok("interface disponible : « greffier fenetre »")
     if SYSTEM == "Linux":
         info("Si Tk manque : « apt install python3-tk ».")
@@ -1080,7 +1080,7 @@ def etape_skill(ctx):
         if not ctx.ask(f"Installer le skill « {name} » pour Claude Code ?"):
             ctx.to_do.append(f"mkdir -p {target.parent} && cp {source} {target}")
             continue
-        preparer_dossier(target.parent)
+        make_folder(target.parent)
         shutil.copy2(source, target)
         ok(f"skill « {name} » {action} ({target})")
 
@@ -1183,7 +1183,7 @@ def main():
     # sert. Enchaîner les deux évite qu'un poste reste installé mais muet.
     if not ctx.check_only and python.exists():
         if ctx.yes or ctx.ask("Configurer maintenant (rédacteur, courriel, vocabulaire) ?"):
-            greffier = commande_greffier(python)
+            greffier = greffier_command(python)
             if greffier.exists():
                 subprocess.run([str(greffier), "configurer"], cwd=ROOT, check=False)
             else:
