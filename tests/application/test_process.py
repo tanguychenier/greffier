@@ -1,8 +1,8 @@
-"""La chaîne de traitement, jouée avec des doublures.
+"""The processing chain, played with doubles.
 
-Aucun audio, aucun modèle, aucun réseau : on vérifie l'enchaînement et les
-garde-fous, pas whisper. Les doublures tiennent en quelques lignes parce que les
-ports sont des `Protocol` — rien à hériter.
+No audio, no model, no network: what is checked is the chain and its guard
+rails, not whisper. The doubles hold in a few lines because the ports are
+`Protocol`, with nothing to inherit.
 """
 
 import subprocess
@@ -32,8 +32,8 @@ class FakeRecorder:
         pass
 
     def prepare_transcript(self, audio, destination):
-        # Le double ne normalise rien : il rend l'audio tel quel, ce qui suffit
-        # à vérifier que la chaîne transcrit bien ce qu'on lui a préparé.
+        # The double normalises nothing: it returns the audio as it is, which
+        # is enough to check that the chain transcribes what was prepared.
         self.prepares.append(audio)
         return audio
 
@@ -117,7 +117,7 @@ def chain(**overrides):
 
 class TestTheGuardRails:
     def test_a_silent_recording_stops_everything(self):
-        """Le bug du 2026-08-20 : sans ça, un CR était fabriqué puis envoyé."""
+        """The bug of 2026-08-20: without this, minutes were made and then sent."""
         processing = chain(audio_recorder=FakeRecorder(levels=(-120.0, -120.0)))
         with pytest.raises(ChainStopped) as stop:
             processing.run_chain(AUDIO)
@@ -133,11 +133,10 @@ class TestTheGuardRails:
         assert writer.recu is None, "le rédacteur ne doit pas être appelé"
 
     def test_a_count_of_people_the_audio_contradicts_is_flagged(self):
-        """Annoncer un nombre force exactement autant de groupes, en silence.
+        """Announcing a number forces exactly that many groups, silently.
 
-        Le 2026-09-09, « 4 participants » traînait dans la configuration d'un
-        poste et la réunion en comptait davantage : deux personnes ont été
-        confondues sans que rien ne le dise.
+        On 2026-09-09 "4 participants" was lying about in the settings of a machine
+        and the meeting held more: two people were confused with nothing to say so.
         """
         processing = chain()
         processing.people = 9
@@ -210,7 +209,7 @@ class TestGivingTheVoicesTheirNames:
         assert [r.voice for r in outcome.utterances] == ["1", "1", "2", "1"]
 
     def test_introducing_oneself_names_the_speaker(self):
-        """« moi c'est Tanguy » désigne celui qui parle."""
+        """"moi c'est Tanguy" names whoever is speaking."""
         outcome = chain().run_chain(AUDIO)
         assert outcome.names["1"] == "Tanguy"
 
@@ -231,12 +230,12 @@ class TestGivingTheVoicesTheirNames:
         chain(writer=writer).run_chain(AUDIO)
         assert "[Tanguy]" in writer.recu
         assert "00:00" in writer.recu
-        # Une voix sans nom reste identifiée, jamais inventée.
+        # A voice with no name stays identified, never invented.
         assert "[Personne 2]" in writer.recu
 
 
 class FakeExtractor:
-    """Rend une empreinte par intervalle, dictée par la voix attendue."""
+    """Returns one voiceprint per span, dictated by the voice expected."""
 
     def __init__(self, vectors):
         self.vectors = vectors
@@ -246,9 +245,9 @@ class FakeExtractor:
         from greffier.domain.voiceprints import normalise
 
         self.appels.append(list(intervalles))
-        # Un vecteur par intervalle, et non celui du premier appliqué à tous :
-        # le vrai extracteur lit chaque extrait. Les rendre solidaires faisait
-        # passer un appel groupé pour une seule et même voix.
+        # One vector per span, and not the first one applied to all: the real
+        # extractor reads every extract. Tying them together made a grouped
+        # call pass for one and the same voice.
         return [
             normalise(self.vectors[(i.start, i.end)], source_duration=i.duration)
             for i in intervalles
@@ -269,7 +268,7 @@ class FakeBank:
 
 class TestTheVoiceBank:
     def test_a_known_voice_is_named_without_anyone_naming_it(self):
-        """Le cœur du besoin : « Josiane » et non « Personne 2 »."""
+        """The heart of the need: "Josiane" and not "Personne 2"."""
         from greffier.domain.voiceprints import normalise
 
         vectors = {(0.0, 12.0): [1.0, 0.0, 0.0], (13.0, 20.0): [0.0, 1.0, 0.0],
@@ -280,7 +279,7 @@ class TestTheVoiceBank:
         assert outcome.names["2"] == "Josiane"
 
     def test_a_disagreement_between_bank_and_meeting_is_flagged(self):
-        """La banque a été validée par un humain : elle prime, mais on le dit."""
+        """The bank was confirmed by a person: it wins, but it is said."""
         from greffier.domain.voiceprints import normalise
 
         vectors = {(0.0, 12.0): [1.0, 0.0, 0.0], (13.0, 20.0): [0.0, 1.0, 0.0],
@@ -300,7 +299,7 @@ class TestTheVoiceBank:
 
 class TestReadingTheOutcome:
     def test_fragments_are_not_participants(self):
-        """La segmentation laisse une traîne de fragments d'une seconde."""
+        """The segmentation leaves a trail of one-second fragments."""
         outcome = chain().run_chain(AUDIO)
         outcome.turns = outcome.turns + [turn(29, 29.5, "bruit")]
         assert "bruit" in outcome.speaking_time()
@@ -314,7 +313,7 @@ class TestReadingTheOutcome:
 
 class TestHowMuchToTrustIt:
     def test_the_coverage_says_what_is_missing(self):
-        """25 s de texte sur 28 s de parole : seules les respirations manquent."""
+        """25 s of text over 28 s of speech: only the breaths are missing."""
         outcome = chain().run_chain(AUDIO)
         assert outcome.coverage == pytest.approx(25 / 28, abs=0.01)
 
@@ -329,8 +328,7 @@ class TestHowMuchToTrustIt:
         assert any(t.duration > 100 for t in gaps)
 
     def test_the_writer_is_warned_of_what_is_missing(self):
-        """Sans cet en-tête, le compte rendu présente comme complet un texte
-        qui ne l'est pas."""
+        """Without this header the minutes present as complete a text that is not."""
         from greffier.application.render import reliability_header
 
         transcriber = FakeTranscriber([
@@ -348,10 +346,10 @@ class TestHowMuchToTrustIt:
 
 
 class TestTheContextHeader:
-    """La date de la réunion, dite au rédacteur.
+    """The date of the meeting, dictated to the writer.
 
-    Sans elle, le rédacteur prend la date du traitement : une réunion du 25
-    s'est retrouvée datée du 26 dans un compte rendu réel.
+    Without it the writer takes the date of the processing: a meeting held on the
+    25th came out dated the 26th in a real set of minutes.
     """
 
     def test_the_date_and_time_come_from_the_file_name(self) -> None:
@@ -391,28 +389,27 @@ class TestTheContextHeader:
         assert " h " not in header.split("2026")[1].split(".")[0]
 
     def test_the_end_time_follows_from_the_length(self) -> None:
-        """Demandé à l'usage : le compte rendu doit dire début et fin."""
+        """Asked for in use: the minutes must say when it began and when it ended."""
         from greffier.application.render import context_header
 
         header = context_header("2026-09-02_16h46_reunion", 1020.0)
         assert "de 16 h 46 à 17 h 03" in header
 
     def test_the_clock_times_win_over_the_transcribed_length(self) -> None:
-        """Ce que l'enregistrement a retenu vaut mieux que ce qu'on déduit.
+        """What the recording kept is worth more than what is deduced.
 
-        Le 2026-09-09, une réunion arrêtée à 10 h 37 était annoncée « de 10 h 05
-        à 10 h 32 » : la fin se déduisait de la durée transcrite, qui s'arrête au
-        dernier mot prononcé, et la réunion s'était terminée sur cinq minutes de
-        silence. Un compte rendu envoyé à des tiers ne peut pas se tromper de
-        cinq minutes sur l'heure de fin.
+        On 2026-09-09 a meeting stopped at 10:37 was announced as "de 10 h 05 à
+        10 h 32": the end was deduced from the transcribed length, which stops at the
+        last word spoken, and the meeting had ended on five minutes of silence. A set
+        of minutes sent to other people cannot be five minutes wrong about the end.
         """
         from datetime import datetime
 
         from greffier.application.render import context_header
 
-        # Datées dans le fuseau du poste : c'est l'heure que la personne a lue
-        # sur sa montre qui doit figurer au compte rendu. L'état, lui, les garde
-        # en UTC, et l'entête les y ramène.
+        # Dated in the machine's own time zone: the time the person read on
+        # their watch is the one the minutes must carry. The state keeps them in
+        # UTC, and the header brings them back.
         header = context_header(
             "2026-09-09_10h05_reunion",
             1620.0,  # la transcription s'arrête à 10 h 32
@@ -424,15 +421,16 @@ class TestTheContextHeader:
         assert "durée 32 min" in header
 
     def test_with_no_clock_times_the_end_is_still_deduced(self) -> None:
-        """Les réunions déjà sur le disque n'ont pas ces heures : rien ne casse."""
+        """The meetings already on disk have no such times: nothing breaks."""
         from greffier.application.render import context_header
 
         header = context_header("2026-09-02_16h46_reunion", 1020.0)
         assert "de 16 h 46 à 17 h 03" in header
 
     def test_the_notice_about_recording_is_dictated(self) -> None:
-        """Une mention légale n'est pas matière à style : un modèle qui la
-        reformule la rend inexploitable, on ne peut plus la chercher."""
+        """A legal notice is not material for style: a model that rewords it makes it
+        useless, because it can no longer be searched for.
+        """
         from greffier.application.render import disclosure_header
 
         header = disclosure_header("rien")
@@ -472,14 +470,14 @@ class TestTheContextHeader:
         assert "Paul, et 2 voix non nommées." in header
 
     def test_with_no_name_at_all_it_says_how_many_people(self) -> None:
-        """Constaté : un compte rendu ne disait pas du tout qui était présent."""
+        """Seen in use: a set of minutes said nothing at all about who was there."""
         from greffier.application.render import context_header
 
         header = context_header("2026-09-02_17h04_x", 190.0, voices_heard=3)
         assert "3 personnes ont parlé, aucune nommée." in header
 
     def test_the_line_is_dictated_word_for_word(self) -> None:
-        """Deux comptes rendus du même jour la formataient différemment."""
+        """Two sets of minutes from the same day formatted it differently."""
         from greffier.application.render import context_header
 
         assert "telle quelle" in context_header("2026-09-02_17h04_x", 190.0)
@@ -496,7 +494,7 @@ class TestTheContextHeader:
 
 
 class TestTheHardwareHeader:
-    """Un branchement en cours de réunion change ce que le compte rendu peut dire."""
+    """Something plugged in mid-meeting changes what the minutes may claim."""
 
     def test_with_no_event_nothing_is_added(self) -> None:
         from greffier.application.render import hardware_header
@@ -511,9 +509,9 @@ class TestTheHardwareHeader:
         assert "- casque débranché" in header
 
     def test_the_writer_is_warned_an_exchange_may_be_one_way(self) -> None:
-        # C'est le vrai risque : la voix de la personne qui enregistre manque au
-        # début, et le compte rendu présente comme complet un échange dont il
-        # n'a entendu qu'un côté.
+        # The real risk: the voice of whoever is recording is missing at the
+        # start, and the minutes present as complete an exchange they only
+        # heard one side of.
         from greffier.application.render import hardware_header
 
         header = hardware_header(["casque branché en cours de réunion"])
@@ -523,14 +521,14 @@ class TestTheHardwareHeader:
 
 class TestALengthAPersonCanRead:
     def test_under_a_minute_the_seconds_are_given(self) -> None:
-        # « 0 min » serait faux : un extrait de trente secondes existe, et le
-        # rédacteur doit savoir qu'il n'a qu'un extrait.
+        # "0 min" would be false: a thirty-second extract exists, and the
+        # writer has to know it has only an extract.
         from greffier.application.render import context_header
 
         assert "30 s" in context_header("extrait", 30.5)
 
     def test_a_file_with_no_date_announces_no_date(self) -> None:
-        # Sinon le compte rendu s'ouvre sur « Date non précisée ».
+        # Otherwise the minutes open on « Date non précisée ».
         from greffier.application.render import context_header
 
         header = context_header("import-telephone", 720)
@@ -544,12 +542,12 @@ class TestALengthAPersonCanRead:
 
 
 class TestLevellingTheAudioFirst:
-    """Un signal faible ne donne pas une transcription pauvre, il en invente une.
+    """A weak signal does not give a poor transcription, it gives an invented one.
 
-    Mesuré sur un enregistrement réel de treize secondes, micro à -43 dB : le
-    modèle a rendu « Merci d'avoir regardé cette vidéo ! » là où la personne
-    disait « Test, test de réunion ». Le même fichier normalisé rend la bonne
-    phrase, donc la chaîne prépare l'audio avant de le transcrire.
+    Measured on a real thirteen-second recording, mic at -43 dB: the model
+    returned "Merci d'avoir regardé cette vidéo !" where the person said "Test,
+    test de réunion". The same file normalised returns the right sentence, so the
+    chain prepares the audio before transcribing it.
     """
 
     def test_the_audio_is_prepared_before_being_transcribed(self, tmp_path):
@@ -562,13 +560,13 @@ class TestLevellingTheAudioFirst:
 
 
 class TestTheChainKeepsTheMeeting:
-    """Une réunion traitée doit laisser des traces, quel que soit l'appelant.
+    """A meeting that has been processed must leave traces, whoever asked for it.
 
-    Constaté en usage réel le 2026-09-02 : terminée depuis la fenêtre, une
-    réunion était transcrite, son compte rendu rédigé et envoyé par courriel,
-    puis **rien n'était écrit** — aucune ligne dans la liste des réunions,
-    aucun moyen de nommer une voix après coup, aucun compte rendu à relire.
-    L'écriture n'existait que dans la commande en ligne.
+    Seen in real use on 2026-09-02: ended from the window, a meeting was
+    transcribed, its minutes written and sent by email, and then **nothing was
+    written down**. No line in the list of meetings, no way to name a voice
+    afterwards, no minutes to read again. The writing existed only in the
+    command line.
     """
 
     def test_the_master_file_is_written(self, tmp_path):
@@ -594,12 +592,11 @@ class TestTheChainKeepsTheMeeting:
         assert outcome.compte_rendu_ecrit.read_text(encoding="utf-8")
 
     def test_it_is_kept_before_sending(self, tmp_path):
-        """Un serveur de courriel indisponible ne doit rien faire perdre.
+        """An email server that is down must lose nothing.
 
-        L'exception remontait autrefois : les fichiers étaient bien gardés,
-        mais la chaîne s'arrêtait là et la dernière phase publiée restait
-        « envoi ». Elle va désormais jusqu'au bout et dit pourquoi — voir
-        `TestUnEnvoiQuiEchoue`.
+        The exception used to propagate: the files were indeed kept, but the chain
+        stopped there and the last phase published stayed "envoi". It now goes to the
+        end and says why, which is `TestWhenTheSendingFails`.
         """
 
         class FallingSender:
@@ -618,13 +615,12 @@ class TestTheChainKeepsTheMeeting:
         assert any("injoignable" in a for a in outcome.warnings)
 
     def test_it_is_kept_before_writing_up(self, tmp_path):
-        """Un rédacteur qui expire ne doit pas faire perdre la transcription.
+        """A writer that times out must not cost the transcription.
 
-        Le 2026-09-09, le rédacteur a dépassé son délai sur une réunion de
-        32 minutes : la transcription et l'attribution des voix, déjà faites et
-        justes, ont disparu avec l'exception, et rien ne permettait de
-        reprendre. Le cas « aucun rédacteur » était protégé, le cas « le
-        rédacteur échoue » ne l'était pas.
+        On 2026-09-09 the writer went past its timeout on a meeting of 32 minutes: the
+        transcription and the voice attribution, already done and right, disappeared
+        with the exception, and nothing allowed anyone to pick it up again. The case
+        "no writer at all" was guarded; the case "the writer fails" was not.
         """
 
         class TimingOutWriter:
@@ -655,10 +651,10 @@ class TestTheChainKeepsTheMeeting:
         assert not (tmp_path / "comptes-rendus").exists(), "aucun compte rendu tronqué"
 
     def test_the_meeting_takes_its_subject_from_the_minutes(self, tmp_path):
-        """Demandé à l'usage : « 2026-09-09_10h05_reunion » ne dit rien.
+        """Asked for in use: "2026-09-09_10h05_reunion" says nothing.
 
-        Le rédacteur a écrit son titre après avoir lu toute la transcription :
-        personne n'est mieux placé pour nommer la réunion.
+        The writer wrote its title after reading the whole transcription: nobody is
+        better placed to name the meeting.
         """
         class TitlingWriter:
             def write_up(self, transcription):
@@ -678,7 +674,7 @@ class TestTheChainKeepsTheMeeting:
         assert deposees[-1].subject == "point d'avancement des projets"
 
     def test_a_subject_typed_by_hand_survives_reprocessing(self, tmp_path):
-        """Une correction que la chaîne écraserait ne servirait à rien."""
+        """A correction the chain would overwrite would serve no purpose."""
         from datetime import UTC, datetime
 
         from greffier.domain.meeting import StoredMeeting
@@ -706,20 +702,19 @@ class TestTheChainKeepsTheMeeting:
         assert deposees[-1].subject == "Point Oasis"
 
     def test_with_no_folder_the_chain_still_works(self):
-        """Les tests d'intégration s'en servent en mémoire, sans rien écrire."""
+        """The integration tests use it in memory, writing nothing."""
         outcome = chain().run_chain(AUDIO)
         assert outcome.transcript_written is None
         assert outcome.compte_rendu_ecrit is None
 
     def test_with_no_writer_the_meeting_is_kept(self, tmp_path):
-        """Le cas de qui ne veut rien laisser sortir du poste.
+        """The case of someone who wants nothing to leave the machine.
 
-        « Aucun — s'arrêter à la transcription attribuée » est un choix offert
-        par l'assistant, et « --sans-compte-rendu » le prend pour un traitement.
-        Le retour anticipé passait alors avant l'écriture : la transcription et
-        l'attribution des voix étaient perdues à la seconde où elles étaient
-        prêtes, alors que la commande proposait dans la foulée de nommer les
-        voix d'une réunion qu'aucun dépôt ne connaissait.
+        "Aucun — s'arrêter à la transcription attribuée" is a choice the installer
+        offers, and `--sans-compte-rendu` takes it for a run. The early return then
+        came before the writing: the transcription and the voice attribution were lost
+        the second they were ready, while the command went on to offer naming the
+        voices of a meeting no store had ever heard of.
         """
         deposees = []
 
@@ -739,7 +734,7 @@ class TestTheChainKeepsTheMeeting:
         assert outcome.transcript_written.exists()
 
     def test_with_no_writer_no_minutes_are_written(self, tmp_path):
-        """Garder la réunion ne doit pas fabriquer un compte rendu vide."""
+        """Keeping the meeting must not manufacture empty minutes."""
         outcome = chain(
             writer=None,
             dossier_transcriptions=tmp_path / "transcriptions",
@@ -752,14 +747,14 @@ class TestTheChainKeepsTheMeeting:
 
 
 class TestTheChannelsInARoom:
-    """Le silence de la boucle système ne veut pas dire la même chose partout."""
+    """Silence on the system loopback does not mean the same thing everywhere."""
 
     def test_a_meeting_in_a_room_raises_no_alarm(self):
-        """Le micro de table entend tout le monde : il n'y a rien à signaler.
+        """The table mic hears everybody: there is nothing to report.
 
-        Annoncer « seule ta voix est transcrite » y était faux, et le rédacteur
-        lit ces avertissements — lui laisser croire qu'il manque du monde lui
-        fait écrire un compte rendu prudent sur une transcription complète.
+        Announcing "only your voice is transcribed" was false there, and the writer
+        reads those warnings. Letting it believe people are missing makes it write
+        careful minutes over a complete transcription.
         """
         from greffier.application.process import AVERTISSEMENT_SANS_BOUCLE, Outcome
 
@@ -773,7 +768,7 @@ class TestTheChannelsInARoom:
         assert outcome.warnings == []
 
     def test_one_voice_with_no_loopback_is_flagged(self):
-        """Là, une visio mal branchée a bien pu perdre tout le monde."""
+        """There, a badly wired video call may really have lost everybody."""
         from greffier.application.process import AVERTISSEMENT_SANS_BOUCLE, Outcome
 
         outcome = Outcome(audio=AUDIO)
@@ -784,7 +779,7 @@ class TestTheChannelsInARoom:
         assert "visio" in outcome.warnings[0]
 
     def test_the_provisional_message_never_survives(self):
-        """Il n'est pas fait pour être lu : c'est une marque, pas une phrase."""
+        """It is not meant to be read: it is a mark, not a sentence."""
         from greffier.application.process import AVERTISSEMENT_SANS_BOUCLE, Outcome
 
         for turns in ([SpeakerTurn(Span(0, 90), "0")],
@@ -806,16 +801,16 @@ class TestTheChannelsInARoom:
 
 
 class TestNamesakesAfterTheMeeting:
-    """Deux voix reconnues sous le même nom n'en font qu'une.
+    """Two voices recognised under the same name are one.
 
-    Le défaut, mesuré sur une réunion réelle de 1 h 42 : la chaîne concluait
-    « Laura » sur neuf voix distinctes, dont huit d'un seul tour. Le compte
-    rendu annonçait « et 9 voix non nommées » et huit participants de trop.
+    The defect, measured on a real meeting of one hour forty-two: the chain
+    concluded "Laura" on nine distinct voices, eight of them of a single turn.
+    The minutes announced "et 9 voix non nommées" and eight participants too many.
 
-    Les vecteurs sont choisis pour tenir le cas exactement : les deux voix sont
-    à 0,700 l'une de l'autre, donc **sous** le seuil de recollage, et à 0,92 de
-    la personne en banque, donc toutes deux reconnues. Le recollage par
-    empreinte ne peut rien ici ; le nom, lui, le dit.
+    The vectors are chosen to hold the case exactly: the two voices are at 0.700
+    from each other, so **under** the stitching threshold, and at 0.92 from the
+    person in the bank, so both recognised. Stitching by voiceprint can do nothing
+    here; the name can.
     """
 
     #: 0,700 entre elles, 0,92 de Josiane chacune.
@@ -837,20 +832,20 @@ class TestNamesakesAfterTheMeeting:
         assert list(outcome.names.values()) == ["Josiane"], outcome.names
 
     def test_the_best_fed_voice_keeps_the_turns(self):
-        """Dix-neuf secondes contre sept : c'est le meilleur extrait des deux."""
+        """Nineteen seconds against seven: it is the better extract of the two."""
         outcome = self._outcome()
         gardee = next(iter(outcome.names))
         assert {t.voice for t in outcome.turns} == {gardee}
 
     def test_the_utterances_follow(self):
-        """Sinon le compte rendu attribue encore à une voix qui n'existe plus."""
+        """Otherwise the minutes still attribute to a voice that no longer exists."""
         outcome = self._outcome()
         gardee = next(iter(outcome.names))
         portees = {r.voice for r in outcome.utterances if r.voice is not None}
         assert portees == {gardee}, portees
 
     def test_two_distinct_people_stay_two(self):
-        """Le garde-fou : la règle ne doit pas tout replier sur une voix."""
+        """The guard rail: the rule must not fold everything onto one voice."""
         from greffier.domain.voiceprints import normalise
 
         bank = FakeBank([
@@ -866,14 +861,13 @@ class TestNamesakesAfterTheMeeting:
 
 
 class TestWhenTheSendingFails:
-    """Un envoi qui échoue ne doit pas emporter la chaîne.
+    """A sending that fails must not carry the chain away with it.
 
-    Le 2026-09-10, une réunion de 1 h 42 est restée figée sur la phase
-    « envoi » deux heures durant. Tout était déjà sur le disque — la
-    transcription, les voix, le compte rendu, gardés avant l'envoi
-    justement pour cela — mais l'exception remontait, la phase suivante
-    n'était jamais publiée, et l'échec ne se rapportait que par une fenêtre
-    modale que personne n'a vue.
+    On 2026-09-10 a meeting of one hour forty-two stayed frozen on the "envoi"
+    phase for two hours. Everything was already on disk — the transcription, the
+    voices, the minutes, kept before the sending for exactly this reason — but the
+    exception propagated, the next phase was never published, and the failure was
+    reported only through a modal window nobody saw.
     """
 
     class FallingSender:
@@ -894,7 +888,7 @@ class TestWhenTheSendingFails:
         assert log.phases[-1] == Phase.TERMINE.value, log.phases
 
     def test_the_sending_phase_is_not_the_last_one_left(self):
-        """C'est elle qui mentait : « Envoi du compte rendu… », pour toujours."""
+        """It was the one that lied: "Envoi du compte rendu…", for ever."""
         log = FakeStateLog()
         self._outcome(log)
         assert Phase.ENVOI.value in log.phases
@@ -913,12 +907,12 @@ class TestWhenTheSendingFails:
 
 
 class TestTheParticipantsLine:
-    """La première ligne du compte rendu, celle que tout le monde lit.
+    """The first line of the minutes, the one everybody reads.
 
-    Les deux défauts, sur la réunion du 2026-09-10 : « et 9 voix non nommées »
-    là où huit de ces neuf étaient la même personne — corrigé par la réunion
-    des homonymes — et un accord de verbe qui écrivait « 1 personne ont parlé »
-    en tête d'un compte rendu envoyé par courriel.
+    The two defects, on the meeting of 2026-09-10: "et 9 voix non nommées" where
+    eight of those nine were the same person, fixed by joining namesakes, and a
+    verb agreement that wrote "1 personne ont parlé" at the top of minutes sent
+    by email.
     """
 
     def _line(self, names, heard: int) -> str:
@@ -942,7 +936,7 @@ class TestTheParticipantsLine:
         assert "non nomm" not in line
 
     def test_one_unnamed_person_agrees_the_verb(self):
-        """« 1 personne ont parlé » s'écrivait tel quel."""
+        """"1 personne ont parlé" was written exactly like that."""
         line = self._line([], 1)
         assert "1 personne a parlé, non nommée." in line
         assert "ont parlé" not in line
@@ -952,22 +946,23 @@ class TestTheParticipantsLine:
         assert "4 personnes ont parlé" in line
 
     def test_a_repeated_name_counts_once(self):
-        """La réunion des homonymes le fait en amont ; la ligne ne doit pas
-        le défaire si un nom arrive deux fois."""
+        """Joining namesakes does it upstream; the line must not undo it when a name
+        arrives twice.
+        """
         line = self._line(["Laura", "Laura", "Paul"], 3)
         assert "Participants : Laura, Paul, et 1 voix non nommée." in line
 
 
 class TestTheFloorBeforeNamingAVoice:
-    """La banque ne doit pas nommer quelqu'un sur trois secondes de parole.
+    """The bank must not name somebody on three seconds of speech.
 
-    Mesuré sur la réunion du 2026-09-10 : « Sophie » a été posée sur une voix
-    de **3,1 secondes**, et Sophie n'était pas dans la pièce. La même banque a
-    nommé neuf fragments d'une seule Laura, entre 2,5 et 8,1 secondes chacun.
+    Measured on the meeting of 2026-09-10: "Sophie" was put on a voice holding
+    **3.1 seconds**, and Sophie was not in the room. The same bank named nine
+    fragments of a single Laura, between 2.5 and 8.1 seconds each.
 
-    Une étiquette fausse dans un compte rendu est pire qu'une voix sans nom :
-    on la croit. Le fil du direct portait déjà ce plancher ; la chaîne d'après
-    réunion ne l'avait pas.
+    A wrong label in a set of minutes is worse than a voice with no name: it is
+    believed. The live thread already carried this floor; the after-meeting chain
+    did not.
     """
 
     def _outcome_of(self, seconde_duree: float):
@@ -987,11 +982,11 @@ class TestTheFloorBeforeNamingAVoice:
         assert "Josiane" not in self._outcome_of(3.0).names.values()
 
     def test_the_same_voice_is_named_once_it_has_enough(self):
-        """Le plancher ne doit pas empêcher de reconnaître qui parle vraiment."""
+        """The floor must not stop it recognising who is really speaking."""
         assert self._outcome_of(9.0).names.get("2") == "Josiane"
 
     def test_the_floor_is_six_seconds(self):
-        """Le double du seuil du calibrage. Changé, la mesure est à refaire."""
+        """Twice the calibration threshold. Change it and the measurement is to redo."""
         from greffier.application.process import MATERIAL_TO_RECOGNISE
 
         assert MATERIAL_TO_RECOGNISE == 6.0
@@ -1004,11 +999,11 @@ class TestTheFloorBeforeNamingAVoice:
 
 
 class TestTheInstructionsReachTheWriter:
-    """La chaîne doit poser les consignes de la séance devant le rédacteur.
+    """The chain must lay the instructions of the meeting in front of the writer.
 
-    Le défaut : elles étaient écrites dans la conversation, gardées sur le
-    disque, et la chaîne ne les lisait pas. Dix-sept messages perdus sur une
-    réunion de 1 h 42, dont « Il n'y a pas de sophie dans la réunion ».
+    The defect: they were typed into the conversation, kept on disk, and the chain
+    never read them. Seventeen messages lost on a meeting of one hour forty-two,
+    among them "Il n'y a pas de sophie dans la réunion".
     """
 
     CONSIGNES = [
@@ -1027,7 +1022,7 @@ class TestTheInstructionsReachTheWriter:
         assert "blue team" in transcription
 
     def test_they_come_before_the_rest_of_the_header(self):
-        """Une correction humaine l'emporte sur ce que la transcription croit."""
+        """A correction made by hand wins over what the transcription believes."""
         transcription = self._writer(self.CONSIGNES)
         assert transcription.index("Consignes données") < transcription.index(
             "Mention sur l'enregistrement"
@@ -1037,7 +1032,7 @@ class TestTheInstructionsReachTheWriter:
         assert "Consignes données" not in self._writer([])
 
     def test_an_unreadable_conversation_does_not_cost_the_minutes(self):
-        """Le compte rendu vaut plus qu'un en-tête."""
+        """The minutes are worth more than a header."""
         def tombe(_identifier):
             raise OSError("fichier illisible")
 
@@ -1047,7 +1042,7 @@ class TestTheInstructionsReachTheWriter:
         assert "Consignes données" not in writer.recu
 
     def test_with_no_reader_of_instructions_the_chain_runs(self):
-        """Le port est facultatif : la ligne de commande peut ne pas le brancher."""
+        """The port is optional: the command line may leave it unwired."""
         writer = FakeWriter()
         chain(writer=writer).run_chain(AUDIO)
         assert "Consignes données" not in writer.recu
