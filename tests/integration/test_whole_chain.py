@@ -56,7 +56,7 @@ def config() -> Config:
 
 @pytest.fixture(scope="session")
 def meeting(tmp_path_factory) -> Path:
-    """Fabrique une fois la fausse réunion, réutilisée par tous les tests."""
+    """Builds the fake meeting once, reused by every test."""
     if platform.system() != "Darwin":
         pytest.skip("la synthèse vocale « say » n'existe que sur macOS")
     from make_meeting import make
@@ -66,11 +66,11 @@ def meeting(tmp_path_factory) -> Path:
 
 @pytest.fixture(scope="session")
 def outcome(config: Config, meeting: Path):
-    """Passe la fausse réunion dans la vraie chaîne, sans rédaction.
+    """Puts the fake meeting through the real chain, with no write-up.
 
-    Le rédacteur est débranché : appeler Claude ou Ollama depuis un test le
-    rendrait lent, coûteux et dépendant du réseau. Ce que ce test doit prouver,
-    c'est que l'audio arrive jusqu'à une transcription attribuée.
+    The writer is unplugged: calling Claude or Ollama from a test would make it
+    slow, costly and dependent on the network. What this test has to prove is that
+    the audio reaches an attributed transcription.
     """
     from greffier.wiring import wire_up
 
@@ -93,10 +93,10 @@ class TestChaineReelle:
         assert all(duration >= 10 for duration in significatives.values())
 
     def test_both_first_names_are_found(self, outcome):
-        """Le cœur du besoin : « Jacques » et « Sandy », pas « Personne 1 ».
+        """The heart of the need: "Jacques" and "Sandy", not "Personne 1".
 
-        Chaque prénom est prononcé deux fois, de deux façons différentes — le
-        cumul d'indices doit suffire à trancher sans demander à l'utilisateur.
+        Each first name is said twice, in two different ways: the clues adding up must
+        be enough to decide without asking anybody.
         """
         assert set(outcome.names.values()) == {"Jacques", "Sandy"}
 
@@ -104,17 +104,16 @@ class TestChaineReelle:
         assert len(set(outcome.names)) == 2
 
     def test_introducing_oneself_wins_over_the_rest(self, outcome):
-        """Celui qui dit « moi c'est Jacques » est Jacques, quoi qu'il arrive."""
+        """Whoever says "moi c'est Jacques" is Jacques, whatever else happens."""
         premiere = outcome.utterances[0]
         assert outcome.name_of(premiere.voice) == "Jacques"
 
     def test_a_mono_recording_raises_no_false_alarm(self, outcome):
-        """Un fichier à un seul canal n'a pas de second canal manquant.
+        """A single-channel file has no missing second channel.
 
-        L'alerte « aucun son système capté » n'a de sens que sur un
-        enregistrement à deux canaux, où l'un des deux est effectivement vide.
-        La déclencher sur du mono reviendrait à crier au loup à chaque
-        enregistrement fait au simple micro.
+        The "no system sound captured" warning only means something on a two-channel
+        recording, where one of the two really is empty. Raising it on mono would be
+        crying wolf on every recording made with a plain mic.
         """
         assert outcome.warnings == []
 
@@ -129,12 +128,11 @@ class TestChaineReelle:
 
 @pytest.mark.integration
 class TestFromTheConversationToTheMinutes:
-    """De bout en bout : ce qu'on écrit dans le chat parvient au rédacteur.
+    """End to end: what is typed in the chat reaches the writer.
 
-    Les tests unitaires vérifient chaque maillon. Celui-ci vérifie le fil :
-    un message écrit dans la conversation d'une réunion, sur le disque, dans le
-    format réel, et retrouvé dans ce que le rédacteur reçoit. C'est le chemin
-    exact qui était rompu le 2026-09-10.
+    The unit tests cover each link. This one covers the thread: a message typed
+    into a meeting's conversation, on disk, in the real format, and found again in
+    what the writer receives. It is the exact path that was broken on 2026-09-10.
     """
 
     def test_a_message_typed_in_the_chat_reaches_the_writer(self, tmp_path):
@@ -147,8 +145,8 @@ class TestFromTheConversationToTheMinutes:
         config = Config(paths={"donnees": tmp_path})
         fichier = conversations_file.file_for(config.paths.conversations, identifier)
 
-        # Tel que la fenêtre l'écrit : une note de l'outil, une question de
-        # l'assistant, puis la consigne humaine.
+        # As the window writes it: a note from the tool, a question from the
+        # assistant, then the instruction from the person.
         conversations_file.add(fichier, "note", "❓ J'ai entendu « ailleurs ».")
         conversations_file.add(fichier, "lucie", "Qui prend la migration ?")
         conversations_file.add(fichier, "moi", "Il n'y a pas de sophie dans la réunion")
