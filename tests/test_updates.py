@@ -66,11 +66,11 @@ class TestQuandIlYAMieux:
 
 
 class TestQuandIlNYAPasMieux:
-    def test_la_meme_version_ne_propose_rien(self, monkeypatch, installee_0_2_0):
+    def test_the_same_version_offers_nothing(self, monkeypatch, installee_0_2_0):
         answer(monkeypatch, {"tag_name": "v0.2.0"})
         assert updates.check().up_to_date
 
-    def test_une_version_anterieure_ne_propose_rien(self, monkeypatch, installee_0_2_0):
+    def test_an_earlier_version_offers_nothing(self, monkeypatch, installee_0_2_0):
         """Une release plus ancienne que l'installée ne doit rien déclencher."""
         answer(monkeypatch, {"tag_name": "v0.1.0"})
         assert updates.check().up_to_date
