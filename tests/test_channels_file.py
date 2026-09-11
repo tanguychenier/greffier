@@ -1,10 +1,10 @@
-"""Ce que les canaux d'un enregistrement disent de la provenance du son.
+"""What the channels of a recording say about where the sound came from.
 
-Ces cas vivaient dans les tests des périphériques, et devaient forcer une
-instance de diariseur sans l'initialiser pour atteindre une méthode privée. La
-règle ayant son propre module, ils s'écrivent maintenant directement — et le
-direct s'appuie sur le même code que le traitement final, ce qui est le point :
-la fenêtre ne doit pas afficher un locuteur que le compte rendu contredira.
+These cases used to live in the device tests, and had to force a diariser
+instance without initialising it to reach a private method. Now that the rule
+has a module of its own they are written directly, and the live thread leans on
+the same code as the final processing, which is the point: the window must not
+show a speaker the minutes will contradict.
 """
 
 from __future__ import annotations
@@ -24,20 +24,20 @@ def signal(channels: list[list[float]]) -> np.ndarray:
 
 class TestVisioOuPresentiel:
     def test_a_loopback_that_dominates_means_a_call(self) -> None:
-        # Les autres passent par les haut-parleurs et couvrent le micro : c'est
-        # ce qui distingue une visio, pas la simple présence d'un signal.
+        # The others come through the loudspeakers and cover the mic: that is
+        # what marks a video call, not the mere presence of a signal.
         fort, faible = [0.2] * 16000, [0.001] * 16000
         channels = separer_canaux(signal([faible, fort, fort]))
         assert channels.distante
         assert channels.mic is not None
 
     def test_a_loopback_alive_but_never_dominant_stays_a_room(self) -> None:
-        # Le cas qui avait échoué : une boucle à -53 dB, du son y ayant fui,
-        # mais qui ne couvre jamais le micro. Conclure « visio » attribuait
-        # trente minutes de réunion à la seule personne qui enregistrait.
+        # The case that had failed: a loopback at -53 dB, sound having leaked
+        # into it, but never covering the mic. Concluding "video call"
+        # attributed thirty minutes of meeting to the one person recording.
         channels = separer_canaux(signal([[0.2] * 16000, [0.002] * 16000, [0.002] * 16000]))
         assert not channels.distante
-        # Et c'est le micro qu'il faut segmenter, là où tout le monde parle.
+        # And the mic is what has to be segmented, where everybody speaks.
         assert float(abs(channels.system).max()) > 0.1
 
     def test_une_boucle_muette_signifie_presentiel(self) -> None:
@@ -57,11 +57,11 @@ class TestVisioOuPresentiel:
 
 
 class TestAVideoCallStaysAVideoCall:
-    """Le verdict se lit sur l'ensemble de l'audio, pas sur dix secondes.
+    """The verdict is read over the whole audio, not over ten seconds.
 
-    Le défaut mesuré : sur une tranche où seule la personne au micro parle,
-    aucune boucle ne domine, donc « présentiel » — et sa voix, cessant d'être
-    désignée par le canal, devenait un participant distant de plus.
+    The measured defect: on a slice where only the person at the mic speaks, no
+    loopback dominates, so "in a room", and their voice, no longer named by the
+    channel, became one more remote participant.
     """
 
     def test_the_forced_mode_wins_over_what_the_slice_says(self) -> None:
@@ -70,8 +70,8 @@ class TestAVideoCallStaysAVideoCall:
         assert separer_canaux(seule_ma_voix, distante=True).distante
 
     def test_a_silent_loopback_forced_to_a_call_leaves_the_floor_to_the_mic(self) -> None:
-        # C'est ce qui permet de continuer à afficher « Toi » quand personne
-        # d'autre ne parle pendant une tranche entière.
+        # This is what keeps "Toi" on screen when nobody else speaks for a
+        # whole slice.
         channels = separer_canaux(
             signal([[0.2] * 16000, [0.0] * 16000, [0.0] * 16000]), distante=True
         )
@@ -85,13 +85,13 @@ class TestAVideoCallStaysAVideoCall:
 
         player = FileChannelReader()
         assert not player.distante
-        # Une tranche de visio : la boucle couvre le micro.
+        # A slice of a video call: the loopback covers the mic.
         visio = tmp_path / "visio.wav"
         sf.write(visio, signal([[0.001] * 16000, [0.2] * 16000, [0.2] * 16000]), 16000)
         player.local_passages(visio)
         assert player.distante
-        # La tranche suivante ne porte que ma voix : le verdict tient, et ce
-        # passage m'est attribué au lieu de créer une voix distante.
+        # The next slice carries only my voice: the verdict holds, and this
+        # passage is attributed to me instead of creating a remote voice.
         seul = tmp_path / "seul.wav"
         sf.write(seul, signal([[0.2] * 32000, [0.0] * 32000, [0.0] * 32000]), 16000)
         assert player.local_passages(seul) != []
