@@ -142,6 +142,50 @@ class TestWhereTheSettingsComeFrom:
             Config.load(file)
 
 
+class TestAFileOnTheMachineAndAVariable:
+    """The header written into every config.toml promises the variable wins.
+
+    It did not. The file spells a setting in French -- `compte_rendu.moteur` --
+    and `GREFFIER_MINUTES__ENGINE` spells the same one in English: two keys that
+    never met, so the file won whatever the order of the sources, and forcing a
+    setting for one command was impossible on any machine already configured.
+    """
+
+    @staticmethod
+    def _a_file(tmp_path: Path, contents: str) -> None:
+        folder = tmp_path / "config/greffier"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "config.toml").write_text(contents, encoding="utf-8")
+
+    def test_the_variable_wins_over_the_file(self, tmp_path, monkeypatch):
+        self._a_file(tmp_path, '[compte_rendu]\nmoteur = "claude"\n')
+        monkeypatch.setenv("GREFFIER_MINUTES__ENGINE", "ollama")
+        assert Config().minutes.engine == "ollama"
+
+    def test_what_the_file_alone_carries_is_kept(self, tmp_path, monkeypatch):
+        """Forcing one setting must not drop the rest of its section."""
+        self._a_file(
+            tmp_path,
+            '[compte_rendu]\nmoteur = "claude"\ndestinataire = "equipe@exemple.fr"\n',
+        )
+        monkeypatch.setenv("GREFFIER_MINUTES__ENGINE", "ollama")
+        config = Config()
+        assert config.minutes.engine == "ollama"
+        assert config.minutes.recipient == "equipe@exemple.fr"
+
+    def test_the_file_on_its_own_is_still_read(self, tmp_path):
+        """The French keys are the ones machines have already written."""
+        self._a_file(tmp_path, '[transcription]\nlangue = "en"\nmoteur = "whisper.cpp"\n')
+        config = Config()
+        assert config.transcription.language == "en"
+        assert config.transcription.engine == "whisper.cpp"
+
+    def test_a_key_that_matches_no_field_is_left_alone(self, tmp_path):
+        """A setting from a later version: ignored, never a crash."""
+        self._a_file(tmp_path, '[compte_rendu]\nmoteur = "ollama"\ninvente = 3\n')
+        assert Config().minutes.engine == "ollama"
+
+
 class TestWhereThingsLive:
     def test_the_subfolders_follow_from_the_data_folder(self, tmp_path):
         config = Config(paths={"donnees": tmp_path})
