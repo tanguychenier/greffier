@@ -17,7 +17,6 @@ loop around it.
 
 from __future__ import annotations
 
-import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -31,6 +30,10 @@ from greffier.application.watch import Watcher
 from greffier.domain.instructions import WatchRules
 from greffier.domain.participation import Manners
 from greffier.wiring import light_transcriber
+from tests.integration.prerequisites import (
+    the_called_name_is_out_of_reach,
+    voices_are_out_of_reach,
+)
 
 NAME = "Lucie"
 
@@ -39,23 +42,11 @@ VOIX_DE_LA_SALLE = "Thomas"
 VOIX_DE_L_ASSISTANTE = "Amélie"
 
 
-def _dispo() -> bool:
-    return shutil.which("say") is not None and shutil.which("ffmpeg") is not None
-
-
 def _synthetiser(voice: str, text: str, cible: Path) -> Path | None:
-    """Une phrase prononcée, en wav 16 kHz mono."""
-    brut = cible.with_suffix(".aiff")
-    subprocess.run(["say", "-v", voice, "-o", str(brut), text],
-                   check=False, capture_output=True)
-    if not brut.exists():
-        return None
-    subprocess.run(
-        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(brut),
-         "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", str(cible)],
-        check=False, capture_output=True,
-    )
-    return cible if cible.exists() else None
+    """Une phrase prononcée, en wav 16 kHz mono, par le moteur du poste."""
+    from make_meeting import speak
+
+    return speak(text, voice, cible)
 
 
 def _silence(secondes: float, cible: Path) -> Path:
@@ -179,8 +170,9 @@ class Reunion:
 
 @pytest.fixture(scope="module")
 def transcriber():
-    if not _dispo():
-        pytest.skip("« say » ou ffmpeg absent")
+    for hors_de_portee in (voices_are_out_of_reach(2), the_called_name_is_out_of_reach()):
+        if hors_de_portee:
+            pytest.skip(hors_de_portee)
     outil = light_transcriber(Config())
     if outil is None:
         pytest.skip("aucun modèle de transcription installé")

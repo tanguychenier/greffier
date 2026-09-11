@@ -24,8 +24,6 @@ refusal to decide.
 
 from __future__ import annotations
 
-import platform
-import shutil
 import sys
 from pathlib import Path
 
@@ -34,6 +32,10 @@ import pytest
 from greffier.adapters.configuration import Config
 from greffier.application.process import Chain
 from greffier.domain.channels import LOCAL_VOICE
+from tests.integration.prerequisites import (
+    transcription_is_out_of_reach,
+    voices_are_out_of_reach,
+)
 
 RACINE = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(RACINE / "tools"))
@@ -41,29 +43,21 @@ sys.path.insert(0, str(RACINE / "tools"))
 pytestmark = pytest.mark.integration
 
 
-def models_present(config: Config) -> bool:
-    diarisation = config.paths.models / "diarisation"
-    return (
-        (config.paths.models / "ggml-large-v3-turbo.bin").exists()
-        and (diarisation / "nemo_en_titanet_large.onnx").exists()
-        and (diarisation / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx").exists()
-    )
-
-
 @pytest.fixture(scope="session")
 def config() -> Config:
     configuration = Config()
-    if not models_present(configuration):
-        pytest.skip("modèles absents — lance tools/install.py")
-    if not shutil.which("whisper-cli"):
-        pytest.skip("whisper.cpp absent")
+    hors_de_portee = transcription_is_out_of_reach(configuration)
+    if hors_de_portee:
+        pytest.skip(hors_de_portee)
     return configuration
 
 
 @pytest.fixture(scope="session")
 def table(tmp_path_factory) -> Path:
-    if platform.system() != "Darwin":
-        pytest.skip("la synthèse vocale « say » n'existe que sur macOS")
+    # Trois personnes autour de la table, donc trois timbres.
+    hors_de_portee = voices_are_out_of_reach(3)
+    if hors_de_portee:
+        pytest.skip(hors_de_portee)
     from make_meeting import make_in_the_room
 
     return make_in_the_room(tmp_path_factory.mktemp("audio") / "table.wav")

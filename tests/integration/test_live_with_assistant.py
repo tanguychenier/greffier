@@ -8,9 +8,6 @@ behind while it thinks.
 
 from __future__ import annotations
 
-import shutil
-import subprocess
-
 import pytest
 
 from greffier.adapters.configuration import Config
@@ -20,6 +17,10 @@ from greffier.application.watch import Watcher
 from greffier.domain.instructions import WatchRules
 from greffier.domain.participation import Because, Manners
 from greffier.wiring import light_transcriber
+from tests.integration.prerequisites import (
+    the_called_name_is_out_of_reach,
+    voices_are_out_of_reach,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -55,23 +56,26 @@ class FakeBrain:
 
 @pytest.fixture
 def meeting(tmp_path):
-    if shutil.which("say") is None or shutil.which("ffmpeg") is None:
-        pytest.skip("« say » ou ffmpeg absent")
-    brut = tmp_path / "phrase.aiff"
-    audio = tmp_path / "reunion.wav"
-    subprocess.run(["say", "-v", "Thomas", "-o", str(brut), PHRASE],
-                   check=False, capture_output=True)
-    if not brut.exists():
+    hors_de_portee = voices_are_out_of_reach(1)
+    if hors_de_portee:
+        pytest.skip(hors_de_portee)
+    from make_meeting import speak
+
+    audio = speak(PHRASE, "Thomas", tmp_path / "reunion.wav")
+    if audio is None:
         pytest.skip("synthèse impossible")
-    subprocess.run(
-        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(brut),
-         "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", str(audio)],
-        check=False, capture_output=True,
-    )
     return audio
 
 
-def test_called_during_the_meeting_it_answers(meeting, tmp_path):
+@pytest.fixture
+def called_by_its_name():
+    """These tests only mean something where the name survives the round trip."""
+    hors_de_portee = the_called_name_is_out_of_reach()
+    if hors_de_portee:
+        pytest.skip(hors_de_portee)
+
+
+def test_called_during_the_meeting_it_answers(called_by_its_name, meeting, tmp_path):
     """The scenario of the demonstration, end to end."""
     transcriber = light_transcriber(Config())
     if transcriber is None:
@@ -141,6 +145,10 @@ def test_the_transcription_does_not_wait_for_the_answer(meeting, tmp_path):
         situer=lambda: Position(morceau=meeting, written=duration, offset=0.0),
         assistant_of=assistant,
     )
+    # Le modèle se charge à la première transcription -- seize secondes sur une
+    # carte, mesuré. Le compter ici ferait échouer le test sur une machine
+    # parfaitement saine, pour une lenteur qui n'arrive qu'une fois par session.
+    transcriber.transcribe(meeting, "fr", "")
     depart = time.monotonic()
     watcher.transcription_turn(watcher.situer(), tmp_path)
     rendered = time.monotonic() - depart
@@ -153,19 +161,18 @@ def test_the_transcription_does_not_wait_for_the_answer(meeting, tmp_path):
 
 def test_an_ordinary_sentence_does_not_make_it_speak(tmp_path):
     """Without its name nothing fires, which is the case for the whole meeting."""
-    if shutil.which("say") is None or shutil.which("ffmpeg") is None:
-        pytest.skip("« say » ou ffmpeg absent")
+    hors_de_portee = voices_are_out_of_reach(1)
+    if hors_de_portee:
+        pytest.skip(hors_de_portee)
     transcriber = light_transcriber(Config())
     if transcriber is None:
         pytest.skip("aucun modèle de transcription installé")
+    from make_meeting import speak
 
-    brut, audio = tmp_path / "p.aiff", tmp_path / "p.wav"
-    subprocess.run(["say", "-v", "Thomas", "-o", str(brut),
-                    "On passe au point suivant, la recette est terminée."],
-                   check=False, capture_output=True)
-    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i",
-                    str(brut), "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le",
-                    str(audio)], check=False, capture_output=True)
+    audio = speak("On passe au point suivant, la recette est terminée.",
+                  "Thomas", tmp_path / "p.wav")
+    if audio is None:
+        pytest.skip("synthèse impossible")
 
     voice = FakeVoiceAdapter()
     assistant = AssistantSettings(name="Lucie", voice=voice, manners=Manners(creux_minimal=0.0))
@@ -201,7 +208,7 @@ def test_no_assistant_changes_nothing(meeting, tmp_path):
     watcher.transcription_turn(watcher.situer(), tmp_path)
 
 
-def test_the_reason_for_speaking_is_the_call(meeting, tmp_path):
+def test_the_reason_for_speaking_is_the_call(called_by_its_name, meeting, tmp_path):
     """Ce n'est pas un apport spontané : c'est qu'on l'a nommée."""
     transcriber = light_transcriber(Config())
     if transcriber is None:
@@ -320,7 +327,8 @@ initiative = false
         )
         assert de_lui_meme
 
-    def test_called_it_answers_despite_the_old_setting(self, meeting, tmp_path):
+    def test_called_it_answers_despite_the_old_setting(
+            self, called_by_its_name, meeting, tmp_path):
         """The whole scenario, with the file that had silenced it."""
         transcriber = light_transcriber(Config())
         if transcriber is None:
