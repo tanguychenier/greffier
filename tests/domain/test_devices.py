@@ -260,9 +260,9 @@ class TestAHeadsetWins:
     mouth, a laptop's fifty, and it picks up the whole room.
     """
 
-    #: Le matériel réel de ce poste : le Jabra y est **deux** périphériques,
-    #: une entrée et une sortie de même nom, ce qui est la forme habituelle
-    #: d'un casque USB sur macOS.
+    #: The real hardware of this machine: the Jabra is **two** devices here,
+    #: an input and an output of the same name, which is the usual shape of a
+    #: USB headset on macOS.
     MATERIEL = Hardware((
         MICRO_INTEGRE, HP_INTEGRES, JABRA_MICRO, JABRA_SORTIE, BLACKHOLE,
     ))
