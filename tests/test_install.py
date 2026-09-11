@@ -265,6 +265,95 @@ class TestTheRepairSkill:
         assert not (tmp_path / ".claude").exists()
 
 
+class TestTheCommandInThePath:
+    """`greffier` lives in the repository's .venv, which no shell knows about.
+
+    The installation announced "greffier fenetre" and the README repeats it;
+    typed after an install that had just declared itself finished, the line
+    answered "command not found".
+    """
+
+    @staticmethod
+    def _un_environnement(tmp_path):
+        binaire = tmp_path / "depot/.venv/bin"
+        binaire.mkdir(parents=True)
+        (binaire / "python").write_text("")
+        lanceur = binaire / "greffier"
+        lanceur.write_text("")
+        return binaire / "python", lanceur
+
+    @staticmethod
+    def _contexte(check_only=False):
+        class Context:
+            yes = True
+            to_do: list[str] = []
+
+            def __init__(self):
+                self.check_only = check_only
+
+            def ask(self, _question):
+                return True
+
+        return Context()
+
+    def test_the_command_is_linked_where_the_shell_looks(self, under, monkeypatch, tmp_path):
+        module = under("Linux")
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        python, lanceur = self._un_environnement(tmp_path)
+
+        module.etape_bureau(self._contexte(), python)
+
+        lien = tmp_path / ".local/bin/greffier"
+        assert lien.is_symlink(), "un lien, pour suivre le dépôt quand le code change"
+        assert lien.resolve() == lanceur.resolve()
+
+    def test_the_menu_entry_opens_the_window(self, under, monkeypatch, tmp_path):
+        module = under("Linux")
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+        python, _ = self._un_environnement(tmp_path)
+
+        module.etape_bureau(self._contexte(), python)
+
+        entree = tmp_path / ".local/share/applications/greffier.desktop"
+        assert entree.exists(), "sans entrée de menu, elle ne se lance qu'au terminal"
+        assert f"Exec={tmp_path}/.local/bin/greffier fenetre" in entree.read_text(encoding="utf-8")
+
+    def test_windows_is_told_where_the_command_is(self, under, monkeypatch, tmp_path, capsys):
+        """No ~/.local/bin there, and the session PATH breaks more easily than it mends."""
+        module = under("Windows")
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        python, _ = self._un_environnement(tmp_path)
+
+        module.etape_bureau(self._contexte(), python)
+
+        assert not (tmp_path / ".local/bin").exists()
+        assert "PATH" in capsys.readouterr().out
+
+    def test_checking_lays_nothing_down(self, under, monkeypatch, tmp_path):
+        module = under("Linux")
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        python, _ = self._un_environnement(tmp_path)
+
+        module.etape_bureau(self._contexte(check_only=True), python)
+
+        assert not (tmp_path / ".local/bin/greffier").exists()
+        assert not (tmp_path / ".local/share/applications/greffier.desktop").exists()
+
+    def test_a_link_left_by_another_clone_is_replaced(self, under, monkeypatch, tmp_path):
+        """A repository moved, and the old link points into the void."""
+        module = under("Linux")
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        python, lanceur = self._un_environnement(tmp_path)
+        ancien = tmp_path / ".local/bin/greffier"
+        ancien.parent.mkdir(parents=True)
+        ancien.symlink_to(tmp_path / "ailleurs/.venv/bin/greffier")
+
+        module.etape_bureau(self._contexte(), python)
+
+        assert ancien.resolve() == lanceur.resolve()
+
+
 class TestMakingAFolder:
     """A folder is created; a dead link occupying its name is not a folder."""
 
