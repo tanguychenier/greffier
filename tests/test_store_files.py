@@ -1,4 +1,4 @@
-"""Le fichier maître : ce qu'on garde, et dans quel ordre on le retrouve."""
+"""The master file: what is kept, and in what order it is found again."""
 
 from datetime import UTC, datetime
 from pathlib import Path
@@ -23,13 +23,13 @@ def meeting(identifier: str) -> StoredMeeting:
 
 
 class TestTheOrderOfTheMeetings:
-    """« La dernière réunion » doit être la dernière **tenue**.
+    """"The last meeting" has to be the last one **held**.
 
-    Le tri était alphabétique inversé, ce qui marche tant que tout identifiant
-    commence par sa date. Le 2026-09-09, « fausse-reunion » — une réunion
-    d'essai — passait avant « 2026-09-09_10h05_reunion » parce que « f » vient
-    après « 2 » : « greffier rediger » sans argument a rédigé le compte rendu
-    de la mauvaise réunion, et « greffier envoyer » l'aurait expédié.
+    The sort was reverse alphabetical, which works as long as every identifier
+    starts with its date. On 2026-09-09 "fausse-reunion", a rehearsal meeting, came
+    before "2026-09-09_10h05_reunion" because "f" comes after "2": `greffier
+    rediger` with no argument wrote up the minutes of the wrong meeting, and
+    `greffier envoyer` would have sent them.
     """
 
     def test_dated_meetings_run_newest_to_oldest(self, tmp_path):
@@ -74,10 +74,10 @@ class TestTheTimestampInsideTheIdentifier:
 
 
 class TestASubjectChosenByHand:
-    """Le sujet saisi à la main l'emporte sur le titre du compte rendu.
+    """A subject typed by hand wins over the title of the minutes.
 
-    Demandé à l'usage : la liste ne montrait que « 2026-09-09_10h05_reunion »
-    tant qu'aucun compte rendu n'existait, et rien ne permettait de la nommer.
+    Asked for in use: the list showed only "2026-09-09_10h05_reunion" as long as no
+    minutes existed, and nothing allowed it to be named.
     """
 
     def test_the_subject_survives_being_written(self, tmp_path):
@@ -137,11 +137,11 @@ def joined_meeting(identifier: str = "2026-09-10_10h10_reunion") -> StoredMeetin
 
 
 class TestSplittingTwoVoicesAfterTheMeeting:
-    """Réunir deux voix se défaisait dans le direct, et par rien ensuite.
+    """Joining two voices could be undone live, and by nothing afterwards.
 
-    Le geste existait des deux côtés — nommer deux voix pareil les réunit, ce
-    qui est exactement ce qu'il faut quand l'outil a découpé une personne en
-    deux — mais seul le fil du direct savait revenir en arrière.
+    The gesture existed on both sides — naming two voices alike joins them, which
+    is exactly what is wanted when the tool has cut one person in two — but only
+    the live thread knew how to go back.
     """
 
     def test_the_absorbed_voice_takes_its_turns_back(self):
@@ -173,7 +173,7 @@ class TestSplittingTwoVoicesAfterTheMeeting:
         assert not detail.can_split("v1"), "une fois défaite, plus rien à défaire"
 
     def test_the_join_survives_being_written(self, tmp_path):
-        """Sans cela, séparer ne marche que tant que l'application est ouverte."""
+        """Without that, splitting works only while the application stays open."""
         magasin = FileStore(tmp_path)
         magasin.record(joined_meeting())
         relue = magasin.read("2026-09-10_10h10_reunion")
