@@ -254,3 +254,66 @@ class TestTheEditDistanceIsTheOneItClaims:
         for one, other in (("recette", "recettes"), ("oasis", "ouasis"),
                            ("prod", "pré-prod"), ("", "a")):
             assert distance(one, other) == distance(other, one)
+
+
+class TestAQuestionIsPutToTheRoomOnlyOnce:
+    """Measured on the meeting of 11 September: three unanswered questions came
+    back into the conversation two and a half hours after the minutes had been
+    sent. The window kept what it had shown in memory, the memory died with the
+    process, and the state file still named the finished meeting: one copy per
+    launch.
+    """
+
+    def test_the_note_is_recognised_as_the_question(self):
+        from greffier.domain.questions import Question, Reason, already_noted, note
+
+        question = Question(number=1, text="J'ai entendu « merde ».",
+                            motif=Reason.NEAR_TERM)
+        assert already_noted([question], [note(question.text)]) == {1}
+
+    def test_a_question_never_shown_is_not_held_back(self):
+        from greffier.domain.questions import Question, Reason, already_noted
+
+        question = Question(number=1, text="J'ai entendu « merde ».",
+                            motif=Reason.NEAR_TERM)
+        assert already_noted([question], ["bonjour", "au revoir"]) == set()
+
+    def test_only_the_one_that_was_shown_is_held_back(self):
+        """Answering one question must not swallow the next."""
+        from greffier.domain.questions import Question, Reason, already_noted, note
+
+        une = Question(number=1, text="J'ai entendu « merde ».",
+                       motif=Reason.NEAR_TERM)
+        autre = Question(number=2, text="J'ai entendu « Spring ».",
+                         motif=Reason.NEAR_TERM)
+        assert already_noted([une, autre], [note(une.text)]) == {1}
+
+    def test_an_empty_conversation_holds_nothing_back(self):
+        from greffier.domain.questions import Question, Reason, already_noted
+
+        question = Question(number=3, text="J'ai entendu « cacher ».",
+                            motif=Reason.NEAR_TERM)
+        assert already_noted([question], []) == set()
+
+    def test_the_three_of_the_real_meeting(self):
+        from greffier.domain.questions import Question, Reason, already_noted, note
+
+        posees = [
+            Question(number=2, text="J'ai entendu « Spring ». Fallait-il "
+                                    "comprendre « sprint » ?",
+                     motif=Reason.NEAR_TERM, heard="Spring", expected="sprint"),
+            Question(number=3, text="J'ai entendu « merde ». Fallait-il "
+                                    "comprendre « merge » ?",
+                     motif=Reason.NEAR_TERM, heard="merde", expected="merge"),
+            Question(number=4, text="J'ai entendu « cacher ». Fallait-il "
+                                    "comprendre « cachet » ?",
+                     motif=Reason.NEAR_TERM, heard="cacher", expected="cachet"),
+        ]
+        conversation = [note(question.text) for question in posees]
+        conversation.append("[greffier] Le compte rendu est prêt.")
+        assert already_noted(posees, conversation) == {2, 3, 4}
+
+    def test_the_note_carries_the_question(self):
+        from greffier.domain.questions import note
+
+        assert "Fallait-il" in note("Fallait-il comprendre « merge » ?")
