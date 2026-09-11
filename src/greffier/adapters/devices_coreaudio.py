@@ -31,7 +31,7 @@ class CoreAudioLister:
         return self.source.exists() or (self.prete is not None and self.prete.exists())
 
     def _compiler(self) -> bool:
-        """Compile la source si besoin. Faux si la compilation est impossible."""
+        """Compiles the source when needed. False when compiling is impossible."""
         if self.binaire.exists() and self.binaire.stat().st_mtime >= self.source.stat().st_mtime:
             return True
         if not shutil.which("swiftc"):
