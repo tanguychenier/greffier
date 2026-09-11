@@ -8,8 +8,6 @@ it is checked here end to end.
 
 from __future__ import annotations
 
-import platform
-import shutil
 import sys
 from pathlib import Path
 
@@ -20,6 +18,10 @@ from greffier.adapters.store_files import FileStore
 from greffier.adapters.voice_bank_files import FileVoiceBank
 from greffier.application.name_voice import Naming, voices_to_name
 from greffier.application.process import _as_stored_meeting as depuis_resultat
+from tests.integration.prerequisites import (
+    transcription_is_out_of_reach,
+    voices_are_out_of_reach,
+)
 
 RACINE = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(RACINE / "tools"))
@@ -30,15 +32,10 @@ pytestmark = pytest.mark.integration
 @pytest.fixture(scope="module")
 def atelier(tmp_path_factory):
     """A clean machine: an empty bank, no meeting known."""
-    if platform.system() != "Darwin":
-        pytest.skip("la synthèse vocale « say » n'existe que sur macOS")
-    if not shutil.which("whisper-cli"):
-        pytest.skip("whisper.cpp absent")
-
     config = Config()
-    diarisation = config.paths.models / "diarisation"
-    if not (diarisation / "nemo_en_titanet_large.onnx").exists():
-        pytest.skip("modèles absents — lance tools/install.py")
+    for hors_de_portee in (voices_are_out_of_reach(2), transcription_is_out_of_reach(config)):
+        if hors_de_portee:
+            pytest.skip(hors_de_portee)
 
     root = tmp_path_factory.mktemp("poste")
     config.paths.data = root
@@ -66,13 +63,15 @@ def process(config, audio):
 class TestReconnaissanceEntreReunions:
     def test_le_parcours_complet(self, atelier):
         """Première réunion → nommage → seconde réunion reconnue toute seule."""
+        from make_meeting import first_names
+
         config, premiere, seconde = atelier
         bank = FileVoiceBank(config.paths.voice_bank)
         store = FileStore(config.paths.data / "reunions")
 
         # 1. The first meeting: the first names come from what is said.
         outcome = process(config, premiere)
-        assert set(outcome.names.values()) == {"Jacques", "Sandy"}
+        assert set(outcome.names.values()) == set(first_names())
 
         # 2. The person confirms: they decide, and nothing enters the bank
         #    without that gesture.
@@ -87,15 +86,15 @@ class TestReconnaissanceEntreReunions:
         )
         for voice, name in outcome.names.items():
             namer.name_voice(premiere.stem, voice, name)
-        assert {p.name for p in bank.people()} == {"Jacques", "Sandy"}
+        assert {p.name for p in bank.people()} == set(first_names())
 
         # 3. The second meeting says no first name at all.
         second_resultat = process(config, seconde)
         transcription = " ".join(r.text for r in second_resultat.utterances)
-        assert "Jacques" not in transcription and "Sandy" not in transcription
+        assert not any(prenom in transcription for prenom in first_names())
 
         # 4. And yet both are named: that can only come from the voice.
-        assert set(second_resultat.names.values()) == {"Jacques", "Sandy"}
+        assert set(second_resultat.names.values()) == set(first_names())
 
     def test_the_bank_does_not_name_just_anyone(self, atelier, tmp_path):
         """A bank holding a stranger's voice must recognise nothing."""
