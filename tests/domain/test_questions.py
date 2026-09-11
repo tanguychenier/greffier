@@ -1,8 +1,8 @@
-"""Ce sur quoi l'outil a le droit de demander — et surtout ce sur quoi il se taît.
+"""What the tool may ask about, and above all what it keeps quiet about.
 
-Une file de questions qui pose une question par phrase ne se lit pas : elle se
-ferme. Les faux positifs mesurés sur le vocabulaire réel du poste sont donc
-verrouillés ici, au même titre que les vrais.
+A queue of questions that asks one per sentence does not get read: it gets
+closed. The false positives measured on this machine's real vocabulary are
+therefore pinned down here, just as much as the true ones.
 """
 
 import pytest
@@ -22,10 +22,10 @@ class TestTheEditDistance:
         assert distance("backlog", "backlog") == 0
 
     def test_a_transposition_counts_for_one(self):
-        """Une transcription inverse des lettres : c'est le même mot.
+        """A transcription swaps two letters: it is the same word.
 
-        Sans cela « bakclog »/« backlog » valait 2, au même rang que
-        « point »/« sprint », et aucun seuil ne pouvait séparer les deux cas.
+        Without that, "bakclog"/"backlog" was worth 2, level with
+        "point"/"sprint", and no threshold could separate the two cases.
         """
         assert distance("bakclog", "backlog") == 1
 
@@ -53,12 +53,12 @@ class TestWhatRaisesAQuestion:
         assert questions[0].motif is Reason.NEAR_TERM
 
     def test_a_compound_term_is_read_word_by_word(self):
-        """« mrege » ne rencontrait jamais « merge request » et passait inaperçu."""
+        """"mrege" never met "merge request" and went unnoticed."""
         questions = Questioner(known=("merge request",)).examine("La mrege request.")
         assert questions and questions[0].expected == "merge"
 
     def test_the_question_says_what_it_heard(self):
-        """Une question sans sa raison ressemble à un caprice : on n'y répond pas."""
+        """A question with no reason looks like a whim: nobody answers it."""
         question = Questioner(known=("Oasis",)).examine("Point sur Ouasis.")[0]
         assert "Ouasis" in question.text
         assert "Oasis" in question.text
@@ -66,18 +66,18 @@ class TestWhatRaisesAQuestion:
 
 class TestWhatMustRaiseNothing:
     def test_an_everyday_word_does_not_become_a_term(self):
-        """Mesuré : « point » et « sprint » sont à 2 et n'ont aucun rapport."""
+        """Measured: "point" and "sprint" are at 2 and have nothing to do with each other."""
         assert Questioner(known=("sprint",)).examine("On reprend le point.") == []
 
     def test_a_term_transcribed_right_asks_nothing(self):
         assert Questioner(known=("backlog",)).examine("Le backlog est trié.") == []
 
     def test_a_merely_unknown_word_is_no_signal(self):
-        """Une réunion en contient des dizaines, tous légitimes."""
+        """A meeting holds dozens of them, all legitimate."""
         assert Questioner(known=("backlog",)).examine("On parle de Kubernetes.") == []
 
     def test_short_words_are_dropped(self):
-        """« CR » et « OR » sont à 1 et n'ont aucun rapport."""
+        """"CR" and "OR" are at 1 and have nothing to do with each other."""
         assert Questioner(known=("prod",)).examine("Le brod du truc.") == []
 
     def test_the_same_question_is_not_asked_twice(self):
@@ -86,7 +86,7 @@ class TestWhatMustRaiseNothing:
         assert questioner.examine("Le bakclog encore.") == []
 
     def test_the_tool_ends_up_going_quiet(self):
-        """Au-delà d'un certain nombre, il noierait qui travaille."""
+        """Past a certain number it would drown whoever is working."""
         known = tuple(f"terme{n:03d}" for n in range(40))
         questioner = Questioner(known=known)
         sentence = " ".join(f"terme{n:03d}x" for n in range(40))
@@ -94,13 +94,13 @@ class TestWhatMustRaiseNothing:
 
 
 class TestAPluralIsNotAMangling:
-    """Trois questions sur quatre étaient de cette nature, et absurdes.
+    """Three questions out of four were of this kind, and absurd.
 
-    Relevé sur une réunion réelle : « J'ai entendu "bailleurs". Fallait-il
-    comprendre "bailleur" ? », « J'ai entendu "pre-prod". Fallait-il comprendre
-    "pré-prod" ? ». Un écart de un, donc sous le seuil, donc posé — et sans
-    objet, puisque la réponse est déjà connue et qu'elle ne corrige rien. Le
-    coût n'est pas la question : c'est qu'on cesse de lire les autres.
+    Taken from a real meeting: *J'ai entendu "bailleurs". Fallait-il comprendre
+    "bailleur" ?*, *J'ai entendu "pre-prod". Fallait-il comprendre "pré-prod" ?*
+    A distance of one, so under the threshold, so asked, and pointless, since the
+    answer is already known and corrects nothing. The cost is not the question: it
+    is that people stop reading the others.
     """
 
     @pytest.mark.parametrize("heard,connu", [
@@ -123,7 +123,7 @@ class TestAPluralIsNotAMangling:
         ("Coppernic", "Copernic"),
     ])
     def test_a_real_mangling_is_still_picked_up(self, heard, connu):
-        """La correction ne doit pas emporter ce pour quoi l'outil existe."""
+        """The fix must not carry away the very thing the tool exists for."""
         from greffier.domain.questions import Questioner
 
         asked = Questioner(known=[connu]).examine(f"on parle de {heard}")
@@ -136,7 +136,7 @@ class TestAPluralIsNotAMangling:
 
 
 class TestTheCanonicalForm:
-    """Elle ne sert qu'à se taire, jamais à identifier."""
+    """It serves only to keep quiet, never to identify."""
 
     def test_it_strips_what_does_not_change_the_word(self):
         from greffier.domain.questions import canonical_form
@@ -150,11 +150,11 @@ class TestTheCanonicalForm:
 
 
 class TestWhatRecursIsNoAccident:
-    """Une déformation ne se répète pas à l'identique.
+    """A mangling does not repeat itself identically.
 
-    Le modèle rend « s'enature » une fois, pas trois. Un mot français revient,
-    et c'est ce qui sépare « marge », qui est un mot, de « merve », qui n'en est
-    pas un — sans avoir besoin d'un dictionnaire que le domaine n'a pas.
+    The model returns "s'enature" once, not three times. A French word comes back,
+    and that is what separates "marge", which is a word, from "merve", which is
+    not, with no need for a dictionary the domain does not have.
     """
 
     def test_a_word_heard_twice_is_no_longer_asked_about(self):
@@ -164,11 +164,11 @@ class TestWhatRecursIsNoAccident:
         questioner.examine("il reste de la marge sur ce sprint")
         questioner.examine("on garde cette marge pour la dette")
         questioner.examine("la marge sert à absorber les retours")
-        # La première occurrence a pu poser sa question ; les suivantes, non.
+        # The first occurrence was allowed its question; the later ones are not.
         assert len(questioner.asked) <= 1
 
     def test_a_term_already_transcribed_right_silences_its_neighbours(self):
-        """Si le modèle sait écrire « merge », il n'a pas déformé ici."""
+        """If the model can spell "merge", it did not mangle it here."""
         from greffier.domain.questions import Questioner
 
         questioner = Questioner(known=["merge"])
@@ -184,7 +184,7 @@ class TestWhatRecursIsNoAccident:
 
 
 class TestADerivedWord:
-    """Un terme précédé d'un préfixe est un autre mot, pas une faute."""
+    """A term with a prefix in front is another word, not a mistake."""
 
     @pytest.mark.parametrize("heard,connu", [
         ("rétablissements", "établissement"),
@@ -197,9 +197,9 @@ class TestADerivedWord:
         assert derived_word(heard, connu)
 
     def test_the_elision_counts(self):
-        """« ré- » devant une voyelle donne « rétablissement ».
+        """"ré-" before a vowel gives "rétablissement".
 
-        Sans elle, le cas qui a motivé la règle passait au travers.
+        Without it, the case that called for the rule slipped through.
         """
         from greffier.domain.questions import derived_word
 
@@ -216,11 +216,10 @@ class TestADerivedWord:
         assert not derived_word(heard, connu)
 
     def test_a_false_positive_costs_only_a_silence(self):
-        """« recette » passe pour « re » + « cette », et c'est assumé.
+        """"recette" passes for "re" + "cette", and that is owned.
 
-        La règle ne sert qu'à se taire : ne pas poser une question coûte moins
-        qu'en poser une absurde, et « cette » n'a rien à faire dans un
-        vocabulaire métier.
+        The rule serves only to keep quiet: not asking a question costs less than
+        asking an absurd one, and "cette" has no business in a trade vocabulary.
         """
         from greffier.domain.questions import derived_word
 

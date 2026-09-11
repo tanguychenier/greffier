@@ -1,13 +1,12 @@
-"""L'assistant intervient quand il faut, et se tait le reste du temps.
+"""The assistant speaks up when it should, and keeps quiet the rest of the time.
 
-La moitié difficile est le silence. Un modèle à qui l'on demande « as-tu quelque
-chose à dire » trouve toujours quelque chose à dire, et un assistant qui
-commente chaque tranche d'une réunion est retiré au bout de dix minutes. Ces
-cas mesurent donc les deux faces : ce qu'il doit relever, et ce qu'il doit
-laisser passer.
+The hard half is the silence. A model asked "have you anything to say" always
+finds something to say, and an assistant that comments on every slice of a
+meeting is removed after ten minutes. These cases therefore measure both faces:
+what it has to pick up, and what it has to let pass.
 
-Ces tests appellent le vrai rédacteur, donc le réseau et le quota. Ils sont
-passés à la main avant une démonstration, pas à chaque commit.
+These tests call the real writer, so the network and the quota. They are run by
+hand before a demonstration, not on every commit.
 """
 
 from __future__ import annotations
@@ -41,7 +40,7 @@ Dominique : oui, on a un dépassement de douze pour cent.
 def _assistant(material: str):
     config = Config()
     config.assistant.active = True
-    # Sans voix : on éprouve ce qu'il décide de dire, pas la synthèse.
+    # No voice: what is covered is what it decides to say, not the speech.
     config.assistant.voice = "aucun"
     lui = assistant_of(config, "essai-proactif")
     if lui is None or lui.cerveau is None:
@@ -51,7 +50,7 @@ def _assistant(material: str):
 
 
 def test_an_ordinary_meeting_does_not_get_a_word_out_of_it():
-    """Le cas de très loin le plus fréquent, et le plus facile à rater."""
+    """By far the most frequent case, and the easiest to get wrong."""
     assert _assistant(ORDINAIRE).contribution(now=600.0) is None
 
 
@@ -67,7 +66,7 @@ def test_a_question_left_hanging_makes_it_speak():
 
 
 def test_it_looks_for_nothing_while_it_rests():
-    """Un appel au modèle toutes les dix secondes pour un silence."""
+    """One call to the model every ten seconds, for a silence."""
     lui = _assistant(SANS_RESPONSABLE)
     lui.manners.spoke_at = 590.0
     assert lui.contribution(now=600.0) is None

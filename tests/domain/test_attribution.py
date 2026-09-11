@@ -1,4 +1,4 @@
-"""Une phrase à cheval sur deux locuteurs ne doit désigner personne."""
+"""A sentence astride two speakers must name nobody."""
 
 from __future__ import annotations
 
@@ -20,21 +20,21 @@ class TestWhoseVoice:
         assert voice_of(Span(30.0, 35.0), [turn("0", 0.0, 8.0)]) is None
 
     def test_a_few_hundredths_of_overrun_change_nothing(self):
-        """Les bornes des deux découpes ne coïncident jamais exactement.
+        """The bounds of the two cuts never coincide exactly.
 
-        Mesuré : la dernière réplique de la réunion de table tenait 0,98 — un
-        chevauchement de 0,2 s sur le tour voisin. Refuser de trancher là
-        laisserait la moitié des phrases sans voix.
+        Measured: the last utterance of the table meeting held 0.98, an overlap of 0.2 s
+        onto the neighbouring turn. Refusing to decide there would leave half the
+        sentences with no voice.
         """
         turns = [turn("1", 41.9, 50.4), turn("0", 35.0, 41.2)]
         assert voice_of(Span(41.0, 50.4), turns) == "1"
 
     def test_a_sentence_astride_a_speaker_change_names_nobody(self):
-        """Le cas mesuré : « Merci Pierre… », dit par Jacques, donné à Pierre.
+        """The measured case: "Merci Pierre…", said by Jacques, given to Pierre.
 
-        La phrase transcrite couvre 9,6 s du tour de Pierre et 6,1 s de celui
-        de Jacques, soit 0,61 pour le meneur. L'ancienne règle du plus bavard
-        attribuait la phrase entière à Pierre.
+        The transcribed sentence covers 9.6 s of Pierre's turn and 6.1 s of Jacques's,
+        which is 0.61 for the leader. The old most-talkative rule gave the whole
+        sentence to Pierre.
         """
         turns = [turn("pierre", 24.55, 34.14), turn("jacques", 34.96, 41.07)]
         assert voice_of(Span(23.77, 41.07), turns) is None
@@ -44,13 +44,13 @@ class TestWhoseVoice:
         assert voice_of(Span(0.0, 10.0), turns) is None
 
     def test_the_threshold_is_met_at_the_minimum_share(self):
-        """Pile au seuil, on tranche : le refus commence en dessous."""
+        """Exactly at the threshold it decides: the refusal starts below."""
         turns = [turn("0", 0.0, 8.0), turn("1", 8.0, 10.0)]
         assert voice_of(Span(0.0, 10.0), turns, PART_MINIMALE) == "0"
         assert voice_of(Span(0.0, 10.0), turns, 0.81) is None
 
     def test_the_scattered_pieces_of_one_voice_add_up(self):
-        """Une voix coupée en deux par une interjection reste la même voix."""
+        """A voice cut in two by an interjection is still the same voice."""
         turns = [turn("0", 0.0, 4.0), turn("1", 4.0, 4.5), turn("0", 4.5, 10.0)]
         assert voice_of(Span(0.0, 10.0), turns) == "0"
 

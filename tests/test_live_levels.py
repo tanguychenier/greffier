@@ -1,10 +1,10 @@
-"""Lecture des niveaux dans le fichier que ffmpeg est en train d'écrire.
+"""Reading the levels in the file ffmpeg is currently writing.
 
-Le cas nommé : l'interface affichait « les autres parlent » quand c'était la
-personne qui enregistrait. L'en-tête d'un WAV produit par ffmpeg fait 102 octets
-et non 44 — un « fmt » étendu de 40 octets, puis un chunk « LIST » de 26 — et
-lire à la mauvaise base décalait la lecture de 29 échantillons, donc de deux
-canaux sur trois.
+The case that named it: the window showed "the others are speaking" when it was
+whoever was recording. The header of a WAV produced by ffmpeg is 102 bytes and
+not 44 — an extended "fmt" of 40 bytes, then a "LIST" chunk of 26 — and reading
+from the wrong base shifted the reading by 29 samples, so by two channels out of
+three.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ def wav(
     avec_liste: bool = False,
     fmt_etendu: bool = False,
 ) -> Path:
-    """Fabrique un WAV, avec ou sans les chunks que ffmpeg ajoute."""
+    """Builds a WAV, with or without the chunks ffmpeg adds."""
     entrelace = bytearray()
     for trame in zip(*channels, strict=True):
         for value in trame:
@@ -38,7 +38,7 @@ def wav(
     if avec_liste:
         info = b"INFOISFT" + struct.pack("<I", 14) + b"Lavf62.0.100\x00\x00"
         chunks += b"LIST" + struct.pack("<I", len(info)) + info
-    # ffmpeg annonce une taille indéterminée tant que le fichier est ouvert.
+    # ffmpeg announces an unknown size while the file is still open.
     chunks += b"data" + struct.pack("<I", 0xFFFFFFFF) + bytes(entrelace)
     path.write_bytes(b"RIFF" + struct.pack("<I", len(chunks) + 4) + b"WAVE" + chunks)
     return path
@@ -55,7 +55,7 @@ class TestLectureDeLEntete:
         assert forme.channels == 3 and forme.debut_donnees == 44
 
     def test_l_entete_reel_de_ffmpeg_est_lu(self, tmp_path: Path) -> None:
-        # « fmt » étendu plus « LIST » : 102 octets, la forme observée en usage.
+        # Extended "fmt" plus "LIST": 102 bytes, the shape seen in use.
         forme = lire_forme(
             wav(tmp_path / "b.wav", [FORT, MUET, MUET], avec_liste=True, fmt_etendu=True)
         )
@@ -105,12 +105,11 @@ class TestWhoIsSpeaking:
         assert read_level(tmp_path / "jamais-ecrit.wav") is None
 
 
-class TestDureeEcrite:
-    """Combien de son le fichier porte, pendant que ffmpeg l'écrit.
+class TestTheLengthWrittenSoFar:
+    """How much sound the file carries while ffmpeg is writing it.
 
-    C'est cette durée que suit la transcription en direct. L'horloge de la
-    réunion ne convient pas : elle retire les pauses, alors que le fichier ne
-    contient que ce qui a été capté.
+    That length is what the live transcription follows. The meeting clock will not
+    do: it takes the pauses out, while the file holds only what was captured.
     """
 
     def test_the_length_is_counted_in_bytes_not_in_the_header(self, tmp_path: Path) -> None:

@@ -1,9 +1,9 @@
-"""La veille, le fil et l'assistant, ensemble, sur du vrai son.
+"""The watch, the thread and the assistant together, on real sound.
 
-Les tests unitaires éprouvent chaque pièce ; celui-ci éprouve leur montage.
-C'est le scénario de la démonstration : la réunion tourne, quelqu'un appelle
-l'assistant par son prénom, et il répond — sans que la transcription prenne du
-retard pendant qu'il réfléchit.
+The unit tests cover each piece; this one covers how they are assembled. It is
+the scenario of the demonstration: the meeting is running, somebody calls the
+assistant by its first name, and it answers, without the transcription falling
+behind while it thinks.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ class FakeVoiceAdapter:
 
 
 class FakeBrain:
-    """Le cerveau est doublé : on éprouve le montage, pas le modèle distant."""
+    """The brain is doubled: what is covered is the assembly, not the remote model."""
 
     def __init__(self):
         self.consignes_propres = ""
@@ -72,7 +72,7 @@ def meeting(tmp_path):
 
 
 def test_called_during_the_meeting_it_answers(meeting, tmp_path):
-    """Le scénario de la démonstration, de bout en bout."""
+    """The scenario of the demonstration, end to end."""
     transcriber = light_transcriber(Config())
     if transcriber is None:
         pytest.skip("aucun modèle de transcription installé")
@@ -80,8 +80,8 @@ def test_called_during_the_meeting_it_answers(meeting, tmp_path):
     voice, cerveau = FakeVoiceAdapter(), FakeBrain()
     assistant = AssistantSettings(
         name="Lucie", voice=voice, cerveau=cerveau,
-        # Un creux large : le fichier s'arrête sur la phrase, donc la fin de la
-        # dernière réplique tombe près de « maintenant ».
+        # A wide lull: the file stops on the sentence, so the end of the last
+        # utterance falls near "now".
         manners=Manners(creux_minimal=0.0),
         context=lambda: "Réunion d'équipe sur la recette.",
     )
@@ -96,8 +96,8 @@ def test_called_during_the_meeting_it_answers(meeting, tmp_path):
         assistant_of=assistant,
     )
     watcher.transcription_turn(watcher.situer(), tmp_path)
-    # La réponse est formulée dans un fil séparé : on l'attend, sans quoi le
-    # test mesurerait seulement qu'on ne bloque pas la transcription.
+    # The answer is phrased in a separate thread: it is waited for, or the
+    # test would only measure that the transcription is not blocked.
     if assistant._job is not None:
         assistant._job.join(timeout=30)
 
@@ -106,10 +106,10 @@ def test_called_during_the_meeting_it_answers(meeting, tmp_path):
 
 
 def test_the_transcription_does_not_wait_for_the_answer(meeting, tmp_path):
-    """Formuler prend des secondes ; les passer à attendre coûte de l'audio.
+    """Phrasing takes seconds; spending them waiting costs audio.
 
-    On mesure que la main revient avant que le cerveau ait répondu, ce qui est
-    précisément ce que le fil séparé garantit.
+    What is measured is that control comes back before the brain has answered,
+    which is exactly what the separate thread guarantees.
     """
     import threading
     import time
@@ -146,13 +146,13 @@ def test_the_transcription_does_not_wait_for_the_answer(meeting, tmp_path):
     rendered = time.monotonic() - depart
 
     assert parti.wait(timeout=10), "l'assistant n'a pas été sollicité"
-    # La transcription elle-même prend quelques secondes ; ce qu'on vérifie est
-    # qu'elle n'a pas attendu les cinq du cerveau par-dessus.
+    # The transcription itself takes a few seconds; what is checked is that it
+    # did not wait for the brain's five on top of them.
     assert rendered < 5.0, f"la veille a attendu la réponse ({rendered:.1f} s)"
 
 
 def test_an_ordinary_sentence_does_not_make_it_speak(tmp_path):
-    """Sans son nom, rien ne se déclenche : c'est le cas de toute la réunion."""
+    """Without its name nothing fires, which is the case for the whole meeting."""
     if shutil.which("say") is None or shutil.which("ffmpeg") is None:
         pytest.skip("« say » ou ffmpeg absent")
     transcriber = light_transcriber(Config())
@@ -184,7 +184,7 @@ def test_an_ordinary_sentence_does_not_make_it_speak(tmp_path):
 
 
 def test_no_assistant_changes_nothing(meeting, tmp_path):
-    """La veille sans assistant est ce qu'elle a toujours été."""
+    """The watch with no assistant is what it has always been."""
     transcriber = light_transcriber(Config())
     if transcriber is None:
         pytest.skip("aucun modèle de transcription installé")
@@ -215,14 +215,14 @@ def test_the_reason_for_speaking_is_the_call(meeting, tmp_path):
 
 @pytest.mark.integration
 class TestTheLoopOnARealThread:
-    """La boucle du transcripteur, sur le fil d'une vraie réunion.
+    """The transcriber's loop, on the thread of a real meeting.
 
-    Reconstitué depuis le fil du 2026-09-10 à 13 h 08, tel qu'il a été publié :
-    cent vingt-cinq tours dont soixante-cinq de répétition, quatre boucles
-    distinctes, la plus longue de douze segments d'une seconde.
+    Rebuilt from the thread of 2026-09-10 at 13:08, exactly as it was published:
+    a hundred and twenty-five turns, sixty-five of them repetition, four distinct
+    loops, the longest of twelve one-second segments.
     """
 
-    #: Les quatre boucles réellement observées, dans l'ordre du fil.
+    #: The four loops actually observed, in the order of the thread.
     OBSERVE = [
         ("Est-ce que tu entends Lucie ?", 30.0, 11),
         ("- C'est ça qu'on va faire.", 125.0, 12),
@@ -257,7 +257,7 @@ class TestTheLoopOnARealThread:
             assert gardee.span.end - gardee.span.start == expected
 
     def test_the_published_thread_no_longer_carries_the_repetition(self):
-        """Ce que la fenêtre affiche : une ligne par phrase dite."""
+        """What the window shows: one line per sentence said."""
         from greffier.domain.boilerplate import collapse_loops
 
         textes = [u.text for u in collapse_loops(self._fil())]
@@ -266,17 +266,16 @@ class TestTheLoopOnARealThread:
 
 @pytest.mark.integration
 class TestAnOldSettingNoLongerSilencesIt:
-    """Un réglage que l'interface n'expose plus ne doit plus décider.
+    """A setting the window no longer exposes must no longer decide.
 
-    Le défaut, vécu deux fois en réunion : le fichier de configuration portait
-    « actif = false », écrit à l'époque où un bouton existait pour ce réglage.
-    Passer la valeur par défaut à vrai n'a servi à rien — un fichier existant
-    garde la sienne — et comme l'interface n'exposait plus ce bouton, plus rien
-    ne pouvait le remettre. L'appel était bien entendu : « Est-ce que tu
-    entends, Lucie ? » figure douze fois dans le fil du 2026-09-10 à 13 h 08.
-    Elle n'a pas répondu une seule fois.
+    The defect, lived through twice in a meeting: the settings file carried
+    "actif = false", written when a button existed for it. Changing the default to
+    true achieved nothing, an existing file keeping its own value, and since the
+    window no longer exposed that button nothing could put it back. The call was
+    heard perfectly well: "Est-ce que tu entends, Lucie ?" appears twelve times in
+    the thread of 2026-09-10 at 13:08. It did not answer once.
 
-    Ce test lit un vrai fichier, dans l'état où les postes en portent un.
+    This test reads a real file, in the state machines carry one.
     """
 
     ANCIEN = """
@@ -307,7 +306,7 @@ initiative = false
         assert a_voix_haute, "la voix est réglée sur kokoro : elle doit parler"
 
     def test_cutting_the_voice_is_still_possible(self, tmp_path, monkeypatch):
-        """Le seul réglage qui décide encore, et il doit décider."""
+        """The only setting that still decides, and it has to decide."""
         a_voix_haute, _ = self._boutons(
             tmp_path, monkeypatch,
             '[assistant]\nactif = true\nnom = "Lucie"\nvoix = "aucun"\n',
@@ -322,7 +321,7 @@ initiative = false
         assert de_lui_meme
 
     def test_called_it_answers_despite_the_old_setting(self, meeting, tmp_path):
-        """Le scénario complet, avec le fichier qui l'avait rendue muette."""
+        """The whole scenario, with the file that had silenced it."""
         transcriber = light_transcriber(Config())
         if transcriber is None:
             pytest.skip("aucun modèle de transcription installé")
@@ -344,8 +343,8 @@ initiative = false
                 offset=0.0,
             ),
             assistant_of=assistant,
-            # Ce que la veille lit du fichier : la voix est donnée, pas
-            # d'initiative. « actif » n'entre plus dans la décision.
+            # What the watch reads from the file: the voice is granted, no
+            # initiative. "actif" no longer enters the decision.
             reread_participation=lambda: (True, False),
         )
         watcher.transcription_turn(watcher.situer(), tmp_path)

@@ -1,4 +1,4 @@
-"""Le contexte du milieu : ce qu'un modèle ne peut pas deviner."""
+"""The context of a working setting: what a model cannot guess."""
 
 import pytest
 
@@ -25,11 +25,11 @@ class TestATerm:
 
 
 class TestThePromptSeed:
-    """Ce qui décide de l'orthographe pendant la transcription.
+    """What decides the spelling during the transcription.
 
-    Mesuré le 2026-09-09 sur une réunion réelle : « déploiement » rendu
-    « exploitement », « emploi du temps » rendu « emploi fictif ». Ces mots ne
-    sont nulle part dans ce qu'un modèle a appris.
+    Measured on 2026-09-09 on a real meeting: "déploiement" returned as
+    "exploitement", "emploi du temps" returned as "emploi fictif". Those words are
+    nowhere in what a model has learnt.
     """
 
     def test_terms_and_names_are_in_it_together(self):
@@ -42,7 +42,7 @@ class TestThePromptSeed:
         assert "Katell" in prompt_seed
 
     def test_the_meaning_does_not_clutter_the_seed(self):
-        """Le transcripteur ne raisonne pas : lui donner des définitions le noie."""
+        """The transcriber does not reason: giving it definitions drowns it."""
         prompt_seed = Context(termes=(Term("OTP", "mot de passe à usage unique"),)).prompt_seed()
         assert "OTP" in prompt_seed
         assert "usage unique" not in prompt_seed
@@ -60,7 +60,7 @@ class TestThePromptSeed:
         assert context.ecartes(), "il faut pouvoir avertir plutôt que tronquer en silence"
 
     def test_no_term_is_cut_in_half(self):
-        """Une écriture coupée apprend une orthographe fausse : pire que rien."""
+        """A spelling cut in half teaches a wrong one: worse than nothing."""
         context = Context(termes=tuple(Term(f"terme-{n:03d}") for n in range(200)))
         for word in context.prompt_seed().split("Vocabulaire : ")[1].rstrip(".").split(", "):
             assert word.startswith("terme-") and len(word) == len("terme-000")
@@ -71,7 +71,7 @@ class TestThePromptSeed:
 
 
 class TestTheHeaderForTheWriter:
-    """Ce que le rédacteur reçoit : les écritures **et** leur sens."""
+    """What the writer receives: the spellings **and** their meanings."""
 
     def test_the_meanings_are_given_to_the_writer(self):
         header = Context(termes=(Term("OTP", "mot de passe à usage unique"),)).header()
@@ -90,7 +90,7 @@ class TestTheHeaderForTheWriter:
 
 
 class TestJoiningTwoContexts:
-    """Le contexte du poste, complété par celui d'une réunion précise."""
+    """The context of the machine, completed by that of one meeting."""
 
     def test_the_more_precise_one_wins(self):
         general = Context(termes=(Term("OTP", "ancien sens"),))

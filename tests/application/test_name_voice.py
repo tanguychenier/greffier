@@ -27,14 +27,16 @@ def a_meeting(**overrides) -> StoredMeeting:
 
 class TestTheVoicesOfferedForNaming:
     def test_a_short_voice_with_no_clue_stays_out(self):
-        """Le comportement d'origine, préservé : un fragment sans rien pour le
-        rattacher ne doit pas passer pour un participant."""
+        """The original behaviour, kept: a fragment with nothing to attach it to must not
+        pass for a participant.
+        """
         meeting = a_meeting()
         assert "2" not in {v.voice for v in voices_to_name(meeting)}
 
     def test_a_guess_on_a_short_voice_is_not_lost(self):
-        """Le défaut corrigé : un prénom détecté dans une réponse brève doit
-        survivre au filtre de durée, sans quoi il ne s'affiche jamais."""
+        """The defect fixed: a first name found in a brief answer has to survive the
+        length filter, or it never shows at all.
+        """
         meeting = a_meeting(propositions={"2": "Kilian"})
         input = next(v for v in voices_to_name(meeting) if v.voice == "2")
         assert input.proposition == "Kilian"
@@ -51,8 +53,9 @@ class TestTheVoicesOfferedForNaming:
         assert "1" in {v.voice for v in voices_to_name(meeting)}
 
     def test_the_share_ignores_the_short_voices_brought_back_in(self):
-        """Réintroduire une voix courte ne doit pas diluer la part de celles
-        qui dépassent déjà le seuil de matière."""
+        """Bringing a short voice back in must not dilute the share of the ones already
+        past the material threshold.
+        """
         meeting = a_meeting(propositions={"2": "Kilian"})
         longue = next(v for v in voices_to_name(meeting) if v.voice == "1")
         assert longue.part == 1.0
@@ -98,12 +101,11 @@ def a_naming_setup(meeting):
 
 class TestNamingJoinsTheVoices:
     def test_two_voices_of_one_first_name_become_one(self):
-        """Le geste qu'on fait sans le savoir.
+        """The gesture one makes without knowing it.
 
-        Nommer « Marcel » une deuxième voix, c'est dire qu'elle est de Marcel,
-        donc de la même personne. Sans réunion, le compte rendu annonçait deux
-        Marcel, et une réunion réelle a demandé trente-six nommages à la main
-        pour trois personnes présentes.
+        Naming a second voice "Marcel" says it is Marcel's, so the same person's.
+        Without joining them the minutes announced two Marcels, and one real meeting
+        took thirty-six namings by hand for three people in the room.
         """
         meeting = a_meeting(
             utterances=[Utterance(Span(0, 40), "bonjour", "1"),
@@ -118,7 +120,7 @@ class TestNamingJoinsTheVoices:
         assert len(set(t.voice for t in rendered.turns)) == 1
 
     def test_the_best_fed_voice_keeps_its_identifier(self):
-        """C'est son extrait qu'on réécoutera : autant que ce soit le plus long."""
+        """Its extract is the one that will be listened to: it may as well be the longest."""
         meeting = a_meeting(
             utterances=[Utterance(Span(0, 5), "oui", "petite"),
                        Utterance(Span(10, 90), "un long propos", "grande")],
@@ -143,7 +145,7 @@ class TestNamingJoinsTheVoices:
 
 class TestNamingRefusesWhatIsNotAName:
     def test_a_label_of_the_window_does_not_enter_the_bank(self):
-        """La banque du poste portait « A nommer ». Plus jamais."""
+        """The bank on this machine carried "A nommer". Never again."""
         import pytest
 
         naming = a_naming_setup(a_meeting())
@@ -162,7 +164,7 @@ class TestNamingRefusesWhatIsNotAName:
 
 class TestForgettingAName:
     def test_a_name_given_by_mistake_can_be_taken_back(self):
-        """Le geste le plus coûteux de l'outil n'était pas défaisable."""
+        """The most expensive gesture in the tool could not be undone."""
         meeting = a_meeting(names={"1": "Marcel"})
         rendered = a_naming_setup(meeting).forget("2026-08-24_reunion", "1")
         assert rendered.names == {}
