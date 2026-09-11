@@ -8,6 +8,7 @@ import importlib.util
 from pathlib import Path
 
 from greffier.domain.models import Span, Utterance
+from greffier.domain.transcription import without_loop
 
 _CUDA_LIBRARIES = (
     "cublas/lib/libcublasLt.so*",
@@ -68,7 +69,8 @@ class FasterWhisperTranscriber:
             vad_filter=True,
         )
         return [
-            Utterance(span=Span(s.start, s.end), text=s.text.strip())
+            Utterance(span=Span(s.start, s.end),
+                      text=without_loop(s.text.strip()))
             for s in segments
             if s.text.strip()
         ]
