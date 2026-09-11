@@ -1,7 +1,7 @@
-"""Sauvegarder, et surtout restaurer.
+"""Backing up, and above all restoring.
 
-Une sauvegarde qu'on n'a jamais restaurée est une hypothèse. Ces tests jouent
-l'aller **et** le retour.
+A backup nobody ever restored is a hypothesis. These tests play the journey out
+**and** back.
 """
 
 from datetime import UTC, datetime
@@ -12,7 +12,7 @@ from greffier.application.back_up import do_it, lister, restore
 
 
 def lay_out_some_data(root):
-    """Une installation vraisemblable : du texte, et de l'audio à ne pas prendre."""
+    """A believable installation: some text, and audio that must not be taken."""
     for folder, file, content in (
         ("banque-de-voix", "sophie.json", '{"nom": "Sophie"}'),
         ("reunions", "2026-09-09_10h05_reunion.json", '{"identifiant": "x"}'),
@@ -45,7 +45,7 @@ class TestWhatIsCarriedAway:
         assert "comptes-rendus" in faite.dossiers
 
     def test_the_audio_is_not_taken(self, tmp_path):
-        """1,1 Go contre 3 Mo : c'est lui qui rend la sauvegarde possible."""
+        """1.1 GB against 3 MB: it is what makes the backup possible at all."""
         data = lay_out_some_data(tmp_path / "donnees")
         faite = do_it(data, None, tmp_path / "copies")
         assert "enregistrements" not in faite.dossiers
@@ -56,14 +56,14 @@ class TestWhatIsCarriedAway:
         assert "modeles" not in do_it(data, None, tmp_path / "copies").dossiers
 
     def test_the_settings_and_the_registers_are_taken(self, tmp_path):
-        """Ils se réécrivent à la main : c'est ce qu'on veut éviter."""
+        """They would have to be typed again by hand: that is what to avoid."""
         data = lay_out_some_data(tmp_path / "donnees")
         config = lay_out_the_config(tmp_path / "config")
         faite = do_it(data, config, tmp_path / "copies")
         assert "configuration" in faite.dossiers
 
     def test_a_fresh_installation_does_not_make_it_fail(self, tmp_path):
-        """Ni conversations ni questions : ce n'est pas une anomalie."""
+        """Neither conversations nor questions: that is not an anomaly."""
         empty = tmp_path / "vide"
         empty.mkdir()
         faite = do_it(empty, None, tmp_path / "copies")
@@ -85,8 +85,9 @@ class TestRestoring:
             encoding="utf-8") == "Bonjour."
 
     def test_restoring_refuses_to_overwrite_by_default(self, tmp_path):
-        """Restaurer la semaine dernière par-dessus le jour ferait plus de dégâts
-        que la panne qu'on réparait."""
+        """Restoring last week over today would do more damage than the failure being
+        repaired.
+        """
         data = lay_out_some_data(tmp_path / "donnees")
         faite = do_it(data, None, tmp_path / "copies")
         with pytest.raises(FileExistsError, match="rien n'a été touché"):
@@ -124,7 +125,7 @@ class TestKeepingOnlySoMany:
 
 class TestAnArchiveCutShort:
     def test_no_half_written_archive_is_left(self, tmp_path):
-        """Une archive tronquée ne doit pas passer pour valable."""
+        """A truncated archive must not pass for a valid one."""
         data = lay_out_some_data(tmp_path / "donnees")
         copies = tmp_path / "copies"
         do_it(data, None, copies)
@@ -133,8 +134,9 @@ class TestAnArchiveCutShort:
 
 class TestWhereTheArchiveIsWritten:
     def test_the_same_disk_is_flagged(self, tmp_path):
-        """Confondre « une copie existe » et « le travail est à l'abri » est la
-        façon habituelle de n'avoir aucune sauvegarde le jour venu."""
+        """Confusing "a copy exists" with "the work is safe" is the usual way of having no
+        backup at all on the day it matters.
+        """
         data = lay_out_some_data(tmp_path / "Greffier")
         faite = do_it(data, None, tmp_path / "Greffier" / "sauvegardes")
         assert faite.on_the_same_disk is True
@@ -147,8 +149,9 @@ class TestWhereTheArchiveIsWritten:
     def test_a_folder_named_after_the_tool_is_not_the_same_disk(
         self, tmp_path
     ):
-        """« Greffier-sauvegardes » dans un espace synchronisé contient le mot
-        « Greffier » : chercher le mot prévenait qui avait fait ce qu'il faut."""
+        """"Greffier-sauvegardes" in a synchronised space holds the word "Greffier":
+        looking for the word warned whoever had done the right thing.
+        """
         data = lay_out_some_data(tmp_path / "Greffier")
         faite = do_it(data, None, tmp_path / "nuage" / "Greffier-sauvegardes")
         assert faite.on_the_same_disk is False
