@@ -92,7 +92,7 @@ class TestTheLanguage:
 
 class TestTheLookOfTheWindow:
     def test_the_theme_follows_the_system_by_default(self):
-        """Une application qui impose son goût jure avec le reste de l'écran."""
+        """An application that imposes its taste clashes with the rest of the screen."""
         assert Config().appearance.theme == "systeme"
 
     def test_the_theme_can_be_forced(self):
@@ -112,7 +112,7 @@ class TestWhereTheSettingsComeFrom:
         assert Config().minutes.recipient == "moi@exemple.fr"
 
     def test_the_environment_wins_over_the_env_file(self, tmp_path, monkeypatch):
-        """On doit pouvoir forcer un réglage le temps d'une commande."""
+        """It must be possible to force a setting for one command."""
         (tmp_path / ".env").write_text("GREFFIER_MINUTES__ENGINE=claude\n", encoding="utf-8")
         monkeypatch.chdir(tmp_path)
         monkeypatch.setenv("GREFFIER_MINUTES__ENGINE", "aucun")
@@ -135,7 +135,7 @@ class TestWhereTheSettingsComeFrom:
         assert Config.load(tmp_path / "nulle-part.toml").minutes.engine == "claude"
 
     def test_an_unreadable_file_is_an_error(self, tmp_path):
-        """Mieux vaut le dire qu'appliquer autre chose que ce qui est écrit."""
+        """Better to say so than to apply something other than what is written."""
         file = tmp_path / "casse.toml"
         file.write_text("[compte_rendu\nmoteur =", encoding="utf-8")
         with pytest.raises(ValueError, match="illisible"):
@@ -168,7 +168,7 @@ class TestTheAssistantIsOnByDefault:
         assert Config().assistant.active
 
     def test_but_it_does_not_speak_of_its_own_accord(self):
-        """Répondre est sans risque ; parler de soi-même se décide."""
+        """Answering carries no risk; speaking unprompted is a decision."""
         from greffier.adapters.configuration import Config
 
         assistant = Config().assistant
@@ -192,7 +192,7 @@ class TestTheFirstNamesThatWereTested:
         assert all(speaker_index in KINDS for speaker_index in FIRST_NAMES.values())
 
     def test_both_genders_are_offered(self):
-        """Sinon le choix n'en est pas un."""
+        """Otherwise the choice is not one."""
         from greffier.adapters.configuration import FIRST_NAMES
 
         assert set(FIRST_NAMES.values()) == {0, 1}
@@ -210,10 +210,10 @@ class TestTheFirstNamesThatWereTested:
         assert AssistantSettings(name="Aurélien", speaker_index=1).effective_speaker == 1
 
     def test_no_dropped_name_lingers_in_the_list(self):
-        """« Élise » se déclenche sur « elle a lu ci et ça », mesuré.
+        """"Élise" fires on "elle a lu ci et ça", measured.
 
-        « Greffier » lui-même est écarté pour la même raison : « le greffe du
-        tribunal » suffisait à l'appeler.
+        "Greffier" itself is dropped for the same reason: "le greffe du tribunal" was
+        enough to call it.
         """
         from greffier.adapters.configuration import FIRST_NAMES
 
@@ -221,7 +221,7 @@ class TestTheFirstNamesThatWereTested:
         assert "Greffier" not in FIRST_NAMES
 
     def test_every_first_name_recognises_itself(self):
-        """Le contrôle minimal : la règle d'appel doit le voir dans une phrase."""
+        """The minimal check: the calling rule has to see it in a sentence."""
         from greffier.adapters.configuration import FIRST_NAMES
         from greffier.domain.participation import called_by_name
 
@@ -299,7 +299,7 @@ theme = "sombre"
         assert config.appearance.theme == "sombre"
 
     def test_the_keys_written_back_are_the_same(self, tmp_path):
-        """Ce qui est réécrit doit pouvoir être relu : c'est le vrai cycle."""
+        """What is written back has to be readable again: that is the real cycle."""
         from greffier.adapters.configuration import Config, render
 
         rendered = render(self._config_in(tmp_path))
@@ -311,7 +311,7 @@ theme = "sombre"
         assert relu.appearance.theme == "sombre"
 
     def test_an_unknown_key_does_not_bring_it_down(self, tmp_path):
-        """Un réglage retiré d'une version à l'autre ne doit rien casser."""
+        """A setting removed from one version to the next must break nothing."""
         from greffier.adapters.configuration import Config
 
         file = tmp_path / "config.toml"

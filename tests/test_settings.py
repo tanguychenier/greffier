@@ -1,10 +1,10 @@
-"""L'écriture de `config.toml` : ce qui se règle depuis la fenêtre doit se relire.
+"""Writing `config.toml`: what is set from the window has to read back.
 
-Le risque n'est pas de mal écrire une ligne, c'est d'en perdre une. Le fichier
-est régénéré à chaque enregistrement : un champ oublié par le module dispa­raît
-du poste, silencieusement, et la transcription suivante s'en trouve dégradée
-sans que rien ne l'annonce. Ces tests éprouvent donc surtout la **fidélité de
-l'aller-retour**, section par section.
+The risk is not writing a line badly, it is losing one. The file is regenerated
+on every save: a field the module forgot disappears from the machine, silently,
+and the next transcription is the worse for it with nothing to announce it.
+These tests therefore mostly cover the **fidelity of the round trip**, section
+by section.
 """
 
 import tomllib
@@ -17,7 +17,7 @@ from greffier.adapters.configuration import Config
 
 @pytest.fixture(autouse=True)
 def without_an_environment(monkeypatch, tmp_path):
-    """Isole du poste : sinon la configuration personnelle est lue et relue."""
+    """Isolates from the machine: otherwise the personal settings are read back."""
     import os
 
     for key in list(os.environ):
@@ -29,8 +29,8 @@ def without_an_environment(monkeypatch, tmp_path):
 
 
 @pytest.fixture
-def garnie():
-    """Une configuration dont chaque section porte autre chose que le défaut."""
+def filled_in():
+    """Settings where every section carries something other than the default."""
     return Config(
         audio={"micro": "Jabra EVOLVE 30 II", "duree_maximale": 7200},
         transcription={"modele": "large-v3-turbo", "langue": "en",
@@ -44,20 +44,20 @@ def garnie():
 
 
 class TestTheRoundTrip:
-    def test_everything_written_reads_back_identical(self, garnie):
-        relu = Config.model_validate(tomllib.loads(settings.render(garnie)))
+    def test_everything_written_reads_back_identical(self, filled_in):
+        relu = Config.model_validate(tomllib.loads(settings.render(filled_in)))
         for section in settings.SECTIONS:
             attribut = settings.SOUS_MODELE.get(section, section)
-            expected = getattr(garnie, attribut).model_dump()
+            expected = getattr(filled_in, attribut).model_dump()
             assert getattr(relu, attribut).model_dump() == expected, section
 
     def test_default_settings_read_back_too(self):
         rendered = settings.render(Config())
         assert Config.model_validate(tomllib.loads(rendered)) == Config()
 
-    def test_the_toml_produced_is_readable(self, garnie):
-        """Un fichier illisible ne serait découvert qu'à la commande suivante."""
-        assert tomllib.loads(settings.render(garnie))
+    def test_the_toml_produced_is_readable(self, filled_in):
+        """An unreadable file would only be discovered on the next command."""
+        assert tomllib.loads(settings.render(filled_in))
 
     def test_les_accents_restent_tels_quels(self):
         """Un vocabulaire échappé rendrait l'amorce du modèle inutilisable."""
@@ -71,7 +71,7 @@ class TestTheRoundTrip:
 
 class TestWhatIsNeverWritten:
     def test_the_paths_are_never_frozen_in(self):
-        """Les figer est ce qui faisait lire l'ancien dossier à un poste déménagé."""
+        """Freezing them is what made a machine that had moved read the old folder."""
         assert "[chemins]" not in settings.render(Config())
         assert "chemins" not in settings.SECTIONS
 
@@ -87,8 +87,8 @@ class TestWhatIsNeverWritten:
 
 
 class TestWritingTheSettingsFile:
-    def test_the_file_is_written_where_the_settings_are_read(self, tmp_path, garnie):
-        file = settings.save_settings(garnie, folder=tmp_path / "ailleurs")
+    def test_the_file_is_written_where_the_settings_are_read(self, tmp_path, filled_in):
+        file = settings.save_settings(filled_in, folder=tmp_path / "ailleurs")
         assert file == tmp_path / "ailleurs/config.toml"
         assert Config.load(file).appearance.theme == "sombre"
 
@@ -110,8 +110,9 @@ class TestWritingTheSettingsFile:
         assert [f.name for f in folder.iterdir()] == ["config.toml"]
 
     def test_a_write_that_fails_destroys_nothing_existing(self, tmp_path, monkeypatch):
-        """L'enregistrement peut tomber pendant qu'une réunion tourne : le
-        fichier en place doit rester lisible, entier."""
+        """The save may fall over while a meeting is running: the file in place has to
+        stay readable, and whole.
+        """
         folder = tmp_path / "c"
         settings.save_settings(Config(appearance={"theme": "clair"}), folder=folder)
         avant = (folder / "config.toml").read_text(encoding="utf-8")
