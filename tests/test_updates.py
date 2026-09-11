@@ -10,7 +10,7 @@ from greffier.adapters import updates
 
 
 @pytest.fixture
-def installee_0_2_0(monkeypatch):
+def installed_0_2_0(monkeypatch):
     monkeypatch.setattr(updates, "installed_version", lambda: "0.2.0")
 
 
@@ -28,7 +28,7 @@ def answer(monkeypatch, content: dict) -> None:
     )
 
 
-def repondre_octets(monkeypatch, bytes_read: bytes) -> None:
+def answer_bytes(monkeypatch, bytes_read: bytes) -> None:
     """Une réponse binaire, avec sa longueur : c'est elle qui fait l'avancement."""
     class Response(BytesIO):
         headers = {"Content-Length": str(len(bytes_read))}
@@ -44,69 +44,69 @@ def repondre_octets(monkeypatch, bytes_read: bytes) -> None:
     )
 
 
-def echouer(monkeypatch, trouble: Exception) -> None:
+def fail_to_answer(monkeypatch, trouble: Exception) -> None:
     def tomber(*_args, **_options):
         raise trouble
 
     monkeypatch.setattr(updates.urllib.request, "urlopen", tomber)
 
 
-class TestQuandIlYAMieux:
-    def test_une_version_posterieure_est_proposee(self, monkeypatch, installee_0_2_0):
+class TestWhenThereIsSomethingBetter:
+    def test_a_later_version_is_offered(self, monkeypatch, installed_0_2_0):
         answer(monkeypatch, {"tag_name": "v0.3.0", "html_url": "https://exemple/0.3.0"})
         verdict = updates.check()
         assert verdict.update
         assert verdict.available == "0.3.0"
         assert verdict.adresse == "https://exemple/0.3.0"
 
-    def test_la_phrase_dit_les_deux_versions(self, monkeypatch, installee_0_2_0):
+    def test_the_sentence_says_both_versions(self, monkeypatch, installed_0_2_0):
         answer(monkeypatch, {"tag_name": "v0.3.0"})
         said = updates.check().say()
         assert "0.3.0" in said and "0.2.0" in said
 
 
-class TestQuandIlNYAPasMieux:
-    def test_the_same_version_offers_nothing(self, monkeypatch, installee_0_2_0):
+class TestWhenThereIsNothingBetter:
+    def test_the_same_version_offers_nothing(self, monkeypatch, installed_0_2_0):
         answer(monkeypatch, {"tag_name": "v0.2.0"})
         assert updates.check().up_to_date
 
-    def test_an_earlier_version_offers_nothing(self, monkeypatch, installee_0_2_0):
+    def test_an_earlier_version_offers_nothing(self, monkeypatch, installed_0_2_0):
         """Une release plus ancienne que l'installée ne doit rien déclencher."""
         answer(monkeypatch, {"tag_name": "v0.1.0"})
         assert updates.check().up_to_date
 
 
-class TestQuandRienNeRepond:
+class TestWhenNothingAnswers:
     """Une vérification qui fait tomber la fenêtre serait un très mauvais échange."""
 
-    def test_sans_reseau_le_souci_est_rapporte(self, monkeypatch, installee_0_2_0):
-        echouer(monkeypatch, urllib.error.URLError("injoignable"))
+    def test_with_no_network_the_trouble_is_reported(self, monkeypatch, installed_0_2_0):
+        fail_to_answer(monkeypatch, urllib.error.URLError("injoignable"))
         verdict = updates.check()
         assert "réseau" in verdict.trouble
         assert not verdict.update
 
-    def test_aucune_version_publiee_n_est_pas_une_panne(self, monkeypatch, installee_0_2_0):
-        echouer(monkeypatch, urllib.error.HTTPError("u", 404, "absent", {}, None))  # type: ignore[arg-type]
+    def test_no_published_version_is_not_a_failure(self, monkeypatch, installed_0_2_0):
+        fail_to_answer(monkeypatch, urllib.error.HTTPError("u", 404, "absent", {}, None))  # type: ignore[arg-type]
         assert "aucune version publiée" in updates.check().trouble
 
-    def test_une_reponse_illisible_ne_leve_rien(self, monkeypatch, installee_0_2_0):
+    def test_an_unreadable_answer_raises_nothing(self, monkeypatch, installed_0_2_0):
         monkeypatch.setattr(updates.urllib.request, "urlopen",
                             lambda *_a, **_k: (_ for _ in ()).throw(ValueError("cassé")))
         assert updates.check().trouble
 
-    def test_une_release_sans_etiquette_est_refusee(self, monkeypatch, installee_0_2_0):
+    def test_a_release_with_no_tag_is_refused(self, monkeypatch, installed_0_2_0):
         answer(monkeypatch, {"html_url": "https://exemple"})
         assert "étiquette" in updates.check().trouble
 
-    def test_sans_version_installee_on_ne_conclut_rien(self, monkeypatch):
+    def test_with_no_installed_version_nothing_is_concluded(self, monkeypatch):
         monkeypatch.setattr(updates, "installed_version", lambda: "")
         assert updates.check().trouble
 
 
-class TestInstallation:
+class TestInstallingFromTheSources:
     """Une mise à jour ne doit jamais emporter le travail de qui développe."""
 
-    def depot_git(self, tmp_path, clean: bool = True):
+    def a_git_repository(self, tmp_path, clean: bool = True):
         import subprocess
 
         store = tmp_path / "greffier"
@@ -123,13 +123,13 @@ class TestInstallation:
             (store / "macos" / "construire.sh").write_text("modifié\n", encoding="utf-8")
         return store
 
-    def test_sans_depot_grave_l_installation_est_refusee(self, monkeypatch):
+    def test_with_no_repository_recorded_installing_is_refused(self, monkeypatch):
         monkeypatch.delenv("GREFFIER_DEPOT_SOURCE", raising=False)
         possible, because = updates.installable()
         assert possible is False
         assert "introuvable" in because
 
-    def test_un_dossier_qui_n_est_pas_un_depot_est_refuse(self, monkeypatch, tmp_path):
+    def test_a_folder_that_is_not_a_repository_is_refused(self, monkeypatch, tmp_path):
         (tmp_path / "macos").mkdir()
         (tmp_path / "macos" / "construire.sh").write_text("#!/bin/bash\n", encoding="utf-8")
         monkeypatch.setenv("GREFFIER_DEPOT_SOURCE", str(tmp_path))
@@ -137,43 +137,43 @@ class TestInstallation:
         assert possible is False
         assert "git" in because
 
-    def test_un_depot_propre_est_accepte(self, monkeypatch, tmp_path):
-        store = self.depot_git(tmp_path)
+    def test_a_clean_repository_is_accepted(self, monkeypatch, tmp_path):
+        store = self.a_git_repository(tmp_path)
         monkeypatch.setenv("GREFFIER_DEPOT_SOURCE", str(store))
         possible, where_in = updates.installable()
         assert possible is True
         assert where_in == str(store)
 
-    def test_un_depot_modifie_est_refuse(self, monkeypatch, tmp_path):
+    def test_a_modified_repository_is_refused(self, monkeypatch, tmp_path):
         """« git pull » sur un arbre sale échoue à moitié : mieux vaut refuser avant."""
-        store = self.depot_git(tmp_path, clean=False)
+        store = self.a_git_repository(tmp_path, clean=False)
         monkeypatch.setenv("GREFFIER_DEPOT_SOURCE", str(store))
         possible, because = updates.installable()
         assert possible is False
         assert "non validées" in because
 
 
-class TestRelais:
+class TestTheRelayScript:
     """Le relais attend la mort du processus avant de toucher au paquet."""
 
-    def test_il_attend_la_fin_du_processus(self):
+    def test_it_waits_for_the_process_to_end(self):
         assert 'kill -0 "$2"' in updates._RELAIS
 
-    def test_il_refuse_d_agir_si_l_application_tourne_encore(self):
+    def test_it_refuses_to_act_while_the_application_still_runs(self):
         assert "n'a pas quitté" in updates._RELAIS
 
-    def test_il_ne_fusionne_jamais(self):
+    def test_it_never_merges(self):
         """Un dépôt divergent ne doit pas être rafistolé par une mise à jour."""
         assert "git pull --ff-only" in updates._RELAIS
 
-    def test_un_pull_qui_echoue_laisse_le_paquet_intact(self):
+    def test_a_pull_that_fails_leaves_the_bundle_untouched(self):
         assert "le paquet est intact" in updates._RELAIS
 
-    def test_il_relance_l_application(self):
+    def test_it_starts_the_application_again(self):
         assert "open -a" in updates._RELAIS
 
 
-class TestPaquetPlusRecentQueLeProcessus:
+class TestABundleNewerThanTheProcess:
     """Un paquet reconstruit ne remplace pas l'application déjà lancée.
 
     Coût mesuré : deux heures passées à chercher trois boutons dans une fenêtre
@@ -181,13 +181,13 @@ class TestPaquetPlusRecentQueLeProcessus:
     fenêtre a maintenant de quoi le dire, et `construire.sh` de quoi relancer.
     """
 
-    def test_hors_du_paquet_la_question_ne_se_pose_pas(self):
+    def test_outside_a_bundle_the_question_does_not_arise(self):
         """Depuis la ligne de commande, le code suit le dépôt."""
         from greffier.adapters.updates import bundle_is_newer
 
         assert not bundle_is_newer("/usr/bin/python3")
 
-    def test_un_paquet_pose_apres_le_demarrage_est_signale(self, tmp_path):
+    def test_a_bundle_laid_down_after_startup_is_flagged(self, tmp_path):
         from greffier.adapters import updates
 
         faux = tmp_path / "Greffier.app" / "Contents" / "MacOS"
@@ -198,7 +198,7 @@ class TestPaquetPlusRecentQueLeProcessus:
         # la situation d'un paquet reconstruit sous une application qui tourne.
         assert updates.bundle_is_newer(str(executable))
 
-    def test_un_paquet_plus_vieux_ne_dit_rien(self, tmp_path):
+    def test_an_older_bundle_says_nothing(self, tmp_path):
         import os
         import time
 
@@ -212,14 +212,14 @@ class TestPaquetPlusRecentQueLeProcessus:
         os.utime(executable, (former, former))
         assert not updates.bundle_is_newer(str(executable))
 
-    def test_un_executable_disparu_ne_leve_pas(self, tmp_path):
+    def test_a_vanished_executable_does_not_raise(self, tmp_path):
         from greffier.adapters.updates import bundle_is_newer
 
         absent = tmp_path / "Greffier.app" / "Contents" / "MacOS" / "Greffier"
         assert not bundle_is_newer(str(absent))
 
 
-class TestLArtefactDeCeSysteme:
+class TestTheArtefactForThisSystem:
     """Le bouton doit prendre l'archive de **ce** système, et aucune autre.
 
     Les trois sont attachées à la même version publiée. Installer une archive
@@ -244,8 +244,8 @@ class TestLArtefactDeCeSysteme:
         ("Windows", "Greffier-windows.zip"),
         ("Linux", "Greffier-linux.tar.gz"),
     ])
-    def test_chaque_systeme_prend_la_sienne(
-        self, monkeypatch, installee_0_2_0, system, expected
+    def test_every_system_takes_its_own(
+        self, monkeypatch, installed_0_2_0, system, expected
     ):
         monkeypatch.setattr(updates.platform, "system", lambda: system)
         answer(monkeypatch, self.PUBLICATION)
@@ -254,8 +254,8 @@ class TestLArtefactDeCeSysteme:
         assert verdict.artefact.endswith(expected)
         assert verdict.downloadable
 
-    def test_un_systeme_inconnu_ne_propose_rien(
-        self, monkeypatch, installee_0_2_0
+    def test_an_unknown_system_offers_nothing(
+        self, monkeypatch, installed_0_2_0
     ):
         monkeypatch.setattr(updates.platform, "system", lambda: "Haiku")
         answer(monkeypatch, self.PUBLICATION)
@@ -263,8 +263,8 @@ class TestLArtefactDeCeSysteme:
         assert not verdict.downloadable
         assert verdict.update, "la version reste annoncée, seule l'archive manque"
 
-    def test_une_publication_sans_archive_le_dit(
-        self, monkeypatch, installee_0_2_0
+    def test_a_release_with_no_archive_says_so(
+        self, monkeypatch, installed_0_2_0
     ):
         """Arrive quand la construction a échoué pour un système : ça se dit."""
         monkeypatch.setattr(updates.platform, "system", lambda: "Darwin")
@@ -272,17 +272,17 @@ class TestLArtefactDeCeSysteme:
         verdict = updates.check()
         assert verdict.update and not verdict.downloadable
 
-    def test_une_version_a_jour_ne_telecharge_rien(self, monkeypatch):
+    def test_an_up_to_date_version_downloads_nothing(self, monkeypatch):
         monkeypatch.setattr(updates, "installed_version", lambda: "0.3.0")
         monkeypatch.setattr(updates.platform, "system", lambda: "Darwin")
         answer(monkeypatch, self.PUBLICATION)
         assert not updates.check().downloadable
 
 
-class TestTelechargerEtDeballer:
-    def test_l_archive_est_ecrite_et_l_avancement_dit(self, monkeypatch, tmp_path):
+class TestDownloadingAndUnpacking:
+    def test_the_archive_is_written_and_the_progress_told(self, monkeypatch, tmp_path):
         bytes_read = b"x" * 300000
-        repondre_octets(monkeypatch, bytes_read)
+        answer_bytes(monkeypatch, bytes_read)
         vus: list[tuple[int, int]] = []
         recu, where_in = updates.download(
             "https://exemple/a.zip", tmp_path / "a.zip",
@@ -292,22 +292,22 @@ class TestTelechargerEtDeballer:
         assert (tmp_path / "a.zip").read_bytes() == bytes_read
         assert vus and vus[-1][0] == len(bytes_read)
 
-    def test_une_archive_vide_est_refusee(self, monkeypatch, tmp_path):
+    def test_an_empty_archive_is_refused(self, monkeypatch, tmp_path):
         """Mieux vaut refuser que remplacer l'application par du vide."""
-        repondre_octets(monkeypatch, b"")
+        answer_bytes(monkeypatch, b"")
         recu, trouble = updates.download(
             "https://exemple/a.zip", tmp_path / "a.zip"
         )
         assert not recu and "vide" in trouble
 
-    def test_sans_reseau_rien_n_est_ecrit(self, monkeypatch, tmp_path):
-        echouer(monkeypatch, urllib.error.URLError("coupé"))
+    def test_with_no_network_nothing_is_written(self, monkeypatch, tmp_path):
+        fail_to_answer(monkeypatch, urllib.error.URLError("coupé"))
         recu, trouble = updates.download(
             "https://exemple/a.zip", tmp_path / "a.zip"
         )
         assert not recu and trouble == "pas de réseau"
 
-    def test_un_zip_s_ouvre(self, tmp_path):
+    def test_a_zip_opens(self, tmp_path):
         import zipfile
 
         archive = tmp_path / "Greffier-macos.zip"
@@ -317,7 +317,7 @@ class TestTelechargerEtDeballer:
         assert ouvert, where_in
         assert (tmp_path / "dedans" / "Greffier.app" / "Contents").is_dir()
 
-    def test_un_tar_gz_s_ouvre(self, tmp_path):
+    def test_a_tar_gz_opens(self, tmp_path):
         import tarfile
 
         source = tmp_path / "greffier"
@@ -330,14 +330,14 @@ class TestTelechargerEtDeballer:
         assert ouvert, where_in
         assert (tmp_path / "dedans" / "greffier" / "LISEZMOI.md").exists()
 
-    def test_un_format_inconnu_est_refuse(self, tmp_path):
+    def test_an_unknown_format_is_refused(self, tmp_path):
         archive = tmp_path / "Greffier.rar"
         archive.write_bytes(b"nope")
         ouvert, trouble = updates.unpack(archive, tmp_path / "dedans")
         assert not ouvert and "format inconnu" in trouble
 
 
-class TestLaMiseAJourNePerdRien:
+class TestAnUpdateLosesNothing:
     """La seule question de qui appuie sur ce bouton.
 
     Les réunions, les comptes rendus, la banque de voix, les conversations et
@@ -347,38 +347,38 @@ class TestLaMiseAJourNePerdRien:
     pas de mise à jour du tout.
     """
 
-    def test_le_relais_ne_nomme_jamais_le_dossier_de_donnees(self):
+    def test_the_relay_never_names_the_data_folder(self):
         relais = updates._RELAIS_BINAIRE
         for interdit in ("Application Support", "banque-de-voix", "reunions",
                          "conversations", "comptes-rendus", "config.toml",
                          "enregistrements"):
             assert interdit not in relais, interdit
 
-    def test_le_relais_garde_l_ancien_paquet_avant_de_le_remplacer(self):
+    def test_the_relay_keeps_the_old_bundle_before_replacing_it(self):
         """Et le remet si le neuf ne démarre pas : constaté aujourd'hui, une
         mise à jour a laissé le poste sans application du tout."""
         relais = updates._RELAIS_BINAIRE
         assert ".precedent" in relais
         assert relais.count('mv "$DE_COTE" "$APP"') >= 2, "restauré dans les deux échecs"
 
-    def test_le_relais_attend_la_fermeture(self):
+    def test_the_relay_waits_for_the_application_to_close(self):
         relais = updates._RELAIS_BINAIRE
         assert 'kill -0 "$PID"' in relais
         assert "n'a pas quitte" in relais or "n'a pas quitté" in relais
 
-    def test_rien_n_est_installe_quand_il_n_y_a_rien_a_prendre(self):
+    def test_nothing_is_installed_when_there_is_nothing_to_take(self):
         verdict = updates.Verdict(installed="0.2.0", available="0.3.0")
         pose, trouble = updates.install_from_release(verdict)
         assert not pose and "aucun binaire" in trouble
 
 
-class TestLePaquetDeCeProcessus:
-    def test_le_paquet_se_deduit_du_chemin(self, tmp_path):
+class TestTheBundleOfThisProcess:
+    def test_the_bundle_follows_from_the_path(self, tmp_path):
         executable = tmp_path / "Greffier.app" / "Contents" / "MacOS" / "Greffier"
         executable.parent.mkdir(parents=True)
         executable.write_text("", encoding="utf-8")
         found = updates.bundle_of_this_process(str(executable))
         assert found is not None and found.name == "Greffier.app"
 
-    def test_hors_du_paquet_il_n_y_a_rien_a_remplacer(self):
+    def test_outside_a_bundle_there_is_nothing_to_replace(self):
         assert updates.bundle_of_this_process("/usr/local/bin/greffier") is None

@@ -20,7 +20,7 @@ class TestLectureDuFichier:
         assert context.termes[0].ecriture == "OTP"
         assert context.intervenants[0].role == "cheffe de projet"
 
-    def test_un_fichier_absent_n_est_pas_une_erreur(self, tmp_path):
+    def test_a_missing_file_is_not_an_error(self, tmp_path):
         assert read(tmp_path / "jamais-ecrit.toml").empty
 
     def test_un_fichier_illisible_ne_bloque_pas_la_reunion(self, tmp_path):
