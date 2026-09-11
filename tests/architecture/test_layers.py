@@ -1,14 +1,14 @@
-"""L'architecture, vérifiée par la machine plutôt que par la relecture.
+"""The architecture, checked by the machine rather than by reading.
 
-Le README annonce une architecture hexagonale : domaine pur au centre, ports
-autour, application qui orchestre, adaptateurs en périphérie. Cette promesse
-tenait par la vigilance, et la vigilance s'use — six modules avaient fini par
-s'installer à la racine du paquet, hors de toute couche, et le README n'en
-documentait qu'un.
+The README announces a hexagonal architecture: a pure domain at the centre,
+ports around it, an application that orchestrates, adapters at the edge. That
+promise held by vigilance, and vigilance wears out. Six modules had ended up
+settling at the root of the package, outside every layer, and the README
+documented only one of them.
 
-Ces tests lisent les imports avec `ast`, y compris les imports tardifs écrits à
-l'intérieur d'une fonction : c'est précisément là que se cachent les
-dépendances qu'on ne veut pas avouer.
+These tests read the imports with `ast`, late imports written inside a function
+included: that is precisely where the dependencies one would rather not admit
+are hidden.
 """
 
 from __future__ import annotations
@@ -19,9 +19,9 @@ from pathlib import Path
 RACINE = Path(__file__).resolve().parent.parent.parent
 PAQUET = RACINE / "src" / "greffier"
 
-#: Ce que le domaine n'a pas le droit de connaître : ni le monde, ni les couches
-#: qui le touchent. `pathlib` est toléré pour typer un chemin ; ce sont les
-#: bibliothèques qui LISENT le monde qui sont interdites.
+#: What the domain has no right to know: neither the world, nor the layers that
+#: touch it. `pathlib` is tolerated for typing a path; what is forbidden are the
+#: libraries that READ the world.
 INTERDIT_AU_DOMAINE = frozenset({
     "subprocess", "socket", "urllib", "requests", "httpx", "smtplib",
     "pydantic", "pydantic_settings", "tkinter", "typer", "sherpa_onnx",
@@ -54,11 +54,11 @@ def modules_of(couche: str) -> list[Path]:
 
 
 def imports_of(file: Path) -> list[str]:
-    """Tous les modules importés, imports tardifs compris.
+    """Every module imported, late imports included.
 
-    `ast.walk` descend dans les corps de fonction : un « import » écrit au
-    milieu d'une méthode pour éviter un cycle est une dépendance comme une
-    autre, et c'est la façon dont elles reviennent en douce.
+    `ast.walk` goes down into function bodies: an import written in the middle of a
+    method to avoid a cycle is a dependency like any other, and that is how they
+    come back in quietly.
     """
     arbre = ast.parse(file.read_text(encoding="utf-8"))
     names: list[str] = []
@@ -92,7 +92,7 @@ class TestTheDomainIsPure:
 
 class TestTheDependenciesPointInwards:
     def test_the_application_imports_no_adapter(self):
-        """Y compris les imports tardifs : c'est là qu'ils se cachaient."""
+        """Late imports included: that is where they were hiding."""
         fautes = [
             f"{file.relative_to(RACINE)} importe {name}"
             for file in modules_of("application")
@@ -112,13 +112,12 @@ class TestTheDependenciesPointInwards:
 
 
 class TestTheRootOfThePackageStaysEmpty:
-    """Six modules s'y étaient installés hors de toute couche.
+    """Six modules had settled there, outside every layer.
 
-    Ce qui a le droit d'y vivre : l'adaptateur primaire en ligne de commande, le
-    point d'entrée que Python impose, la racine de composition — qui est
-    légitimement hors des couches puisqu'elle les câble — et les emplacements,
-    dont le chemin est un contrat avec l'installeur, qui les charge par chemin
-    littéral avant toute installation.
+    What is allowed to live there: the primary command-line adapter, the entry
+    point Python demands, the composition root, which is legitimately outside the
+    layers since it wires them, and the locations, whose path is a contract with
+    the installer, which loads them by literal path before anything is installed.
     """
 
     AUTORISES = frozenset({
