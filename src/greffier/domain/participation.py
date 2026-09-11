@@ -249,7 +249,7 @@ def without_own_name(remark: str, name: str) -> str:
     if remaining == remark:
         return remark
     remaining = re.sub(r"\s+", " ", remaining)
-    # La virgule et le point seuls : le français garde une espace avant les
-    # deux-points, le point-virgule, le point d'exclamation et d'interrogation.
+    # The comma and the full stop only: French keeps a space before a colon,
+    # a semicolon, an exclamation mark and a question mark.
     remaining = re.sub(r"\s+([,.])", r"\1", remaining)
     return re.sub(r"^[\s,.:;!?]+", "", remaining).strip()
