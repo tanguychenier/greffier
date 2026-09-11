@@ -57,6 +57,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **install** — the command the README announces was not in the PATH (`c0c2514`)
 - **install** — a dead link where the skills go stopped the installation (`cabb790`)
 - **voices** — a voice holding two people poisons the bank (`322d025`)
 - **live** — a fragment of a voice took a row next to the people (`adc4402`)
