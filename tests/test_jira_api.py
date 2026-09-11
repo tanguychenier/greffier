@@ -83,7 +83,7 @@ class TestIdentifiants:
         assert "@" not in source().token
 
 
-class TestLecture:
+class TestReadingTheSetting:
     def test_les_demandes_sont_rendues_utilisables(self, jira):
         jira.charge = {"issues": [UNE_DEMANDE]}
         found = jira_api.requests(source(), SECRET)

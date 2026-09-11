@@ -12,18 +12,18 @@ from greffier.domain.board import (
 )
 
 
-class TestReconnaissanceDeFormulation:
-    def test_les_accents_et_la_casse_ne_comptent_pas(self):
+class TestRecognisingTheSamePoint:
+    def test_accents_and_case_do_not_count(self):
         assert key("L'accès au SI") == key("acces au si")
 
-    def test_l_ordre_des_mots_ne_compte_pas(self):
+    def test_word_order_does_not_count(self):
         """« recette externalisée » et « externalisée, la recette » : un point."""
         assert key("recette externalisée") == key("externalisée recette")
 
-    def test_deux_points_distincts_restent_distincts(self):
+    def test_two_distinct_points_stay_distinct(self):
         assert key("monter la recette") != key("monter la production")
 
-    def test_un_libelle_fait_de_mots_vides_garde_son_identite(self):
+    def test_a_label_made_of_empty_words_keeps_its_identity(self):
         """« A » et « D » sont deux mots vides français.
 
         Avec une clef vide, deux branches distinctes n'en faisaient plus qu'une
@@ -33,25 +33,25 @@ class TestReconnaissanceDeFormulation:
         assert key("A") != key("D")
         assert key("A") != ""
 
-    def test_les_mots_vides_sont_bien_retires_quand_il_reste_du_sens(self):
+    def test_empty_words_are_dropped_when_meaning_remains(self):
         assert key("le déploiement") == key("déploiement")
 
 
-class TestFusion:
-    def test_un_point_nouveau_s_ajoute(self):
+class TestJoiningAContribution:
+    def test_a_new_point_is_added(self):
         board = Board("Oasis")
         bilan = join(board, [Contribution("Le PDF ne se régénère pas")])
         assert bilan.ajoutes == ("Le PDF ne se régénère pas",)
         assert board.count == 2
 
-    def test_un_point_deja_present_ne_se_duplique_pas(self):
+    def test_a_point_already_there_is_not_duplicated(self):
         board = Board("Oasis")
         join(board, [Contribution("Le PDF ne se régénère pas")])
         bilan = join(board, [Contribution("le pdf ne se regenere pas")])
         assert bilan.ajoutes == ()
         assert board.count == 2, "la reformulation ne crée pas une seconde branche"
 
-    def test_une_piste_s_accroche_sous_son_probleme(self):
+    def test_a_lead_hangs_under_its_problem(self):
         board = Board("Oasis")
         join(board, [Contribution("Le PDF ne se régénère pas", kind=Kind.PROBLEM)])
         join(board, [Contribution("Forcer la régénération", kind=Kind.LEAD,
@@ -61,14 +61,14 @@ class TestFusion:
         assert probleme is not None
         assert [enfant.text for enfant in probleme.children] == ["Forcer la régénération"]
 
-    def test_un_parent_introuvable_ne_perd_pas_l_apport(self):
+    def test_a_missing_parent_does_not_lose_the_contribution(self):
         """Mal placé, il reste corrigeable ; perdu, il faut réécouter la réunion."""
         board = Board("Oasis")
         join(board, [Contribution("Une piste", under="un parent qui n'existe pas")])
         assert board.root is not None
         assert board.root.enfant("Une piste") is not None
 
-    def test_la_reunion_d_origine_est_notee(self):
+    def test_the_meeting_it_came_from_is_noted(self):
         board = Board("Oasis")
         join(board, [Contribution("Un point")], meeting="2026-09-09_10h05_reunion")
         assert board.root is not None
@@ -76,7 +76,7 @@ class TestFusion:
         assert noeud is not None
         assert noeud.meetings == ["2026-09-09_10h05_reunion"]
 
-    def test_deux_reunions_sur_le_meme_point_sont_toutes_deux_notees(self):
+    def test_two_meetings_on_one_point_are_both_noted(self):
         board = Board("Oasis")
         join(board, [Contribution("Un point")], meeting="premiere")
         join(board, [Contribution("Un point")], meeting="seconde")
@@ -85,15 +85,15 @@ class TestFusion:
         assert noeud is not None
         assert noeud.meetings == ["premiere", "seconde"]
 
-    def test_un_apport_vide_est_ignore(self):
+    def test_an_empty_contribution_is_ignored(self):
         board = Board("Oasis")
         assert join(board, [Contribution("   ")]).empty
 
 
-class TestEtats:
+class TestStandings:
     """Ce qui est en discussion ne doit pas passer pour une décision."""
 
-    def test_le_defaut_est_en_discussion(self):
+    def test_the_default_is_under_discussion(self):
         board = Board("Oasis")
         join(board, [Contribution("Une idée lancée à l'oral")])
         assert board.root is not None
@@ -101,7 +101,7 @@ class TestEtats:
         assert noeud is not None
         assert noeud.state is Standing.UNDER_DISCUSSION
 
-    def test_une_decision_releve_l_etat(self):
+    def test_a_decision_raises_the_standing(self):
         board = Board("Oasis")
         join(board, [Contribution("Monter la recette en interne", kind=Kind.LEAD)])
         bilan = join(board, [Contribution("Monter la recette en interne",
@@ -112,7 +112,7 @@ class TestEtats:
         assert noeud is not None
         assert noeud.state is Standing.AGREED
 
-    def test_un_probleme_ne_peut_pas_etre_acte(self):
+    def test_a_problem_cannot_be_agreed(self):
         """« Acté » se lirait « le groupe a décidé ce problème ».
 
         Mesuré sur une extraction réelle : sept problèmes sur douze revenaient
@@ -126,7 +126,7 @@ class TestEtats:
         assert noeud is not None
         assert noeud.state is Standing.UNDER_DISCUSSION
 
-    def test_une_piste_et_une_action_peuvent_etre_actees(self):
+    def test_a_lead_and_an_action_can_be_agreed(self):
         board = Board("Oasis")
         join(board, [
             Contribution("Monter la recette", kind=Kind.LEAD, state=Standing.AGREED),
@@ -136,13 +136,13 @@ class TestEtats:
             noeud = board.root.enfant(text)
             assert noeud is not None and noeud.state is Standing.AGREED
 
-    def test_un_probleme_peut_etre_depasse(self):
+    def test_a_problem_can_be_overtaken(self):
         """Un problème peut avoir cessé d'en être un."""
         board = Board("Oasis")
         join(board, [Contribution("Un souci", kind=Kind.PROBLEM)])
         assert mark_overdue(board, "Un souci") is True
 
-    def test_une_decision_ne_redevient_pas_une_discussion(self):
+    def test_a_decision_does_not_go_back_to_a_discussion(self):
         """« Acté » qui redeviendrait « en discussion » ferait douter de tout."""
         board = Board("Oasis")
         join(board, [Contribution("Monter la recette", kind=Kind.LEAD, state=Standing.AGREED)])
@@ -154,10 +154,10 @@ class TestEtats:
         assert noeud.state is Standing.AGREED
 
 
-class TestRienNeDisparait:
+class TestNothingEverDisappears:
     """Une carte partagée porte le travail de plusieurs personnes."""
 
-    def test_marquer_depasse_garde_le_noeud(self):
+    def test_marking_it_overtaken_keeps_the_node(self):
         board = Board("Oasis")
         join(board, [Contribution("Une piste écartée")])
         assert mark_overdue(board, "Une piste écartée") is True
@@ -167,13 +167,13 @@ class TestRienNeDisparait:
         assert noeud is not None
         assert noeud.state is Standing.OVERTAKEN
 
-    def test_la_racine_ne_se_marque_pas(self):
+    def test_the_root_cannot_be_marked(self):
         assert mark_overdue(Board("Oasis"), "Oasis") is False
 
-    def test_marquer_ce_qui_n_existe_pas_le_dit(self):
+    def test_marking_what_does_not_exist_says_so(self):
         assert mark_overdue(Board("Oasis"), "jamais évoqué") is False
 
-    def test_une_fusion_ne_retire_aucun_noeud_existant(self):
+    def test_a_join_removes_no_existing_node(self):
         board = Board("Oasis")
         join(board, [Contribution("A"), Contribution("B"), Contribution("C")])
         avant = board.count
@@ -181,22 +181,22 @@ class TestRienNeDisparait:
         assert board.count == avant + 1, "rien n'a été remplacé"
 
 
-class TestComptage:
-    def test_un_noeud_seul_compte_pour_un(self):
+class TestCountingTheNodes:
+    def test_a_lone_node_counts_for_one(self):
         assert Node("seul").count() == 1
 
-    def test_les_enfants_comptent(self):
+    def test_the_children_count(self):
         root = Node("racine", children=[Node("a"), Node("b", children=[Node("c")])])
         assert root.count() == 4
 
 
-class TestReformulations:
+class TestTheSamePointSaidTwice:
     """Le rédacteur reformule d'une extraction à l'autre, et chaque
     reformulation ouvrait une branche de plus : un quart des points revenaient
     en doublon, mesuré sur une carte réelle.
     """
 
-    def test_une_reformulation_reelle_est_rattrapee(self):
+    def test_a_real_rewording_is_caught(self):
         from greffier.domain.board import same_point
 
         assert same_point(
@@ -204,7 +204,7 @@ class TestReformulations:
             "Pré-prod cliente en retard de deux versions",
         )
 
-    def test_une_autre_formulation_du_meme_point(self):
+    def test_another_wording_of_the_same_point(self):
         from greffier.domain.board import same_point
 
         assert same_point(
@@ -212,7 +212,7 @@ class TestReformulations:
             "Monter un environnement de recette de notre côté",
         )
 
-    def test_deux_points_distincts_ne_fusionnent_pas(self):
+    def test_two_distinct_points_do_not_join(self):
         """Fusionner à tort perd de l'information : c'est le pire défaut ici."""
         from greffier.domain.board import same_point
 
@@ -221,7 +221,7 @@ class TestReformulations:
             "Pré-prod du client en retard de deux versions",
         )
 
-    def test_un_fragment_n_absorbe_pas_le_tout(self):
+    def test_a_fragment_does_not_absorb_the_whole(self):
         from greffier.domain.board import same_point
 
         assert not same_point(
@@ -229,7 +229,7 @@ class TestReformulations:
             "la recette d'Oasis bloquée faute d'environnement à jour",
         )
 
-    def test_une_reformulation_trop_eloignee_reste_un_doublon(self):
+    def test_a_rewording_too_far_off_stays_a_duplicate(self):
         """Limite assumée : la rattraper demanderait un seuil qui fusionnerait
         des points distincts. Le rédacteur reçoit les libellés existants, le
         rapprochement n'est qu'un filet."""
@@ -240,14 +240,14 @@ class TestReformulations:
             "Questionnaires construits avec des fixtures fragiles",
         )
 
-    def test_la_fusion_ne_cree_plus_de_doublon_de_reformulation(self):
+    def test_joining_no_longer_creates_a_reworded_duplicate(self):
         board = Board("Oasis")
         join(board, [Contribution("Pré-production du client en retard de deux versions")])
         bilan = join(board, [Contribution("Pré-prod cliente en retard de deux versions")])
         assert bilan.ajoutes == ()
         assert board.count == 2
 
-    def test_un_mot_court_ne_rapproche_pas(self):
+    def test_a_short_word_brings_nothing_closer(self):
         """« prod » et « prof » sont à un écart et n'ont aucun rapport."""
         from greffier.domain.board import same_point
 

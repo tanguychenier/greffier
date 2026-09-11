@@ -41,7 +41,7 @@ class TestGabarit:
         assert "security add-generic-password" in dit
 
 
-class TestLecture:
+class TestReadingTheSetting:
     def test_un_fichier_absent_ne_donne_aucune_source(self, file):
         assert sources_file.read(file).sources == []
 
