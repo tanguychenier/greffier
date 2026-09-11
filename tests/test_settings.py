@@ -44,18 +44,18 @@ def garnie():
 
 
 class TestTheRoundTrip:
-    def test_tout_ce_qui_est_ecrit_se_relit_identique(self, garnie):
+    def test_everything_written_reads_back_identical(self, garnie):
         relu = Config.model_validate(tomllib.loads(settings.render(garnie)))
         for section in settings.SECTIONS:
             attribut = settings.SOUS_MODELE.get(section, section)
             expected = getattr(garnie, attribut).model_dump()
             assert getattr(relu, attribut).model_dump() == expected, section
 
-    def test_une_configuration_par_defaut_se_relit_aussi(self):
+    def test_default_settings_read_back_too(self):
         rendered = settings.render(Config())
         assert Config.model_validate(tomllib.loads(rendered)) == Config()
 
-    def test_le_toml_produit_est_lisible(self, garnie):
+    def test_the_toml_produced_is_readable(self, garnie):
         """Un fichier illisible ne serait découvert qu'à la commande suivante."""
         assert tomllib.loads(settings.render(garnie))
 
@@ -64,35 +64,35 @@ class TestTheRoundTrip:
         rendered = settings.render(Config(transcription={"vocabulaire": ["Sébastien", "Noël"]}))
         assert "Sébastien" in rendered and "Noël" in rendered
 
-    def test_les_guillemets_ne_cassent_pas_le_fichier(self):
+    def test_quotation_marks_do_not_break_the_file(self):
         rendered = settings.render(Config(minutes={"destinataire": 'a"b'}))
         assert tomllib.loads(rendered)["compte_rendu"]["destinataire"] == 'a"b'
 
 
-class TestCeQuiNEstPasEcrit:
-    def test_les_chemins_ne_sont_jamais_figes(self):
+class TestWhatIsNeverWritten:
+    def test_the_paths_are_never_frozen_in(self):
         """Les figer est ce qui faisait lire l'ancien dossier à un poste déménagé."""
         assert "[chemins]" not in settings.render(Config())
         assert "chemins" not in settings.SECTIONS
 
-    def test_un_champ_non_renseigne_est_omis(self):
+    def test_a_field_left_unset_is_left_out(self):
         """TOML n'a pas de « null » : écrire « personnes = None » casserait tout."""
         rendered = settings.render(Config(locuteurs={"personnes": None}))
         assert "personnes" not in rendered
         assert tomllib.loads(rendered)
 
-    def test_le_mot_de_passe_smtp_n_a_pas_de_place_ici(self):
+    def test_the_smtp_password_has_no_place_here(self):
         """Il vient d'une variable d'environnement, jamais d'un fichier."""
         assert "mot_de_passe" not in settings.render(Config())
 
 
 class TestWritingTheSettingsFile:
-    def test_le_fichier_est_ecrit_a_l_endroit_ou_la_config_est_lue(self, tmp_path, garnie):
+    def test_the_file_is_written_where_the_settings_are_read(self, tmp_path, garnie):
         file = settings.save_settings(garnie, folder=tmp_path / "ailleurs")
         assert file == tmp_path / "ailleurs/config.toml"
         assert Config.load(file).appearance.theme == "sombre"
 
-    def test_la_version_precedente_est_conservee(self, tmp_path):
+    def test_the_previous_version_is_kept(self, tmp_path):
         folder = tmp_path / "c"
         settings.save_settings(Config(appearance={"theme": "clair"}), folder=folder)
         settings.save_settings(Config(appearance={"theme": "sombre"}), folder=folder)
@@ -100,16 +100,16 @@ class TestWritingTheSettingsFile:
         assert previous.appearance.theme == "clair", "l'ancien réglage doit rester récupérable"
         assert Config.load(folder / "config.toml").appearance.theme == "sombre"
 
-    def test_le_premier_enregistrement_ne_fabrique_pas_de_sauvegarde(self, tmp_path):
+    def test_the_first_save_makes_no_backup(self, tmp_path):
         settings.save_settings(Config(), folder=tmp_path / "neuf")
         assert not (tmp_path / "neuf/config.toml.precedent").exists()
 
-    def test_aucun_fichier_provisoire_ne_reste(self, tmp_path):
+    def test_no_temporary_file_is_left(self, tmp_path):
         folder = tmp_path / "c"
         settings.save_settings(Config(), folder=folder)
         assert [f.name for f in folder.iterdir()] == ["config.toml"]
 
-    def test_une_ecriture_qui_echoue_ne_detruit_pas_l_existant(self, tmp_path, monkeypatch):
+    def test_a_write_that_fails_destroys_nothing_existing(self, tmp_path, monkeypatch):
         """L'enregistrement peut tomber pendant qu'une réunion tourne : le
         fichier en place doit rester lisible, entier."""
         folder = tmp_path / "c"

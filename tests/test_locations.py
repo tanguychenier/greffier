@@ -29,7 +29,7 @@ class TestMacOS:
         assert locations.config_folder("Darwin") == maison / NATIF
         assert locations.data_folder("Darwin") == maison / NATIF
 
-    def test_xdg_l_emporte_s_il_est_pose(self, maison, monkeypatch):
+    def test_xdg_wins_when_it_is_set(self, maison, monkeypatch):
         """C'est ce qui isole les tests, et ce qui laisse le choix."""
         monkeypatch.setenv("XDG_CONFIG_HOME", str(maison / "xdg"))
         monkeypatch.setenv("XDG_DATA_HOME", str(maison / "xdg-donnees"))
@@ -43,7 +43,7 @@ class TestMacOS:
         (former / "config.toml").write_text("", encoding="utf-8")
         assert locations.config_folder("Darwin") == former
 
-    def test_la_configuration_se_juge_au_fichier_pas_au_dossier(self, maison):
+    def test_the_settings_are_judged_by_the_file_not_the_folder(self, maison):
         """Le dossier natif existe dès qu'il y a des données : ce n'est pas
         pour autant qu'il contient une configuration."""
         (maison / NATIF / "enregistrements").mkdir(parents=True)
@@ -52,7 +52,7 @@ class TestMacOS:
         (former / ".env").write_text("", encoding="utf-8")
         assert locations.config_folder("Darwin") == former
 
-    def test_la_configuration_native_prime_sur_l_ancienne(self, maison):
+    def test_the_native_settings_come_before_the_old_ones(self, maison):
         for folder in (maison / NATIF, maison / ".config/greffier"):
             folder.mkdir(parents=True)
             (folder / "config.toml").write_text("", encoding="utf-8")
@@ -81,13 +81,13 @@ class TestAilleurs:
         assert locations.config_folder("Windows") == maison / "Roaming/greffier"
         assert locations.data_folder("Windows") == maison / "Local/greffier"
 
-    def test_sans_argument_c_est_le_systeme_courant(self, maison):
+    def test_with_no_argument_it_is_the_current_system(self, maison):
         expected = locations.config_folder(platform.system())
         assert locations.config_folder() == expected
 
 
 class TestDemenagement:
-    def test_ailleurs_que_sur_macos_rien_ne_bouge(self, maison):
+    def test_anywhere_but_macos_nothing_moves(self, maison):
         (maison / ".config/greffier").mkdir(parents=True)
         assert locations.relocate("Linux") == []
         assert (maison / ".config/greffier").exists()
@@ -113,11 +113,11 @@ class TestDemenagement:
         assert locations.config_folder("Darwin") == natif
         assert locations.data_folder("Darwin") == natif
 
-    def test_relancable_sans_rien_a_faire(self, maison):
+    def test_it_can_be_run_again_with_nothing_to_do(self, maison):
         assert locations.relocate("Darwin") == []
         assert not (maison / NATIF).exists(), "rien à déplacer : rien n'est créé"
 
-    def test_n_ecrase_jamais_ce_qui_existe_a_destination(self, maison):
+    def test_it_never_overwrites_what_exists_at_the_destination(self, maison):
         natif = maison / NATIF
         natif.mkdir(parents=True)
         (natif / "config.toml").write_text("neuf", encoding="utf-8")
@@ -132,7 +132,7 @@ class TestDemenagement:
         assert (former / "config.toml").exists(), "le conflit reste en place, visible"
         assert [target.name for _, target in faits] == ["config.toml.sauvegarde"]
 
-    def test_xdg_pose_veut_dire_pas_touche(self, maison, monkeypatch):
+    def test_xdg_set_means_hands_off(self, maison, monkeypatch):
         monkeypatch.setenv("XDG_CONFIG_HOME", str(maison / "xdg"))
         monkeypatch.setenv("XDG_DATA_HOME", str(maison / "xdg-donnees"))
         (maison / ".config/greffier").mkdir(parents=True)

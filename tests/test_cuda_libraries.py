@@ -32,7 +32,7 @@ def roues(monkeypatch, tmp_path):
 
 
 class TestBibliothequesTrouvees:
-    def test_toutes_les_bibliotheques_sont_rendues(self, roues):
+    def test_every_library_is_returned(self, roues):
         names = [path.name for path in adaptateur.cuda_libraries()]
         assert set(names) == {"libcublasLt.so.12", "libcublas.so.12", "libcudnn.so.9",
                              "libcudnn_graph.so.9", "libnvrtc.so.12"}
@@ -42,12 +42,12 @@ class TestBibliothequesTrouvees:
         names = [path.name for path in adaptateur.cuda_libraries()]
         assert names.index("libcublasLt.so.12") < names.index("libcublas.so.12")
 
-    def test_sans_les_roues_il_n_y_a_rien_a_charger(self, monkeypatch):
+    def test_without_the_wheels_there_is_nothing_to_load(self, monkeypatch):
         """Le cas ordinaire : elles ne servent qu'à une carte NVIDIA."""
         monkeypatch.setattr(adaptateur.importlib.util, "find_spec", lambda _name: None)
         assert adaptateur.cuda_libraries() == []
 
-    def test_un_paquet_sans_dossier_ne_fait_pas_echouer(self, monkeypatch):
+    def test_a_package_with_no_folder_does_not_make_it_fail(self, monkeypatch):
         monkeypatch.setattr(
             adaptateur.importlib.util, "find_spec",
             lambda _name: SimpleNamespace(submodule_search_locations=None),
@@ -56,7 +56,7 @@ class TestBibliothequesTrouvees:
 
 
 class TestChargement:
-    def test_une_bibliotheque_illisible_n_arrete_pas_la_transcription(self, roues):
+    def test_an_unreadable_library_does_not_stop_the_transcription(self, roues):
         """La carte sera inutilisable, et le repli sur le processeur suffit :
         renoncer à transcrire pour autant serait pire que lent."""
         essais = []
