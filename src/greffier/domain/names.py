@@ -249,3 +249,69 @@ def join_namesakes(
         for voice in group:
             membership[voice] = gardee
     return membership
+
+
+SHARE_TO_CARRY = 0.20
+"""Share of a voice a live name must cover before it carries it.
+
+Two cuts of the same audio never agree segment for segment: the one made while
+the meeting runs and the one made afterwards split people differently, so a
+name given live covers part of a voice, never all of it. Measured on a real
+meeting, the shares that matter sit at 20% and above, and nothing contested
+lands between.
+"""
+
+TWICE_THE_NEXT = 2.0
+"""How far ahead of the next name the winner must be. Two people crossing the
+same voice means the cut is wrong, and a wrong name is worse than none."""
+
+
+@dataclass(frozen=True, slots=True)
+class NamedSpan:
+    """A stretch of the meeting a person named while it was running."""
+
+    name: str
+    span: Span
+
+
+def _overlap(one: Span, other: Span) -> float:
+    return max(0.0, min(one.end, other.end) - max(one.start, other.start))
+
+
+def from_live(named: list[NamedSpan], turns: list[SpeakerTurn]) -> dict[str, str]:
+    """The voices a human named during the meeting, carried onto this cut.
+
+    The defect this answers: a name typed into the window while the meeting ran
+    reached the voice bank and nothing else. The pass that writes the minutes
+    cut the audio again, into its own voices, and named them from the bank
+    alone — so the biggest speaker of a real meeting, named by hand on
+    seventy-six sentences, was written up as *une voix non nommée*, while a
+    person who was not in the room was announced as a participant.
+
+    What a human said during the meeting is the strongest evidence there is.
+    """
+    if not named or not turns:
+        return {}
+    held: dict[str, float] = {}
+    per_name: dict[str, dict[str, float]] = {}
+    for turn in turns:
+        held[turn.voice] = held.get(turn.voice, 0.0) + turn.span.duration
+        for nommee in named:
+            common = _overlap(turn.span, nommee.span)
+            if common > 0:
+                par = per_name.setdefault(turn.voice, {})
+                par[nommee.name] = par.get(nommee.name, 0.0) + common
+    found: dict[str, str] = {}
+    for voice, shares in per_name.items():
+        total = held.get(voice, 0.0)
+        if total <= 0:
+            continue
+        classement = sorted(shares.items(), key=lambda x: (-x[1], x[0]))
+        name, best = classement[0]
+        second = classement[1][1] if len(classement) > 1 else 0.0
+        if best / total < SHARE_TO_CARRY:
+            continue
+        if second > 0 and best < TWICE_THE_NEXT * second:
+            continue
+        found[voice] = name
+    return found

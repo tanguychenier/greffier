@@ -34,7 +34,8 @@ from greffier.application.process import Chain
 from greffier.application.record import Recording
 from greffier.application.take_part import AssistantSettings
 from greffier.domain.context import Context as WorkContext
-from greffier.domain.live import LiveThread
+from greffier.domain.live import Certainty, LiveThread
+from greffier.domain.names import NamedSpan
 from greffier.domain.participation import Manners
 from greffier.ports import outbound
 
@@ -184,6 +185,33 @@ def _instructions_of(config: Config) -> Callable[[str], list[str]]:
     return lire
 
 
+def _named_live(config: Config) -> Callable[[str], list[NamedSpan]]:
+    """The stretches a human named in the window while the meeting ran.
+
+    Read at run time like the instructions, and from the same place the window
+    writes: the live log holds the corrections with the sentences they cover.
+    """
+    from greffier.application.follow import files, read_from, replay
+    from greffier.domain.live import LiveThread
+
+    def lire(identifier: str) -> list[NamedSpan]:
+        log, _ = files(config.paths.live, identifier)
+        lines, _ = read_from(log, 0)
+        thread = LiveThread()
+        replay(lines, thread)
+        named = []
+        for turn in thread.turns:
+            voice = thread.voice.get(turn.voice)
+            if voice is None or voice.name is None:
+                continue
+            if voice.certainty is not Certainty.HUMAINE:
+                continue
+            named.append(NamedSpan(name=voice.name, span=turn.span))
+        return named
+
+    return lire
+
+
 def context(config: Config) -> WorkContext:
     """What the tool knows of the setting, blended from its three sources.
 
@@ -256,6 +284,7 @@ def wire_up(config: Config) -> Chain:
         prompt_seed=_the_context.prompt_seed(),
         context_header=_the_context.header(),
         instructions=_instructions_of(config),
+        named_live=_named_live(config),
         people=config.speakers.people,
         not_first_names=frozenset(m.lower() for m in config.speakers.not_first_names),
         recipient=config.minutes.recipient,
