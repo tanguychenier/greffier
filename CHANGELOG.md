@@ -6,6 +6,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## New
 
+- **tests** — the whole chain proves itself on Linux too (`b040e22`)
 - **minutes** — the names given during the meeting reach the minutes (`0db4691`)
 - **assistant** — give it the glossary of the setting, not only the writer (`e804e19`)
 - **diagnostic** — look at the models and the voice bank (`e3fa943`)
