@@ -30,7 +30,7 @@ INTERDIT_AU_DOMAINE = frozenset({
 
 #: Les couches qu'un module d'une couche donnée n'a pas le droit d'importer.
 INTERDITS = {
-    "domaine": ("greffier.adapters", "greffier.application", "greffier.interface",
+    "domain": ("greffier.adapters", "greffier.application", "greffier.interface",
                 "greffier.cli", "greffier.wiring", "greffier.locations"),
     "application": ("greffier.adapters", "greffier.interface", "greffier.cli",
                     "greffier.wiring"),
@@ -40,7 +40,17 @@ INTERDITS = {
 
 
 def modules_de(couche: str) -> list[Path]:
-    return sorted((PAQUET / couche).rglob("*.py"))
+    """The modules of a layer, and never an empty list.
+
+    Renaming `domaine/` to `domain/` left these rules reading a folder that no
+    longer existed, so they passed on nothing for as long as the rename lasted.
+    A check that cannot find what it guards has to say so.
+    """
+    dossier = PAQUET / couche
+    assert dossier.is_dir(), f"la couche « {couche} » n'existe pas : {dossier}"
+    fichiers = sorted(dossier.rglob("*.py"))
+    assert fichiers, f"la couche « {couche} » est vide : rien à vérifier"
+    return fichiers
 
 
 def imports_de(file: Path) -> list[str]:
@@ -64,7 +74,7 @@ class TestLeDomaineEstPur:
     def test_il_n_importe_aucune_bibliotheque_qui_touche_le_monde(self):
         fautes = [
             f"{file.relative_to(RACINE)} importe {name}"
-            for file in modules_de("domaine")
+            for file in modules_de("domain")
             for name in imports_de(file)
             if name.split(".")[0] in INTERDIT_AU_DOMAINE
         ]
@@ -73,9 +83,9 @@ class TestLeDomaineEstPur:
     def test_il_ne_connait_aucune_autre_couche(self):
         fautes = [
             f"{file.relative_to(RACINE)} importe {name}"
-            for file in modules_de("domaine")
+            for file in modules_de("domain")
             for name in imports_de(file)
-            if name.startswith(INTERDITS["domaine"])
+            if name.startswith(INTERDITS["domain"])
         ]
         assert not fautes, "\n".join(fautes)
 
