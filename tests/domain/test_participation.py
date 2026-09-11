@@ -313,3 +313,49 @@ class TestItsOwnNameNeverLeavesItsMouth:
         ):
             remaining = without_own_name(question, "Lucie")
             assert not called_by_name(remaining, "Lucie"), remaining
+
+
+class TestItOnlyAnswersToItsOwnName:
+    """It spoke up believing it had been called, and made the room look foolish.
+
+    Measured on 3 809 turns of real meetings, with a five-letter first name: the
+    old rule allowed two edits whatever the length, so "lui" named it. **113
+    times**, against 75 real calls. Two guards, and each was chosen from that
+    measurement rather than from taste.
+    """
+
+    def test_the_word_that_cost_the_most_is_refused(self):
+        """"lui" is at two edits from "Lucie", and it is a common French word."""
+        assert not called_by_name("je lui ai dit qu'on se cale jeudi", "Lucie")
+
+    def test_its_own_name_is_still_heard(self):
+        assert called_by_name("Lucie, est-ce que tu nous entends ?", "Lucie")
+
+    def test_a_name_in_the_middle_of_a_sentence_is_heard(self):
+        assert called_by_name("on demande à Lucie de vérifier", "Lucie")
+
+    def test_a_lightly_mangled_name_is_still_heard(self):
+        """The transcription does not always spell it right."""
+        assert called_by_name("Lucye, tu peux regarder ?", "Lucie")
+
+    def test_a_lowercase_word_never_names_it(self):
+        """Every one of the 75 real calls was written with a capital, and no
+        word that named it wrongly ever was: a first name is a proper noun."""
+        assert not called_by_name("on parle de lucie demain", "Lucie")
+
+    def test_a_short_name_demands_more(self):
+        """A single edit on three letters is a third of the word."""
+        assert called_by_name("Zoé, tu en penses quoi ?", "Zoé")
+        assert not called_by_name("Zone rouge sur le planning", "Zoé")
+
+    def test_a_long_name_may_be_mangled_more(self):
+        assert called_by_name("Arnaude, tu peux regarder ?", "Arnaud")
+
+    def test_an_empty_name_names_nobody(self):
+        assert not called_by_name("Lucie, tu es là ?", "   ")
+
+    def test_taking_the_name_out_stays_generous(self):
+        """Stripping is not answering: leaving a mangled name in what it says is
+        what made it call itself, and taking out a word that was not its name
+        costs nothing."""
+        assert "uc" not in without_own_name("Lucy, je regarde.", "Lucie").lower()

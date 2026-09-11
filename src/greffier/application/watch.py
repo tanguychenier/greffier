@@ -20,7 +20,7 @@ from greffier.application.follow import TRANCHE_MINIMALE_S, Follower, Position
 from greffier.application.take_part import AssistantSettings
 from greffier.domain.instructions import Suggestion, WatchRules
 from greffier.domain.models import Span, Utterance
-from greffier.domain.participation import Because, Opening
+from greffier.domain.participation import Because, Opening, called_by_name
 from greffier.ports import outbound
 
 SYSTEM = platform.system()
@@ -38,6 +38,14 @@ SLICE_PERIOD = 30.0
 OVERLAP = 5.0
 TRANCHE_MAXIMALE = 90.0
 CONTEXTE_S = 50.0
+
+#: How often the watch listens for its own name between two full slices, and how
+#: much audio it reads for it. Measured on a real machine: a full slice carries
+#: fifty seconds of context so the spelling holds and costs 2 s, and one is taken
+#: every ten seconds, so being called cost up to fifteen seconds before a word
+#: came back. Eight seconds with no context cost 0.8 s.
+LISTENING_PERIOD = 3.0
+LISTENING_S = 8.0
 
 def _within_the_slice(utterances: list[Utterance], frontiere: float) -> list[Utterance]:
     """Keeps only what spills into the slice, rebased on it."""
@@ -115,6 +123,7 @@ class Watcher:
     slice_period: float = SLICE_PERIOD
     traite: float = 0.0
     vu: float | None = None
+    _last_listened: float = 0.0
 
     def _current_prompt_seed(self) -> str:
         """The seed for this slice, context re-read if it changed."""
@@ -208,9 +217,61 @@ class Watcher:
             self.assistant_turn(recalees, self.traite)
         return fresh
 
-    def assistant_turn(self, utterances: list[Utterance], now: float) -> None:
-        """Lets the assistant decide whether it has anything to say."""
+    def listening_turn(self, ou: Position, job: Path) -> None:
+        """Answers a call without waiting for the next slice.
+
+        A full slice is built for the thread: fifty seconds of context so the
+        spelling holds, one every ten seconds. Being called therefore cost up to
+        fifteen seconds before a word came back, where a few were expected.
+
+        This pass reads the last eight seconds alone, with no context, and looks
+        only for the assistant's own name. The remark it hands over carries a
+        subject, so the same call arriving again in the full slice is refused as
+        already answered rather than answered twice.
+        """
+        lui = self.assistant_of
+        if (lui is None or lui.cerveau is None or self.transcriber is None
+                or lui.busy or not lui.manners.active):
+            return
+        if ou.overall - self._last_listened < LISTENING_PERIOD:
+            return
+        self._last_listened = ou.overall
+        start = max(0.0, ou.written - LISTENING_S)
+        if ou.written - start < TRANCHE_MINIMALE_S:
+            return
+        morceau = extract_slice(ou.morceau, start, ou.written, job / "ecoute.wav")
+        if morceau is None:
+            return
+        try:
+            entendu = self.transcriber.transcribe(
+                morceau, self.language, self._current_prompt_seed()
+            )
+        except (RuntimeError, OSError):
+            return
+        offset = ou.offset + start
+        recalees = [
+            Utterance(
+                span=Span(r.span.start + offset, r.span.end + offset),
+                text=r.text, voice=r.voice, source=r.source,
+            )
+            for r in entendu
+        ]
+        self.assistant_turn(recalees, ou.overall, only_when_called=True)
+
+    def assistant_turn(
+        self, utterances: list[Utterance], now: float, only_when_called: bool = False
+    ) -> None:
+        """Lets the assistant decide whether it has anything to say.
+
+        `only_when_called` on the listening pass: it exists to answer its own
+        name quickly, and nothing else. Letting it look for something to add
+        there would call the model every three seconds.
+        """
         if self.assistant_of is None:
+            return
+        if only_when_called and not any(
+            called_by_name(u.text, self.assistant_of.name) for u in utterances
+        ):
             return
         if self.reread_participation is not None:
             with contextlib.suppress(OSError):
@@ -218,10 +279,10 @@ class Watcher:
         retenue = self.assistant_of.turn(
             utterances, now,
             turns=self._turn_bounds(),
-            occasions=self._voices_to_ask_about(now),
+            occasions=[] if only_when_called else self._voices_to_ask_about(now),
         )
         if retenue is None:
-            if self.initiative:
+            if self.initiative and not only_when_called:
                 self.assistant_of.look_for_a_contribution_aside(now)
             return
         if retenue.because in ATTENDENT_UNE_REPONSE:
@@ -274,6 +335,8 @@ class Watcher:
             ou = self.situer() if self.situer is not None else None
             if ou is not None and self._is_time(ou):
                 self.transcription_turn(ou, job)
+            elif ou is not None:
+                self.listening_turn(ou, job)
             pause(PERIODE_PRESSE_PAPIER)
         self.last_pass(job)
         if self.assistant_of is not None:
