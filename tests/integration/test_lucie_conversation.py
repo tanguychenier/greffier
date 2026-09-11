@@ -1,18 +1,18 @@
-"""Une conversation entière avec l'assistant, dans du vrai son.
+"""A whole conversation with the assistant, in real sound.
 
-Les tests unitaires disent que chaque règle est juste. Ils ne disent pas ce qui
-se passe quand on enchaîne : elle répond, sa réponse sort par le haut-parleur,
-la capture la reprend, le transcripteur la rend déformée, et le fil lui donne
-une voix de plus. C'est là que la boucle est née, et aucune doublure ne
-l'aurait montrée.
+The unit tests say each rule is right. They do not say what happens when the
+rules are chained: it answers, its answer leaves through the loudspeaker, the
+capture takes it back in, the transcriber returns it mangled, and the thread
+gives it one more voice. That is where the loop was born, and no double would
+have shown it.
 
-Le harnais fabrique un vrai fichier de réunion avec la synthèse du système, une
-voix par personne, et **réinjecte la réponse de l'assistant dans l'audio** —
-c'est ce que fait un haut-parleur dans une pièce. Puis il fait tourner le vrai
-veilleur, tranche par tranche, avec le vrai transcripteur.
+The harness builds a real meeting file with the system's speech synthesis, one
+voice per person, and **feeds the assistant's answer back into the audio**,
+which is what a loudspeaker does in a room. Then it runs the real watch, slice
+by slice, with the real transcriber.
 
-Le cerveau est une doublure : le but n'est pas d'éprouver le modèle, c'est
-d'éprouver la boucle autour de lui.
+The brain is a double: the point is not to test the model, it is to test the
+loop around it.
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ def _silence(secondes: float, cible: Path) -> Path:
 
 
 def _coller(morceaux: list[Path], cible: Path) -> Path:
-    """Recolle des wav bout à bout, comme un enregistrement continu."""
+    """Glues wav files end to end, like one continuous recording."""
     liste = cible.with_suffix(".txt")
     liste.write_text(
         "".join(f"file '{p}'\n" for p in morceaux), encoding="utf-8"
@@ -84,11 +84,11 @@ def _coller(morceaux: list[Path], cible: Path) -> Path:
 
 @dataclass
 class HautParleur:
-    """La voix de l'assistante, et ce qu'elle laisse dans la pièce.
+    """The assistant's voice, and what it leaves in the room.
 
-    Elle retient ce qui a été prononcé — c'est ce qu'on vérifie — et le
-    harnais le réinjecte ensuite dans l'audio de la réunion, parce que c'est
-    exactement ce qu'un haut-parleur fait.
+    It keeps what was pronounced, which is what gets checked, and the harness then
+    feeds it back into the audio of the meeting, because that is exactly what a
+    loudspeaker does.
     """
 
     dites: list[str] = field(default_factory=list)
@@ -128,7 +128,7 @@ class CerveauDeTest:
 
 @dataclass
 class Reunion:
-    """Un enregistrement qui s'allonge, comme pendant une vraie réunion."""
+    """A recording that grows, as it does during a real meeting."""
 
     dossier: Path
     morceaux: list[Path] = field(default_factory=list)
@@ -153,7 +153,7 @@ class Reunion:
         self.respirer()
 
     def respirer(self) -> None:
-        """Complète la prise pour que la tranche vaille d'être transcrite."""
+        """Pads the take so that the slice is worth transcribing."""
         import soundfile
 
         since = sum(
@@ -211,7 +211,7 @@ def _assistante(cerveau: CerveauDeTest, voice: HautParleur) -> AssistantSettings
 
 def _a_turn(veilleur: Watcher, assistante: AssistantSettings,
              dossier: Path) -> None:
-    """Une tranche, puis on attend la réponse : elle est formulée à part."""
+    """One slice, then a wait for the answer: it is phrased in another thread."""
     where_in = veilleur.situer()
     assert where_in is not None
     veilleur.transcription_turn(where_in, dossier)
@@ -220,17 +220,17 @@ def _a_turn(veilleur: Watcher, assistante: AssistantSettings,
 
 
 @pytest.mark.integration
-class TestUneConversationEntiere:
-    """Ce qui se passe quand on enchaîne, et non sur une seule phrase."""
+class TestAWholeConversation:
+    """What happens when the turns are chained, and not on one sentence."""
 
     def test_called_then_its_answer_comes_back_and_it_stays_quiet(
         self, transcriber, tmp_path
     ):
-        """Le défaut vécu, reproduit puis prouvé impossible.
+        """The defect as lived, reproduced and then proven impossible.
 
-        Elle répond, sa réponse ressort par le haut-parleur, la capture la
-        reprend, et elle doit rester muette. Avant, elle y lisait son nom et
-        repartait — quinze fois en quinze secondes.
+        It answers, its answer comes back out of the loudspeaker, the capture takes it
+        in, and it has to stay quiet. Before, it read its own name there and set off
+        again, fifteen times in fifteen seconds.
         """
         reunion = Reunion(tmp_path)
         reunion.dire(VOIX_DE_LA_SALLE,
@@ -256,7 +256,7 @@ class TestUneConversationEntiere:
     def test_the_room_is_still_heard_after_it_has_spoken(
         self, transcriber, tmp_path
     ):
-        """L'autre moitié : le garde ne doit pas la rendre sourde."""
+        """The other half: the guard must not make it deaf."""
         reunion = Reunion(tmp_path)
         reunion.dire(VOIX_DE_LA_SALLE, f"{NAME}, où en est la recette ?")
         cerveau = CerveauDeTest(reponses=[
@@ -281,7 +281,7 @@ class TestUneConversationEntiere:
     def test_it_does_not_answer_when_nobody_calls_it(
         self, transcriber, tmp_path
     ):
-        """Un assistant qui répond à tout est aussi inutilisable qu'un sourd."""
+        """An assistant that answers everything is as useless as a deaf one."""
         reunion = Reunion(tmp_path)
         reunion.dire(VOIX_DE_LA_SALLE,
                      "On passe au point suivant, la recette est calée pour jeudi.")
@@ -297,9 +297,9 @@ class TestUneConversationEntiere:
     def test_it_does_not_cut_itself_off_while_still_speaking(
         self, transcriber, tmp_path
     ):
-        """« Des fois elle se met à parler et ça se coupe. »
+        """"Sometimes it starts speaking and it gets cut off."
 
-        Deux appels rapprochés : le second ne doit pas tuer la phrase en cours.
+        Two calls close together: the second must not kill the sentence under way.
         """
         reunion = Reunion(tmp_path)
         reunion.dire(VOIX_DE_LA_SALLE, f"{NAME}, tu nous entends ?")
@@ -323,11 +323,7 @@ class TestUneConversationEntiere:
     def test_the_transcriber_loop_does_not_multiply_it(
         self, transcriber, tmp_path
     ):
-        """La même question répétée n'obtient qu'une réponse.
-
-        Sur le fil réel, whisper a rendu la question onze fois d'affilée ; sans
-        garde, chaque répétition la rappelait.
-        """
+        """The same question repeated gets one answer only."""
         reunion = Reunion(tmp_path)
         for _ in range(3):
             reunion.dire(VOIX_DE_LA_SALLE, f"{NAME}, tu peux nous rappeler la date ?",
