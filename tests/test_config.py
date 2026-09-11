@@ -9,11 +9,11 @@ from greffier.adapters.configuration import Config
 
 @pytest.fixture(autouse=True)
 def without_an_environment(monkeypatch, tmp_path):
-    """Isole chaque test du poste sur lequel il tourne.
+    """Isolates every test from the machine it runs on.
 
-    Sans cela, la configuration personnelle du développeur — celle qui vit dans
-    ~/.config/greffier — est lue par la source TOML et les tests passent ou
-    échouent selon la machine.
+    Without it the developer's own settings, the ones living in
+    ~/.config/greffier, are read by the TOML source and the tests pass or fail
+    depending on the machine.
     """
     import os
 
@@ -27,8 +27,9 @@ def without_an_environment(monkeypatch, tmp_path):
 
 class TestTheDefaults:
     def test_claude_writes_the_minutes_by_default(self):
-        """Choix explicite : la synthèse d'un compte rendu dépasse ce qu'un
-        modèle de portable sait faire. Seul maillon non local, assumé."""
+        """A deliberate choice: writing up a set of minutes goes beyond what a laptop
+        model can do. The one link that is not local, and it is owned.
+        """
         assert Config().minutes.engine == "claude"
 
     def test_a_machine_with_no_settings_works(self):
@@ -46,7 +47,7 @@ class TestTheDefaults:
 
 
 class TestWhichModelWritesTheMinutes:
-    """Quel modèle rédige, et pourquoi ce n'est pas le plus puissant."""
+    """Which model writes them, and why it is not the most powerful one."""
 
     def test_claude_takes_the_second_of_the_range_by_default(self):
         """Rédiger depuis une transcription déjà attribuée est de la synthèse :
@@ -77,7 +78,7 @@ class TestWhichModelWritesTheMinutes:
 
 
 class TestTheLanguage:
-    """Le code de langue, et ce que veut dire son absence."""
+    """The language code, and what its absence means."""
 
     def test_french_by_default(self):
         """L'annoncer vaut mieux que la faire deviner quand on la connaît."""
@@ -152,12 +153,12 @@ class TestWhereThingsLive:
 
 
 class TestTheAssistantIsOnByDefault:
-    """Il suit la réunion et répond : c'est son travail.
+    """It follows the meeting and answers: that is its job.
 
-    Le jour où l'interface a cessé d'exposer ce réglage — un seul bouton, pour
-    la voix — plus rien ne permettait de l'activer. L'assistant ne répondait pas
-    et personne ne pouvait savoir pourquoi. Constaté en réunion, ce qui est le
-    pire moment.
+    The day the window stopped exposing this setting, keeping one button for the
+    voice alone, nothing could switch it on any more. The assistant did not answer
+    and nobody could know why. Found out during a meeting, which is the worst
+    moment.
     """
 
     def test_it_is_on_with_nothing_set(self):
@@ -175,12 +176,12 @@ class TestTheAssistantIsOnByDefault:
 
 
 class TestTheFirstNamesThatWereTested:
-    """Une liste et non un champ libre.
+    """A list and not a free text field.
 
-    Un prénom saisi au hasard n'est pas forcément rendu par le modèle de
-    transcription, et rien ne le dirait à celui qui l'a tapé : il appellerait
-    dans le vide. Chacun de ceux-ci a passé quatre épreuves — deux tournures,
-    deux voix de synthèse — et cinq pièges, des phrases sans le prénom.
+    A first name typed at random is not necessarily returned by the transcription
+    model, and nothing would tell whoever typed it: they would be calling into the
+    void. Each of these passed four trials, two turns of phrase and two synthetic
+    voices, and five traps, sentences without the name.
     """
 
     def test_every_first_name_carries_a_voice(self):
@@ -243,12 +244,12 @@ class TestTheFirstNamesThatWereTested:
 
 
 class TestTheKeysOfTheFileNeverMove:
-    """Le fichier de configuration des postes doit rester lisible.
+    """The settings file on a machine has to stay readable.
 
-    Chaque champ porte un `validation_alias` : le nom du champ en Python peut
-    passer à l'anglais sans que la clef du fichier change. Une mise à jour qui
-    rendrait illisible le `config.toml` d'un poste effacerait ses réglages en
-    silence, et il n'y a pas de raison de le faire subir à qui que ce soit.
+    Every field carries a `validation_alias`: the name of the field in Python can
+    move to English without the key in the file changing. An update that made a
+    machine's `config.toml` unreadable would wipe its settings in silence, and
+    there is no reason to put anybody through that.
     """
 
     #: Un fichier tel qu'un poste en porte aujourd'hui.
