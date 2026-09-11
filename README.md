@@ -342,6 +342,13 @@ It is what found a defect invisible to the unit tests: whisper starts its first
 line at `00:00,00` while the segmentation only detects speech at `00:00,30`, so
 a self-introduction fell between two speaking turns and designated nobody.
 
+The fixture is spoken by whichever synthesiser the machine carries: `say` on
+macOS, and elsewhere **the assistant's own voice**, the French VITS the
+installer already lays down — no new dependency, no network call. The proof
+therefore runs where the tool runs, rather than only on the machine it was
+written on. The round table is the exception: three people need three timbres,
+and the French network carries two, so that one still asks for `say`.
+
 **On real voices** — two public French interviews and a real four-person
 meeting, since synthetic voices never talk over each other and never move away
 from the microphone. Both interviews come out with the right two voices. On
