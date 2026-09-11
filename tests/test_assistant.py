@@ -7,7 +7,7 @@ from greffier.adapters import system_diagnostic as diagnostic
 
 
 class ScriptedDialogue:
-    """Rejoue une conversation écrite d'avance, et retient ce qui a été dit."""
+    """Replays a conversation written in advance, and keeps what was said."""
 
     def __init__(self, answers=None, confirmations=None, choix=None):
         self.answers = list(answers or [])
@@ -54,7 +54,7 @@ class TestChoosingTheTranscriptionModel:
         assert recorder(memoire=36).advised_model == "large-v3-turbo"
 
     def test_a_modest_machine_takes_a_smaller_model(self):
-        """Proposer le plus gros partout ferait ramer la machine en réunion."""
+        """Offering the biggest everywhere would bog the machine down in a meeting."""
         assert recorder(memoire=6).advised_model == "medium"
         assert recorder(memoire=2).advised_model == "small"
 
@@ -70,7 +70,7 @@ class TestChoosingTheTranscriptionModel:
 
 class TestHowTheMinutesAreDelivered:
     def test_by_email_through_outlook_asks_for_no_password(self, monkeypatch):
-        """Le compte est déjà authentifié : rien à stocker, et c'est mieux ainsi."""
+        """The account is already signed in: nothing to store, and that is better."""
         monkeypatch.setattr(diagnostic, "outlook_present", lambda: True)
         simule = ScriptedDialogue(confirmations=[True], answers=["josiane@exemple.fr"])
         answers = assistant.Answers()
@@ -118,8 +118,9 @@ class TestWhoWritesTheMinutes:
         assert any("install" in action for action in answers.to_do)
 
     def test_a_writer_installed_but_not_signed_in_is_flagged(self, monkeypatch):
-        """Sans cette vérification, l'échec surviendrait après une heure de
-        transcription — au pire moment possible."""
+        """Without this check the failure would come after an hour of transcription, at
+        the worst possible moment.
+        """
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: True)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: False)
         simule = ScriptedDialogue(choix=["claude"])
@@ -137,9 +138,10 @@ class TestWhoWritesTheMinutes:
         assert answers.values["GREFFIER_MINUTES__ENGINE"] == "claude"
 
     def test_the_model_is_asked_for_and_defaults_to_opus(self, monkeypatch):
-        """Le second de la gamme, pas le premier : rédiger depuis une
-        transcription déjà attribuée est de la synthèse, et le haut de gamme
-        rend le même document en entamant un quota bien plus vite."""
+        """The second of the range, not the first: writing up from an already attributed
+        transcription is summarising, and the top of the range returns the same
+        document while eating a quota much faster.
+        """
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: True)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: True)
         simule = ScriptedDialogue()
@@ -165,8 +167,9 @@ class TestWhoWritesTheMinutes:
         assert "GREFFIER_MINUTES__MODEL" not in answers.values
 
     def test_the_models_offered_are_aliases_the_tool_accepts(self):
-        """« claude --model » attend un alias (fable, opus, sonnet) ou un nom
-        complet ; un libellé de confort passé tel quel ferait échouer l'appel."""
+        """`claude --model` expects an alias (fable, opus, sonnet) or a full name; a
+        convenience label passed as it is would make the call fail.
+        """
         for key, label_text in assistant.MODELES_CLAUDE:
             assert key == key.lower() and " " not in key
             assert label_text.lower().startswith(key)
@@ -207,7 +210,7 @@ class TestWritingTheSettingsFile:
         assert target.exists()
 
     def test_existing_settings_are_kept(self, tmp_path):
-        """On ne détruit pas les réglages de quelqu'un sans laisser de trace."""
+        """Nobody's settings are destroyed without a trace."""
         target = tmp_path / ".env"
         target.write_text("GREFFIER_ANCIEN=1\n", encoding="utf-8")
         assistant.write(assistant.Answers(), target)
@@ -248,8 +251,9 @@ class TestTheEmailAddress:
         assert answers.values["GREFFIER_MINUTES__RECIPIENT"] == "moi@ex.fr"
 
     def test_with_no_address_it_does_not_claim_it_will_send(self, monkeypatch):
-        """Dire « oui au courriel » puis ne rien saisir produisait une
-        configuration qui promettait un envoi et n'envoyait rien."""
+        """Saying "yes to email" then typing nothing produced settings that promised a
+        sending and sent nothing.
+        """
         monkeypatch.setattr(diagnostic, "outlook_present", lambda: True)
         simule = ScriptedDialogue(confirmations=[True], answers=["", "", ""])
         answers = assistant.Answers()

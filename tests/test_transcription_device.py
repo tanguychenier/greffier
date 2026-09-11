@@ -1,10 +1,10 @@
-"""Ce que fait la transcription quand la carte graphique se dérobe.
+"""What the transcription does when the graphics card gives way.
 
-« auto » retient la carte dès qu'il en voit une, sans vérifier que les
-bibliothèques CUDA l'accompagnent — le cas ordinaire sous Linux, où rien ne les
-installe. Le modèle se charge alors sans broncher, puis le calcul échoue au
-premier bloc audio : sans repli, une réunion entière est perdue au moment
-précis où elle allait être transcrite.
+"auto" keeps the card as soon as it sees one, without checking that the CUDA
+libraries came with it, which is the ordinary case on Linux where nothing
+installs them. The model then loads without a murmur, and the computation fails
+on the first block of audio: with no fallback, a whole meeting is lost at the
+precise moment it was about to be transcribed.
 """
 
 from pathlib import Path
@@ -23,12 +23,11 @@ class FakeSegment:
 
 class TestFallingBackToTheProcessor:
     def _transcriber(self, monkeypatch, refuse):
-        """Un modèle qui échoue là où échoue une carte sans cuBLAS.
+        """A model that fails where a card with no cuBLAS fails.
 
-        L'échec ne survient ni à la construction ni à l'appel, mais au parcours
-        des segments : ils sont un générateur, et c'est en le parcourant que le
-        calcul a lieu. Un double qui échouerait plus tôt éprouverait un cas qui
-        n'arrive pas.
+        The failure happens neither on construction nor on the call, but while walking
+        the segments: they are a generator, and the computation happens as it is walked.
+        A double failing earlier would cover a case that does not occur.
         """
         requests: list[str] = []
 
@@ -70,7 +69,7 @@ class TestFallingBackToTheProcessor:
         assert transcriber.peripherique == "cpu"
 
     def test_a_failure_of_the_processor_is_not_hidden(self, monkeypatch):
-        """Sinon le repli tournerait en rond et cacherait la vraie cause."""
+        """Otherwise the fallback would go round in circles and hide the real cause."""
         transcriber, requests = self._transcriber(monkeypatch, refuse={"auto", "cpu"})
 
         with pytest.raises(RuntimeError):
