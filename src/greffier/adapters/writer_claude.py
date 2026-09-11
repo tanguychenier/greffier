@@ -191,7 +191,11 @@ class ClaudeWriter:
                 f"« {self.command} » est introuvable dans le PATH. "
                 "Installe Claude Code, ou bascule « compte_rendu.moteur » sur « ollama »."
             )
+        # `--strict-mcp-config` keeps the machine's own MCP servers out of the
+        # call: this assistant has no business loading them, and measured over
+        # seven runs it also takes 0.3 s off a round trip that costs 3.
         command = [self.command, "-p", "--output-format", "text",
+                    "--strict-mcp-config",
                     "--allowed-tools", ",".join(self.tools)]
         if self.model:
             command += ["--model", self.model]

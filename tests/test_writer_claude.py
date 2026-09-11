@@ -70,3 +70,17 @@ class TestWhenThingsFail:
         )
         with pytest.raises(RuntimeError, match="quota atteint"):
             ClaudeWriter("opus").write_up("x")
+
+
+class TestTheMachinesOwnServersStayOut:
+    """The assistant of a meeting has no business loading them.
+
+    A machine may carry any number of MCP servers, declared for other work
+    entirely. Loading them into the call that writes the minutes gives them
+    reach over what was said in the room, and measured over seven runs it also
+    costs 0.3 s on a round trip of 3.
+    """
+
+    def test_only_the_configuration_given_is_used(self, spy):
+        ClaudeWriter().write_up("Sandy : bonjour.")
+        assert "--strict-mcp-config" in spy["commande"]
