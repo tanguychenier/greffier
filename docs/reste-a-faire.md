@@ -912,12 +912,12 @@ measured threshold.
 
 ### Still open, and why
 
-- **The publication workflow has never run.** It waits in
-  `tools/publier.yml.a-mettre-en-place`: an OAuth token without the `workflow`
-  scope can neither create nor update a file under `.github/workflows/`, and
-  GitHub rejects the whole push when one appears. Two `git mv` from an account
-  that has the right, and it runs. Until then the Windows and Linux artefacts
-  cannot be proven — GitHub's runners are this project's only Windows bench.
+- ~~**The publication workflow has never run.**~~ Done: `.github/workflows/`
+  carries `ci.yml` and `release.yml`, a tag `v*` builds the three artefacts and
+  attaches them to the release. Six releases have gone out that way, the last
+  three on 2026-09-11 (`v0.3.8`, `v0.3.9`, `v0.3.10`), each with
+  `Greffier-linux.tar.gz`, `Greffier-macos.zip` and `Greffier-windows.zip`.
+  What remains unproven is the Windows artefact **in use**, not its build.
 - **Gatekeeper will refuse the macOS bundle** on any other machine. The bundle is
   signed with a development certificate, not notarised. Fixing it needs a
   Developer ID, so a paid account: a decision, not a task.
@@ -943,6 +943,55 @@ measured threshold.
 - **Two voices merged by hand cannot be separated again.** Naming joins, and a
   name can be removed, but the join itself has no undo. It has not cost anything
   since the stitching stopped over-splitting, which is why it waits.
+
+## The whole chain proves itself on Linux too (2026-09-11)
+
+`pytest -m integration` meant one thing on macOS and another everywhere else:
+**36 of its 56 tests skipped**, the end-to-end proof among them -- transcribe,
+tell the voices apart, find the first names, write the minutes. Two reasons,
+copied into each of the six files: the fixture is spoken by `say`, and the
+transcription was looked for as whisper.cpp. Neither holds on the machine the
+tool now runs on every day.
+
+The fixture is now spoken by whichever engine the machine carries: `say`, or
+**the French VITS voice the installer already lays down** for the assistant,
+driven by the sherpa-onnx that already segments -- no new dependency, no network
+call. "Can this machine transcribe" and "can it speak" are asked once, in
+`tests/integration/prerequisites.py`, and the first follows the configured
+engine rather than demanding whisper.cpp.
+
+What running them then found:
+
+- **A first name a synthesiser mangles proves nothing about the chain.**
+  « Sandy » comes back from the VITS as « Samy », then « Sani »: three tests
+  were failing on a word nobody had pronounced. The dialogue now carries the
+  first names of the engine that speaks it -- « Sophie » on VITS, « Sandy » on
+  `say` -- and the tests ask for them instead of spelling them out. Eight
+  candidates were measured on the two lines that carry the name; six came back
+  intact.
+- **The live thread holds on this hardware.** A 40.7 s slice transcribed in
+  7.9 s, **0.19× real time**, on a GTX 1660 Ti with 6 GB -- the ten-second
+  period has five times the margin it needs. The turn that was failing measured
+  the **model load** (16 s, once per session) along with the answer it was
+  supposed to be timing; it warms the transcriber first now.
+- **The assistant hearing its own name is not proven outside `say`.** Measured
+  four times on « Lucie, où en est la recette ? », the VITS came back « UCI »
+  once. A test that passes three times out of four is worse than one that says
+  why it is not running, so that family skips with the reason.
+
+- **The suite wants its memory.** One `pytest` process keeps a transcription
+  model alive per module -- six by the end -- and on a 23 GB machine also
+  carrying a browser, two editors and another test run, the whole suite was
+  killed twice for want of memory. One file at a time, it goes through. A
+  transcriber shared between the modules is a task of its own: three of them
+  build the chain through `process()`, which makes its own.
+
+What remains out of reach here: three people around a table need three timbres,
+and the installed French network carries two. The round table stays a macOS
+proof.
+
+Counted on this machine: **36 of the 56 tests skipped before, 22 after** -- and
+those 22 say which synthesis they are waiting for.
 
 ## Retour d'expérience à faire, réunion du 2026-09-10 (10 h 10)
 

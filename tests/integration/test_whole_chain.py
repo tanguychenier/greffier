@@ -19,8 +19,6 @@ Slow, transcription included, and dependent on the models: marked
 
 from __future__ import annotations
 
-import platform
-import shutil
 import sys
 from pathlib import Path
 
@@ -28,6 +26,10 @@ import pytest
 
 from greffier.adapters.configuration import Config
 from greffier.application.process import Chain
+from tests.integration.prerequisites import (
+    transcription_is_out_of_reach,
+    voices_are_out_of_reach,
+)
 
 RACINE = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(RACINE / "tools"))
@@ -35,30 +37,21 @@ sys.path.insert(0, str(RACINE / "tools"))
 pytestmark = pytest.mark.integration
 
 
-def models_present(config: Config) -> bool:
-    diarisation = config.paths.models / "diarisation"
-    return (
-        (config.paths.models / "ggml-large-v3-turbo.bin").exists()
-        and (diarisation / "nemo_en_titanet_large.onnx").exists()
-        and (diarisation / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx").exists()
-    )
-
-
 @pytest.fixture(scope="session")
 def config() -> Config:
     configuration = Config()
-    if not models_present(configuration):
-        pytest.skip("modèles absents — lance tools/install.py")
-    if not shutil.which("whisper-cli"):
-        pytest.skip("whisper.cpp absent")
+    hors_de_portee = transcription_is_out_of_reach(configuration)
+    if hors_de_portee:
+        pytest.skip(hors_de_portee)
     return configuration
 
 
 @pytest.fixture(scope="session")
 def meeting(tmp_path_factory) -> Path:
     """Builds the fake meeting once, reused by every test."""
-    if platform.system() != "Darwin":
-        pytest.skip("la synthèse vocale « say » n'existe que sur macOS")
+    hors_de_portee = voices_are_out_of_reach(2)
+    if hors_de_portee:
+        pytest.skip(hors_de_portee)
     from make_meeting import make
 
     return make(tmp_path_factory.mktemp("audio") / "reunion.wav")
@@ -98,7 +91,9 @@ class TestChaineReelle:
         Each first name is said twice, in two different ways: the clues adding up must
         be enough to decide without asking anybody.
         """
-        assert set(outcome.names.values()) == {"Jacques", "Sandy"}
+        from make_meeting import first_names
+
+        assert set(outcome.names.values()) == set(first_names())
 
     def test_each_first_name_goes_to_a_different_voice(self, outcome):
         assert len(set(outcome.names)) == 2
@@ -121,7 +116,9 @@ class TestChaineReelle:
         from greffier.application.render import render_transcript
 
         text = render_transcript(outcome)
-        assert "[Jacques]" in text and "[Sandy]" in text
+        from make_meeting import first_names
+
+        assert all(f"[{prenom}]" in text for prenom in first_names())
         assert "00:0" in text
         assert "Personne" not in text, "aucune voix ne devrait rester anonyme"
 

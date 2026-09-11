@@ -13,8 +13,6 @@ Slow, transcription included, and dependent on the models: marked
 
 from __future__ import annotations
 
-import platform
-import shutil
 import sys
 from pathlib import Path
 
@@ -24,6 +22,10 @@ from greffier.adapters.configuration import Config
 from greffier.application.name_voice import voices_to_name
 from greffier.application.process import Chain
 from greffier.application.process import _as_stored_meeting as depuis_resultat
+from tests.integration.prerequisites import (
+    transcription_is_out_of_reach,
+    voices_are_out_of_reach,
+)
 
 RACINE = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(RACINE / "tools"))
@@ -31,31 +33,22 @@ sys.path.insert(0, str(RACINE / "tools"))
 pytestmark = pytest.mark.integration
 
 
-def models_present(config: Config) -> bool:
-    diarisation = config.paths.models / "diarisation"
-    return (
-        (config.paths.models / "ggml-large-v3-turbo.bin").exists()
-        and (diarisation / "nemo_en_titanet_large.onnx").exists()
-        and (diarisation / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx").exists()
-    )
-
-
 @pytest.fixture(scope="session")
 def config() -> Config:
     configuration = Config()
-    if not models_present(configuration):
-        pytest.skip("modèles absents — lance tools/install.py")
-    if not shutil.which("whisper-cli"):
-        pytest.skip("whisper.cpp absent")
+    hors_de_portee = transcription_is_out_of_reach(configuration)
+    if hors_de_portee:
+        pytest.skip(hors_de_portee)
     return configuration
 
 
 def _fabriquer_cas(name: str, tmp_path_factory) -> Path:
-    if platform.system() != "Darwin":
-        pytest.skip("la synthèse vocale « say » n'existe que sur macOS")
     from make_hard_cases import CAS
     from make_meeting import make
 
+    hors_de_portee = voices_are_out_of_reach(len(set(CAS[name][0].values())))
+    if hors_de_portee:
+        pytest.skip(hors_de_portee)
     voice, dialogue = CAS[name]
     destination = tmp_path_factory.mktemp("audio") / f"cas-{name}.wav"
     return make(destination, voice=voice, dialogue=dialogue)
