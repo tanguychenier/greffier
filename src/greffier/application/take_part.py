@@ -232,11 +232,9 @@ class AssistantSettings:
         if is_own(utterance.text, [words for _when, words in self.its_own_words]):
             return True
         if len(own_words(utterance.text)) >= WORDS_TO_JUDGE:
-            # Assez de mots pour trancher : ils l'ont fait, et la fenêtre de
-            # temps n'a pas à s'en mêler. Elle est **estimée** d'après la
-            # longueur du texte, et elle englobait la question suivante — la
-            # salle se retrouvait ignorée. Mesuré par le harnais de
-            # conversation.
+            # Enough words to decide, so the time window has no business
+            # here: it is estimated from the length of the text, and it
+            # swallowed the next question, leaving the room unheard.
             return False
         start, end = utterance.span.start, utterance.span.end
         if end <= start:
