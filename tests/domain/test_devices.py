@@ -92,9 +92,9 @@ class TestPluggingAndUnplugging:
     def test_unplugged_then_plugged_comes_back_to_the_headset(
         self, watch_rules: WatchRules
     ) -> None:
-        premier = watch_rules.examine(AVEC_CASQUE, SANS_CASQUE)
+        first_call = watch_rules.examine(AVEC_CASQUE, SANS_CASQUE)
         second = watch_rules.examine(SANS_CASQUE, AVEC_CASQUE)
-        assert premier.mic == "Micro MacBook Pro"
+        assert first_call.mic == "Micro MacBook Pro"
         assert second.mic == "Jabra EVOLVE 30 II"
         assert len(watch_rules.events) == 2
 

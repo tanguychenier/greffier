@@ -13,10 +13,10 @@ class TestTableauxInterdits:
     une fois par son auteur. C'est donc dans le code, pas dans une consigne.
     """
 
-    def test_la_liste_n_est_pas_vide(self):
+    def test_the_forbidden_list_is_not_empty(self):
         assert INTERDITS
 
-    def test_publier_sur_un_interdit_echoue_avant_tout_appel(self, monkeypatch):
+    def test_publishing_to_a_forbidden_board_fails_before_any_call(self, monkeypatch):
         def jamais(*_args, **_options):
             raise AssertionError("aucun appel ne doit partir")
 
@@ -25,25 +25,25 @@ class TestTableauxInterdits:
             board_miro.textes_presents(next(iter(INTERDITS)))
 
 
-class TestJeton:
+class TestWhereTheTokenComesFrom:
     def test_l_environnement_est_lu_d_abord(self, monkeypatch):
         monkeypatch.setenv("GREFFIER_MIRO_JETON", "abc")
         assert token() == "abc"
 
-    def test_un_fichier_peut_le_porter(self, monkeypatch, tmp_path):
+    def test_a_file_may_carry_it(self, monkeypatch, tmp_path):
         file = tmp_path / "jeton.txt"
         file.write_text("depuis-le-fichier\n", encoding="utf-8")
         monkeypatch.delenv("GREFFIER_MIRO_JETON", raising=False)
         monkeypatch.setenv("GREFFIER_MIRO_JETON_FICHIER", str(file))
         assert token() == "depuis-le-fichier"
 
-    def test_sans_jeton_le_message_dit_quoi_faire(self, monkeypatch):
+    def test_with_no_token_the_message_says_what_to_do(self, monkeypatch):
         monkeypatch.delenv("GREFFIER_MIRO_JETON", raising=False)
         monkeypatch.delenv("GREFFIER_MIRO_JETON_FICHIER", raising=False)
         with pytest.raises(MiroRefused, match="GREFFIER_MIRO_JETON"):
             token()
 
-    def test_aucun_chemin_n_est_ecrit_en_dur(self):
+    def test_no_path_is_hard_coded(self):
         """Un outil public ne va pas chercher dans le dossier d'un projet."""
         from pathlib import Path
 
@@ -69,7 +69,7 @@ class TestPublicationSansReseau:
         monkeypatch.setenv("GREFFIER_MIRO_JETON", "essai")
         return appels
 
-    def test_seuls_les_noeuds_manquants_sont_poses(self, monkeypatch):
+    def test_only_the_missing_nodes_are_placed(self, monkeypatch):
         from greffier.domain.board import Board, Contribution, join
 
         board = Board("Oasis")
@@ -79,7 +79,7 @@ class TestPublicationSansReseau:
         assert written.poses == ("Nouveau",)
         assert set(written.already) == {"Oasis", "Déjà là"}
 
-    def test_rien_n_est_supprime_ni_modifie(self, monkeypatch):
+    def test_nothing_is_deleted_or_changed(self, monkeypatch):
         """Ce que quelqu'un a posé reste tel quel."""
         from greffier.domain.board import Board, Contribution, join
 
@@ -90,7 +90,7 @@ class TestPublicationSansReseau:
         methodes = {methode for methode, _, _ in appels}
         assert methodes <= {"GET", "POST"}, "ni DELETE ni PATCH"
 
-    def test_l_etat_se_lit_a_la_couleur(self, monkeypatch):
+    def test_the_standing_is_read_from_the_colour(self, monkeypatch):
         from greffier.domain.board import Board, Contribution, Kind, Standing, join
 
         board = Board("Oasis")
@@ -105,7 +105,7 @@ class TestPublicationSansReseau:
         ]
         assert board_miro.COLOURS[Standing.AGREED] in colours
 
-    def test_le_texte_est_echappe(self, monkeypatch):
+    def test_the_text_is_escaped(self, monkeypatch):
         """Un « < » dans un libellé ne doit pas casser le contenu HTML."""
         from greffier.domain.board import Board, Contribution, join
 
@@ -164,7 +164,7 @@ class TestConnecteurs:
         assert liens, "un lien doit être tracé"
         assert isinstance(liens[0]["startItem"]["id"], int)
 
-    def test_les_liens_traces_sont_comptes(self, monkeypatch):
+    def test_the_links_drawn_are_counted(self, monkeypatch):
         from greffier.domain.board import Board, Contribution, join
 
         board = Board("Oasis")
@@ -174,7 +174,7 @@ class TestConnecteurs:
         assert written.liens == 2
         assert written.liens_manques == 0
 
-    def test_les_liens_echoues_sont_comptes_et_non_avales(self, monkeypatch):
+    def test_the_links_that_failed_are_counted_not_swallowed(self, monkeypatch):
         from greffier.domain.board import Board, Contribution, join
 
         board = Board("Oasis")
@@ -195,7 +195,7 @@ class TestConnecteurs:
 
 
 class TestLaRacine:
-    def test_le_sujet_ne_porte_pas_d_etat(self):
+    def test_the_subject_carries_no_standing(self):
         """« Oasis — en discussion » ferait dire que le sujet est en débat."""
         from greffier.domain.board import Board
 
@@ -204,7 +204,7 @@ class TestLaRacine:
         html = board_miro._as_html(board.root, "")
         assert "en discussion" not in html
 
-    def test_le_sujet_a_sa_propre_couleur(self):
+    def test_the_subject_has_its_own_colour(self):
         from greffier.domain.board import Kind
 
         assert Kind.SUBJECT in __import__(

@@ -8,7 +8,7 @@ from greffier.domain.meeting import StoredMeeting
 from greffier.domain.models import Span, SpeakerTurn, Utterance
 
 
-def reunion_type(**overrides) -> StoredMeeting:
+def a_meeting(**overrides) -> StoredMeeting:
     defauts = dict(
         identifier="2026-08-24_reunion",
         audio=Path("/tmp/r.wav"),
@@ -25,35 +25,35 @@ def reunion_type(**overrides) -> StoredMeeting:
     return StoredMeeting(**defauts)
 
 
-class TestVoixANommer:
-    def test_une_voix_courte_sans_indice_reste_ecartee(self):
+class TestTheVoicesOfferedForNaming:
+    def test_a_short_voice_with_no_clue_stays_out(self):
         """Le comportement d'origine, préservé : un fragment sans rien pour le
         rattacher ne doit pas passer pour un participant."""
-        meeting = reunion_type()
+        meeting = a_meeting()
         assert "2" not in {v.voice for v in voices_to_name(meeting)}
 
-    def test_une_proposition_sur_une_voix_courte_n_est_pas_perdue(self):
+    def test_a_guess_on_a_short_voice_is_not_lost(self):
         """Le défaut corrigé : un prénom détecté dans une réponse brève doit
         survivre au filtre de durée, sans quoi il ne s'affiche jamais."""
-        meeting = reunion_type(propositions={"2": "Kilian"})
+        meeting = a_meeting(propositions={"2": "Kilian"})
         input = next(v for v in voices_to_name(meeting) if v.voice == "2")
         assert input.proposition == "Kilian"
         assert input.to_name
 
-    def test_un_nom_deja_attribue_sur_une_voix_courte_n_est_pas_perdu(self):
-        meeting = reunion_type(names={"2": "Kilian"})
+    def test_a_name_already_given_to_a_short_voice_is_not_lost(self):
+        meeting = a_meeting(names={"2": "Kilian"})
         input = next(v for v in voices_to_name(meeting) if v.voice == "2")
         assert input.name == "Kilian"
         assert not input.to_name
 
-    def test_une_voix_longue_reste_toujours_proposee(self):
-        meeting = reunion_type()
+    def test_a_long_voice_is_always_offered(self):
+        meeting = a_meeting()
         assert "1" in {v.voice for v in voices_to_name(meeting)}
 
-    def test_la_part_relative_ignore_les_voix_courtes_reintroduites(self):
+    def test_the_share_ignores_the_short_voices_brought_back_in(self):
         """Réintroduire une voix courte ne doit pas diluer la part de celles
         qui dépassent déjà le seuil de matière."""
-        meeting = reunion_type(propositions={"2": "Kilian"})
+        meeting = a_meeting(propositions={"2": "Kilian"})
         longue = next(v for v in voices_to_name(meeting) if v.voice == "1")
         assert longue.part == 1.0
 
@@ -89,15 +89,15 @@ class FakeExtractor:
         return [normalise([1.0, 0.0], source_duration=i.duration) for i in intervalles]
 
 
-def nommage_factice(meeting):
+def a_naming_setup(meeting):
     from greffier.application.name_voice import Naming
 
     store = FakeStore(meeting)
     return Naming(store=store, bank=FakeBank(), extractor=FakeExtractor())
 
 
-class TestNommerReunitLesVoix:
-    def test_deux_voix_du_meme_prenom_deviennent_une(self):
+class TestNamingJoinsTheVoices:
+    def test_two_voices_of_one_first_name_become_one(self):
         """Le geste qu'on fait sans le savoir.
 
         Nommer « Marcel » une deuxième voix, c'est dire qu'elle est de Marcel,
@@ -105,75 +105,75 @@ class TestNommerReunitLesVoix:
         Marcel, et une réunion réelle a demandé trente-six nommages à la main
         pour trois personnes présentes.
         """
-        meeting = reunion_type(
+        meeting = a_meeting(
             utterances=[Utterance(Span(0, 40), "bonjour", "1"),
                        Utterance(Span(60, 80), "oui", "2")],
             turns=[SpeakerTurn(Span(0, 40), "1"),
                    SpeakerTurn(Span(60, 80), "2")],
             names={"1": "Marcel"},
         )
-        naming = nommage_factice(meeting)
+        naming = a_naming_setup(meeting)
         rendered = naming.name_voice("2026-08-24_reunion", "2", "Marcel")
         assert list(rendered.names.values()) == ["Marcel"]
         assert len(set(t.voice for t in rendered.turns)) == 1
 
-    def test_la_voix_la_plus_fournie_garde_son_identifiant(self):
+    def test_the_best_fed_voice_keeps_its_identifier(self):
         """C'est son extrait qu'on réécoutera : autant que ce soit le plus long."""
-        meeting = reunion_type(
+        meeting = a_meeting(
             utterances=[Utterance(Span(0, 5), "oui", "petite"),
                        Utterance(Span(10, 90), "un long propos", "grande")],
             turns=[SpeakerTurn(Span(0, 5), "petite"),
                    SpeakerTurn(Span(10, 90), "grande")],
             names={"grande": "Marcel"},
         )
-        rendered = nommage_factice(meeting).name_voice("2026-08-24_reunion", "petite", "Marcel")
+        rendered = a_naming_setup(meeting).name_voice("2026-08-24_reunion", "petite", "Marcel")
         assert set(rendered.names) == {"grande"}
 
     def test_case_does_not_create_two_people(self):
-        meeting = reunion_type(
+        meeting = a_meeting(
             utterances=[Utterance(Span(0, 40), "a", "1"),
                        Utterance(Span(60, 80), "b", "2")],
             turns=[SpeakerTurn(Span(0, 40), "1"),
                    SpeakerTurn(Span(60, 80), "2")],
             names={"1": "Marcel"},
         )
-        rendered = nommage_factice(meeting).name_voice("2026-08-24_reunion", "2", "marcel")
+        rendered = a_naming_setup(meeting).name_voice("2026-08-24_reunion", "2", "marcel")
         assert list(rendered.names.values()) == ["Marcel"]
 
 
-class TestNommerRefuseCeQuiNEnEstPas:
-    def test_le_libelle_de_l_interface_n_entre_pas_en_banque(self):
+class TestNamingRefusesWhatIsNotAName:
+    def test_a_label_of_the_window_does_not_enter_the_bank(self):
         """La banque du poste portait « A nommer ». Plus jamais."""
         import pytest
 
-        naming = nommage_factice(reunion_type())
+        naming = a_naming_setup(a_meeting())
         with pytest.raises(ValueError, match="pas un prénom"):
             naming.name_voice("2026-08-24_reunion", "1", "A nommer")
 
-    def test_rien_n_est_verse_en_banque_quand_le_nom_est_refuse(self):
+    def test_nothing_is_poured_into_the_bank_when_the_name_is_refused(self):
         import pytest
 
-        meeting = reunion_type()
-        naming = nommage_factice(meeting)
+        meeting = a_meeting()
+        naming = a_naming_setup(meeting)
         with pytest.raises(ValueError):
             naming.name_voice("2026-08-24_reunion", "1", "?")
         assert naming.bank.ajouts == []
 
 
-class TestOublier:
-    def test_un_nom_pose_par_erreur_se_retire(self):
+class TestForgettingAName:
+    def test_a_name_given_by_mistake_can_be_taken_back(self):
         """Le geste le plus coûteux de l'outil n'était pas défaisable."""
-        meeting = reunion_type(names={"1": "Marcel"})
-        rendered = nommage_factice(meeting).forget("2026-08-24_reunion", "1")
+        meeting = a_meeting(names={"1": "Marcel"})
+        rendered = a_naming_setup(meeting).forget("2026-08-24_reunion", "1")
         assert rendered.names == {}
 
-    def test_oublier_une_voix_sans_nom_le_dit(self):
+    def test_forgetting_an_unnamed_voice_says_so(self):
         import pytest
 
         with pytest.raises(KeyError):
-            nommage_factice(reunion_type()).forget("2026-08-24_reunion", "1")
+            a_naming_setup(a_meeting()).forget("2026-08-24_reunion", "1")
 
-    def test_une_proposition_s_oublie_aussi(self):
-        meeting = reunion_type(propositions={"1": "Kilian"})
-        rendered = nommage_factice(meeting).forget("2026-08-24_reunion", "1")
+    def test_a_guess_can_be_forgotten_too(self):
+        meeting = a_meeting(propositions={"1": "Kilian"})
+        rendered = a_naming_setup(meeting).forget("2026-08-24_reunion", "1")
         assert rendered.propositions == {}

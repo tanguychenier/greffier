@@ -35,7 +35,7 @@ class Recorded:
 
 
 class TestBornes:
-    def test_la_borne_reste_sous_la_limite_mesuree(self) -> None:
+    def test_the_bound_stays_under_the_measured_limit(self) -> None:
         # 120 s passent, 150 s échouent : la borne doit être franchement en deçà.
         assert MAXIMUM_LENGTH <= 120.0
         assert MAXIMUM_LENGTH >= MINIMUM_LENGTH
@@ -45,12 +45,12 @@ class TestBornes:
         garde.borner(np.zeros(16000 * 10, dtype="float32"), 16000)
         assert garde.recus == [16000 * 10]
 
-    def test_un_extrait_trop_long_est_ramene_a_la_borne(self) -> None:
+    def test_too_long_an_extract_is_brought_back_to_the_bound(self) -> None:
         garde = Recorded()
         garde.borner(np.zeros(16000 * 600, dtype="float32"), 16000)
         assert garde.recus == [int(16000 * MAXIMUM_LENGTH)]
 
-    def test_c_est_le_milieu_du_passage_qui_est_gardé(self) -> None:
+    def test_it_is_the_middle_of_the_passage_that_is_kept(self) -> None:
         # Le début d'un long tour de parole porte volontiers une hésitation ou
         # un « alors » qui ne dit rien du timbre.
         frequency = 16000

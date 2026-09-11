@@ -39,7 +39,7 @@ INTERDITS = {
 }
 
 
-def modules_de(couche: str) -> list[Path]:
+def modules_of(couche: str) -> list[Path]:
     """The modules of a layer, and never an empty list.
 
     Renaming `domaine/` to `domain/` left these rules reading a folder that no
@@ -53,7 +53,7 @@ def modules_de(couche: str) -> list[Path]:
     return fichiers
 
 
-def imports_de(file: Path) -> list[str]:
+def imports_of(file: Path) -> list[str]:
     """Tous les modules importés, imports tardifs compris.
 
     `ast.walk` descend dans les corps de fonction : un « import » écrit au
@@ -70,48 +70,48 @@ def imports_de(file: Path) -> list[str]:
     return names
 
 
-class TestLeDomaineEstPur:
-    def test_il_n_importe_aucune_bibliotheque_qui_touche_le_monde(self):
+class TestTheDomainIsPure:
+    def test_it_imports_no_library_that_touches_the_world(self):
         fautes = [
             f"{file.relative_to(RACINE)} importe {name}"
-            for file in modules_de("domain")
-            for name in imports_de(file)
+            for file in modules_of("domain")
+            for name in imports_of(file)
             if name.split(".")[0] in INTERDIT_AU_DOMAINE
         ]
         assert not fautes, "\n".join(fautes)
 
-    def test_il_ne_connait_aucune_autre_couche(self):
+    def test_it_knows_no_other_layer(self):
         fautes = [
             f"{file.relative_to(RACINE)} importe {name}"
-            for file in modules_de("domain")
-            for name in imports_de(file)
+            for file in modules_of("domain")
+            for name in imports_of(file)
             if name.startswith(INTERDITS["domain"])
         ]
         assert not fautes, "\n".join(fautes)
 
 
-class TestLesDependancesVontDansLeBonSens:
-    def test_l_application_n_importe_aucun_adaptateur(self):
+class TestTheDependenciesPointInwards:
+    def test_the_application_imports_no_adapter(self):
         """Y compris les imports tardifs : c'est là qu'ils se cachaient."""
         fautes = [
             f"{file.relative_to(RACINE)} importe {name}"
-            for file in modules_de("application")
-            for name in imports_de(file)
+            for file in modules_of("application")
+            for name in imports_of(file)
             if name.startswith(INTERDITS["application"])
         ]
         assert not fautes, "\n".join(fautes)
 
-    def test_les_ports_ne_connaissent_que_le_domaine(self):
+    def test_the_ports_know_only_the_domain(self):
         fautes = [
             f"{file.relative_to(RACINE)} importe {name}"
-            for file in modules_de("ports")
-            for name in imports_de(file)
+            for file in modules_of("ports")
+            for name in imports_of(file)
             if name.startswith(INTERDITS["ports"])
         ]
         assert not fautes, "\n".join(fautes)
 
 
-class TestLaRacineDuPaquetResteVide:
+class TestTheRootOfThePackageStaysEmpty:
     """Six modules s'y étaient installés hors de toute couche.
 
     Ce qui a le droit d'y vivre : l'adaptateur primaire en ligne de commande, le
@@ -125,7 +125,7 @@ class TestLaRacineDuPaquetResteVide:
         "__init__.py", "__main__.py", "cli.py", "wiring.py", "locations.py",
     })
 
-    def test_rien_de_nouveau_ne_s_installe_a_la_racine(self):
+    def test_nothing_new_settles_at_the_root(self):
         present_line = {f.name for f in PAQUET.glob("*.py")}
         assert present_line <= self.AUTORISES, (
             f"hors couche : {sorted(present_line - self.AUTORISES)}"

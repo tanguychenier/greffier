@@ -83,14 +83,14 @@ def resultat_trois_voix(config: Config, tmp_path_factory):
 
 
 class TestTroisVoix:
-    def test_les_trois_voix_sont_distinguees(self, resultat_trois_voix):
+    def test_the_three_voices_are_told_apart(self, resultat_trois_voix):
         """Trois voix distinctes, chacune avec plusieurs secondes de matière —
         pas deux (fusion à tort) ni davantage (sur-découpage résiduel)."""
         temps = resultat_trois_voix.speaking_time()
         assert len(temps) == 3
         assert all(duration >= 5.0 for duration in temps.values())
 
-    def test_les_deux_auto_presentations_sont_retrouvees(self, resultat_trois_voix):
+    def test_both_self_introductions_are_found(self, resultat_trois_voix):
         """Jacques et Amélie se présentent ; la troisième voix reste sans nom
         plutôt que d'hériter de celui d'un autre — un « merci Amélie » dit
         juste après le tour de la troisième personne est un piège volontaire
@@ -110,7 +110,7 @@ def resultat_proposition_breve(config: Config, tmp_path_factory):
 
 
 class TestPropositionBreve:
-    def test_la_proposition_existe_dans_le_resultat(self, resultat_proposition_breve):
+    def test_the_guess_is_there_in_the_outcome(self, resultat_proposition_breve):
         """La donnée n'est jamais perdue : le renvoi produit bien une
         proposition, jamais une certitude — un seul indice ne suffit pas."""
         temps = resultat_proposition_breve.speaking_time()
