@@ -1,6 +1,6 @@
 [project]
 name = "greffier"
-version = "0.3.10"
+version = "0.3.11"
 description = "Enregistre une réunion, identifie qui parle, en rédige le compte rendu — sans rien envoyer ailleurs."
 requires-python = ">=3.13"
 license = { text = "MIT" }
