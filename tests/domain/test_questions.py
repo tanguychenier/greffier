@@ -8,6 +8,7 @@ verrouillés ici, au même titre que les vrais.
 import pytest
 
 from greffier.domain.questions import (
+    DISTANCE_MAXIMUM,
     QUESTIONS_MAXIMUM,
     Questioner,
     Reason,
@@ -224,3 +225,33 @@ class TestMotDerive:
         from greffier.domain.questions import derived_word
 
         assert derived_word("recette", "cette")
+
+
+class TestTheEditDistanceIsTheOneItClaims:
+    """Optimal string alignment, and not the unrestricted Damerau-Levenshtein.
+
+    The two differ when a stretch is edited twice. On the words of a real
+    meeting the unrestricted form brings "ans" and "n'as" to a distance of two,
+    which is close enough to ask whether one was misheard for the other. The
+    hand-written version this replaces was the aligned one; the library offers
+    both, and the wrong one would put a question to the room.
+    """
+
+    def test_a_transposition_counts_for_one(self):
+        assert distance("bakclog", "backlog") == 1
+
+    def test_two_words_that_only_look_alike_stay_apart(self):
+        assert distance("ans", "n'as") > DISTANCE_MAXIMUM
+
+    def test_it_gives_up_above_the_ceiling(self):
+        """Whatever the true distance is, past the ceiling nothing is decided
+        on it, so counting further would be spent for nothing."""
+        assert distance("azerty", "poiuyt") == DISTANCE_MAXIMUM + 1
+
+    def test_the_empty_word_is_at_its_length(self):
+        assert distance("", "ab") == 2
+
+    def test_it_does_not_depend_on_the_order(self):
+        for one, other in (("recette", "recettes"), ("oasis", "ouasis"),
+                           ("prod", "pré-prod"), ("", "a")):
+            assert distance(one, other) == distance(other, one)
