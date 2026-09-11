@@ -23,7 +23,7 @@ def signal(channels: list[list[float]]) -> np.ndarray:
 
 
 class TestVisioOuPresentiel:
-    def test_une_boucle_qui_domine_signifie_visio(self) -> None:
+    def test_a_loopback_that_dominates_means_a_call(self) -> None:
         # Les autres passent par les haut-parleurs et couvrent le micro : c'est
         # ce qui distingue une visio, pas la simple présence d'un signal.
         fort, faible = [0.2] * 16000, [0.001] * 16000
@@ -31,7 +31,7 @@ class TestVisioOuPresentiel:
         assert channels.distante
         assert channels.mic is not None
 
-    def test_une_boucle_active_mais_jamais_dominante_reste_du_presentiel(self) -> None:
+    def test_a_loopback_alive_but_never_dominant_stays_a_room(self) -> None:
         # Le cas qui avait échoué : une boucle à -53 dB, du son y ayant fui,
         # mais qui ne couvre jamais le micro. Conclure « visio » attribuait
         # trente minutes de réunion à la seule personne qui enregistrait.
@@ -46,17 +46,17 @@ class TestVisioOuPresentiel:
         assert not channels.distante
         assert float(abs(channels.system).max()) > 0
 
-    def test_un_canal_muet_ne_divise_pas_l_amplitude_des_autres(self) -> None:
+    def test_a_silent_channel_does_not_divide_the_others_amplitude(self) -> None:
         channels = separer_canaux(signal([[0.001] * 16000, [0.0] * 16000, [0.2] * 16000]))
         assert channels.distante
         assert float(abs(channels.system).max()) > 0.15
 
-    def test_un_fichier_mono_ne_permet_aucune_separation(self) -> None:
+    def test_a_mono_file_allows_no_separation(self) -> None:
         channels = separer_canaux(signal([[0.1] * 100]))
         assert channels.mic is None and not channels.distante
 
 
-class TestUneVisioResteUneVisio:
+class TestAVideoCallStaysAVideoCall:
     """Le verdict se lit sur l'ensemble de l'audio, pas sur dix secondes.
 
     Le défaut mesuré : sur une tranche où seule la personne au micro parle,
@@ -64,12 +64,12 @@ class TestUneVisioResteUneVisio:
     désignée par le canal, devenait un participant distant de plus.
     """
 
-    def test_le_mode_impose_l_emporte_sur_ce_que_dit_la_tranche(self) -> None:
+    def test_the_forced_mode_wins_over_what_the_slice_says(self) -> None:
         seule_ma_voix = signal([[0.2] * 16000, [0.0] * 16000, [0.0] * 16000])
         assert not separer_canaux(seule_ma_voix).distante
         assert separer_canaux(seule_ma_voix, distante=True).distante
 
-    def test_une_boucle_muette_imposee_visio_laisse_la_parole_au_micro(self) -> None:
+    def test_a_silent_loopback_forced_to_a_call_leaves_the_floor_to_the_mic(self) -> None:
         # C'est ce qui permet de continuer à afficher « Toi » quand personne
         # d'autre ne parle pendant une tranche entière.
         channels = separer_canaux(
@@ -78,7 +78,7 @@ class TestUneVisioResteUneVisio:
         assert channels.mic is not None
         assert float(abs(channels.system).max()) == 0.0
 
-    def test_le_lecteur_retient_le_verdict_d_une_tranche_a_l_autre(
+    def test_the_reader_keeps_the_verdict_from_one_slice_to_the_next(
         self, tmp_path
     ) -> None:
         import soundfile as sf
@@ -98,16 +98,16 @@ class TestUneVisioResteUneVisio:
 
 
 class TestNiveaux:
-    def test_un_silence_numerique_ne_donne_pas_moins_l_infini(self) -> None:
+    def test_digital_silence_does_not_give_minus_infinity(self) -> None:
         levels = levels_per_frame(np.zeros(16000, dtype="float32"), 16000)
         assert levels and all(n < -200 for n in levels)
 
-    def test_un_signal_trop_court_pour_une_trame_ne_donne_rien(self) -> None:
+    def test_a_signal_too_short_for_a_frame_gives_nothing(self) -> None:
         assert levels_per_frame(np.zeros(10, dtype="float32"), 16000) == []
 
 
 class TestReadingTheSetting:
-    def test_un_fichier_illisible_n_interrompt_pas_la_reunion(self, tmp_path) -> None:
+    def test_an_unreadable_file_does_not_stop_the_meeting(self, tmp_path) -> None:
         # Une tranche découpée pendant l'écriture peut arriver tronquée : le
         # direct affiche alors la phrase sans « Toi », il ne s'arrête pas.
         absent = tmp_path / "rien.wav"

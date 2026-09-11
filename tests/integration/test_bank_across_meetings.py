@@ -97,7 +97,7 @@ class TestReconnaissanceEntreReunions:
         # 4. Et pourtant les deux sont nommés : cela ne peut venir que de la voix.
         assert set(second_resultat.names.values()) == {"Jacques", "Sandy"}
 
-    def test_la_banque_ne_nomme_pas_n_importe_qui(self, atelier, tmp_path):
+    def test_the_bank_does_not_name_just_anyone(self, atelier, tmp_path):
         """Une banque contenant une voix étrangère ne doit rien reconnaître."""
         config, _, seconde = atelier
         from greffier.domain.voiceprints import normalise
@@ -112,7 +112,7 @@ class TestReconnaissanceEntreReunions:
         outcome = chain.run_chain(seconde, send=False)
         assert "Personne d'autre" not in outcome.names.values()
 
-    def test_les_voix_a_nommer_sont_presentees_avec_un_extrait(self, atelier):
+    def test_the_voices_to_name_come_with_an_extract(self, atelier):
         """Le parcours réel : écouter dix secondes, taper un nom."""
         config, premiere, _ = atelier
         meeting = FileStore(config.paths.data / "reunions").read(premiere.stem)
@@ -124,7 +124,7 @@ class TestReconnaissanceEntreReunions:
 
 
 @pytest.mark.integration
-class TestSeparerApresLaReunionDeBoutEnBout:
+class TestSplittingAfterTheMeetingEndToEnd:
     """Le geste complet : réunir, écrire, relire, séparer, réécrire.
 
     Ce qui manquait : le fil du direct savait revenir en arrière, la chaîne

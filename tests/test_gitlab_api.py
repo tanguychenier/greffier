@@ -38,7 +38,7 @@ class FakeGitLab:
         return Response(json.dumps(self.charge).encode("utf-8"))
 
     @property
-    def premier(self):
+    def first_call(self):
         return self.appels[0]
 
 
@@ -50,7 +50,7 @@ def gitlab(monkeypatch) -> FakeGitLab:
 
 
 @pytest.fixture
-def muet(monkeypatch):
+def silent_server(monkeypatch):
     """Aucun appel ne doit partir : le refus se décide avant le réseau."""
     def jamais(*_args, **_options):
         raise AssertionError("aucun appel ne devait partir")
@@ -58,7 +58,7 @@ def muet(monkeypatch):
     monkeypatch.setattr(gitlab_api.urllib.request, "urlopen", jamais)
 
 
-def echouer(monkeypatch, code: int) -> None:
+def fail_to_answer(monkeypatch, code: int) -> None:
     def tomber(*_args, **_options):
         raise urllib.error.HTTPError(
             "https://x", code, "non", {}, BytesIO(b'{"message":"non"}')  # type: ignore[arg-type]
@@ -74,71 +74,71 @@ UN_TICKET = {
 }
 
 
-class TestReadingTheSetting:
-    def test_les_tickets_sont_rendus_utilisables(self, gitlab):
+class TestReadingFromGitLab:
+    def test_the_tickets_come_back_usable(self, gitlab):
         gitlab.charge = [UN_TICKET]
         found = gitlab_api.tickets(source(), "glpat-x")
         assert found[0].number == 42
         assert found[0].assigne == "Sophie"
         assert found[0].etiquettes == ("recette",)
 
-    def test_un_ticket_sans_assigne_ne_casse_pas(self, gitlab):
+    def test_a_ticket_with_nobody_assigned_breaks_nothing(self, gitlab):
         """GitLab rend « assignee: null », pas un objet vide."""
         gitlab.charge = [{**UN_TICKET, "assignee": None}]
         assert gitlab_api.tickets(source(), "glpat-x")[0].assigne == ""
 
-    def test_la_ligne_montre_le_ticket_d_un_coup(self, gitlab):
+    def test_the_line_shows_the_ticket_at_a_glance(self, gitlab):
         gitlab.charge = [UN_TICKET]
-        dit = gitlab_api.tickets(source(), "glpat-x")[0].say()
-        assert "#42" in dit and "Sophie" in dit and "recette" in dit
+        said = gitlab_api.tickets(source(), "glpat-x")[0].say()
+        assert "#42" in said and "Sophie" in said and "recette" in said
 
-    def test_le_projet_du_registre_borne_l_appel(self, gitlab):
+    def test_the_project_in_the_register_bounds_the_call(self, gitlab):
         """La portée vient du registre, jamais de la phrase tapée."""
         gitlab_api.tickets(source(), "glpat-x")
-        assert "equipe%2Foutil" in gitlab.premier.full_url
+        assert "equipe%2Foutil" in gitlab.first_call.full_url
 
-    def test_le_jeton_voyage_en_entete_pas_dans_l_adresse(self, gitlab):
+    def test_the_token_travels_in_a_header_not_in_the_url(self, gitlab):
         gitlab_api.tickets(source(), "glpat-secret")
-        assert gitlab.premier.get_header("Private-token") == "glpat-secret"
-        assert "glpat-secret" not in gitlab.premier.full_url
+        assert gitlab.first_call.get_header("Private-token") == "glpat-secret"
+        assert "glpat-secret" not in gitlab.first_call.full_url
 
-    def test_seuls_les_ouverts_sont_demandes_par_defaut(self, gitlab):
+    def test_only_the_open_ones_are_asked_for_by_default(self, gitlab):
         gitlab_api.tickets(source(), "glpat-x")
-        assert "state=opened" in gitlab.premier.full_url
+        assert "state=opened" in gitlab.first_call.full_url
 
-    def test_une_recherche_est_transmise(self, gitlab):
+    def test_a_search_term_is_passed_on(self, gitlab):
         gitlab_api.tickets(source(), "glpat-x", cherche="envoi")
-        assert "search=envoi" in gitlab.premier.full_url
+        assert "search=envoi" in gitlab.first_call.full_url
 
-    def test_la_lecture_ne_demande_aucun_droit_d_ecriture(self, gitlab):
+    def test_reading_asks_for_no_write_right(self, gitlab):
         assert gitlab_api.tickets(source(Right.LECTURE), "glpat-x") == []
 
-    def test_les_demandes_de_fusion_se_lisent_aussi(self, gitlab):
+    def test_the_merge_requests_read_too(self, gitlab):
         gitlab.charge = [UN_TICKET]
         found = gitlab_api.join_requests(source(), "glpat-x")
-        assert "merge_requests" in gitlab.premier.full_url
+        assert "merge_requests" in gitlab.first_call.full_url
         assert found[0].number == 42
 
 
-class TestEcriture:
-    def test_une_source_en_lecture_seule_n_appelle_meme_pas(self, muet):
+class TestWritingToGitLab:
+    def test_a_read_only_source_does_not_even_call(self, silent_server):
         with pytest.raises(gitlab_api.GitLabRefused, match="lecture seule"):
             gitlab_api.create_a_ticket(source(), "glpat-x", "Faire la chose")
 
-    def test_commenter_est_une_ecriture(self, muet):
+    def test_commenting_is_a_write(self, silent_server):
         """Un commentaire notifie des gens et reste attaché à leur travail."""
         with pytest.raises(gitlab_api.GitLabRefused, match="lecture seule"):
             gitlab_api.comment(source(), "glpat-x", 42, "vu")
 
-    def test_un_titre_vide_est_refuse(self, muet):
+    def test_an_empty_title_is_refused(self, silent_server):
         with pytest.raises(gitlab_api.GitLabRefused):
             gitlab_api.create_a_ticket(source(Right.ECRITURE), "glpat-x", "  ")
 
-    def test_un_commentaire_vide_est_refuse(self, muet):
+    def test_an_empty_comment_is_refused(self, silent_server):
         with pytest.raises(gitlab_api.GitLabRefused):
             gitlab_api.comment(source(Right.ECRITURE), "glpat-x", 42, "   ")
 
-    def test_le_ticket_cree_est_rendu_avec_son_adresse(self, gitlab):
+    def test_the_created_ticket_comes_back_with_its_url(self, gitlab):
         """Une écriture dont on ne montre pas le résultat n'est pas vérifiable."""
         gitlab.charge = UN_TICKET
         cree = gitlab_api.create_a_ticket(
@@ -146,32 +146,32 @@ class TestEcriture:
         )
         assert cree.number == 42
         assert cree.adresse.endswith("/issues/42")
-        assert gitlab.premier.method == "POST"
+        assert gitlab.first_call.method == "POST"
 
-    def test_le_corps_porte_le_titre_donne(self, gitlab):
+    def test_the_body_carries_the_title_given(self, gitlab):
         gitlab.charge = UN_TICKET
         gitlab_api.create_a_ticket(source(Right.ECRITURE), "glpat-x", "Un titre")
-        assert json.loads(gitlab.premier.data)["title"] == "Un titre"
+        assert json.loads(gitlab.first_call.data)["title"] == "Un titre"
 
-    def test_un_commentaire_rend_l_adresse_du_ticket(self, gitlab):
+    def test_a_comment_returns_the_url_of_the_ticket(self, gitlab):
         gitlab.charge = {"id": 7}
         rendered = gitlab_api.comment(source(Right.ECRITURE), "glpat-x", 42, "vu")
         assert rendered.endswith("/equipe/outil/-/issues/42")
-        assert gitlab.premier.method == "POST"
+        assert gitlab.first_call.method == "POST"
 
 
-class TestQuandCaRateOnLeDit:
-    def test_un_jeton_refuse_dit_la_portee_a_verifier(self, monkeypatch):
-        echouer(monkeypatch, 401)
+class TestWhenItFailsItSaysSo:
+    def test_a_refused_token_names_the_scope_to_check(self, monkeypatch):
+        fail_to_answer(monkeypatch, 401)
         with pytest.raises(gitlab_api.GitLabRefused, match="read_api"):
             gitlab_api.tickets(source(), "glpat-perime")
 
-    def test_un_projet_introuvable_dit_qu_un_projet_prive_fait_pareil(self, monkeypatch):
-        echouer(monkeypatch, 404)
+    def test_a_missing_project_says_a_private_one_looks_the_same(self, monkeypatch):
+        fail_to_answer(monkeypatch, 404)
         with pytest.raises(gitlab_api.GitLabRefused, match="privé"):
             gitlab_api.tickets(source(), "glpat-x")
 
-    def test_un_serveur_injoignable_est_dit_sans_faire_tomber(self, monkeypatch):
+    def test_an_unreachable_server_is_reported_without_falling_over(self, monkeypatch):
         def tomber(*_args, **_options):
             raise urllib.error.URLError("nom introuvable")
 
@@ -179,7 +179,7 @@ class TestQuandCaRateOnLeDit:
         with pytest.raises(gitlab_api.GitLabRefused, match="injoignable"):
             gitlab_api.tickets(source(), "glpat-x")
 
-    def test_une_reponse_inattendue_est_dite(self, gitlab):
+    def test_an_unexpected_answer_is_reported(self, gitlab):
         gitlab.charge = {"pas": "une liste"}
         with pytest.raises(gitlab_api.GitLabRefused):
             gitlab_api.tickets(source(), "glpat-x")

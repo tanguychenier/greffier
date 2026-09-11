@@ -84,15 +84,15 @@ class TestChaineReelle:
     def test_l_audio_synthetise_est_bien_transcrit(self, outcome):
         assert outcome.words > 60, "la transcription a perdu l'essentiel du dialogue"
 
-    def test_les_deux_voix_sont_separees(self, outcome):
+    def test_the_two_voices_are_told_apart(self, outcome):
         """Cinq répliques alternées, deux voix : ni fusion, ni sur-découpage."""
         assert len(outcome.significant_voices()) == 2
 
-    def test_les_fragments_ne_comptent_pas_comme_des_participants(self, outcome):
+    def test_fragments_do_not_count_as_participants(self, outcome):
         significatives = outcome.significant_voices()
         assert all(duration >= 10 for duration in significatives.values())
 
-    def test_les_deux_prenoms_sont_retrouves(self, outcome):
+    def test_both_first_names_are_found(self, outcome):
         """Le cœur du besoin : « Jacques » et « Sandy », pas « Personne 1 ».
 
         Chaque prénom est prononcé deux fois, de deux façons différentes — le
@@ -100,15 +100,15 @@ class TestChaineReelle:
         """
         assert set(outcome.names.values()) == {"Jacques", "Sandy"}
 
-    def test_chaque_prenom_va_a_une_voix_differente(self, outcome):
+    def test_each_first_name_goes_to_a_different_voice(self, outcome):
         assert len(set(outcome.names)) == 2
 
-    def test_l_auto_presentation_gagne_sur_le_reste(self, outcome):
+    def test_introducing_oneself_wins_over_the_rest(self, outcome):
         """Celui qui dit « moi c'est Jacques » est Jacques, quoi qu'il arrive."""
         premiere = outcome.utterances[0]
         assert outcome.name_of(premiere.voice) == "Jacques"
 
-    def test_un_enregistrement_mono_ne_declenche_pas_de_fausse_alerte(self, outcome):
+    def test_a_mono_recording_raises_no_false_alarm(self, outcome):
         """Un fichier à un seul canal n'a pas de second canal manquant.
 
         L'alerte « aucun son système capté » n'a de sens que sur un
@@ -118,7 +118,7 @@ class TestChaineReelle:
         """
         assert outcome.warnings == []
 
-    def test_la_transcription_rendue_est_attribuee_et_horodatee(self, outcome):
+    def test_the_rendered_transcription_is_attributed_and_timestamped(self, outcome):
         from greffier.application.render import render_transcript
 
         text = render_transcript(outcome)
@@ -128,7 +128,7 @@ class TestChaineReelle:
 
 
 @pytest.mark.integration
-class TestDeLaConversationAuCompteRendu:
+class TestFromTheConversationToTheMinutes:
     """De bout en bout : ce qu'on écrit dans le chat parvient au rédacteur.
 
     Les tests unitaires vérifient chaque maillon. Celui-ci vérifie le fil :
@@ -137,7 +137,7 @@ class TestDeLaConversationAuCompteRendu:
     exact qui était rompu le 2026-09-10.
     """
 
-    def test_un_message_ecrit_dans_le_chat_arrive_au_redacteur(self, tmp_path):
+    def test_a_message_typed_in_the_chat_reaches_the_writer(self, tmp_path):
         from greffier.adapters import conversations_file
         from greffier.adapters.configuration import Config
         from greffier.application.render import instructions_header
@@ -162,7 +162,7 @@ class TestDeLaConversationAuCompteRendu:
         assert "ailleurs" not in entete, "une note n'est pas une consigne"
         assert "migration" not in entete, "une question de l'assistant non plus"
 
-    def test_l_ordre_des_consignes_est_celui_de_la_reunion(self, tmp_path):
+    def test_the_order_of_the_instructions_is_the_meeting_s(self, tmp_path):
         """Une consigne plus tardive corrige une plus ancienne."""
         from greffier.adapters import conversations_file
         from greffier.adapters.configuration import Config
@@ -177,7 +177,7 @@ class TestDeLaConversationAuCompteRendu:
             "c'est Fantin qui a dit ça", "non, c'était Paul",
         ]
 
-    def test_aucune_consigne_quand_personne_n_a_rien_dit(self, tmp_path):
+    def test_no_instruction_when_nobody_said_anything(self, tmp_path):
         from greffier.adapters.configuration import Config
         from greffier.wiring import _instructions_of
 
