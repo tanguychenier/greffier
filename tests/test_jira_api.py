@@ -119,7 +119,7 @@ class TestReadingTheSetting:
         assert "statusCategory" not in jira.premier.full_url
 
 
-class TestEcriture:
+class TestWritingTheSettingsFile:
     def test_une_source_en_lecture_seule_n_appelle_meme_pas(self, muet):
         with pytest.raises(jira_api.JiraRefused, match="lecture seule"):
             jira_api.create_a_request(source(), SECRET, "Faire la chose")

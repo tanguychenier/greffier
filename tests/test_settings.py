@@ -86,7 +86,7 @@ class TestCeQuiNEstPasEcrit:
         assert "mot_de_passe" not in settings.render(Config())
 
 
-class TestEcriture:
+class TestWritingTheSettingsFile:
     def test_le_fichier_est_ecrit_a_l_endroit_ou_la_config_est_lue(self, tmp_path, garnie):
         file = settings.save_settings(garnie, folder=tmp_path / "ailleurs")
         assert file == tmp_path / "ailleurs/config.toml"

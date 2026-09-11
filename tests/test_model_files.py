@@ -38,7 +38,7 @@ def repondre(monkeypatch: pytest.MonkeyPatch, octets: bytes) -> None:
     )
 
 
-def echouer(monkeypatch: pytest.MonkeyPatch, souci: Exception) -> None:
+def fail_to_answer(monkeypatch: pytest.MonkeyPatch, souci: Exception) -> None:
     def tomber(*_a: Any, **_k: Any) -> Any:
         raise souci
 
@@ -108,7 +108,7 @@ class TestTelechargement:
 
     def test_rien_de_tronque_ne_reste_si_le_reseau_coupe(self, monkeypatch, tmp_path):
         """Le point qui compte : un modèle à moitié échoue à la transcription."""
-        echouer(monkeypatch, urllib.error.URLError("coupé"))
+        fail_to_answer(monkeypatch, urllib.error.URLError("coupé"))
         pose, souci = model_files.fetch(self._un_modele(), tmp_path)
         assert not pose and souci == "pas de réseau"
         assert not list(tmp_path.iterdir()), "aucun fichier partiel ne doit rester"
