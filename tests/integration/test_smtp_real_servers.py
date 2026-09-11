@@ -56,7 +56,7 @@ class TestSessionReelle:
         code, _ = session.docmd("NOOP")
         assert code == 250
 
-    def test_la_session_est_chiffree(self, session: smtplib.SMTP):
+    def test_the_session_is_encrypted(self, session: smtplib.SMTP):
         """TLS implicite ou négocié, le résultat doit être le même : chiffré.
 
         C'est la seule vérification qui distingue les deux conventions mal
@@ -66,7 +66,7 @@ class TestSessionReelle:
         assert isinstance(session.sock, ssl.SSLSocket)
         assert session.sock.version().startswith("TLS")
 
-    def test_le_serveur_annonce_ses_capacites_apres_chiffrement(self, session: smtplib.SMTP):
+    def test_the_server_announces_its_capabilities_after_encryption(self, session: smtplib.SMTP):
         """`AUTH` n'est annoncé qu'une fois la session chiffrée.
 
         Un serveur qui l'annonce prouve deux choses d'un coup : il a vu un

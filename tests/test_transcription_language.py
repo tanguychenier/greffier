@@ -36,11 +36,11 @@ class TestWhisperCpp:
         WhisperCppTranscriber(model).transcribe(model, language, "")
         return vue["commande"]
 
-    def test_une_langue_donnee_est_transmise(self, monkeypatch, model):
+    def test_a_language_given_is_passed_on(self, monkeypatch, model):
         command = self._command(monkeypatch, model, "en")
         assert command[command.index("-l") + 1] == "en"
 
-    def test_une_langue_vide_devient_auto(self, monkeypatch, model):
+    def test_an_empty_language_becomes_auto(self, monkeypatch, model):
         """« -l » attend une valeur : sans elle, l'option suivante serait avalée."""
         command = self._command(monkeypatch, model, "")
         assert command[command.index("-l") + 1] == "auto"
@@ -63,10 +63,10 @@ class TestFasterWhisper:
         transcriber.transcribe(Path("essai.wav"), language, "")
         return vue["language"]
 
-    def test_une_langue_donnee_est_transmise(self, monkeypatch):
+    def test_a_language_given_is_passed_on(self, monkeypatch):
         assert self._langue_recue(monkeypatch, "es") == "es"
 
-    def test_une_langue_vide_devient_none(self, monkeypatch):
+    def test_an_empty_language_becomes_none(self, monkeypatch):
         """La chaîne « auto » serait refusée : c'est l'absence qui déclenche
         la détection."""
         assert self._langue_recue(monkeypatch, "") is None

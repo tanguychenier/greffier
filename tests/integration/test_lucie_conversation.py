@@ -209,7 +209,7 @@ def _assistante(cerveau: CerveauDeTest, voice: HautParleur) -> AssistantSettings
     )
 
 
-def _un_tour(veilleur: Watcher, assistante: AssistantSettings,
+def _a_turn(veilleur: Watcher, assistante: AssistantSettings,
              dossier: Path) -> None:
     """Une tranche, puis on attend la réponse : elle est formulée à part."""
     where_in = veilleur.situer()
@@ -223,7 +223,7 @@ def _un_tour(veilleur: Watcher, assistante: AssistantSettings,
 class TestUneConversationEntiere:
     """Ce qui se passe quand on enchaîne, et non sur une seule phrase."""
 
-    def test_appelee_puis_sa_reponse_revient_et_elle_se_tait(
+    def test_called_then_its_answer_comes_back_and_it_stays_quiet(
         self, transcriber, tmp_path
     ):
         """Le défaut vécu, reproduit puis prouvé impossible.
@@ -242,18 +242,18 @@ class TestUneConversationEntiere:
         assistante = _assistante(cerveau, voice)
         veilleur = _veilleur(reunion, assistante, transcriber, tmp_path)
 
-        _un_tour(veilleur, assistante, tmp_path)
+        _a_turn(veilleur, assistante, tmp_path)
         assert len(voice.dites) == 1, voice.dites
         assert NAME not in voice.dites[0], "son nom ne doit jamais sortir"
 
         # Le haut-parleur : ce qu'elle a dit entre dans la pièce.
         reunion.dire(VOIX_DE_L_ASSISTANTE, voice.dites[0])
-        _un_tour(veilleur, assistante, tmp_path)
+        _a_turn(veilleur, assistante, tmp_path)
         assert len(voice.dites) == 1, (
             "elle a répondu à sa propre voix : " + str(voice.dites)
         )
 
-    def test_la_salle_reste_entendue_apres_qu_elle_a_parle(
+    def test_the_room_is_still_heard_after_it_has_spoken(
         self, transcriber, tmp_path
     ):
         """L'autre moitié : le garde ne doit pas la rendre sourde."""
@@ -267,18 +267,18 @@ class TestUneConversationEntiere:
         assistante = _assistante(cerveau, voice)
         veilleur = _veilleur(reunion, assistante, transcriber, tmp_path)
 
-        _un_tour(veilleur, assistante, tmp_path)
+        _a_turn(veilleur, assistante, tmp_path)
         assert len(voice.dites) == 1, voice.dites
 
         reunion.dire(VOIX_DE_L_ASSISTANTE, voice.dites[0])
         reunion.dire(VOIX_DE_LA_SALLE, f"Et les anomalies {NAME} ?")
-        _un_tour(veilleur, assistante, tmp_path)
+        _a_turn(veilleur, assistante, tmp_path)
         assert len(voice.dites) == 2, (
             "une nouvelle question de la salle doit obtenir une réponse : "
             + str(voice.dites)
         )
 
-    def test_elle_ne_repond_pas_quand_on_ne_l_appelle_pas(
+    def test_it_does_not_answer_when_nobody_calls_it(
         self, transcriber, tmp_path
     ):
         """Un assistant qui répond à tout est aussi inutilisable qu'un sourd."""
@@ -290,11 +290,11 @@ class TestUneConversationEntiere:
         assistante = _assistante(cerveau, voice)
         veilleur = _veilleur(reunion, assistante, transcriber, tmp_path)
 
-        _un_tour(veilleur, assistante, tmp_path)
+        _a_turn(veilleur, assistante, tmp_path)
         assert voice.dites == [], voice.dites
         assert cerveau.demandes == [], "le modèle n'a même pas à être appelé"
 
-    def test_elle_ne_se_coupe_pas_quand_elle_parle_encore(
+    def test_it_does_not_cut_itself_off_while_still_speaking(
         self, transcriber, tmp_path
     ):
         """« Des fois elle se met à parler et ça se coupe. »
@@ -308,19 +308,19 @@ class TestUneConversationEntiere:
         assistante = _assistante(cerveau, voice)
         veilleur = _veilleur(reunion, assistante, transcriber, tmp_path)
 
-        _un_tour(veilleur, assistante, tmp_path)
+        _a_turn(veilleur, assistante, tmp_path)
         assert len(voice.dites) == 1
 
         # Elle parle encore quand la question suivante arrive.
         voice.parle_encore = True
         reunion.dire(VOIX_DE_LA_SALLE,
                      f"{NAME}, et où en est la migration en Symfony sept ?")
-        _un_tour(veilleur, assistante, tmp_path)
+        _a_turn(veilleur, assistante, tmp_path)
         assert len(voice.dites) == 1, "rien de neuf n'a été prononcé"
         assert voice.coupures >= 1, "le refus doit avoir eu lieu"
         assert voice.parle_encore, "la phrase en cours n'a pas été coupée"
 
-    def test_la_boucle_du_transcripteur_ne_la_multiplie_pas(
+    def test_the_transcriber_loop_does_not_multiply_it(
         self, transcriber, tmp_path
     ):
         """La même question répétée n'obtient qu'une réponse.
@@ -337,10 +337,10 @@ class TestUneConversationEntiere:
         assistante = _assistante(cerveau, voice)
         veilleur = _veilleur(reunion, assistante, transcriber, tmp_path)
 
-        _un_tour(veilleur, assistante, tmp_path)
+        _a_turn(veilleur, assistante, tmp_path)
         assert len(voice.dites) <= 1, voice.dites
 
-    def test_un_participant_qui_reprend_son_idee_est_entendu(
+    def test_a_participant_restating_their_idea_is_heard(
         self, transcriber, tmp_path
     ):
         """Le risque du garde par les mots : prendre un humain pour elle."""

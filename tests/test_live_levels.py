@@ -49,7 +49,7 @@ MUET = [0] * 8000
 
 
 class TestLectureDeLEntete:
-    def test_un_entete_canonique_est_lu(self, tmp_path: Path) -> None:
+    def test_a_canonical_header_is_read(self, tmp_path: Path) -> None:
         forme = lire_forme(wav(tmp_path / "a.wav", [FORT, MUET, MUET]))
         assert forme is not None
         assert forme.channels == 3 and forme.debut_donnees == 44
@@ -62,24 +62,24 @@ class TestLectureDeLEntete:
         assert forme is not None
         assert forme.debut_donnees == 102
 
-    def test_un_fichier_qui_n_est_pas_du_wav_est_refuse(self, tmp_path: Path) -> None:
+    def test_a_file_that_is_not_wav_is_refused(self, tmp_path: Path) -> None:
         faux = tmp_path / "c.wav"
         faux.write_bytes(b"pas du tout un wav" * 4)
         assert lire_forme(faux) is None
 
-    def test_un_entete_tronque_est_refuse(self, tmp_path: Path) -> None:
+    def test_a_truncated_header_is_refused(self, tmp_path: Path) -> None:
         court = tmp_path / "d.wav"
         court.write_bytes(b"RIFF" + b"\x00" * 8)
         assert lire_forme(court) is None
 
 
 class TestWhoIsSpeaking:
-    def test_le_micro_seul_actif_donne_toi(self, tmp_path: Path) -> None:
+    def test_the_mic_alone_gives_you(self, tmp_path: Path) -> None:
         releve = read_level(wav(tmp_path / "a.wav", [FORT, MUET, MUET]))
         assert releve is not None
         assert releve.who is WhoSpeaks.YOU
 
-    def test_les_canaux_ne_sont_pas_inverses_avec_l_entete_de_ffmpeg(
+    def test_the_channels_are_not_swapped_with_ffmpeg_s_header(
         self, tmp_path: Path
     ) -> None:
         # C'est le défaut constaté : avec ces chunks, la lecture était décalée
@@ -91,17 +91,17 @@ class TestWhoIsSpeaking:
         assert releve.who is WhoSpeaks.YOU
         assert releve.mic_db > releve.system_db
 
-    def test_la_boucle_seule_active_donne_les_autres(self, tmp_path: Path) -> None:
+    def test_the_loopback_alone_gives_the_others(self, tmp_path: Path) -> None:
         releve = read_level(
             wav(tmp_path / "c.wav", [MUET, FORT, FORT], avec_liste=True, fmt_etendu=True)
         )
         assert releve is not None
         assert releve.who is WhoSpeaks.THE_OTHERS
 
-    def test_un_fichier_sans_echantillons_ne_rend_rien(self, tmp_path: Path) -> None:
+    def test_a_file_with_no_samples_returns_nothing(self, tmp_path: Path) -> None:
         assert read_level(wav(tmp_path / "d.wav", [[], [], []])) is None
 
-    def test_un_fichier_absent_ne_rend_rien(self, tmp_path: Path) -> None:
+    def test_a_missing_file_returns_nothing(self, tmp_path: Path) -> None:
         assert read_level(tmp_path / "jamais-ecrit.wav") is None
 
 
@@ -113,17 +113,17 @@ class TestDureeEcrite:
     contient que ce qui a été capté.
     """
 
-    def test_la_duree_se_compte_en_octets_et_non_dans_l_entete(self, tmp_path: Path) -> None:
+    def test_the_length_is_counted_in_bytes_not_in_the_header(self, tmp_path: Path) -> None:
         # L'en-tête annonce 0xFFFFFFFF tant que le fichier est ouvert : s'y fier
         # donnerait une durée absurde.
         file = wav(tmp_path / "en-cours.wav", [FORT, MUET], avec_liste=True,
                       fmt_etendu=True)
         assert written_duration(file) == 8000 / 16000
 
-    def test_un_fichier_a_peine_ouvert_ne_porte_rien(self, tmp_path: Path) -> None:
+    def test_a_file_barely_opened_carries_nothing(self, tmp_path: Path) -> None:
         file = wav(tmp_path / "vide.wav", [[], []])
         assert written_duration(file) == 0.0
 
-    def test_un_fichier_absent_ne_donne_pas_de_duree(self, tmp_path: Path) -> None:
+    def test_a_missing_file_gives_no_length(self, tmp_path: Path) -> None:
         # Le premier morceau n'existe pas encore quand la fenêtre lit l'état.
         assert written_duration(tmp_path / "rien.wav") is None
