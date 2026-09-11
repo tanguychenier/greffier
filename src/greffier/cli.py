@@ -403,7 +403,7 @@ def configure(
 
     dialogue = assistant.Dialogue(
         ask=lambda question, defaut: typer.prompt(question, default=defaut),
-        confirmer=lambda question, defaut: typer.confirm(question, default=defaut),
+        confirm=lambda question, defaut: typer.confirm(question, default=defaut),
         show=typer.echo,
         choose=choose,
     )

@@ -41,20 +41,20 @@ def sujet_decode(message: Message) -> str:
 
 
 class TestMessage:
-    def test_le_sujet_accentue_arrive_entier(self, message: Message):
+    def test_an_accented_subject_arrives_whole(self, message: Message):
         assert sujet_decode(message) == SUBJECT
 
-    def test_les_deux_versions_du_corps_sont_presentes(self, message: Message):
+    def test_both_versions_of_the_body_are_there(self, message: Message):
         """Markdown pour qui refuse le HTML, HTML pour les autres."""
         types = [p.get_content_type() for p in message.walk()]
         assert "text/plain" in types
         assert "text/html" in types
 
-    def test_le_compte_rendu_est_en_piece_jointe(self, message: Message):
+    def test_the_minutes_are_attached(self, message: Message):
         names = [p.get_filename() for p in message.walk() if p.get_filename()]
         assert names == ["compte-rendu.md"]
 
-    def test_le_texte_francais_est_en_utf8(self, message: Message):
+    def test_the_french_text_is_in_utf8(self, message: Message):
         """Le défaut passé : tout compte rendu français arrivait en « r√©union »."""
         for partie in message.walk():
             if partie.get_content_type() == "text/plain" and not partie.get_filename():
@@ -65,6 +65,6 @@ class TestMessage:
                 return
         pytest.fail("aucune partie texte trouvée")
 
-    def test_l_expediteur_et_le_destinataire_sont_portes(self, message: Message):
+    def test_the_sender_and_the_recipient_are_carried(self, message: Message):
         assert message["From"] == "greffier@exemple.fr"
         assert message["To"] == "destinataire@exemple.fr"

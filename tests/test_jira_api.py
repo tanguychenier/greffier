@@ -38,7 +38,7 @@ class FakeJira:
         return Response(json.dumps(self.charge).encode("utf-8"))
 
     @property
-    def premier(self):
+    def first_call(self):
         return self.appels[0]
 
 
@@ -50,7 +50,7 @@ def jira(monkeypatch) -> FakeJira:
 
 
 @pytest.fixture
-def muet(monkeypatch):
+def silent_server(monkeypatch):
     def jamais(*_args, **_options):
         raise AssertionError("aucun appel ne devait partir")
 
@@ -67,100 +67,100 @@ UNE_DEMANDE = {
 }
 
 
-class TestIdentifiants:
-    def test_le_secret_porte_l_adresse_et_le_jeton(self, jira):
+class TestTheCredentials:
+    def test_the_secret_carries_the_address_and_the_token(self, jira):
         """Basic demande les deux ; un seul secret est à déposer."""
         jira_api.requests(source(), SECRET)
         expected = base64.b64encode(SECRET.encode()).decode()
-        assert jira.premier.get_header("Authorization") == f"Basic {expected}"
+        assert jira.first_call.get_header("Authorization") == f"Basic {expected}"
 
-    def test_un_secret_sans_adresse_est_dit_clairement(self, muet):
+    def test_a_secret_with_no_address_is_reported_plainly(self, silent_server):
         with pytest.raises(jira_api.JiraRefused, match="adresse@exemple.fr"):
             jira_api.requests(source(), "jeton-tout-seul")
 
-    def test_l_adresse_du_compte_n_est_pas_dans_le_registre(self):
+    def test_the_account_address_is_not_in_the_register(self):
         """Elle identifie une personne : elle vit dans le secret, pas ici."""
         assert "@" not in source().token
 
 
-class TestReadingTheSetting:
-    def test_les_demandes_sont_rendues_utilisables(self, jira):
+class TestReadingFromJira:
+    def test_the_requests_come_back_usable(self, jira):
         jira.charge = {"issues": [UNE_DEMANDE]}
         found = jira_api.requests(source(), SECRET)
         assert found[0].key == "PROJ-12"
         assert found[0].state == "En cours"
         assert found[0].assigne == "Sophie"
 
-    def test_l_adresse_web_se_deduit_de_la_clef(self, jira):
+    def test_the_web_address_follows_from_the_key(self, jira):
         jira.charge = {"issues": [UNE_DEMANDE]}
         adresse = jira_api.requests(source(), SECRET)[0].adresse
         assert adresse == "https://exemple.atlassian.net/browse/PROJ-12"
 
-    def test_une_demande_sans_assigne_ne_casse_pas(self, jira):
+    def test_a_request_with_nobody_assigned_breaks_nothing(self, jira):
         jira.charge = {"issues": [{**UNE_DEMANDE, "fields": {"summary": "x"}}]}
         rendue = jira_api.requests(source(), SECRET)[0]
         assert rendue.assigne == "" and rendue.state == ""
 
-    def test_la_ligne_montre_la_demande_d_un_coup(self, jira):
+    def test_the_line_shows_the_request_at_a_glance(self, jira):
         jira.charge = {"issues": [UNE_DEMANDE]}
-        dit = jira_api.requests(source(), SECRET)[0].say()
-        assert "PROJ-12" in dit and "Sophie" in dit and "En cours" in dit
+        said = jira_api.requests(source(), SECRET)[0].say()
+        assert "PROJ-12" in said and "Sophie" in said and "En cours" in said
 
-    def test_le_projet_du_registre_borne_la_requete(self, jira):
+    def test_the_project_in_the_register_bounds_the_query(self, jira):
         jira_api.requests(source(), SECRET)
-        assert "PROJ" in jira.premier.full_url
+        assert "PROJ" in jira.first_call.full_url
 
-    def test_ce_qui_est_termine_est_ecarte_par_defaut(self, jira):
+    def test_what_is_done_is_left_out_by_default(self, jira):
         jira_api.requests(source(), SECRET)
-        assert "statusCategory" in jira.premier.full_url
+        assert "statusCategory" in jira.first_call.full_url
 
-    def test_tout_peut_etre_demande(self, jira):
+    def test_everything_can_be_asked_for(self, jira):
         jira_api.requests(source(), SECRET, ouvertes=False)
-        assert "statusCategory" not in jira.premier.full_url
+        assert "statusCategory" not in jira.first_call.full_url
 
 
-class TestEcriture:
-    def test_une_source_en_lecture_seule_n_appelle_meme_pas(self, muet):
+class TestWritingToJira:
+    def test_a_read_only_source_does_not_even_call(self, silent_server):
         with pytest.raises(jira_api.JiraRefused, match="lecture seule"):
             jira_api.create_a_request(source(), SECRET, "Faire la chose")
 
-    def test_un_titre_vide_est_refuse(self, muet):
+    def test_an_empty_title_is_refused(self, silent_server):
         with pytest.raises(jira_api.JiraRefused):
             jira_api.create_a_request(source(Right.ECRITURE), SECRET, " ")
 
-    def test_la_demande_creee_est_rendue_avec_son_adresse(self, jira):
+    def test_the_created_request_comes_back_with_its_url(self, jira):
         jira.charge = {"key": "PROJ-13"}
         creee = jira_api.create_a_request(
             source(Right.ECRITURE), SECRET, "Reprendre la recette"
         )
         assert creee.key == "PROJ-13"
         assert creee.adresse.endswith("/browse/PROJ-13")
-        assert jira.premier.method == "POST"
+        assert jira.first_call.method == "POST"
 
-    def test_le_corps_nomme_le_projet_inscrit(self, jira):
+    def test_the_body_names_the_registered_project(self, jira):
         jira.charge = {"key": "PROJ-13"}
         jira_api.create_a_request(source(Right.ECRITURE), SECRET, "x")
-        envoye = json.loads(jira.premier.data)
+        envoye = json.loads(jira.first_call.data)
         assert envoye["fields"]["project"]["key"] == "PROJ"
 
-    def test_la_description_part_au_format_document(self, jira):
+    def test_the_description_leaves_in_document_format(self, jira):
         """Du texte brut est refusé par l'API 3, et l'erreur ne le dit pas."""
         jira.charge = {"key": "PROJ-13"}
         jira_api.create_a_request(
             source(Right.ECRITURE), SECRET, "x", description="parce que"
         )
-        decrit = json.loads(jira.premier.data)["fields"]["description"]
+        decrit = json.loads(jira.first_call.data)["fields"]["description"]
         assert decrit["type"] == "doc"
         assert decrit["content"][0]["content"][0]["text"] == "parce que"
 
-    def test_sans_description_aucun_champ_n_est_envoye(self, jira):
+    def test_with_no_description_no_field_is_sent(self, jira):
         jira.charge = {"key": "PROJ-13"}
         jira_api.create_a_request(source(Right.ECRITURE), SECRET, "x")
-        assert "description" not in json.loads(jira.premier.data)["fields"]
+        assert "description" not in json.loads(jira.first_call.data)["fields"]
 
 
-class TestQuandCaRateOnLeDit:
-    def test_des_identifiants_refuses_disent_quoi_verifier(self, monkeypatch):
+class TestWhenItFailsItSaysSo:
+    def test_refused_credentials_say_what_to_check(self, monkeypatch):
         def tomber(*_args, **_options):
             raise urllib.error.HTTPError(
                 "https://x", 401, "non", {}, BytesIO(b"{}")  # type: ignore[arg-type]
@@ -170,7 +170,7 @@ class TestQuandCaRateOnLeDit:
         with pytest.raises(jira_api.JiraRefused, match="jeton"):
             jira_api.requests(source(), SECRET)
 
-    def test_un_serveur_injoignable_est_dit_sans_faire_tomber(self, monkeypatch):
+    def test_an_unreachable_server_is_reported_without_falling_over(self, monkeypatch):
         def tomber(*_args, **_options):
             raise urllib.error.URLError("nom introuvable")
 
@@ -178,7 +178,7 @@ class TestQuandCaRateOnLeDit:
         with pytest.raises(jira_api.JiraRefused, match="injoignable"):
             jira_api.requests(source(), SECRET)
 
-    def test_une_reponse_inattendue_est_dite(self, jira):
+    def test_an_unexpected_answer_is_reported(self, jira):
         jira.charge = ["pas un objet"]
         with pytest.raises(jira_api.JiraRefused):
             jira_api.requests(source(), SECRET)

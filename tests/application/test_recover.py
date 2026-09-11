@@ -25,58 +25,58 @@ THREAD = [
 ]
 
 
-class TestReconstruction:
-    def test_les_paroles_deviennent_des_repliques(self):
+class TestRebuildingAMeeting:
+    def test_the_spoken_lines_become_utterances(self):
         meeting = depuis_le_fil("2026-09-09_10h05_reunion", THREAD)
         assert [r.text for r in meeting.utterances] == [
             "Bonjour à tous.", "On commence par la recette.", "Elle est décalée à jeudi."
         ]
 
-    def test_les_voix_sont_conservees(self):
+    def test_the_voices_are_kept(self):
         meeting = depuis_le_fil("2026-09-09_10h05_reunion", THREAD)
         assert {t.voice for t in meeting.turns} == {"v1", "v2"}
 
-    def test_la_duree_vient_du_dernier_tour(self):
+    def test_the_length_comes_from_the_last_turn(self):
         assert depuis_le_fil("2026-09-09_10h05_reunion", THREAD).duration == 18.0
 
-    def test_la_date_vient_de_l_identifiant(self):
+    def test_the_date_comes_from_the_identifier(self):
         meeting = depuis_le_fil("2026-09-09_10h05_reunion", THREAD)
         assert meeting.started_at is not None
         assert (meeting.started_at.hour, meeting.started_at.minute) == (10, 5)
 
-    def test_les_lignes_sans_parole_sont_ecartees(self):
+    def test_the_lines_with_no_speech_are_dropped(self):
         meeting = depuis_le_fil("x", [{"genre": "etat", "message": "actif"}])
         assert meeting.utterances == []
 
-    def test_un_texte_vide_n_est_pas_une_replique(self):
+    def test_an_empty_text_is_not_an_utterance(self):
         meeting = depuis_le_fil("x", [turn(1, 0.0, 2.0, "   ", "v1")])
         assert meeting.utterances == []
 
-    def test_l_audio_est_repris_quand_il_existe(self):
+    def test_the_audio_is_taken_back_when_it_exists(self):
         meeting = depuis_le_fil("x", THREAD, audio=Path("/tmp/x.wav"))
         assert meeting.audio == Path("/tmp/x.wav")
 
 
-class TestHonnetete:
+class TestBeingHonestAboutIt:
     """Une transcription de moindre qualité ne doit pas passer pour ordinaire."""
 
-    def test_la_reunion_porte_son_avertissement(self):
+    def test_the_meeting_carries_its_warning(self):
         meeting = depuis_le_fil("2026-09-09_10h05_reunion", THREAD)
         assert meeting.warnings == [WARNING]
 
-    def test_l_avertissement_dit_ce_qui_est_moins_bon(self):
+    def test_the_warning_says_what_is_worse_about_it(self):
         aplati = " ".join(WARNING.split())
         assert "modèle rapide" in aplati
         assert "approximative" in aplati
 
-    def test_il_dit_aussi_quoi_faire_de_mieux(self):
+    def test_it_also_says_what_would_be_better(self):
         assert "Retraiter" in WARNING
 
 
 class TestStitchingAfterTheMeeting:
     """Le direct découpe par tranches : une minute de parole fait six tours."""
 
-    def test_les_tours_consecutifs_d_une_voix_se_recollent(self):
+    def test_the_consecutive_turns_of_one_voice_stitch_together(self):
         from greffier.application.recover import join_spans
 
         turns = [
@@ -88,21 +88,21 @@ class TestStitchingAfterTheMeeting:
         assert len(recolles) == 2
         assert recolles[0].span.end == 20
 
-    def test_un_changement_de_voix_coupe(self):
+    def test_a_change_of_voice_cuts(self):
         from greffier.application.recover import join_spans
 
         turns = [SpeakerTurn(Span(0, 10), "v1"),
                  SpeakerTurn(Span(10, 20), "v2")]
         assert len(join_spans(turns)) == 2
 
-    def test_un_trou_ne_se_recolle_pas(self):
+    def test_a_gap_does_not_stitch(self):
         from greffier.application.recover import join_spans
 
         turns = [SpeakerTurn(Span(0, 10), "v1"),
                  SpeakerTurn(Span(60, 70), "v1")]
         assert len(join_spans(turns)) == 2
 
-    def test_une_liste_vide_ne_leve_pas(self):
+    def test_an_empty_list_does_not_raise(self):
         from greffier.application.recover import join_spans
 
         assert join_spans([]) == []
