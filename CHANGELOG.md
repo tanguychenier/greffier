@@ -56,6 +56,9 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **cli** — the hardware watch is launched by a name that no longer exists (`a2878cb`)
+- **questions** — stop putting the same question to the room at every launch (`8493ba7`)
+- **assistant** — nothing to answer is silence, not a sentence saying so (`b217506`)
 - **assistant** — it answered to "lui", and waited fifteen seconds to answer at all (`d8ee945`)
 - **live** — a full thread lends nobody's name to a stranger (`5b9238c`)
 - **architecture** — the rules were reading a folder that no longer existed (`25b0dcf`)
