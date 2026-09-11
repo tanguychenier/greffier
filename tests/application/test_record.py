@@ -1,4 +1,4 @@
-"""La machine à états de l'enregistrement, sans carte son."""
+"""The state machine of a recording, with no sound card."""
 
 import os
 from datetime import UTC, datetime, timedelta
@@ -68,12 +68,12 @@ class TestTheMeetingIdentifier:
         assert _identifier("Réunion #4 (été)", when) == "2026-08-24_09h05_reunion-4-ete"
 
     def test_an_empty_name_stays_usable(self):
-        """Et deux noms différents restent deux réunions.
+        """And two different names stay two meetings.
 
-        Ce test attendait le suffixe « _reunion », qui était le défaut même :
-        tout sujet sans lettre ASCII rendait cette valeur, donc deux réunions
-        tenues dans la même minute portaient le même identifiant et l'une
-        écrasait l'autre. L'intention tenait, l'assertion la trahissait.
+        This test used to expect the "_reunion" suffix, which was the defect itself:
+        every subject with no ASCII letter returned that value, so two meetings held
+        in the same minute carried the same identifier and one overwrote the other.
+        The intention held, the assertion betrayed it.
         """
         minuit = datetime(2026, 1, 1, 0, 0)
         assert _identifier("???", minuit).startswith("2026-01-01_00h00_")
@@ -97,7 +97,7 @@ class TestTheRecordingCycle:
         assert recorder.audio_recorder.arretes == [4242]
 
     def test_the_state_survives_another_process(self, recorder, tmp_path):
-        """Deux commandes séparées d'une heure : l'état est sur le disque."""
+        """Two commands an hour apart: the state is on disk."""
         recorder.start_recording("copil")
         other = Recording(
             audio_recorder=FakeRecorder(),
@@ -133,7 +133,7 @@ class TestTheRecordingCycle:
 
 
 class TestHardwareThatChanges:
-    """Brancher un casque en cours de réunion coupe la capture en morceaux."""
+    """Plugging a headset in mid-meeting cuts the capture into pieces."""
 
     def test_resuming_opens_the_next_piece(self, recorder):
         recorder.start_recording("point")
@@ -207,7 +207,7 @@ class TestWhatMustNotBreak:
         assert recorder.read().phase is Phase.REST
 
     def test_the_chain_publishes_its_progress_in_the_same_file(self, recorder):
-        """C'est ce que lira l'icône de la barre, sans rien calculer."""
+        """It is what the icon in the bar reads, computing nothing."""
         recorder.start_recording("copil")
         recorder.publish("transcription", "Transcription…")
         state = recorder.read()
@@ -236,7 +236,7 @@ class TestInterruptingTheWork:
             recorder.abandon()
 
     def test_publishing_records_the_current_process(self, recorder):
-        """C'est lui qui porte la transcription puis la rédaction."""
+        """It is the one carrying the transcription and then the write-up."""
         import os
 
         recorder.start_recording("copil")
@@ -245,10 +245,10 @@ class TestInterruptingTheWork:
 
 
 class TestPausing:
-    """Une interruption en réunion ne doit pas obliger à clore la séance.
+    """An interruption in a meeting must not force the session to be closed.
 
-    Sans pause, il fallait arrêter, ce qui lance le traitement, puis relancer :
-    deux enregistrements et deux comptes rendus pour une seule réunion.
+    With no pause it took stopping, which starts the processing, then starting
+    again: two recordings and two sets of minutes for one meeting.
     """
 
     def test_pausing_stops_the_capture_without_closing_it(self, recorder, audio_recorder):
@@ -308,10 +308,10 @@ class TestPausing:
 
 
 class TestOneLogPerMeeting:
-    """Le fichier d'état est unique, et c'est ce qui rendait --quand-meme
-    dangereux : un traitement lancé pendant qu'une réunion s'enregistrait y
-    publiait « terminé », la fenêtre en concluait que la réunion était finie, et
-    la capture s'arrêtait. Une réunion entière a été perdue ainsi le 2026-09-09.
+    """There is one state file, and that is what made --quand-meme dangerous: a run
+    started while a meeting was recording published "terminé" in it, the window
+    concluded the meeting was over, and the capture stopped. A whole meeting was
+    lost that way on 2026-09-09.
     """
 
     def recorder(self, tmp_path, identifier: str = ""):
@@ -375,12 +375,12 @@ class TestOneLogPerMeeting:
 
 
 class TestAStateFrozenByADeadProcess:
-    """Le fichier d'état survit à tout ; le processus, non.
+    """The state file survives anything; the process does not.
 
-    Le contrôle ne valait que pour l'enregistrement. Une rédaction interrompue
-    laissait donc l'état figé sur « Rédaction… » avec un processus mort, et la
-    fenêtre l'affichait encore le lendemain matin — mesuré le 2026-09-09,
-    annonçant une réunion en cours qui n'existait plus.
+    The check only covered recording. An interrupted write-up therefore left the
+    state frozen on "Rédaction…" with a dead process, and the window still showed
+    it the next morning, measured on 2026-09-09, announcing a meeting under way
+    that no longer existed.
     """
 
     def _state_of(self, tmp_path, phase, pid):
@@ -402,7 +402,7 @@ class TestAStateFrozenByADeadProcess:
         assert "Rédiger" in state.message
 
     def test_a_dead_recording_says_it_differently(self, tmp_path):
-        """Les deux se réparent différemment : autant ne pas les confondre."""
+        """The two are repaired differently: better not to confuse them."""
         state = self._state_of(tmp_path, "enregistrement", 999_999)
         assert state.phase is Phase.ECHEC
         assert "audio est conservé" in state.message
