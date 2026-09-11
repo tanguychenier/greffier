@@ -58,7 +58,7 @@ def muet(monkeypatch):
     monkeypatch.setattr(gitlab_api.urllib.request, "urlopen", jamais)
 
 
-def echouer(monkeypatch, code: int) -> None:
+def fail_to_answer(monkeypatch, code: int) -> None:
     def tomber(*_args, **_options):
         raise urllib.error.HTTPError(
             "https://x", code, "non", {}, BytesIO(b'{"message":"non"}')  # type: ignore[arg-type]
@@ -120,7 +120,7 @@ class TestReadingTheSetting:
         assert found[0].number == 42
 
 
-class TestEcriture:
+class TestWritingTheSettingsFile:
     def test_une_source_en_lecture_seule_n_appelle_meme_pas(self, muet):
         with pytest.raises(gitlab_api.GitLabRefused, match="lecture seule"):
             gitlab_api.create_a_ticket(source(), "glpat-x", "Faire la chose")
@@ -162,12 +162,12 @@ class TestEcriture:
 
 class TestQuandCaRateOnLeDit:
     def test_un_jeton_refuse_dit_la_portee_a_verifier(self, monkeypatch):
-        echouer(monkeypatch, 401)
+        fail_to_answer(monkeypatch, 401)
         with pytest.raises(gitlab_api.GitLabRefused, match="read_api"):
             gitlab_api.tickets(source(), "glpat-perime")
 
     def test_un_projet_introuvable_dit_qu_un_projet_prive_fait_pareil(self, monkeypatch):
-        echouer(monkeypatch, 404)
+        fail_to_answer(monkeypatch, 404)
         with pytest.raises(gitlab_api.GitLabRefused, match="privé"):
             gitlab_api.tickets(source(), "glpat-x")
 

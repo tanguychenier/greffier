@@ -14,7 +14,7 @@ class TestReadingTheSetting:
         assert subject is not None
         assert subject.name == "Oasis" and subject.board == "uXjV1="
 
-    def test_un_fichier_absent_n_est_pas_une_erreur(self, tmp_path):
+    def test_a_missing_file_is_not_an_error(self, tmp_path):
         assert read(tmp_path / "jamais.toml").subjects == []
 
     def test_un_fichier_casse_ne_bloque_pas_la_reunion(self, tmp_path):
