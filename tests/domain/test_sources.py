@@ -82,7 +82,7 @@ class TestLeJetonNeVitPasIci:
         assert "glpat" not in gitlab().token
 
 
-class TestLecture:
+class TestReadingTheSetting:
     def test_les_sources_se_retrouvent_par_nom(self):
         assert Registry([gitlab()]).by_name("RECHERCHE") is not None
 

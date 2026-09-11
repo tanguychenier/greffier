@@ -22,7 +22,7 @@ class TestUnSujetEtSesAppellations:
         assert Subject("Oasis").recognises("Copernic") is False
 
 
-class TestComptage:
+class TestCountingTheNodes:
     def test_toutes_les_appellations_comptent_ensemble(self):
         """C'est tout l'intérêt du registre."""
         registre = Registry([Subject("Oasis", ("esup-oasis",))])
