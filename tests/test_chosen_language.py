@@ -23,14 +23,14 @@ from greffier.adapters.writer_ollama import guidance as consignes_ollama
 from greffier.domain.languages import LANGUAGES, eprouvee, label_text, name_of
 
 
-class TestLaLangueNAtterritJamaisDansLeEnv:
-    def test_elle_va_dans_les_reglages(self):
+class TestTheLanguageNeverLandsInTheEnvFile:
+    def test_it_goes_into_the_settings(self):
         answers = Answers()
         answers.set_up("transcription", "langue", "de")
 
         assert answers.settings == {"transcription": {"langue": "de"}}
 
-    def test_et_pas_dans_le_env(self):
+    def test_and_not_into_the_env_file(self):
         """Sinon la liste déroulante des Réglages ne pourrait plus rien changer."""
         answers = Answers()
         answers.set_up("transcription", "langue", "de")
@@ -40,53 +40,53 @@ class TestLaLangueNAtterritJamaisDansLeEnv:
         assert answers.values == {}
 
 
-class TestLaLangueDuCompteRenduSurvit:
-    def test_elle_est_dans_les_sections_reecrites(self):
+class TestTheLanguageOfTheMinutesSurvives:
+    def test_it_is_among_the_sections_written_back(self):
         """Le fichier est régénéré : un champ absent d'ici est perdu."""
         assert "langue" in SECTIONS["compte_rendu"]
 
-    def test_elle_se_retrouve_dans_le_fichier_ecrit(self):
+    def test_it_is_found_in_the_file_written(self):
         config = Config()
         config.minutes.language = "en"
 
         assert 'langue = "en"' in render(config) or "langue = 'en'" in render(config)
 
-    def test_vide_par_defaut_veut_dire_celle_de_la_reunion(self):
+    def test_empty_by_default_means_the_one_of_the_meeting(self):
         assert Config().minutes.language == ""
 
 
-class TestLesConsignesSuiventLaLangue:
-    def test_le_francais_est_inchange_caractere_pour_caractere(self):
+class TestTheGuidanceFollowsTheLanguage:
+    def test_french_is_unchanged_character_for_character(self):
         assert guidance("") == GUIDANCE
         assert guidance("fr") == GUIDANCE
         assert consignes_ollama("fr") == CONSIGNES_OLLAMA
 
-    def test_une_autre_langue_est_dictee_en_tete(self):
+    def test_another_language_is_dictated_at_the_top(self):
         assert guidance("en").startswith("Rédige entièrement en Anglais")
 
-    def test_et_rappelee_a_la_fin(self):
+    def test_and_recalled_at_the_end(self):
         """Un modèle qui lit cent lignes de français y retombe volontiers."""
         assert guidance("en").rstrip().endswith("le compte rendu s'écrit en Anglais.")
 
-    def test_la_mention_du_francais_disparait(self):
+    def test_the_mention_of_french_disappears(self):
         assert "en français" not in guidance("de")
         assert "Allemand" in guidance("de")
 
 
-class TestLeCatalogueDitCeQueChaqueLangueRecoit:
-    def test_le_francais_est_eprouve(self):
+class TestTheCatalogueSaysWhatEachLanguageGets:
+    def test_french_is_tested(self):
         assert eprouvee("fr")
 
-    def test_les_autres_ne_le_sont_pas_et_le_disent(self):
+    def test_the_others_are_not_and_say_so(self):
         assert not eprouvee("en")
         assert "à nommer à la main" in label_text("en")
 
-    def test_la_detection_automatique_ne_promet_rien_de_faux(self):
+    def test_automatic_detection_promises_nothing_false(self):
         assert label_text("") == "Détection automatique"
 
-    def test_aucun_code_en_double(self):
+    def test_no_code_appears_twice(self):
         codes = [code for code, _ in LANGUAGES]
         assert len(codes) == len(set(codes))
 
-    def test_un_code_inconnu_se_rend_lui_meme(self):
+    def test_an_unknown_code_returns_itself(self):
         assert name_of("xx") == "xx"

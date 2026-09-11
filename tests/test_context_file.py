@@ -52,7 +52,7 @@ class TestSourcesDeja:
         assert [i.name for i in context.intervenants] == ["Kerann", "Paul"]
 
 
-class TestGabarit:
+class TestTheTemplateFile:
     def test_le_gabarit_est_pose_une_seule_fois(self, tmp_path):
         file = tmp_path / "contexte.toml"
         assert lay_the_template(file) is True

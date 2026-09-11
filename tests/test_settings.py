@@ -43,7 +43,7 @@ def garnie():
     )
 
 
-class TestAllerRetour:
+class TestTheRoundTrip:
     def test_tout_ce_qui_est_ecrit_se_relit_identique(self, garnie):
         relu = Config.model_validate(tomllib.loads(settings.render(garnie)))
         for section in settings.SECTIONS:
