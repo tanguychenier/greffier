@@ -57,12 +57,18 @@ MINIMUM_OVERLAP_CHARACTERS = 4
 
 WORDS_TO_TOLERATE = 3
 
-#: A voice earns a number of its own once it holds this much of the meeting.
-#: Under both, unnamed, it is shown with the others rather than as a person:
+#: A voice earns a number of its own once it has held the floor this long.
+#: Under it, unnamed, it is shown with the others rather than as a person:
 #: measured on a real ninety-minute meeting, four voices held 0.7% of the words
 #: between them and each took a row on screen.
+#:
+#: A share of the meeting was tried alongside, and removed. A share can only be
+#: judged once the meeting is over, and live it never is: against the two
+#: minutes elapsed so far, four seconds is a large share, so every fragment
+#: earned a number on the spot and kept it. Measured over 22 meetings, 247 of
+#: the 395 numbered voices were fragments of under fifteen seconds, one meeting
+#: reaching "Voix 216".
 CRUMB_SECONDS = 15.0
-CRUMB_SHARE = 0.01
 
 #: Under this likeness, a voiceprint resembles nobody in the room, and a
 #: thread with no room left announces it with the others rather than lending
@@ -514,10 +520,19 @@ class LiveThread:
             return
         if voice == LOCAL_VOICE:
             return
-        total = sum(t.span.duration for t in self.turns)
         held = sum(t.span.duration for t in self.turns if t.voice == voice)
-        if held >= CRUMB_SECONDS or (total > 0 and held >= CRUMB_SHARE * total):
+        if held >= CRUMB_SECONDS or self._only_voice_so_far(voice):
             connue.rank = self._rank()
+
+    def _only_voice_so_far(self, voice: str) -> bool:
+        """Nobody else has spoken yet, so showing it as a person costs no row.
+
+        It is what makes the opening of a meeting readable: the first speaker is
+        named at once rather than announced with others who do not exist. It can
+        never hand out a second number, which is what the share of the meeting
+        did.
+        """
+        return all(t.voice == voice for t in self.turns)
 
     def record_turn(self, block: Block, voice: str) -> list[LiveTurn]:
         """Adds a block's sentences to the thread, attributed to a voice."""
