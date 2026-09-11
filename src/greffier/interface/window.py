@@ -41,6 +41,7 @@ from greffier.domain.channels import WhoSpeaks
 from greffier.domain.live import LiveThread, LiveTurn
 from greffier.domain.minutes import title
 from greffier.domain.models import Phase
+from greffier.domain.questions import already_noted, note
 from greffier.interface.appearance import (
     MAIN,
     Button,
@@ -527,11 +528,29 @@ class Window:
             if en_attente.number in self._questions_seen:
                 continue
             self._questions_seen.add(en_attente.number)
-            self._say("note", f"❓ {en_attente.question.text}")
+            self._say("note", note(en_attente.question.text))
             self._say("note", "   Réponds « oui » ou « non » ci-dessous, ou "
                                "écris l'orthographe juste.")
         self._questions_attente = awaiting
         self.tabs.mark("Conversation", len(awaiting))
+
+    def _questions_already_noted(self, identifier: str) -> set[int]:
+        """The questions this meeting's conversation already carries."""
+        from greffier.adapters import conversations_file, questions_file
+
+        if not identifier:
+            return set()
+        awaiting, _ = questions_file.read(questions_file.questions_file(
+            self.config.paths.questions, identifier))
+        conversation = conversations_file.read(
+            conversations_file.file_for(self.config.paths.conversations,
+                                        identifier),
+            derniers=0,
+        )
+        return already_noted(
+            [en_attente.question for en_attente in awaiting],
+            [turn.text for turn in conversation],
+        )
 
     def _forget_the_live_thread(self, identifier: str) -> None:
         """Starts over: another meeting, another thread."""
@@ -539,7 +558,7 @@ class Window:
         self._fil_reunion = identifier
         self._fil_position = 0
         self._fil_annonce = ""
-        self._questions_seen = set()
+        self._questions_seen = self._questions_already_noted(identifier)
         self._questions_attente = []
         self.tabs.mark("Conversation", 0)
         self._shown_conversation = ""
