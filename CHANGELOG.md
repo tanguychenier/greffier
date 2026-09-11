@@ -57,6 +57,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **install** — a dead link where the skills go stopped the installation (`cabb790`)
 - **voices** — a voice holding two people poisons the bank (`322d025`)
 - **live** — a fragment of a voice took a row next to the people (`adc4402`)
 - **transcription** — cut the loop the model writes when it loses the thread (`b446134`)
