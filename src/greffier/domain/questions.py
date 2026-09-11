@@ -12,6 +12,8 @@ import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from rapidfuzz.distance import OSA
+
 WIDE_TOLERANCE_LENGTH = 8
 DISTANCE_MAXIMUM = 2
 
@@ -79,30 +81,15 @@ class Question:
         return f"{self.motif}:{self.heard.casefold()}:{self.expected.casefold()}"
 
 def distance(one: str, other: str) -> int:
-    """Edit distance **with transposition** (Damerau-Levenshtein)."""
-    if one == other:
-        return 0
-    if abs(len(one) - len(other)) > DISTANCE_MAXIMUM:
-        return DISTANCE_MAXIMUM + 1
-    before_previous: list[int] = []
-    precedente = list(range(len(other) + 1))
-    for i, one_letter in enumerate(one, start=1):
-        courante = [i]
-        for j, other_letter in enumerate(other, start=1):
-            cout = min(
-                precedente[j] + 1,
-                courante[j - 1] + 1,
-                precedente[j - 1] + (one_letter != other_letter),
-            )
-            if (
-                i > 1 and j > 1
-                and one_letter == other[j - 2]
-                and one[i - 2] == other_letter
-            ):
-                cout = min(cout, before_previous[j - 2] + 1)
-            courante.append(cout)
-        before_previous, precedente = precedente, courante
-    return precedente[-1]
+    """Edit distance with transposition, in its optimal alignment form.
+
+    Optimal string alignment and not the unrestricted Damerau-Levenshtein:
+    the difference is that a stretch may not be edited twice, and it decides
+    real cases. On the words of a real meeting it separates "ans" from "n'as",
+    which the unrestricted form brings to a distance of two, close enough to
+    ask whether one was misheard for the other.
+    """
+    return int(OSA.distance(one, other, score_cutoff=DISTANCE_MAXIMUM))
 
 def _words(text: str) -> list[str]:
     return _WORD.findall(text)

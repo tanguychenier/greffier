@@ -11,6 +11,8 @@ import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from rapidfuzz.distance import Levenshtein
+
 MINIMUM_LULL = 2.0
 
 REST = 180.0
@@ -133,22 +135,8 @@ def _ecart_tolere(name: str) -> int:
     return 1 if len(name) < 5 else 2
 
 def _distance(one: str, other: str, plafond: int) -> int:
-    """Edit distance, abandoned as soon as it passes the ceiling."""
-    if abs(len(one) - len(other)) > plafond:
-        return plafond + 1
-    previous = list(range(len(other) + 1))
-    for i, lettre in enumerate(one, start=1):
-        current = [i]
-        for j, autre_lettre in enumerate(other, start=1):
-            current.append(min(
-                previous[j] + 1,
-                current[j - 1] + 1,
-                previous[j - 1] + (lettre != autre_lettre),
-            ))
-        if min(current) > plafond:
-            return plafond + 1
-        previous = current
-    return previous[-1]
+    """Edit distance, given up as soon as it passes the ceiling."""
+    return int(Levenshtein.distance(one, other, score_cutoff=plafond))
 
 def _strip_accents(word: str) -> str:
     import unicodedata
