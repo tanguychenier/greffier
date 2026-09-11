@@ -64,6 +64,13 @@ WORDS_TO_TOLERATE = 3
 CRUMB_SECONDS = 15.0
 CRUMB_SHARE = 0.01
 
+#: Under this likeness, a voiceprint resembles nobody in the room, and a
+#: thread with no room left announces it with the others rather than lending
+#: it a name. Measured on a ninety-minute meeting, nine people: of 646
+#: voiceprints, 28 resemble the nearest established voice by less than this,
+#: and the fifth centile sits at 0.257.
+RESEMBLES_NOBODY = 0.25
+
 IDENTICAL_SHARE = 0.5
 
 _LIVE_WORD = re.compile(r"\S+")
@@ -382,10 +389,13 @@ class LiveThread:
             proche = self._the_least_distant(voiceprint) or UNDETERMINED_VOICE
         if proche is None:
             proche = self._nearby_established_voice(voiceprint)
-        if proche is None and len(self._nameable_ones()) >= VOICES_AT_MOST:
-            proche = self._the_least_distant(voiceprint)
-        if proche is None and self._in_full():
-            proche = self._the_least_distant(voiceprint)
+        # No room left, by the hard ceiling or by the number announced: the
+        # voiceprint joins whoever it resembles most, and the catch-all when it
+        # resembles nobody. Lending a name is worse than saying "les autres".
+        if proche is None and (len(self._nameable_ones()) >= VOICES_AT_MOST
+                               or self._in_full()):
+            proche = (self._the_least_distant(voiceprint, RESEMBLES_NOBODY)
+                      or UNDETERMINED_VOICE)
         if proche is not None:
             connue = self.voice[proche]
             connue.add(voiceprint)
@@ -417,14 +427,25 @@ class LiveThread:
         distantes = self.people - (1 if has_spoken else 0)
         return len(self._nameable_ones()) >= max(1, distantes)
 
-    def _the_least_distant(self, voiceprint: Voiceprint) -> str | None:
-        """The most alike voice, threshold or not. Nothing if there is none."""
+    def _the_least_distant(
+        self, voiceprint: Voiceprint, floor: float = -1.0
+    ) -> str | None:
+        """The most alike voice, threshold or not. Nothing if there is none.
+
+        `floor` is what keeps a full thread honest: pushed past the number of
+        people announced, it used to lend the nearest name to a voiceprint that
+        resembled it at 0.12, which is to say not at all, and two people came
+        out of the meeting as one. Under the floor the answer is nothing, and
+        the caller announces the voice with the others.
+        """
         ranking = sorted(
             ((similarity(voiceprint, v.aggregate_of), v.identifier)
              for v in self._nameable_ones()),
             key=lambda x: (-x[0], x[1]),
         )
-        return ranking[0][1] if ranking else None
+        if not ranking or ranking[0][0] < floor:
+            return None
+        return ranking[0][1]
 
     def _nearby_established_voice(self, voiceprint: Voiceprint) -> str | None:
         """An **already well fed** voice this voiceprint joins without hesitation.
