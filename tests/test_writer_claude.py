@@ -13,7 +13,7 @@ from greffier.adapters.writer_claude import ClaudeWriter
 
 
 @pytest.fixture
-def a_spy_on_the_command(monkeypatch):
+def spy(monkeypatch):
     """Keeps the command launched, without ever calling the assistant."""
     vu: dict[str, list[str]] = {}
 
@@ -29,28 +29,28 @@ def a_spy_on_the_command(monkeypatch):
 
 
 class TestModele:
-    def test_the_model_asked_for_is_passed_on(self, a_spy_on_the_command):
+    def test_the_model_asked_for_is_passed_on(self, spy):
         ClaudeWriter("opus").write_up("Sandy : bonjour.")
-        assert "--model" in a_spy_on_the_command["commande"]
-        assert a_spy_on_the_command["commande"][a_spy_on_the_command["commande"].index("--model") + 1] == "opus"
+        assert "--model" in spy["commande"]
+        assert spy["commande"][spy["commande"].index("--model") + 1] == "opus"
 
-    def test_with_no_model_nothing_is_imposed(self, a_spy_on_the_command):
+    def test_with_no_model_nothing_is_imposed(self, spy):
         """Useful to exercise the tool exactly as the machine is set up."""
         ClaudeWriter().write_up("Sandy : bonjour.")
-        assert "--model" not in a_spy_on_the_command["commande"]
+        assert "--model" not in spy["commande"]
 
-    def test_the_transcription_goes_through_standard_input(self, a_spy_on_the_command):
+    def test_the_transcription_goes_through_standard_input(self, spy):
         """An hour of transcription is bigger than an argument may be."""
         ClaudeWriter("opus").write_up("Sandy : bonjour.")
-        assert "Sandy : bonjour." in a_spy_on_the_command["entree"]
-        assert not any("Sandy" in morceau for morceau in a_spy_on_the_command["commande"])
+        assert "Sandy : bonjour." in spy["entree"]
+        assert not any("Sandy" in morceau for morceau in spy["commande"])
 
-    def test_no_tool_is_allowed(self, a_spy_on_the_command):
+    def test_no_tool_is_allowed(self, spy):
         """Le rédacteur écrit un document, il n'a rien à lire ni à exécuter."""
-        command = a_spy_on_the_command if False else None
+        command = spy if False else None
         ClaudeWriter("opus").write_up("x")
-        assert "--allowed-tools" in a_spy_on_the_command["commande"]
-        assert a_spy_on_the_command["commande"][a_spy_on_the_command["commande"].index("--allowed-tools") + 1] == ""
+        assert "--allowed-tools" in spy["commande"]
+        assert spy["commande"][spy["commande"].index("--allowed-tools") + 1] == ""
         assert command is None
 
 
