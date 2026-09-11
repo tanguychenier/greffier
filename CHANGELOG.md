@@ -56,6 +56,10 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **assistant** — it answered to "lui", and waited fifteen seconds to answer at all (`d8ee945`)
+- **live** — a full thread lends nobody's name to a stranger (`5b9238c`)
+- **architecture** — the rules were reading a folder that no longer existed (`25b0dcf`)
+- **assistant** — it could not search, while its guidance said it could (`9f0d52b`)
 - **macos** — the build hung for an hour on a password window (`6c63b6e`)
 - **install** — the installer died on its first line, then declared the model broken (`44ee0ab`)
 - **live** — one label per person, and scraps announced with the others (`8c40030`)
@@ -115,10 +119,36 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Performance
 
+- **assistant** — keep the machine's MCP servers out of the call (`e85ae0f`)
 - **locuteurs** — give the models half the cores instead of one (`6f6029e`)
 
 ## Documentation
 
+- **tests** — the email, the capture, the context, Miro and the locations (`a767bd9`)
+- **tests** — the email, the capture, the context, Miro and the locations (`6c1f880`)
+- **tests** — the settings, the hardware and the intents, in English (`59112eb`)
+- **tests** — the fallback, the attribution, the level and the assistant (`453a2c3`)
+- **tests** — the levels, the voiceprint bounds, tidying and the email (`7f36e2d`)
+- **tests** — the store, the backups, naming a voice and rendering (`c2278d4`)
+- **tests** — the subject board, the chosen language and the settings (`596766e`)
+- **tests** — the credits, the channels, the data outside the bundle (`bcb66f1`)
+- **tests** — the sending probe, the bank across meetings and the whole chain (`0e745f6`)
+- **tests** — the voice, the hard cases, the models and the layers, in English (`7336a27`)
+- **tests** — the style, the SMTP session and the updates, in English (`c26c9f7`)
+- **tests** — the last comment of the recording tests (`d511a52`)
+- **tests** — the names and the recording, in English (`2f7b4e4`)
+- **tests** — the questions and the meeting in a room, in English (`8030641`)
+- **tests** — the installer and the voice bank, in English (`02843f5`)
+- **tests** — the integration tests' prose, in English (`5ccedf9`)
+- **tests** — the manners and the settings, in English (`4c18b1d`)
+- **tests** — the window and the conversation harness, in English (`f2c162a`)
+- **tests** — the channels and the audio hardware, in English (`57a890f`)
+- **tests** — the published thread's prose, in English (`78ac035`)
+- **tests** — the live thread's prose, in English (`f5057f0`)
+- **src** — the last French prose outside what the software shows (`e43536e`)
+- **tests** — the assistant's prose, in English (`fa2a892`)
+- **tests** — the voiceprint matching prose, in English (`5b6074c`)
+- **tests** — the processing chain's prose, in English (`6b1a6b8`)
 - name the diagrams in English, and show the one nobody could see (`0e37933`)
 - the window, the command line and the wiring, in English (`2a85ac8`)
 - **adapters** — the tools, in English (`1c1afd1`)
@@ -149,6 +179,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Refactored
 
+- **domain** — the edit distance comes from a library (`8cf36b7`)
 - the French words the rename had left in every layer (`63f64a1`)
 - **domain** — the thresholds, the live thread and the questions (`a6fbb88`)
 - **domain** — English identifiers in the domain layer (`47acd9e`)
