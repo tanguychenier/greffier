@@ -73,7 +73,7 @@ class TestHonnetete:
         assert "Retraiter" in WARNING
 
 
-class TestRecollage:
+class TestStitchingAfterTheMeeting:
     """Le direct découpe par tranches : une minute de parole fait six tours."""
 
     def test_les_tours_consecutifs_d_une_voix_se_recollent(self):
