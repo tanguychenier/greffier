@@ -234,6 +234,54 @@ class TestGivingTheVoicesTheirNames:
         assert "[Personne 2]" in writer.recu
 
 
+class TestTheNamesGivenDuringTheMeeting:
+    """What a human typed in the window while the meeting ran.
+
+    Measured on the meeting of 11 September: the biggest speaker, named by hand
+    on seventy-six sentences, was written up as *une voix non nommée*. His name
+    reached the voice bank and nothing else.
+    """
+
+    def _named(self, *spans):
+        from greffier.domain.models import Span
+        from greffier.domain.names import NamedSpan
+
+        return lambda _: [NamedSpan(name=n, span=Span(a, b)) for n, a, b in spans]
+
+    def test_a_voice_left_unnamed_takes_the_name_given_live(self):
+        processing = chain()
+        processing.named_live = self._named(("Kilian", 13.0, 20.0))
+        assert processing.run_chain(AUDIO).names["2"] == "Kilian"
+
+    def test_it_never_overwrites_a_name_already_found(self):
+        """The live cut has its own mistakes: one of its voices carried two
+        people. Carrying a name across a wrong cut moves someone's words."""
+        processing = chain()
+        processing.named_live = self._named(("Kilian", 0.0, 30.0))
+        outcome = processing.run_chain(AUDIO)
+        assert outcome.names["1"] == "Tanguy"
+
+    def test_a_disagreement_is_reported(self):
+        processing = chain()
+        processing.named_live = self._named(("Kilian", 0.0, 30.0))
+        outcome = processing.run_chain(AUDIO)
+        assert any("Kilian" in a and "Tanguy" in a for a in outcome.warnings)
+
+    def test_nothing_given_changes_nothing(self):
+        sans = chain().run_chain(AUDIO)
+        processing = chain()
+        processing.named_live = lambda _: []
+        assert processing.run_chain(AUDIO).names == sans.names
+
+    def test_a_reader_that_fails_never_costs_the_minutes(self):
+        def casse(_):
+            raise OSError("le journal du direct est illisible")
+
+        processing = chain()
+        processing.named_live = casse
+        assert processing.run_chain(AUDIO).names["1"] == "Tanguy"
+
+
 class FakeExtractor:
     """Returns one voiceprint per span, dictated by the voice expected."""
 
