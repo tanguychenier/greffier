@@ -638,3 +638,145 @@ class TestOnceTheMeetingEnds:
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         watcher(tmp_path).loop(still_running=lambda: False, since=lambda: 0.0,
                                job=tmp_path, pause=lambda _: None)
+
+
+class TestSheAnswersWithoutWaitingForTheSlice:
+    """Being called cost up to fifteen seconds before a word came back.
+
+    Measured on this machine, at the settings it carries: the watch takes one
+    full slice every ten seconds, that slice carries fifty seconds of context so
+    the spelling holds and costs 2 s to transcribe, and the model that phrases
+    the answer costs 3 s whichever one is asked. Being called therefore waited
+    for the next slice boundary, and a few seconds were expected.
+
+    Reading the last eight seconds alone, with no context, costs 0.8 s. It only
+    looks for the assistant's own name, and the remark it hands over carries a
+    subject, so the same call arriving again in the full slice is refused as
+    already answered rather than answered twice.
+    """
+
+    class Ecoute:
+        """A transcriber that returns what was said, and counts its calls."""
+
+        def __init__(self, texte="Lucie, tu en penses quoi ?"):
+            self.texte = texte
+            self.appels = 0
+
+        def transcribe(self, audio, language, prompt_seed):
+            self.appels += 1
+            return [Utterance(span=Span(0.0, 3.0), text=self.texte)]
+
+    def _lui(self):
+        from greffier.application.take_part import AssistantSettings
+        from greffier.domain.participation import Manners
+
+        class Brain:
+            def write_up(self, text):
+                return "Je regarde."
+
+        return AssistantSettings(name="Lucie", cerveau=Brain(),
+                                 manners=Manners(active=True, creux_minimal=0.0))
+
+    def _watcher(self, tmp_path, monkeypatch, lui, ecoute):
+        monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
+        monkeypatch.setattr(watch, "extract_slice",
+                            lambda audio, start, end, dest: dest)
+        return watcher(tmp_path, transcriber=ecoute, assistant_of=lui,
+                       situer=lambda: where_in(tmp_path, written=8.0))
+
+    def test_a_call_is_answered_before_the_slice(self, tmp_path, monkeypatch):
+        lui, ecoute = self._lui(), self.Ecoute()
+        dits = []
+        lui.answer_aside = lambda opening, now: dits.append(opening)
+        instance = self._watcher(tmp_path, monkeypatch, lui, ecoute)
+        instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
+        assert len(dits) == 1
+        assert ecoute.appels == 1
+
+    def test_an_ordinary_sentence_costs_nothing_but_the_listening(
+        self, tmp_path, monkeypatch
+    ):
+        """The model is not called for a sentence that does not name it."""
+        lui = self._lui()
+        ecoute = self.Ecoute("on se cale jeudi pour la recette")
+        dits = []
+        lui.answer_aside = lambda opening, now: dits.append(opening)
+        instance = self._watcher(tmp_path, monkeypatch, lui, ecoute)
+        instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
+        assert dits == []
+
+    def test_the_same_call_is_not_answered_twice(self, tmp_path, monkeypatch):
+        """The listening pass answers; the full slice must then keep quiet."""
+        lui, ecoute = self._lui(), self.Ecoute()
+        instance = self._watcher(tmp_path, monkeypatch, lui, ecoute)
+        instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
+        if lui._job is not None:
+            lui._job.join(timeout=5)
+        dits = []
+        lui.answer_aside = lambda opening, now: dits.append(opening)
+        instance.assistant_turn(
+            [utterance(0.0, "Lucie, tu en penses quoi ?")], 8.0
+        )
+        assert dits == [], "la tranche complète ne doit pas répéter la réponse"
+
+    def test_it_does_not_listen_while_it_is_speaking(self, tmp_path, monkeypatch):
+        lui, ecoute = self._lui(), self.Ecoute()
+        instance = self._watcher(tmp_path, monkeypatch, lui, ecoute)
+
+        class Occupe:
+            def is_alive(self):
+                return True
+
+        lui._job = Occupe()
+        instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
+        assert ecoute.appels == 0
+
+    def test_it_listens_at_its_own_pace(self, tmp_path, monkeypatch):
+        """Every clipboard turn would cost 0.8 s of transcription every 2 s."""
+        lui, ecoute = self._lui(), self.Ecoute()
+        instance = self._watcher(tmp_path, monkeypatch, lui, ecoute)
+        instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
+        instance.listening_turn(where_in(tmp_path, written=9.0), tmp_path)
+        assert ecoute.appels == 1, "une seconde plus tard, on n'écoute pas encore"
+        instance.listening_turn(where_in(tmp_path, written=12.0), tmp_path)
+        assert ecoute.appels == 2
+
+    def test_with_no_assistant_nothing_is_transcribed(self, tmp_path, monkeypatch):
+        ecoute = self.Ecoute()
+        instance = self._watcher(tmp_path, monkeypatch, None, ecoute)
+        instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
+        assert ecoute.appels == 0
+
+    def test_an_assistant_switched_off_is_not_listened_for(
+        self, tmp_path, monkeypatch
+    ):
+        from greffier.domain.participation import Manners
+
+        lui, ecoute = self._lui(), self.Ecoute()
+        lui.manners = Manners(active=False)
+        instance = self._watcher(tmp_path, monkeypatch, lui, ecoute)
+        instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
+        assert ecoute.appels == 0
+
+    def test_too_little_audio_is_not_read(self, tmp_path, monkeypatch):
+        lui, ecoute = self._lui(), self.Ecoute()
+        instance = self._watcher(tmp_path, monkeypatch, lui, ecoute)
+        instance.listening_turn(where_in(tmp_path, written=1.0), tmp_path)
+        assert ecoute.appels == 0
+
+    def test_the_loop_listens_between_two_slices(self, tmp_path, monkeypatch):
+        """The whole point: it happens on the clipboard rhythm, not the slice."""
+        lui, ecoute = self._lui(), self.Ecoute()
+        dits = []
+        lui.answer_aside = lambda opening, now: dits.append(opening)
+        instance = self._watcher(tmp_path, monkeypatch, lui, ecoute)
+        instance.slice_period = 30.0
+        turns = {"n": 0}
+
+        def still_running():
+            turns["n"] += 1
+            return turns["n"] <= 3
+
+        instance.loop(still_running=still_running, since=lambda: 8.0, job=tmp_path,
+                      pause=lambda _: None)
+        assert dits, "elle a répondu sans attendre la tranche de trente secondes"
