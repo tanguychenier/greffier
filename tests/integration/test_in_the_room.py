@@ -1,21 +1,23 @@
-"""Une réunion tenue autour d'une table, de bout en bout.
+"""A meeting held round a table, end to end.
 
-Le cas n'avait jamais été éprouvé : tout ce qui avait servi jusqu'ici était une
-visio, où le canal identifie avec certitude la personne qui enregistre. Autour
-d'une table, **tout le monde parle dans le même micro** : la provenance ne
-désigne plus personne, et il ne reste que la segmentation et la banque de voix.
+The case had never been covered: everything used until then was a video call,
+where the channel identifies with certainty whoever is recording. Round a
+table, **everybody speaks into the same mic**: where the sound comes from names
+nobody, and all that is left is the segmentation and the voice bank.
 
-L'audio est synthétisé — trois voix du système, un dialogue fictif — et assemblé
-en stéréo comme le rend le périphérique d'enregistrement : le micro sur le canal
-0, la boucle système sur le canal 1 avec la fuite mesurée sur la vraie réunion
-de table (-53 dB au lieu du silence attendu). C'est cette fuite qui piégeait le
-verdict, quand une boucle non nulle suffisait à conclure « visio ».
+The audio is synthesised, three of the system's voices and a made-up dialogue,
+and assembled in stereo the way the recording device returns it: the mic on
+channel 0, the system loopback on channel 1 with the leak measured on the real
+table meeting, -53 dB instead of the silence expected. It is that leak which
+trapped the verdict, when a non-zero loopback was enough to conclude "video
+call".
 
-Ce que ce test **ne** mesure pas : la qualité de la transcription. Les voix de
-synthèse rendent un texte approximatif — mesuré, la même réplique rend
-« L.S. Dominé, Depuis, I.S.W.A. » d'une voix à l'autre — et un test qui les
-comparerait mesurerait « say », pas Greffier. Il vérifie donc ce qui ne dépend
-pas du timbre : le verdict de canal, le nombre de voix, et le refus de trancher.
+What this test does **not** measure: the quality of the transcription. The
+synthetic voices return approximate text — measured, the same line gives
+"L.S. Dominé, Depuis, I.S.W.A." from one voice to another — and a test
+comparing them would measure `say`, not Greffier. It therefore checks what does
+not depend on the timbre: the channel verdict, the number of voices, and the
+refusal to decide.
 
     pytest -m integration
 """
@@ -92,7 +94,7 @@ class TestVerdictDeCanal:
         assert not over_video(mic, boucle)
 
     def test_the_mic_is_the_reference_for_both_channels(self, table: Path):
-        """En présentiel, la boucle n'a rien à apporter : on ne s'en sert plus."""
+        """In a room the loopback has nothing to add: it is no longer used."""
         import numpy as np
         import soundfile as sf
 
@@ -104,12 +106,11 @@ class TestVerdictDeCanal:
         assert np.array_equal(channels.system, channels.mic)
 
     def test_no_passage_is_declared_local(self, table: Path):
-        """Le canal ne désigne personne : mieux vaut rien que « Toi » à tort.
+        """The channel names nobody: better nothing than "Toi" wrongly.
 
-        Sur une visio, ces passages sont la seule attribution qui ne se trompe
-        jamais. Autour d'une table, les retenir ferait de tous les participants
-        une seule et même personne — mesuré : trois locuteurs ramenés à une
-        étiquette « moi ».
+        On a video call these passages are the one attribution that is never wrong.
+        Round a table, keeping them would make every participant one and the same
+        person — measured: three speakers reduced to one "moi" label.
         """
         from greffier.adapters.channels_file import FileChannelReader
 
@@ -121,15 +122,15 @@ class TestChaineEnPresentiel:
         assert outcome.words > 60, "la transcription a perdu l'essentiel du dialogue"
 
     def test_nobody_is_labelled_as_the_local_voice(self, outcome):
-        """Le défaut que le présentiel pouvait faire apparaître, en toutes lettres."""
+        """The defect a meeting in a room could bring out, spelled out."""
         assert LOCAL_VOICE not in outcome.speaking_time()
 
     def test_the_participants_are_not_melted_into_one_voice(self, outcome):
-        """Trois personnes autour d'une table restent plusieurs voix.
+        """Three people round a table stay several voices.
 
-        Le compte exact dépend du timbre des voix de synthèse — deux d'entre
-        elles se ressemblent assez pour être recollées — donc on vérifie qu'on
-        n'a ni une seule voix, ni un participant par réplique.
+        The exact count depends on the timbre of the synthetic voices, two of which
+        resemble each other enough to be stitched, so what is checked is that there is
+        neither one single voice nor one participant per utterance.
         """
         significatives = outcome.significant_voices()
         assert 2 <= len(significatives) <= len(outcome.utterances)
@@ -138,7 +139,7 @@ class TestChaineEnPresentiel:
         assert all(duration >= 10 for duration in outcome.significant_voices().values())
 
     def test_introducing_oneself_stays_right_without_the_channel_s_help(self, outcome):
-        """« moi c'est Jacques » désigne celui qui parle, canal ou pas."""
+        """"moi c'est Jacques" names whoever is speaking, channel or no channel."""
         assert outcome.name_of(outcome.utterances[0].voice) == "Jacques"
 
     def test_no_sentence_astride_is_attributed(self, outcome):
