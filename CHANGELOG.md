@@ -6,6 +6,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## New
 
+- **minutes** — the names given during the meeting reach the minutes (`7b0ea0c`)
 - **assistant** — give it the glossary of the setting, not only the writer (`0e90d8c`)
 - **diagnostic** — look at the models and the voice bank (`0cbb82e`)
 - **models** — the application fetches its own models (`63ee2db`)
@@ -56,6 +57,9 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **voices** — a voice holding two people poisons the bank (`322d025`)
+- **live** — a fragment of a voice took a row next to the people (`adc4402`)
+- **transcription** — cut the loop the model writes when it loses the thread (`b446134`)
 - **cli** — the hardware watch is launched by a name that no longer exists (`a2878cb`)
 - **questions** — stop putting the same question to the room at every launch (`8493ba7`)
 - **assistant** — nothing to answer is silence, not a sentence saying so (`b217506`)
