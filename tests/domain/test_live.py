@@ -1058,3 +1058,59 @@ class TestAVoiceEarnsItsNumber:
         assert thread.voice[miette].voiceprints, "son empreinte est là"
         assert [t for t in thread.turns if t.voice == miette], "ses tours sont là"
         assert thread.voice[miette].nameable
+
+
+class TestAFullThreadNeverLendsAName:
+    """Pushed past the number of people announced, it used to give the nearest
+    name to a voiceprint that resembled it at 0.12, which is to say not at all.
+
+    Measured on a ninety-minute meeting of nine people: of 646 voiceprints, 28
+    resemble the nearest established voice by less than 0.25, and the fifth
+    centile sits at 0.257. Those are the ones a tight count would have handed
+    to somebody. The catch-all exists for them: it says "les autres", it mixes
+    people on purpose, and it can never be named as a whole.
+    """
+
+    def _plein(self, people=2):
+        """A thread holding as many voices as people were announced."""
+        thread = LiveThread(people=people)
+        for i, e in enumerate(ECARTEES[:people]):
+            voice = thread.attach(e, local=False)
+            thread.record_turn(blocks([utterance(40.0 * i, 40.0 * i + 30.0)], [])[0],
+                               voice)
+        return thread
+
+    def test_a_stranger_is_announced_with_the_others(self):
+        thread = self._plein()
+        assert thread.attach(LOIN, local=False) == UNDETERMINED_VOICE
+
+    def test_it_is_not_lent_the_nearest_name(self):
+        thread = self._plein()
+        connues = {v for v in thread.voice if v not in (LOCAL_VOICE, UNDETERMINED_VOICE)}
+        assert thread.attach(LOIN, local=False) not in connues
+
+    def test_someone_who_does_resemble_still_joins(self):
+        """The floor must not turn the ceiling into a wall: a voice that really
+        is one of those already there is still attached to it."""
+        thread = self._plein()
+        proche = normalise([0.92, 0.39, 0.0], source_duration=8.0)
+        assert thread.attach(proche, local=False) == "v1"
+
+    def test_the_catch_all_keeps_the_turns_readable(self):
+        thread = self._plein()
+        voice = thread.attach(LOIN, local=False)
+        thread.record_turn(blocks([utterance(200.0, 210.0)], [])[0], voice)
+        assert thread.label(voice) == UNDETERMINED_NAME
+        assert [t for t in thread.turns if t.voice == voice]
+
+    def test_the_catch_all_can_never_be_named_as_a_whole(self):
+        """It mixes several people: naming it would attribute their words."""
+        thread = self._plein()
+        voice = thread.attach(LOIN, local=False)
+        assert not thread.voice[voice].nameable
+
+    def test_below_the_ceiling_a_stranger_founds_its_own_voice(self):
+        """The counter-proof: with room left, nothing is grouped."""
+        thread = LiveThread()
+        thread.attach(ECARTEES[0], local=False)
+        assert thread.attach(LOIN, local=False) != UNDETERMINED_VOICE
