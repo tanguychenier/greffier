@@ -1,9 +1,9 @@
-"""Qui parle, d'après le canal.
+"""Who is speaking, judged from the channel.
 
-Le cas nommé : sur une réunion réelle du 25 août 2026, la voix de la personne
-qui enregistrait est arrivée 12 dB sous celle des autres. Moyennée avec elles,
-elle se retrouvait 18 dB sous le mélange et la segmentation ne l'a jamais vue.
-Treize minutes de parole absentes du compte rendu.
+The case that named it: on a real meeting of 25 August 2026, the voice of
+whoever was recording arrived 12 dB under the others'. Averaged with them, it
+ended up 18 dB under the mix and the segmentation never saw it. Thirteen
+minutes of speech missing from the minutes.
 """
 
 from __future__ import annotations
@@ -26,33 +26,33 @@ def levels(motif: list[tuple[float, float, int]]) -> tuple[list[float], list[flo
 
 class TestAQuietVoiceThatIsStillYours:
     def test_a_voice_12_dB_under_the_others_is_still_seen(self) -> None:
-        # Le cas du 25 août : le micro à -34 dB pendant que la boucle système
-        # est à -22. Le moyennage la perdait ; le canal la retrouve.
+        # The case of 25 August: the mic at -34 dB while the system loopback
+        # is at -22. Averaging lost it; the channel finds it again.
         mic, system = levels([(-60, -22, 40), (-34, -50, 80), (-60, -22, 40)])
         turns = local_turns(mic, system, PAS)
         assert len(turns) == 1
         assert turns[0].duration == 80 * PAS
 
     def test_a_mic_quieter_than_the_loopback_is_not_kept(self) -> None:
-        # Pendant que les autres parlent, le micro capte leur écho ou du bruit.
+        # While the others speak, the mic picks up their echo or some noise.
         mic, system = levels([(-34, -22, 200)])
         assert local_turns(mic, system, PAS) == []
 
     def test_the_margin_guards_against_the_speakers_coming_back(self) -> None:
-        # Écoute par haut-parleurs : le micro réentend les enceintes, un peu
-        # au-dessus de la boucle. Sans marge, tout passerait pour local.
+        # Listening on loudspeakers: the mic hears them again, a little above
+        # the loopback. With no margin everything would pass for local.
         mic, system = levels([(-30, -33, 200)])
         assert local_turns(mic, system, PAS) == []
-        # Avec une marge nulle, la même entrée est retenue : c'est bien la marge
-        # qui décide, pas un autre effet.
+        # With a margin of zero the same input is kept: it really is the margin
+        # that decides, and not some other effect.
         souple = ChannelSettings(margin_db=0.0)
         assert local_turns(mic, system, PAS, souple) != []
 
 
 class TestBackgroundNoise:
     def test_the_silence_of_a_meeting_is_not_speech(self) -> None:
-        # Personne ne parle : la boucle est muette, et le bruit de la pièce
-        # domine. Sans plancher, tous les silences deviendraient des tours.
+        # Nobody is speaking: the loopback is silent and the noise of the room
+        # dominates. With no floor every silence would become a turn.
         mic, system = levels([(-52, -75, 400)])
         assert local_turns(mic, system, PAS) == []
 
@@ -64,7 +64,7 @@ class TestBackgroundNoise:
 
 class TestCuttingIntoTurns:
     def test_the_pauses_inside_a_sentence_do_not_cut_the_turn(self) -> None:
-        # 0,5 s de silence au milieu d'une phrase : un seul tour, pas deux.
+        # 0.5 s of silence inside a sentence: one turn, not two.
         mic, system = levels([
             (-30, -60, 40), (-60, -60, 20), (-30, -60, 40),
         ])
@@ -79,7 +79,7 @@ class TestCuttingIntoTurns:
         assert len(local_turns(mic, system, PAS)) == 2
 
     def test_a_lone_yes_is_dropped(self) -> None:
-        # 0,5 s : un acquiescement. Les garder ferait des centaines de tours.
+        # 0.5 s: an acknowledgement. Keeping them would make hundreds of turns.
         mic, system = levels([(-60, -60, 40), (-30, -60, 20), (-60, -60, 40)])
         assert local_turns(mic, system, PAS) == []
 
@@ -113,9 +113,9 @@ class TestWhatMustNotBreak:
 
 class TestDroppingTheDuplicates:
     def test_a_remote_turn_covered_by_a_local_one_disappears(self) -> None:
-        # La segmentation ne voit que la boucle système, mais un participant qui
-        # parle en même temps laisse un tour à cheval. Compter les deux ferait
-        # deux personnes là où une tient la parole.
+        # The segmentation sees only the system loopback, but a participant
+        # speaking at the same time leaves a turn astride. Counting both would
+        # make two people where one holds the floor.
         distants = [Span(10.0, 14.0)]
         local_spans = [Span(9.0, 15.0)]
         assert remove(distants, local_spans) == []
@@ -126,7 +126,7 @@ class TestDroppingTheDuplicates:
         assert remove(distants, local_spans) == distants
 
     def test_a_mere_partial_overlap_removes_nothing(self) -> None:
-        # Un quart recouvert : les deux ont parlé, on garde les deux.
+        # A quarter overlapping: both spoke, both are kept.
         distants = [Span(10.0, 20.0)]
         local_spans = [Span(18.0, 22.0)]
         assert remove(distants, local_spans) == distants
@@ -137,7 +137,7 @@ class TestDroppingTheDuplicates:
 
 
 class TestWhoIsSpeaking:
-    """Ce que l'interface affiche pendant la réunion, sans consulter un modèle."""
+    """What the window shows during the meeting, without asking any model."""
 
     def test_silence(self) -> None:
         from greffier.domain.channels import WhoSpeaks, who_speaks
@@ -160,76 +160,76 @@ class TestWhoIsSpeaking:
         assert who_speaks(-20, -35) is WhoSpeaks.BOTH
 
     def test_the_mic_hearing_the_speakers_again_is_not_you(self) -> None:
-        # Écoute par haut-parleurs : les deux canaux sont actifs, mais le micro
-        # ne domine pas. Afficher « les deux » ferait clignoter l'interface à
-        # chaque phrase des autres.
+        # Listening on loudspeakers: both channels are alive, but the mic does
+        # not dominate. Showing "les deux" would make the window flicker on
+        # every sentence the others say.
         from greffier.domain.channels import WhoSpeaks, who_speaks
 
         assert who_speaks(-28, -25) is WhoSpeaks.THE_OTHERS
 
 
 class TestInTheRoomAgainstOnACall:
-    """La provenance identifie quelqu'un en visio, personne autour d'une table.
+    """Where the sound comes from identifies somebody on a call, nobody round a table.
 
-    Un portable posé au milieu d'une table n'a rien dans sa boucle système :
-    tous les participants parlent dans le même micro. Appliquer quand même la
-    séparation par canal en faisait **une seule voix**, celle de la personne qui
-    enregistrait. Mesuré : trois locuteurs ramenés à une étiquette « moi ».
+    A laptop in the middle of a table has nothing in its system loopback: every
+    participant speaks into the same mic. Applying the channel separation anyway
+    made them **one single voice**, that of whoever was recording. Measured: three
+    speakers reduced to one "moi" label.
     """
 
     def test_on_a_call_the_local_voice_stands_out(self) -> None:
-        # Le micro domine la boucle : c'est la personne qui enregistre.
+        # The mic dominates the loopback: it is whoever is recording.
         mic, system = levels([(-30, -60, 60)])
         assert local_turns(mic, system, PAS)
 
     def test_a_silent_loopback_proves_no_local_speech(self) -> None:
-        # Autour d'une table, la boucle est à -240 dB en permanence : chaque
-        # trame de parole « domine » donc la boucle, et tout deviendrait local.
-        # C'est à l'adaptateur de ne pas appeler cette fonction dans ce cas,
-        # mais le calcul lui-même doit rester lisible pour qui le relit.
+        # Round a table the loopback sits at -240 dB the whole time, so every
+        # frame of speech "dominates" it and everything would become local. It
+        # is the adapter's job not to call this function in that case, but the
+        # computation itself has to stay readable to whoever reads it.
         mic, system = levels([(-25, -240, 80)])
         turns = local_turns(mic, system, PAS)
         assert turns, "le calcul reste juste : c'est son usage qui doit être conditionné"
 
 
 class TestACallOrATable:
-    """Reconnaître une visio d'une réunion tenue autour d'une table.
+    """Telling a video call from a meeting held round a table.
 
-    Premier essai raté, et il a coûté un compte rendu : tester si la boucle
-    système est non nulle. Sur une réunion de table réelle elle relevait -53 dB,
-    du son y ayant fui, et conclure « visio » attribuait les trente minutes à la
-    personne qui enregistrait.
+    The first attempt failed, and it cost a set of minutes: testing whether the
+    system loopback is non-zero. On a real table meeting it read -53 dB, sound
+    having leaked into it, and concluding "video call" attributed the thirty
+    minutes to whoever was recording.
 
-    Ce qui tranche est relatif : en visio les autres dominent le micro une bonne
-    part du temps, puisqu'ils passent par les haut-parleurs. Mesuré, 57,7 % des
-    trames sur une visio d'une heure, 0,0 % sur une réunion de table.
+    What decides is relative: on a call the others dominate the mic a good part of
+    the time, since they come through the loudspeakers. Measured, 57.7% of the
+    frames on an hour-long call, 0.0% on a meeting round a table.
     """
 
     def test_a_video_call_is_recognised(self) -> None:
         from greffier.domain.channels import over_video
 
-        # Les autres parlent la moitié du temps.
+        # The others speak half the time.
         mic, system = levels([(-50, -30, 100), (-30, -60, 100)])
         assert over_video(mic, system)
 
     def test_a_meeting_round_a_table_is_not_taken_for_a_call(self) -> None:
         from greffier.domain.channels import over_video
 
-        # Tout le monde passe par le micro, la boucle ne porte rien.
+        # Everybody goes through the mic; the loopback carries nothing.
         mic, system = levels([(-35, -240, 200)])
         assert not over_video(mic, system)
 
     def test_a_loopback_that_hisses_without_speech_stays_a_room(
         self,
     ) -> None:
-        # Le cas qui a échoué : une boucle à -53 dB, jamais dominante.
+        # The case that failed: a loopback at -53 dB, never dominant.
         from greffier.domain.channels import over_video
 
         mic, system = levels([(-35, -53, 200)])
         assert not over_video(mic, system)
 
     def test_one_remote_word_does_not_make_a_call(self) -> None:
-        # Une notification, un son joué en séance : deux trames sur deux cents.
+        # A notification, a sound played in session: two frames out of two hundred.
         from greffier.domain.channels import over_video
 
         mic, system = levels([(-35, -240, 198), (-50, -30, 2)])
@@ -242,11 +242,11 @@ class TestACallOrATable:
 
 
 class TestSubtractingSpans:
-    """Ôter d'un passage ce que le canal attribue à la personne au micro.
+    """Taking out of a passage what the channel attributes to the person at the mic.
 
-    Le cas mesuré : la transcription coupe à la phrase, pas au changement de
-    locuteur. Un extrait de 1,5 s portant 0,6 s de voix locale donnait une
-    empreinte mêlée, et la même personne devenait deux participants.
+    The measured case: the transcription cuts at sentences, not at speaker
+    changes. An extract of 1.5 s carrying 0.6 s of local voice gave a mixed
+    voiceprint, and the same person became two participants.
     """
 
     def test_a_slice_in_the_middle_cuts_in_two(self) -> None:

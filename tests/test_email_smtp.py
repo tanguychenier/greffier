@@ -1,11 +1,11 @@
-"""Ce qu'un destinataire reçoit, vérifié sans rien ouvrir.
+"""What a recipient receives, checked without opening anything.
 
-La composition du courriel ne dépend d'aucun serveur : `ExpediteurSmtp.message`
-la rend seule, et c'est là que se jouent les défauts qui abîment le compte rendu
-— l'encodage des accents, la double version du corps, la pièce jointe.
+Composing the email depends on no server: `SmtpSender.message` returns it on its
+own, and that is where the defects that spoil the minutes live — the encoding of
+the accents, the two versions of the body, the attachment.
 
-La connexion, elle, s'éprouve contre de vrais serveurs :
-`tests/integration/test_smtp_vrais_serveurs.py`.
+The connection is covered against real servers, in
+`tests/integration/test_smtp_real_servers.py`.
 """
 
 from __future__ import annotations
@@ -35,17 +35,17 @@ def message(piece: Path) -> Message:
     return sender.message("destinataire@exemple.fr", SUBJECT, CORPS, [piece])
 
 
-def sujet_decode(message: Message) -> str:
-    """Le sujet tel qu'un client l'affiche, recollé de tous ses morceaux."""
+def decoded_subject(message: Message) -> str:
+    """The subject as a client shows it, glued back from all its pieces."""
     return str(make_header(decode_header(message["Subject"])))
 
 
 class TestMessage:
     def test_an_accented_subject_arrives_whole(self, message: Message):
-        assert sujet_decode(message) == SUBJECT
+        assert decoded_subject(message) == SUBJECT
 
     def test_both_versions_of_the_body_are_there(self, message: Message):
-        """Markdown pour qui refuse le HTML, HTML pour les autres."""
+        """Markdown for whoever refuses HTML, HTML for the others."""
         types = [p.get_content_type() for p in message.walk()]
         assert "text/plain" in types
         assert "text/html" in types
@@ -55,7 +55,7 @@ class TestMessage:
         assert names == ["compte-rendu.md"]
 
     def test_the_french_text_is_in_utf8(self, message: Message):
-        """Le défaut passé : tout compte rendu français arrivait en « r√©union »."""
+        """The defect as it was: every French set of minutes arrived as "r√©union"."""
         for partie in message.walk():
             if partie.get_content_type() == "text/plain" and not partie.get_filename():
                 charset = partie.get_content_charset()

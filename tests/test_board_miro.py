@@ -1,4 +1,4 @@
-"""Écrire une carte sur Miro : ce qui est refusé avant tout appel."""
+"""Writing a board to Miro: what is refused before any call at all."""
 
 import pytest
 
@@ -6,11 +6,11 @@ from greffier.adapters import board_miro
 from greffier.adapters.board_miro import INTERDITS, MiroRefused, token
 
 
-class TestTableauxInterdits:
-    """Un tableau documentant un circuit de signature n'appartient pas à l'outil.
+class TestForbiddenBoards:
+    """A board documenting a signature workflow does not belong to the tool.
 
-    Écrire dessus a été explicitement défendu, et la question a déjà été posée
-    une fois par son auteur. C'est donc dans le code, pas dans une consigne.
+    Writing to it was explicitly forbidden, and the question has already been asked
+    once by its author. So it lives in the code, not in a piece of guidance.
     """
 
     def test_the_forbidden_list_is_not_empty(self):
@@ -44,7 +44,7 @@ class TestWhereTheTokenComesFrom:
             token()
 
     def test_no_path_is_hard_coded(self):
-        """Un outil public ne va pas chercher dans le dossier d'un projet."""
+        """A public tool does not go looking inside one project's folder."""
         from pathlib import Path
 
         source = Path(board_miro.__file__).read_text(encoding="utf-8")
@@ -80,7 +80,7 @@ class TestPublicationSansReseau:
         assert set(written.already) == {"Oasis", "Déjà là"}
 
     def test_nothing_is_deleted_or_changed(self, monkeypatch):
-        """Ce que quelqu'un a posé reste tel quel."""
+        """What somebody put there stays as it is."""
         from greffier.domain.board import Board, Contribution, join
 
         board = Board("Oasis")
@@ -106,7 +106,7 @@ class TestPublicationSansReseau:
         assert board_miro.COLOURS[Standing.AGREED] in colours
 
     def test_the_text_is_escaped(self, monkeypatch):
-        """Un « < » dans un libellé ne doit pas casser le contenu HTML."""
+        """A "<" in a label must not break the HTML content."""
         from greffier.domain.board import Board, Contribution, join
 
         board = Board("Oasis")
@@ -121,8 +121,8 @@ class TestPublicationSansReseau:
         assert any("&lt;" in content and "&amp;" in content for content in contenus)
 
 
-class TestConnecteurs:
-    """Une carte sans un seul trait a été publiée sans que rien ne le dise."""
+class TestTheLinksBetweenNodes:
+    """A board without a single line was published with nothing to say so."""
 
     def mark(self, monkeypatch):
         appels = []
@@ -196,7 +196,7 @@ class TestConnecteurs:
 
 class TestLaRacine:
     def test_the_subject_carries_no_standing(self):
-        """« Oasis — en discussion » ferait dire que le sujet est en débat."""
+        """"Oasis — en discussion" would say the subject itself is under debate."""
         from greffier.domain.board import Board
 
         board = Board("Oasis")

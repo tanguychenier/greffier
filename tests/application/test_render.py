@@ -1,4 +1,4 @@
-"""Régénérer la rédaction seule, depuis un fichier maître déjà écrit."""
+"""Writing the minutes again alone, from a master file already on disk."""
 
 from datetime import UTC, datetime
 from pathlib import Path
@@ -38,9 +38,10 @@ class FakeWriter:
 
 class TestRenderingTheTranscription:
     def test_it_works_straight_off_a_meeting_read_back(self) -> None:
-        """`ReunionEnregistree` doit satisfaire le même protocole que
-        `Resultat`, sans conversion : c'est ce qui permet de rejouer la
-        rédaction sans repasser par un traitement complet."""
+        """`StoredMeeting` has to satisfy the same protocol as the outcome of a run, with
+        no conversion: that is what allows the writing to be replayed without going
+        through a full processing again.
+        """
         text = render_transcript(a_meeting())
         assert "[Josiane]" in text
         assert "[Personne 2]" in text
@@ -70,13 +71,12 @@ class TestWritingTheMinutesAgain:
 
 
 class TestTheInstructionsGivenDuringTheMeeting:
-    """Ce qu'on a dit à l'outil pendant la réunion doit parvenir au rédacteur.
+    """What was said to the tool during the meeting has to reach the writer.
 
-    Le défaut, rapporté mot pour mot : « j'avais pourtant dit dans le chat de
-    l'outil qu'on avait pas de Sophie dans la réunion... et dans le chat je lui
-    avais donné des instructions pour le compte rendu, cela n'a pas été pris en
-    compte dans le compte rendu ». Les dix-sept messages étaient gardés sur le
-    disque et lus par personne.
+    The defect, reported word for word: "I had said in the tool's chat that there
+    was no Sophie in the meeting… and in the chat I had given it instructions for
+    the minutes, and none of that was taken into account in the minutes". The
+    seventeen messages were kept on disk and read by nobody.
     """
 
     def test_every_instruction_is_dictated(self):

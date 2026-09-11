@@ -1,13 +1,13 @@
-"""La sonde d'envoi : savoir au début de la réunion si le compte rendu partira.
+"""The sending probe: knowing at the start of a meeting whether the minutes will go.
 
-Le défaut, constaté le 2026-09-10 : l'envoi d'une réunion de 1 h 42 a échoué à
-12 h 17 devant un écran verrouillé, deux heures après le moment où quelqu'un
-était au clavier et où un clic aurait suffi. macOS demande une autorisation
-d'automatisation la première fois, et sa boîte de dialogue n'apparaît pas
-toujours quand le traitement tourne détaché.
+The defect, seen on 2026-09-10: the sending of a meeting of one hour forty-two
+failed at 12:17 in front of a locked screen, two hours after the moment when
+somebody was at the keyboard and one click would have been enough. macOS asks
+for an automation permission the first time, and its dialogue does not always
+appear when the run is detached.
 
-Aucun `osascript` n'est lancé ici : c'est le sous-processus qui est remplacé, ce
-qui rend chaque code d'erreur d'AppleScript éprouvable sans Outlook ni macOS.
+No `osascript` is launched here: the subprocess is what gets replaced, which
+makes every AppleScript error code coverable with neither Outlook nor macOS.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ class TestSondeDEnvoi:
         assert OutlookSender().probe() is None
 
     def test_the_probe_sends_nothing(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Elle demande son nom à Outlook, et rien de plus."""
+        """It asks Outlook for its name, and nothing more."""
         appels = _answer(monkeypatch, Output(0))
         OutlookSender().probe()
         script = " ".join(appels[0])
@@ -54,10 +54,10 @@ class TestSondeDEnvoi:
         assert "send" not in script
         assert "outgoing message" not in script
 
-    def test_l_autorisation_manquante_dit_où_cliquer(
+    def test_a_missing_permission_says_where_to_click(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Un message qui ne dit pas quoi faire fait croire que tout est perdu."""
+        """A message that does not say what to do makes it look like all is lost."""
         _answer(monkeypatch, Output(1, stderr="execution error: ... (-1743)"))
         empeche = OutlookSender().probe()
         assert empeche is not None
@@ -83,7 +83,7 @@ class TestSondeDEnvoi:
     def test_a_probe_that_never_ends_does_not_block(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Elle est appelée au démarrage d'une réunion : elle doit rendre la main."""
+        """It is called when a meeting starts: it has to return."""
         _answer(monkeypatch, subprocess.TimeoutExpired(cmd="osascript", timeout=20))
         assert OutlookSender().probe() == "Outlook ne répond pas."
 
@@ -95,18 +95,16 @@ class TestSondeDEnvoi:
 
 
 class TestWhenOutlookDoesNotAnswer:
-    """Les codes d'AppleScript doivent devenir des phrases utilisables.
+    """AppleScript's codes have to become sentences a person can act on.
 
-    Le compte rendu de la réunion du 2026-09-10 n'est pas parti, et la
-    conversation portait ceci : « Envoi impossible : ['297:373: execution
-    error: Erreur dans Microsoft Outlook : Délai dépassé pour un AppleEvent.
-    (-1712)'] ». Un code d'erreur et un numéro de ligne ne disent à personne
-    quoi faire.
+    The minutes of the meeting of 2026-09-10 never left, and the conversation
+    carried this: "Envoi impossible : ['297:373: execution error: Erreur dans
+    Microsoft Outlook : Délai dépassé pour un AppleEvent. (-1712)']". An error code
+    and a line number tell nobody what to do.
 
-    La cause est réglée en amont — l'ordre d'envoi est désormais entouré d'un
-    « with timeout of 600 seconds », là où AppleScript abandonne par défaut au
-    bout de soixante — mais un délai peut toujours être dépassé, et il doit
-    alors se dire.
+    The cause is fixed upstream, the send order now being wrapped in a "with
+    timeout of 600 seconds" where AppleScript gives up after sixty by default, but
+    a timeout can still happen, and it has to say so.
     """
 
     def _envoyer(self, monkeypatch, output: str, code: int = 1):
@@ -153,6 +151,6 @@ class TestWhenOutlookDoesNotAnswer:
         assert source.index("with timeout") < source.index("send m")
         assert "end timeout" in source
 
-    def test_la_sonde_a_son_propre_delai(self):
-        """Elle tourne au démarrage d'une réunion : elle doit rendre la main."""
+    def test_the_probe_has_its_own_timeout(self):
+        """It runs when a meeting starts: it has to return."""
         assert "with timeout of 60 seconds" in OutlookSender.SONDE

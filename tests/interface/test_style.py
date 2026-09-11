@@ -1,9 +1,9 @@
-"""La palette et la typographie, éprouvées sans ouvrir de fenêtre.
+"""The palette and the typography, covered without opening a window.
 
-Tk ne démarre pas sur un exécuteur d'intégration continue, et de toute façon
-comparer des pixels ne dit rien d'utile. Ce qui se teste ici, c'est ce qui a
-réellement cassé : une couleur invalide fait tomber Tk au dessin, et une palette
-incomplète laisse un texte illisible sur son fond.
+Tk does not start on a continuous integration runner, and comparing pixels
+would say nothing useful anyway. What is tested here is what actually broke: an
+invalid colour brings Tk down when it draws, and an incomplete palette leaves
+text unreadable on its ground.
 """
 
 from __future__ import annotations
@@ -31,9 +31,9 @@ def both_palettes(palette: Palette) -> dict[str, str]:
 class TestThePalettes:
     @pytest.mark.parametrize("palette", [CLAIR, SOMBRE], ids=["clair", "sombre"])
     def test_every_colour_is_a_valid_shade(self, palette: Palette) -> None:
-        # Une couleur mal écrite ne se voit pas à la lecture : elle fait tomber
-        # Tk au premier dessin. C'est arrivé, avec des caractères non latins
-        # glissés dans une valeur hexadécimale.
+        # A badly written colour cannot be seen by reading: it brings Tk down
+        # on the first draw. That happened, with non-Latin characters slipped
+        # into a hexadecimal value.
         for name, value in both_palettes(palette).items():
             assert TEINTE.match(value), f"{name} = {value!r}"
 
@@ -45,14 +45,15 @@ class TestThePalettes:
 
     @pytest.mark.parametrize("palette", [CLAIR, SOMBRE], ids=["clair", "sombre"])
     def test_the_pale_text_stays_readable(self, palette: Palette) -> None:
-        # Assoupli à 3:1, la valeur admise pour du texte secondaire.
+        # Relaxed to 3:1, the value accepted for secondary text.
         assert _contrast(palette.ink_pale, palette.board) >= 3.0
 
     @pytest.mark.parametrize("palette", [CLAIR, SOMBRE], ids=["clair", "sombre"])
     def test_the_accent_is_a_real_shade(self, palette: Palette) -> None:
-        """Il valait le noir de l'encre : la fenêtre était entièrement grise et
-        rien ne guidait l'œil. Un accent doit se distinguer de l'encre, se voir
-        sur la carte, et ne pas se confondre avec un état."""
+        """It was the same black as the ink: the window was entirely grey and nothing
+        guided the eye. An accent has to stand out from the ink, be visible on a card,
+        and not be mistaken for a state.
+        """
         assert palette.accent != palette.ink
         assert _contrast(palette.accent, palette.board) >= 3.0
         for state in (palette.active, palette.green, palette.amber):
@@ -60,8 +61,9 @@ class TestThePalettes:
 
     @pytest.mark.parametrize("palette", [CLAIR, SOMBRE], ids=["clair", "sombre"])
     def test_the_rule_can_be_seen(self, palette: Palette) -> None:
-        """Mesuré à 1,28:1, il ne se voyait pas : bordures et séparateurs
-        disparaissaient, et l'interface paraissait plate quoi qu'on fasse."""
+        """Measured at 1.28:1 it could not be seen: borders and separators disappeared,
+        and the window looked flat whatever was done.
+        """
         assert _contrast(palette.rule, palette.board) >= 1.35
         assert _contrast(palette.rule, palette.ground) >= 1.3
 
@@ -82,15 +84,15 @@ class TestThePalettes:
 
 class TestTheFont:
     def test_the_size_is_given_in_pixels(self) -> None:
-        # Négative, donc lue en pixels : en points, X11 rend un tiers plus grand
-        # que macOS et les libellés débordent de leurs boutons.
+        # Negative, so read in pixels: in points X11 renders a third larger
+        # than macOS and the labels overflow their buttons.
         assert font(13)[1] == -13
 
     def test_the_fallback_family_is_one_tk_guarantees(self) -> None:
-        # Tk n'assure « Helvetica » — comme « Courier » et « Times » — que
-        # parce qu'il la fait pointer vers la police de la plateforme. Toute
-        # autre famille dépend de fontconfig, que le Tk de l'interpréteur posé
-        # par l'installeur n'embarque pas : elle y retomberait sur une bitmap.
+        # Tk only guarantees "Helvetica", like "Courier" and "Times", because
+        # it points them at the platform's own font. Any other family depends
+        # on fontconfig, which the Tk of the interpreter the installer lays
+        # down does not carry: it would fall back on a bitmap there.
         assert font(12)[0] in {"SF Pro Text", "Segoe UI", "Helvetica"}
 
     def test_bold_can_be_asked_for(self) -> None:
@@ -98,13 +100,13 @@ class TestTheFont:
         assert font(12)[2] == "normal"
 
     def test_a_family_is_always_given(self) -> None:
-        # Sans famille, Tk retombe sur une police à empattements et l'interface
-        # change d'allure d'un système à l'autre.
+        # With no family, Tk falls back on a serif font and the window changes
+        # its look from one system to another.
         assert font(12)[0]
 
 
 def _luminance(teinte: str) -> float:
-    """Luminance relative, telle que la définissent les règles d'accessibilité."""
+    """Relative luminance, as the accessibility rules define it."""
     channels = [int(teinte[i:i + 2], 16) / 255 for i in (1, 3, 5)]
     lineaires = [
         canal / 12.92 if canal <= 0.04045 else ((canal + 0.055) / 1.055) ** 2.4
@@ -120,7 +122,7 @@ def _contrast(first_call: str, second: str) -> float:
 
 
 class TestChoosingTheTheme:
-    """Le thème est un réglage, plus seulement une lecture du système."""
+    """The theme is a setting now, not only a reading of the system."""
 
     def test_a_theme_asked_for_is_returned_as_it_is(self) -> None:
         assert palette("clair") is CLAIR
@@ -145,10 +147,10 @@ class TestChoosingTheTheme:
 
 
 class TestTheThemeOfTheSystem:
-    """Les trois systèmes disent leur préférence, chacun à sa façon.
+    """All three systems state their preference, each in its own way.
 
-    Ne demander qu'à macOS laissait un bureau réglé en sombre recevoir une
-    interface claire, ce qui saute aux yeux à côté des autres fenêtres.
+    Asking macOS alone left a desktop set to dark receiving a light window, which
+    is glaring next to every other window.
     """
 
     def _answer(self, monkeypatch, answers):
@@ -170,7 +172,7 @@ class TestTheThemeOfTheSystem:
         assert style.system_is_dark()
 
     def test_windows_reads_its_key_the_other_way_round(self, monkeypatch):
-        """La clé dit si les applications sont en thème **clair** : 0 est sombre."""
+        """The key says whether applications are in the **light** theme: 0 is dark."""
         from greffier.interface import style
 
         monkeypatch.setattr(style.platform, "system", lambda: "Windows")
@@ -187,7 +189,7 @@ class TestTheThemeOfTheSystem:
         assert not style.system_is_dark()
 
     def test_linux_through_the_freedesktop_portal(self, monkeypatch):
-        """La clé portable, que GNOME comme KDE renseignent."""
+        """The portable key, which both GNOME and KDE fill in."""
         from greffier.interface import style
 
         monkeypatch.setattr(style.platform, "system", lambda: "Linux")
@@ -202,7 +204,7 @@ class TestTheThemeOfTheSystem:
         assert style.system_is_dark()
 
     def test_a_silent_system_gives_the_light_theme(self, monkeypatch):
-        """Un repli clair est acceptable ; une fenêtre qui n'ouvre pas ne l'est pas."""
+        """A light fallback is acceptable; a window that does not open is not."""
         from greffier.interface import style
 
         monkeypatch.setattr(style.platform, "system", lambda: "Linux")

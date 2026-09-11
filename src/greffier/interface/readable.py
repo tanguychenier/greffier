@@ -34,30 +34,30 @@ ETIREMENT_MAXIMUM = 1.25
 def button_grid(
     largeurs: list[int], offerte: int, gap: int = 9
 ) -> tuple[int, int]:
-    """La grille d'une barre d'actions : (boutons par rang, largeur de colonne).
+    """The grid of a button bar: (buttons per row, column width).
 
-    Ici et non dans le composant dessiné : ce qui touche à Tk n'est pas éprouvé
-    par les tests, faute de serveur d'affichage en intégration continue, et
-    c'est ce calcul qui portait le défaut — le septième bouton de l'onglet
-    Réunions sortait de la fenêtre, invisible et inatteignable.
+    Here and not in the drawn widget: what touches Tk is not covered by the
+    tests, for want of a display server in continuous integration, and this
+    computation is where the defect lived. The seventh button of the Meetings
+    tab fell outside the window, invisible and unreachable.
 
-    Trois règles, et elles vont ensemble :
+    Three rules, and they go together:
 
-    **Des colonnes de largeur égale.** Des boutons de largeurs différentes ne
-    tombent pas ensemble d'un rang à l'autre, et une barre dont les bords ne
-    s'alignent pas se lit comme bâclée. La largeur de colonne est donc unique,
-    et c'est le plus large qui la fixe au minimum.
+    **Columns of equal width.** Buttons of different widths do not fall together
+    from one row to the next, and a bar whose edges do not line up reads as
+    sloppy. There is therefore one column width, and the widest label sets its
+    minimum.
 
-    **Les rangs sont équilibrés.** On cherche le nombre minimal de rangs, puis
-    on répartit à égalité — sept boutons sur deux rangs donnent 4 et 3, jamais
-    5 et 2. Un premier rang plein contre un second presque vide est le défaut
-    le plus visible d'une barre qui passe à la ligne.
+    **The rows are balanced.** It looks for the smallest number of rows, then
+    spreads them evenly: seven buttons over two rows give 4 and 3, never 5 and 2.
+    A full first row against an almost empty second one is the most visible
+    defect of a bar that wraps.
 
-    **L'étirement est plafonné.** Les colonnes prennent l'espace disponible,
-    mais pas plus d'un quart au-delà de ce que le libellé demande : à 1 280 px
-    de fenêtre, remplir sans limite donnait des boutons de 290 px pour un
-    « Ouvrir » de 96, étirés sur du vide. Un bouton disproportionné est aussi
-    mal réparti qu'un bouton qui déborde.
+    **The stretching is capped.** The columns take the room available, but no
+    more than a quarter beyond what the label asks for: in a 1 280 px window,
+    filling without a limit gave 290 px buttons for an « Ouvrir » that needs 96,
+    stretched over nothing. A button out of proportion is as badly laid out as
+    one that overflows.
     """
     total = len(largeurs)
     if not total:
@@ -75,25 +75,25 @@ def button_grid(
     return (by_rank, colonne)
 
 def dot_marker(count: int) -> str:
-    """Ce qu'une pastille d'onglet affiche pour ce compte. Vide pour rien.
+    """What a tab badge shows for this count. Empty for nothing.
 
-    Ici plutôt que dans le segment dessiné : ce qui touche à Tk n'est pas
-    éprouvé par les tests, faute de serveur d'affichage en intégration
-    continue, et c'est le nombre qui porte la règle.
+    Here rather than in the drawn shape: what touches Tk is not covered by the
+    tests, for want of a display server in continuous integration, and it is the
+    number that carries the rule.
 
-    Au-delà de neuf, le nombre exact n'aide plus : ce qui compte est qu'il y en
-    a beaucoup, et deux chiffres déborderaient du disque.
+    Past nine the exact number helps nobody: what matters is that there are many,
+    and two digits would overflow the disc.
     """
     if count <= 0:
         return ""
     return str(count) if count < 10 else "9+"
 
 def live_state_line(in_a_meeting: bool, annonce: str, sentences: int) -> str:
-    """La ligne qui dit ce que le fil est en train de faire, ou pourquoi rien.
+    """The line that says what the thread is doing, or why it is doing nothing.
 
-    Un onglet vide se lit « personne ne parle » alors qu'il veut souvent dire
-    « rien n'écoute » : modèle absent, processus non lancé, réunion terminée. La
-    différence est celle entre attendre et perdre sa réunion.
+    An empty tab reads as "nobody is speaking" when it often means "nothing is
+    listening": a missing model, a process never started, a meeting already over.
+    The difference is between waiting and losing your meeting.
     """
     if not in_a_meeting:
         return (

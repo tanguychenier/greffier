@@ -18,7 +18,7 @@ class TestTheThresholds:
         assert INSUFFISANT_DB == -43.0
 
     def test_the_silent_threshold_is_the_one_of_the_chain(self):
-        """Deux seuils pour la même question finiraient par se contredire."""
+        """Two thresholds for the same question would end up contradicting each other."""
         from greffier.application.process import SEUIL_MUET_DB
 
         assert MUET_DB == SEUIL_MUET_DB
@@ -46,7 +46,7 @@ class TestJudgingALevel:
 
 
 class TestWhatIsSaidAboutIt:
-    """Un niveau sans quoi-faire ne sert à personne."""
+    """A level with no what-to-do serves nobody."""
 
     def test_silent_says_where_to_look(self):
         sentence = say(-90.0)
@@ -54,7 +54,7 @@ class TestWhatIsSaidAboutIt:
         assert "autorisation micro" in sentence
 
     def test_too_low_says_the_model_makes_things_up(self):
-        """C'est le fait contre-intuitif : moins de signal, pas moins de texte."""
+        """That is the counter-intuitive fact: less signal, not less text."""
         assert "invente" in say(-50.0)
 
     def test_weak_says_what_a_headset_would_gain(self):
@@ -79,11 +79,11 @@ class TestStartingAMeeting:
 
 
 class TestWatchingDuringTheMeeting:
-    """Le fichier grossit mais ne contient presque rien.
+    """The file grows but holds almost nothing.
 
-    Distinct d'une capture qui n'avance plus : ici le son arrive, trop faible.
-    Le dire pendant la réunion laisse une chance de rapprocher le micro ; le
-    découvrir au compte rendu n'en laisse aucune.
+    Distinct from a capture that stopped advancing: here the sound arrives, too
+    quiet. Saying so during the meeting leaves a chance to move the mic closer;
+    finding out in the minutes leaves none.
     """
 
     def monitoring(self):
@@ -92,8 +92,9 @@ class TestWatchingDuringTheMeeting:
         return LevelWatch()
 
     def test_it_does_not_conclude_at_once(self):
-        """Personne ne parle en continu : conclure au premier relevé
-        reviendrait à alerter parce que quelqu'un écoutait."""
+        """Nobody speaks without stopping: concluding on the first reading would amount to
+        raising the alarm because somebody was listening.
+        """
         monitoring = self.monitoring()
         assert monitoring.observe(-60.0) == ""
 
@@ -106,8 +107,9 @@ class TestWatchingDuringTheMeeting:
         assert "trop faible" in raisons[-1]
 
     def test_one_loud_sentence_is_enough_to_reassure(self):
-        """Le maximum et non la moyenne : entre deux phrases il y a du silence,
-        et une moyenne mesure surtout les silences."""
+        """The maximum and not the average: there is silence between two sentences, and an
+        average mostly measures the silences.
+        """
         from greffier.domain.level import RELEVES_AVANT_ALERTE
 
         monitoring = self.monitoring()
@@ -116,7 +118,7 @@ class TestWatchingDuringTheMeeting:
         assert not any(raisons)
 
     def test_it_says_so_only_once(self):
-        """Le niveau ne se corrige pas sans interrompre : répéter n'ajoute rien."""
+        """A level cannot be fixed without interrupting: repeating adds nothing."""
         from greffier.domain.level import RELEVES_AVANT_ALERTE
 
         monitoring = self.monitoring()

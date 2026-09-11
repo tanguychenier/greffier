@@ -1,12 +1,12 @@
-"""Les décisions de l'installeur, vérifiées pour les trois systèmes.
+"""What the installer decides, checked for all three systems.
 
-Personne n'a un Mac, un poste Linux et un poste Windows sous la main. Ces tests
-forcent le système détecté et vérifient ce que l'installeur en déduit : chemins,
-gestionnaire de paquets, fichier de démarrage automatique. Ils tournent donc
-partout et couvrent Windows depuis un Mac.
+Nobody has a Mac, a Linux machine and a Windows machine to hand. These tests
+force the detected system and check what the installer deduces from it: paths,
+package manager, autostart file. They therefore run everywhere and cover
+Windows from a Mac.
 
-L'installeur est un script autonome — il doit fonctionner avant que le paquet ne
-soit installé — d'où l'import par chemin plutôt que par nom de module.
+The installer is a standalone script, since it has to work before the package
+is installed, hence the import by path rather than by module name.
 """
 
 import importlib.util
@@ -33,7 +33,7 @@ def the_installer():
 
 @pytest.fixture
 def under(the_installer, monkeypatch):
-    """Fait croire à l'installeur qu'il tourne sur le système demandé."""
+    """Makes the installer believe it is running on the system asked for."""
 
     def basculer(system, **variables):
         monkeypatch.setattr(the_installer, "SYSTEM", system)
@@ -50,8 +50,9 @@ class TestWhereThingsLive:
         assert module.config_folder() == tmp_path / "config" / "greffier"
 
     def test_macos_uses_application_support(self, under, monkeypatch, tmp_path):
-        """Pas XDG : les dossiers cachés du compte sont surveillés par les gardes
-        du poste, qui redemandaient une autorisation à chaque accès."""
+        """Not XDG: the hidden folders of an account are watched by the machine's
+        guards, which asked for permission again on every access.
+        """
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
         monkeypatch.delenv("XDG_DATA_HOME", raising=False)
@@ -63,8 +64,9 @@ class TestWhereThingsLive:
     def test_the_installer_and_the_application_say_the_same_thing(
         self, under, monkeypatch, tmp_path
     ):
-        """Une seule définition des emplacements : sinon l'installeur cherche
-        les modèles là où l'application ne les met pas — et les retélécharge."""
+        """One definition of the locations: otherwise the installer looks for the models
+        where the application does not put them, and downloads them again.
+        """
         from greffier import locations
 
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
@@ -99,7 +101,7 @@ class TestThePackageManager:
         assert outil == "apt-get" and "install" in command
 
     def test_root_does_not_call_sudo(self, under, monkeypatch):
-        """En conteneur et en intégration continue, sudo n'est pas installé."""
+        """In a container and in continuous integration, sudo is not installed."""
         module = under("Linux")
         monkeypatch.setattr(module.shutil, "which", lambda outil: "/usr/bin/apt-get"
                             if outil == "apt-get" else None)
@@ -122,7 +124,7 @@ class TestThePackageManager:
 
 
 class TestFittingIntoTheDesktop:
-    """Ce qui sera déposé pour lancer Greffier à l'ouverture de session."""
+    """What gets laid down to start Greffier when the session opens."""
 
     def test_macos_gets_a_launch_agent(self, under, monkeypatch, tmp_path):
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
@@ -145,8 +147,8 @@ class TestFittingIntoTheDesktop:
         file = module.integrer_au_bureau(None, r"C:\\Greffier\\greffier.exe")
         assert file.parent.name == "Startup"
         content = file.read_text(encoding="utf-8")
-        # Un .cmd et non un .lnk : le raccourci Windows est un format binaire
-        # qui exige PowerShell et COM, pour le même résultat.
+        # A .cmd and not a .lnk: a Windows shortcut is a binary format that
+        # demands PowerShell and COM, for the same outcome.
         assert file.suffix == ".cmd" and "start" in content
 
     def test_an_unknown_system_does_not_crash(self, under):
@@ -155,12 +157,12 @@ class TestFittingIntoTheDesktop:
 
 
 class TestTheRepairSkill:
-    """Le skill qui apprend à Claude Code à réparer une installation.
+    """The skill that teaches a coding assistant to repair an installation.
 
-    Greffier dépend d'une instance Claude Code authentifiée pour rédiger : c'est
-    vers elle qu'on se tourne quand quelque chose casse, et sans ce document
-    elle ignore l'essentiel — emplacements natifs, signature stable, modèle par
-    défaut choisi à dessein.
+    Greffier depends on an authenticated assistant to write the minutes: it is
+    what one turns to when something breaks, and without this document it misses
+    the essentials — the native locations, the stable signature, the default model
+    chosen on purpose.
     """
 
     def test_the_skill_ships_with_the_repository(self, the_installer):
@@ -171,14 +173,14 @@ class TestTheRepairSkill:
         assert "description:" in text.split("---")[1]
 
     def test_the_skill_says_where_to_look(self, the_installer):
-        """Un skill qui n'indique ni les journaux ni le diagnostic ferait tâtonner."""
+        """A skill that names neither the logs nor the diagnostic leaves it groping."""
         text = (RACINE / "skills/greffier/SKILL.md").read_text(encoding="utf-8")
         for indice in ("greffier diagnostic", "Application Support",
                        "Library/Logs/Greffier.log", "greffier rediger", "opus"):
             assert indice in text, indice
 
     def test_every_skill_in_the_repository_has_a_header(self):
-        """Un skill sans en-tête n'est pas chargé, et rien ne le signale."""
+        """A skill with no header is not loaded, and nothing says so."""
         found = sorted((RACINE / "skills").glob("*/SKILL.md"))
         assert len(found) >= 2, "le dépôt porte le dépannage et l'assistance"
         for path in found:
@@ -187,7 +189,7 @@ class TestTheRepairSkill:
             assert "description:" in text.split("---")[1], path
 
     def test_the_meeting_skill_says_what_must_not_be_done(self):
-        """La proactivité sans garde-fou est une nuisance en réunion."""
+        """Being proactive with no guard rail is a nuisance in a meeting."""
         text = (RACINE / "skills/assister-une-reunion/SKILL.md").read_text(
             encoding="utf-8")
         aplati = " ".join(text.split())
@@ -201,7 +203,7 @@ class TestTheRepairSkill:
         assert module.dossier_skills() == tmp_path / ".claude/skills"
 
     def test_a_copy_and_not_a_link(self, under, monkeypatch, tmp_path):
-        """Le dépôt peut être déplacé : un lien pointerait dans le vide."""
+        """The repository may be moved: a link would point into the void."""
         module = under("Darwin")
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         monkeypatch.setattr(module.shutil, "which", lambda outil: "/usr/local/bin/claude")
@@ -239,7 +241,7 @@ class TestTheRepairSkill:
 
 class TestWhatTheConsoleCanShow:
     def test_the_symbols_have_an_ascii_fallback(self, the_installer):
-        """Une console Windows en cp1252 ne sait pas écrire « ✓ »."""
+        """A Windows console in cp1252 cannot write "✓"."""
         assert set(the_installer.SYMBOLES) == {"ok", "alerte", "erreur"}
         assert all(value for value in the_installer.SYMBOLES.values())
 
@@ -253,12 +255,11 @@ class TestWhatTheConsoleCanShow:
 
 
 class TestCapturingSoundOnLinux:
-    """Ce sur quoi l'installeur juge la capture du son des autres.
+    """What the installer judges the capture of the others' sound on.
 
-    « pactl » n'enregistre rien : il interroge le serveur de son, quand ffmpeg
-    s'y branche directement par sa prise. Le juger absent annonçait une capture
-    impossible sur une machine qui en était capable, et envoyait chercher un
-    paquet inutile.
+    `pactl` records nothing: it queries the sound server, while ffmpeg plugs
+    straight into its socket. Judging it absent announced an impossible capture on
+    a machine perfectly able to do it, and sent people after a useless package.
     """
 
     def test_the_server_socket_is_enough(self, under, monkeypatch, tmp_path):
@@ -277,7 +278,7 @@ class TestCapturingSoundOnLinux:
         assert not module.sound_server_present()
 
     def test_a_declared_server_is_believed(self, under, monkeypatch, tmp_path):
-        """Un serveur distant ne pose aucune prise dans cette session."""
+        """A remote server puts no socket in this session."""
         module = under("Linux", XDG_RUNTIME_DIR=str(tmp_path),
                       PULSE_SERVER="tcp:192.168.1.10:4713")
         monkeypatch.setattr(module.shutil, "which", lambda _outil: None)
@@ -286,13 +287,12 @@ class TestCapturingSoundOnLinux:
 
 
 class TestAccelerationByTheCard:
-    """Une carte NVIDIA ne suffit pas à accélérer la transcription.
+    """An NVIDIA card is not enough to accelerate the transcription.
 
-    CTranslate2 réclame cuBLAS et cuDNN, qu'aucune distribution ne livre avec
-    le pilote. Sans elles la transcription tombe sur le processeur — treize
-    fois le temps réel, mesuré, soit treize heures pour une réunion d'une
-    heure. L'installeur doit donc les proposer, et seulement là où elles
-    servent.
+    CTranslate2 asks for cuBLAS and cuDNN, which no distribution ships with the
+    driver. Without them the transcription falls back on the processor, thirteen
+    times real time as measured, which is thirteen hours for an hour of meeting.
+    The installer therefore has to offer them, and only where they serve.
     """
 
     def test_a_card_is_recognised(self, under, monkeypatch):
@@ -309,7 +309,7 @@ class TestAccelerationByTheCard:
         assert not module.carte_nvidia()
 
     def test_macos_is_served_by_metal(self, under, monkeypatch):
-        """Aucune carte NVIDIA n'y est utilisable, et la puce a déjà Metal."""
+        """No NVIDIA card is usable there, and the chip already has Metal."""
         module = under("Darwin")
         monkeypatch.setattr(module.shutil, "which", lambda _outil: "/usr/bin/nvidia-smi")
 
@@ -346,12 +346,12 @@ class TestTheLanguageOfTheMachine:
         assert module.system_language() == "fr"
 
     def test_the_template_no_longer_hard_codes_a_language(self, the_installer):
-        """Première couverture du gabarit : la ligne pouvait changer en silence."""
+        """The first cover of the template: the line could change in silence."""
         assert 'langue = "fr"' not in the_installer.GABARIT
         assert "langue = {langue!r}" in the_installer.GABARIT
 
     def test_the_language_catalogue_loads_without_the_package(self, the_installer):
-        """L'installeur tourne avant que quoi que ce soit ne soit installé."""
+        """The installer runs before anything at all is installed."""
         languages = the_installer._charger_langues()
 
         assert languages is not None
@@ -359,13 +359,13 @@ class TestTheLanguageOfTheMachine:
 
 
 class TestAnEnvironmentInheritedFromBefore:
-    """Un « .venv » venu d'une autre machine ne doit pas passer pour valide.
+    """A `.venv` that came from another machine must not pass for valid.
 
-    Le cas mesuré : une image Linux construite depuis un dépôt de travail
-    macOS. Le dossier `.venv` était copié, ses liens ne menaient nulle part,
-    et l'installeur — qui ne regardait que l'existence du dossier — sautait la
-    création puis tombait sur « No such file or directory: .venv/bin/python ».
-    L'installation s'arrêtait là, ce qui donne « rien ne marche sous Linux ».
+    The measured case: a Linux image built from a macOS working copy. The `.venv`
+    folder was copied, its links led nowhere, and the installer, which only looked
+    at whether the folder existed, skipped creating it and then fell over on "No
+    such file or directory: .venv/bin/python". The installation stopped there,
+    which reads as "nothing works on Linux".
     """
 
     def _prepare(self, the_installer, tmp_path, monkeypatch, avec_uv):
@@ -393,7 +393,7 @@ class TestAnEnvironmentInheritedFromBefore:
         assert any("venv" in " ".join(c) for c in lancees), lancees
 
     def test_a_complete_venv_is_not_remade(self, the_installer, tmp_path, monkeypatch):
-        """Réinstaller à chaque lancement coûterait des minutes pour rien."""
+        """Reinstalling on every launch would cost minutes for nothing."""
         lancees = self._prepare(the_installer, tmp_path, monkeypatch, avec_uv=True)
         interprete = tmp_path / ".venv" / "bin" / "python"
         interprete.parent.mkdir(parents=True)
@@ -409,7 +409,7 @@ class TestAnEnvironmentInheritedFromBefore:
     def test_with_neither_uv_nor_venv_the_installer_stops_and_says_so(
         self, the_installer, tmp_path, monkeypatch
     ):
-        """Trois lignes plus bas, la trace Python n'aurait nommé aucun paquet."""
+        """Three lines further down, the Python traceback would have named no package."""
         self._prepare(the_installer, tmp_path, monkeypatch, avec_uv=False)
         context = type("Ctx", (), {"check_only": False, "to_do": [],
                                     "ask": lambda self, _q: False})()
@@ -418,11 +418,11 @@ class TestAnEnvironmentInheritedFromBefore:
 
 
 class TestWhetherTheVoiceIsThere:
-    """Chercher « model.onnx » ne valait que pour Kokoro.
+    """Looking for "model.onnx" only ever held for Kokoro.
 
-    Un VITS nomme ses poids d'après sa voix. L'installation annonçait donc la
-    voix manquante alors qu'elle était en place, et proposait de retélécharger
-    quatre-vingts mégaoctets à chaque passage.
+    A VITS names its weights after its voice. The installation therefore announced
+    the voice as missing when it was in place, and offered to download eighty
+    megabytes again on every run.
     """
 
     def test_a_vits_model_is_recognised(self, the_installer, tmp_path):
@@ -436,7 +436,7 @@ class TestWhetherTheVoiceIsThere:
         assert the_installer.voix_presente(tmp_path)
 
     def test_a_network_without_its_vocabulary_is_not_enough(self, the_installer, tmp_path):
-        """Le modèle ne se monte pas sans ses jetons : autant le dire avant."""
+        """The model cannot be built without its tokens: better say so first."""
         (tmp_path / "fr_FR-upmc-medium.onnx").write_text("")
         assert not the_installer.voix_presente(tmp_path)
 

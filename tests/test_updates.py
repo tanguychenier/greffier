@@ -1,4 +1,4 @@
-"""Savoir s'il existe une version postérieure, sans jamais faire tomber la fenêtre."""
+"""Knowing whether a later version exists, without ever bringing the window down."""
 
 import json
 import urllib.error
@@ -29,7 +29,7 @@ def answer(monkeypatch, content: dict) -> None:
 
 
 def answer_bytes(monkeypatch, bytes_read: bytes) -> None:
-    """Une réponse binaire, avec sa longueur : c'est elle qui fait l'avancement."""
+    """A binary answer with its length: the length is what makes the progress."""
     class Response(BytesIO):
         headers = {"Content-Length": str(len(bytes_read))}
 
@@ -71,13 +71,13 @@ class TestWhenThereIsNothingBetter:
         assert updates.check().up_to_date
 
     def test_an_earlier_version_offers_nothing(self, monkeypatch, installed_0_2_0):
-        """Une release plus ancienne que l'installée ne doit rien déclencher."""
+        """A release older than the installed one must trigger nothing."""
         answer(monkeypatch, {"tag_name": "v0.1.0"})
         assert updates.check().up_to_date
 
 
 class TestWhenNothingAnswers:
-    """Une vérification qui fait tomber la fenêtre serait un très mauvais échange."""
+    """A check that brought the window down would be a very poor trade."""
 
     def test_with_no_network_the_trouble_is_reported(self, monkeypatch, installed_0_2_0):
         fail_to_answer(monkeypatch, urllib.error.URLError("injoignable"))
@@ -104,7 +104,7 @@ class TestWhenNothingAnswers:
 
 
 class TestInstallingFromTheSources:
-    """Une mise à jour ne doit jamais emporter le travail de qui développe."""
+    """An update must never carry away the work of whoever is developing."""
 
     def a_git_repository(self, tmp_path, clean: bool = True):
         import subprocess
@@ -154,7 +154,7 @@ class TestInstallingFromTheSources:
 
 
 class TestTheRelayScript:
-    """Le relais attend la mort du processus avant de toucher au paquet."""
+    """The relay waits for the process to die before touching the bundle."""
 
     def test_it_waits_for_the_process_to_end(self):
         assert 'kill -0 "$2"' in updates._RELAIS
@@ -174,11 +174,11 @@ class TestTheRelayScript:
 
 
 class TestABundleNewerThanTheProcess:
-    """Un paquet reconstruit ne remplace pas l'application déjà lancée.
+    """A rebuilt bundle does not replace the application already running.
 
-    Coût mesuré : deux heures passées à chercher trois boutons dans une fenêtre
-    ouverte la veille, alors qu'ils étaient dans le paquet depuis le matin. La
-    fenêtre a maintenant de quoi le dire, et `construire.sh` de quoi relancer.
+    Measured cost: two hours spent looking for three buttons in a window opened
+    the day before, when they had been in the bundle since the morning. The window
+    can now say so, and `construire.sh` can relaunch.
     """
 
     def test_outside_a_bundle_the_question_does_not_arise(self):
@@ -220,10 +220,10 @@ class TestABundleNewerThanTheProcess:
 
 
 class TestTheArtefactForThisSystem:
-    """Le bouton doit prendre l'archive de **ce** système, et aucune autre.
+    """The button has to take the archive of **this** system, and no other.
 
-    Les trois sont attachées à la même version publiée. Installer une archive
-    Windows sur un Mac ne produirait rien de lançable.
+    All three are attached to the same published version. Installing a Windows
+    archive on a Mac would produce nothing that launches.
     """
 
     PUBLICATION = {
@@ -338,13 +338,12 @@ class TestDownloadingAndUnpacking:
 
 
 class TestAnUpdateLosesNothing:
-    """La seule question de qui appuie sur ce bouton.
+    """The only question whoever presses that button has.
 
-    Les réunions, les comptes rendus, la banque de voix, les conversations et
-    les réglages vivent dans le dossier de données, hors de l'application. Le
-    relais ne touche **que** le paquet, et ce test le tient : une mise à jour
-    qui ferait perdre une réunion de quatre-vingt-douze minutes serait pire que
-    pas de mise à jour du tout.
+    The meetings, the minutes, the voice bank, the conversations and the settings
+    live in the data folder, outside the application. The relay touches **only**
+    the bundle, and this test holds it to that: an update that lost a meeting of
+    ninety-two minutes would be worse than no update at all.
     """
 
     def test_the_relay_never_names_the_data_folder(self):
