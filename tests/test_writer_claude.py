@@ -1,9 +1,8 @@
-"""L'appel à Claude Code : ce qui part sur la ligne de commande.
+"""The call to the writing assistant: what leaves on the command line.
 
-Le modèle est passé explicitement. Sans cela, l'outil suivrait le réglage
-personnel de qui l'a installé : le compte rendu changerait de rédacteur sans
-que personne ne l'ait décidé, et pourrait consommer le haut de la gamme là où
-le second suffit.
+The model is passed explicitly. Without that, the tool would follow the personal
+setting of whoever installed it: the minutes would change writer with nobody
+deciding it, and could eat the top of the range where the second one is enough.
 """
 
 import subprocess
@@ -14,8 +13,8 @@ from greffier.adapters.writer_claude import ClaudeWriter
 
 
 @pytest.fixture
-def espion(monkeypatch):
-    """Retient la commande lancée, sans jamais appeler Claude Code."""
+def a_spy_on_the_command(monkeypatch):
+    """Keeps the command launched, without ever calling the assistant."""
     vu: dict[str, list[str]] = {}
 
     def faux_run(command, **options):
@@ -30,28 +29,28 @@ def espion(monkeypatch):
 
 
 class TestModele:
-    def test_the_model_asked_for_is_passed_on(self, espion):
+    def test_the_model_asked_for_is_passed_on(self, a_spy_on_the_command):
         ClaudeWriter("opus").write_up("Sandy : bonjour.")
-        assert "--model" in espion["commande"]
-        assert espion["commande"][espion["commande"].index("--model") + 1] == "opus"
+        assert "--model" in a_spy_on_the_command["commande"]
+        assert a_spy_on_the_command["commande"][a_spy_on_the_command["commande"].index("--model") + 1] == "opus"
 
-    def test_with_no_model_nothing_is_imposed(self, espion):
-        """Utile pour éprouver l'outil tel qu'il est réglé sur le poste."""
+    def test_with_no_model_nothing_is_imposed(self, a_spy_on_the_command):
+        """Useful to exercise the tool exactly as the machine is set up."""
         ClaudeWriter().write_up("Sandy : bonjour.")
-        assert "--model" not in espion["commande"]
+        assert "--model" not in a_spy_on_the_command["commande"]
 
-    def test_la_transcription_passe_par_l_entree_standard(self, espion):
-        """Une transcription d'une heure dépasse la taille admise pour un argument."""
+    def test_the_transcription_goes_through_standard_input(self, a_spy_on_the_command):
+        """An hour of transcription is bigger than an argument may be."""
         ClaudeWriter("opus").write_up("Sandy : bonjour.")
-        assert "Sandy : bonjour." in espion["entree"]
-        assert not any("Sandy" in morceau for morceau in espion["commande"])
+        assert "Sandy : bonjour." in a_spy_on_the_command["entree"]
+        assert not any("Sandy" in morceau for morceau in a_spy_on_the_command["commande"])
 
-    def test_no_tool_is_allowed(self, espion):
+    def test_no_tool_is_allowed(self, a_spy_on_the_command):
         """Le rédacteur écrit un document, il n'a rien à lire ni à exécuter."""
-        command = espion if False else None
+        command = a_spy_on_the_command if False else None
         ClaudeWriter("opus").write_up("x")
-        assert "--allowed-tools" in espion["commande"]
-        assert espion["commande"][espion["commande"].index("--allowed-tools") + 1] == ""
+        assert "--allowed-tools" in a_spy_on_the_command["commande"]
+        assert a_spy_on_the_command["commande"][a_spy_on_the_command["commande"].index("--allowed-tools") + 1] == ""
         assert command is None
 
 
