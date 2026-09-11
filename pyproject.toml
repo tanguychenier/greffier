@@ -11,6 +11,7 @@ dependencies = [
     "numpy>=2.0",             # empreintes vocales
     "soundfile>=0.13",        # lecture des enregistrements
     "sherpa-onnx>=1.13",      # segmentation et empreintes, en local
+    "rapidfuzz>=3.10",        # distances d'édition, plutôt que deux à la main
 ]
 
 [project.optional-dependencies]
