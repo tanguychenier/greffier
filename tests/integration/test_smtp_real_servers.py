@@ -1,19 +1,19 @@
-"""La session SMTP, ouverte contre de vrais serveurs.
+"""The SMTP session, opened against real servers.
 
-Le code disait n'avoir « pas encore rencontré un vrai serveur ». Un serveur
-d'essai monté dans le processus n'y changerait rien : il répondrait ce qu'on lui
-a appris à répondre. Ce test se **connecte** — Gmail et Office 365, les deux
-fournisseurs que le commentaire nommait — et vérifie que la convention choisie
-d'après le port est celle que le serveur attend.
+The code said it had "not yet met a real server". A test server started inside
+the process would change nothing: it would answer what it was taught to answer.
+This test **connects** — Gmail and Office 365, the two providers the comment
+named — and checks that the convention chosen from the port is the one the
+server expects.
 
-Ce qui est éprouvé : la connexion aboutit, le chiffrement est en place, et le
-serveur accepte la conversation. `ExpediteurSmtp.session` est le vrai code du
-produit ; aucun mot de passe n'est nécessaire pour l'ouvrir, donc rien n'est
-authentifié ni expédié — envoyer chez un tiers depuis une suite de tests n'est
-pas une preuve, c'est un courriel de trop.
+What is covered: the connection succeeds, the encryption is in place, and the
+server accepts the conversation. `SmtpSender.session` is the product's real
+code; no password is needed to open one, so nothing is authenticated and
+nothing is sent. Sending to a third party from a test suite is not a proof, it
+is one email too many.
 
-Dépend du réseau : marqué « integration », et ignoré quand le port est fermé
-(exécuteur d'intégration continue sans sortie SMTP, réseau d'entreprise filtré).
+Depends on the network: marked "integration", and skipped when the port is
+closed (a CI runner with no SMTP egress, a filtered corporate network).
 
     pytest -m integration
 """
@@ -29,8 +29,8 @@ from greffier.adapters.email import SmtpSender
 
 pytestmark = pytest.mark.integration
 
-#: Les deux conventions, chez deux fournisseurs. 465 chiffre dès l'ouverture,
-#: 587 négocie par STARTTLS ; se tromper échoue au premier octet.
+#: The two conventions, at two providers. 465 encrypts from the opening, 587
+#: negotiates through STARTTLS; getting it wrong fails on the first byte.
 SERVEURS = [
     ("smtp.gmail.com", 465),
     ("smtp.gmail.com", 587),
@@ -40,7 +40,7 @@ SERVEURS = [
 
 @pytest.fixture(params=SERVEURS, ids=lambda p: f"{p[0]}:{p[1]}")
 def session(request):
-    """Une session ouverte par le vrai code, ou le test est ignoré."""
+    """A session opened by the real code, or the test is skipped."""
     server, port = request.param
     sender = SmtpSender(server=server, port=port)
     try:
@@ -51,26 +51,25 @@ def session(request):
 
 
 class TestSessionReelle:
-    def test_la_connexion_aboutit(self, session: smtplib.SMTP):
-        """Le serveur a salué, et la session tient : le port et la classe s'accordent."""
+    def test_the_connection_succeeds(self, session: smtplib.SMTP):
+        """The server said hello and the session holds: the port and the class agree."""
         code, _ = session.docmd("NOOP")
         assert code == 250
 
     def test_the_session_is_encrypted(self, session: smtplib.SMTP):
-        """TLS implicite ou négocié, le résultat doit être le même : chiffré.
+        """Implicit TLS or negotiated, the outcome has to be the same: encrypted.
 
-        C'est la seule vérification qui distingue les deux conventions mal
-        choisies d'une session correcte : un `SMTP` nu sur 465, ou un
-        `SMTP_SSL` sur 587, n'arrive jamais jusqu'ici.
+        It is the only check that tells the two badly chosen conventions from a correct
+        session: a bare `SMTP` on 465, or an `SMTP_SSL` on 587, never gets this far.
         """
         assert isinstance(session.sock, ssl.SSLSocket)
         assert session.sock.version().startswith("TLS")
 
     def test_the_server_announces_its_capabilities_after_encryption(self, session: smtplib.SMTP):
-        """`AUTH` n'est annoncé qu'une fois la session chiffrée.
+        """`AUTH` is only announced once the session is encrypted.
 
-        Un serveur qui l'annonce prouve deux choses d'un coup : il a vu un
-        client chiffré, et il est prêt à recevoir un mot de passe — ce que le
-        produit fera quand il en aura un.
+        A server announcing it proves two things at once: it saw an encrypted client,
+        and it is ready to receive a password, which the product will send when it has
+        one.
         """
         assert session.has_extn("auth")

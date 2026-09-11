@@ -1,8 +1,8 @@
-"""Les génériques inventés par le modèle, et ce qui doit rester.
+"""The credits the model invents, and what has to stay.
 
-Constaté dans un fil réel le 2026-09-02 : « (sous titré réalisé par… ) »
-affiché comme une prise de parole. Whisper a été entraîné sur des vidéos
-sous-titrées et comble les silences avec ce qu'il y a le plus vu.
+Seen in a real thread on 2026-09-02: "(sous titré réalisé par… )" shown as a
+turn of speech. Whisper was trained on subtitled videos and fills silences with
+what it has seen most.
 """
 
 import pytest
@@ -37,7 +37,7 @@ class TestWhatStays:
         "   ",
     ])
     def test_real_speech_stays(self, text):
-        """Mieux vaut laisser passer un générique que perdre une décision."""
+        """Better to let a credit through than to lose a decision."""
         assert not is_boilerplate(text, FRENCH)
 
     @pytest.mark.parametrize("text", [
@@ -47,17 +47,18 @@ class TestWhatStays:
         "Sous-titrage réalisé par nos soins, et validé par la communication.",
     ])
     def test_a_sentence_that_starts_like_a_credit_but_goes_on(self, text):
-        """Le piège de la correspondance par préfixe : cette phrase-là
-        disparaissait, alors qu'elle porte une information."""
+        """The trap of matching on a prefix: that sentence disappeared, when it carries
+        information.
+        """
         assert not is_boilerplate(text, FRENCH)
 
 
 class TestAnnotations:
-    """Ce que le modèle écrit quand il entend du son sans parole.
+    """What the model writes when it hears sound without speech.
 
-    Relevé dans le fil d'une réunion réelle : « *Belouge* » inscrit comme une
-    prise de parole, avec sa propre empreinte de voix — donc une voix de plus
-    dans une réunion qui n'en comptait que quelques-unes.
+    Taken from the thread of a real meeting: "*Belouge*" recorded as a turn of
+    speech, with a voiceprint of its own, and therefore one more voice in a meeting
+    that held only a few.
     """
 
     def test_an_annotation_between_asterisks_goes(self):
@@ -86,13 +87,12 @@ class TestAnnotations:
 
 
 class TestTheTranscriberLoop:
-    """Onze fois la même phrase de suite, c'est le modèle, pas une personne.
+    """Eleven times the same sentence in a row is the model, not a person.
 
-    Mesuré sur la réunion du 2026-09-10 à 13 h 08 : « Est-ce que tu entends
-    Lucie ? » inscrit **onze fois**, en onze tours consécutifs d'une seconde,
-    et trois autres boucles à côté. Sur cent vingt-cinq tours du fil,
-    soixante-cinq étaient de la répétition. Whisper fait cela sur du
-    quasi-silence.
+    Measured on the meeting of 2026-09-10 at 13:08: "Est-ce que tu entends
+    Lucie ?" written down **eleven times**, in eleven consecutive one-second turns,
+    with three other loops beside it. Of the hundred and twenty-five turns in the
+    thread, sixty-five were repetition. Whisper does this on near-silence.
     """
 
     def _loop(self, how_many: int, texte: str = "Est-ce que tu entends Lucie ?"):
@@ -117,10 +117,10 @@ class TestTheTranscriberLoop:
         assert len(collapse_loops(self._loop(3))) == 1
 
     def test_a_breath_breaks_the_loop(self):
-        """Une personne qui repose sa question laisse un souffle.
+        """Someone asking their question again leaves a breath.
 
-        Trois segments collés se replient ; celui qui arrive après le silence
-        reste une phrase à part, parce qu'il a été dit à part.
+        Three segments glued together fold up; the one arriving after the silence
+        stays a sentence of its own, because it was said on its own.
         """
         dites = [
             Utterance(span=Span(0.0, 1.0), text="tu m'entends ?"),

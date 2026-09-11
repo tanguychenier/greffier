@@ -1,4 +1,4 @@
-"""La banque de voix sur le disque, et le fichier maître d'une réunion."""
+"""The voice bank on disk, and the master file of a meeting."""
 
 import json
 from datetime import UTC, datetime
@@ -46,16 +46,15 @@ class TestTheVoiceBank:
         assert len(bank.find("Josiane").voiceprints) == 2
 
     def test_accents_do_not_create_two_people(self):
-        """Les systèmes de fichiers ne normalisent pas les accents pareil."""
+        """File systems do not normalise accents the same way."""
         assert _file_at("Rémi Kaës") == _file_at("Remi Kaes")
 
     def test_an_unusual_name_still_gives_a_file(self):
-        """Et un fichier qui n'appartient qu'à lui.
+        """And a file that belongs to it alone.
 
-        Ce test attendait « sans-nom », qui était le défaut même : tous les noms
-        sans lettre ASCII rendaient cette valeur, donc le même fichier, donc une
-        seule personne pour plusieurs. L'intention tenait, l'assertion la
-        trahissait.
+        This test used to expect "sans-nom", which was the defect itself: every name
+        with no ASCII letter returned that value, so the same file, so one person for
+        several. The intention held, the assertion betrayed it.
         """
         assert _file_at("???")
         assert _file_at("???") != _file_at("!!!")
@@ -117,7 +116,7 @@ class TestTheMasterFile:
         assert relue.utterances[0].span.end == 40
 
     def test_the_timestamps_survive(self, tmp_path):
-        """Ils permettent de citer un passage et d'y revenir."""
+        """They are what lets a passage be quoted and found again."""
         magasin = FileStore(tmp_path)
         magasin.record(a_meeting())
         assert magasin.read("2026-08-24_reunion").turns[1].span.start == 60
@@ -138,12 +137,12 @@ class TestTheMasterFile:
             FileStore(tmp_path).read("jamais-vue")
 
     def test_a_newer_format_is_refused(self, tmp_path):
-        """Mieux vaut refuser que lire de travers un fichier d'une version future.
+        """Better to refuse than to misread a file from a future version.
 
-        Le numéro est lu depuis le module et non écrit en dur : la version
-        précédente cherchait « "format": 1 » dans le texte, si bien que passer
-        au format 2 ne cassait pas le test — il ne remplaçait plus rien et
-        vérifiait qu'un fichier valide lève une erreur, ce qu'il ne fait pas.
+        The number is read from the module and not written in: the previous version
+        looked for `"format": 1` in the text, so moving to format 2 did not break the
+        test. It replaced nothing any more and checked that a valid file raises, which
+        it does not.
         """
         magasin = FileStore(tmp_path)
         magasin.record(a_meeting())
@@ -155,10 +154,10 @@ class TestTheMasterFile:
             magasin.read("2026-08-24_reunion")
 
     def test_a_file_without_the_clock_times_reads_back(self, tmp_path):
-        """Le format 1 ne portait pas les heures d'horloge : il reste lisible.
+        """Format 1 did not carry the clock times: it stays readable.
 
-        Les réunions déjà sur le disque n'ont pas à être retraitées pour que
-        l'outil sache encore les ouvrir.
+        The meetings already on disk do not have to be processed again for the tool to
+        still be able to open them.
         """
         magasin = FileStore(tmp_path)
         magasin.record(a_meeting())
@@ -180,8 +179,9 @@ class TestTheMasterFile:
         assert magasin.lister()[0] == "2026-08-24_b"
 
     def test_the_hardware_events_survive(self, tmp_path):
-        """Nécessaire pour régénérer la rédaction plus tard sans perdre ce que
-        la veille du matériel avait constaté."""
+        """Needed to write the minutes again later without losing what the hardware
+        watch had seen.
+        """
         magasin = FileStore(tmp_path)
         magasin.record(a_meeting(
             hardware_events=["casque branché à 12:03"]
@@ -190,8 +190,9 @@ class TestTheMasterFile:
         assert relue.hardware_events == ["casque branché à 12:03"]
 
     def test_a_master_file_with_no_hardware_events_reads_back(self, tmp_path):
-        """Un fichier maître écrit avant l'ajout de ce champ n'a pas la clé :
-        elle doit se relire vide, pas planter."""
+        """A master file written before this field was added has no such key: it must
+        read back empty, not crash.
+        """
         magasin = FileStore(tmp_path)
         magasin.record(a_meeting())
         path = tmp_path / "2026-08-24_reunion.json"
@@ -202,13 +203,13 @@ class TestTheMasterFile:
 
 
 class TestNonLatinNames:
-    """Deux personnes doivent rester deux personnes.
+    """Two people must stay two people.
 
-    La réduction en ASCII n'a aucune lettre à garder d'un nom cyrillique, grec,
-    arabe ou idéographique. Le repli sur « sans-nom » les rangeait toutes dans
-    le même fichier d'empreintes : ce n'est pas de l'affichage, c'est une fusion
-    de données, dans le fichier même qui doit les tenir séparées. Atteignable
-    dès aujourd'hui par un nom saisi à la main dans l'onglet Voix.
+    Reducing to ASCII has no letter to keep from a Cyrillic, Greek, Arabic or
+    ideographic name. Falling back on "sans-nom" filed them all in the same
+    voiceprint file: that is not a display matter, it is a merge of data, in the
+    very file whose job is to keep them apart. Reachable today by typing a name by
+    hand in the Voices tab.
     """
 
     def test_two_non_latin_names_stay_two_files(self, bank):
@@ -224,21 +225,21 @@ class TestNonLatinNames:
         assert {p.name for p in bank.people()} == {"田中", "佐藤"}
 
     def test_their_voiceprints_do_not_mix(self, bank):
-        """La fusion était silencieuse : deux voix dans un seul dossier."""
+        """The merge was silent: two voices in a single folder."""
         bank.record("Δημήτρης", voice(1.0, 0.0))
         bank.record("محمد", voice(0.0, 1.0))
 
         assert all(len(p.voiceprints) == 1 for p in bank.people())
 
     def test_a_latin_name_keeps_a_readable_file(self, bank):
-        """La correction ne doit pas rendre illisibles les noms qui allaient bien."""
+        """The fix must not make unreadable the names that were fine."""
         bank.record("Josiane", voice(1.0, 0.0))
 
         assert (bank.folder / "josiane.json").is_file()
 
 
 class TestRepairingABank:
-    """Corriger au grain de l'empreinte, et non de la personne."""
+    """Correcting at the grain of the voiceprint, not of the person."""
 
     def test_one_voiceprint_can_go_without_losing_the_others(self, tmp_path):
         """Effacer quelqu'un pour une empreinte fautive perd tout le reste.
@@ -254,7 +255,7 @@ class TestRepairingABank:
         assert remaining is not None and len(remaining.voiceprints) == 2
 
     def test_removing_everything_deletes_the_person(self, tmp_path):
-        """Une entrée sans empreinte ne reconnaît rien et encombre la liste."""
+        """An entry with no voiceprint recognises nothing and clutters the list."""
         bank = FileVoiceBank(tmp_path)
         bank.record("Paul", normalise([1.0, 0.0], source_duration=10.0))
         assert bank.remove_voiceprints("Paul", [0]) == 1
@@ -271,14 +272,14 @@ class TestRepairingABank:
 
 
 class TestForgettingAMeetingEverywhere:
-    """Le geste qui manquait : défaire ce qu'une réunion a versé."""
+    """The gesture that was missing: undoing what one meeting poured in."""
 
     def test_the_voiceprints_of_a_meeting_leave_everywhere(self, tmp_path):
-        """Une réunion mal attribuée verse sous plusieurs noms d'un coup.
+        """A badly attributed meeting pours under several names at once.
 
-        Sur ce poste, il a fallu lire les durées — treize et trente et une
-        minutes — pour comprendre que deux empreintes de « Paul » venaient
-        d'une réunion où il n'était pas.
+        On this machine it took reading the durations, thirteen and thirty-one
+        minutes, to understand that two voiceprints of "Paul" came from a meeting he
+        was not in.
         """
         from dataclasses import replace
 

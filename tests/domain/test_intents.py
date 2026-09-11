@@ -1,8 +1,8 @@
-"""Reconnaître, dans une phrase ordinaire, une demande d'apprendre.
+"""Recognising, in an ordinary sentence, a request to learn something.
 
-Alimenter le contexte demandait d'ouvrir un fichier. Ces tests protègent les
-deux moitiés du problème : comprendre ce qui doit être compris, et **ne pas**
-comprendre ce qui n'en est pas.
+Feeding the context took opening a file. These tests guard both halves of the
+problem: understanding what has to be understood, and **not** understanding
+what is not one.
 """
 
 import pytest
@@ -49,8 +49,9 @@ class TestWhatIsUnderstood:
 
 
 class TestWhatMustNotBeUnderstood:
-    """Un faux positif coûte une question, mais une entrée bancale dans le
-    contexte pollue l'amorce de toutes les réunions suivantes."""
+    """A false positive costs a question, but a shaky entry in the context pollutes
+    the prompt seed of every meeting that follows.
+    """
 
     def test_an_ordinary_question(self):
         assert understand("qu'a-t-on décidé sur Oasis ?") is None
@@ -63,7 +64,7 @@ class TestWhatMustNotBeUnderstood:
         assert understand("retiens que la réunion de jeudi est annulée") is None
 
     def test_a_passing_state_is_not_a_role(self):
-        """« Sophie est en congé » ne décrit pas une fonction."""
+        """"Sophie est en congé" does not describe a function."""
         assert understand("retiens que Sophie est en congé") is None
 
     def test_too_long_a_sentence_as_a_subject_is_refused(self):
@@ -78,7 +79,7 @@ class TestWhatMustNotBeUnderstood:
 
 
 class TestTheConfirmation:
-    """On propose et on n'écrit pas : la phrase doit montrer ce qui sera écrit."""
+    """It offers and does not write: the sentence has to show what will be written."""
 
     def test_it_shows_the_term_and_its_meaning(self):
         sentence = understand("retiens que OTP veut dire mot de passe").say()
@@ -96,7 +97,7 @@ class TestTheConfirmation:
 
 
 class TestYesOrNo:
-    """Confirmer ou refuser, et distinguer les deux d'une nouvelle demande."""
+    """Confirming or refusing, and telling both from a fresh request."""
 
     def test_yes_confirms(self):
         assert agreement("oui") is True
@@ -108,7 +109,7 @@ class TestYesOrNo:
         assert agreement("laisse tomber") is False
 
     def test_anything_else_is_neither(self):
-        """La prendre pour un refus perdrait la demande."""
+        """Taking it for a refusal would lose the request."""
         assert agreement("et qu'a-t-on décidé sur Oasis ?") is None
         assert agreement("retiens que FAST est un formulaire") is None
 

@@ -1,4 +1,4 @@
-"""La veille du matériel, éprouvée sans horloge, sans carte son, sans ffmpeg."""
+"""The hardware watch, covered with no clock, no sound card and no ffmpeg."""
 
 from __future__ import annotations
 
@@ -74,8 +74,8 @@ class TestTheFirstTurn:
         assert reconstruits == [] and dits == []
 
     def test_unreadable_hardware_concludes_nothing(self) -> None:
-        # Décider sur une lecture vide reviendrait à croire que tout a été
-        # débranché, et à reconstruire l'agrégé sans aucune raison.
+        # Deciding on an empty reading would amount to believing everything was
+        # unplugged, and rebuilding the aggregate for no reason at all.
         v, dits, reconstruits = hardware_watch([Hardware(), Hardware()])
         v.turn()
         v.turn()
@@ -99,7 +99,7 @@ class TestPluggingInMidMeeting:
         assert len(dits) == 1 and "branché" in dits[0]
 
     def test_it_rebuilds_before_reopening_the_capture(self) -> None:
-        # Rouvrir sur un agrégé périmé perdrait le morceau en cours pour rien.
+        # Reopening on a stale aggregate would lose the current piece for nothing.
         ordre: list[str] = []
         recorder = FakeRecordingState()
         recorder.reprendre = lambda because: ordre.append("reprise")  # type: ignore[method-assign]
@@ -152,11 +152,11 @@ class TestNoMicLeftAtAll:
 
 
 class TestACaptureThatStops:
-    """La veille doit dire tout de suite que plus rien ne s'écrit.
+    """The watch has to say at once that nothing is being written any more.
 
-    Le 2026-09-09, une réunion n'a rien enregistré et rien ne l'a signalé : le
-    contrôle de silence n'existe qu'au traitement, donc après la réunion, quand
-    il n'y a plus rien à rattraper.
+    On 2026-09-09 a meeting recorded nothing and nothing flagged it: the silence
+    check only exists at processing time, so after the meeting, when there is
+    nothing left to catch up.
     """
 
     def test_a_size_that_stops_growing_is_flagged(self):
@@ -181,7 +181,7 @@ class TestACaptureThatStops:
         assert dits == []
 
     def test_with_no_way_to_measure_the_watch_keeps_its_old_job(self):
-        """Une taille illisible ne doit pas faire crier au loup."""
+        """An unreadable size must not make it cry wolf."""
         recorder = FakeRecordingState()
         v, dits, _ = hardware_watch([SANS], recorder=recorder)
         v.captured_size = lambda: None
@@ -191,7 +191,7 @@ class TestACaptureThatStops:
 
 
 class TestSoundTooQuiet:
-    """Le fichier grossit, mais il ne porte presque rien."""
+    """The file grows, but it carries almost nothing."""
 
     def test_a_lastingly_weak_level_is_flagged(self):
         from greffier.domain.level import RELEVES_AVANT_ALERTE

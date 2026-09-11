@@ -1,4 +1,4 @@
-"""La politesse de l'assistant, éprouvée sans lancer une réunion."""
+"""The assistant's manners, covered without starting a meeting."""
 
 from greffier.domain.participation import (
     MINIMUM_LULL,
@@ -19,10 +19,10 @@ def opening(because=Because.CONTRIBUTION, remark="…", born_at=0.0, subject="")
 
 class TestNeverCuttingIn:
     def test_it_keeps_quiet_while_anyone_is_speaking(self):
-        """Le défaut de tous les assistants vocaux : répondre dans le blanc.
+        """The defect of every voice assistant: answering into the gap.
 
-        Un blanc d'une seconde en réunion n'est pas une invitation, c'est une
-        respiration. Y entrer, c'est couper la parole.
+        A one-second gap in a meeting is not an invitation, it is a breath. Stepping
+        into it is cutting somebody off.
         """
         manners = Manners()
         refusal = manners.refusal(opening(), now=10.0, lull=0.5)
@@ -33,7 +33,7 @@ class TestNeverCuttingIn:
         assert manners.refusal(opening(), now=10.0, lull=MINIMUM_LULL) is None
 
     def test_it_does_not_slip_into_a_tight_exchange(self):
-        """Trois personnes qui s'enchaînent n'attendent pas un quatrième avis."""
+        """Three people talking in turn are not waiting for a fourth opinion."""
         manners = Manners()
         refusal = manners.refusal(opening(born_at=95.0), now=100.0, lull=3.0,
                                 density=0.95)
@@ -54,7 +54,7 @@ class TestNeverComingBackTooOften:
         assert manners.refusal(opening(born_at=200.0), now=200.0, lull=5.0) is None
 
     def test_being_called_ignores_the_rest(self):
-        """Quelqu'un qui s'adresse à l'outil attend une réponse, pas de la retenue."""
+        """Someone addressing the tool expects an answer, not restraint."""
         manners = Manners()
         manners.has_spoken(opening(), now=0.0)
         appel = opening(because=Because.APPELE, born_at=10.0)
@@ -78,7 +78,7 @@ class TestNeverRepeatingItself:
 
 class TestNeverServingSomethingCold:
     def test_a_stale_opening_is_dropped(self):
-        """Revenir sur un sujet quitté fait passer pour un participant distrait."""
+        """Coming back to a subject already left looks like an absent-minded participant."""
         manners = Manners(staleness=90.0)
         vieille = opening(born_at=10.0)
         refusal = manners.refusal(vieille, now=200.0, lull=5.0)
@@ -92,7 +92,7 @@ class TestNeverServingSomethingCold:
 
 class TestChoosingWhatToSay:
     def test_at_most_one_opening_and_the_strongest(self):
-        """Les autres sont abandonnées, pas mises en réserve."""
+        """The others are dropped, not held in reserve."""
         manners = Manners()
         retenue = manners.choose(
             [
@@ -130,7 +130,7 @@ class TestChoosingWhatToSay:
 
 class TestTheButton:
     def test_switched_off_it_says_nothing_at_all(self):
-        """Le bouton de la fenêtre pose ce réglage, et le repose, sans limite."""
+        """The button in the window sets this, and unsets it, as often as wanted."""
         manners = Manners(active=False)
         appel = opening(because=Because.APPELE, born_at=10.0)
         assert manners.refusal(appel, now=10.0, lull=9.0) == "il ne participe pas"
@@ -157,7 +157,7 @@ class TestHowDenseTheTalkIs:
         assert speech_density([], now=60.0) == 0.0
 
     def test_only_the_last_minute_counts(self):
-        """Une réunion qui s'anime ne doit pas être jugée sur son début calme."""
+        """A meeting that comes alive must not be judged on its quiet beginning."""
         turns = [(0.0, 300.0), (350.0, 355.0)]
         assert speech_density(turns, now=360.0, window=60.0) < 0.2
 
@@ -166,15 +166,15 @@ class TestHowDenseTheTalkIs:
 
 
 class TestWhatTheSettingGuarantees:
-    """Le contrat, tel qu'il a été demandé : trois phrases, trois garanties.
+    """The contract as it was asked for: three sentences, three guarantees.
 
-    « Si j'active : elle parle uniquement quand on cite son nom. Quand on la
-    coupe, elle ne parle pas. Si elle est en train de parler, on la coupe, elle
-    ne continue pas sa phrase. »
+    "If I switch it on: it speaks only when its name is said. When we cut it, it
+    does not speak. If it is speaking and we cut it, it does not finish its
+    sentence."
     """
 
     def test_switched_on_it_speaks_only_on_its_name(self):
-        """Sans initiative, aucune occasion spontanée ne passe."""
+        """Without the initiative, no spontaneous opening gets through."""
         manners = Manners(active=True)
         idee = Opening(because=Because.CONTRIBUTION, remark="une remarque", born_at=100.0)
         appel = Opening(because=Because.APPELE, remark="oui ?", born_at=100.0)
@@ -193,14 +193,14 @@ class TestWhatTheSettingGuarantees:
 
 
 class TestItMustNotHearItself:
-    """Elle parle par le haut-parleur, et l'outil enregistre la sortie système.
+    """It speaks through the loudspeaker, and the tool records the system output.
 
-    C'est voulu : c'est ainsi qu'il entend les autres participants d'une visio.
-    Conséquence, sa propre voix revient sur le canal des autres, elle y lit son
-    propre nom dans sa propre réponse, et elle repart. **Sans fin.**
+    That is deliberate: it is how it hears the other participants of a video call.
+    As a result its own voice comes back on the others' channel, it reads its own
+    name in its own answer, and off it goes again. **Without end.**
 
-    Jugé sur les mots et non sur l'horloge, et c'est tout le point : elle répond
-    tard, dans un fil séparé, donc aucune fenêtre de temps n'est fiable.
+    Judged on the words and not on the clock, and that is the whole point: it
+    answers late, in a separate thread, so no window of time is reliable.
     """
 
     DIT = "Qui prend en charge la migration en Symfony 7 ?"
@@ -212,14 +212,14 @@ class TestItMustNotHearItself:
         assert is_own(self.DIT, self._its_own_words(self.DIT))
 
     def test_its_words_mangled_by_the_loudspeaker(self):
-        """Ce qui revient n'est jamais orthographié pareil."""
+        """What comes back is never spelled the same way."""
         assert is_own(
             "qui prend en charge la migration en Symfony sept",
             self._its_own_words(self.DIT),
         )
 
     def test_half_of_its_sentence_is_enough(self):
-        """La salle et la boucle de capture coûtent des mots au passage."""
+        """The room and the capture loop cost words on the way."""
         assert is_own("qui prend en charge la migration", self._its_own_words(self.DIT))
 
     def test_the_room_is_not_taken_for_it(self):
@@ -229,7 +229,7 @@ class TestItMustNotHearItself:
         )
 
     def test_an_interjection_is_never_its_own(self):
-        """« oui » et « d'accord » appartiennent à tout le monde."""
+        """"oui" and "d'accord" belong to everybody."""
         for court in ("oui", "d'accord", "bon", "ok"):
             assert not is_own(court, self._its_own_words("oui d'accord bon ok"))
 
@@ -252,7 +252,7 @@ class TestItMustNotHearItself:
         )
 
     def test_a_shared_subject_is_not_enough(self):
-        """Le vrai risque : un participant qui parle du même sujet qu'elle."""
+        """The real risk: a participant talking about the same subject it did."""
         assert not is_own(
             "la migration me paraît risquée avant la recette de jeudi soir",
             self._its_own_words("Qui prend en charge la migration ?"),
@@ -260,17 +260,16 @@ class TestItMustNotHearItself:
 
 
 class TestItsOwnNameNeverLeavesItsMouth:
-    """La garantie dure, et c'est celle qui coupe la boucle à la racine.
+    """The hard guarantee, and the one that cuts the loop at the root.
 
-    Constaté en réunion réelle : « Lucie, est-ce que tu peux faire des
-    recherches sur Internet ? » quinze fois en quinze secondes, prononcé par
-    elle. Elle avait répété la question qu'on venait de lui poser, son nom
-    compris, l'avait entendue par la boucle de capture, y avait lu son nom, et
-    était repartie.
+    Seen in a real meeting: "Lucie, est-ce que tu peux faire des recherches sur
+    Internet ?" fifteen times in fifteen seconds, spoken by it. It had repeated
+    the question it had just been asked, its own name included, heard it through
+    the capture loop, read its name in it, and set off again.
 
-    Retirer son nom de tout ce qu'elle prononce rend le cycle impossible, quoi
-    qu'il arrive par ailleurs — cerveau absent, transcription déformée, canal
-    mal attribué.
+    Taking its name out of everything it pronounces makes the cycle impossible,
+    whatever else happens: no brain, a mangled transcription, a badly attributed
+    channel.
     """
 
     def test_its_name_is_taken_out(self):
@@ -290,7 +289,7 @@ class TestItsOwnNameNeverLeavesItsMouth:
             assert "uc" not in without_own_name(said, "Lucie").lower(), said
 
     def test_a_remark_without_its_name_is_untouched(self):
-        """Le cas courant : elle ne doit pas voir sa phrase remaniée."""
+        """The common case: it must not see its own sentence reworked."""
         propos = "Qui prend en charge la migration en Symfony 7 ?"
         assert without_own_name(propos, "Lucie") == propos
 

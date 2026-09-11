@@ -1,8 +1,8 @@
-"""Ce que la fenêtre calcule avant d'afficher, éprouvé sans écran.
+"""What the window computes before showing anything, covered with no screen.
 
-Ce qui touche à Tk n'est pas testé ici : Tk ne démarre pas sur un exécuteur
-d'intégration continue. Ce qui se teste, c'est ce que la fenêtre calcule avant
-d'afficher, et c'est justement là que les erreurs de lecture se produisent.
+What touches Tk is not tested here: Tk does not start on a continuous
+integration runner. What can be tested is what the window computes before
+showing, and that is precisely where the misreadings happen.
 """
 
 from __future__ import annotations
@@ -27,8 +27,8 @@ class TestTheClock:
         assert _clock(3725) == "1:02:05"
 
     def test_a_negative_length_produces_nothing_monstrous(self) -> None:
-        # La durée est calculée en retirant le temps de pause : un état incohérent
-        # ne doit pas afficher « -1:-1 » en gros au milieu de la fenêtre.
+        # The length is computed by taking the paused time out: an inconsistent
+        # state must not show "-1:-1" in large type in the middle of the window.
         assert _clock(-5).startswith("0:") or _clock(-5) == "0:00"
 
 
@@ -65,11 +65,11 @@ class TestASubjectAPersonCanRead:
 
 
 class TestWhatTheLiveTabSays:
-    """Ce que dit l'onglet du fil quand il n'a rien à montrer.
+    """What the thread tab says when it has nothing to show.
 
-    Un onglet vide se lit « personne ne parle » alors qu'il veut souvent dire
-    « rien n'écoute » : modèle absent, processus non lancé. La différence est
-    celle entre attendre et perdre sa réunion.
+    An empty tab reads as "nobody is speaking" when it often means "nothing is
+    listening": a missing model, a process never started. The difference is
+    between waiting and losing your meeting.
     """
 
     def test_outside_a_meeting_it_explains_what_the_tab_is_for(self) -> None:
@@ -93,11 +93,11 @@ class TestWhatTheLiveTabSays:
 
 
 class TestTheBadgeOnATab:
-    """Le compte posé sur un onglet qu'on ne regarde pas.
+    """The count put on a tab nobody is looking at.
 
-    Demandé à l'usage, sur le modèle du panier d'un site marchand : on doit
-    savoir qu'il y a quelque chose à voir sans être sur l'onglet, et sans
-    qu'une fenêtre surgisse au milieu d'une réunion.
+    Asked for in use, on the model of a shop's basket: one has to know there is
+    something to see without being on the tab, and without a window popping up in
+    the middle of a meeting.
     """
 
     def test_nothing_to_report_draws_nothing(self) -> None:
@@ -115,13 +115,12 @@ class TestTheBadgeOnATab:
 
 
 class TestTheRowOfButtons:
-    """Le septième bouton de l'onglet Réunions sortait de la fenêtre.
+    """The seventh button of the Meetings tab fell outside the window.
 
-    Invisible et inatteignable — le défaut même contre lequel le module
-    d'apparence met en garde, en haut de son fichier, à propos d'un bouton
-    poussé hors du cadre. Puis, une fois qu'il passait à la ligne, la
-    répartition était mauvaise : cinq boutons contre deux, et des bords qui ne
-    tombaient pas ensemble.
+    Invisible and unreachable, the very defect the appearance module warns about
+    at the top of its file, concerning a button pushed out of the frame. Then,
+    once it wrapped, the spread was wrong: five buttons against two, and edges
+    that did not line up.
     """
 
     #: Les largeurs demandées dans l'onglet Réunions, dans l'ordre.
@@ -138,32 +137,34 @@ class TestTheRowOfButtons:
         assert by_rank < 7
 
     def test_the_rows_are_balanced(self) -> None:
-        """Huit boutons sur deux rangs donnent 4 et 4, jamais 6 et 2.
+        """Eight buttons over two rows give 4 and 4, never 6 and 2.
 
-        Un premier rang plein contre un second presque vide est le défaut le
-        plus visible d'une barre qui passe à la ligne.
+        A full first row against an almost empty second one is the most visible defect
+        of a bar that wraps.
         """
         by_rank, _ = _grille(self.MEETINGS, 775)
         assert by_rank == 4
         assert len(self.MEETINGS) - by_rank == 4
 
     def test_every_column_has_the_same_width(self) -> None:
-        """Des bords qui ne tombent pas ensemble se lisent comme bâclés."""
+        """Edges that do not line up read as sloppy."""
         _, colonne = _grille(self.MEETINGS, 775)
         assert colonne >= max(self.MEETINGS), "au moins la largeur du plus large"
 
     def test_the_stretching_is_capped(self) -> None:
-        """Remplir sans limite donnait des boutons de 290 px pour un « Ouvrir »
-        de 96, étirés sur du vide. Un bouton disproportionné est aussi mal
-        réparti qu'un bouton qui déborde."""
+        """Filling without a limit gave 290 px buttons for an "Ouvrir" that needs 96,
+        stretched over nothing. A button out of proportion is as badly laid out as one
+        that overflows.
+        """
         from greffier.interface.readable import ETIREMENT_MAXIMUM
 
         _, colonne = _grille(self.MEETINGS, 2000)
         assert colonne <= max(self.MEETINGS) * ETIREMENT_MAXIMUM
 
     def test_the_longest_label_fits_the_minimum_width(self) -> None:
-        """C'est ce qui permet de garder « Envoyer par courriel » en entier :
-        quatre colonnes de 187 px tiennent dans les 775 px offerts."""
+        """This is what keeps "Envoyer par courriel" whole: four columns of 187 px fit
+        inside the 775 px available.
+        """
         by_rank, colonne = _grille(self.MEETINGS, 775)
         assert by_rank == 4
         assert colonne >= max(self.MEETINGS)
@@ -187,14 +188,14 @@ class TestTheRowOfButtons:
 
 
 class TestAFailurePublishedToTheState:
-    """Un échec de traitement doit s'écrire dans l'état, pas seulement à l'écran.
+    """A failure in the chain must be written into the state, not only on screen.
 
-    Le défaut, constaté le 2026-09-10 sur une réunion de 1 h 42 : la chaîne a
-    échoué à l'envoi, l'échec n'était rapporté que par une boîte de dialogue
-    modale, et l'état est resté figé sur « envoi ». Écran verrouillé, personne
-    pour cliquer. Tout ce qui relit cet état — la veille, la ligne de commande,
-    la reconstruction de l'application — croyait qu'une réunion se traitait
-    encore, deux heures après la fin de la réunion.
+    The defect, seen on 2026-09-10 on a meeting of one hour forty-two: the chain
+    failed at the sending, the failure was reported only through a modal dialogue,
+    and the state stayed frozen on "envoi". Screen locked, nobody to click.
+    Everything that reads that state — the watch, the command line, rebuilding the
+    application — believed a meeting was still being processed, two hours after it
+    had ended.
     """
 
     def _config_in(self, tmp_path: Path):
@@ -233,14 +234,14 @@ class TestAFailurePublishedToTheState:
         assert state["phase"] == "echec", state
 
     def test_the_reason_is_kept(self, tmp_path: Path) -> None:
-        """Pour la lire après coup, quand la fenêtre modale est passée."""
+        """So that it can be read afterwards, once the modal window has gone."""
         state = self._publish(
             tmp_path, "2026-09-10_10h10_reunion", RuntimeError("Outlook refuse")
         )
         assert "Outlook refuse" in state["message"]
 
     def test_the_state_of_another_meeting_is_untouched(self, tmp_path: Path) -> None:
-        """La règle du journal : il n'écrit que si l'état porte cette réunion."""
+        """The rule of the log: it writes only when the state carries this meeting."""
         state = self._publish(
             tmp_path, "2026-09-10_11h00_autre", RuntimeError("boum"),
             dans_l_etat="2026-09-10_10h10_reunion",
@@ -248,8 +249,9 @@ class TestAFailurePublishedToTheState:
         assert state["phase"] == "envoi"
 
     def test_an_unreadable_state_reports_nothing(self, tmp_path: Path) -> None:
-        """On est déjà dans le traitement d'une erreur : une seconde erreur ici
-        ferait perdre le message de la première."""
+        """An error is already being handled: a second one here would lose the message of
+        the first.
+        """
         from greffier.interface.window import Window
 
         (tmp_path / "etat.json").write_text("{ ceci n'est pas du json", encoding="utf-8")
