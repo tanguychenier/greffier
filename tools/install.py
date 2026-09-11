@@ -867,6 +867,23 @@ def dossier_autodemarrage():
     return Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "autostart"
 
 
+def dossier_des_commandes():
+    """Le dossier personnel que les shells mettent dans le PATH."""
+    return Path.home() / ".local/bin"
+
+
+def dossier_des_applications():
+    """Où le menu du bureau cherche les entrées de l'utilisateur."""
+    return Path(
+        os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")
+    ) / "applications"
+
+
+def commande_greffier(python):
+    """Le lanceur posé par l'installation des dépendances, à côté de l'interpréteur."""
+    return python.parent / ("greffier.exe" if SYSTEM == "Windows" else "greffier")
+
+
 AGENT_MACOS = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" \
 "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -920,8 +937,55 @@ def integrer_au_bureau(ctx, target, write=True):
     return file
 
 
-def etape_bureau(ctx):
-    """Installe l'interface : icône dans la barre, lancée à l'ouverture de session."""
+def poser_la_commande(ctx, python):
+    """Rend « greffier » appelable depuis n'importe quel terminal.
+
+    Le lanceur vit dans le `.venv` du dépôt, que rien ne met dans le PATH.
+    L'installation annonçait pourtant « greffier fenetre », et le README la
+    même ligne : tapée après une installation qui venait de s'annoncer
+    terminée, elle répondait « command not found ». La fenêtre était là, et
+    inatteignable sans activer l'environnement à la main.
+
+    Un lien dans `~/.local/bin`, que Debian, Ubuntu et Fedora ajoutent au PATH
+    à l'ouverture de session. Un lien et non une copie : il suit le dépôt quand
+    le code change, là où une copie figerait la version du jour.
+    """
+    lanceur = commande_greffier(python)
+    if SYSTEM == "Windows":
+        # Rien d'équivalent à ~/.local/bin : le dire, plutôt que de toucher au
+        # PATH de la session, qui se répare moins facilement qu'il ne se casse.
+        info(f"La commande est {lanceur} ; ajoute son dossier au PATH.")
+        return None
+
+    lien = dossier_des_commandes() / "greffier"
+    en_place = lien.is_symlink() and lien.exists() and lien.resolve() == lanceur.resolve()
+    if ctx.check_only:
+        ok(f"commande « greffier » disponible ({lien})") if en_place else alerte(
+            "commande « greffier » absente du PATH")
+        return lien if en_place else None
+    if en_place:
+        ok(f"commande « greffier » disponible ({lien})")
+    elif not lanceur.exists():
+        alerte("lanceur introuvable dans l'environnement Python")
+        return None
+    elif not ctx.ask(f"Poser la commande « greffier » dans {lien.parent} ?"):
+        ctx.to_do.append(f"ln -sf {lanceur} {lien}")
+        return None
+    else:
+        preparer_dossier(lien.parent)
+        if lien.is_symlink() or lien.exists():
+            lien.unlink()
+        lien.symlink_to(lanceur)
+        ok(f"commande « greffier » posée ({lien})")
+
+    if str(lien.parent) not in os.environ.get("PATH", "").split(os.pathsep):
+        info(f"{lien.parent} n'est pas dans le PATH de ce terminal : "
+             "rouvre-en un, ou ajoute-le à ton profil.")
+    return lien
+
+
+def etape_bureau(ctx, python):
+    """Installe l'interface : la commande dans le PATH, l'entrée dans le menu."""
     title("7. Intégration au bureau")
 
     if SYSTEM == "Darwin":
@@ -952,6 +1016,15 @@ def etape_bureau(ctx):
     # Ailleurs, la fenêtre se lance par la ligne de commande. Rien à compiler :
     # Tkinter vient avec Python, et l'interface est la même sur les trois
     # systèmes.
+    lien = poser_la_commande(ctx, python)
+    if SYSTEM == "Linux" and lien is not None and not ctx.check_only:
+        # La même entrée que l'autodémarrage sait écrire, mais dans le menu :
+        # se lancer à l'ouverture de session ne se demande pas, se trouver en
+        # tapant son nom, si.
+        entree = dossier_des_applications() / "greffier.desktop"
+        preparer_dossier(entree.parent)
+        entree.write_text(RACCOURCI_LINUX.format(target=f"{lien} fenetre"), encoding="utf-8")
+        ok(f"« Greffier » dans le menu ({entree})")
     ok("interface disponible : « greffier fenetre »")
     if SYSTEM == "Linux":
         info("Si Tk manque : « apt install python3-tk ».")
@@ -1088,7 +1161,7 @@ def main():
         python = etape_environnement(ctx, engine)
         etape_modele_whisper(ctx, engine, python)
         etape_configuration(ctx, engine, wording)
-        etape_bureau(ctx)
+        etape_bureau(ctx, python)
         etape_skill(ctx)
         saine = etape_verification(ctx, python)
     except Abandon as because:
@@ -1110,7 +1183,7 @@ def main():
     # sert. Enchaîner les deux évite qu'un poste reste installé mais muet.
     if not ctx.check_only and python.exists():
         if ctx.yes or ctx.ask("Configurer maintenant (rédacteur, courriel, vocabulaire) ?"):
-            greffier = python.parent / ("greffier.exe" if SYSTEM == "Windows" else "greffier")
+            greffier = commande_greffier(python)
             if greffier.exists():
                 subprocess.run([str(greffier), "configurer"], cwd=ROOT, check=False)
             else:
