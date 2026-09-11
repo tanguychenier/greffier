@@ -7,6 +7,7 @@ docs/calibrage.md and docs/rex-2026-09-10.md for the figures.
 
 from __future__ import annotations
 
+import itertools
 import math
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -234,6 +235,29 @@ def stitch(
     membership = join_voices(per_voice, threshold=seuil_paires)
     membership = adopt_fragments(per_voice, membership, threshold=seuil_adoption)
     return consolidate(per_voice, membership, threshold=seuil_consolidation)
+
+def one_person(
+    voiceprints: Sequence[Voiceprint],
+    threshold: float = JOIN_THRESHOLD,
+) -> bool:
+    """Do these voiceprints hold one person, or several?
+
+    The same number that decides two voices are one person, turned on a single
+    voice: if its own voiceprints do not reach it with each other, it is not one
+    voice.
+
+    Measured on the bank of a real team, the separation is not close. The clean
+    entries sit at 0.87 and 0.81 between their own voiceprints; the entries fed
+    from a live voice that held two people sit at 0.43, 0.53 and 0.53 — and one
+    of them answers to another person's name at 0.71, higher than to its own.
+    """
+    if len(voiceprints) < 2:
+        return True
+    return all(
+        similarity(one, other) >= threshold
+        for one, other in itertools.combinations(voiceprints, 2)
+    )
+
 
 def doubtful_entry(
     nouvelle: Voiceprint,
