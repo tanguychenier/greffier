@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 
 from greffier.domain.models import Span, Utterance
+from greffier.domain.transcription import without_loop
 
 _HORAIRE = re.compile(
     r"(\d\d):(\d\d):(\d\d)[,.](\d\d\d)\s*-->\s*(\d\d):(\d\d):(\d\d)[,.](\d\d\d)"
@@ -38,7 +39,7 @@ def lire_srt(path: Path) -> list[Utterance]:
             utterances.append(Utterance(
                 span=Span(_seconds(*horaire.groups()[:4]),
                                       _seconds(*horaire.groups()[4:])),
-                text=text,
+                text=without_loop(text),
             ))
     return utterances
 
