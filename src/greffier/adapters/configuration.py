@@ -15,7 +15,7 @@ import tomllib
 from pathlib import Path
 from typing import ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 from greffier.locations import config_folder, data_folder
@@ -26,9 +26,12 @@ class Paths(BaseModel):
 
     models: Path = Field(
         default_factory=lambda: data_folder() / "modeles",
-        validation_alias="modeles",
+        validation_alias=AliasChoices("models", "modeles"),
     )
-    data: Path = Field(default_factory=data_folder, validation_alias="donnees")
+    data: Path = Field(
+        default_factory=data_folder,
+        validation_alias=AliasChoices("data", "donnees"),
+    )
 
     @property
     def recordings(self) -> Path:
@@ -106,25 +109,31 @@ class Audio(BaseModel):
 
     input: str = Field(
         default="Reunion Entree" if platform.system() == "Darwin" else "default",
-        validation_alias="entree",
+        validation_alias=AliasChoices("input", "entree"),
     )
     output: str = Field(
         default="Reunion Sortie" if platform.system() == "Darwin" else "default.monitor",
-        validation_alias="sortie",
+        validation_alias=AliasChoices("output", "sortie"),
     )
-    mic: str = Field(default="", validation_alias="micro")
-    maximum_length: int = Field(default=14_400, validation_alias="duree_maximale")
+    mic: str = Field(default="", validation_alias=AliasChoices("mic", "micro"))
+    maximum_length: int = Field(
+        default=14_400,
+        validation_alias=AliasChoices("maximum_length", "duree_maximale"),
+    )
 
 class Transcription(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     engine: str = Field(
         default="whisper.cpp" if platform.system() == "Darwin" else "faster-whisper",
-        validation_alias="moteur",
+        validation_alias=AliasChoices("engine", "moteur"),
     )
-    model: str = Field(default="large-v3", validation_alias="modele")
-    language: str = Field(default="fr", validation_alias="langue")
-    vocabulary: list[str] = Field(default_factory=list, validation_alias="vocabulaire")
+    model: str = Field(default="large-v3", validation_alias=AliasChoices("model", "modele"))
+    language: str = Field(default="fr", validation_alias=AliasChoices("language", "langue"))
+    vocabulary: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("vocabulary", "vocabulaire"),
+    )
 
     @property
     def prompt_seed(self) -> str:
@@ -142,15 +151,18 @@ class Live(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    active: bool = Field(default=True, validation_alias="actif")
-    period: float = Field(default=10.0, validation_alias="periode")
-    model: str = Field(default="", validation_alias="modele")
+    active: bool = Field(default=True, validation_alias=AliasChoices("active", "actif"))
+    period: float = Field(default=10.0, validation_alias=AliasChoices("period", "periode"))
+    model: str = Field(default="", validation_alias=AliasChoices("model", "modele"))
 
 class Speakers(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    not_first_names: list[str] = Field(default_factory=list, validation_alias="pas_des_prenoms")
-    people: int | None = Field(default=None, validation_alias="personnes")
+    not_first_names: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("not_first_names", "pas_des_prenoms"),
+    )
+    people: int | None = Field(default=None, validation_alias=AliasChoices("people", "personnes"))
 
 MODELES_CLAUDE: list[tuple[str, str]] = [
     ("opus", "Opus — recommandé : la synthèse est excellente et le quota tient"),
@@ -164,11 +176,15 @@ class Minutes(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    engine: str = Field(default="claude", validation_alias="moteur")       # claude | ollama | aucun
-    language: str = Field(default="", validation_alias="langue")
-    model: str = Field(default="", validation_alias="modele")
-    recipient: str = Field(default="", validation_alias="destinataire")
-    timeout: int = Field(default=1800, validation_alias="delai")
+    # claude | ollama | aucun
+    engine: str = Field(
+        default="claude",
+        validation_alias=AliasChoices("engine", "moteur"),
+    )
+    language: str = Field(default="", validation_alias=AliasChoices("language", "langue"))
+    model: str = Field(default="", validation_alias=AliasChoices("model", "modele"))
+    recipient: str = Field(default="", validation_alias=AliasChoices("recipient", "destinataire"))
+    timeout: int = Field(default=1800, validation_alias=AliasChoices("timeout", "delai"))
 
     CLAUDE_PAR_DEFAUT: ClassVar[str] = "opus"
     OLLAMA_PAR_DEFAUT: ClassVar[str] = "qwen3:8b"
@@ -189,25 +205,40 @@ class Backup(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    folder: str = Field(default="", validation_alias="dossier")
-    apres_chaque_reunion: bool = Field(default=True, validation_alias="apres_chaque_reunion")
-    kept: int = Field(default=7, validation_alias="gardees")
+    folder: str = Field(default="", validation_alias=AliasChoices("folder", "dossier"))
+    apres_chaque_reunion: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("apres_chaque_reunion", "apres_chaque_reunion"),
+    )
+    kept: int = Field(default=7, validation_alias=AliasChoices("kept", "gardees"))
 
 class Retention(BaseModel):
     """How long recordings stay, and when they are compressed."""
 
     model_config = ConfigDict(populate_by_name=True)
 
-    compresser_apres_jours: int = Field(default=7, validation_alias="compresser_apres_jours")
-    effacer_apres_jours: int = Field(default=0, validation_alias="effacer_apres_jours")
+    compresser_apres_jours: int = Field(
+        default=7,
+        validation_alias=AliasChoices("compresser_apres_jours", "compresser_apres_jours"),
+    )
+    effacer_apres_jours: int = Field(
+        default=0,
+        validation_alias=AliasChoices("effacer_apres_jours", "effacer_apres_jours"),
+    )
 
 class Conversation(BaseModel):
     """What the assistant may do when it is asked something."""
 
     model_config = ConfigDict(populate_by_name=True)
 
-    recherche_web: bool = Field(default=True, validation_alias="recherche_web")
-    disclosure: str = Field(default="rien", validation_alias="information")
+    recherche_web: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("recherche_web", "recherche_web"),
+    )
+    disclosure: str = Field(
+        default="rien",
+        validation_alias=AliasChoices("disclosure", "information"),
+    )
 
 FIRST_NAMES: dict[str, int] = {
     "Lucie": 0,
@@ -230,27 +261,43 @@ class AssistantSettings(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    active: bool = Field(default=True, validation_alias="actif")
-    name: str = Field(default="Lucie", validation_alias="nom")
-    voice: str = Field(default="kokoro", validation_alias="voix")
-    rate: float = Field(default=0.95, validation_alias="vitesse")
-    speaker_index: int = Field(default=0, validation_alias="locuteur")
+    active: bool = Field(default=True, validation_alias=AliasChoices("active", "actif"))
+    name: str = Field(default="Lucie", validation_alias=AliasChoices("name", "nom"))
+    voice: str = Field(default="kokoro", validation_alias=AliasChoices("voice", "voix"))
+    rate: float = Field(default=0.95, validation_alias=AliasChoices("rate", "vitesse"))
+    speaker_index: int = Field(
+        default=0,
+        validation_alias=AliasChoices("speaker_index", "locuteur"),
+    )
 
     @property
     def effective_speaker(self) -> int:
         """The voice that goes with this first name, when it is on the list."""
         return FIRST_NAMES.get(self.name, self.speaker_index)
-    rest: float = Field(default=180.0, validation_alias="repos")
-    creux_minimal: float = Field(default=2.0, validation_alias="creux_minimal")
-    demander_les_voix: bool = Field(default=False, validation_alias="demander_les_voix")
-    initiative: bool = Field(default=False, validation_alias="initiative")
+    rest: float = Field(default=180.0, validation_alias=AliasChoices("rest", "repos"))
+    creux_minimal: float = Field(
+        default=2.0,
+        validation_alias=AliasChoices("creux_minimal", "creux_minimal"),
+    )
+    demander_les_voix: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("demander_les_voix", "demander_les_voix"),
+    )
+    initiative: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("initiative", "initiative"),
+    )
 
 class Appearance(BaseModel):
     """What the window shows, independently of what it does."""
 
     model_config = ConfigDict(populate_by_name=True)
 
-    theme: str = Field(default="systeme", validation_alias="theme")       # systeme | clair | sombre
+    # systeme | clair | sombre
+    theme: str = Field(
+        default="systeme",
+        validation_alias=AliasChoices("theme", "theme"),
+    )
 
 class Email(BaseModel):
     """Sending over SMTP, for machines without Outlook.
@@ -260,10 +307,10 @@ class Email(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    server: str = Field(default="", validation_alias="serveur")
-    port: int = Field(default=587, validation_alias="port")
-    user: str = Field(default="", validation_alias="utilisateur")
-    sender: str = Field(default="", validation_alias="expediteur")
+    server: str = Field(default="", validation_alias=AliasChoices("server", "serveur"))
+    port: int = Field(default=587, validation_alias=AliasChoices("port", "port"))
+    user: str = Field(default="", validation_alias=AliasChoices("user", "utilisateur"))
+    sender: str = Field(default="", validation_alias=AliasChoices("sender", "expediteur"))
 
 class Config(BaseSettings):
     model_config = SettingsConfigDict(
@@ -276,30 +323,30 @@ class Config(BaseSettings):
     )
 
     paths: Paths = Field(
-        default_factory=Paths, validation_alias="chemins"
+        default_factory=Paths, validation_alias=AliasChoices("paths", "chemins")
     )
     audio: Audio = Field(default_factory=Audio)
     transcription: Transcription = Field(default_factory=Transcription)
     live: Live = Field(
-        default_factory=Live, validation_alias="direct"
+        default_factory=Live, validation_alias=AliasChoices("live", "direct")
     )
     speakers: Speakers = Field(
-        default_factory=Speakers, validation_alias="locuteurs"
+        default_factory=Speakers, validation_alias=AliasChoices("speakers", "locuteurs")
     )
     minutes: Minutes = Field(
-        default_factory=Minutes, validation_alias="compte_rendu"
+        default_factory=Minutes, validation_alias=AliasChoices("minutes", "compte_rendu")
     )
     email: Email = Field(
-        default_factory=Email, validation_alias="courriel"
+        default_factory=Email, validation_alias=AliasChoices("email", "courriel")
     )
     backup: Backup = Field(
-        default_factory=Backup, validation_alias="sauvegarde"
+        default_factory=Backup, validation_alias=AliasChoices("backup", "sauvegarde")
     )
     retention: Retention = Field(default_factory=Retention)
     conversation: Conversation = Field(default_factory=Conversation)
     assistant: AssistantSettings = Field(default_factory=AssistantSettings)
     appearance: Appearance = Field(
-        default_factory=Appearance, validation_alias="apparence"
+        default_factory=Appearance, validation_alias=AliasChoices("appearance", "apparence")
     )
 
     @classmethod
@@ -311,7 +358,14 @@ class Config(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        return (init_settings, env_settings, dotenv_settings, _TomlSource(settings_cls))
+        # Chaque source passe par la même traduction : une source qui parlerait
+        # français et une autre anglais poseraient deux clés pour un seul
+        # réglage, et la priorité se jouerait alors sur l'orthographe.
+        return tuple(
+            _Canonical(settings_cls, source)
+            for source in (init_settings, env_settings, dotenv_settings,
+                           _TomlSource(settings_cls))
+        )
 
     @classmethod
     def load(cls, file: Path | None = None) -> Config:
@@ -328,6 +382,72 @@ def _read_toml(path: Path) -> dict[str, object]:
         return tomllib.loads(path.read_text(encoding="utf-8"))
     except tomllib.TOMLDecodeError as erreur:
         raise ValueError(f"{path} est illisible : {erreur}") from erreur
+
+def _accepted_names(field: object) -> tuple[str, ...]:
+    """Every spelling a field answers to, the French one included."""
+    alias = getattr(field, "validation_alias", None)
+    if alias is None:
+        return ()
+    if isinstance(alias, str):
+        return (alias,)
+    return tuple(c for c in getattr(alias, "choices", ()) if isinstance(c, str))
+
+
+def _canonical(data: dict[str, object], model: type[BaseModel]) -> dict[str, object]:
+    """The same settings, keyed by field name rather than by French alias.
+
+    The file says `compte_rendu.moteur`, an environment variable says
+    `minutes.engine`: two spellings of one setting. Merged as they come, they
+    stay two entries, the file's own spelling wins, and
+    `GREFFIER_MINUTES__ENGINE` changes nothing -- while the header written into
+    every config.toml promises the opposite. Translated here, both land on the
+    same key, and the variable, coming from a source of higher priority, takes
+    precedence. What the file holds and the variable does not is kept: the
+    merge happens setting by setting, not section by section.
+
+    A key that matches no field is passed through untouched, to be reported by
+    the validation rather than swallowed here.
+    """
+    translated: dict[str, object] = {}
+    for key, value in data.items():
+        name, nested = key, None
+        for candidate, field in model.model_fields.items():
+            if key == candidate or key in _accepted_names(field):
+                name = candidate
+                annotation = field.annotation
+                if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+                    nested = annotation
+                break
+        if nested is not None and isinstance(value, dict):
+            translated[name] = _canonical(value, nested)
+        else:
+            translated[name] = value
+    return translated
+
+
+class _Canonical(PydanticBaseSettingsSource):
+    """Any source, its keys translated to field names before the merge.
+
+    The sources are merged by key, then the whole is validated. Two sources
+    spelling one setting differently -- `compte_rendu.moteur` in the file,
+    `minutes.engine` from the environment -- produce two keys that never meet,
+    and the winner is whichever spelling the validation prefers rather than
+    whichever source ranks higher. Translated first, the settings meet, and the
+    order declared above is the order that applies.
+    """
+
+    def __init__(self, settings_cls: type[BaseSettings], source: PydanticBaseSettingsSource):
+        super().__init__(settings_cls)
+        self._source = source
+
+    def get_field_value(  # pragma: no cover - la source ne lit jamais champ par champ
+        self, field: object, field_name: str
+    ) -> tuple[object, str, bool]:
+        return None, field_name, False
+
+    def __call__(self) -> dict[str, object]:
+        return _canonical(self._source(), self.settings_cls)
+
 
 class _TomlSource(PydanticBaseSettingsSource):
     """Reads config.toml when it exists, as a last resort."""
@@ -423,7 +543,7 @@ def _attribut(model: BaseModel, key: str) -> str:
     second table up to date by hand.
     """
     for name, champ in type(model).model_fields.items():
-        if champ.validation_alias == key or name == key:
+        if key == name or key in _accepted_names(champ):
             return name
     return key
 
