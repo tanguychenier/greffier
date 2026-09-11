@@ -1,8 +1,8 @@
-"""Lecture du matériel audio réel.
+"""Reading the real audio hardware.
 
-L'analyse est une fonction pure : elle s'éprouve sur des sorties capturées, y
-compris celles qu'on ne peut pas reproduire à volonté sur un poste donné. Les
-sorties ci-dessous viennent d'un vrai Mac, avant et après branchement du casque.
+The reading is a pure function: it can be covered on captured outputs,
+including those that cannot be reproduced at will on a given machine. The
+outputs below come from a real Mac, before and after plugging the headset in.
 """
 
 from __future__ import annotations
@@ -87,15 +87,15 @@ class TestReadingWhatTheWriterReturned:
         assert analyser("Périphériques audio :\n\n").devices == ()
 
     def test_une_sortie_tronquee_ignore_l_entree_incomplete(self) -> None:
-        # Un appareil annoncé sans sa ligne « uid » est écarté plutôt que
-        # d'entrer dans la comparaison sous une forme partielle.
+        # A device announced without its "uid" line is dropped rather than
+        # entering the comparison in a partial shape.
         tronque = SEUL[: SEUL.index("  Reunion Entree")] + "  Casque coupé  [entrée 1ch]\n"
         names = {p.name for p in analyser(tronque).devices}
         assert "Casque coupé" not in names
 
 
 class TestDecidingOnRealHardware:
-    """La décision, appliquée aux relevés réels plutôt qu'à des cas fabriqués."""
+    """The decision, applied to real readings rather than to manufactured cases."""
 
     def test_plugging_the_headset_in_is_seen(self) -> None:
         watch_rules = WatchRules(wanted_mic="Jabra EVOLVE 30 II")
@@ -104,14 +104,14 @@ class TestDecidingOnRealHardware:
         assert decision.audio_suspect
 
     def test_unplugging_avoids_the_dock_s_line_input(self) -> None:
-        # En débranchant, la station Realtek disparaît aussi. Mais même si elle
-        # restait, elle ne devrait pas être choisie : voir le test suivant.
+        # On unplugging, the Realtek dock disappears too. But even if it
+        # stayed it should not be chosen: see the next test.
         watch_rules = WatchRules(wanted_mic="Jabra EVOLVE 30 II")
         assert watch_rules.examine(analyser(BRANCHE), analyser(SEUL)).mic == "Micro MacBook Pro"
 
     def test_the_dock_alone_does_not_beat_the_laptop_mic(self) -> None:
-        # Station branchée, casque non : l'entrée ligne du Realtek est presque
-        # toujours vide, le micro du portable capte au moins quelque chose.
+        # Dock plugged in, headset not: the Realtek line input is almost always
+        # empty, the laptop mic captures at least something.
         materiel = analyser(BRANCHE)
         sans_casque = Hardware(
             tuple(p for p in materiel.devices if not p.name.startswith("Jabra"))

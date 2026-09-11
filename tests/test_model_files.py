@@ -1,13 +1,13 @@
-"""Les modèles que l'outil télécharge lui-même.
+"""The models the tool downloads by itself.
 
-Le manque que ça répare : les modèles vivent hors de l'application — c'est
-voulu, une mise à jour remplace le paquet et les 1,5 Go restent en place — donc
-une application fraîchement téléchargée n'en a aucun. Seul l'installeur en
-ligne de commande savait les chercher, si bien que double-cliquer sur l'archive
-publiée donnait un outil incapable de transcrire quoi que ce soit.
+The gap this fills: the models live outside the application, deliberately, so
+that an update replaces the bundle and the 1.5 GB stay in place. A freshly
+downloaded application therefore has none of them. Only the command-line
+installer knew how to fetch them, so double-clicking the published archive
+gave a tool unable to transcribe anything at all.
 
-Aucun téléchargement réel ici, sauf un test marqué `lent` : c'est
-`urlopen` qui est remplacé, ce qui rend chaque cas éprouvable sans réseau.
+No real download here, save one test marked `lent`: `urlopen` is what gets
+replaced, which makes every case coverable with no network.
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ class TestWhatIsMissing:
         assert len(manquants) == len(model_files.CATALOGUE)
 
     def test_the_heaviest_comes_first(self, tmp_path):
-        """On veut voir la barre bouger sur le gros fichier, pas l'attendre."""
+        """One wants to see the bar move on the big file, not wait for it."""
         manquants = model_files.missing(tmp_path)
         assert manquants[0].name == "ggml-large-v3-turbo.bin"
 
@@ -61,7 +61,7 @@ class TestWhatIsMissing:
         assert "ggml-silero-v5.1.2.bin" not in {m.name for m in model_files.missing(tmp_path)}
 
     def test_a_truncated_file_counts_as_missing(self, tmp_path):
-        """Un téléchargement coupé laisse un fichier qui échoue bien plus tard."""
+        """A download cut short leaves a file that fails much later."""
         (tmp_path / "ggml-silero-v5.1.2.bin").write_bytes(b"x" * 12)
         assert "ggml-silero-v5.1.2.bin" in {m.name for m in model_files.missing(tmp_path)}
 
@@ -77,15 +77,15 @@ class TestWhatIsMissing:
         assert model_files.weight(petits).endswith("Mo")
 
     def test_only_the_live_model_is_optional(self):
-        """Sans lui, le direct se replie sur le grand modèle."""
+        """Without it, the live thread falls back on the large model."""
         facultatifs = {m.name for m in model_files.CATALOGUE if not m.required}
         assert facultatifs == {"ggml-small.bin"}
 
     def test_the_voice_is_downloaded_everywhere(self):
-        """C'est la partie qu'on entend : elle doit sonner pareil sur les trois
-        systèmes. Le repli — le synthétiseur de chaque système — sonne
-        différemment sur chacun, n'existe pas sur certaines sessions Linux, et
-        fait machine là où il existe."""
+        """It is the part that is heard: it has to sound the same on all three systems.
+        The fallback, each system's own synthesiser, sounds different on each, does
+        not exist on some Linux sessions, and sounds like a machine where it does.
+        """
         voix = next(m for m in model_files.CATALOGUE if m.name == "voix")
         assert voix.required
         assert not voix.engine, "aucun système n'en est dispensé"
@@ -107,7 +107,7 @@ class TestDownloadingAModel:
         assert vus and vus[-1][0] == len(octets)
 
     def test_nothing_truncated_is_left_if_the_network_drops(self, monkeypatch, tmp_path):
-        """Le point qui compte : un modèle à moitié échoue à la transcription."""
+        """The point that counts: half a model fails at transcription time."""
         fail_to_answer(monkeypatch, urllib.error.URLError("coupé"))
         pose, souci = model_files.fetch(self._a_model(), tmp_path)
         assert not pose and souci == "pas de réseau"
@@ -155,11 +155,11 @@ class TestDownloadingAModel:
 
 @pytest.mark.lent
 class TestARealDownload:
-    """Un seul, et le plus petit : 0,9 Mo pour prouver que l'adresse répond.
+    """One only, and the smallest: 0.9 MB to prove the address answers.
 
-    Les autres pèsent des centaines de mégaoctets ; les tirer à chaque essai
-    coûterait plus que ce que ça prouve. Celui-ci vérifie ce qu'aucune doublure
-    ne peut : que l'adresse publiée existe encore.
+    The others weigh hundreds of megabytes; pulling them on every run would cost
+    more than it proves. This one checks what no double can: that the published
+    address still exists.
     """
 
     def test_the_speech_detector_really_downloads(self, tmp_path):
@@ -175,11 +175,11 @@ class TestARealDownload:
 
 
 class TestOneCatalogueOnly:
-    """Le catalogue doit se lire sans le paquet installé.
+    """The catalogue has to be readable without the package installed.
 
-    L'installeur tourne avant que pydantic n'existe : il charge ce module par
-    son chemin, comme il charge déjà les emplacements et les langues. Deux
-    copies de la liste auraient divergé au premier modèle changé.
+    The installer runs before pydantic exists: it loads this module by its path,
+    as it already loads the locations and the languages. Two copies of the list
+    would have drifted apart on the first model changed.
     """
 
     def test_it_loads_by_its_path_alone(self):

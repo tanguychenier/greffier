@@ -1,18 +1,19 @@
-"""Rend Tkinter utilisable avant qu'on l'importe.
+"""Makes Tkinter usable before anything imports it.
 
-Les distributions Python autonomes — celles qu'installent `uv` et `pyenv`, et
-celles qu'embarque un paquet figé — livrent `_tkinter` compilé et les fichiers de
-bibliothèque Tcl, mais ces derniers ne sont pas là où Tcl les cherche : il tente
-le chemin de compilation de la machine qui a construit l'interpréteur.
+Standalone Python distributions, the ones `uv` and `pyenv` install and the one
+a frozen bundle carries, ship `_tkinter` compiled and the Tcl library files,
+but not where Tcl looks for them: it tries the build path of the machine that
+compiled the interpreter.
 
     Cannot find a usable init.tcl in the following directories:
         /tools/deps/lib/tcl9.0 …
 
-Les fichiers sont pourtant à deux répertoires de là. On les trouve et on renseigne
-`TCL_LIBRARY` et `TK_LIBRARY`, qui doivent être posées **avant** le premier import
-de `tkinter` : Tcl les lit à son initialisation, et n'y revient jamais.
+The files are two directories away. They are found here, and `TCL_LIBRARY` and
+`TK_LIBRARY` are set, which has to happen **before** the first import of
+`tkinter`: Tcl reads them once, at initialisation, and never again.
 
-Rien n'est écrasé : un environnement qui les définit déjà sait mieux que nous.
+Nothing is overwritten: an environment that already sets them knows better
+than we do.
 """
 
 from __future__ import annotations
@@ -50,12 +51,12 @@ def preparer() -> dict[str, str]:
     return pose
 
 def available() -> tuple[bool, str]:
-    """Dit si une fenêtre peut s'ouvrir, et pourquoi non le cas échéant.
+    """Says whether a window can open, and why not when it cannot.
 
-    **Rien n'est instancié.** Créer une racine Tk pour l'éprouver, la détruire,
-    puis en créer une seconde pour la vraie fenêtre fait tomber le processus en
-    erreur de segmentation sur macOS avec Tk 9. On se contente donc de vérifier
-    que le module se charge et que les fichiers Tcl ont été trouvés.
+    **Nothing is instantiated.** Creating a Tk root to try it, destroying it, then
+    creating a second one for the real window brings the process down with a
+    segmentation fault on macOS with Tk 9. So this only checks that the module
+    loads and that the Tcl files were found.
     """
     pose = preparer()
     try:
@@ -75,10 +76,10 @@ def available() -> tuple[bool, str]:
     return True, f"Tkinter {tkinter.TkVersion}{found}"
 
 def _default_tcl() -> bool:
-    """Vrai quand Tcl trouvera ses fichiers sans qu'on l'aide.
+    """True when Tcl will find its files without help.
 
-    C'est le cas des Python livrés par une distribution ou par Homebrew, où Tcl
-    est installé à l'endroit qu'il attend.
+    That is the case for a Python shipped by a distribution or by Homebrew, where
+    Tcl is installed where it expects to be.
     """
     return any(
         (root / "init.tcl").exists()

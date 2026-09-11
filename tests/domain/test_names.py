@@ -1,4 +1,4 @@
-"""Les règles d'attribution des noms, sans audio ni modèle."""
+"""The rules that give a voice a name, with no audio and no model."""
 
 from greffier.domain.models import Span, SpeakerTurn, Utterance
 from greffier.domain.names import (
@@ -14,12 +14,11 @@ def utterance(start: float, end: float, text: str) -> Utterance:
     return Utterance(span=Span(start, end), text=text)
 
 def _mentions_in(utterances, excluded=None):
-    """Le profil français, explicite, comme la chaîne le résout à l'exécution.
+    """The French profile, spelled out, as the chain resolves it at runtime.
 
-    Ces trente tests gardent les règles de reconnaissance des prénoms depuis les
-    premières vraies réunions. Le profil les rend paramétrables ; aucune de leurs
-    assertions ne change, et c'est ce qui prouve que le déplacement n'a rien
-    coûté.
+    These thirty tests have guarded the first-name rules since the first real
+    meetings. The profile makes them configurable; not one of their assertions
+    changes, and that is what proves the move cost nothing.
     """
     return spot_mentions(utterances, FRENCH, excluded)
 
@@ -49,7 +48,7 @@ class TestSpottingAFirstName:
         assert (mentions[0].name, mentions[0].type) == ("Marc", MentionKind.RENVOI)
 
     def test_everyday_tools_are_not_first_names(self):
-        """Sans cette exclusion, « merci Jira » créerait un participant."""
+        """Without that exclusion, "merci Jira" would create a participant."""
         texts = ["Merci Jira.", "Je suis Teams.", "Merci Outlook."]
         assert _mentions_in([utterance(0, 2, t) for t in texts]) == []
 
@@ -61,7 +60,7 @@ class TestSpottingAFirstName:
         assert mentions == []
 
     def test_one_position_produces_one_mention(self):
-        """« C'est Marc » et « Marc, tu » se recouvrent : le motif fort gagne."""
+        """"C'est Marc" and "Marc, tu" overlap: the strong pattern wins."""
         mentions = _mentions_in([utterance(0, 3, "Marc, tu peux répondre ?")])
         assert len(mentions) == 1
         assert mentions[0].type is MentionKind.INTERPELLATION
@@ -72,7 +71,7 @@ class TestGivingAVoiceAName:
         utterances = [utterance(1, 4, "Bonjour, moi c'est Tanguy.")]
         turns = [turn(0, 5, "v1"), turn(5, 10, "v2")]
         outcome = attribute(_mentions_in(utterances), turns)
-        # Un seul indice de poids 3 : assez pour être certain.
+        # A single clue of weight 3: enough to be certain.
         assert outcome.certitudes["v1"].name == "Tanguy"
 
     def test_addressing_someone_names_the_next_speaker(self):
@@ -105,7 +104,7 @@ class TestGivingAVoiceAName:
         assert outcome.certitudes["v2"].score == 3
 
     def test_a_clue_outside_the_window_does_not_count(self):
-        """Un « merci Marc » deux minutes après ne désigne plus personne."""
+        """A "merci Marc" two minutes later names nobody any more."""
         utterances = [utterance(200, 202, "Merci Marc.")]
         turns = [turn(0, 20, "v2"), turn(199, 210, "v1")]
         outcome = attribute(_mentions_in(utterances), turns)
@@ -140,7 +139,7 @@ class TestWhatOnlyLooksLikeAName:
     """Cas relevés sur de vraies transcriptions."""
 
     def test_tu_vois_is_a_verbal_tic(self):
-        """« un macro Kanban, tu vois » ne fait pas de Kanban un participant."""
+        """"un macro Kanban, tu vois" does not make Kanban a participant."""
         assert _mentions_in([utterance(0, 3, "plus un macro Kanban, tu vois,")]) == []
 
     def test_vous_savez_is_not_one_either(self):
@@ -152,7 +151,7 @@ class TestWhatOnlyLooksLikeAName:
 
 
 class TestWordingsHeardInRealMeetings:
-    """Phrases relevées telles quelles dans la réunion du 2026-08-20."""
+    """Sentences taken as they stand from the meeting of 2026-08-20."""
 
     def test_you_comma_first_name(self):
         m = _mentions_in([utterance(0, 3, "Mais pour ça, toi, Josiane, c'est pas besoin ?")])
@@ -168,7 +167,7 @@ class TestWordingsHeardInRealMeetings:
         assert _mentions_in([utterance(i, i + 1, t) for i, t in enumerate(texts)]) == []
 
     def test_one_word_counts_when_the_name_is_known_elsewhere(self):
-        """« Josiane. » lancé seul est un appel — une fois qu'on sait que Josiane existe."""
+        """"Josiane." on its own is a call, once it is known that Josiane exists."""
         m = _mentions_in([
             utterance(0, 3, "Mais pour ça, toi, Josiane, c'est pas besoin ?"),
             utterance(10, 11, "Ouais."),
@@ -188,29 +187,29 @@ class TestWordingsHeardInRealMeetings:
 
 
 class TestInterjections:
-    """Relevé sur la réunion du 2026-08-20 : « Tiens, tu as vu ? »."""
+    """Taken from the meeting of 2026-08-20: "Tiens, tu as vu ?"."""
 
     def test_tiens_is_not_a_first_name(self):
         assert _mentions_in([utterance(0, 3, "Tiens, tu as vu le ticket ?")]) == []
 
     def test_adverbs_ending_in_ment_are_dropped(self):
-        """Aucun prénom français ne finit en « -ment », les adverbes si."""
+        """No French first name ends in "-ment"; adverbs do."""
         texts = ["Effectivement, tu as raison.", "Normalement, vous livrez jeudi.",
                   "Franchement, on n'y arrivera pas."]
         assert _mentions_in([utterance(i, i + 2, t) for i, t in enumerate(texts)]) == []
 
     def test_but_clement_is_still_a_first_name(self):
-        """La règle ne doit pas mordre sur les prénoms courts en « -ment »."""
+        """The rule must not bite into short first names ending in "-ment"."""
         mentions = _mentions_in([utterance(0, 3, "Clément, tu peux nous dire ?")])
         assert [m.name for m in mentions] == ["Clément"]
 
 
 class TestBeingAddressedWithNoAnswer:
-    """Le 25 août 2026 : trois interpellations, jamais une réponse.
+    """25 August 2026: three calls by name, never an answer.
 
-    La personne visée n'a pas décroché un mot de toute l'heure. Chaque
-    interpellation s'est reportée sur le locuteur suivant, et son prénom a été
-    attribué de façon ferme à la voix qui totalisait 64 % du temps de parole.
+    The person addressed did not say a word in the whole hour. Each call was
+    carried over to the next speaker, and their first name was firmly attributed
+    to the voice holding 64% of the speaking time.
     """
 
     def test_three_calls_do_not_give_certainty(self):
@@ -223,8 +222,8 @@ class TestBeingAddressedWithNoAnswer:
                  turn(39, 42, "v1"), turn(42, 69, "v2"),
                  turn(69, 72, "v1"), turn(72, 99, "v2")]
         outcome = attribute(_mentions_in(utterances), turns)
-        # Six points accumulés, largement au-dessus du seuil, et pourtant rien
-        # n'est affirmé : ces trois indices peuvent tous viser un absent.
+        # Six points gathered, well over the threshold, and still nothing is
+        # asserted: all three clues may point at somebody who is not there.
         assert outcome.certitudes == {}
 
     def test_but_the_name_is_still_offered(self):
@@ -240,8 +239,8 @@ class TestBeingAddressedWithNoAnswer:
         assert [p.name for p in outcome.propositions] == ["Tanguy"]
 
     def test_a_call_confirmed_by_a_reference_back_is_enough(self):
-        # « Sandy, tu peux… » puis « Merci Sandy » : deux directions concordent,
-        # dont une qui vise quelqu'un qui a effectivement parlé.
+        # "Sandy, tu peux…" then "Merci Sandy": two directions agree, one of
+        # them pointing at somebody who did speak.
         utterances = [
             utterance(10, 12, "Sandy, tu peux nous dire où en sont les anomalies ?"),
             utterance(40, 42, "Merci Sandy."),
@@ -251,7 +250,7 @@ class TestBeingAddressedWithNoAnswer:
         assert outcome.certitudes["v2"].name == "Sandy"
 
     def test_introducing_oneself_is_always_enough_alone(self):
-        # L'intéressé se nomme lui-même : rien de spéculatif là-dedans.
+        # The person names themselves: there is nothing speculative in that.
         utterances = [utterance(0, 4, "Bonjour, moi c'est Jacques, je commence.")]
         turns = [turn(0, 20, "v1")]
         outcome = attribute(_mentions_in(utterances), turns)
@@ -259,12 +258,12 @@ class TestBeingAddressedWithNoAnswer:
 
 
 class TestJoiningNamesakesAfterTheMeeting:
-    """Deux voix que l'on nomme pareil sont la même personne.
+    """Two voices given the same name are the same person.
 
-    Mesuré sur une réunion réelle de 1 h 42 : la chaîne concluait « Lise » sur
-    neuf voix distinctes, dont huit d'un seul tour de parole. Le compte rendu
-    annonçait donc huit participants de trop. La même règle existait pour le
-    direct depuis le matin ; elle manquait à la chaîne d'après réunion.
+    Measured on a real meeting of one hour forty-two: the chain concluded "Lise"
+    on nine distinct voices, eight of them of a single turn. The minutes therefore
+    announced eight participants too many. The same rule had existed for the live
+    thread since that morning; the after-meeting chain lacked it.
     """
 
     def test_nine_voices_of_one_name_make_one(self) -> None:
@@ -274,7 +273,7 @@ class TestJoiningNamesakesAfterTheMeeting:
         assert len(set(membership.values())) == 1
 
     def test_the_best_fed_voice_wins(self) -> None:
-        """C'est celle dont l'extrait est le plus représentatif."""
+        """It is the one whose extract is the most representative."""
         names = {"maigre": "Lise", "fournie": "Lise"}
         membership = join_namesakes(names, {"maigre": 3.0, "fournie": 240.0})
         assert set(membership.values()) == {"fournie"}
@@ -301,7 +300,7 @@ class TestJoiningNamesakesAfterTheMeeting:
         assert membership["v2"] == "v2"
 
     def test_every_voice_appears_in_the_membership(self) -> None:
-        """L'appelant applique le résultat sans avoir à combler les trous."""
+        """The caller applies the result without having to fill in the gaps."""
         names = {"v1": "Lise", "v2": "Lise", "v3": "Pascal"}
         membership = join_namesakes(names, {"v1": 1.0, "v2": 2.0, "v3": 3.0})
         assert set(membership) == {"v1", "v2", "v3"}

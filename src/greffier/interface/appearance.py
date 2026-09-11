@@ -100,11 +100,11 @@ class Button(tk.Canvas):
         self.itemconfigure(self._text, text=text)
 
     def highlight(self, principal: bool) -> None:
-        """Bascule entre l'allure d'action principale et l'allure ordinaire.
+        """Switches between the look of a main action and the ordinary one.
 
-        Un bouton qui change d'état doit le montrer : « Lucie participe » en
-        creux et « Faire taire Lucie » en plein ne se confondent pas d'un coup
-        d'œil, ce qu'un intitulé seul ne garantit pas quand on est en réunion.
+        A button that changes state has to show it: « Lucie participe » hollow and
+        « Faire taire Lucie » filled are not mistaken for one another at a glance,
+        which a label alone does not guarantee in the middle of a meeting.
         """
         if principal == self.principal:
             return
@@ -366,10 +366,10 @@ class _Segment(tk.Canvas):
         self.bind("<Leave>", lambda _e: self.configure(cursor=""))
 
     def _draw(self) -> None:
-        """Redessine tout : la largeur change avec la pastille.
+        """Draws it all again: the width changes with the badge.
 
-        Redessiner plutôt que déplacer, parce que la forme arrondie est faite
-        de segments dont on ne peut pas changer la largeur sans les refaire.
+        Redrawing rather than moving, because the rounded shape is made of segments
+        whose width cannot change without remaking them.
         """
         self.delete("all")
         width = self.largeur_nue + (self.PLACE_PASTILLE if self._count else 0)
@@ -490,10 +490,10 @@ class Tabs(tk.Frame):
         return self._current
 
     def mark(self, caption: str, count: int) -> None:
-        """Pose un compte sur un onglet, pour le signaler sans l'ouvrir.
+        """Puts a count on a tab, to flag it without opening it.
 
-        Le compte s'efface de lui-même quand l'onglet est celui qu'on regarde :
-        une pastille sur l'onglet où l'on se trouve ne signale plus rien.
+        The count clears itself when the tab is the one being looked at: a badge on
+        the tab you are already on flags nothing.
         """
         segment = self._segments.get(caption)
         if segment is not None:

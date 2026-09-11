@@ -1,21 +1,21 @@
-"""Une mise à jour ne doit jamais emporter le travail de quelqu'un.
+"""An update must never carry away somebody's work.
 
-Greffier se met à jour en **remplaçant** son paquet : sur macOS,
-`/Applications/Greffier.app` est reconstruit et écrasé, interpréteur, paquets et
-code compris. Tout ce qui vivrait dedans disparaîtrait à cette occasion — les
-réunions transcrites, les comptes rendus, la banque de voix, les conversations,
-le contexte appris. Ces tests vérifient que rien de tout cela n'en dépend.
+Greffier updates itself by **replacing** its bundle: on macOS,
+`/Applications/Greffier.app` is rebuilt and overwritten, interpreter, packages
+and code included. Anything living inside it would disappear on that occasion:
+the transcribed meetings, the minutes, the voice bank, the conversations, the
+context learnt. These tests check that none of it depends on the bundle.
 
-Ils ne lancent aucune application : ils lisent où les chemins pointent, ce qui
-est précisément la question.
+They launch no application: they read where the paths point, which is precisely
+the question.
 """
 
 from pathlib import Path
 
 from greffier.adapters.configuration import Config
 
-#: Les endroits qu'une mise à jour remplace. Un chemin de données qui tomberait
-#: là-dedans serait perdu à la première reconstruction.
+#: The places an update replaces. A data path falling in there would be lost on
+#: the first rebuild.
 REMPLACES = ("/Applications/", "site-packages", "/Contents/")
 
 
@@ -46,17 +46,17 @@ class TestNothingLivesInsideTheBundle:
         assert not fautifs, f"perdu à la prochaine mise à jour : {fautifs}"
 
     def test_the_data_does_not_depend_on_the_working_folder(self):
-        """Lancer depuis un autre dossier ne doit pas changer où l'on écrit.
+        """Launching from another folder must not change where things are written.
 
-        L'application est lancée par le système, sans dossier de travail
-        prévisible : un chemin relatif désignerait un endroit différent à chaque
-        démarrage, et les réunions de la veille deviendraient introuvables.
+        The application is launched by the system, with no predictable working folder:
+        a relative path would name a different place on every start, and yesterday's
+        meetings would become impossible to find.
         """
         for name, path in every_path(Config()).items():
             assert path.is_absolute(), f"{name} est relatif : {path}"
 
     def test_everything_gathers_under_one_data_folder(self):
-        """Ce qui permet de sauvegarder, et de dire ce qu'une purge emporte."""
+        """What makes a backup possible, and what a purge takes away sayable."""
         config = Config()
         root = config.paths.data
         for name, path in every_path(config).items():
@@ -66,10 +66,10 @@ class TestNothingLivesInsideTheBundle:
 
 
 class TestAnOlderFileStaysReadable:
-    """Une mise à jour ne doit pas rendre illisible ce qui était déjà écrit."""
+    """An update must not make unreadable what was already written."""
 
     def test_the_master_file_format_has_a_single_number(self):
-        """Deux définitions du format finiraient par se contredire."""
+        """Two definitions of the format would end up contradicting each other."""
         from greffier.adapters import store_files
 
         assert isinstance(store_files.FORMAT, int)

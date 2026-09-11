@@ -1,4 +1,4 @@
-"""Extraire les points d'une réunion : ne rien inventer, ne rien acter à tort."""
+"""Extracting the points of a meeting: invent nothing, agree to nothing wrongly."""
 
 import pytest
 
@@ -36,16 +36,16 @@ class TestReadingWhatTheWriterReturned:
         assert [a.text for a in apports] == ["Un point"]
 
     def test_an_answer_with_no_array_raises(self):
-        """Une panne ne doit pas se lire comme « rien à ajouter ».
+        """A failure must not read as "nothing to add".
 
-        Mesuré : le modèle a répondu en prose, en demandant si c'était bien le
-        tableau attendu, et la commande a annoncé « rien à ajouter ».
+        Measured: the model answered in prose, asking whether that was the array
+        expected, and the command announced "rien à ajouter".
         """
         with pytest.raises(UnreadableOutput, match="aucun tableau"):
             analyser("Je n'ai rien trouvé sur ce sujet.")
 
     def test_broken_json_raises(self):
-        """Des crochets présents mais un contenu invalide."""
+        """Brackets present but the content invalid."""
         with pytest.raises(UnreadableOutput, match="invalide"):
             analyser('[{"texte": "incomplet", }]')
 
@@ -64,13 +64,13 @@ class TestReadingWhatTheWriterReturned:
         assert analyser('[{"genre": "piste"}]') == []
 
     def test_the_list_is_capped(self):
-        """Une carte illisible ne sert à rien."""
+        """An unreadable board serves nobody."""
         rendered = "[" + ",".join(f'{{"texte": "point {n}"}}' for n in range(40)) + "]"
         assert len(analyser(rendered, maximum=12)) == 12
 
 
 class TestCarefulAboutTheStanding:
-    """Présenter une idée orale comme une décision est le pire défaut ici."""
+    """Presenting a spoken idea as a decision is the worst defect here."""
 
     def test_the_default_is_under_discussion(self):
         assert analyser('[{"texte": "Une idée"}]')[0].state is Standing.UNDER_DISCUSSION
@@ -80,7 +80,7 @@ class TestCarefulAboutTheStanding:
         assert apports[0].state is Standing.UNDER_DISCUSSION
 
     def test_overtaken_cannot_come_from_an_extraction(self):
-        """Seul un humain marque une piste comme dépassée."""
+        """Only a person marks a lead as overtaken."""
         apports = analyser('[{"texte": "Une piste", "etat": "dépassé"}]')
         assert apports[0].state is Standing.UNDER_DISCUSSION
 
@@ -100,10 +100,10 @@ class TestWhatIsAskedOfTheWriter:
         assert "On a parlé d'Oasis longuement." in writer.recu
 
     def test_the_guidance_is_not_repeated_inside_the_call(self):
-        """Elles sont portées par le rédacteur, pas par l'appelant.
+        """It is carried by the writer, not by the caller.
 
-        Répétées ici, elles arrivaient après celles du compte rendu et le
-        modèle suivait les premières.
+        Repeated here, it arrived after the guidance for the minutes and the model
+        followed the first.
         """
         writer = FakeWriter('[{"texte": "Un point"}]')
         extract(writer, "Oasis", "matière")
@@ -128,11 +128,11 @@ class TestWhatIsAskedOfTheWriter:
 
 
 class TestCompletingWithoutDuplicating:
-    """Le défaut central : la carte se remplissait de doublons.
+    """The central defect: the board filled up with duplicates.
 
-    Mesuré à la seconde publication : treize points devenus vingt-six, le
-    rédacteur ayant reformulé « Pré-production du client en retard de deux
-    versions » en « Pré-prod cliente en retard de deux versions ».
+    Measured on the second publication: thirteen points became twenty-six, the
+    writer having reworded "Pré-production du client en retard de deux versions"
+    into "Pré-prod cliente en retard de deux versions".
     """
 
     def test_the_existing_labels_are_given_to_the_writer(self):

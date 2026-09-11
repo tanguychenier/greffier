@@ -307,9 +307,8 @@ class Follower:
         globaux = [
             Span(x.start + offset, x.end + offset) for x in local_spans
         ]
-        # La boucle de répétition du transcripteur se coupe ici, avant
-        # l'attribution : onze fois la même phrase, c'est une voix de plus et
-        # onze lignes dans le fil.
+        # The transcriber's repeat loop is folded here, before attribution:
+        # eleven times the same sentence is one voice more and eleven lines.
         utterances = collapse_loops(utterances)
         recalees = [
             Utterance(
