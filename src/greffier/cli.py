@@ -827,7 +827,7 @@ def assist(
         fg=typer.colors.GREEN,
     )
 
-@application.command()
+@application.command("propositions")
 def propositions(
     meeting: str = typer.Argument(None, help="Réunion (défaut : la dernière)"),
     config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
@@ -854,7 +854,7 @@ def propositions(
             fg=colours.get(item["genre"]),
         )
 
-@application.command()
+@application.command("statut")
 def statut(
     config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
 ) -> None:
@@ -1864,7 +1864,7 @@ def forget(
     for piece in remaining:
         typer.secho(f"⚠ {piece.path} n'a pas pu être effacé", fg=typer.colors.YELLOW)
 
-@application.command()
+@application.command("revoir")
 def revoir(
     meeting: str = typer.Argument(None, help="Réunion (défaut : la dernière)"),
     rediger_aussi: bool = typer.Option(
@@ -1994,7 +1994,7 @@ def read_minutes(
         raise typer.Exit(1) from trouble
     typer.secho(f"✓ {produit}", fg=typer.colors.GREEN)
 
-@application.command()
+@application.command("tickets")
 def tickets(
     meeting: str = typer.Argument(None, help="Réunion (défaut : la dernière)"),
     config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
@@ -2032,7 +2032,7 @@ def tickets(
         typer.echo("Aucune action décidée dans ce compte rendu.")
     typer.echo(f"\n{output}")
 
-@application.command()
+@application.command("archiver")
 def archiver(
     tout: bool = typer.Option(False, "--tout", help="Tous les enregistrements traités"),
     config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
@@ -2136,7 +2136,7 @@ def send(
         raise typer.Exit(1) from echec
     typer.secho(f"✓ Envoyé à {target}", fg=typer.colors.GREEN)
 
-@application.command(hidden=True)
+@application.command("veiller", hidden=True)
 def watch(
     config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
 ) -> None:
