@@ -222,6 +222,32 @@ class TestTheRepairSkill:
         assert pose.read_text(encoding="utf-8") == (
             RACINE / "skills/greffier/SKILL.md").read_text(encoding="utf-8")
 
+    def test_a_dead_link_where_the_skills_go_does_not_stop_the_install(
+            self, under, monkeypatch, tmp_path):
+        """`~/.claude/skills` pointing into a repository since moved.
+
+        The name is taken, so mkdir refuses; it is taken by nothing, so there
+        is nothing to protect. The installer used to stop on a stack trace
+        here, after the models and the dependencies were already in place.
+        """
+        module = under("Linux")
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(module.shutil, "which", lambda outil: "/usr/bin/claude")
+        (tmp_path / ".claude").mkdir()
+        (tmp_path / ".claude/skills").symlink_to(tmp_path / "gone/skills")
+
+        class Context:
+            yes = True
+            check_only = False
+            to_do: list[str] = []
+
+            def ask(self, _question):
+                return True
+
+        module.etape_skill(Context())
+        pose = tmp_path / ".claude/skills/greffier/SKILL.md"
+        assert pose.is_file(), "le skill doit être posé une fois le lien mort écarté"
+
     def test_with_no_coding_assistant_nothing_is_laid_down(self, under, monkeypatch, tmp_path):
         module = under("Darwin")
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
@@ -237,6 +263,33 @@ class TestTheRepairSkill:
 
         module.etape_skill(Context())
         assert not (tmp_path / ".claude").exists()
+
+
+class TestMakingAFolder:
+    """A folder is created; a dead link occupying its name is not a folder."""
+
+    def test_a_link_that_leads_nowhere_is_removed(self, the_installer, tmp_path):
+        lien = tmp_path / "skills"
+        lien.symlink_to(tmp_path / "parti")
+        the_installer.preparer_dossier(lien / "greffier")
+        assert (lien / "greffier").is_dir() and not lien.is_symlink()
+
+    def test_a_link_to_a_folder_that_exists_is_left_alone(self, the_installer, tmp_path):
+        """It is a choice of the person installing, not a leftover."""
+        ailleurs = tmp_path / "ailleurs"
+        ailleurs.mkdir()
+        lien = tmp_path / "skills"
+        lien.symlink_to(ailleurs)
+        the_installer.preparer_dossier(lien / "greffier")
+        assert lien.is_symlink(), "un lien qui mène quelque part reste"
+        assert (ailleurs / "greffier").is_dir()
+
+    def test_an_existing_folder_is_kept_as_it_is(self, the_installer, tmp_path):
+        deja = tmp_path / "modeles"
+        deja.mkdir()
+        (deja / "titanet.onnx").write_bytes(b"x")
+        the_installer.preparer_dossier(deja)
+        assert (deja / "titanet.onnx").exists()
 
 
 class TestWhatTheConsoleCanShow:
