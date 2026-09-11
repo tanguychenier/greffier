@@ -99,10 +99,10 @@ class TestTelechargement:
         octets = b"y" * 3_000_000
         repondre(monkeypatch, octets)
         vus: list[tuple[int, int]] = []
-        pose, ou = model_files.fetch(
+        pose, where_in = model_files.fetch(
             self._un_modele(), tmp_path, lambda r, t: vus.append((r, t))
         )
-        assert pose, ou
+        assert pose, where_in
         assert (tmp_path / "ggml-silero-v5.1.2.bin").read_bytes() == octets
         assert vus and vus[-1][0] == len(octets)
 
@@ -133,8 +133,8 @@ class TestTelechargement:
 
         cible = tmp_path / "modeles"
         voix = next(m for m in model_files.CATALOGUE if m.name == "voix")
-        pose, ou = model_files.fetch(voix, cible)
-        assert pose, ou
+        pose, where_in = model_files.fetch(voix, cible)
+        assert pose, where_in
         assert (cible / "voix" / "model.onnx").exists()
         assert (cible / "voix" / "tokens.txt").exists()
         assert voix.present(cible)
@@ -166,12 +166,12 @@ class TestUnVraiTelechargement:
         silero = next(
             m for m in model_files.CATALOGUE if m.name.endswith("silero-v5.1.2.bin")
         )
-        pose, ou = model_files.fetch(silero, tmp_path, delai=180.0)
-        if not pose and ou == "pas de réseau":
+        pose, where_in = model_files.fetch(silero, tmp_path, delai=180.0)
+        if not pose and where_in == "pas de réseau":
             pytest.skip("pas de réseau")
-        assert pose, ou
+        assert pose, where_in
         assert silero.present(tmp_path)
-        assert Path(ou).stat().st_size >= silero.minimum
+        assert Path(where_in).stat().st_size >= silero.minimum
 
 
 class TestUneSeuleListe:

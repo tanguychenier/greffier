@@ -116,7 +116,7 @@ class TestEcriture:
         settings.save_settings(Config(appearance={"theme": "clair"}), folder=folder)
         avant = (folder / "config.toml").read_text(encoding="utf-8")
 
-        def rendre_casse(_config):
+        def rendre_casse(_config_in):
             raise OSError("disque plein")
 
         monkeypatch.setattr(settings, "render", rendre_casse)

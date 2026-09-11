@@ -276,7 +276,7 @@ initiative = false
 theme = "sombre"
 """
 
-    def _config(self, tmp_path):
+    def _config_in(self, tmp_path):
         from greffier.adapters.configuration import Config
 
         file = tmp_path / "config.toml"
@@ -284,7 +284,7 @@ theme = "sombre"
         return Config.load(file)
 
     def test_chaque_section_est_relue(self, tmp_path):
-        config = self._config(tmp_path)
+        config = self._config_in(tmp_path)
         assert config.audio.mic == "Micro MacBook Pro"
         assert config.transcription.model == "large-v3"
         assert config.transcription.vocabulary == ["Jira", "recette"]
@@ -300,7 +300,7 @@ theme = "sombre"
         """Ce qui est réécrit doit pouvoir être relu : c'est le vrai cycle."""
         from greffier.adapters.configuration import Config, render
 
-        rendered = render(self._config(tmp_path))
+        rendered = render(self._config_in(tmp_path))
         deuxieme = tmp_path / "encore.toml"
         deuxieme.write_text(rendered, encoding="utf-8")
         relu = Config.load(deuxieme)

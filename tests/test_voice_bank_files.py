@@ -20,7 +20,7 @@ def bank(tmp_path):
     return FileVoiceBank(tmp_path / "banque-de-voix")
 
 
-class TestBanqueDeVoix:
+class TestTheVoiceBank:
     def test_une_voix_enregistree_est_relue(self, bank):
         bank.record("Josiane", voice(1.0, 0.0, 0.0))
         people = bank.people()
@@ -89,7 +89,7 @@ class TestBanqueDeVoix:
         assert FileVoiceBank(tmp_path / "jamais-creee").people() == []
 
 
-def reunion_type(**overrides):
+def a_meeting(**overrides):
     defauts = dict(
         identifier="2026-08-24_reunion",
         audio=__import__("pathlib").Path("/tmp/r.wav"),
@@ -109,7 +109,7 @@ def reunion_type(**overrides):
 class TestFichierMaitre:
     def test_ce_qui_est_ecrit_est_relu_identique(self, tmp_path):
         magasin = FileStore(tmp_path)
-        magasin.record(reunion_type())
+        magasin.record(a_meeting())
         relue = magasin.read("2026-08-24_reunion")
         assert relue.names == {"1": "Josiane"}
         assert relue.propositions == {"2": "Marc"}
@@ -119,19 +119,19 @@ class TestFichierMaitre:
     def test_les_horodatages_survivent(self, tmp_path):
         """Ils permettent de citer un passage et d'y revenir."""
         magasin = FileStore(tmp_path)
-        magasin.record(reunion_type())
+        magasin.record(a_meeting())
         assert magasin.read("2026-08-24_reunion").turns[1].span.start == 60
 
     def test_la_couverture_revele_ce_qui_manque(self):
         """75 s de texte sur 100 s d'audio : un quart n'a pas été transcrit."""
-        assert reunion_type().coverage == pytest.approx(0.75)
+        assert a_meeting().coverage == pytest.approx(0.75)
 
     def test_les_trous_sont_listes(self):
-        gaps = reunion_type().gaps(minimum=5.0)
+        gaps = a_meeting().gaps(minimum=5.0)
         assert [(t.start, t.end) for t in gaps] == [(40.0, 60.0), (95.0, 100.0)]
 
     def test_un_petit_silence_n_est_pas_un_trou(self):
-        assert reunion_type().gaps(minimum=30.0) == []
+        assert a_meeting().gaps(minimum=30.0) == []
 
     def test_une_reunion_inconnue_le_dit_clairement(self, tmp_path):
         with pytest.raises(FileNotFoundError, match="inconnue"):
@@ -146,7 +146,7 @@ class TestFichierMaitre:
         vérifiait qu'un fichier valide lève une erreur, ce qu'il ne fait pas.
         """
         magasin = FileStore(tmp_path)
-        magasin.record(reunion_type())
+        magasin.record(a_meeting())
         path = tmp_path / "2026-08-24_reunion.json"
         content = json.loads(path.read_text(encoding="utf-8"))
         content["format"] = FORMAT + 1
@@ -161,7 +161,7 @@ class TestFichierMaitre:
         l'outil sache encore les ouvrir.
         """
         magasin = FileStore(tmp_path)
-        magasin.record(reunion_type())
+        magasin.record(a_meeting())
         path = tmp_path / "2026-08-24_reunion.json"
         content = json.loads(path.read_text(encoding="utf-8"))
         content["format"] = 1
@@ -176,14 +176,14 @@ class TestFichierMaitre:
     def test_les_plus_recentes_d_abord(self, tmp_path):
         magasin = FileStore(tmp_path)
         for identifier in ("2026-08-01_a", "2026-08-24_b", "2026-08-12_c"):
-            magasin.record(reunion_type(identifier=identifier))
+            magasin.record(a_meeting(identifier=identifier))
         assert magasin.lister()[0] == "2026-08-24_b"
 
     def test_les_evenements_materiel_survivent(self, tmp_path):
         """Nécessaire pour régénérer la rédaction plus tard sans perdre ce que
         la veille du matériel avait constaté."""
         magasin = FileStore(tmp_path)
-        magasin.record(reunion_type(
+        magasin.record(a_meeting(
             hardware_events=["casque branché à 12:03"]
         ))
         relue = magasin.read("2026-08-24_reunion")
@@ -193,7 +193,7 @@ class TestFichierMaitre:
         """Un fichier maître écrit avant l'ajout de ce champ n'a pas la clé :
         elle doit se relire vide, pas planter."""
         magasin = FileStore(tmp_path)
-        magasin.record(reunion_type())
+        magasin.record(a_meeting())
         path = tmp_path / "2026-08-24_reunion.json"
         content = json.loads(path.read_text())
         del content["evenements_materiel"]
