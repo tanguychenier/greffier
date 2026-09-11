@@ -1,8 +1,8 @@
-"""La voix de l'assistant, sur les trois systèmes, sans en avoir trois.
+"""The assistant's voice, on all three systems, without owning three.
 
-Personne n'a un Mac, un poste Linux et un poste Windows sous la main. On force
-donc le système détecté et on vérifie la commande construite : c'est là que se
-jouent les fautes qui ne se voient qu'une fois sur place.
+Nobody has a Mac, a Linux machine and a Windows machine to hand. The detected
+system is forced and the command built is checked: that is where the mistakes
+live which only show up once you are there.
 """
 
 from types import SimpleNamespace
@@ -13,10 +13,9 @@ from greffier.adapters.voice_neural import clean, sentences
 
 class TestCuttingTheRemarkIntoPieces:
     def test_it_starts_speaking_on_the_first_sentence(self):
-        """Générer tout le propos avant d'ouvrir la bouche fait attendre le tout.
-
-        Générer la première pendant qu'on la prononce, c'est la latence de la
-        première phrase seule.
+        """Generating the whole remark before opening its mouth makes one wait for all
+        of it. Generating the first while it is being spoken is the latency of the
+        first sentence alone.
         """
         assert sentences("Bonjour. Je suis Lucie. J'écoute.") == [
             "Bonjour.", "Je suis Lucie.", "J'écoute."]
@@ -28,7 +27,7 @@ class TestCuttingTheRemarkIntoPieces:
         assert all(len(m) <= 120 for m in chunks)
 
     def test_the_dashes_become_commas(self):
-        """Ils n'ont pas de phonème : le modèle les signale un par un et les saute."""
+        """They have no phoneme: the model flags them one by one and skips them."""
         assert clean("Bonjour — je suis là") == "Bonjour, je suis là"
         assert "—" not in clean("un — deux – trois-quatre")
 
@@ -73,10 +72,10 @@ class TestTheVoiceOfTheSystem:
         assert "bonjour" in command[-1]
 
     def test_an_apostrophe_does_not_break_the_windows_command(self, monkeypatch):
-        """Un propos français en contient à chaque phrase.
+        """A French remark holds one in every sentence.
 
-        Le texte entre dans un littéral PowerShell : seuls les guillemets
-        simples s'y doublent, et rien n'y est interpolé.
+        The text goes into a PowerShell literal: only single quotes are doubled there,
+        and nothing is interpolated.
         """
         monkeypatch.setattr(voice_system, "SYSTEM", "Windows")
         monkeypatch.setattr(voice_system.shutil, "which",
@@ -112,10 +111,10 @@ class TestChoosingTheVoice:
         assert voice_system.better_voice_available()
 
     def test_failing_that_an_acceptable_compact_one(self, monkeypatch):
-        """Les voix « eloquence » sont un synthétiseur des années 1980.
+        """The "eloquence" voices are a synthesiser from the 1980s.
 
-        Mesuré ailleurs : un modèle de transcription n'en tire rien du tout.
-        En réunion, elles s'entendent immédiatement.
+        Measured elsewhere: a transcription model gets nothing at all out of them. In
+        a meeting they are heard for what they are immediately.
         """
         self._voice_of(monkeypatch,
                    "Jacques              fr_FR    # Bonjour\n"
@@ -135,12 +134,11 @@ class TestChoosingTheVoice:
 
 
 class TestCuttingTheSoundFromAnotherProcess:
-    """Le bouton « couper » est dans la fenêtre, la voix dans la veille.
+    """The "cut" button is in the window, the voice is in the watch.
 
-    Le bouton écrivait un réglage que la veille ne relit qu'à la tranche
-    suivante, soit jusqu'à quinze secondes plus tard. Mesuré en réunion : on
-    appuie, elle continue de parler, et le bouton paraît cassé. Il l'était, du
-    point de vue de qui appuie.
+    The button wrote a setting the watch only rereads on the next slice, up to
+    fifteen seconds later. Measured in a meeting: you press, it keeps speaking, and
+    the button looks broken. It was, from the point of view of whoever pressed it.
     """
 
     def test_the_gag_file_carries_the_player_number(self, tmp_path):
@@ -210,15 +208,15 @@ class TestCuttingTheSoundFromAnotherProcess:
 
 
 class TestOneCutStopsTheWholeRemark:
-    """Couper doit faire taire, pas sauter une phrase.
+    """Cutting must silence, not skip a sentence.
 
-    Un propos est découpé en phrases jouées l'une après l'autre. Tuer le lecteur
-    de la phrase en cours laissait la suivante repartir : elle s'arrêtait puis
-    reprenait, ce qui est pire que de ne pas s'arrêter du tout.
+    A remark is cut into sentences played one after another. Killing the player of
+    the sentence under way let the next one start: it stopped and then resumed,
+    which is worse than not stopping at all.
     """
 
     def _voice_of(self, tmp_path, monkeypatch, retour):
-        """Une voix dont le lecteur rend le code de retour voulu."""
+        """A voice whose player returns the exit code wanted."""
         from greffier.adapters import voice_neural
 
         class ReadBack:
@@ -242,7 +240,7 @@ class TestOneCutStopsTheWholeRemark:
         return voice_neural.NeuralVoice(tmp_path, gag=tmp_path / "p.pid")
 
     def test_a_player_killed_by_a_signal_stops_what_follows(self, tmp_path, monkeypatch):
-        """`afplay` tué par SIGTERM rend -15 : c'est le bouton, pas une fin."""
+        """`afplay` killed by SIGTERM returns -15: that is the button, not an ending."""
         voice = self._voice_of(tmp_path, monkeypatch, retour=-15)
         assert voice._play(tmp_path / "un.wav") is False
         assert voice._interrompu.is_set(), "la suite du propos n'a pas été annulée"
