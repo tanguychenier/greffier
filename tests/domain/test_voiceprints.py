@@ -1,4 +1,4 @@
-"""Le rapprochement des voix, sur des vecteurs écrits à la main."""
+"""Matching voices, on vectors written by hand."""
 
 import math
 
@@ -35,7 +35,7 @@ class TestNormalisingAVoiceprint:
         assert math.isclose(math.sqrt(sum(x * x for x in e.vector)), 1.0)
 
     def test_loudness_does_not_change_the_voiceprint(self):
-        """Deux extraits de la même voix, l'un fort l'autre faible, restent identiques."""
+        """Two extracts of one voice, one loud one quiet, stay identical."""
         assert math.isclose(similarity(voice(1.0, 2.0, 3.0), voice(10.0, 20.0, 30.0)), 1.0)
 
     def test_an_extract_with_no_speech_is_refused(self):
@@ -49,7 +49,7 @@ class TestNormalisingAVoiceprint:
 
 class TestAggregating:
     def test_long_extracts_weigh_more(self):
-        """Une minute d'explication compte plus que trois secondes de « d'accord »."""
+        """A minute of explanation counts for more than three seconds of "d'accord"."""
         longue = voice(1.0, 0.0, duration=60.0)
         breve = voice(0.0, 1.0, duration=3.0)
         moyenne = aggregate([longue, breve])
@@ -68,12 +68,12 @@ class TestRecognising:
         assert found is not None and found.name == "Josiane" and found.sure
 
     def test_an_unknown_voice_returns_nothing(self):
-        """Résultat normal et fréquent : on demandera à l'utilisateur."""
+        """A normal and frequent outcome: the person will be asked."""
         bank = [Person("Josiane", [voice(1.0, 0.0, 0.0)])]
         assert recognise(voice(0.0, 0.0, 1.0), bank) is None
 
     def test_two_close_voices_make_it_hesitate(self):
-        """Sans marge suffisante, mieux vaut ne rien affirmer."""
+        """Without enough margin, better to assert nothing."""
         bank = [
             Person("Josiane", [voice(1.0, 0.02, 0.0)]),
             Person("Jocelyne", [voice(1.0, 0.0, 0.02)]),
@@ -85,8 +85,9 @@ class TestRecognising:
         assert recognise(voice(1.0, 0.0), [Person("Josiane", [])]) is None
 
     def test_the_best_extract_is_kept_not_the_average(self):
-        """Enregistrée au casque puis en salle, une personne a deux signatures :
-        leur moyenne ne ressemblerait à aucune des deux."""
+        """Recorded on a headset then in a room, one person has two signatures: their
+        average would resemble neither.
+        """
         au_casque = voice(1.0, 0.0, 0.0)
         en_salle = voice(0.0, 1.0, 0.0)
         bank = [Person("Josiane", [au_casque, en_salle]),
@@ -95,9 +96,9 @@ class TestRecognising:
         assert found is not None and found.name == "Josiane"
 
     def test_the_thresholds_can_be_adjusted(self):
-        """Une salle réverbérante abaisse la similarité : le seuil doit suivre."""
+        """A room with echo lowers the similarity: the threshold has to follow."""
         bank = [Person("Josiane", [voice(1.0, 0.0, 0.0)])]
-        # 0,26 de similarité : sous le seuil mesuré de 0,45.
+        # 0.26 of similarity: under the measured threshold of 0.45.
         lointaine = voice(0.26, 0.966, 0.0)
         assert recognise(lointaine, bank) is None
         assert recognise(lointaine, bank, threshold=0.2) is not None
@@ -118,12 +119,12 @@ class TestFeedingTheBank:
         assert min(e.source_duration for e in josiane.voiceprints) >= 100.0
 
     def test_the_defaults_stay_careful(self):
-        """Épinglé pour que personne ne les abaisse sans le vouloir.
+        """Pinned down so that nobody lowers them without meaning to.
 
-        Le seuil **a** été abaissé le 2026-09-09, de 0,70 à 0,45, et c'est une
-        mesure qui l'a décidé : sur le corpus AMI, 4 personnes reconnues sur 7
-        au lieu de 3, sans aucune confusion. Ce test garde la borne basse pour
-        que le prochain changement soit lui aussi mesuré.
+        The threshold **was** lowered on 2026-09-09, from 0.70 to 0.45, and a
+        measurement decided it: on the AMI corpus, 4 people recognised out of 7
+        instead of 3, with no confusion at all. This test keeps the lower bound so
+        that the next change is measured too.
         """
         assert RECOGNITION_THRESHOLD >= 0.4
         assert MINIMUM_MARGIN > 0, "c'est la marge qui rend le seuil bas sans danger"
@@ -131,7 +132,7 @@ class TestFeedingTheBank:
 
 
 class TestJoiningVoices:
-    """La segmentation éclate une même voix : il faut la recoller."""
+    """The segmentation shatters one voice: it has to be stitched back."""
 
     def test_two_close_groups_are_joined(self):
         per_voice = {
@@ -144,7 +145,7 @@ class TestJoiningVoices:
         assert membership["v3"] != membership["v1"]
 
     def test_the_best_fed_group_gives_its_name(self):
-        """L'utilisateur écoutera un extrait : autant que ce soit le plus long."""
+        """Someone will listen to an extract: it may as well be the longest."""
         per_voice = {
             "court": [voice(1.0, 0.0, duration=5.0)],
             "long": [voice(0.99, 0.1, duration=120.0)],
@@ -162,10 +163,10 @@ class TestJoiningVoices:
         assert len(set(membership.values())) == 3
 
     def test_the_chain_of_matches_does_not_drift(self):
-        """A proche de B, B proche de C, mais A loin de C : on ne réunit pas tout.
+        """A close to B, B close to C, but A far from C: nothing is all joined.
 
-        L'agrégat est recalculé après chaque réunion, ce qui empêche une suite
-        de petits pas de rassembler des voix qui n'ont rien à voir.
+        The aggregate is recomputed after every join, which stops a series of small
+        steps from gathering voices that have nothing to do with each other.
         """
         per_voice = {
             "a": [voice(1.0, 0.0, 0.0, duration=10.0)],
@@ -181,19 +182,18 @@ class TestJoiningVoices:
         assert membership["vide"] == "vide"
 
     def test_the_measured_threshold_is_written_down(self):
-        """0,45 vient d'une mesure, pas d'une intuition.
+        """0.45 comes from a measurement, not from an intuition.
 
-        Le corpus AMI, quatre séries, en interrogeant la séance b contre une
-        banque faite de la séance a : 0,70 reconnaissait 3 personnes sur 7,
-        0,45 en reconnaît 4, et 0,30 en reconnaîtrait 5 au prix d'une
-        confusion.
+        The AMI corpus, four series, querying session b against a bank made from
+        session a: 0.70 recognised 3 people out of 7, 0.45 recognises 4, and 0.30
+        would recognise 5 at the cost of one confusion.
         """
         assert RECOGNITION_THRESHOLD == 0.45
 
     def test_declaring_a_conflict_demands_more(self):
-        """Un conflit fait taire un nom : le déclarer à la légère revient à ne
-        plus reconnaître personne. Deux personnes différentes se mesurent
-        jusqu'à 0,652 sur le corpus."""
+        """A conflict silences a name: declaring one lightly amounts to recognising
+        nobody at all. Two different people measure up to 0.652 on the corpus.
+        """
         from greffier.domain.voiceprints import CONFLICT_THRESHOLD
 
         assert CONFLICT_THRESHOLD > RECOGNITION_THRESHOLD
@@ -201,10 +201,9 @@ class TestJoiningVoices:
         assert JOIN_THRESHOLD > RECOGNITION_THRESHOLD
 
     def test_two_small_groups_do_not_join_on_an_accident(self):
-        """Un agrégat tiré de peu de matière est bruité : la similarité seule
-        ne suffit pas. Constaté sur un jeu d'essai à trois locuteurs
-        synthétiques, où deux petits groupes ont franchi SEUIL_FUSION par
-        accident statistique.
+        """An aggregate drawn from little material is noisy: similarity alone is not
+        enough. Seen on a test set of three synthetic speakers, where two small
+        groups passed the join threshold by statistical accident.
         """
         per_voice = {
             "v1": [voice(1.0, 0.01, duration=4.0)],
@@ -214,8 +213,9 @@ class TestJoiningVoices:
         assert membership["v1"] != membership["v2"]
 
     def test_a_big_voice_still_absorbs_the_thin_fragments(self):
-        """La garde de matière ne doit pas empêcher le recollage ordinaire :
-        une voix déjà établie absorbe sans contrainte nouvelle."""
+        """The guard on material must not stop ordinary stitching: a voice already
+        established absorbs with no new constraint.
+        """
         per_voice = {
             "etablie": [voice(1.0, 0.0, duration=120.0)],
             "fragment": [voice(0.99, 0.1, duration=1.0)],
@@ -228,13 +228,13 @@ class TestJoiningVoices:
 
 
 class TestABankThatContradictsItself:
-    """Une banque où deux noms portent la même voix ne peut plus trancher.
+    """A bank where two names carry the same voice can no longer decide.
 
-    Mesuré sur une banque réelle le 2026-09-02 : deux entrées à 0,77 de
-    ressemblance, quand deux personnes différentes s'y mesurent entre 0,22 et
-    0,53. L'une portait la voix de l'autre, nommée par erreur trois jours plus
-    tôt — et depuis, chaque réunion attribuait ce nom à la mauvaise personne,
-    en l'affirmant.
+    Measured on a real bank on 2026-09-02: two entries at 0.77 of likeness, when
+    two different people measure between 0.22 and 0.53 against each other. One
+    carried the other's voice, named by mistake three days earlier, and every
+    meeting since had been attributing that name to the wrong person, and
+    asserting it.
     """
 
     def test_two_names_on_one_voice_are_flagged(self):
@@ -253,7 +253,7 @@ class TestABankThatContradictsItself:
         assert conflicting_names(bank) == {}
 
     def test_no_name_is_asserted_when_the_bank_contradicts_itself(self):
-        """Se taire vaut mieux que choisir : c'est l'utilisateur qui tranchera."""
+        """Keeping quiet beats choosing: the person will decide."""
         one_of = voice(1.0, 0.0, 0.0)
         bank = [Person(name="Camilo", voiceprints=[one_of]),
                   Person(name="Tanguy", voiceprints=[voice(0.99, 0.14, 0.0)]),
@@ -261,7 +261,7 @@ class TestABankThatContradictsItself:
         assert recognise(one_of, bank) is None
 
     def test_the_names_outside_the_conflict_stay_recognised(self):
-        """Une entrée douteuse ne doit pas rendre toute la banque muette."""
+        """One doubtful entry must not silence the whole bank."""
         sophie = voice(0.0, 0.0, 1.0)
         bank = [Person(name="Camilo", voiceprints=[voice(1.0, 0.0, 0.0)]),
                   Person(name="Tanguy", voiceprints=[voice(0.99, 0.14, 0.0)]),
@@ -270,7 +270,7 @@ class TestABankThatContradictsItself:
         assert match is not None and match.name == "Sophie"
 
     def test_the_bank_may_be_a_generator(self):
-        """Elle est parcourue deux fois : le classement, puis les conflits."""
+        """It is walked twice: the ranking, then the conflicts."""
         sophie = voice(0.0, 0.0, 1.0)
         people = [Person(name="Sophie", voiceprints=[sophie]),
                      Person(name="Kerann", voiceprints=[voice(0.0, 1.0, 0.0)])]
@@ -279,19 +279,19 @@ class TestABankThatContradictsItself:
 
 
 class TestStitchingAfterTheMeeting:
-    """Le recollage complet : paires, adoption, consolidation.
+    """The full stitching: pairs, adoption, consolidation.
 
-    Le cas qui a motivé ces trois passes est une réunion réelle de 92 minutes,
-    trois personnes autour d'une table : la segmentation a rendu **298 voix**,
-    et le recollage par paires seul n'en retirait que 126.
+    The case that called for these three passes is a real meeting of 92 minutes,
+    three people round a table: the segmentation returned **298 voices**, and
+    stitching by pairs alone removed only 126 of them.
     """
 
     def test_a_fragment_joins_the_established_group_it_resembles(self):
-        """Le cas de la réunion réelle, en miniature.
+        """The case from the real meeting, in miniature.
 
-        Six secondes de parole ne ressemblent à aucun autre fragment, mais elles
-        ressemblent à quelqu'un qui a parlé dix minutes. Sans cette passe, le
-        fragment devient un participant de plus dans le compte rendu.
+        Six seconds of speech resemble no other fragment, but they do resemble
+        somebody who spoke for ten minutes. Without this pass the fragment becomes one
+        more participant in the minutes.
         """
         per_voice = {
             "beaucoup": [voice(1.0, 0.05, 0.0, duration=600.0)],
@@ -303,7 +303,7 @@ class TestStitchingAfterTheMeeting:
         assert membership["aussi"] == "aussi"
 
     def test_a_fragment_that_resembles_nothing_stays_alone(self):
-        """L'adoption rattache, elle n'invente pas : sous le seuil, on se tait."""
+        """Adoption attaches, it does not invent: under the threshold it keeps quiet."""
         per_voice = {
             "etablie": [voice(1.0, 0.0, 0.0, duration=600.0)],
             "autre": [voice(0.0, 1.0, 0.0, duration=400.0)],
@@ -312,11 +312,11 @@ class TestStitchingAfterTheMeeting:
         assert stitch(per_voice)["etrangere"] == "etrangere"
 
     def test_two_distinct_established_groups_do_not_merge(self):
-        """Deux personnes différentes montent à 0,652 sur le corpus AMI.
+        """Two different people reach 0.652 on the AMI corpus.
 
-        La consolidation compare des agrégats devenus fiables : c'est justement
-        là qu'une erreur coûterait le plus cher, puisqu'elle réunirait deux
-        participants pour de bon.
+        Consolidation compares aggregates that have become reliable, which is exactly
+        where a mistake would cost the most, since it would join two participants for
+        good.
         """
         per_voice = {
             "une": [voice(1.0, 0.0, 0.0, duration=600.0)],
@@ -326,10 +326,10 @@ class TestStitchingAfterTheMeeting:
         assert membership["une"] != membership["deux"]
 
     def test_someone_who_moves_seats_is_brought_together(self):
-        """Deux groupes fournis, trop peu semblables pour la passe des paires.
+        """Two well fed groups, too unlike each other for the pairs pass.
 
-        0,72 ne franchit pas SEUIL_FUSION (0,75) : sans la consolidation, la
-        même personne reste deux participants jusque dans le compte rendu.
+        0.72 does not pass the join threshold of 0.75: without consolidation the same
+        person stays two participants all the way into the minutes.
         """
         per_voice = {
             "avant": [voice(1.0, 0.0, 0.0, duration=600.0)],
@@ -339,11 +339,11 @@ class TestStitchingAfterTheMeeting:
         assert membership["avant"] == membership["apres"]
 
     def test_an_adopted_fragment_helps_adopt_the_next(self):
-        """L'ordre cesse d'être arbitraire : on part du fragment le plus fourni.
+        """The order stops being arbitrary: it starts from the best fed fragment.
 
-        Une miette proche d'une autre miette, elle-même proche d'un groupe
-        établi, finit dans ce groupe — à condition que la première ait été
-        traitée d'abord, ce que le tri par matière garantit.
+        A scrap close to another scrap, itself close to an established group, ends up
+        in that group, provided the first was handled first, which sorting by material
+        guarantees.
         """
         per_voice = {
             "etablie": [voice(1.0, 0.0, 0.0, duration=600.0)],
@@ -355,11 +355,11 @@ class TestStitchingAfterTheMeeting:
         assert membership["mince"] == "etablie"
 
     def test_with_no_established_group_nothing_is_adopted(self):
-        """Une réunion de deux minutes n'a pas de « groupe établi ».
+        """A meeting of two minutes has no "established group".
 
-        Rattacher des fragments les uns aux autres sans point d'attache solide
-        est exactement ce que la passe des paires fait déjà, avec la prudence
-        qui convient. L'adoption se retire alors au lieu de deviner.
+        Attaching fragments to one another with no solid anchor is exactly what the
+        pairs pass already does, with the care that calls for. Adoption withdraws
+        rather than guessing.
         """
         per_voice = {
             "a": [voice(1.0, 0.0, 0.0, duration=5.0)],
@@ -369,12 +369,12 @@ class TestStitchingAfterTheMeeting:
         assert membership["a"] != membership["b"]
 
     def test_the_stitching_thresholds_come_from_a_measurement(self):
-        """Rejoués sur la réunion réelle par `tools/replay_stitching.py`.
+        """Replayed on the real meeting by `tools/replay_stitching.py`.
 
-        298 voix rendues par la segmentation, 172 après la passe des paires,
-        24 après l'adoption, 23 après la consolidation — dont 3 portent plus de
-        dix secondes, soit le nombre exact de personnes présentes. Aucun groupe
-        ne réunit deux personnes, contrôlé contre les noms posés à la main.
+        298 voices returned by the segmentation, 172 after the pairs pass, 24 after
+        adoption, 23 after consolidation, of which 3 carry more than ten seconds,
+        which is the exact number of people in the room. No group joins two people,
+        checked against the names given by hand.
         """
         assert ADOPTION_THRESHOLD == 0.45
         assert ADOPTION_MARGIN == 0.0
