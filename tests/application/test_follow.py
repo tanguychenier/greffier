@@ -1,8 +1,8 @@
-"""Le fil publié pendant la réunion, et les corrections qui lui reviennent.
+"""The thread published during the meeting, and the corrections that come back.
 
-Deux processus se parlent par des fichiers : celui qui écoute publie ce qui se
-dit, la fenêtre y dépose ses corrections. Tout est éprouvé ici sans audio, sans
-modèle et sans écran — seules les doublures changent.
+Two processes talk to each other through files: the one that listens publishes
+what is said, the window drops its corrections in. All of it is covered here
+with no audio, no model and no screen; only the doubles change.
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ class StatedChannels:
 
 
 class SequenceExtractor:
-    """Rend les empreintes préparées, et retient ce qu'on lui a demandé."""
+    """Returns the voiceprints prepared, and keeps what it was asked for."""
 
     def __init__(self, voiceprints: list[Voiceprint] | None = None) -> None:
         self.voiceprints = list(voiceprints or [])
@@ -101,8 +101,8 @@ class TestWhereWeAreInTheAudio:
     def test_the_earlier_pieces_give_the_time_in_the_meeting(
         self, tmp_path: Path
     ) -> None:
-        # Une pause coupe l'enregistrement en deux fichiers. Sans le cumul, la
-        # reprise s'afficherait au début de la réunion.
+        # A pause cuts the recording into two files. Without the running total,
+        # what follows would show up at the start of the meeting.
         chunks = [tmp_path / "a.wav", tmp_path / "b.wav"]
         where_in = position(chunks, lambda m: 600.0 if m.name == "a.wav" else 30.0)
         assert where_in is not None
@@ -121,8 +121,8 @@ class TestWhereWeAreInTheAudio:
 
 class TestReadingOnlyWhatIsNew:
     def test_only_what_was_appended_is_read_again(self, tmp_path: Path) -> None:
-        # La fenêtre relit quatre fois par seconde : relire une heure de réunion
-        # à chaque tour coûterait pour rien.
+        # The window rereads four times a second: rereading an hour of meeting
+        # every turn would cost for nothing.
         log = tmp_path / "fil.jsonl"
         add(log, [{"genre": GENRE_TOUR, "numero": 1}])
         premieres, where_in = read_from(log)
@@ -137,8 +137,8 @@ class TestReadingOnlyWhatIsNew:
         log.write_text(entiere + '{"genre": "tou', encoding="utf-8")
         lues, where_in = read_from(log)
         assert [x["numero"] for x in lues] == [1]
-        # La position s'arrête à la dernière ligne complète : la suite sera lue
-        # quand elle sera entière.
+        # The position stops at the last complete line: the rest is read once
+        # it is whole.
         assert where_in == len(entiere)
 
     def test_a_missing_log_makes_no_fuss(self, tmp_path: Path) -> None:
@@ -165,13 +165,13 @@ class TestPublishingWhatWasSaid:
         instance.take_in(tmp_path / "tranche.wav", [utterance(0, 4)], offset=0.0)
         assert instance.thread.turns[0].voice == LOCAL_VOICE
         assert instance.thread.label(LOCAL_VOICE) == LOCAL_NAME
-        # Aucune empreinte prélevée : dépenser du calcul pour confirmer ce que le
-        # câblage établit n'apporte rien.
+        # No voiceprint taken: spending computation to confirm what the wiring
+        # already establishes brings nothing.
         assert extractor.requests == []
 
     def test_the_voiceprint_is_taken_at_the_times_of_the_slice(self, tmp_path: Path) -> None:
-        # L'affichage est à l'heure de la réunion, l'audio découpé ne l'est pas :
-        # prélever à 1802 s dans une tranche de 10 s ne donnerait rien.
+        # The display runs on the meeting clock, the cut audio does not: taking
+        # a print at 1802 s inside a 10 s slice would give nothing.
         extractor = SequenceExtractor([voiceprint(1, 0)])
         instance = follower(tmp_path, extractor=extractor)
         instance.take_in(tmp_path / "tranche.wav", [utterance(2, 9)], offset=1800.0)
@@ -179,9 +179,9 @@ class TestPublishingWhatWasSaid:
         assert instance.thread.turns[0].span.start == 1802.0
 
     def test_the_voiceprint_avoids_what_the_mic_captured(self, tmp_path: Path) -> None:
-        # La transcription coupe à la phrase, pas au changement de locuteur : un
-        # passage distant peut porter la fin d'une phrase locale. Prélever sur le
-        # tout mêlait deux voix, et faisait de la même personne deux participants.
+        # The transcription cuts at sentences, not at speaker changes: a remote
+        # passage may carry the end of a local sentence. Taking the print over
+        # the whole mixed two voices, and made one person two participants.
         extractor = SequenceExtractor([voiceprint(1, 0)])
         instance = follower(
             tmp_path,
@@ -192,8 +192,8 @@ class TestPublishingWhatWasSaid:
         assert extractor.requests[0] == [Span(13.8, 14.7)]
 
     def test_a_sentence_already_shown_does_not_come_back(self, tmp_path: Path) -> None:
-        # Les tranches se recouvrent de 5 s pour qu'une phrase à cheval reste
-        # entière dans l'une des deux.
+        # The slices overlap by 5 s so that a sentence astride stays whole in
+        # one of the two.
         instance = follower(tmp_path)
         instance.take_in(tmp_path / "t1.wav", [utterance(0, 8)], offset=0.0)
         instance.take_in(
@@ -255,8 +255,8 @@ class TestCorrectionsComingIn:
         assert confirmations[0]["numeros"] == [1]
 
     def test_a_correction_pours_the_voiceprint_into_the_bank(self, tmp_path: Path) -> None:
-        # Le point de tout l'échange : corriger une fois pendant la réunion, et
-        # que le compte rendu final retrouve la personne tout seul.
+        # The point of the whole exchange: correct once during the meeting, and
+        # let the final minutes find the person on their own.
         bank = InMemoryBank()
         instance = follower(
             tmp_path,
@@ -269,8 +269,8 @@ class TestCorrectionsComingIn:
         assert [name for name, _ in bank.recues] == ["Marc"]
 
     def test_your_own_voice_never_enters_the_bank(self, tmp_path: Path) -> None:
-        # Le micro identifie déjà la personne qui enregistre : stocker sa voix
-        # comme celle d'un participant n'apporterait rien et l'exposerait.
+        # The mic already identifies whoever is recording: storing their voice
+        # as a participant's would bring nothing and expose it.
         bank = InMemoryBank()
         instance = follower(tmp_path, channels=StatedChannels([Span(0, 8)]), bank=bank)
         instance.take_in(tmp_path / "tranche.wav", [utterance(0, 8)], offset=0.0)
@@ -281,19 +281,19 @@ class TestCorrectionsComingIn:
     def test_a_voice_corrected_too_early_is_learnt_once_it_has_enough(
         self, tmp_path: Path
     ) -> None:
-        """Le défaut qui vidait la banque de voix.
+        """The defect that emptied the voice bank.
 
-        On corrige dès la première phrase — c'est le but — quand l'empreinte n'a
-        pas encore la matière du seuil. Refuser une fois pour toutes perdait la
-        correction : elle s'affichait, puis ne servait ni à la réunion suivante
-        ni au compte rendu.
+        One corrects on the first sentence, which is the point, when the voiceprint
+        has not yet gathered the material the threshold asks for. Refusing once and
+        for all lost the correction: it showed on screen, then served neither the next
+        meeting nor the minutes.
         """
         bank = InMemoryBank()
         instance = follower(
             tmp_path,
             extractor=SequenceExtractor(
-                # 2,5 s : de quoi fonder une voix (le plancher est à 2,0 s,
-                # mesuré) mais pas de quoi la verser en banque.
+                # 2.5 s: enough to found a voice, the measured floor being
+                # 2.0 s, but not enough to pour it into the bank.
                 [voiceprint(1, 0, duration=2.5), voiceprint(0.95, 0.31, duration=4.0)]
             ),
             bank=bank,
@@ -301,9 +301,9 @@ class TestCorrectionsComingIn:
         instance.take_in(tmp_path / "t1.wav", [utterance(0, 2)], offset=0.0)
         ask(instance.requests, number=1, name="Sandy")
         instance.apply_requests()
-        # Trop peu de matière pour apprendre quoi que ce soit d'utile.
+        # Too little material to learn anything useful.
         assert bank.recues == []
-        # La personne reparle : cette fois il y a de quoi.
+        # The person speaks again: this time there is enough.
         instance.take_in(tmp_path / "t2.wav", [utterance(3, 9)], offset=0.0)
         assert [name for name, _ in bank.recues] == ["Sandy"]
 
@@ -370,8 +370,8 @@ class TestReplayingInOrderToShow:
         assert rejoue.voice[rejoue.turns[0].voice].certainty is Certainty.HUMAINE
 
     def test_replaying_twice_does_not_duplicate_the_sentences(self, tmp_path: Path) -> None:
-        # La fenêtre lit par morceaux : un chevauchement ne doit pas afficher la
-        # même phrase deux fois.
+        # The window reads in pieces: an overlap must not show the same
+        # sentence twice.
         instance = follower(tmp_path)
         instance.take_in(tmp_path / "t.wav", [utterance(0, 8)], offset=0.0)
         lines = lines_of(instance.log)
@@ -396,19 +396,19 @@ class TestReplayingInOrderToShow:
 
 class TestTwoFiles:
     def test_each_one_writes_into_its_own(self, tmp_path: Path) -> None:
-        # Aucun verrou à poser : celui qui écoute écrit le journal et lit les
-        # demandes, la fenêtre fait l'inverse.
+        # No lock to take: the listener writes the log and reads the requests,
+        # the window does the opposite.
         log, requests = files(tmp_path, "2026-08-27_10h00_reunion")
         assert log != requests
         assert log.parent == requests.parent
 
 
 class TestSplittingAcrossTheTwoProcesses:
-    """La séparation traverse les deux processus, comme une correction.
+    """A split crosses both processes, the way a correction does.
 
-    La fenêtre l'affiche tout de suite, mais c'est le processus qui écoute qui
-    tient les empreintes : lui seul peut les rendre à chaque voix, et c'est de
-    ça que dépend ce qui entrera en banque de voix.
+    The window shows it at once, but the listening process holds the voiceprints:
+    it alone can give them back to each voice, and what enters the voice bank
+    depends on that.
     """
 
     def _two_joined_voices(self, tmp_path: Path) -> Follower:
@@ -440,8 +440,8 @@ class TestSplittingAcrossTheTwoProcesses:
         assert len({t.voice for t in instance.thread.turns}) == 2
 
     def test_the_split_is_confirmed_in_the_log(self, tmp_path: Path) -> None:
-        # C'est ainsi que toute autre fenêtre ouverte, et un fil repris après
-        # un plantage, apprennent que ces deux voix ne sont pas la même.
+        # This is how any other open window, and a thread picked up after a
+        # crash, learn that these two voices are not the same.
         instance = self._two_joined_voices(tmp_path)
         gardee = instance.thread.turns[0].voice
         request_a_split(instance.requests, gardee)
@@ -454,7 +454,7 @@ class TestSplittingAcrossTheTwoProcesses:
         assert dites[0]["numeros"] == [2]
 
     def test_a_replayed_thread_keeps_the_voices_apart(self, tmp_path: Path) -> None:
-        """Le point qui fait tout : une reprise de fil ne refait pas la fusion."""
+        """The point of it all: picking a thread up again does not remake the join."""
         instance = self._two_joined_voices(tmp_path)
         gardee = instance.thread.turns[0].voice
         request_a_split(instance.requests, gardee)
@@ -485,14 +485,13 @@ class TestSplittingAcrossTheTwoProcesses:
 
 
 class TestHowFarAReplayedCorrectionReaches:
-    """La portée d'une correction voyage dans le journal, elle ne se déduit pas.
+    """How far a correction reaches travels in the log; it is not deduced.
 
-    Le défaut : la ligne ne portait que les numéros touchés, et le rejeu en
-    tirait la portée. Une correction « toute la voix » saisie alors que la voix
-    n'avait qu'un seul tour se rejouait donc en « seulement cette phrase », et à
-    la reprise du fil les tours suivants de cette voix perdaient le nom.
-    Rencontré pour de vrai : un fil de six cent quarante-six tours repris à la
-    cinquantième minute.
+    The defect: the line carried only the turn numbers, and the replay inferred
+    the reach from them. A "whole voice" correction made while the voice held a
+    single turn therefore replayed as "only this sentence", and on picking the
+    thread up again the later turns of that voice lost the name. Met for real: a
+    thread of six hundred and forty-six turns picked up in the fiftieth minute.
     """
 
     def _log(self, tmp_path: Path, whole_voice: bool | None = None) -> Path:
@@ -529,20 +528,20 @@ class TestHowFarAReplayedCorrectionReaches:
         assert par_numero[2] != "Marc"
 
     def test_a_log_from_before_stays_readable(self, tmp_path: Path) -> None:
-        """Sans le champ : on retombe sur l'ancienne déduction, faute de mieux."""
+        """Without the field: it falls back on the old deduction, for want of better."""
         repris = replay(lines_of(self._log(tmp_path)))
         assert repris.turns, "le journal doit rester relisible"
 
 
 class TestIdentifiersAreNeverReused:
-    """Un fil repris ne doit jamais redistribuer un identifiant déjà porté.
+    """A thread picked up again must never hand out an identifier already taken.
 
-    Le défaut, silencieux : le rejeu du journal inscrivait les voix « v1 »,
-    « v2 »… directement, sans avancer le compteur. La voix suivante que le fil
-    fondait s'appelait donc « v1 » de nouveau et **écrasait** l'entrée
-    existante : les tours de deux personnes passaient sous un seul identifiant,
-    sans rien qui le signale. Toute reprise de fil était touchée — et il y en a
-    eu une sur un fil de six cent quarante-six tours.
+    The defect, and it was silent: replaying the log wrote the voices "v1", "v2"…
+    in directly, without advancing the counter. The next voice the thread founded
+    was therefore called "v1" again and **overwrote** the existing entry: the
+    turns of two people ended up under one identifier with nothing to say so.
+    Every thread picked up again was affected, and one of them held six hundred
+    and forty-six turns.
     """
 
     def _log_of_two_voices(self, tmp_path: Path) -> Path:
@@ -565,8 +564,9 @@ class TestIdentifiersAreNeverReused:
     def test_correcting_a_sentence_overwrites_no_voice(
         self, tmp_path: Path
     ) -> None:
-        """Le symptôme visible : trois voix rejouées, une correction, toujours
-        trois personnes distinctes — et non deux tours sous le même nom."""
+        """The visible symptom: three voices replayed, one correction, still three
+        distinct people, and not two turns under the same name.
+        """
         repris = replay(lines_of(self._log_of_two_voices(tmp_path)))
         avant = {t.number: t.voice for t in repris.turns}
         repris.correct(2, "Marc", whole_voice=False)
