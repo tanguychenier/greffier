@@ -84,6 +84,27 @@ def info(text):
     print(f"    {text}")
 
 
+def preparer_dossier(chemin):
+    """Crée un dossier, en écartant d'abord un lien mort qui en occuperait le nom.
+
+    `mkdir(parents=True, exist_ok=True)` ne rattrape pas un lien symbolique dont
+    la cible a disparu : le nom est pris, `is_dir()` répond non, et l'erreur
+    remonte en trace de pile au milieu de l'installation. Le cas se rencontre
+    pour de bon — `~/.claude/skills` pointait vers un dépôt depuis déplacé, et
+    l'installateur s'arrêtait là, après avoir posé les modèles et les
+    dépendances, sans dire ce qui manquait.
+
+    Un lien qui ne mène nulle part ne protège rien : on l'ôte, en le disant.
+    Un lien vers un dossier qui existe, lui, est un choix de l'utilisateur et
+    reste en place.
+    """
+    for ancetre in [*reversed(chemin.parents), chemin]:
+        if ancetre.is_symlink() and not ancetre.exists():
+            info(f"lien mort écarté : {ancetre} → {os.readlink(ancetre)}")
+            ancetre.unlink()
+    chemin.mkdir(parents=True, exist_ok=True)
+
+
 class Abandon(Exception):
     """Interrompt l'installation avec un message actionnable."""
 
@@ -501,7 +522,7 @@ def download(url, target):
 
 def etape_modeles(ctx, engine):
     title("3. Modèles locaux")
-    (ctx.models / "diarisation").mkdir(parents=True, exist_ok=True)
+    preparer_dossier(ctx.models / "diarisation")
 
     for model in MODELS:
         if model.get("requis_si") and model["requis_si"] != engine:
@@ -808,7 +829,7 @@ destinataire = ""
 
 def etape_configuration(ctx, engine, wording):
     title("6. Configuration")
-    ctx.config.mkdir(parents=True, exist_ok=True)
+    preparer_dossier(ctx.config)
     file = ctx.config / "config.toml"
     if file.exists():
         ok(f"configuration existante conservée : {file}")
@@ -894,7 +915,7 @@ def integrer_au_bureau(ctx, target, write=True):
     else:
         return None
     if write:
-        folder.mkdir(parents=True, exist_ok=True)
+        preparer_dossier(folder)
         file.write_text(gabarit.format(target=target), encoding="utf-8")
     return file
 
@@ -986,7 +1007,7 @@ def etape_skill(ctx):
         if not ctx.ask(f"Installer le skill « {name} » pour Claude Code ?"):
             ctx.to_do.append(f"mkdir -p {target.parent} && cp {source} {target}")
             continue
-        target.parent.mkdir(parents=True, exist_ok=True)
+        preparer_dossier(target.parent)
         shutil.copy2(source, target)
         ok(f"skill « {name} » {action} ({target})")
 
