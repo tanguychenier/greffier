@@ -1,18 +1,18 @@
-"""La langue devient un choix, et ce choix doit survivre.
+"""The language becomes a choice, and that choice has to survive.
 
-Trois pièges, dont un seul est visible.
+Three traps, only one of them visible.
 
-Le premier : la langue écrite dans le `.env`. L'ordre de priorité est
-environnement, puis `.env`, puis `config.toml` ; une langue posée dans le `.env`
-primerait pour toujours et rendrait la liste déroulante des Réglages inerte,
-sans qu'aucune erreur ne le dise.
+The first: the language written into the `.env`. The order of priority is the
+environment, then `.env`, then `config.toml`; a language set in the `.env` would
+win for ever and make the dropdown in the Settings inert, with no error to say
+so.
 
-Le deuxième : un champ absent de `SECTIONS`. Le fichier de configuration est
-régénéré, pas rustiné, donc un champ oublié là est perdu au premier
-enregistrement depuis la fenêtre.
+The second: a field missing from `SECTIONS`. The settings file is regenerated,
+not patched, so a field forgotten there is lost on the first save from the
+window.
 
-Le troisième : les consignes de rédaction. Cent lignes d'ajustements gagnés sur
-de vraies réunions — le français doit en ressortir caractère pour caractère.
+The third: the writing guidance. A hundred lines of adjustments won on real
+meetings — the French has to come out of it character for character.
 """
 
 from greffier.adapters.assistant_terminal import Answers
@@ -31,7 +31,7 @@ class TestTheLanguageNeverLandsInTheEnvFile:
         assert answers.settings == {"transcription": {"langue": "de"}}
 
     def test_and_not_into_the_env_file(self):
-        """Sinon la liste déroulante des Réglages ne pourrait plus rien changer."""
+        """Otherwise the dropdown in the Settings could no longer change anything."""
         answers = Answers()
         answers.set_up("transcription", "langue", "de")
         answers.set_up("compte_rendu", "langue", "fr")
@@ -42,7 +42,7 @@ class TestTheLanguageNeverLandsInTheEnvFile:
 
 class TestTheLanguageOfTheMinutesSurvives:
     def test_it_is_among_the_sections_written_back(self):
-        """Le fichier est régénéré : un champ absent d'ici est perdu."""
+        """The file is regenerated: a field missing from here is lost."""
         assert "langue" in SECTIONS["compte_rendu"]
 
     def test_it_is_found_in_the_file_written(self):
@@ -65,7 +65,7 @@ class TestTheGuidanceFollowsTheLanguage:
         assert guidance("en").startswith("Rédige entièrement en Anglais")
 
     def test_and_recalled_at_the_end(self):
-        """Un modèle qui lit cent lignes de français y retombe volontiers."""
+        """A model reading a hundred lines of French happily falls back into it."""
         assert guidance("en").rstrip().endswith("le compte rendu s'écrit en Anglais.")
 
     def test_the_mention_of_french_disappears(self):
