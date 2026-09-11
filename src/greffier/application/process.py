@@ -157,6 +157,7 @@ class Chain:
     prompt_seed: str = ""
     context_header: str = ""
     instructions: Callable[[str], list[str]] | None = None
+    named_live: Callable[[str], list[noms_domaine.NamedSpan]] | None = None
     people: int | None = None
     not_first_names: frozenset[str] = frozenset()
     recipient: str = ""
@@ -325,6 +326,34 @@ class Chain:
         for proposition in attribution.propositions:
             if proposition.voice not in outcome.names:
                 outcome.propositions[proposition.voice] = proposition.name
+
+        self._names_given_live(turns, outcome)
+
+    def _names_given_live(self, turns: list[SpeakerTurn], outcome: Outcome) -> None:
+        """Fills in the names a human gave while the meeting ran.
+
+        It fills silence and never overwrites: the live cut has its own mistakes
+        — measured on a real meeting, one of its voices carried two people — and
+        carrying a name across a wrong cut takes one person's words and gives
+        them to another. A disagreement is reported instead, for the writer to
+        weigh.
+        """
+        if self.named_live is None:
+            return
+        named: list[noms_domaine.NamedSpan] = []
+        with contextlib.suppress(Exception):
+            named = self.named_live(outcome.audio.stem)
+        for voice, name in noms_domaine.from_live(named, turns).items():
+            autre = outcome.names.get(voice)
+            if autre is None:
+                outcome.names[voice] = name
+                outcome.propositions.pop(voice, None)
+            elif autre.casefold() != name.casefold():
+                outcome.warnings.append(
+                    f"La voix {voice} est reconnue comme {autre}, mais elle a "
+                    f"été nommée {name} pendant la réunion. C'est {autre} qui "
+                    "a été retenu."
+                )
 
     def _attach_voices(self, utterances: list[Utterance], turns: list[SpeakerTurn]) -> None:
         """Gives each utterance the voice that clearly holds it, else none."""
