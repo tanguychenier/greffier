@@ -1,19 +1,19 @@
-"""La session SMTP, ouverte contre de vrais serveurs.
+"""The SMTP session, opened against real servers.
 
-Le code disait n'avoir « pas encore rencontré un vrai serveur ». Un serveur
-d'essai monté dans le processus n'y changerait rien : il répondrait ce qu'on lui
-a appris à répondre. Ce test se **connecte** — Gmail et Office 365, les deux
-fournisseurs que le commentaire nommait — et vérifie que la convention choisie
-d'après le port est celle que le serveur attend.
+The code said it had "not yet met a real server". A test server started inside
+the process would change nothing: it would answer what it was taught to answer.
+This test **connects** — Gmail and Office 365, the two providers the comment
+named — and checks that the convention chosen from the port is the one the
+server expects.
 
-Ce qui est éprouvé : la connexion aboutit, le chiffrement est en place, et le
-serveur accepte la conversation. `ExpediteurSmtp.session` est le vrai code du
-produit ; aucun mot de passe n'est nécessaire pour l'ouvrir, donc rien n'est
-authentifié ni expédié — envoyer chez un tiers depuis une suite de tests n'est
-pas une preuve, c'est un courriel de trop.
+What is covered: the connection succeeds, the encryption is in place, and the
+server accepts the conversation. `SmtpSender.session` is the product's real
+code; no password is needed to open one, so nothing is authenticated and
+nothing is sent. Sending to a third party from a test suite is not a proof, it
+is one email too many.
 
-Dépend du réseau : marqué « integration », et ignoré quand le port est fermé
-(exécuteur d'intégration continue sans sortie SMTP, réseau d'entreprise filtré).
+Depends on the network: marked "integration", and skipped when the port is
+closed (a CI runner with no SMTP egress, a filtered corporate network).
 
     pytest -m integration
 """
@@ -40,7 +40,7 @@ SERVEURS = [
 
 @pytest.fixture(params=SERVEURS, ids=lambda p: f"{p[0]}:{p[1]}")
 def session(request):
-    """Une session ouverte par le vrai code, ou le test est ignoré."""
+    """A session opened by the real code, or the test is skipped."""
     server, port = request.param
     sender = SmtpSender(server=server, port=port)
     try:
@@ -51,8 +51,8 @@ def session(request):
 
 
 class TestSessionReelle:
-    def test_la_connexion_aboutit(self, session: smtplib.SMTP):
-        """Le serveur a salué, et la session tient : le port et la classe s'accordent."""
+    def test_the_connection_succeeds(self, session: smtplib.SMTP):
+        """The server said hello and the session holds: the port and the class agree."""
         code, _ = session.docmd("NOOP")
         assert code == 250
 
