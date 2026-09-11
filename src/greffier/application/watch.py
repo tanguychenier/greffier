@@ -222,7 +222,8 @@ class Watcher:
 
         A full slice is built for the thread: fifty seconds of context so the
         spelling holds, one every ten seconds. Being called therefore cost up to
-        fifteen seconds before a word came back, where a few were expected.
+        fifteen seconds before a word came back, where a few were expected: ten
+        of waiting, two of transcription, three for the answer to come back.
 
         This pass reads the last eight seconds alone, with no context, and looks
         only for the assistant's own name. The remark it hands over carries a
