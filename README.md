@@ -80,6 +80,11 @@ then asking for the login password a single time — so that granted permissions
 survive reinstallation. A code change only shows up there by re-running the
 installer; the command line in the clone follows the code.
 
+On Linux it links the command into `~/.local/bin`, which the shell already has
+in its PATH, and writes a menu entry: `greffier` answers in any terminal, and
+the window is found by typing its name. On Windows the command stays in the
+environment, whose folder the installer prints.
+
 It then moves on to the **configuration assistant**, which asks the questions
 that matter and writes a valid `.env`:
 
