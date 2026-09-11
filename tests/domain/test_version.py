@@ -3,7 +3,7 @@
 from greffier.domain.version import is_newer, read
 
 
-class TestLecture:
+class TestReadingTheSetting:
     def test_trois_nombres(self):
         assert read("1.2.3") == (1, 2, 3)
 

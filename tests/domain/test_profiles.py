@@ -90,7 +90,7 @@ class TestUnProfilEprouveRetrouveSesPrenoms:
             assert profil.detection.excluded, profil.code
 
 
-class TestDecoupage:
+class TestCuttingIntoTurns:
     def test_le_francais_compte_les_mots_par_les_espaces(self):
         assert FRENCH.splitting.count_them("on décale la recette à jeudi") == 6
 

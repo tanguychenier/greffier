@@ -12,7 +12,7 @@ from greffier.domain.models import Span, Utterance
 from greffier.domain.profiles.french import FRENCH
 
 
-class TestCeQuiEstEcarte:
+class TestWhatIsDropped:
     @pytest.mark.parametrize("text", [
         "Sous-titrage réalisé par la communauté d'Amara.org",
         "sous-titrage réalisé par",
@@ -23,11 +23,11 @@ class TestCeQuiEstEcarte:
         "Sous-titrage Société Radio-Canada",
         "  Sous-titrage.  ",
     ])
-    def test_un_generique_entier_part(self, text):
+    def test_a_whole_credits_line_goes(self, text):
         assert is_boilerplate(text, FRENCH)
 
 
-class TestCeQuiReste:
+class TestWhatStays:
     @pytest.mark.parametrize("text", [
         "Merci.",
         "Merci Sophie, on valide jeudi.",
@@ -36,7 +36,7 @@ class TestCeQuiReste:
         "",
         "   ",
     ])
-    def test_la_parole_reelle_reste(self, text):
+    def test_real_speech_stays(self, text):
         """Mieux vaut laisser passer un générique que perdre une décision."""
         assert not is_boilerplate(text, FRENCH)
 
@@ -46,7 +46,7 @@ class TestCeQuiReste:
         "recette : il faut trancher avant jeudi.",
         "Sous-titrage réalisé par nos soins, et validé par la communication.",
     ])
-    def test_une_phrase_qui_commence_comme_un_generique_mais_continue(self, text):
+    def test_a_sentence_that_starts_like_a_credit_but_goes_on(self, text):
         """Le piège de la correspondance par préfixe : cette phrase-là
         disparaissait, alors qu'elle porte une information."""
         assert not is_boilerplate(text, FRENCH)
@@ -60,32 +60,32 @@ class TestAnnotations:
     dans une réunion qui n'en comptait que quelques-unes.
     """
 
-    def test_une_annotation_entre_asterisques_part(self):
+    def test_an_annotation_between_asterisks_goes(self):
         assert is_an_annotation("*Belouge*")
 
-    def test_une_annotation_entre_parentheses_part(self):
+    def test_an_annotation_between_brackets_goes(self):
         assert is_an_annotation("(rires)")
         assert is_an_annotation("[Applaudissements]")
 
-    def test_une_note_de_musique_part(self):
+    def test_a_music_note_goes(self):
         assert is_an_annotation("♪ ♪ ♪")
 
-    def test_une_parenthese_au_milieu_d_une_phrase_reste(self):
+    def test_a_bracket_inside_a_sentence_stays(self):
         """Couper là perdrait la phrase."""
         assert not is_an_annotation("il a dit (à tort) que c'était prêt")
 
-    def test_deux_annotations_dans_une_phrase_ne_font_pas_une_annotation(self):
+    def test_two_annotations_in_a_sentence_do_not_make_it_one(self):
         assert not is_an_annotation("(a) et (b) sont prêts")
 
-    def test_une_phrase_ordinaire_reste(self):
+    def test_an_ordinary_sentence_stays(self):
         assert not is_an_annotation("on reprend le sujet lundi")
 
-    def test_un_texte_trop_court_ne_declenche_rien(self):
+    def test_a_text_too_short_triggers_nothing(self):
         assert not is_an_annotation("**")
 
 
 
-class TestLaBoucleDuTranscripteur:
+class TestTheTranscriberLoop:
     """Onze fois la même phrase de suite, c'est le modèle, pas une personne.
 
     Mesuré sur la réunion du 2026-09-10 à 13 h 08 : « Est-ce que tu entends
@@ -95,28 +95,28 @@ class TestLaBoucleDuTranscripteur:
     quasi-silence.
     """
 
-    def _boucle(self, how_many: int, texte: str = "Est-ce que tu entends Lucie ?"):
+    def _loop(self, how_many: int, texte: str = "Est-ce que tu entends Lucie ?"):
         return [
             Utterance(span=Span(30.0 + i, 31.0 + i), text=texte)
             for i in range(how_many)
         ]
 
-    def test_onze_repetitions_deviennent_une(self):
-        assert len(collapse_loops(self._boucle(11))) == 1
+    def test_eleven_repeats_become_one(self):
+        assert len(collapse_loops(self._loop(11))) == 1
 
-    def test_la_phrase_gardee_couvre_tout_le_passage(self):
+    def test_the_kept_sentence_covers_the_whole_run(self):
         """Le passage a bien duré onze secondes : l'horodatage doit le dire."""
-        gardee = collapse_loops(self._boucle(11))[0]
+        gardee = collapse_loops(self._loop(11))[0]
         assert (gardee.span.start, gardee.span.end) == (30.0, 41.0)
 
-    def test_deux_fois_de_suite_est_une_personne(self):
+    def test_twice_in_a_row_is_a_person(self):
         """Quelqu'un se répète, ou deux tranches se recouvrent. On n'y touche pas."""
-        assert len(collapse_loops(self._boucle(2))) == 2
+        assert len(collapse_loops(self._loop(2))) == 2
 
-    def test_trois_fois_est_une_boucle(self):
-        assert len(collapse_loops(self._boucle(3))) == 1
+    def test_three_times_is_a_loop(self):
+        assert len(collapse_loops(self._loop(3))) == 1
 
-    def test_une_respiration_coupe_la_boucle(self):
+    def test_a_breath_breaks_the_loop(self):
         """Une personne qui repose sa question laisse un souffle.
 
         Trois segments collés se replient ; celui qui arrive après le silence
@@ -133,8 +133,8 @@ class TestLaBoucleDuTranscripteur:
         assert (gardees[0].span.start, gardees[0].span.end) == (0.0, 3.0)
         assert gardees[1].span.start == 9.0
 
-    def test_deux_boucles_de_suite_sont_deux_phrases(self):
-        dites = self._boucle(4) + [
+    def test_two_loops_in_a_row_are_two_sentences(self):
+        dites = self._loop(4) + [
             Utterance(span=Span(34.0 + i, 35.0 + i), text="Je vais vous créer la vache.")
             for i in range(4)
         ]
@@ -142,7 +142,7 @@ class TestLaBoucleDuTranscripteur:
         assert len(gardees) == 2
         assert gardees[0].text != gardees[1].text
 
-    def test_la_casse_et_les_accents_ne_font_pas_deux_phrases(self):
+    def test_case_and_accents_do_not_make_two_sentences(self):
         dites = [
             Utterance(span=Span(0.0, 1.0), text="Voilà."),
             Utterance(span=Span(1.0, 2.0), text="voila"),
@@ -150,7 +150,7 @@ class TestLaBoucleDuTranscripteur:
         ]
         assert len(collapse_loops(dites)) == 1
 
-    def test_une_conversation_ordinaire_n_est_pas_touchee(self):
+    def test_an_ordinary_conversation_is_untouched(self):
         dites = [
             Utterance(span=Span(0.0, 3.0), text="on cale la recette jeudi"),
             Utterance(span=Span(3.0, 6.0), text="d'accord, je prévois les tests"),
@@ -158,6 +158,6 @@ class TestLaBoucleDuTranscripteur:
         ]
         assert collapse_loops(dites) == dites
 
-    def test_une_liste_vide_ou_courte_ne_casse_rien(self):
+    def test_an_empty_or_short_list_breaks_nothing(self):
         assert collapse_loops([]) == []
-        assert len(collapse_loops(self._boucle(1))) == 1
+        assert len(collapse_loops(self._loop(1))) == 1

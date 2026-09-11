@@ -5,17 +5,17 @@ import pytest
 from greffier.domain.first_names import acceptable, normalise, refusal
 
 
-class TestCeQuiPasse:
+class TestWhatIsAccepted:
     @pytest.mark.parametrize("name", [
         "Marcel", "Tanguy", "Anne-Sophie", "Jean Marcel", "Li", "Ólafur",
         "Nguyễn", "O'Connor", "Zoé",
     ])
-    def test_un_prenom_est_accepte(self, name):
+    def test_a_first_name_is_accepted(self, name):
         assert acceptable(name), refusal(name)
 
 
-class TestCeQuiNePassePas:
-    def test_le_libelle_de_l_interface_est_refuse(self):
+class TestWhatIsRefused:
+    def test_a_label_of_the_window_is_refused(self):
         """Le cas mesuré : la banque du poste portait « A nommer ».
 
         C'est ce que la colonne « Nom » affiche pour une voix qui n'en a pas
@@ -29,28 +29,28 @@ class TestCeQuiNePassePas:
         "", "   ", "M", "?", "-", "Les autres", "inconnu", "Personne",
         "Voix 12", "Personne 3", "42", "...", "Sans nom",
     ])
-    def test_ce_qui_n_est_pas_un_prenom_est_refuse(self, name):
+    def test_what_is_not_a_first_name_is_refused(self, name):
         assert not acceptable(name)
 
-    def test_une_phrase_entiere_est_refusee(self):
+    def test_a_whole_sentence_is_refused(self):
         assert not acceptable("je crois que c'était plutôt Marcel qui parlait là")
 
-    def test_le_refus_dit_pourquoi(self):
+    def test_the_refusal_says_why(self):
         """Un refus sans raison fait recommencer la même saisie."""
         assert refusal("") and refusal("M") and refusal("Voix 12")
 
 
-class TestNormalisation:
-    def test_la_casse_est_unifiee(self):
+class TestTidyingAName:
+    def test_the_case_is_made_uniform(self):
         """Sans quoi « marcel » et « Marcel » sont deux personnes en banque,
         chacune avec la moitié des empreintes."""
         assert normalise("marcel") == "Marcel"
 
-    def test_les_espaces_se_reduisent(self):
+    def test_the_spaces_collapse(self):
         assert normalise("  Anne   Sophie ") == "Anne Sophie"
 
-    def test_un_nom_deja_propre_ne_bouge_pas(self):
+    def test_a_name_already_clean_does_not_move(self):
         assert normalise("Anne-Sophie") == "Anne-Sophie"
 
-    def test_la_suite_du_nom_garde_sa_casse(self):
+    def test_the_rest_of_the_name_keeps_its_case(self):
         assert normalise("McCarthy") == "McCarthy"

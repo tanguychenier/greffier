@@ -3,7 +3,7 @@
 from greffier.adapters.subjects_file import lay_the_template, noter_la_carte, read
 
 
-class TestLecture:
+class TestReadingTheSetting:
     def test_un_sujet_et_ses_alias_sont_lus(self, tmp_path):
         file = tmp_path / "sujets.toml"
         file.write_text(

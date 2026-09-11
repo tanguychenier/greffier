@@ -72,7 +72,7 @@ class TestAnalyse:
 class TestPrudenceSurLEtat:
     """Présenter une idée orale comme une décision est le pire défaut ici."""
 
-    def test_le_defaut_est_en_discussion(self):
+    def test_the_default_is_under_discussion(self):
         assert analyser('[{"texte": "Une idée"}]')[0].state is Standing.UNDER_DISCUSSION
 
     def test_un_etat_non_reconnu_retombe_en_discussion(self):

@@ -192,7 +192,7 @@ class TestMaterielQuiChange:
             recorder.reprendre("changement")
 
 
-class TestRobustesse:
+class TestWhatMustNotBreak:
     def test_un_processus_mort_ne_passe_pas_pour_vivant(self, recorder, monkeypatch):
         """Redémarrage pendant une réunion : l'état ment, les processus non."""
         recorder.start_recording("interrompue")
