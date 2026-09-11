@@ -9,12 +9,14 @@ personnelle, et rejouable par qui veut.
 
     python3 tools/make_meeting.py sortie.wav
 
-macOS uniquement pour l'instant : « say » est le seul moteur de synthèse
-disponible sans rien installer. Sur Linux, « espeak-ng » ferait l'affaire.
+Deux moteurs de synthèse, selon le poste : « say » sur macOS, et ailleurs la
+voix VITS que Greffier installe déjà pour l'assistant, tenue par le sherpa-onnx
+qui sert à la segmentation — aucune dépendance nouvelle, aucun appel réseau.
+Le réseau français porte deux timbres, ce qui suffit au dialogue à deux voix et
+pas à la réunion de table, qui reste sur « say ».
 """
 
 import argparse
-import platform
 import shutil
 import subprocess
 import sys
@@ -27,18 +29,36 @@ from pathlib import Path
 #   Sandy    interpellation (2) + « Merci Sandy » (1)      = 3
 # Chaque réplique dépasse trois secondes, seuil en deçà duquel une empreinte
 # vocale ne porte pas assez de voix pour être exploitable.
-DIALOGUE = [
-    ("A", "Bonjour à tous, moi c'est Jacques, je vous propose de commencer par le "
+_DIALOGUE = [
+    ("A", "Bonjour à tous, moi c'est {premier}, je vous propose de commencer par le "
           "point sur la recette, qui nous occupe depuis le début de la semaine."),
-    ("B", "Merci Jacques. De mon côté, le déploiement en préproduction est terminé "
+    ("B", "Merci {premier}. De mon côté, le déploiement en préproduction est terminé "
           "depuis vendredi dernier, et tout s'est déroulé sans incident notable."),
-    ("A", "Sandy, tu peux nous dire où en sont les anomalies bloquantes sur le "
+    ("A", "{second}, tu peux nous dire où en sont les anomalies bloquantes sur le "
           "module de facturation, celles que nous avions relevées la semaine dernière ?"),
     ("B", "Il en reste exactement deux. Elles sont corrigées depuis hier soir, mais "
           "elles ne sont pas encore validées par l'équipe fonctionnelle."),
-    ("A", "Merci Sandy. On décale donc la recette à jeudi prochain, et nous "
+    ("A", "Merci {second}. On décale donc la recette à jeudi prochain, et nous "
           "préviendrons l'ensemble des utilisateurs concernés mercredi en fin de journée."),
 ]
+
+#: The two first names, per engine -- a first name a synthesiser mangles proves
+#: nothing about the chain. Measured on the two lines that carry it: the French
+#: VITS says « Sandy » in a way whisper writes « Samy », then « Sani », which
+#: would have the chain fail on a word nobody pronounced. « Sophie » comes back
+#: intact from both, and so does « Jacques ».
+PRENOMS = {"say": ("Jacques", "Sandy"), "vits": ("Jacques", "Sophie")}
+
+
+def first_names() -> tuple[str, str]:
+    """The two first names this machine's synthesiser can be trusted with."""
+    return PRENOMS[synthesis_engine() or "say"]
+
+
+def two_voice_dialogue() -> list[tuple[str, str]]:
+    """The two-voice dialogue, carrying the first names of this machine."""
+    premier, second = first_names()
+    return [(who, line.format(premier=premier, second=second)) for who, line in _DIALOGUE]
 
 # Une seconde réunion, avec les mêmes voix mais **aucun prénom prononcé**. Elle
 # sert à prouver la banque de voix : si des noms apparaissent malgré tout, ils ne
@@ -105,24 +125,110 @@ VOICE = {"A": "Thomas", "B": "Amélie"}
 SILENCE = 0.4  # secondes entre deux répliques, comme dans une vraie discussion
 
 
+#: The speaker ids of the French VITS voice, for machines without « say ».
+#: Two timbres and not three: the network carries two (`num_speakers = 2`),
+#: which is what the two-voice dialogue needs and what the round table does not.
+SID_VITS = {"Thomas": 0, "Amélie": 1}
+
+_LOADED: dict[int, object] = {}
+
+
+def _installed_voice() -> Path | None:
+    """The assistant's voice folder, when this machine has one.
+
+    Read through the settings rather than guessed: the folder follows
+    `chemins.modeles`, which a machine may well have moved.
+    """
+    try:
+        from greffier.adapters.configuration import Config
+        from greffier.adapters.voice_neural import NeuralVoice
+    except ImportError:  # lancé hors du venv, sans le paquet
+        return None
+    folder = Config().paths.models / "voix"
+    return folder if NeuralVoice(folder).installed else None
+
+
+def synthesis_engine() -> str | None:
+    """« say », the installed VITS voice, or nothing at all.
+
+    ffmpeg is required either way: it is what resamples and stitches, and
+    without it there is no meeting to build.
+    """
+    if not shutil.which("ffmpeg"):
+        return None
+    if shutil.which("say"):
+        return "say"
+    return "vits" if _installed_voice() is not None else None
+
+
+def _speak(engine: str, voice: str, text: str, folder: Path, index: int) -> Path:
+    """One line spoken into a file, by whichever engine the machine has."""
+    if engine == "say":
+        raw = folder / f"{index:02d}.aiff"
+        subprocess.run(
+            ["say", "-v", voice, "-o", str(raw), text], check=True, capture_output=True,
+        )
+        return raw
+    from greffier.adapters.voice_neural import NeuralVoice
+
+    sid = SID_VITS[voice]
+    if sid not in _LOADED:
+        # One instance per timbre, kept: the network is loaded on first use and
+        # reloading it for every line would cost more than the meeting itself.
+        _LOADED[sid] = NeuralVoice(_installed_voice(), voice=sid, rate=1.0)
+    raw = folder / f"{index:02d}-brut.wav"
+    if _LOADED[sid].fabriquer(text, raw) is None:
+        raise RuntimeError(f"la synthèse n'a rien produit pour « {text[:40]}… »")
+    return raw
+
+
+def speak(text: str, voice: str, destination: Path) -> Path | None:
+    """One line spoken into `destination`, as the 16 kHz mono wav the chain reads.
+
+    The public door: the integration tests that build their own take -- the live
+    thread, the assistant's exchanges -- called `say` directly, each with its own
+    copy of the ffmpeg conversion, and skipped everywhere else.
+    """
+    engine = synthesis_engine()
+    if engine is None:
+        return None
+    if engine != "say" and voice not in SID_VITS:
+        return None
+    with tempfile.TemporaryDirectory() as folder:
+        raw = _speak(engine, voice, text, Path(folder), 0)
+        if not raw.exists():
+            return None
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(
+            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(raw),
+             "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", str(destination)],
+            check=True,
+        )
+    return destination
+
+
 def make(destination: Path, voice: dict | None = None, dialogue=None) -> Path:
-    if platform.system() != "Darwin":
-        raise RuntimeError("la synthèse « say » n'existe que sur macOS")
-    if not shutil.which("say") or not shutil.which("ffmpeg"):
-        raise RuntimeError("« say » et « ffmpeg » sont nécessaires")
+    engine = synthesis_engine()
+    if engine is None:
+        raise RuntimeError(
+            "aucune synthèse vocale : « say » sur macOS, sinon la voix de "
+            "l'assistant (« python3 tools/install.py »), et ffmpeg dans les deux cas"
+        )
 
     voice = voice or VOICE
-    dialogue = dialogue if dialogue is not None else DIALOGUE
+    lignes = dialogue if dialogue is not None else two_voice_dialogue()
+    if engine == "vits":
+        inconnues = sorted({name for name in voice.values() if name not in SID_VITS})
+        if inconnues:
+            raise RuntimeError(
+                f"la voix installée porte {len(SID_VITS)} timbres ; "
+                f"{', '.join(inconnues)} demande « say »"
+            )
     with tempfile.TemporaryDirectory() as folder:
         job = Path(folder)
         chunks = []
-        for index, (speaker_index, text) in enumerate(dialogue):
-            brut = job / f"{index:02d}.aiff"
-            subprocess.run(
-                ["say", "-v", voice[speaker_index], "-o", str(brut), text],
-                check=True, capture_output=True,
-            )
-            chunks.append(brut)
+        for index, (speaker_index, text) in enumerate(lignes):
+            chunks.append(_speak(engine, voice[speaker_index], text, job, index))
 
         silence = job / "silence.wav"
         subprocess.run(
@@ -134,7 +240,7 @@ def make(destination: Path, voice: dict | None = None, dialogue=None) -> Path:
         listing = job / "liste.txt"
         entrees = []
         for morceau in chunks:
-            converti = morceau.with_suffix(".wav")
+            converti = morceau.with_name(morceau.stem.removesuffix("-brut") + "-16k.wav")
             subprocess.run(
                 ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(morceau),
                  "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", str(converti)],
@@ -201,7 +307,7 @@ def main() -> int:
     utterances, voice, channels = (
         (len(DIALOGUE_PRESENTIEL), 3, "stéréo")
         if arguments.in_the_room
-        else (len(DIALOGUE), 2, "mono")
+        else (len(_DIALOGUE), 2, "mono")
     )
     print(f"{path} — {float(duration):.1f} s, {utterances} répliques, {voice} voix, {channels}")
     return 0
