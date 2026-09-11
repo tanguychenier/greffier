@@ -1,8 +1,7 @@
-"""Qui a le droit de chercher, et qui ne l'a jamais.
+"""Who is allowed to search, and who never is.
 
-La distinction est la garantie du compte rendu : un document qui se compose de
-ce qui a été dit ne doit pas pouvoir compléter une décision par ce qu'un moteur
-de recherche a rendu.
+The distinction is the guarantee of the minutes: a document made of what was
+said must not be able to complete a decision with what a search engine returned.
 """
 
 from greffier.adapters.configuration import Config
@@ -27,7 +26,7 @@ class TestTheWriterNeverHasATool:
         assert engine.tools == ()
 
     def test_even_when_searching_is_switched_on(self):
-        """Le réglage de la conversation ne doit pas fuir vers le compte rendu."""
+        """The conversation setting must not leak into the minutes."""
         engine = writer(config(recherche_web=True))
         assert isinstance(engine, ClaudeWriter)
         assert engine.tools == ()
@@ -40,7 +39,7 @@ class TestLAssistantPeutChercher:
         assert engine.tools == ClaudeWriter.SEARCH_TOOLS
 
     def test_it_can_be_switched_off_from_the_settings(self):
-        """Il y a des réunions où même le terme cherché ne doit pas sortir."""
+        """There are meetings where even the term searched for must not leave."""
         engine = assistant(config(recherche_web=False))
         assert isinstance(engine, ClaudeWriter)
         assert engine.tools == ()
@@ -55,13 +54,14 @@ class TestLAssistantPeutChercher:
     def test_it_is_forbidden_to_send_what_was_said_outside(self):
         engine = assistant(config())
         assert isinstance(engine, ClaudeWriter)
-        # Aplati : la consigne tient sur deux lignes dans le texte source.
+        # Flattened: the guidance spans two lines in the source text.
         aplati = " ".join(engine.consignes_propres.split())
         assert "jamais la phrase de la réunion" in aplati
 
     def test_it_must_give_the_address_of_what_it_finds(self):
-        """Une réponse sans sa source ne se vérifie pas, et en réunion on veut
-        pouvoir ouvrir le lien tout de suite."""
+        """An answer with no source cannot be checked, and in a meeting one wants to open
+        the link straight away.
+        """
         aplati = " ".join(assistant(config()).consignes_propres.split())
         assert "donne l'adresse" in aplati
         assert "URL complète" in aplati
