@@ -1,8 +1,8 @@
-"""Ce qu'un profil de langue promet, et ce que le profil neutre protège.
+"""What a language profile promises, and what the neutral one guards against.
 
-La détection des prénoms était française en dur, et appliquée à une autre langue
-elle n'échoue pas : elle invente. Mesuré sur les vraies fonctions avant ce
-changement, avec le profil français appliqué à de l'anglais ordinaire.
+Detecting first names was French in the code, and applied to another language
+it does not fail: it invents. Measured on the real functions before this
+change, with the French profile applied to ordinary English.
 """
 
 from greffier.domain import profiles
@@ -65,11 +65,7 @@ class TestTheNeutralProfileInventsNothing:
 
 
 class TestATestedProfileFindsItsFirstNames:
-    """La barrière qui empêche de déclarer éprouvé un profil jamais lu.
-
-    Les trois formes de mention doivent fonctionner : celui qui se nomme, celui
-    qu'on interpelle, celui à qui on renvoie.
-    """
+    """The barrier that stops a profile nobody ever read being declared tested."""
 
     def test_the_three_forms_of_a_mention(self):
         mentions = spot_mentions(
