@@ -29,8 +29,8 @@ from greffier.adapters.email import SmtpSender
 
 pytestmark = pytest.mark.integration
 
-#: Les deux conventions, chez deux fournisseurs. 465 chiffre dès l'ouverture,
-#: 587 négocie par STARTTLS ; se tromper échoue au premier octet.
+#: The two conventions, at two providers. 465 encrypts from the opening, 587
+#: negotiates through STARTTLS; getting it wrong fails on the first byte.
 SERVEURS = [
     ("smtp.gmail.com", 465),
     ("smtp.gmail.com", 587),
@@ -57,20 +57,19 @@ class TestSessionReelle:
         assert code == 250
 
     def test_the_session_is_encrypted(self, session: smtplib.SMTP):
-        """TLS implicite ou négocié, le résultat doit être le même : chiffré.
+        """Implicit TLS or negotiated, the outcome has to be the same: encrypted.
 
-        C'est la seule vérification qui distingue les deux conventions mal
-        choisies d'une session correcte : un `SMTP` nu sur 465, ou un
-        `SMTP_SSL` sur 587, n'arrive jamais jusqu'ici.
+        It is the only check that tells the two badly chosen conventions from a correct
+        session: a bare `SMTP` on 465, or an `SMTP_SSL` on 587, never gets this far.
         """
         assert isinstance(session.sock, ssl.SSLSocket)
         assert session.sock.version().startswith("TLS")
 
     def test_the_server_announces_its_capabilities_after_encryption(self, session: smtplib.SMTP):
-        """`AUTH` n'est annoncé qu'une fois la session chiffrée.
+        """`AUTH` is only announced once the session is encrypted.
 
-        Un serveur qui l'annonce prouve deux choses d'un coup : il a vu un
-        client chiffré, et il est prêt à recevoir un mot de passe — ce que le
-        produit fera quand il en aura un.
+        A server announcing it proves two things at once: it saw an encrypted client,
+        and it is ready to receive a password, which the product will send when it has
+        one.
         """
         assert session.has_extn("auth")
