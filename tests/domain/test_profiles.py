@@ -29,17 +29,17 @@ ANGLAIS = (
 )
 
 
-class TestLeRegistre:
-    def test_le_francais_est_servi(self):
+class TestTheRegisterOfProfiles:
+    def test_french_is_served(self):
         assert profiles.pour("fr") is FRENCH
 
-    def test_la_casse_du_code_ne_compte_pas(self):
+    def test_the_case_of_the_code_does_not_count(self):
         assert profiles.pour("FR") is FRENCH
 
-    def test_une_langue_sans_profil_recoit_le_neutre(self):
+    def test_a_language_with_no_profile_gets_the_neutral_one(self):
         assert profiles.pour("en") is NEUTRAL
 
-    def test_un_code_absent_ne_leve_jamais(self):
+    def test_a_missing_code_never_raises(self):
         """Une réunion déjà enregistrée ne doit pas se perdre sur un code
         mal saisi : mieux vaut nommer les voix à la main."""
         assert profiles.pour(None) is NEUTRAL
@@ -47,31 +47,31 @@ class TestLeRegistre:
         assert profiles.pour("  zz  ") is NEUTRAL
 
 
-class TestLeProfilNeutreNInventeRien:
-    def test_aucun_participant_n_est_fabrique_en_anglais(self):
+class TestTheNeutralProfileInventsNothing:
+    def test_no_participant_is_manufactured_in_english(self):
         """Avec le profil français, ces phrases rendaient « Budget »,
         « Anyway » et « Marketing » — trois participants qui n'existent pas."""
         assert spot_mentions(say(*ANGLAIS), NEUTRAL) == []
 
-    def test_le_francais_les_fabriquait_bien(self):
+    def test_french_did_manufacture_them(self):
         """La preuve que couper la détection est une correction, et non un
         renoncement : le défaut est reproduit ici, à demeure."""
         inventes = {m.name for m in spot_mentions(say(*ANGLAIS), FRENCH)}
         assert {"Budget", "Anyway", "Marketing"} <= inventes
 
-    def test_le_neutre_ne_se_declare_pas_eprouve(self):
+    def test_the_neutral_one_does_not_claim_to_be_tested(self):
         assert not NEUTRAL.eprouve
         assert FRENCH.eprouve
 
 
-class TestUnProfilEprouveRetrouveSesPrenoms:
+class TestATestedProfileFindsItsFirstNames:
     """La barrière qui empêche de déclarer éprouvé un profil jamais lu.
 
     Les trois formes de mention doivent fonctionner : celui qui se nomme, celui
     qu'on interpelle, celui à qui on renvoie.
     """
 
-    def test_les_trois_formes_de_mention(self):
+    def test_the_three_forms_of_a_mention(self):
         mentions = spot_mentions(
             say(
                 "Bonjour, moi c'est Jacques, on commence par la recette.",
@@ -82,7 +82,7 @@ class TestUnProfilEprouveRetrouveSesPrenoms:
         )
         assert {"Jacques", "Sandy"} <= {m.name for m in mentions}
 
-    def test_tout_profil_eprouve_a_de_quoi_detecter(self):
+    def test_every_tested_profile_has_what_it_takes(self):
         for profil in profiles.REGISTRE.values():
             if not profil.eprouve:
                 continue
@@ -91,10 +91,10 @@ class TestUnProfilEprouveRetrouveSesPrenoms:
 
 
 class TestCuttingIntoTurns:
-    def test_le_francais_compte_les_mots_par_les_espaces(self):
+    def test_french_counts_words_by_the_spaces(self):
         assert FRENCH.splitting.count_them("on décale la recette à jeudi") == 6
 
-    def test_une_langue_sans_espaces_compte_ses_caracteres(self):
+    def test_a_language_without_spaces_counts_characters(self):
         """Compter les espaces rendait un ou deux sur une transcription
         chinoise valable, qui passait alors pour vide et interrompait la
         chaîne avant la rédaction."""

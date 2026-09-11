@@ -161,7 +161,7 @@ class TestSeparerDeuxVoixApresLaReunion:
         detail.split("v1")
         assert detail.names == {"v1": "Tanguy", "v2": "Pascal"}
 
-    def test_rien_a_separer_ne_casse_rien(self):
+    def test_nothing_to_split_breaks_nothing(self):
         detail = meeting("2026-09-10_11h00_reunion")
         assert detail.split("1") is None
         assert not detail.can_split("1")
