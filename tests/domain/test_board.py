@@ -1,4 +1,4 @@
-"""La carte d'un sujet : on ajoute, on ne détruit pas."""
+"""The board of a subject: things are added, nothing is destroyed."""
 
 from greffier.domain.board import (
     Board,
@@ -24,11 +24,11 @@ class TestRecognisingTheSamePoint:
         assert key("monter la recette") != key("monter la production")
 
     def test_a_label_made_of_empty_words_keeps_its_identity(self):
-        """« A » et « D » sont deux mots vides français.
+        """"A" and "D" are two French empty words.
 
-        Avec une clef vide, deux branches distinctes n'en faisaient plus qu'une
-        et la seconde écrasait la première. Fusionner à tort perd de
-        l'information, ce qui est pire que d'en dupliquer.
+        With an empty key, two distinct branches became one and the second overwrote
+        the first. Joining wrongly loses information, which is worse than duplicating
+        it.
         """
         assert key("A") != key("D")
         assert key("A") != ""
@@ -91,7 +91,7 @@ class TestJoiningAContribution:
 
 
 class TestStandings:
-    """Ce qui est en discussion ne doit pas passer pour une décision."""
+    """What is under discussion must not pass for a decision."""
 
     def test_the_default_is_under_discussion(self):
         board = Board("Oasis")
@@ -113,10 +113,10 @@ class TestStandings:
         assert noeud.state is Standing.AGREED
 
     def test_a_problem_cannot_be_agreed(self):
-        """« Acté » se lirait « le groupe a décidé ce problème ».
+        """"Acté" would read as "the group decided this problem".
 
-        Mesuré sur une extraction réelle : sept problèmes sur douze revenaient
-        marqués « acté », le rédacteur ayant lu « acté » comme « établi ».
+        Measured on a real extraction: seven problems out of twelve came back marked
+        "acté", the writer having read "acté" as "established".
         """
         board = Board("Oasis")
         join(board, [Contribution("Le PDF ne se régénère pas",
@@ -191,9 +191,9 @@ class TestCountingTheNodes:
 
 
 class TestTheSamePointSaidTwice:
-    """Le rédacteur reformule d'une extraction à l'autre, et chaque
-    reformulation ouvrait une branche de plus : un quart des points revenaient
-    en doublon, mesuré sur une carte réelle.
+    """The writer rewords from one extraction to the next, and every rewording opened
+    one more branch: a quarter of the points came back as duplicates, measured on a
+    real board.
     """
 
     def test_a_real_rewording_is_caught(self):
@@ -230,9 +230,9 @@ class TestTheSamePointSaidTwice:
         )
 
     def test_a_rewording_too_far_off_stays_a_duplicate(self):
-        """Limite assumée : la rattraper demanderait un seuil qui fusionnerait
-        des points distincts. Le rédacteur reçoit les libellés existants, le
-        rapprochement n'est qu'un filet."""
+        """An owned limit: catching it would take a threshold that joins distinct points.
+        The writer receives the existing labels; the matching is only a net.
+        """
         from greffier.domain.board import same_point
 
         assert not same_point(
@@ -248,7 +248,7 @@ class TestTheSamePointSaidTwice:
         assert board.count == 2
 
     def test_a_short_word_brings_nothing_closer(self):
-        """« prod » et « prof » sont à un écart et n'ont aucun rapport."""
+        """"prod" and "prof" are one apart and have nothing to do with each other."""
         from greffier.domain.board import same_point
 
         assert not same_point("prod", "prof")

@@ -50,9 +50,10 @@ class TestWhichModelWritesTheMinutes:
     """Which model writes them, and why it is not the most powerful one."""
 
     def test_claude_takes_the_second_of_the_range_by_default(self):
-        """Rédiger depuis une transcription déjà attribuée est de la synthèse :
-        le haut de gamme rend le même document en entamant un quota bien plus
-        vite. Le choix reste offert, dans les deux sens."""
+        """Writing up from an already attributed transcription is summarising: the top of
+        the range returns the same document while eating a quota much faster. The
+        choice stays open, both ways.
+        """
         assert Config().minutes.effective_model == "opus"
 
     def test_an_explicit_setting_wins(self):
@@ -67,7 +68,7 @@ class TestWhichModelWritesTheMinutes:
         assert Config(minutes={"moteur": "aucun"}).minutes.effective_model == ""
 
     def test_the_model_can_be_set_from_the_environment(self):
-        """Pour forcer le temps d'une commande, sans toucher au fichier."""
+        """To force it for one command, without touching the file."""
         import os
 
         os.environ["GREFFIER_MINUTES__MODEL"] = "sonnet"
@@ -81,11 +82,11 @@ class TestTheLanguage:
     """The language code, and what its absence means."""
 
     def test_french_by_default(self):
-        """L'annoncer vaut mieux que la faire deviner quand on la connaît."""
+        """Announcing it beats making it guess when it is known."""
         assert Config().transcription.language == "fr"
 
     def test_empty_means_detect_it(self):
-        """Même convention que le micro vide : on laisse la machine décider."""
+        """The same convention as an empty mic: the machine is left to decide."""
         assert Config(transcription={"langue": ""}).transcription.language == ""
 
 
