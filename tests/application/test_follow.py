@@ -463,7 +463,7 @@ class TestSeparationEntreLesDeuxProcessus:
         assert len({t.voice for t in repris.turns}) == 2
         assert repris.split_apart, "la paire doit rester tenue à part"
 
-    def test_chaque_empreinte_revient_a_sa_voix(self, tmp_path: Path) -> None:
+    def test_every_voiceprint_goes_back_to_its_voice(self, tmp_path: Path) -> None:
         instance = self._deux_voix_reunies(tmp_path)
         gardee = instance.thread.turns[0].voice
         request_a_split(instance.requests, gardee)
