@@ -1017,10 +1017,35 @@ class TestAVoiceEarnsItsNumber:
         assert thread.label(gros) == "Voix 1"
 
     def test_the_first_voice_of_a_meeting_is_a_person_at_once(self):
-        """It holds all the speech there is: no reason to hide it."""
+        """Nobody else has spoken, so showing it costs no row."""
         thread = LiveThread()
         premiere = self._parle(thread, ECARTEES[0], 0.0, 3.0)
         assert thread.label(premiere) == "Voix 1"
+
+    def test_the_second_voice_waits_like_everyone(self):
+        """What the share of the meeting broke: three seconds into a meeting
+        two seconds is a large share, and every fragment took a row."""
+        thread = LiveThread()
+        self._parle(thread, ECARTEES[0], 0.0, 3.0)
+        seconde = self._parle(thread, ECARTEES[1], 3.0, 6.0)
+        assert thread.label(seconde) == UNDETERMINED_NAME
+
+    def test_a_fragment_late_in_the_meeting_takes_no_row(self):
+        """Measured this morning: v11 held 2.6 seconds and showed "Voix 10"."""
+        thread = LiveThread()
+        self._parle(thread, ECARTEES[0], 0.0, 1300.0)
+        miette = self._parle(thread, ECARTEES[1], 1314.0, 1316.6)
+        assert thread.label(miette) == UNDETERMINED_NAME
+
+    def test_being_alone_never_hands_out_a_second_number(self):
+        """The whole difference with the share it replaces."""
+        thread = LiveThread()
+        seule = self._parle(thread, ECARTEES[0], 0.0, 2.0)
+        autres = [self._parle(thread, ECARTEES[1], 2.0, 4.0),
+                  self._parle(thread, ECARTEES[2], 4.0, 6.0)]
+        montrees = [v for v in (seule, *autres)
+                    if thread.label(v) != UNDETERMINED_NAME]
+        assert montrees == [seule]
 
     def test_a_latecomer_who_speaks_becomes_a_person(self):
         """Fifteen seconds is enough, whatever the others said before."""
