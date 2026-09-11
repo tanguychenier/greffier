@@ -79,3 +79,58 @@ class TestMemoireApresRedemarrage:
 
     def test_with_no_file_nothing_has_been_asked(self, tmp_path):
         assert keys_already_placed(questions_file(tmp_path, "jamais")) == set()
+
+
+class TestTheQueueSurvivesARestart:
+    """The defect: the window kept in memory what it had already shown, the
+    state file went on naming a meeting long finished, and every launch wrote
+    the unanswered questions into the conversation again.
+    """
+
+    def test_what_was_written_is_what_says_not_to_write_again(self, tmp_path):
+        from greffier.adapters import conversations_file, questions_file
+        from greffier.domain.questions import Question, Reason, already_noted, note
+
+        queue = tmp_path / "questions" / "reunion.jsonl"
+        for number, heard, expected in ((1, "Spring", "sprint"),
+                                        (2, "merde", "merge")):
+            questions_file.publish(queue, Question(
+                number=number,
+                text=f"J'ai entendu « {heard} ». Fallait-il comprendre "
+                     f"« {expected} » ?",
+                motif=Reason.NEAR_TERM, heard=heard, expected=expected,
+            ))
+        awaiting, _ = questions_file.read(queue)
+
+        conversation = conversations_file.file_for(tmp_path / "conv", "reunion")
+        for en_attente in awaiting:
+            conversations_file.add(conversation, "note",
+                                   note(en_attente.question.text))
+
+        relu = conversations_file.read(conversation, derniers=0)
+        assert already_noted(
+            [en_attente.question for en_attente in awaiting],
+            [turn.text for turn in relu],
+        ) == {1, 2}
+
+    def test_a_question_asked_after_the_last_launch_is_still_shown(self, tmp_path):
+        from greffier.adapters import conversations_file, questions_file
+        from greffier.domain.questions import Question, Reason, already_noted, note
+
+        queue = tmp_path / "questions" / "reunion.jsonl"
+        premiere = Question(number=1, text="J'ai entendu « Spring ».",
+                            motif=Reason.NEAR_TERM, heard="Spring",
+                            expected="sprint")
+        questions_file.publish(queue, premiere)
+        conversation = conversations_file.file_for(tmp_path / "conv", "reunion")
+        conversations_file.add(conversation, "note", note(premiere.text))
+
+        questions_file.publish(queue, Question(
+            number=2, text="J'ai entendu « merde ».", motif=Reason.NEAR_TERM,
+            heard="merde", expected="merge"))
+        awaiting, _ = questions_file.read(queue)
+        relu = conversations_file.read(conversation, derniers=0)
+        assert already_noted(
+            [en_attente.question for en_attente in awaiting],
+            [turn.text for turn in relu],
+        ) == {1}
