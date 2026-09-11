@@ -1,9 +1,9 @@
-"""La banque de voix, d'une réunion à l'autre — le cœur du besoin.
+"""The voice bank, from one meeting to the next: the heart of the need.
 
-Deux réunions synthétisées avec les mêmes voix. Des prénoms sont prononcés dans
-la première, aucun dans la seconde. Si la seconde nomme quand même les
-participants, c'est nécessairement par reconnaissance vocale : c'est toute la
-promesse de l'outil, et elle est vérifiée ici de bout en bout.
+Two meetings synthesised with the same voices. First names are said in the
+first, none in the second. If the second names the participants anyway, it can
+only be by recognising their voices: that is the whole promise of the tool, and
+it is checked here end to end.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ pytestmark = pytest.mark.integration
 
 @pytest.fixture(scope="module")
 def atelier(tmp_path_factory):
-    """Un poste vierge : banque vide, aucune réunion connue."""
+    """A clean machine: an empty bank, no meeting known."""
     if platform.system() != "Darwin":
         pytest.skip("la synthèse vocale « say » n'existe que sur macOS")
     if not shutil.which("whisper-cli"):
@@ -70,12 +70,12 @@ class TestReconnaissanceEntreReunions:
         bank = FileVoiceBank(config.paths.voice_bank)
         store = FileStore(config.paths.data / "reunions")
 
-        # 1. La première réunion : les prénoms viennent de ce qui est dit.
+        # 1. The first meeting: the first names come from what is said.
         outcome = process(config, premiere)
         assert set(outcome.names.values()) == {"Jacques", "Sandy"}
 
-        # 2. L'utilisateur valide — c'est lui qui décide, rien n'entre en banque
-        #    sans ce geste.
+        # 2. The person confirms: they decide, and nothing enters the bank
+        #    without that gesture.
         from greffier.adapters.voiceprints_titanet import TitaNetExtractor
 
         namer = Naming(
@@ -89,16 +89,16 @@ class TestReconnaissanceEntreReunions:
             namer.name_voice(premiere.stem, voice, name)
         assert {p.name for p in bank.people()} == {"Jacques", "Sandy"}
 
-        # 3. La seconde réunion ne prononce aucun prénom.
+        # 3. The second meeting says no first name at all.
         second_resultat = process(config, seconde)
         transcription = " ".join(r.text for r in second_resultat.utterances)
         assert "Jacques" not in transcription and "Sandy" not in transcription
 
-        # 4. Et pourtant les deux sont nommés : cela ne peut venir que de la voix.
+        # 4. And yet both are named: that can only come from the voice.
         assert set(second_resultat.names.values()) == {"Jacques", "Sandy"}
 
     def test_the_bank_does_not_name_just_anyone(self, atelier, tmp_path):
-        """Une banque contenant une voix étrangère ne doit rien reconnaître."""
+        """A bank holding a stranger's voice must recognise nothing."""
         config, _, seconde = atelier
         from greffier.domain.voiceprints import normalise
         from greffier.wiring import wire_up
@@ -119,20 +119,20 @@ class TestReconnaissanceEntreReunions:
         candidates = voices_to_name(meeting)
         assert len(candidates) == 2
         assert all(c.extrait is not None and c.extrait.duration >= 3 for c in candidates)
-        # De la plus bavarde à la moins : on nomme d'abord qui compte le plus.
+        # From the most talkative down: the ones that matter most come first.
         assert candidates[0].duration >= candidates[1].duration
 
 
 @pytest.mark.integration
 class TestSplittingAfterTheMeetingEndToEnd:
-    """Le geste complet : réunir, écrire, relire, séparer, réécrire.
+    """The whole gesture: join, write, read back, split, write again.
 
-    Ce qui manquait : le fil du direct savait revenir en arrière, la chaîne
-    d'après réunion non. Deux personnes réunies à tort le restaient jusqu'au
-    compte rendu, et le compte rendu annonçait un participant de moins.
+    What was missing: the live thread knew how to go back, the after-meeting chain
+    did not. Two people joined by mistake stayed that way to the minutes, and the
+    minutes announced one participant too few.
 
-    Ce test passe par le vrai dépôt de fichiers, pas par une doublure : c'est
-    la persistance qui manquait, et c'est elle qu'il faut éprouver.
+    This test goes through the real file store, not a double: persistence was what
+    was missing, and persistence is what has to be covered.
     """
 
     def _reunion(self, tmp_path):
@@ -164,12 +164,12 @@ class TestSplittingAfterTheMeetingEndToEnd:
         detail.join_into("v2", "v1")
         magasin.record(detail)
 
-        # Ce que le compte rendu aurait annoncé : une seule personne.
+        # What the minutes would have announced: one person only.
         relue = magasin.read("2026-09-10_10h10_reunion")
         assert list(relue.names.values()) == ["Tanguy"]
         assert {t.voice for t in relue.turns} == {"v1"}
 
-        # Le geste qui manquait, et il survit à l'écriture.
+        # The gesture that was missing, and it survives being written.
         assert relue.can_split("v1")
         relue.split("v1")
         magasin.record(relue)
@@ -180,8 +180,8 @@ class TestSplittingAfterTheMeetingEndToEnd:
         assert {u.voice for u in finale.utterances} == {"v1", "v2"}
         assert not finale.can_split("v1"), "défaite une fois, pas deux"
 
-    def test_le_temps_de_parole_revient_a_chacun(self, tmp_path):
-        """C'est ce que le compte rendu annonce : qui a parlé combien."""
+    def test_the_speaking_time_goes_back_to_each_of_them(self, tmp_path):
+        """It is what the minutes announce: who spoke for how long."""
         detail = self._reunion(tmp_path)
         detail.join_into("v2", "v1")
         assert detail.speaking_time()["v1"] == 80.0
