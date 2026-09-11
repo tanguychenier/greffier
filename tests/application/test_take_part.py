@@ -1,6 +1,6 @@
 """How the assistant behaves in a meeting, with no sound and no model."""
 
-from greffier.application.take_part import AssistantSettings, Remark
+from greffier.application.take_part import NOTHING, AssistantSettings, Remark
 from greffier.domain.models import Span, Utterance
 from greffier.domain.participation import Because, Manners, Opening, own_words
 
@@ -457,7 +457,7 @@ class TestItMaySearch:
     def test_the_spoken_guidance_allows_searching(self):
         from greffier.application.take_part import CONSIGNES_ORALES
 
-        consigne = CONSIGNES_ORALES.format(name="Lucie")
+        consigne = CONSIGNES_ORALES.format(name="Lucie", rien=NOTHING)
         assert "chercher en ligne" in consigne
         assert "de ton propre chef" in consigne
 
@@ -465,7 +465,7 @@ class TestItMaySearch:
         """A URL cannot be heard; a source with no name cannot be checked."""
         from greffier.application.take_part import CONSIGNES_ORALES
 
-        consigne = CONSIGNES_ORALES.format(name="Lucie")
+        consigne = CONSIGNES_ORALES.format(name="Lucie", rien=NOTHING)
         assert "nomme la source à voix haute" in consigne
         assert "jamais son" in consigne and "adresse" in consigne
 
@@ -605,3 +605,62 @@ class TestSheKnowsTheSetting:
         elle.guidance()
         elle.guidance()
         assert len(appels) == 2
+
+
+class TestNothingToAnswerIsSilence:
+    """It announced out loud that it had nothing to say. Nine times.
+
+    Read back from the conversation of a real meeting: "Là c'était un échange
+    entre vous, pas une question pour moi, je vous laisse continuer", and eight
+    more of the same shape. Its name had been picked up in a sentence that was
+    not addressed to it, and the guidance told it to say so briefly.
+
+    Saying so is one more intervention: the room hears it, it cuts the meeting,
+    and it teaches everybody that the tool is listening in order to judge.
+    """
+
+    def _elle(self, reponse):
+        class Brain:
+            def __init__(self):
+                self.consignes_propres = ""
+
+            def write_up(self, text):
+                return reponse
+
+        return AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(),
+                                 cerveau=Brain(), manners=Manners(active=True))
+
+    def _appel(self):
+        return Opening(because=Because.APPELE, remark="Lucie, une idée ?", born_at=1.0)
+
+    def test_the_word_for_nothing_is_not_pronounced(self):
+        elle = self._elle(NOTHING)
+        assert elle.answer(self._appel(), now=2.0).remark == ""
+        assert elle.voice.remark == []
+
+    def test_a_sentence_that_starts_with_it_is_not_pronounced_either(self):
+        """A model that explains itself says "RIEN, ce n'était pas pour moi"."""
+        elle = self._elle(f"{NOTHING}, ce n'était pas une question pour moi")
+        assert elle.answer(self._appel(), now=2.0).remark == ""
+
+    def test_a_real_answer_still_goes_out(self):
+        elle = self._elle("Le RFC 5545 le permet, avec un TRIGGER négatif.")
+        assert elle.voice is not None
+        assert elle.answer(self._appel(), now=2.0).remark
+        assert elle.voice.remark
+
+    def test_the_guidance_names_the_word_that_buys_silence(self):
+        from greffier.application.take_part import CONSIGNES_ORALES
+
+        consigne = CONSIGNES_ORALES.format(name="Lucie", rien=NOTHING)
+        assert NOTHING in consigne
+        assert "pas une question pour moi" in consigne, (
+            "la consigne nomme la phrase à ne plus dire"
+        )
+
+    def test_keeping_quiet_does_not_cost_the_rest(self):
+        """It said nothing, so it has not spoken: the rest guards a remark that
+        was made, not one that was withheld."""
+        elle = self._elle(NOTHING)
+        elle.answer(self._appel(), now=2.0)
+        assert elle.manners.spoke_at is None

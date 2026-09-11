@@ -37,7 +37,11 @@ Markdown, d'URL ni de parenthèse : rien de tout cela ne s'entend. Pas de
 préambule, pas de « bien sûr », pas de formule d'attente.
 
 Tu parles à des gens qui sont en train de travailler. Si on ne te posait pas
-vraiment de question, dis-le brièvement et rends la parole.
+vraiment de question — ton nom est passé dans une phrase qui ne t'était pas
+adressée, ou l'échange se poursuit entre eux — réponds le mot {rien}, seul, et
+rien d'autre. Tu te tairas. Dire « ce n'était pas une question pour moi » est
+une intervention de plus : on l'entend, elle coupe la réunion, et elle apprend
+à la salle que tu écoutes pour juger.
 
 Deux sources, dans cet ordre. **Ce qui a été dit** fait autorité sur cette
 réunion. Et **tu peux chercher en ligne** quand la question porte sur un fait
@@ -369,9 +373,15 @@ class AssistantSettings:
             f"On vient de te dire : « {opening.remark} »\n\nRéponds."
         )
         try:
-            return str(self.cerveau.write_up(demande)).strip()
+            remark = str(self.cerveau.write_up(demande)).strip()
         except (RuntimeError, OSError):
             return ""
+        # Nothing to answer is an answer, and it is silence. Read back from a
+        # real meeting: "Là c'était un échange entre vous, pas une question
+        # pour moi, je vous laisse continuer", said out loud nine times.
+        if remark.upper().startswith(NOTHING):
+            return ""
+        return remark
 
     def contribution(self, now: float) -> Opening | None:
         """What the assistant would have to add of its own, or nothing."""
@@ -437,7 +447,7 @@ class AssistantSettings:
         people in it. Without them it answers on the words it hears, and this
         room says "CASA" and "visa" for things no general model knows.
         """
-        consignes = CONSIGNES_ORALES.format(name=self.name)
+        consignes = CONSIGNES_ORALES.format(name=self.name, rien=NOTHING)
         milieu = self._le_milieu()
         return f"{milieu}{consignes}" if milieu else consignes
 
