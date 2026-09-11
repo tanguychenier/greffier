@@ -144,7 +144,7 @@ class TestChaineEnPresentiel:
     def test_aucune_phrase_a_cheval_n_est_attribuee(self, outcome):
         """Une phrase que deux voix se partagent ne doit désigner personne.
 
-        C'est la règle de `domaine/attribution.py`, éprouvée ici sur la vraie
+        C'est la règle de `domain/attribution.py`, éprouvée ici sur la vraie
         chaîne : rien ne garantit que la découpe de whisper tombe sur un
         changement de locuteur, et le présentiel n'a pas le canal pour rattraper.
         """
