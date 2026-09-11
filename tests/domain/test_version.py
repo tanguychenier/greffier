@@ -3,35 +3,35 @@
 from greffier.domain.version import is_newer, read
 
 
-class TestLecture:
-    def test_trois_nombres(self):
+class TestReadingAVersion:
+    def test_three_numbers(self):
         assert read("1.2.3") == (1, 2, 3)
 
-    def test_le_v_des_etiquettes_est_accepte(self):
+    def test_the_v_of_a_tag_is_accepted(self):
         assert read("v0.2.0") == (0, 2, 0)
 
-    def test_deux_nombres_suffisent(self):
+    def test_two_numbers_are_enough(self):
         assert read("0.2") == (0, 2, 0)
 
-    def test_un_suffixe_est_ignore(self):
+    def test_a_suffix_is_ignored(self):
         assert read("1.2.3-essai") == (1, 2, 3)
 
-    def test_ce_qui_n_est_pas_une_version_est_refuse(self):
+    def test_what_is_not_a_version_is_refused(self):
         assert read("dernière") is None
         assert read("") is None
 
 
-class TestComparaison:
-    def test_une_version_superieure_est_detectee(self):
+class TestComparingVersions:
+    def test_a_higher_version_is_noticed(self):
         assert is_newer("0.3.0", "0.2.0") is True
 
-    def test_la_meme_version_ne_propose_rien(self):
+    def test_the_same_version_offers_nothing(self):
         assert is_newer("0.2.0", "0.2.0") is False
 
-    def test_une_version_anterieure_ne_propose_rien(self):
+    def test_an_earlier_version_offers_nothing(self):
         assert is_newer("0.1.0", "0.2.0") is False
 
-    def test_dix_vient_apres_neuf(self):
+    def test_ten_comes_after_nine(self):
         """Une comparaison de chaînes affirme exactement l'inverse.
 
         L'erreur ne se voit qu'au dixième incrément, soit des mois après la
@@ -40,9 +40,9 @@ class TestComparaison:
         assert is_newer("0.10.0", "0.9.0") is True
         assert is_newer("0.9.0", "0.10.0") is False
 
-    def test_le_correctif_compte(self):
+    def test_the_patch_number_counts(self):
         assert is_newer("0.2.1", "0.2.0") is True
 
-    def test_une_version_illisible_ne_propose_rien(self):
+    def test_an_unreadable_version_offers_nothing(self):
         assert is_newer("dernière", "0.2.0") is False
         assert is_newer("0.3.0", "inconnue") is False

@@ -18,36 +18,36 @@ from greffier.domain.store import (
 TOUS = frozenset({"ffmpeg", "pdftotext", "textutil"})
 
 
-class TestSons:
-    def test_un_enregistrement_devient_une_reunion(self):
+class TestSounds:
+    def test_a_recording_becomes_a_meeting(self):
         propose = offer(Path("reunion.wav"), 50_000_000, TOUS)
         assert propose.destination is Destination.MEETING
         assert propose.feasible
 
-    def test_les_formats_courants_sont_reconnus(self):
+    def test_the_common_formats_are_recognised(self):
         for suffixe in (".wav", ".m4a", ".mp3", ".opus", ".flac"):
             assert offer(
                 Path(f"x{suffixe}"), 50_000_000, TOUS
             ).destination is Destination.MEETING
 
-    def test_un_son_trop_court_n_est_pas_une_reunion(self):
+    def test_too_short_a_sound_is_not_a_meeting(self):
         """Une notification système, un bip, un extrait."""
         propose = offer(Path("bip.wav"), MINIMUM_SOUND_SIZE - 1, TOUS)
         assert propose.destination is Destination.UNKNOWN
         assert "trop court" in propose.because
 
-    def test_le_seuil_reste_bas(self):
+    def test_the_threshold_stays_low(self):
         """Une réunion d'une minute pèse déjà 2 Mo en WAV."""
         assert 50_000 <= MINIMUM_SOUND_SIZE <= 2_000_000
 
 
 class TestVideos:
-    def test_un_enregistrement_teams_est_reconnu(self):
+    def test_a_teams_recording_is_recognised(self):
         propose = offer(Path("Teams-2026-09-09.mp4"), 800_000_000, TOUS)
         assert propose.destination is Destination.VIDEO
         assert propose.feasible
 
-    def test_ce_qui_manque_est_dit_plutot_que_le_fichier_ecarte(self):
+    def test_what_is_missing_is_named_rather_than_the_file_dropped(self):
         """Dire « il faudrait ffmpeg » est plus utile que faire disparaître."""
         propose = offer(Path("x.mp4"), 10_000_000, frozenset())
         assert propose.destination is Destination.VIDEO
@@ -55,38 +55,38 @@ class TestVideos:
         assert "ffmpeg" in propose.blocked_by
 
 
-class TestDocuments:
-    def test_un_texte_se_lit_sans_rien_installer(self):
+class TestDocumentsToFile:
+    def test_a_text_reads_with_nothing_installed(self):
         propose = offer(Path("compte-rendu.md"), 4_000, frozenset())
         assert propose.destination is Destination.CONTEXT
         assert propose.feasible, "aucun outil n'est requis"
 
-    def test_un_pdf_demande_un_outil(self):
+    def test_a_pdf_asks_for_a_tool(self):
         assert offer(Path("x.pdf"), 2_000_000, frozenset()).blocked_by
         assert offer(Path("x.pdf"), 2_000_000, TOUS).feasible
 
-    def test_un_document_bureautique_demande_textutil(self):
+    def test_an_office_document_asks_for_textutil(self):
         propose = offer(Path("x.docx"), 40_000, frozenset())
         assert "textutil" in propose.blocked_by
 
 
-class TestCeQuOnNeSaitPasClasser:
-    def test_un_export_de_donnees_est_dit_inconnu(self):
+class TestWhatCannotBeFiled:
+    def test_a_data_export_is_called_unknown(self):
         propose = offer(Path("export.csv"), 10_000, TOUS)
         assert propose.destination is Destination.UNKNOWN
         assert ".csv" in propose.because
 
-    def test_un_fichier_sans_extension(self):
+    def test_a_file_with_no_extension(self):
         propose = offer(Path("machin"), 1_000, TOUS)
         assert propose.destination is Destination.UNKNOWN
         assert "sans extension" in propose.because
 
-    def test_l_inconnu_n_est_jamais_faisable(self):
+    def test_the_unknown_is_never_feasible(self):
         assert not offer(Path("x.zip"), 1_000, TOUS).feasible
 
 
-class TestResume:
-    def test_il_dit_ce_que_le_lot_va_devenir(self):
+class TestTheSummaryOfABatch:
+    def test_it_says_what_the_batch_will_become(self):
         propositions = [
             offer(Path("a.wav"), 50_000_000, TOUS),
             offer(Path("b.mp4"), 50_000_000, TOUS),
@@ -95,9 +95,9 @@ class TestResume:
         sentence = summarise(propositions)
         assert "réunion" in sentence and "vidéo" in sentence and "contexte" in sentence
 
-    def test_il_signale_ce_qui_attend_un_outil(self):
+    def test_it_flags_what_is_waiting_for_a_tool(self):
         sentence = summarise([offer(Path("a.mp4"), 50_000_000, frozenset())])
         assert "attente d'un outil" in sentence
 
-    def test_un_lot_vide_le_dit(self):
+    def test_an_empty_batch_says_so(self):
         assert summarise([]) == "Aucun fichier."

@@ -17,11 +17,11 @@ from greffier.domain.questions import (
 )
 
 
-class TestDistance:
-    def test_deux_mots_identiques_sont_a_zero(self):
+class TestTheEditDistance:
+    def test_two_identical_words_are_at_zero(self):
         assert distance("backlog", "backlog") == 0
 
-    def test_une_transposition_ne_compte_que_pour_un(self):
+    def test_a_transposition_counts_for_one(self):
         """Une transcription inverse des lettres : c'est le même mot.
 
         Sans cela « bakclog »/« backlog » valait 2, au même rang que
@@ -29,63 +29,63 @@ class TestDistance:
         """
         assert distance("bakclog", "backlog") == 1
 
-    def test_une_lettre_de_plus_compte_pour_un(self):
+    def test_one_letter_more_counts_for_one(self):
         assert distance("ouasis", "oasis") == 1
 
-    def test_deux_mots_etrangers_restent_loin(self):
+    def test_two_unrelated_words_stay_far_apart(self):
         assert distance("point", "sprint") == 2
 
 
-class TestTolerance:
-    def test_un_terme_court_n_accepte_qu_un_ecart(self):
+class TestHowMuchIsTolerated:
+    def test_a_short_term_accepts_one_difference(self):
         assert tolerance("sprint") == 1
 
-    def test_un_terme_long_en_accepte_deux(self):
+    def test_a_long_term_accepts_two(self):
         assert tolerance("infrastructure") == 2
 
 
-class TestCeQuiDeclencheUneQuestion:
-    def test_un_terme_deforme_est_releve(self):
+class TestWhatRaisesAQuestion:
+    def test_a_mangled_term_is_picked_up(self):
         questions = Questioner(known=("backlog",)).examine("Le bakclog est plein.")
         assert len(questions) == 1
         assert questions[0].expected == "backlog"
         assert questions[0].heard == "bakclog"
         assert questions[0].motif is Reason.NEAR_TERM
 
-    def test_un_terme_compose_est_reconnu_mot_a_mot(self):
+    def test_a_compound_term_is_read_word_by_word(self):
         """« mrege » ne rencontrait jamais « merge request » et passait inaperçu."""
         questions = Questioner(known=("merge request",)).examine("La mrege request.")
         assert questions and questions[0].expected == "merge"
 
-    def test_la_question_dit_ce_qu_elle_a_entendu(self):
+    def test_the_question_says_what_it_heard(self):
         """Une question sans sa raison ressemble à un caprice : on n'y répond pas."""
         question = Questioner(known=("Oasis",)).examine("Point sur Ouasis.")[0]
         assert "Ouasis" in question.text
         assert "Oasis" in question.text
 
 
-class TestCeQuiNeDoitRienDeclencher:
-    def test_un_mot_courant_ne_devient_pas_un_terme(self):
+class TestWhatMustRaiseNothing:
+    def test_an_everyday_word_does_not_become_a_term(self):
         """Mesuré : « point » et « sprint » sont à 2 et n'ont aucun rapport."""
         assert Questioner(known=("sprint",)).examine("On reprend le point.") == []
 
-    def test_le_terme_correctement_transcrit_ne_demande_rien(self):
+    def test_a_term_transcribed_right_asks_nothing(self):
         assert Questioner(known=("backlog",)).examine("Le backlog est trié.") == []
 
-    def test_un_mot_simplement_inconnu_n_est_pas_un_signal(self):
+    def test_a_merely_unknown_word_is_no_signal(self):
         """Une réunion en contient des dizaines, tous légitimes."""
         assert Questioner(known=("backlog",)).examine("On parle de Kubernetes.") == []
 
-    def test_les_mots_courts_sont_ecartes(self):
+    def test_short_words_are_dropped(self):
         """« CR » et « OR » sont à 1 et n'ont aucun rapport."""
         assert Questioner(known=("prod",)).examine("Le brod du truc.") == []
 
-    def test_la_meme_question_ne_se_pose_pas_deux_fois(self):
+    def test_the_same_question_is_not_asked_twice(self):
         questioner = Questioner(known=("backlog",))
         assert questioner.examine("Le bakclog est plein.")
         assert questioner.examine("Le bakclog encore.") == []
 
-    def test_l_outil_finit_par_se_taire(self):
+    def test_the_tool_ends_up_going_quiet(self):
         """Au-delà d'un certain nombre, il noierait qui travaille."""
         known = tuple(f"terme{n:03d}" for n in range(40))
         questioner = Questioner(known=known)
@@ -93,7 +93,7 @@ class TestCeQuiNeDoitRienDeclencher:
         assert len(questioner.examine(sentence)) <= QUESTIONS_MAXIMUM
 
 
-class TestUnPlurielNEstPasUneDeformation:
+class TestAPluralIsNotAMangling:
     """Trois questions sur quatre étaient de cette nature, et absurdes.
 
     Relevé sur une réunion réelle : « J'ai entendu "bailleurs". Fallait-il
@@ -112,7 +112,7 @@ class TestUnPlurielNEstPasUneDeformation:
         ("Backlog", "backlog"),
         ("sprints", "sprint"),
     ])
-    def test_aucune_question_sur_une_variante(self, heard, connu):
+    def test_no_question_about_a_variant(self, heard, connu):
         from greffier.domain.questions import Questioner
 
         assert Questioner(known=[connu]).examine(f"on parle du {heard}") == []
@@ -122,34 +122,34 @@ class TestUnPlurielNEstPasUneDeformation:
         ("bakclog", "backlog"),
         ("Coppernic", "Copernic"),
     ])
-    def test_une_vraie_deformation_est_toujours_relevee(self, heard, connu):
+    def test_a_real_mangling_is_still_picked_up(self, heard, connu):
         """La correction ne doit pas emporter ce pour quoi l'outil existe."""
         from greffier.domain.questions import Questioner
 
         asked = Questioner(known=[connu]).examine(f"on parle de {heard}")
         assert len(asked) == 1 and asked[0].expected == connu
 
-    def test_le_terme_exact_ne_declenche_rien(self):
+    def test_the_exact_term_raises_nothing(self):
         from greffier.domain.questions import Questioner
 
         assert Questioner(known=["Oasis"]).examine("on parle d'Oasis") == []
 
 
-class TestFormeCanonique:
+class TestTheCanonicalForm:
     """Elle ne sert qu'à se taire, jamais à identifier."""
 
-    def test_elle_retire_ce_qui_ne_change_pas_le_mot(self):
+    def test_it_strips_what_does_not_change_the_word(self):
         from greffier.domain.questions import canonical_form
 
         assert canonical_form("Pré-Prods") == canonical_form("pre prod")
 
-    def test_elle_ne_confond_pas_deux_termes_distincts(self):
+    def test_it_does_not_confuse_two_distinct_terms(self):
         from greffier.domain.questions import canonical_form
 
         assert canonical_form("Oasis") != canonical_form("Ouasis")
 
 
-class TestCeQuiRevientNEstPasUnAccident:
+class TestWhatRecursIsNoAccident:
     """Une déformation ne se répète pas à l'identique.
 
     Le modèle rend « s'enature » une fois, pas trois. Un mot français revient,
@@ -157,7 +157,7 @@ class TestCeQuiRevientNEstPasUnAccident:
     pas un — sans avoir besoin d'un dictionnaire que le domaine n'a pas.
     """
 
-    def test_un_mot_entendu_deux_fois_ne_se_demande_plus(self):
+    def test_a_word_heard_twice_is_no_longer_asked_about(self):
         from greffier.domain.questions import Questioner
 
         questioner = Questioner(known=["merge"])
@@ -167,7 +167,7 @@ class TestCeQuiRevientNEstPasUnAccident:
         # La première occurrence a pu poser sa question ; les suivantes, non.
         assert len(questioner.asked) <= 1
 
-    def test_un_terme_deja_bien_transcrit_fait_taire_ses_voisins(self):
+    def test_a_term_already_transcribed_right_silences_its_neighbours(self):
         """Si le modèle sait écrire « merge », il n'a pas déformé ici."""
         from greffier.domain.questions import Questioner
 
@@ -175,7 +175,7 @@ class TestCeQuiRevientNEstPasUnAccident:
         questioner.examine("j'ai fait le merge ce matin")
         assert questioner.examine("il reste de la marge") == []
 
-    def test_une_deformation_isolee_est_toujours_relevee(self):
+    def test_a_lone_mangling_is_still_picked_up(self):
         from greffier.domain.questions import Questioner
 
         asked = Questioner(known=["signature"]).examine(
@@ -183,7 +183,7 @@ class TestCeQuiRevientNEstPasUnAccident:
         assert len(asked) == 1 and asked[0].expected == "signature"
 
 
-class TestMotDerive:
+class TestADerivedWord:
     """Un terme précédé d'un préfixe est un autre mot, pas une faute."""
 
     @pytest.mark.parametrize("heard,connu", [
@@ -191,12 +191,12 @@ class TestMotDerive:
         ("reprod", "prod"),
         ("déploiement", "ploiement"),
     ])
-    def test_un_derive_ne_declenche_rien(self, heard, connu):
+    def test_a_derived_word_raises_nothing(self, heard, connu):
         from greffier.domain.questions import derived_word
 
         assert derived_word(heard, connu)
 
-    def test_l_elision_compte(self):
+    def test_the_elision_counts(self):
         """« ré- » devant une voyelle donne « rétablissement ».
 
         Sans elle, le cas qui a motivé la règle passait au travers.
@@ -210,12 +210,12 @@ class TestMotDerive:
         ("merde", "merge"),
         ("bakclog", "backlog"),
     ])
-    def test_une_deformation_n_est_pas_un_derive(self, heard, connu):
+    def test_a_mangling_is_not_a_derived_word(self, heard, connu):
         from greffier.domain.questions import derived_word
 
         assert not derived_word(heard, connu)
 
-    def test_un_faux_positif_ne_coute_qu_un_silence(self):
+    def test_a_false_positive_costs_only_a_silence(self):
         """« recette » passe pour « re » + « cette », et c'est assumé.
 
         La règle ne sert qu'à se taire : ne pas poser une question coûte moins

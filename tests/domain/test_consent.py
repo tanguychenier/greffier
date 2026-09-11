@@ -15,53 +15,53 @@ from greffier.domain.consent import (
 )
 
 
-class TestLecture:
-    def test_les_trois_etats_se_lisent(self):
+class TestReadingTheSetting:
+    def test_the_three_states_read_back(self):
         assert read("rien") is Disclosure.NOTHING
         assert read("annoncé") is Disclosure.ANNONCE
         assert read("accord") is Disclosure.AGREEMENT
 
-    def test_la_casse_et_les_espaces_ne_comptent_pas(self):
+    def test_case_and_spaces_do_not_count(self):
         assert read("  Accord ") is Disclosure.AGREEMENT
 
-    def test_une_valeur_inconnue_retombe_sur_le_plus_prudent(self):
+    def test_an_unknown_value_falls_back_to_the_most_careful(self):
         """Une faute d'orthographe ne doit pas faire écrire que les
         participants ont donné leur accord."""
         assert read("oui") is Disclosure.NOTHING
         assert read("") is Disclosure.NOTHING
 
 
-class TestMention:
-    def test_chaque_etat_a_sa_phrase(self):
+class TestWhatTheMinutesSay:
+    def test_every_state_has_its_sentence(self):
         for state in Disclosure:
             assert mention(state)
 
-    def test_rien_est_dit_tel_quel(self):
+    def test_nothing_said_is_said_plainly(self):
         """Prétendre le contraire serait pire que de l'avouer."""
         assert "n'a pas été tracée" in mention(Disclosure.NOTHING)
 
-    def test_annonce_ne_pretend_pas_a_un_accord(self):
+    def test_telling_them_does_not_claim_consent(self):
         sentence = mention(Disclosure.ANNONCE)
         assert "informés" in sentence
         assert "accord" not in sentence
 
-    def test_l_accord_est_distingue_de_l_annonce(self):
+    def test_consent_is_told_apart_from_a_notice(self):
         assert "accord" in mention(Disclosure.AGREEMENT)
 
-    def test_toutes_disent_que_la_reunion_est_enregistree(self):
+    def test_all_of_them_say_the_meeting_is_recorded(self):
         for sentence in MENTIONS.values():
             assert "enregistrée" in sentence
 
 
-class TestCeQuiResteAFaire:
-    def test_rien_de_trace_reste_a_faire(self):
+class TestWhatIsLeftToDo:
+    def test_nothing_recorded_leaves_it_to_do(self):
         assert to_draw(Disclosure.NOTHING) is True
 
-    def test_une_annonce_tracee_suffit(self):
+    def test_a_recorded_notice_is_enough(self):
         assert to_draw(Disclosure.ANNONCE) is False
         assert to_draw(Disclosure.AGREEMENT) is False
 
-    def test_le_rappel_dit_pourquoi_et_quoi_faire(self):
+    def test_the_reminder_says_why_and_what_to_do(self):
         aplati = " ".join(RAPPEL.split())
         assert "donnée biométrique" in aplati
         assert "prévenir les participants" in aplati

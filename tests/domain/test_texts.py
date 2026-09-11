@@ -10,20 +10,20 @@ de voix, cela fusionnait deux personnes.
 from greffier.domain.texts import short_voiceprint
 
 
-class TestEmpreinteCourte:
-    def test_deux_textes_differents_ne_se_confondent_pas(self):
+class TestAShortFingerprint:
+    def test_two_different_texts_are_not_confused(self):
         assert short_voiceprint("Дмитрий") != short_voiceprint("Ольга")
 
-    def test_le_meme_texte_rend_toujours_la_meme_chose(self):
+    def test_the_same_text_always_returns_the_same(self):
         """Une voix nommée aujourd'hui doit se retrouver demain : « hash »,
         lui, change d'une exécution à l'autre."""
         assert short_voiceprint("田中") == short_voiceprint("田中")
 
-    def test_elle_tient_dans_un_nom_de_fichier(self):
+    def test_it_fits_in_a_file_name(self):
         voiceprint = short_voiceprint("Δημήτρης")
         assert len(voiceprint) == 10
         assert voiceprint.isalnum()
 
-    def test_le_vide_a_lui_aussi_une_empreinte(self):
+    def test_the_empty_string_has_one_too(self):
         """Un titre entièrement fait de ponctuation n'est pas une erreur."""
         assert short_voiceprint("")

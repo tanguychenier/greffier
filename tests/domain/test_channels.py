@@ -24,8 +24,8 @@ def levels(motif: list[tuple[float, float, int]]) -> tuple[list[float], list[flo
     return mic, system
 
 
-class TestVoixFaibleMaisLocale:
-    def test_une_voix_12_dB_sous_les_autres_est_quand_meme_vue(self) -> None:
+class TestAQuietVoiceThatIsStillYours:
+    def test_a_voice_12_dB_under_the_others_is_still_seen(self) -> None:
         # Le cas du 25 août : le micro à -34 dB pendant que la boucle système
         # est à -22. Le moyennage la perdait ; le canal la retrouve.
         mic, system = levels([(-60, -22, 40), (-34, -50, 80), (-60, -22, 40)])
@@ -33,12 +33,12 @@ class TestVoixFaibleMaisLocale:
         assert len(turns) == 1
         assert turns[0].duration == 80 * PAS
 
-    def test_un_micro_plus_faible_que_la_boucle_n_est_pas_retenu(self) -> None:
+    def test_a_mic_quieter_than_the_loopback_is_not_kept(self) -> None:
         # Pendant que les autres parlent, le micro capte leur écho ou du bruit.
         mic, system = levels([(-34, -22, 200)])
         assert local_turns(mic, system, PAS) == []
 
-    def test_la_marge_protege_de_la_reinjection(self) -> None:
+    def test_the_margin_guards_against_the_speakers_coming_back(self) -> None:
         # Écoute par haut-parleurs : le micro réentend les enceintes, un peu
         # au-dessus de la boucle. Sans marge, tout passerait pour local.
         mic, system = levels([(-30, -33, 200)])
@@ -49,21 +49,21 @@ class TestVoixFaibleMaisLocale:
         assert local_turns(mic, system, PAS, souple) != []
 
 
-class TestBruitDeFond:
-    def test_le_silence_de_la_reunion_n_est_pas_de_la_parole(self) -> None:
+class TestBackgroundNoise:
+    def test_the_silence_of_a_meeting_is_not_speech(self) -> None:
         # Personne ne parle : la boucle est muette, et le bruit de la pièce
         # domine. Sans plancher, tous les silences deviendraient des tours.
         mic, system = levels([(-52, -75, 400)])
         assert local_turns(mic, system, PAS) == []
 
-    def test_le_plancher_se_regle(self) -> None:
+    def test_the_floor_is_a_setting(self) -> None:
         mic, system = levels([(-52, -75, 400)])
         bas = ChannelSettings(floor_db=-60.0)
         assert local_turns(mic, system, PAS, bas) != []
 
 
-class TestDecoupage:
-    def test_les_silences_d_une_phrase_ne_coupent_pas_le_tour(self) -> None:
+class TestCuttingIntoTurns:
+    def test_the_pauses_inside_a_sentence_do_not_cut_the_turn(self) -> None:
         # 0,5 s de silence au milieu d'une phrase : un seul tour, pas deux.
         mic, system = levels([
             (-30, -60, 40), (-60, -60, 20), (-30, -60, 40),
@@ -71,48 +71,48 @@ class TestDecoupage:
         turns = local_turns(mic, system, PAS)
         assert len(turns) == 1
 
-    def test_un_vrai_silence_separe_deux_tours(self) -> None:
+    def test_a_real_silence_separates_two_turns(self) -> None:
         # 1,5 s : la personne a fini, quelqu'un d'autre a parlé entre-temps.
         mic, system = levels([
             (-30, -60, 40), (-60, -60, 60), (-30, -60, 40),
         ])
         assert len(local_turns(mic, system, PAS)) == 2
 
-    def test_un_oui_isole_est_ecarte(self) -> None:
+    def test_a_lone_yes_is_dropped(self) -> None:
         # 0,5 s : un acquiescement. Les garder ferait des centaines de tours.
         mic, system = levels([(-60, -60, 40), (-30, -60, 20), (-60, -60, 40)])
         assert local_turns(mic, system, PAS) == []
 
-    def test_une_phrase_courte_est_gardee(self) -> None:
+    def test_a_short_sentence_is_kept(self) -> None:
         mic, system = levels([(-60, -60, 40), (-30, -60, 40), (-60, -60, 40)])
         assert len(local_turns(mic, system, PAS)) == 1
 
 
-class TestRobustesse:
-    def test_des_suites_de_longueurs_differentes_ne_plantent_pas(self) -> None:
+class TestWhatMustNotBreak:
+    def test_series_of_different_lengths_do_not_crash(self) -> None:
         mic = [-30.0] * 100
         system = [-60.0] * 40
         turns = local_turns(mic, system, PAS)
         assert turns and turns[0].end <= 40 * PAS
 
-    def test_une_entree_vide_ne_donne_aucun_tour(self) -> None:
+    def test_an_empty_input_gives_no_turn(self) -> None:
         assert local_turns([], [], PAS) == []
 
-    def test_un_pas_nul_est_refuse(self) -> None:
+    def test_a_step_of_zero_is_refused(self) -> None:
         import pytest
 
         with pytest.raises(ValueError, match="pas"):
             local_turns([-30.0], [-60.0], 0.0)
 
-    def test_une_parole_qui_court_jusqu_a_la_fin_est_close(self) -> None:
+    def test_speech_running_to_the_end_is_closed(self) -> None:
         mic, system = levels([(-60, -60, 40), (-30, -60, 60)])
         turns = local_turns(mic, system, PAS)
         assert len(turns) == 1
         assert turns[0].end == 100 * PAS
 
 
-class TestRetirerLesDoublons:
-    def test_un_tour_distant_couvert_par_un_tour_local_disparait(self) -> None:
+class TestDroppingTheDuplicates:
+    def test_a_remote_turn_covered_by_a_local_one_disappears(self) -> None:
         # La segmentation ne voit que la boucle système, mais un participant qui
         # parle en même temps laisse un tour à cheval. Compter les deux ferait
         # deux personnes là où une tient la parole.
@@ -120,46 +120,46 @@ class TestRetirerLesDoublons:
         local_spans = [Span(9.0, 15.0)]
         assert remove(distants, local_spans) == []
 
-    def test_un_tour_distant_independant_est_conserve(self) -> None:
+    def test_an_independent_remote_turn_is_kept(self) -> None:
         distants = [Span(30.0, 40.0)]
         local_spans = [Span(9.0, 15.0)]
         assert remove(distants, local_spans) == distants
 
-    def test_un_simple_chevauchement_partiel_ne_supprime_rien(self) -> None:
+    def test_a_mere_partial_overlap_removes_nothing(self) -> None:
         # Un quart recouvert : les deux ont parlé, on garde les deux.
         distants = [Span(10.0, 20.0)]
         local_spans = [Span(18.0, 22.0)]
         assert remove(distants, local_spans) == distants
 
-    def test_sans_tour_local_rien_ne_change(self) -> None:
+    def test_with_no_local_turn_nothing_changes(self) -> None:
         distants = [Span(1.0, 2.0), Span(3.0, 4.0)]
         assert remove(distants, []) == distants
 
 
-class TestQuiParle:
+class TestWhoIsSpeaking:
     """Ce que l'interface affiche pendant la réunion, sans consulter un modèle."""
 
-    def test_le_silence(self) -> None:
+    def test_silence(self) -> None:
         from greffier.domain.channels import WhoSpeaks, who_speaks
 
         assert who_speaks(-70, -70) is WhoSpeaks.NOBODY
 
-    def test_toi_seul(self) -> None:
+    def test_you_alone(self) -> None:
         from greffier.domain.channels import WhoSpeaks, who_speaks
 
         assert who_speaks(-30, -70) is WhoSpeaks.YOU
 
-    def test_les_autres_seuls(self) -> None:
+    def test_the_others_alone(self) -> None:
         from greffier.domain.channels import WhoSpeaks, who_speaks
 
         assert who_speaks(-70, -25) is WhoSpeaks.THE_OTHERS
 
-    def test_un_vrai_chevauchement(self) -> None:
+    def test_a_real_overlap(self) -> None:
         from greffier.domain.channels import WhoSpeaks, who_speaks
 
         assert who_speaks(-20, -35) is WhoSpeaks.BOTH
 
-    def test_le_micro_qui_reentend_les_enceintes_n_est_pas_toi(self) -> None:
+    def test_the_mic_hearing_the_speakers_again_is_not_you(self) -> None:
         # Écoute par haut-parleurs : les deux canaux sont actifs, mais le micro
         # ne domine pas. Afficher « les deux » ferait clignoter l'interface à
         # chaque phrase des autres.
@@ -168,7 +168,7 @@ class TestQuiParle:
         assert who_speaks(-28, -25) is WhoSpeaks.THE_OTHERS
 
 
-class TestPresentielContreVisio:
+class TestInTheRoomAgainstOnACall:
     """La provenance identifie quelqu'un en visio, personne autour d'une table.
 
     Un portable posé au milieu d'une table n'a rien dans sa boucle système :
@@ -177,12 +177,12 @@ class TestPresentielContreVisio:
     enregistrait. Mesuré : trois locuteurs ramenés à une étiquette « moi ».
     """
 
-    def test_en_visio_la_voix_locale_se_distingue(self) -> None:
+    def test_on_a_call_the_local_voice_stands_out(self) -> None:
         # Le micro domine la boucle : c'est la personne qui enregistre.
         mic, system = levels([(-30, -60, 60)])
         assert local_turns(mic, system, PAS)
 
-    def test_une_boucle_muette_n_est_pas_une_preuve_de_parole_locale(self) -> None:
+    def test_a_silent_loopback_proves_no_local_speech(self) -> None:
         # Autour d'une table, la boucle est à -240 dB en permanence : chaque
         # trame de parole « domine » donc la boucle, et tout deviendrait local.
         # C'est à l'adaptateur de ne pas appeler cette fonction dans ce cas,
@@ -192,7 +192,7 @@ class TestPresentielContreVisio:
         assert turns, "le calcul reste juste : c'est son usage qui doit être conditionné"
 
 
-class TestVisioOuTable:
+class TestACallOrATable:
     """Reconnaître une visio d'une réunion tenue autour d'une table.
 
     Premier essai raté, et il a coûté un compte rendu : tester si la boucle
@@ -205,21 +205,21 @@ class TestVisioOuTable:
     trames sur une visio d'une heure, 0,0 % sur une réunion de table.
     """
 
-    def test_une_visio_est_reconnue(self) -> None:
+    def test_a_video_call_is_recognised(self) -> None:
         from greffier.domain.channels import over_video
 
         # Les autres parlent la moitié du temps.
         mic, system = levels([(-50, -30, 100), (-30, -60, 100)])
         assert over_video(mic, system)
 
-    def test_une_reunion_de_table_n_est_pas_prise_pour_une_visio(self) -> None:
+    def test_a_meeting_round_a_table_is_not_taken_for_a_call(self) -> None:
         from greffier.domain.channels import over_video
 
         # Tout le monde passe par le micro, la boucle ne porte rien.
         mic, system = levels([(-35, -240, 200)])
         assert not over_video(mic, system)
 
-    def test_une_boucle_qui_bruite_sans_porter_de_parole_reste_du_presentiel(
+    def test_a_loopback_that_hisses_without_speech_stays_a_room(
         self,
     ) -> None:
         # Le cas qui a échoué : une boucle à -53 dB, jamais dominante.
@@ -228,20 +228,20 @@ class TestVisioOuTable:
         mic, system = levels([(-35, -53, 200)])
         assert not over_video(mic, system)
 
-    def test_une_seule_intervention_distante_ne_fait_pas_une_visio(self) -> None:
+    def test_one_remote_word_does_not_make_a_call(self) -> None:
         # Une notification, un son joué en séance : deux trames sur deux cents.
         from greffier.domain.channels import over_video
 
         mic, system = levels([(-35, -240, 198), (-50, -30, 2)])
         assert not over_video(mic, system)
 
-    def test_une_entree_vide_ne_conclut_pas_a_la_visio(self) -> None:
+    def test_an_empty_input_concludes_no_call(self) -> None:
         from greffier.domain.channels import over_video
 
         assert not over_video([], [])
 
 
-class TestSoustraire:
+class TestSubtractingSpans:
     """Ôter d'un passage ce que le canal attribue à la personne au micro.
 
     Le cas mesuré : la transcription coupe à la phrase, pas au changement de
@@ -249,24 +249,24 @@ class TestSoustraire:
     empreinte mêlée, et la même personne devenait deux participants.
     """
 
-    def test_une_portion_au_milieu_coupe_en_deux(self) -> None:
+    def test_a_slice_in_the_middle_cuts_in_two(self) -> None:
         remainders = subtract(Span(0, 10), [Span(4, 6)])
         assert remainders == [Span(0, 4), Span(6, 10)]
 
-    def test_une_portion_en_tete_raccourcit_le_debut(self) -> None:
+    def test_a_slice_at_the_head_shortens_the_start(self) -> None:
         assert subtract(Span(13.2, 14.7), [Span(9.5, 13.8)]) == [
             Span(13.8, 14.7)
         ]
 
-    def test_un_passage_entierement_couvert_ne_laisse_rien(self) -> None:
+    def test_a_fully_covered_passage_leaves_nothing(self) -> None:
         assert subtract(Span(2, 4), [Span(0, 10)]) == []
 
-    def test_un_passage_disjoint_reste_entier(self) -> None:
+    def test_a_disjoint_passage_stays_whole(self) -> None:
         assert subtract(Span(0, 3), [Span(5, 8)]) == [Span(0, 3)]
 
-    def test_plusieurs_portions_se_soustraient_l_une_apres_l_autre(self) -> None:
+    def test_several_slices_subtract_one_after_another(self) -> None:
         remainders = subtract(Span(0, 12), [Span(2, 4), Span(7, 9)])
         assert remainders == [Span(0, 2), Span(4, 7), Span(9, 12)]
 
-    def test_sans_rien_a_oter_l_intervalle_ne_change_pas(self) -> None:
+    def test_with_nothing_to_remove_the_span_is_unchanged(self) -> None:
         assert subtract(Span(0, 5), []) == [Span(0, 5)]

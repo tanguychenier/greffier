@@ -191,7 +191,7 @@ class TestPolitesse:
             Opening(because=Because.CONTRIBUTION, remark="…"), now=0.0)
         assert assistant.turn([dit("Lucie ?", 10.0, 11.0)], now=20.0) is not None
 
-    def test_desactive_il_ne_dit_plus_rien(self):
+    def test_switched_off_it_says_nothing_at_all(self):
         assistant = AssistantSettings(name="Lucie", manners=Manners(active=False))
         assert assistant.turn([dit("Lucie ?", 10.0, 11.0)], now=14.0) is None
 

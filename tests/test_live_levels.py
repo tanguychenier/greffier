@@ -73,7 +73,7 @@ class TestLectureDeLEntete:
         assert lire_forme(court) is None
 
 
-class TestQuiParle:
+class TestWhoIsSpeaking:
     def test_le_micro_seul_actif_donne_toi(self, tmp_path: Path) -> None:
         releve = read_level(wav(tmp_path / "a.wav", [FORT, MUET, MUET]))
         assert releve is not None

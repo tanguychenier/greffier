@@ -10,18 +10,18 @@ que la moitié, et ce test fige ce constat.
 from greffier.domain.arithmetic import compute_threads
 
 
-class TestFilsDeCalcul:
-    def test_la_moitie_des_coeurs(self):
+class TestComputeThreads:
+    def test_half_the_cores(self):
         assert compute_threads(8) == 4
 
-    def test_jamais_moins_d_un_fil(self):
+    def test_never_fewer_than_one_thread(self):
         """Un cœur unique donnerait zéro fil, et le modèle refuserait."""
         assert compute_threads(1) == 1
         assert compute_threads(0) == 1
 
-    def test_un_gros_poste_en_prend_davantage(self):
+    def test_a_big_machine_takes_more(self):
         assert compute_threads(16) == 8
 
-    def test_la_moitie_laisse_de_quoi_travailler(self):
+    def test_half_leaves_room_to_work(self):
         """La veille tourne pendant la réunion : tout prendre la gênerait."""
         assert compute_threads(8) < 8
