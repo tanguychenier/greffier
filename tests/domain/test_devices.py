@@ -1,8 +1,9 @@
-"""Le matériel audio change pendant la réunion : que doit faire l'outil ?
+"""The audio hardware changes during the meeting: what should the tool do?
 
-Onze situations, toutes éprouvées sans brancher un câble. Celle du 25 août 2026
-est nommée : casque branché après le début, voix de la personne qui enregistrait
-captée 12 dB trop bas, puis effacée au mixage. Rien ne l'avait signalé.
+Eleven situations, all covered without plugging in a single cable. The one of
+25 August 2026 is named: a headset plugged in after the start, the voice of
+whoever was recording captured 12 dB too low, then wiped out in the mix.
+Nothing had said so.
 """
 
 from __future__ import annotations
@@ -54,8 +55,8 @@ class TestTheHeadsetUnpluggedMidMeeting:
         assert "le début de la réunion ne l'a pas eu" in decision.because
 
     def test_the_audio_already_captured_is_marked_doubtful(self, watch_rules: WatchRules) -> None:
-        # Ce qui a été enregistré avant le branchement est sous-exploitable :
-        # le compte rendu doit pouvoir le dire.
+        # What was recorded before it was plugged in is barely usable: the
+        # minutes have to be able to say so.
         assert watch_rules.examine(SANS_CASQUE, AVEC_CASQUE).audio_suspect
 
     def test_the_event_is_kept_for_the_log(self, watch_rules: WatchRules) -> None:
@@ -73,17 +74,17 @@ class TestAnUnpluggedHeadset:
     def test_with_no_fallback_mic_it_warns_without_cutting(
         self, watch_rules: WatchRules
     ) -> None:
-        # Débrancher le casque quand il n'y a rien d'autre : couper
-        # l'enregistrement perdrait aussi la voix des autres, qui arrive par
-        # BlackHole. On prévient, on continue.
+        # Unplugging the headset with nothing else around: cutting the
+        # recording would also lose the others' voices, which come through
+        # BlackHole. It warns, and carries on.
         rien = Hardware((BLACKHOLE, HP_INTEGRES, AGREGE))
         decision = watch_rules.examine(AVEC_CASQUE, rien)
         assert decision.action is Action.ALERTER
         assert "ta voix n'est plus enregistrée" in decision.because
 
     def test_blackhole_is_never_chosen_as_a_mic(self, watch_rules: WatchRules) -> None:
-        # BlackHole capte la sortie du système, jamais une bouche. Le prendre
-        # pour micro produirait une réunion où personne n'est enregistré.
+        # BlackHole captures the system output, never a mouth. Taking it for a
+        # mic would produce a meeting where nobody is recorded.
         rien = Hardware((BLACKHOLE, HP_INTEGRES, AGREGE))
         assert watch_rules.examine(AVEC_CASQUE, rien).mic == ""
 
@@ -110,8 +111,8 @@ class TestPluggingAndUnplugging:
         apres = Hardware((BLACKHOLE, MICRO_INTEGRE, other, AGREGE))
         decision = watch_rules.examine(SANS_CASQUE, apres)
         assert decision.action is Action.RECONSTRUIRE
-        # Un micro externe mono passe devant le micro intégré : c'est la forme
-        # d'un micro de casque, donc celui dans lequel on parle.
+        # An external mono mic comes before the built-in one: that is the shape
+        # of a headset mic, so the one being spoken into.
         assert decision.mic == "Poly Blackwire"
 
 
@@ -126,8 +127,8 @@ class TestChangesThatChangeNothing:
     def test_the_headset_stays_when_only_the_output_moves(
         self, watch_rules: WatchRules
     ) -> None:
-        # Le Jabra expose micro et écouteurs séparément : perdre la sortie ne
-        # doit pas faire croire que le micro a disparu.
+        # The Jabra exposes its mic and its earpieces separately: losing the
+        # output must not suggest the mic has gone.
         sans_sortie = Hardware(
             tuple(p for p in AVEC_CASQUE.devices if p != JABRA_SORTIE)
         )
@@ -145,8 +146,8 @@ class TestBeforeStarting:
         assert advised_mic(AVEC_CASQUE, "Jabra EVOLVE 30 II") == "Jabra EVOLVE 30 II"
 
     def test_with_no_headset_the_built_in_mic_beats_refusing(self) -> None:
-        # Refuser de démarrer parce que le casque habituel manque ferait perdre
-        # la réunion entière. Mieux vaut enregistrer avec ce qu'on a.
+        # Refusing to start because the usual headset is missing would lose the
+        # whole meeting. Better to record with what is there.
         assert advised_mic(SANS_CASQUE, "Jabra EVOLVE 30 II") == "Micro MacBook Pro"
 
     def test_without_a_single_mic_nothing_is_advised(self) -> None:
@@ -162,13 +163,13 @@ class TestBeforeStarting:
 
 
 class TestChoosingTheFallbackMic:
-    """Un mauvais repli donne un enregistrement muet, pas une simple gêne."""
+    """A bad fallback gives a silent recording, not a mere inconvenience."""
 
     def test_a_stereo_line_input_does_not_beat_the_built_in_mic(self) -> None:
-        # « Realtek USB2.0 Audio », deux entrées : c'est l'entrée ligne d'une
-        # station d'accueil ou d'un écran, sur laquelle rien n'est branché.
-        # La préférer au micro du portable donnait un enregistrement muet.
-        # Constaté en débranchant un casque sur un poste réel.
+        # "Realtek USB2.0 Audio", two inputs: the line input of a dock or a
+        # screen, with nothing plugged into it. Preferring it to the laptop mic
+        # gave a silent recording. Seen by unplugging a headset on a real
+        # machine.
         materiel = Hardware((BLACKHOLE, MICRO_INTEGRE, REALTEK, AGREGE))
         assert advised_mic(materiel, "Casque absent") == "Micro MacBook Pro"
 
@@ -178,7 +179,7 @@ class TestChoosingTheFallbackMic:
         assert advised_mic(materiel, "Casque absent") == "Poly Blackwire"
 
     def test_a_line_input_serves_when_there_is_nothing_else(self) -> None:
-        # Faute de mieux, mieux vaut tenter que ne rien capter du tout.
+        # Failing anything better, trying beats capturing nothing at all.
         materiel = Hardware((BLACKHOLE, REALTEK, AGREGE))
         assert advised_mic(materiel, "Casque absent") == "Realtek USB2.0 Audio"
 
@@ -187,12 +188,12 @@ class TestChoosingTheFallbackMic:
 
 
 class TestChoosingByListening:
-    """Un micro branché, reconnu, réglé au maximum, et pourtant muet.
+    """A mic plugged in, recognised, turned up to the maximum, and silent all the same.
 
-    Mesuré sur un poste réel : casque Jabra à -78 dB parce que le bouton de
-    sourdine de son boîtier était enfoncé, micro intégré à -58 dB dans le même
-    silence. Greffier retenait le casque, enregistrait une heure de silence, puis
-    accusait l'autorisation micro.
+    Measured on a real machine: a Jabra headset at -78 dB because the mute button
+    on its inline box was pressed, the built-in mic at -58 dB in the same silence.
+    Greffier kept the headset, recorded an hour of silence, then blamed the
+    microphone permission.
     """
 
     def test_the_mic_that_hears_best_is_kept(self) -> None:
@@ -215,7 +216,7 @@ class TestChoosingByListening:
         assert choix.ecartes == (("Jabra EVOLVE 30 II", -78.5),)
 
     def test_when_all_are_silent_it_says_so(self) -> None:
-        # Le cas où l'autorisation micro manque vraiment, ou où tout est coupé.
+        # The case where the mic permission really is missing, or all is muted.
         from greffier.domain.devices import choose_by_listening
 
         choix = choose_by_listening({"Jabra": -78.5, "Micro MacBook Pro": -80.0})
@@ -227,8 +228,8 @@ class TestChoosingByListening:
         assert choose_by_listening({}) is None
 
     def test_it_compares_rather_than_judging_on_a_threshold(self) -> None:
-        # Une pièce bruyante donne des niveaux plus hauts partout : le meilleur
-        # reste le meilleur, et aucun n'est déclaré muet.
+        # A noisy room gives higher levels everywhere: the best stays the best,
+        # and none is declared silent.
         from greffier.domain.devices import choose_by_listening
 
         choix = choose_by_listening({"A": -40.0, "B": -35.0})
@@ -251,13 +252,12 @@ class TestChoosingByListening:
 
 
 class TestAHeadsetWins:
-    """Le plus fort à froid n'est pas le meilleur en réunion.
+    """The loudest when nobody speaks is not the best in a meeting.
 
-    Le 2026-09-09, un Jabra a été écarté à -68 dB au profit du micro intégré à
-    -49 dB : le casque était posé sur le bureau, à un mètre de la bouche. Une
-    fois porté, il aurait été de loin le meilleur — un micro de casque est à
-    trois centimètres de la bouche, celui d'un portable à cinquante et il capte
-    toute la pièce.
+    On 2026-09-09 a Jabra was set aside at -68 dB in favour of the built-in mic at
+    -49 dB: the headset was lying on the desk, a metre from the mouth. Worn, it
+    would have been far better — a headset mic sits three centimetres from the
+    mouth, a laptop's fifty, and it picks up the whole room.
     """
 
     #: Le matériel réel de ce poste : le Jabra y est **deux** périphériques,
@@ -268,21 +268,23 @@ class TestAHeadsetWins:
     ))
 
     def test_a_headset_is_known_by_the_name_it_shares(self):
-        """Un critère « capte et restitue » sur un seul appareil échouerait :
-        le casque est présenté comme deux périphériques distincts."""
+        """A "captures and plays back" test on a single device would fail: a headset is
+        presented as two distinct devices.
+        """
         assert headsets_among(self.MATERIEL) == frozenset({"Jabra EVOLVE 30 II"})
 
     def test_the_built_in_mic_is_not_a_headset(self):
         assert "Micro MacBook Pro" not in headsets_among(self.MATERIEL)
 
     def test_a_software_loopback_is_not_a_headset(self):
-        """BlackHole capte et restitue, mais ne s'approche d'aucune bouche."""
+        """BlackHole captures and plays back, but comes near nobody's mouth."""
         assert "BlackHole 2ch" not in headsets_among(self.MATERIEL)
 
     def test_a_desk_sound_card_is_not_a_headset(self):
-        """Mesuré : entrée à 2 canaux et sortie à 4, contre 1 et 2 pour un
-        casque. Sans ce critère, elle serait préférée au micro intégré alors
-        que rien n'est branché dessus."""
+        """Measured: a 2-channel input and a 4-channel output, against 1 and 2 for a
+        headset. Without that test it would be preferred to the built-in mic when
+        nothing is plugged into it.
+        """
         realtek_entree = Device("Realtek USB2.0 Audio", "generic:1", entrees=2)
         realtek_sortie = Device("Realtek USB2.0 Audio", "generic:2", sorties=4)
         materiel = Hardware((
@@ -292,8 +294,9 @@ class TestAHeadsetWins:
         assert headsets_among(materiel) == frozenset({"Jabra EVOLVE 30 II"})
 
     def test_the_built_in_speakers_do_not_make_a_headset(self):
-        """Micro et haut-parleurs d'un portable portent des noms différents,
-        et l'ensemble n'est pas un casque."""
+        """The mic and the speakers of a laptop carry different names, and the pair of
+        them is not a headset.
+        """
         assert "Haut-parleurs MacBook Pro" not in headsets_among(self.MATERIEL)
 
     def test_the_headset_wins_even_when_quieter(self):
@@ -318,14 +321,14 @@ class TestAHeadsetWins:
         assert choix.name == "Micro MacBook Pro"
 
     def test_the_mic_set_aside_is_still_named_with_its_level(self):
-        """Pour pouvoir expliquer le choix, qui paraît faux au vu des niveaux."""
+        """So that the choice can be explained, since the levels make it look wrong."""
         essais = {"Micro MacBook Pro": -49.0, "Jabra EVOLVE 30 II": -68.0}
         choix = choose_by_listening(essais, headsets_among(self.MATERIEL))
         assert choix is not None
         assert ("Micro MacBook Pro", -49.0) in choix.ecartes
 
     def test_all_silent_looks_at_what_was_really_captured(self):
-        """Préférer un casque coupé ne doit pas masquer que rien ne capte."""
+        """Preferring a muted headset must not hide that nothing is capturing."""
         essais = {"Micro MacBook Pro": -90.0, "Jabra EVOLVE 30 II": -95.0}
         choix = choose_by_listening(essais, headsets_among(self.MATERIEL))
         assert choix is not None
