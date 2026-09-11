@@ -727,10 +727,22 @@ class LiveThread:
                           numbers=(turn.number,), whole_voice=False)
 
     def voiceprint_to_learn(self, voice: LiveVoice) -> Voiceprint | None:
-        """The voiceprint to pour into the bank for this voice, if there is enough."""
+        """The voiceprint to pour into the bank for this voice, if there is enough.
+
+        Nothing is poured from a voice that holds several people. What goes into
+        the bank is the mean of everything the voice gathered, so a voice the cut
+        got wrong pours one person's voice into another's file — and a file, once
+        wrong, is wrong at every meeting that follows. Measured on a real bank:
+        three entries out of five carried a stranger, and one answered to another
+        person's name more readily than to its own.
+        """
+        from greffier.domain.voiceprints import one_person
+
         if voice.identifier == LOCAL_VOICE or not voice.voiceprints:
             return None
         if voice.seconds < LENGTH_FOR_THE_BANK_S:
+            return None
+        if not one_person(voice.voiceprints):
             return None
         return voice.aggregate_of
 

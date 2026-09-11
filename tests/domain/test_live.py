@@ -1135,3 +1135,42 @@ class TestAFullThreadNeverLendsAName:
         thread = LiveThread()
         thread.attach(ECARTEES[0], local=False)
         assert thread.attach(LOIN, local=False) != UNDETERMINED_VOICE
+
+
+class TestWhatIsPouredIntoTheBank:
+    """A voice the cut got wrong pours one person into another's file.
+
+    Measured on a real meeting: one live voice carried two people, a human named
+    it, and the mean of everything it had gathered went into that person's entry
+    — 280 seconds that answer to another name at 0.71 against their own at 0.48.
+    A file, once wrong, is wrong at every meeting that follows.
+    """
+
+    def _voice(self, *voiceprints):
+        from greffier.domain.live import LiveVoice
+
+        voice = LiveVoice(identifier="v1")
+        for e in voiceprints:
+            voice.add(e)
+        return voice
+
+    def test_a_coherent_voice_is_poured(self):
+        thread = LiveThread()
+        voix = self._voice(voiceprint(1.0, 0.0), voiceprint(1.0, 0.05))
+        assert thread.voiceprint_to_learn(voix) is not None
+
+    def test_a_voice_holding_two_people_is_not(self):
+        thread = LiveThread()
+        voix = self._voice(voiceprint(1.0, 0.0), voiceprint(0.0, 1.0))
+        assert thread.voiceprint_to_learn(voix) is None
+
+    def test_a_single_voiceprint_still_goes_in(self):
+        """Nothing to disagree with, and the bank needs a first one."""
+        thread = LiveThread()
+        assert thread.voiceprint_to_learn(
+            self._voice(voiceprint(1.0, 0.0, duration=30.0))) is not None
+
+    def test_too_little_material_still_goes_nowhere(self):
+        thread = LiveThread()
+        voix = self._voice(voiceprint(1.0, 0.0, duration=1.0))
+        assert thread.voiceprint_to_learn(voix) is None
