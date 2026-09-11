@@ -9,6 +9,7 @@ became 3.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -79,6 +80,31 @@ class Question:
     def key(self) -> str:
         """What identifies an already asked question, without leaning on the text."""
         return f"{self.motif}:{self.heard.casefold()}:{self.expected.casefold()}"
+
+def note(text: str) -> str:
+    """How a question is written into the conversation.
+
+    One function, because what is written is read back: the note is the record
+    that the question has been put to the room.
+    """
+    return f"❓ {text}"
+
+
+def already_noted(questions: Iterable[Question],
+                  conversation: Iterable[str]) -> set[int]:
+    """Among those questions, the ones this conversation already carries.
+
+    Read from what was written rather than remembered. The window is restarted,
+    the memory is not, and the meeting it points at survives the meeting: in a
+    real one, three unanswered questions came back two and a half hours after
+    the minutes had been sent, one copy per launch.
+    """
+    written = set(conversation)
+    return {
+        question.number for question in questions
+        if note(question.text) in written
+    }
+
 
 def distance(one: str, other: str) -> int:
     """Edit distance with transposition, in its optimal alignment form.
