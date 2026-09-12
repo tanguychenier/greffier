@@ -730,6 +730,66 @@ def etape_modele_whisper(ctx, engine, python):
 
 # --------------------------------------------------------- 5. environnement
 
+def antialiases(interpreter: str) -> bool | None:
+    """Whether this interpreter's Tk smooths text, or None when it cannot be asked.
+
+    Tk answers `xft` when it was built against Xft, and `x11` when it falls back
+    to the core bitmap fonts of the eighties. Asking costs a hidden window and a
+    tenth of a second; it needs a display, which an installation over ssh does
+    not have, hence the third answer.
+    """
+    if not os.environ.get("DISPLAY") and SYSTEM == "Linux":
+        return None
+    demande = (
+        "import tkinter;"
+        "r = tkinter.Tk(); r.withdraw();"
+        "print(r.tk.eval('tk::pkgconfig get fontsystem'))"
+    )
+    try:
+        lu = subprocess.run(
+            [interpreter, "-c", demande],
+            capture_output=True, text=True, timeout=20, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if lu.returncode != 0:
+        return None
+    return lu.stdout.strip().endswith("xft")
+
+
+def a_smoothing_interpreter() -> str | None:
+    """A Python 3.13+ on this machine whose window would not look like 1989.
+
+    The interpreter uv installs carries its own Tk, built without Xft: the
+    window opens, works, and renders every letter without antialiasing -- « les
+    textes sont bizarres, comme pas net », reported on sight. A distribution's
+    Tk is built with Xft, so a system interpreter is preferred where there is
+    one, and only there: on macOS and Windows the shipped Tk smooths already.
+    """
+    if SYSTEM != "Linux":
+        return None
+    for nom in ("python3.13", "python3.14", "python3.15"):
+        chemin = shutil.which(nom)
+        if chemin is None:
+            continue
+        verdict = antialiases(chemin)
+        if verdict is False:
+            continue
+        # None means it could not be asked -- no display. A distribution's Tk
+        # is built with Xft as a rule, so it is still the better bet.
+        if verdict or _has_tkinter(chemin):
+            return chemin
+    return None
+
+
+def _has_tkinter(interpreter: str) -> bool:
+    lu = subprocess.run(
+        [interpreter, "-c", "import tkinter"],
+        capture_output=True, text=True, timeout=20, check=False,
+    )
+    return lu.returncode == 0
+
+
 def etape_environnement(ctx, engine):
     title("5. Environnement Python")
     venv = ROOT / ".venv"
@@ -772,7 +832,17 @@ def etape_environnement(ctx, engine):
 
     if shutil.which("uv"):
         if not python.exists():
-            run_job(["uv", "venv", "--python", "3.13"], cwd=ROOT)
+            lisse = a_smoothing_interpreter()
+            if lisse is not None:
+                ok(f"interpréteur au texte lissé : {lisse}")
+                run_job(["uv", "venv", "--python", lisse], cwd=ROOT)
+            else:
+                if SYSTEM == "Linux":
+                    alerte("texte non lissé dans la fenêtre : aucun Python 3.13 "
+                           "du système n'a été trouvé")
+                    info("« apt install python3.13-tk » (dépôt deadsnakes) le corrige, "
+                         "puis relance cette installation.")
+                run_job(["uv", "venv", "--python", "3.13"], cwd=ROOT)
         run_job(["uv", "pip", "install", "-q", "-e", f".[{extras}]"], cwd=ROOT)
     else:
         alerte("uv absent — repli sur venv + pip, plus lent")
