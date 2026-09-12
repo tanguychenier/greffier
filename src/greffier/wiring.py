@@ -7,6 +7,7 @@ without a network.
 
 from __future__ import annotations
 
+import contextlib
 import platform
 import sys
 from collections.abc import Callable
@@ -224,11 +225,33 @@ def memory(config: Config) -> outbound.Memory:
     class Memoire:
         def remember(self, trace: Trace) -> None:
             memory_file.remember(file, trace)
+            _index(config, trace)
 
         def recall(self, limit: int = memory_file.DERNIERES) -> list[Trace]:
             return memory_file.recall(file, limit)
 
     return Memoire()
+
+
+def _index(config: Config, trace: Trace) -> None:
+    from greffier.adapters import graph_sqlite
+    from greffier.domain.graph import from_trace
+
+    attente = waiting_preparation(config)
+    sujet = attente.subject if attente is not None else ""
+    nodes, edges = from_trace(trace, sujet)
+    with contextlib.suppress(Exception):
+        graph_sqlite.write(config.paths.graph, nodes, edges)
+
+
+def known_about(config: Config, subject: str) -> str:
+    """What the index knows around a subject, for a meeting being prepared."""
+    from greffier.adapters import graph_sqlite
+
+    try:
+        return graph_sqlite.known_about(config.paths.graph, subject).header()
+    except Exception:  # noqa: BLE001 - un index est un confort, jamais un dû
+        return ""
 
 
 def what_earlier_meetings_left(config: Config) -> str:
