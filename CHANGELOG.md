@@ -62,6 +62,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **window** — it refused to open on any Python shipped by a distribution (`20495b1`)
 - **dev** — mypy could not follow uvicorn, absent from the dev extra (`7f197c1`)
 - **install** — the window's text was not antialiased on Linux (`e950c7a`)
 - **window** — ending a meeting froze the window instead of showing the end (`cb9728f`)
