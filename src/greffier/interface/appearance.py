@@ -96,6 +96,18 @@ class Button(tk.Canvas):
             )
         self.configure(cursor=MAIN if hover else "")
 
+    def hold(self, press: Callable[[], None], release: Callable[[], None]) -> Button:
+        """Acts while it is held down rather than when it is clicked.
+
+        For speaking to the assistant: pressing opens the microphone, releasing
+        closes it. A microphone that opens on a click and closes on another is a
+        microphone somebody leaves open.
+        """
+        self.unbind("<Button-1>")
+        self.bind("<ButtonPress-1>", lambda _e: press() if self._active else None)
+        self.bind("<ButtonRelease-1>", lambda _e: release() if self._active else None)
+        return self
+
     def set_caption(self, text: str) -> None:
         self.itemconfigure(self._text, text=text)
 

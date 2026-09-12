@@ -257,3 +257,74 @@ class TestAFailurePublishedToTheState:
         (tmp_path / "etat.json").write_text("{ ceci n'est pas du json", encoding="utf-8")
         without_a_screen = type("SansEcran", (), {"config": self._config_in(tmp_path)})()
         Window._publish_the_failure(without_a_screen, "peu-importe", RuntimeError("boum"))
+
+
+class TestPreparingAMeetingFromTheWindow:
+    """Talking to her before a meeting, and the window keeping it.
+
+    The conversation refused, outside a meeting, to talk about anything: it
+    wanted a meeting that already existed. What was gathered in front of it was
+    lost, and the meeting then started from nothing.
+    """
+
+    def _fenetre(self, tmp_path, preparation=None):
+        """The window without a screen: these methods only read `self`."""
+        from greffier.adapters.configuration import Config
+
+        config = Config()
+        config.paths.data = tmp_path
+        sans_ecran = type("SansEcran", (), {
+            "config": config,
+            "_preparation": preparation,
+            "dits": [],
+            "demandes": [],
+        })()
+        return sans_ecran
+
+    def test_a_spoken_question_goes_to_the_preparation_when_there_is_one(
+            self, tmp_path):
+        from greffier.domain.preparation import Preparation
+        from greffier.interface.window import Window
+
+        fenetre = self._fenetre(tmp_path, Preparation(identifier="p", subject="recette"))
+        fenetre._answer_while_preparing = lambda q: fenetre.demandes.append(q)
+        Window._ask_this(fenetre, "rappelle-moi la dernière")
+        assert fenetre.demandes == ["rappelle-moi la dernière"]
+
+    def test_without_a_preparation_it_goes_where_it_always_went(self, tmp_path):
+        """Preparing must not change what the tab already did."""
+        from greffier.interface.window import Window
+
+        fenetre = self._fenetre(tmp_path)
+        pose = []
+
+        class Champ:
+            def delete(self, *a):
+                pass
+
+            def insert(self, _i, texte):
+                pose.append(texte)
+
+        fenetre.question = Champ()
+        fenetre._ask = lambda: pose.append("posée")
+        Window._ask_this(fenetre, "et le compte rendu ?")
+        assert pose == ["et le compte rendu ?", "posée"]
+
+    def test_a_button_merely_tapped_says_so_rather_than_transcribing_nothing(
+            self, tmp_path):
+        from greffier.interface.window import Window
+
+        fenetre = self._fenetre(tmp_path)
+        fenetre._dictee = type("Rien", (), {"stop": lambda self: None})()
+        fenetre.bouton_parler = type("Bouton", (), {"set_caption": lambda self, t: None})()
+        fenetre._say = lambda genre, texte: fenetre.dits.append(texte)
+        Window._stop_dictating(fenetre)
+        assert any("maintiens le bouton" in dit for dit in fenetre.dits)
+
+    def test_releasing_without_having_pressed_costs_nothing(self, tmp_path):
+        from greffier.interface.window import Window
+
+        fenetre = self._fenetre(tmp_path)
+        fenetre._dictee = None
+        fenetre.bouton_parler = type("Bouton", (), {"set_caption": lambda self, t: None})()
+        Window._stop_dictating(fenetre)
