@@ -3,7 +3,7 @@ name = "greffier"
 version = "0.3.11"
 description = "Enregistre une réunion, identifie qui parle, en rédige le compte rendu — sans rien envoyer ailleurs."
 requires-python = ">=3.13"
-license = { text = "MIT" }
+license = { text = "PolyForm-Noncommercial-1.0.0" }
 dependencies = [
     "pydantic>=2.9",          # modèles et validation, plutôt qu'un parsing maison
     "pydantic-settings>=2.6", # configuration TOML + variables d'environnement

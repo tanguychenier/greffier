@@ -497,6 +497,9 @@ Install the git hooks once and for all:
 ```
 
 A commit that does not pass `ruff`, `mypy` and the tests is then **refused**.
+The conventions expected of a patch — atomic commits, the Angular convention,
+the layer rules, what the four kinds of test are for — are in
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 Running the checks "on the side" is not enough — three quality remarks made it
 into commits before that guard existed. `--no-verify` remains possible,
 knowingly.
@@ -509,6 +512,24 @@ to end, tried on real meetings, on a synthetic fixture, and on public
 recordings. What is still open — a few minor defects, and what has never met
 reality (Windows, live in-person) — is detailed in
 [`docs/reste-a-faire.md`](docs/reste-a-faire.md).
+
+## Licence
+
+**PolyForm Noncommercial 1.0.0** ([text](LICENCE)). The tool is written for
+universities, research laboratories, public institutions and anyone using it for
+their own account: the licence names them explicitly — charitable organisations,
+educational institutions, public research organisations, public safety and
+health organisations, environmental protection organisations and government
+institutions, *regardless of the source of their funding*.
+
+Commercial use is the one thing it does not cover, and that needs a separate
+agreement. Say so and we will talk.
+
+A word on the term: a licence that restricts the field of use is **not** "open
+source" in the sense the OSI gives the phrase — the source is open, read it,
+fork it, send patches, but a company may not build a business on it without
+asking. Versions published up to and including `v0.3.11` went out under the MIT
+licence, and stay under it for whoever obtained them.
 
 ## Frame
 
