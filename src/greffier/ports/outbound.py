@@ -70,6 +70,10 @@ class Transcriber(Protocol):
     def transcribe(self, audio: Path, language: str, prompt_seed: str) -> list[Utterance]:
         ...
 
+    def warm(self) -> None:
+        """Gets ready now, so that nobody waits for it later."""
+        ...
+
 
 @runtime_checkable
 class Diariser(Protocol):
