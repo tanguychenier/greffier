@@ -205,6 +205,13 @@ class Window:
 
         self._build_state(corps)
         self.tabs = Tabs(corps, c)
+        self.tabs_shown = {
+            "Réunions": self.dit("onglets.reunions"),
+            "En direct": self.dit("onglets.direct"),
+            "Voix": self.dit("onglets.voix"),
+            "Conversation": self.dit("onglets.conversation"),
+            "Réglages": self.dit("onglets.reglages"),
+        }
         self.tabs.grid(row=1, column=0, sticky="nsew", pady=(22, 0))
         self._meetings_tab()
         self._live_tab()
@@ -304,8 +311,23 @@ class Window:
             else:
                 jeu.pack_forget()
 
+    def dit(self, key: str, **parts: object) -> str:
+        """What the tool says, in the language it speaks.
+
+        Read once at build time: a window does not change language while it is
+        open, and asking the catalogue on every paint would cost a file read per
+        frame for a sentence that never moves.
+        """
+        wording = getattr(self, "_wording", None)
+        if wording is None:
+            from greffier.wiring import wording as catalogue
+
+            wording = catalogue(self.config)
+            self._wording = wording
+        return wording.say(key, **parts)
+
     def _page(self, caption: str) -> tk.Frame:
-        page = self.tabs.add(caption)
+        page = self.tabs.add(caption, getattr(self, "tabs_shown", {}).get(caption, ""))
         page.columnconfigure(0, weight=1)
         page.rowconfigure(0, weight=1)
         board = self._board(page)
@@ -785,20 +807,20 @@ class Window:
         self.question = self._champ(entry)
         self.question.grid(row=0, column=0, sticky="ew", ipady=8, ipadx=5)
         self.question.bind("<Return>", lambda _e: self._ask())
-        Button(entry, "Demander", self._ask, self.colours, principal=True,
+        Button(entry, self.dit("conversation.demander"), self._ask, self.colours, principal=True,
                width=124, height=36).grid(row=0, column=1, padx=(11, 0))
-        Button(entry, "Fournir un document", self._supply_a_document,
+        Button(entry, self.dit("conversation.fournir_un_document"), self._supply_a_document,
                self.colours, width=176, height=36).grid(
                    row=0, column=2, padx=(8, 0))
         self.bouton_parler = Button(
-            entry, "Tenir pour parler", lambda: None, self.colours,
+            entry, self.dit("conversation.tenir_pour_parler"), lambda: None, self.colours,
             width=150, height=36)
         self.bouton_parler.hold(self._start_dictating, self._stop_dictating)
         self.bouton_parler.grid(row=0, column=3, padx=(8, 0))
         preparation = tk.Frame(inside, bg=c.board)
         preparation.grid(row=2, column=0, sticky="ew", pady=(8, 0))
         self.bouton_preparer = Button(
-            preparation, "Préparer la prochaine réunion", self._open_a_preparation,
+            preparation, self.dit("conversation.preparer"), self._open_a_preparation,
             self.colours, width=250, height=34)
         self.bouton_preparer.grid(row=0, column=0)
         self.ligne_preparation = tk.Label(
@@ -2718,15 +2740,16 @@ class Window:
             return
         if preparation is None:
             self.ligne_preparation.configure(text="")
-            self.bouton_preparer.set_caption("Préparer la prochaine réunion")
+            self.bouton_preparer.set_caption(self.dit("conversation.preparer"))
             return
-        morceaux = [f"En préparation : « {preparation.subject or 'sans sujet'} »"]
+        morceaux = [self.dit("conversation.en_preparation",
+                                 sujet=preparation.subject or "—")]
         if preparation.expected:
             morceaux.append(f"attendus : {', '.join(preparation.expected)}")
         if preparation.to_raise:
             morceaux.append(f"{len(preparation.to_raise)} point(s) à soulever")
         self.ligne_preparation.configure(text=" · ".join(morceaux))
-        self.bouton_preparer.set_caption("Changer de sujet")
+        self.bouton_preparer.set_caption(self.dit("conversation.changer_de_sujet"))
 
     def _open_a_preparation(self) -> None:
         from tkinter import simpledialog
@@ -2734,7 +2757,7 @@ class Window:
         from greffier.adapters import preparations_file
 
         sujet = simpledialog.askstring(
-            "Greffier", "Sujet de la réunion à préparer :", parent=self.root)
+            "Greffier", self.dit("conversation.sujet_demande"), parent=self.root)
         if sujet is None:
             return
         existante = getattr(self, "_preparation", None)
@@ -2807,17 +2830,17 @@ class Window:
             self._dictee = Dictation(self.config.audio.mic or self.config.audio.input)
         with contextlib.suppress(OSError):
             self._dictee.start(self.config.paths.data / "dictee.wav")
-            self.bouton_parler.set_caption("… je t'écoute")
+            self.bouton_parler.set_caption(self.dit("conversation.je_ecoute"))
 
     def _stop_dictating(self) -> None:
         """Closes it, transcribes what was said, and answers."""
         dictee = getattr(self, "_dictee", None)
-        self.bouton_parler.set_caption("Tenir pour parler")
+        self.bouton_parler.set_caption(self.dit("conversation.tenir_pour_parler"))
         if dictee is None:
             return
         fichier = dictee.stop()
         if fichier is None:
-            self._say("note", "Rien d'entendu : maintiens le bouton pendant que tu parles.")
+            self._say("note", self.dit("conversation.rien_entendu"))
             return
         self._transcribe_and_ask(fichier)
 
@@ -2842,7 +2865,7 @@ class Window:
             question = (preparing.transcribed(str(said))
                         if preparing is not None else str(said).strip())
             if not question:
-                self._say("note", "Rien de compris. Reprends plus près du micro.")
+                self._say("note", self.dit("conversation.rien_compris"))
                 return
             self._ask_this(question)
 

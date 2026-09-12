@@ -1,0 +1,39 @@
+# Ce que Greffier dit, en français. Une langue de plus = un fichier de plus,
+# avec les mêmes clés. Ce qui manque retombe sur l'anglais.
+
+[fenetre]
+pret = "Prêt"
+aucun_enregistrement = "Aucun enregistrement en cours."
+demarrer = "Démarrer la réunion"
+terminer = "Terminer la réunion"
+micro = "Micro"
+fin_en_cours = "Fin de la réunion, transcription en cours…"
+
+[onglets]
+reunions = "Réunions"
+direct = "En direct"
+voix = "Voix"
+conversation = "Conversation"
+reglages = "Réglages"
+
+[conversation]
+demander = "Demander"
+fournir_un_document = "Fournir un document"
+tenir_pour_parler = "Tenir pour parler"
+je_ecoute = "… je t'écoute"
+preparer = "Préparer la prochaine réunion"
+changer_de_sujet = "Changer de sujet"
+sujet_demande = "Sujet de la réunion à préparer :"
+en_preparation = "En préparation : « {sujet} »"
+rien_entendu = "Rien d'entendu : maintiens le bouton pendant que tu parles."
+rien_compris = "Rien de compris. Reprends plus près du micro."
+
+[reunions]
+traiter = "Traiter"
+rediger = "Rédiger"
+ouvrir = "Ouvrir"
+envoyer = "Envoyer par courriel"
+deposer = "Déposer…"
+renommer = "Renommer"
+supprimer = "Supprimer"
+rafraichir = "Rafraîchir"

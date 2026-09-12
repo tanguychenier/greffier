@@ -298,6 +298,18 @@ class AssistantSettings(BaseModel):
         validation_alias=AliasChoices("initiative", "initiative"),
     )
 
+class Interface(BaseModel):
+    """What the tool says, and in which language it says it."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    #: Empty means « ask the machine ». Somebody who has told their system what
+    #: language they read should not have to tell this tool as well; the setting
+    #: is for the case where the two differ, which is a preference and not a
+    #: mistake.
+    language: str = Field(default="", validation_alias=AliasChoices("language", "langue"))
+
+
 class Appearance(BaseModel):
     """What the window shows, independently of what it does."""
 
@@ -373,6 +385,7 @@ class Config(BaseSettings):
     retention: Retention = Field(default_factory=Retention)
     conversation: Conversation = Field(default_factory=Conversation)
     api: Api = Field(default_factory=Api)
+    interface: Interface = Field(default_factory=Interface)
     assistant: AssistantSettings = Field(default_factory=AssistantSettings)
     appearance: Appearance = Field(
         default_factory=Appearance, validation_alias=AliasChoices("appearance", "apparence")
@@ -496,6 +509,7 @@ SECTIONS: dict[str, tuple[str, ...]] = {
     "locuteurs": ("pas_des_prenoms", "personnes"),
     "compte_rendu": ("moteur", "modele", "langue", "destinataire", "delai"),
     "api": ("hote", "port", "jeton"),
+    "interface": ("langue",),
     "courriel": ("serveur", "port", "utilisateur", "expediteur"),
     "sauvegarde": ("dossier", "apres_chaque_reunion", "gardees"),
     "retention": ("compresser_apres_jours", "effacer_apres_jours"),

@@ -474,10 +474,20 @@ class Tabs(tk.Frame):
         self._segments: dict[str, _Segment] = {}
         self._current: str | None = None
 
-    def add(self, caption: str) -> tk.Frame:
+    def add(self, caption: str, shown: str = "") -> tk.Frame:
+        """A tab, keyed by `caption` and labelled by `shown` where they differ.
+
+        The key is what the code says -- `reveal("Conversation")` -- and stays
+        the same in every language; the label is what the window paints. Kept
+        apart because the two have different lifetimes: a translation changes,
+        a key does not.
+        """
         page = tk.Frame(self.corps, bg=self.colours.ground)
         self._pages[caption] = page
-        segment = _Segment(self.bar, caption, self.colours, self.reveal)
+        def montrer(_shown: str, key: str = caption) -> None:
+            self.reveal(key)
+
+        segment = _Segment(self.bar, shown or caption, self.colours, montrer)
         segment.pack(side="left", padx=(0, 6))
         self._segments[caption] = segment
         if self._current is None:
