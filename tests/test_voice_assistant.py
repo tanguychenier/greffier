@@ -41,19 +41,19 @@ class TestThePlayerOfEachSystem:
         monkeypatch.setattr(voice_neural, "SYSTEM", "Darwin")
         monkeypatch.setattr(voice_neural.shutil, "which",
                             lambda n: "/usr/bin/afplay" if n == "afplay" else None)
-        assert voice_neural._player() == ["afplay"]
+        assert voice_neural.player() == ["afplay"]
 
     def test_linux_takes_whatever_is_there(self, monkeypatch):
         monkeypatch.setattr(voice_neural, "SYSTEM", "Linux")
         monkeypatch.setattr(voice_neural.shutil, "which",
                             lambda n: "/usr/bin/aplay" if n == "aplay" else None)
-        assert voice_neural._player() == ["/usr/bin/aplay"]
+        assert voice_neural.player() == ["/usr/bin/aplay"]
 
     def test_windows_falls_back_to_powershell(self, monkeypatch):
         monkeypatch.setattr(voice_neural, "SYSTEM", "Windows")
         monkeypatch.setattr(voice_neural.shutil, "which",
                             lambda n: "powershell.exe" if n == "powershell" else None)
-        assert voice_neural._player()[0] == "powershell"
+        assert voice_neural.player()[0] == "powershell"
 
     def test_with_no_player_the_voice_declares_itself_unavailable(self, monkeypatch, tmp_path):
         monkeypatch.setattr(voice_neural, "SYSTEM", "Linux")
@@ -234,7 +234,7 @@ class TestOneCutStopsTheWholeRemark:
             def kill(self):
                 ...
 
-        monkeypatch.setattr(voice_neural, "_player", lambda: ["afplay"])
+        monkeypatch.setattr(voice_neural, "player", lambda: ["afplay"])
         monkeypatch.setattr(voice_neural.subprocess, "Popen",
                             lambda *_a, **_k: ReadBack())
         return voice_neural.NeuralVoice(tmp_path, gag=tmp_path / "p.pid")
