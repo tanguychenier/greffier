@@ -260,7 +260,7 @@ class Window:
                                   taille=12, pale=True)
         self.detail.grid(row=1, column=0, sticky="ew", pady=(5, 0))
 
-        mesures = tk.Frame(inside, bg=c.board)
+        self.mesures = mesures = tk.Frame(inside, bg=c.board)
         mesures.grid(row=2, column=0, sticky="ew", pady=(18, 0))
         mesures.columnconfigure(1, weight=1)
         self.vu_toi = self._ligne_vumetre(mesures, "Toi", 0)
@@ -378,21 +378,24 @@ class Window:
         ))
         actions = ButtonBar(inside, self.colours)
         actions.grid(row=1, column=0, sticky="ew", pady=(16, 0))
-        for caption, action, width in (
-            ("Traiter", self._process_selection, 100),
-            ("Rédiger", self._write_up_selection, 100),
-            ("Ouvrir", self._open_minutes, 96),
-            ("Envoyer par courriel", self._send_selection, 180),
-            ("Déposer…", self._drop_files, 116),
-            ("Renommer", self._rename_selection, 110),
-            ("Supprimer", self._forget_selection, 110),
-            ("Rafraîchir", self._load_meetings, 116),
+        for caption, action, width, principal in (
+            ("Traiter", self._process_selection, 100, False),
+            ("Rédiger", self._write_up_selection, 100, False),
+            ("Ouvrir", self._open_minutes, 96, False),
+            ("Envoyer par courriel", self._send_selection, 180, False),
+            ("Déposer…", self._drop_files, 116, False),
+            ("Renommer", self._rename_selection, 110, False),
+            ("Rafraîchir", self._load_meetings, 116, False),
         ):
-            actions.add(
-                Button(actions, caption, action, self.colours,
-                       width=width, height=34),
-                width,
-            )
+            bouton = Button(actions, caption, action, self.colours,
+                            principal=principal, width=width, height=34)
+            if caption == "Traiter":
+                bouton._en_avant()
+            actions.add(bouton, width)
+        apart = tk.Frame(inside, bg=self.colours.board)
+        apart.grid(row=2, column=0, sticky="e", pady=(10, 0))
+        Button(apart, "Supprimer", self._forget_selection, self.colours,
+               width=110, height=30)._efface().pack(side="right")
         self.listing.bind("<<TreeviewSelect>>", lambda _e: self._load_voices())
         self._load_meetings()
 
@@ -1697,6 +1700,7 @@ class Window:
 
         active = state.phase is Phase.RECORDING
         en_pause = state.phase is Phase.PAUSE
+        self._show_the_meters(active or en_pause)
         if not active:
             self.pastille.itemconfigure(
                 self._point, fill=c.amber if en_pause else c.calm
@@ -1714,6 +1718,24 @@ class Window:
             self.vu_autres.reveal(0)
             self.who.configure(text="en pause" if en_pause else "",
                                fg=c.amber if en_pause else c.green)
+
+    def _show_the_meters(self, wanted: bool) -> None:
+        """Two meters of a microphone nobody is speaking into say nothing.
+
+        Shown while a meeting runs, folded away the rest of the time: they took
+        a fifth of every screen, including the ones where no recording is
+        possible.
+        """
+        if getattr(self, "_meters_shown", None) == wanted:
+            return
+        self._meters_shown = wanted
+        mesures = getattr(self, "mesures", None)
+        if mesures is None:
+            return
+        if wanted:
+            mesures.grid()
+        else:
+            mesures.grid_remove()
 
     def _paint_levels(self, releve: LevelReading | None) -> None:
         if releve is None:
