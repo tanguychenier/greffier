@@ -273,11 +273,16 @@ class TestPreparingAMeetingFromTheWindow:
 
         config = Config()
         config.paths.data = tmp_path
+        from greffier.interface.window import Window
+
         sans_ecran = type("SansEcran", (), {
             "config": config,
             "_preparation": preparation,
             "dits": [],
             "demandes": [],
+            # The same wording the window uses: these methods say things, and a
+            # test that stubbed the sentences would check nothing about them.
+            "dit": Window.dit,
         })()
         return sans_ecran
 

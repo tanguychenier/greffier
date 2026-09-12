@@ -461,13 +461,39 @@ SEGMENTATION = (
 # pas cela à quelqu'un. C'est donc le seul modèle qu'on télécharge pour une
 # question de qualité perçue, et il est le premier qu'on retire d'une
 # installation à l'étroit.
-VOICE = (
-    "https://github.com/k2-fsa/sherpa-onnx/releases/download/"
-    "tts-models/vits-piper-fr_FR-upmc-medium.tar.bz2"
+VOIX_RELEASE = (
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/"
 )
 
-#: Le dossier que l'archive dépose, à renommer en « voix ».
-VOIX_DOSSIER = "vits-piper-fr_FR-upmc-medium"
+
+def _charger_langue_parlee():
+    """Le module qui dit quelle voix va avec quelle langue.
+
+    Chargé par chemin littéral, comme la liste des langues : cet installeur
+    tourne avant que quoi que ce soit ne soit installé, et une table recopiée
+    ici serait une table qui diverge.
+    """
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "greffier_tongue", ROOT / "src/greffier/domain/tongue.py"
+        )
+        module = importlib.util.module_from_spec(spec)
+        # Enregistré avant d'être exécuté : un « dataclass(slots=True) » se
+        # recrée en cherchant son propre module dans sys.modules, et n'y trouve
+        # rien quand on charge un fichier par son chemin.
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+    except Exception:  # noqa: BLE001 - une voix absente n'arrête pas une installation
+        return None
+    return module
+
+
+def voix_de(langue):
+    """L'archive de la voix pour cette langue, et ce qu'elle pèse."""
+    module = _charger_langue_parlee()
+    if module is None:
+        return None
+    return module.voice_for(langue)
 
 #: Ce qu'une archive de voix peut contenir sans servir au français : les
 #: lexiques et grammaires d'autres langues, que le modèle multilingue traînait.
@@ -602,16 +628,22 @@ def _installer_la_voix(ctx):
     if ctx.check_only:
         alerte("voix de l'assistant manquante (il se repliera sur celle du système)")
         return
+    voix = voix_de(system_language())
+    if voix is None:
+        alerte(f"aucune voix pour « {system_language()} » : l'assistant parlera "
+               "avec celle du système.")
+        return
     archive = ctx.models / "voix.tar.bz2"
-    info("téléchargement de la voix de l'assistant (80 Mo)…")
+    info(f"téléchargement de la voix de l'assistant ({voix.weight_mb} Mo, "
+         f"{voix.language})…")
     try:
-        download(VOICE, archive)
+        download(VOIX_RELEASE + voix.archive + ".tar.bz2", archive)
         with tarfile.open(archive, "r:bz2") as package:
             if sys.version_info >= (3, 12):
                 package.extractall(ctx.models, filter="data")
             else:
                 package.extractall(ctx.models)  # noqa: S202
-        extrait = ctx.models / VOIX_DOSSIER
+        extrait = ctx.models / voix.archive
         if extrait.exists():
             if folder.exists():
                 shutil.rmtree(folder)
