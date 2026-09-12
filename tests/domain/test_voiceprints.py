@@ -386,7 +386,7 @@ class TestAVoiceThatHoldsSeveralPeople:
     """What goes into the bank is the mean of everything a voice gathered.
 
     A voice the cut got wrong therefore pours one person's voice into another's
-    file — and a file, once wrong, is wrong at every meeting that follows.
+    file, and a file, once wrong, is wrong at every meeting that follows.
     Measured on a real bank: an entry of 280 seconds answered to another
     person's name at 0.71 while reaching its own at 0.48.
     """

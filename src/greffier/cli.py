@@ -293,7 +293,7 @@ def _ask_for_names(config: Config, identifier: str) -> bool:
     for candidate in restantes:
         part = f"{candidate.duration / 60:.1f} min ({candidate.part * 100:.0f} %)"
         typer.echo()
-        typer.secho(f"  voix {candidate.voice} — {part}", bold=True)
+        typer.secho(f"  voix {candidate.voice}, {part}", bold=True)
         if candidate.proposition:
             typer.secho(f"  entendu dans la réunion : {candidate.proposition}",
                         fg=typer.colors.CYAN)
@@ -417,7 +417,7 @@ def configure(
 ) -> None:
     """Assistant de première configuration : questionne, installe, vérifie.
 
-    À lancer au premier usage, et à relancer quand quelque chose change — de
+    À lancer au premier usage, et à relancer quand quelque chose change, de
     machine, de casque, d'adresse mail.
     """
     from greffier.adapters import assistant_terminal as assistant
@@ -882,12 +882,12 @@ def propositions(
 def statut(
     config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
 ) -> None:
-    """Où en est la chaîne — ce que lit aussi l'icône de la barre."""
+    """Où en est la chaîne : ce que lit aussi l'icône de la barre."""
     state = recording(Config.load(config_file)).read()
     if state.phase.value == "repos":
         typer.echo("Rien en cours. « greffier enregistrer <nom> » pour démarrer.")
         return
-    duration = f" — {state.seconds // 60:.0f} min" if state.phase.value == "enregistrement" else ""
+    duration = f", {state.seconds // 60:.0f} min" if state.phase.value == "enregistrement" else ""
     typer.echo(f"{state.phase.value}{duration}")
     if state.name:
         typer.echo(f"  réunion : {state.name}")
@@ -910,7 +910,7 @@ def meetings(
         nommees = sum(1 for v in meeting.speaking_time() if v in meeting.names)
         total = len(voices_to_name(meeting))
         coverage = f"{meeting.coverage * 100:.0f} %"
-        libelle = f"{identifier}  — {meeting.subject}" if meeting.subject else identifier
+        libelle = f"{identifier} : {meeting.subject}" if meeting.subject else identifier
         typer.echo(
             f"{libelle:<44} {meeting.duration / 60:5.1f} min  "
             f"{nommees}/{total} voix nommées  couverture {coverage}"
@@ -985,7 +985,7 @@ def voice(
         typer.echo(f"Extrait : {output}")
         return
 
-    typer.echo(f"{identifier} — {detail.duration / 60:.1f} min\n")
+    typer.echo(f"{identifier} : {detail.duration / 60:.1f} min\n")
     for candidate in voices_to_name(detail):
         state = (
             typer.style(candidate.name, fg=typer.colors.GREEN) if candidate.name
@@ -1067,7 +1067,7 @@ def known(
         typer.echo("Banque de voix vide. « greffier voix » pour nommer une première voix.")
         return
     for person in people:
-        vue = person.seen_at.strftime("%Y-%m-%d") if person.seen_at else "—"
+        vue = person.seen_at.strftime("%Y-%m-%d") if person.seen_at else "-"
         typer.echo(
             f"  {person.name:<20} {len(person.voiceprints)} empreinte(s)  "
             f"vue le {vue}"
@@ -1201,7 +1201,7 @@ def assembly(
     minutes: float = typer.Option(5.0, "--minutes", help="Durée visée du montage"),
     config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
 ) -> None:
-    """Recolle les passages marquants — les vraies voix, rien de synthétisé.
+    """Recolle les passages marquants, les vraies voix, rien de synthétisé.
 
     Le temps est réparti entre les intervenants proportionnellement à leur temps
     de parole : un montage qui ne ferait entendre que la personne la plus
@@ -1337,7 +1337,7 @@ def board(
         raise typer.Exit(1)
 
     for name in vises:
-        typer.secho(f"\n— {name} —", fg=typer.colors.BRIGHT_WHITE, bold=True)
+        typer.secho(f"\n{name}", fg=typer.colors.BRIGHT_WHITE, bold=True)
         already = _board_labels(registre, name) if publish else ()
         des_autres = _contributions_of_others(registre, name) if publish else ()
         if des_autres:
@@ -1523,7 +1523,7 @@ def niveau_(
         typer.secho("Aucun micro utilisable.", fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
 
-    typer.secho(f"\nParle maintenant, {seconds:.0f} secondes — micro « {mic} »",
+    typer.secho(f"\nParle maintenant, {seconds:.0f} secondes, micro « {mic} »",
                 fg=typer.colors.BRIGHT_WHITE, bold=True)
     db = _audio_recorder(config).try_it(mic, seconds)
     verdict = judge(db)
@@ -1610,7 +1610,7 @@ def publish(
             a_traiter.append(done.produit)
         for ecriture, sens, kind in done.appris:
             typer.echo(f"    · {kind:8} {ecriture}"
-                       + (f" — {sens}" if sens else ""))
+                       + (f", {sens}" if sens else ""))
         if done.appris:
             typer.secho(
                 f"  {len(done.appris)} entrée(s) proposée(s) depuis "
@@ -1652,8 +1652,8 @@ def recover(
 
     À employer quand une réunion n'apparaît nulle part alors qu'elle a bien eu
     lieu : le fil du direct existe, mais rien ne l'a jamais converti en réunion.
-    Le résultat est moins bon qu'un traitement — modèle rapide, voix non
-    recollées — et c'est la différence entre approximatif et perdu.
+    Le résultat est moins bon qu'un traitement, modèle rapide, voix non
+    recollées, et c'est la différence entre approximatif et perdu.
     """
     from greffier.application.follow import read_from
     from greffier.application.recover import depuis_le_fil
@@ -1769,7 +1769,7 @@ def back_up(
         raise typer.Exit(1) from trouble
 
     typer.secho(
-        f"✓ {faite.archive.name} — {faite.files} fichier(s), "
+        f"✓ {faite.archive.name}, {faite.files} fichier(s), "
         f"{faite.bytes_read / 1024**2:.1f} Mo",
         fg=typer.colors.GREEN,
     )
@@ -1906,7 +1906,7 @@ def revoir(
     minutes, et un compte rendu refait alors que la transcription était bonne.
 
     Rien n'est réécouté ni retranscrit. Les noms déjà posés suivent les voix
-    qu'ils désignaient, et la banque est réinterrogée sur les voix recollées —
+    qu'ils désignaient, et la banque est réinterrogée sur les voix recollées,
     c'est là qu'elle a le plus de matière pour reconnaître.
     """
     from greffier.adapters.voiceprints_titanet import TitaNetExtractor
@@ -1957,7 +1957,7 @@ def write_up(
 ) -> None:
     """Rédige le compte rendu d'une réunion déjà transcrite.
 
-    La reprise quand le rédacteur a échoué — expiration, quota, réseau coupé.
+    La reprise quand le rédacteur a échoué, expiration, quota, réseau coupé.
     Rien n'est réécouté ni retranscrit : le fichier maître porte déjà le texte
     et les voix, seule la rédaction est rejouée. « _regenerer » ne pouvait pas
     servir ici, elle exige un compte rendu déjà écrit ; l'échec est justement
@@ -2127,7 +2127,7 @@ def send(
                     fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
 
-    objet = title(minutes, f"Compte rendu de réunion — {identifier}")
+    objet = title(minutes, f"Compte rendu de réunion : {identifier}")
     transcription = config.paths.transcripts / f"{identifier}.txt"
     pieces = [transcription] if avec_transcription and transcription.exists() else []
 

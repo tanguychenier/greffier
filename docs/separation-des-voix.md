@@ -13,7 +13,7 @@ recherche à jour est le premier point à faire ensemble.
 **Depuis :** le banc des extracteurs a été lancé sur une réunion réelle de
 1 h 42, et il tranche la question du modèle d'empreintes. CAM++ et ResNet293,
 tous deux en tête des classements de vérification du locuteur, ont une marge
-**négative** sur des extraits de 2,5 s — aucun seuil ne les sépare. TitaNet
+**négative** sur des extraits de 2,5 s, aucun seuil ne les sépare. TitaNet
 reste. Voir [le REX du 10 septembre](rex-2026-09-10.md), section 4 : tout
 candidat doit désormais battre **+0,099 de marge à 14,6 ms par extrait**.
 
@@ -71,7 +71,7 @@ l'écart entre « même personne » et « personnes différentes » sur des extr
 courts.
 
 Aucun de ces modèles n'est entraîné sur du français. C'est moins gênant qu'il
-n'y paraît — une empreinte vocale porte le timbre, pas la langue — mais cela
+n'y paraît : une empreinte vocale porte le timbre, pas la langue, mais cela
 mérite d'être vérifié plutôt que supposé.
 
 ### Le regroupement
@@ -80,7 +80,7 @@ mérite d'être vérifié plutôt que supposé.
   notre recollage prolonge. Simple, sans mémoire du temps.
 - **VBx / VB-HMM** (BUT Speech) : clustering bayésien variationnel avec un
   modèle de Markov caché sur la suite des locuteurs. C'est exactement
-  l'information que nous ignorons — la continuité temporelle — et c'est le
+  l'information que nous ignorons, la continuité temporelle, et c'est le
   standard des meilleurs systèmes des campagnes DIHARD. **Piste la plus directe
   pour notre point faible.**
 - **Multi-échelle** (NeMo MSDD) : comparer à plusieurs longueurs de fenêtre à la
@@ -96,8 +96,8 @@ mérite d'être vérifié plutôt que supposé.
   faible et un nombre de locuteurs non connu d'avance.
 
 Ces approches remplaceraient deux de nos trois étages. Elles demandent d'être
-disponibles en ONNX pour tenir dans la contrainte du projet — local, léger, sans
-dépendance nouvelle — ce qui reste à vérifier.
+disponibles en ONNX pour tenir dans la contrainte du projet : local, léger, sans
+dépendance nouvelle, ce qui reste à vérifier.
 
 ## 3. Ce qu'il faudrait mesurer, dans cet ordre
 

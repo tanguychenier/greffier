@@ -73,7 +73,7 @@ def collapse_loops(
     timing stays honest: the passage really did last eleven seconds, whatever
     the model made of it.
 
-    Two identical sentences in a row are left alone — that is a person.
+    Two identical sentences in a row are left alone, that is a person.
     """
     if len(utterances) < repeats:
         return list(utterances)

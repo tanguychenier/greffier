@@ -17,7 +17,7 @@ CONTENT = (
 )
 
 ECARTES = {
-    "enregistrements": "l'audio, 115 Mo par heure — c'est lui qui rend une "
+    "enregistrements": "l'audio, 115 Mo par heure, c'est lui qui rend une "
                        "sauvegarde impossible, et une réunion transcrite reste "
                        "utilisable sans lui",
     "modeles": "2 Go de modèles, retéléchargeables par l'installeur",

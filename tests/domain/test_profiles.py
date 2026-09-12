@@ -51,7 +51,7 @@ class TestTheRegisterOfProfiles:
 class TestTheNeutralProfileInventsNothing:
     def test_no_participant_is_manufactured_in_english(self):
         """With the French profile these sentences returned "Budget", "Anyway" and
-        "Marketing" — three participants who do not exist.
+        "Marketing", three participants who do not exist.
         """
         assert spot_mentions(say(*ANGLAIS), NEUTRAL) == []
 

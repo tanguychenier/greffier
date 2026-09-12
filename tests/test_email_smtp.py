@@ -1,7 +1,7 @@
 """What a recipient receives, checked without opening anything.
 
 Composing the email depends on no server: `SmtpSender.message` returns it on its
-own, and that is where the defects that spoil the minutes live — the encoding of
+own, and that is where the defects that spoil the minutes live, the encoding of
 the accents, the two versions of the body, the attachment.
 
 The connection is covered against real servers, in
@@ -18,7 +18,7 @@ import pytest
 
 from greffier.adapters.email import SmtpSender
 
-SUBJECT = "Compte rendu — réunion du 3 septembre"
+SUBJECT = "Compte rendu : réunion du 3 septembre"
 CORPS = "## Décisions\n\n- La recette est décalée à jeudi.\n- Marcel prévient les usagers.\n"
 
 

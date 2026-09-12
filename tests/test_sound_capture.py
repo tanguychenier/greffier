@@ -2,8 +2,8 @@
 
 « pactl » n'enregistre rien : il interroge le serveur de son, quand ffmpeg s'y
 branche directement par sa prise. Le juger absent revenait à déclarer perdue une
-machine parfaitement capable d'enregistrer — PipeWire en marche, mais
-« pulseaudio-utils » jamais installé — et à envoyer chercher un paquet inutile.
+machine parfaitement capable d'enregistrer, PipeWire en marche, mais
+« pulseaudio-utils » jamais installé, et à envoyer chercher un paquet inutile.
 """
 
 import pytest
@@ -49,7 +49,7 @@ class TestConstatDeCapture:
         assert "pactl" not in constat.detail
 
     def test_the_mic_is_still_found_through_the_sound_server(self, session, monkeypatch):
-        """Un poste sans /proc/asound — un conteneur — mais avec un serveur."""
+        """Un poste sans /proc/asound, un conteneur, mais avec un serveur."""
         monkeypatch.setattr(diagnostic.Path, "exists", lambda self: False)
         monkeypatch.setattr(diagnostic, "sound_server_present", lambda: True)
         assert diagnostic.mic_present().present

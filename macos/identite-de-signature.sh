@@ -14,14 +14,14 @@
 #
 # Ordre de préférence :
 #   1. GREFFIER_SIGNATURE, si posée (nom d'identité, ou « - » pour ad hoc) ;
-#   2. un certificat Apple déjà dans le trousseau — Developer ID, sinon
+#   2. un certificat Apple déjà dans le trousseau, Developer ID, sinon
 #      Apple Development : ils ont une chaîne complète, rien à configurer ;
 #   3. un certificat local « Greffier signature locale », créé ici une fois pour
 #      toutes. macOS demande alors le mot de passe de session pour lui faire
 #      confiance : c'est la seule fois où l'installation en demande un pour la
 #      signature, et il n'y en aura plus ensuite. Mesuré : sans cette confiance
 #      explicite, codesign ne voit même pas l'identité importée.
-#   4. ad hoc, en dernier recours — avec les redemandes qui vont avec.
+#   4. ad hoc, en dernier recours, avec les redemandes qui vont avec.
 set -euo pipefail
 
 NOM_LOCAL="Greffier signature locale"
@@ -84,7 +84,7 @@ CNF
 
 TROUSSEAU="$(security default-keychain -d user | tr -d ' "')"
 # -T : codesign peut se servir de la clé sans qu'on le lui autorise à chaque
-# signature — sinon un dialogue par bibliothèque signée, il y en a des dizaines.
+# signature, sinon un dialogue par bibliothèque signée, il y en a des dizaines.
 security import "$ATELIER/identite.p12" -k "$TROUSSEAU" -P greffier \
   -T /usr/bin/codesign -T /usr/bin/security >/dev/null 2>&1 \
   || { echo "⚠️  Import dans le trousseau impossible : signature ad hoc." >&2; echo "-"; exit 0; }

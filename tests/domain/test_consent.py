@@ -1,7 +1,7 @@
 """Ce que les participants doivent pouvoir savoir, et sa trace.
 
 Une voix est une donnée biométrique. Le principe retenu : ce qui n'est pas
-écrit n'a pas eu lieu — une mention orale ne se retrouve pas six mois plus
+écrit n'a pas eu lieu, une mention orale ne se retrouve pas six mois plus
 tard, une ligne dans le compte rendu si.
 """
 

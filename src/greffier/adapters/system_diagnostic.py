@@ -193,7 +193,7 @@ def models_present(data_folder: Path | None = None) -> Reading:
     noms = ", ".join(m.role for m in manquants)
     return Reading(
         name="Modèles", present=False,
-        detail=f"{len(manquants)} manquant(s) : {noms} — {weight(manquants)} à télécharger",
+        detail=f"{len(manquants)} manquant(s) : {noms}, {weight(manquants)} à télécharger",
         remede="python3 tools/install.py",
         bloquant=any(m.required for m in manquants),
     )
@@ -206,7 +206,7 @@ def known_voices(data_folder: Path | None = None) -> Reading:
     folder = (data_folder or ou()) / "banque-de-voix"
     if not folder.exists():
         return Reading(name="Banque de voix", present=True,
-                       detail="vide — les voix se nomment en réunion")
+                       detail="vide : les voix se nomment en réunion")
     try:
         connus = FileVoiceBank(folder).people()
     except (OSError, ValueError) as trouble:
@@ -214,7 +214,7 @@ def known_voices(data_folder: Path | None = None) -> Reading:
                        remede="vérifie les droits sur le dossier banque-de-voix")
     if not connus:
         return Reading(name="Banque de voix", present=True,
-                       detail="vide — les voix se nomment en réunion")
+                       detail="vide : les voix se nomment en réunion")
     return Reading(name="Banque de voix", present=True,
                    detail=f"{len(connus)} personne(s) reconnue(s) sans rien dire")
 
@@ -242,7 +242,7 @@ def examine(data_folder: Path | None = None) -> Diagnostic:
         ),
         Reading(
             name="Mémoire vive", present=infos.supports_large_model,
-            detail=f"{infos.memory_gb:.0f} Go — modèle conseillé : {infos.advised_model}",
+            detail=f"{infos.memory_gb:.0f} Go, modèle conseillé : {infos.advised_model}",
             remede="un modèle plus petit sera utilisé, la transcription sera moins fine",
         ),
         Reading(

@@ -3,9 +3,9 @@
 #
 # Autonome, c'est le point. L'interpréteur, sa bibliothèque standard, les
 # paquets et le code de Greffier sont **copiés dans le paquet** : rien ne pointe
-# vers le dépôt ni vers un dossier caché du compte. Les versions précédentes —
+# vers le dépôt ni vers un dossier caché du compte. Les versions précédentes,
 # un lien `Contents/lib` vers `~/.local/share/uv/…` et un PYTHONPATH vers le
-# `.venv` du dépôt — faisaient lire ces dossiers à chaque lancement et par
+# `.venv` du dépôt : faisaient lire ces dossiers à chaque lancement et par
 # chaque processus auxiliaire (veille, direct) ; le garde du poste contestait
 # chacun de ces accès, jusqu'à refuser une écriture en pleine
 # réunion. Un logiciel installé n'a pas à dépendre de l'endroit d'où on l'a
@@ -13,7 +13,7 @@
 #
 # Contents/MacOS/Greffier est une copie de l'interpréteur, pas un script qui
 # l'appelle : macOS attribue le nom du Dock et de la barre de menus à
-# l'exécutable réellement lancé, pas à `argv[0]` — mesuré, `exec -a` n'y change
+# l'exécutable réellement lancé, pas à `argv[0]`, mesuré, `exec -a` n'y change
 # rien. L'interpréteur retrouve sa bibliothèque par `@executable_path/../lib`,
 # d'où `Contents/lib`, copie de celle de l'installation d'origine, dans laquelle
 # uv installe ensuite Greffier et ses dépendances. Lancé sans argument par
@@ -22,8 +22,8 @@
 #
 # Le paquet est signé avec une identité **stable** (`identite-de-signature.sh`),
 # pas ad hoc. Une signature ad hoc n'est que le hachage du binaire : chaque
-# reconstruction en faisait une application inconnue pour macOS — micro et
-# Outlook redemandés — comme pour le garde du poste. Avec un certificat, l'identité tient
+# reconstruction en faisait une application inconnue pour macOS, micro et
+# Outlook redemandés, comme pour le garde du poste. Avec un certificat, l'identité tient
 # au certificat : les autorisations données une fois survivent.
 #
 # Conséquence assumée : une modification du code ne se voit dans l'application
@@ -44,7 +44,7 @@ DEPOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IDENTIFIANT="com.tansoftware.greffier"
 
 # La version du paquet suit celle du projet, lue dans pyproject.toml. Elle était
-# écrite en dur ici, et les deux avaient divergé — 0.3.0 dans l'Info.plist pour
+# écrite en dur ici, et les deux avaient divergé, 0.3.0 dans l'Info.plist pour
 # 0.1.0 dans le paquet Python.
 VERSION_PRODUIT="$(sed -n 's/^version = "\(.*\)"/\1/p' "$DEPOT/pyproject.toml" | head -1)"
 
@@ -62,7 +62,7 @@ else
   APP="$HOME/Applications/Greffier.app"
 fi
 
-# L'interpréteur du dépôt. Il doit être relogeable — c'est le cas de ceux
+# L'interpréteur du dépôt. Il doit être relogeable, c'est le cas de ceux
 # qu'installe uv (python-build-standalone) : libpython et la bibliothèque
 # standard dans `lib/`, retrouvées par `@executable_path/../lib`. Un Python
 # Homebrew ou système est un « framework », qui ne se copie pas ainsi.
@@ -71,7 +71,7 @@ PYTHON="$DEPOT/.venv/bin/python3"
 VERSION="$("$PYTHON" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
 BASE_PREFIX="$("$PYTHON" -c 'import sys; print(sys.base_prefix)')"
 # Un framework porte aussi lib/libpython3.13.dylib et bin/python3.13 : il
-# passait donc le controle, et le paquet se construisait a moitie — il gardait
+# passait donc le controle, et le paquet se construisait a moitie, il gardait
 # son prefixe en dur, donc importait greffier depuis /Library/Frameworks/… et
 # non depuis lui-meme. Constate sur l'executeur d'integration continue, ou le
 # dylib d'onnxruntime manquait au paquet alors qu'il etait bien installe.
@@ -97,7 +97,7 @@ export PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1
 
 # macOS lance le paquet avec un PATH minimal (/usr/bin:/bin:…), pas celui du
 # shell : ffmpeg (Homebrew) et claude (compte rendu) y sont introuvables même
-# installés, en échec silencieux jusqu'au clic qui en a besoin — constaté à
+# installés, en échec silencieux jusqu'au clic qui en a besoin, constaté à
 # l'usage. Le PATH d'un vrai shell de connexion, mesuré sur cette machine,
 # corrige ça sans rien deviner. Posé dans `sitecustomize`, pas dans
 # `LSEnvironment` : mesuré, ce dernier pose bien les variables PYTHON* mais pas
@@ -108,11 +108,11 @@ CHEMIN="$("${SHELL:-/bin/zsh}" -lic 'printf "GREFFIER_PATH=%s\n" "$PATH"' 2>/dev
 
 # ~/.local/bin d'abord, avant Homebrew. Ce n'est pas une préférence : c'est la
 # stabilité du chemin. Le garde du poste retient le chemin
-# du programme tel qu'il le voit, sans résoudre les liens symboliques — mesuré
+# du programme tel qu'il le voit, sans résoudre les liens symboliques, mesuré
 # dans son fichier de règles. Un outil installé par Homebrew vit sous
 # /opt/homebrew/Caskroom/<outil>/<version>/, chemin qui change à chaque mise à
 # jour : la règle accordée meurt avec l'ancienne version, et le dialogue revient
-# — en pleine réunion pour `claude`, qui rédige le compte rendu. Le même outil
+# en pleine réunion pour `claude`, qui rédige le compte rendu. Le même outil
 # sous ~/.local/bin est un lien de nom fixe : la règle survit aux mises à jour.
 # Constaté le 2026-09-02 : le paquet rédigeait avec le Claude Code 2.1.195 du
 # Caskroom alors que le 2.1.258 était installé sous ~/.local/bin.
@@ -132,7 +132,7 @@ mkdir -p "$CONTENU/MacOS" "$CONTENU/Resources"
 # Constate AVANT de construire, parce que construire tue l'application en
 # cours : macOS abat un processus dont l'executable signe vient d'etre
 # remplace. Le controle se faisait apres, donc il voyait toujours « pas
-# lancee » et ne relancait jamais — mesure du 2026-09-10, ou le poste est
+# lancee » et ne relancait jamais, mesure du 2026-09-10, ou le poste est
 # reste sans application juste apres une reunion.
 TOURNAIT=0
 pgrep -f "$APP/Contents/MacOS/Greffier" >/dev/null 2>&1 && TOURNAIT=1
@@ -142,7 +142,7 @@ cp "$BASE_PREFIX/bin/python$VERSION" "$EXECUTABLE"
 chmod 755 "$EXECUTABLE"
 cp -R "$BASE_PREFIX/lib" "$CONTENU/lib"
 # Notre copie n'est plus l'installation gérée par uv : le marqueur qui interdit
-# d'y installer quoi que ce soit n'a plus lieu d'être — sans quoi uv refuse.
+# d'y installer quoi que ce soit n'a plus lieu d'être, sans quoi uv refuse.
 rm -f "$CONTENU/lib/python$VERSION/EXTERNALLY-MANAGED"
 # pip n'a rien à faire dans une application : c'est uv qui remplit le paquet.
 rm -rf "$SITE"/pip "$SITE"/pip-*.dist-info
@@ -153,8 +153,8 @@ uv pip install --quiet --python "$EXECUTABLE" "$DEPOT"
 
 # Le lanceur du double-clic, avec le PATH mesuré, parmi les paquets : `site`
 # l'importe de lui-même au démarrage de l'interpréteur.
-# Le dépôt d'où ce paquet sort est gravé lui aussi. Non pas pour en dépendre —
-# l'application tourne sans lui, c'est tout l'intérêt d'être autonome — mais
+# Le dépôt d'où ce paquet sort est gravé lui aussi. Non pas pour en dépendre,
+# l'application tourne sans lui, c'est tout l'intérêt d'être autonome, mais
 # pour savoir où aller chercher une mise à jour. Sans cette trace, un bouton
 # « installer » devrait demander le chemin du dépôt à l'utilisateur, qui n'a
 # aucune raison de le connaître.
@@ -177,7 +177,7 @@ echo "→ précompilation"
 "$EXECUTABLE" -m compileall -q -j 0 "$CONTENU/lib/python$VERSION" >/dev/null 2>&1 || true
 
 # Le relevé du matériel exécute un petit binaire Swift toutes les quelques
-# secondes. Compilé dans le paquet — donc signé et couvert avec lui — plutôt
+# secondes. Compilé dans le paquet, donc signé et couvert avec lui, plutôt
 # que dans ~/.local : le garde du poste contestait chaque exécution depuis ~/.local, une
 # demande toutes les cinq secondes en réunion.
 if command -v swiftc >/dev/null 2>&1; then
@@ -256,11 +256,11 @@ printf 'APPL????' > "$CONTENU/PkgInfo"
 echo "→ signature"
 IDENTITE="$("$DEPOT/macos/identite-de-signature.sh")"
 signer() { codesign --force --sign "$IDENTITE" --timestamp=none "$@"; }
-# Les bibliothèques natives une à une d'abord, puis le paquet — qui signe
+# Les bibliothèques natives une à une d'abord, puis le paquet, qui signe
 # l'exécutable principal et scelle le reste. Sans horodatage : il demande le
 # réseau, et n'apporte rien à une application qui ne quitte pas le poste.
 # « replacing existing signature » : les roues PyPI arrivent déjà signées ad
-# hoc, codesign le dit pour chacune — des dizaines de lignes sans information.
+# hoc, codesign le dit pour chacune, des dizaines de lignes sans information.
 # Filtré ; les vraies erreurs passent.
 sans_bruit() { grep -v "replacing existing signature" >&2 || true; }
 # En parallele, et par paquets : signer quelques milliers de bibliotheques une
@@ -358,12 +358,12 @@ ETATPY
     done
     # « || true » et non par elegance : sous `set -e`, un pkill qui ne trouve
     # rien rend 1 et tuait le script **avant** la relance. Or ne rien trouver
-    # est le cas normal — l'application vient de quitter proprement juste
+    # est le cas normal, l'application vient de quitter proprement juste
     # au-dessus. Chaque reconstruction laissait donc le poste sans
     # application, en annoncant l'avoir relancee. Mesure du 2026-09-10.
     pkill -f "$APP/Contents/MacOS/Greffier" >/dev/null 2>&1 || true
     # Verifiee, et non annoncee. Mesure du 2026-09-10 : l'ancienne instance
-    # affichait une fenetre modale, a refuse « quit », a ete tuee — et
+    # affichait une fenetre modale, a refuse « quit », a ete tuee, et
     # « open » a rendu 0 sans rien lancer, parce que macOS considere encore
     # l'application comme en cours d'extinction. Le script annoncait la relance
     # et laissait le poste sans application, juste apres une reunion.

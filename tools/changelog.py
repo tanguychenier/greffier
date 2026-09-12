@@ -47,7 +47,7 @@ def main() -> int:
         if not found:
             continue
         scope = found.group("scope")
-        prefix = f"**{scope}** — " if scope else ""
+        prefix = f"**{scope}** : " if scope else ""
         line = f"- {prefix}{found.group('subject')} (`{short_hash}`)"
         if found.group("breaks"):
             breaks.append(line)

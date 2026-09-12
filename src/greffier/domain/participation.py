@@ -135,7 +135,7 @@ def _ecart_tolere(name: str) -> int:
     """How far a word may sit from the name and still be it.
 
     A quarter of the name, and not a flat two edits. Measured on 3 809 turns of
-    real meetings: at two edits, a five-letter first name answered to "lui" —
+    real meetings: at two edits, a five-letter first name answered to "lui",
     **113 times**, against 75 real calls. The name is what is known, so it is
     what sets the tolerance: three letters allow nothing, five allow one, nine
     allow two.
@@ -221,8 +221,8 @@ the assistant's own sentences played through a room, six words in ten survive.
 MEMORY_OF_ITS_WORDS = 180.0
 """Seconds a remark stays recognisable as its own.
 
-Long, on purpose. It answers late — the model takes seconds, the voice takes
-more — and its words can come back several slices later. Shorter, the loop
+Long, on purpose. It answers late, the model takes seconds, the voice takes
+more, and its words can come back several slices later. Shorter, the loop
 starts again; there is no cost to remembering.
 """
 
@@ -243,8 +243,8 @@ def is_own(text: str, remarks: list[frozenset[str]]) -> bool:
     """Is this utterance the assistant hearing itself?
 
     The defect this answers: it speaks through the loudspeakers, the tool
-    records the system output on purpose — that is how it hears the other
-    people in a video call — so its own voice comes back on the channel meant
+    records the system output on purpose, that is how it hears the other
+    people in a video call, so its own voice comes back on the channel meant
     for everybody else. It then reads its own name in its own answer and
     answers again, **for ever**.
 
@@ -268,7 +268,7 @@ def without_own_name(remark: str, name: str) -> str:
     rather than a precaution: it speaks through the loudspeakers, the tool
     records the system output on purpose, so whatever it says comes back
     transcribed. A remark carrying its own name calls it again, and it answers
-    again — **for ever**. Observed in a real meeting, fifteen times in fifteen
+    again, **for ever**. Observed in a real meeting, fifteen times in fifteen
     seconds.
     """
     cherche = _strip_accents(name.strip())

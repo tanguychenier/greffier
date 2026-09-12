@@ -1,7 +1,7 @@
 """The voice bank: one file per person, on this machine only.
 
 A voiceprint is biometric data. It never leaves the machine, and every gesture
-here — forget, rename, remove — exists so that it can be taken back.
+here (forget, rename, remove) exists so that it can be taken back.
 """
 
 from __future__ import annotations

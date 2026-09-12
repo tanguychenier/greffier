@@ -126,7 +126,7 @@ class Naming:
 
         The gesture the live thread has and the after-meeting chain did not.
         Naming two voices alike joins them, which is what one wants when the
-        tool split one person in two — and there was no way back when it was
+        tool split one person in two, and there was no way back when it was
         the other way round.
 
         The voiceprints of the two people stay in the bank under the name they

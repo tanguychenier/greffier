@@ -4,7 +4,7 @@
 Le calibrage du dépôt (`docs/calibrage.md`) repose sur des enregistrements
 faits ici, et il lui manque la mesure qui compte le plus : **la même personne,
 sur deux séances différentes**. C'est elle qui dit si `SEUIL_RECONNAISSANCE`
-est bien placé — un seuil trop haut ne reconnaît plus personne d'une réunion à
+est bien placé, un seuil trop haut ne reconnaît plus personne d'une réunion à
 l'autre, un seuil trop bas confond deux collègues.
 
 Le corpus AMI la fournit : ses réunions vont par séries, avec les **mêmes
@@ -18,7 +18,7 @@ Usage :
 
 Ce que ce script ne fait pas : il ne modifie aucun seuil. Il mesure et affiche.
 Déplacer un seuil est une décision qui se prend en regardant les nombres, pas
-un ajustement automatique — c'est ce qui distingue un calibrage d'un réglage
+un ajustement automatique, c'est ce qui distingue un calibrage d'un réglage
 au hasard.
 
 Le corpus AMI est distribué sous licence CC BY 4.0 (University of Edinburgh).
@@ -43,7 +43,7 @@ DURATION = 240.0
 #: parle qu'une fraction du temps. Prendre l'extrait tel quel donne une
 #: empreinte qui mélange plusieurs voix, du silence et de la respiration :
 #: mesuré, la même personne à deux séances retombait alors à 0,149 tandis que
-#: deux personnes différentes montaient à 0,280 — les deux nuages se
+#: deux personnes différentes montaient à 0,280, les deux nuages se
 #: chevauchaient, ce qui signalait la méthode et non le seuil.
 #:
 #: On ne garde donc que les fenêtres les plus fortes : sur son propre micro, le
@@ -68,7 +68,7 @@ def empreinte_de(file: Path, extractor) -> object | None:
 
     Les fenêtres les plus fortes sont recollées bout à bout, les autres jetées.
     C'est ce qui écarte les silences, la respiration et les voix qui traversent
-    la table — sans quoi l'empreinte n'appartient à personne.
+    la table, sans quoi l'empreinte n'appartient à personne.
     """
     import numpy as np
     import soundfile as sf

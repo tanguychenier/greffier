@@ -854,7 +854,7 @@ class TestTheChainKeepsTheMeeting:
     def test_with_no_writer_the_meeting_is_kept(self, tmp_path):
         """The case of someone who wants nothing to leave the machine.
 
-        "Aucun — s'arrêter à la transcription attribuée" is a choice the installer
+        "Aucun : s'arrêter à la transcription attribuée" is a choice the installer
         offers, and `--sans-compte-rendu` takes it for a run. The early return then
         came before the writing: the transcription and the voice attribution were lost
         the second they were ready, while the command went on to offer naming the
@@ -1008,8 +1008,8 @@ class TestWhenTheSendingFails:
     """A sending that fails must not carry the chain away with it.
 
     On 2026-09-10 a meeting of one hour forty-two stayed frozen on the "envoi"
-    phase for two hours. Everything was already on disk — the transcription, the
-    voices, the minutes, kept before the sending for exactly this reason — but the
+    phase for two hours. Everything was already on disk, the transcription, the
+    voices, the minutes, kept before the sending for exactly this reason, but the
     exception propagated, the next phase was never published, and the failure was
     reported only through a modal window nobody saw.
     """

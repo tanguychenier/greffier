@@ -2,10 +2,10 @@
 """Quels prénoms le modèle de transcription rend-il de façon reconnaissable ?
 
 L'assistant répond quand on cite son prénom. Un prénom que la transcription ne
-rend pas est donc un assistant sourd — et rien ne le dirait à celui qui l'a
+rend pas est donc un assistant sourd, et rien ne le dirait à celui qui l'a
 choisi : il appellerait dans le vide, et conclurait que l'outil ne marche pas.
 
-Chaque candidat passe quatre épreuves — deux tournures, deux voix de synthèse —
+Chaque candidat passe quatre épreuves : deux tournures, deux voix de synthèse,
 puis cinq pièges : des phrases sans le prénom, pour vérifier qu'il ne s'y
 déclenche pas. C'est le défaut de « Greffier », que « le greffe du tribunal »
 suffisait à réveiller, et d'« Élise », que « elle a lu ci et ça » appelle.
@@ -16,7 +16,7 @@ une fois sur deux ne vaut rien, puisqu'on appelle une fois et qu'on attend.
     python3 tools/probe_first_names.py
 
 **Aucun son n'est joué** : les fichiers sont écrits puis transcrits. On peut
-donc le lancer pendant une réunion — même si le calcul, lui, se dispute le
+donc le lancer pendant une réunion : même si le calcul, lui, se dispute le
 processeur avec la transcription en direct.
 
 Ce qu'il ne mesure pas : ce qu'un prénom devient prononcé par une vraie voix, à

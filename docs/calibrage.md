@@ -14,8 +14,8 @@ hardware, the acoustics or the model change.
 The first segments the recording, extracts one voice print per speaking turn of
 at least 3 s, then compares:
 
-- **intra** — two samples of the same voice: must be high;
-- **inter** — two different voices, aggregated voice prints: must be clearly
+- **intra**, two samples of the same voice: must be high;
+- **inter**, two different voices, aggregated voice prints: must be clearly
   lower.
 
 The gap between the two distributions dictates the threshold. A first attempt
@@ -31,7 +31,7 @@ microphone, a single active channel (no system sound captured).
 
 | | Median | Range |
 |---|---|---|
-| Two samples of the **same** voice | 0.74 | 0.62 – 0.79 on voices with ample material |
+| Two samples of the **same** voice | 0.74 | 0.62-0.79 on voices with ample material |
 | Two **different** voices | 0.41 | up to 0.66 |
 
 Hence `SEUIL_RECONNAISSANCE = 0.70`: above the worst case for distinct voices,
@@ -56,8 +56,8 @@ of each recording:
 
 | | Range |
 |---|---|
-| Same person, **two sittings** | 0.444 – 0.730 |
-| Different people | 0.072 – 0.184 |
+| Same person, **two sittings** | 0.444-0.730 |
+| Different people | 0.072-0.184 |
 
 On those six pairs the two clouds separated cleanly, which suggested any
 threshold between 0.184 and 0.444 would do and that 0.70 was too high.
@@ -67,8 +67,8 @@ and ES2003 give 91 pairs instead of 6:
 
 | | Range |
 |---|---|
-| Same person, two sittings (7 pairs) | 0.152 – 0.893 |
-| Different people (84 pairs) | -0.035 – 0.652 |
+| Same person, two sittings (7 pairs) | 0.152-0.893 |
+| Different people (84 pairs) | de -0,035 à 0,652 |
 
 The clouds now overlap, so **no threshold separates them**. What each one costs:
 
@@ -156,7 +156,7 @@ depended on.
 
 The `threshold = 0.8` of `DiariseurSherpa` (passed to `FastClusteringConfig`)
 had never been measured the way `SEUIL_RECONNAISSANCE`/`SEUIL_FUSION` above
-are — it came from the sherpa-onnx examples. On a synthetic test set with three
+are, it came from the sherpa-onnx examples. On a synthetic test set with three
 speakers (`tools/make_hard_cases.py --case trois-voix`, two close
 timbres), it merged two distinct speakers into one at the raw clustering stage,
 **before `fusionner_voix` even came into play**: segmentation returned only 2
@@ -164,21 +164,21 @@ voices for 3 people, and `fusionner_voix` cannot separate what has already been
 fused upstream.
 
 Direct measurement (`DiariseurSherpa.decouper` in isolation, outside the full
-chain), on two fixtures — `deux-voix` (`tools/make_meeting.py`, existing
-reference) and `trois-voix` — sweeping `threshold`:
+chain), on two fixtures, `deux-voix` (`tools/make_meeting.py`, existing
+reference) and `trois-voix`, sweeping `threshold`:
 
 | `threshold` | `deux-voix` | `trois-voix` |
 |---|---|---|
 | 0.30 | 3 voices (over-split) | 3 voices (correct) |
-| 0.40 – 0.50 | **2 voices (correct)** | **3 voices (correct)** |
-| 0.55 – 0.88 | 2 voices (correct) | 2 voices (wrongly merged) |
+| 0.40-0.50 | **2 voices (correct)** | **3 voices (correct)** |
+| 0.55-0.88 | 2 voices (correct) | 2 voices (wrongly merged) |
 | ≥ 0.90 | 1 voice (wrongly merged) | 1 voice (wrongly merged) |
 
 The meaning of the parameter is counter-intuitive: the **lower** it is, the more
 sensitive the clustering and the more voices it tells apart, up to over-splitting
 at 0.30. The range `[0.40 ; 0.50]` is correct on both fixtures.
 `threshold = 0.45` chosen (middle of the range). To be revalidated on a real
-recording via `tools/calibrate_thresholds.py`/`tools/check_joins.py` — this
+recording via `tools/calibrate_thresholds.py`/`tools/check_joins.py`, this
 measurement covered only speech synthesis.
 
 ## Material guard before merging
@@ -186,7 +186,7 @@ measurement covered only speech synthesis.
 A complement to the setting above, not its replacement: `fusionner_voix`
 (`domaine/empreintes.py`) merges two groups as soon as their aggregated voice
 prints exceed `SEUIL_FUSION`, without looking at how much material backs each
-aggregate — an aggregate drawn from two or three seconds is noisy, and its
+aggregate, an aggregate drawn from two or three seconds is noisy, and its
 similarity with another small group is no longer a reliable signal. The function
 now requires, on top of the score, that the **larger** of the two candidate
 groups carry at least `MATIERE_MINIMALE_FUSION = 6.0` s (twice `DUREE_UTILE`)
@@ -199,7 +199,7 @@ revalidated by the same method as above.
 ## Known limits
 
 - The voice print model is `nemo_en_titanet_large`, trained on English. It works
-  on French voices — timbre depends little on the language — but a multilingual
+  on French voices, timbre depends little on the language, but a multilingual
   model would be preferable.
 - A single meeting measured, in a room. The thresholds must be rechecked on
   video calls, where the signal is much cleaner and where the intra values

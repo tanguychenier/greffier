@@ -1142,7 +1142,7 @@ class TestWhatIsPouredIntoTheBank:
 
     Measured on a real meeting: one live voice carried two people, a human named
     it, and the mean of everything it had gathered went into that person's entry
-    — 280 seconds that answer to another name at 0.71 against their own at 0.48.
+    280 seconds that answer to another name at 0.71 against their own at 0.48.
     A file, once wrong, is wrong at every meeting that follows.
     """
 

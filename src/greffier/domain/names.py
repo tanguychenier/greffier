@@ -1,7 +1,7 @@
 """Finding the attendees' names in what they say.
 
 A meeting names its own people: "thanks Tanguy", "over to you Sophie". Every
-rule here exists to avoid writing an invented name into minutes — a wrong name
+rule here exists to avoid writing an invented name into minutes, a wrong name
 is worse than no name at all.
 """
 
@@ -284,7 +284,7 @@ def from_live(named: list[NamedSpan], turns: list[SpeakerTurn]) -> dict[str, str
     The defect this answers: a name typed into the window while the meeting ran
     reached the voice bank and nothing else. The pass that writes the minutes
     cut the audio again, into its own voices, and named them from the bank
-    alone — so the biggest speaker of a real meeting, named by hand on
+    alone, so the biggest speaker of a real meeting, named by hand on
     seventy-six sentences, was written up as *une voix non nommée*, while a
     person who was not in the room was announced as a participant.
 

@@ -49,7 +49,7 @@ class FakeBrain:
 
 class TestBeingCalledByName:
     def test_its_name_said_out_loud_makes_it_answer(self):
-        """"Lucie, est-ce que tu nous entends ?" — the case being demonstrated."""
+        """"Lucie, est-ce que tu nous entends ?", the case being demonstrated."""
         assistant = AssistantSettings(name="Lucie")
         retenue = assistant.turn([said("Lucie, est-ce que tu nous entends bien ?")],
                                  now=13.0)

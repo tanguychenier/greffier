@@ -16,8 +16,8 @@ comparaison a été faite deux fois de suite, dans les mêmes conditions.
 | `process()` complet du découpage | **43 à 95 s** |
 
 Le découpage en tours de parole ne coûte pas cher à cause de la segmentation :
-il coûte cher parce qu'il fait tourner TitaNet — 101 Mo, 25 millions de
-paramètres — sur **chaque** extrait. Sur le processeur, ce seul modèle tient
+il coûte cher parce qu'il fait tourner TitaNet, 101 Mo, 25 millions de
+paramètres, sur **chaque** extrait. Sur le processeur, ce seul modèle tient
 entre 1,9 et 2,8 fois le temps réel.
 
 ## 2. Le même modèle sur la carte
@@ -84,7 +84,7 @@ tué.
 D'où les deux règles du code :
 
 1. La racine de composition ouvre la session de la carte **avant** de construire
-   un transcripteur — 1,09 s, et il ne reste que le contexte du pilote sur la
+   un transcripteur : 1,09 s, et il ne reste que le contexte du pilote sur la
    carte (85 Mo).
 2. Si malgré tout le rival est déjà là, le découpage se replie sur le
    processeur. Lent vaut mieux que perdu.

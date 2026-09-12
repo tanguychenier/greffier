@@ -1,7 +1,7 @@
 [project]
 name = "greffier"
 version = "0.3.21"
-description = "Enregistre une réunion, identifie qui parle, en rédige le compte rendu — sans rien envoyer ailleurs."
+description = "Enregistre une réunion, identifie qui parle, en rédige le compte rendu, sans rien envoyer ailleurs."
 requires-python = ">=3.13"
 license = { text = "PolyForm-Noncommercial-1.0.0" }
 dependencies = [
@@ -56,8 +56,8 @@ testpaths = ["tests"]
 # contre quelques millisecondes pour le reste. « pytest -m integration ».
 #
 # « lent » appelle le vrai rédacteur, donc le réseau et le quota du compte.
-# Ces cas-là mesurent ce qu'aucune doublure ne peut mesurer — qu'un modèle se
-# taise quand il n'a rien à dire — et se passent à la main avant une
+# Ces cas-là mesurent ce qu'aucune doublure ne peut mesurer, qu'un modèle se
+# taise quand il n'a rien à dire, et se passent à la main avant une
 # démonstration. « pytest -m lent ».
 addopts = "-q -m 'not integration and not lent'"
 markers = [
@@ -76,8 +76,8 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 # Typer déclare les options dans les valeurs par défaut : c'est sa signature,
 # pas une négligence.
 "src/greffier/cli.py" = ["B008"]
-# L'installeur doit tourner sur Python 3.9 — celui encore livré par défaut sur
-# beaucoup de postes — alors que le paquet, lui, exige 3.13. Ses gardes de
+# L'installeur doit tourner sur Python 3.9, celui encore livré par défaut sur
+# beaucoup de postes, alors que le paquet, lui, exige 3.13. Ses gardes de
 # version ne sont donc pas obsolètes.
 "tools/install.py" = ["UP036"]
 "src/greffier/adaptateurs/configuration.py" = ["UP036"]
@@ -88,7 +88,7 @@ strict = true
 files = ["src/greffier"]
 
 # L'exception qui relâchait la rigueur sur les adaptateurs visait
-# « greffier.adaptateurs.* » — un dossier renommé « adapters » depuis, donc une
+# « greffier.adaptateurs.* », un dossier renommé « adapters » depuis, donc une
 # exception qui ne s'appliquait plus à rien. Retirée plutôt que réparée : le
 # code la traverse en strict sans une ligne de changement, et une exception qui
 # ne protège rien ne fait qu'induire en erreur qui la lit.

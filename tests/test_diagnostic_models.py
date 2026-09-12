@@ -35,7 +35,7 @@ class TestTheModelsAreLookedAt:
 
     def test_the_download_weight_is_announced(self, data):
         """In whichever unit: the engines differ per system, and so does the
-        weight — 1.7 GB with whisper.cpp, 71 MB where faster-whisper carries
+        weight, 1.7 GB with whisper.cpp, 71 MB where faster-whisper carries
         the transcription model itself."""
         assert re.search(r"\d+([.,]\d+)? (Mo|Go) à télécharger",
                          diagnostic.models_present(data).detail)

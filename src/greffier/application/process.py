@@ -1,7 +1,7 @@
 """Processing a recorded meeting: from audio to minutes.
 
 The order is not arbitrary. Everything expensive is written to disk before the
-one step that leaves the machine — writing the minutes — because a writer
+one step that leaves the machine, writing the minutes, because a writer
 timeout used to lose a whole meeting's transcript and attribution.
 """
 
@@ -363,7 +363,7 @@ class Chain:
         """Fills in the names a human gave while the meeting ran.
 
         It fills silence and never overwrites: the live cut has its own mistakes
-        — measured on a real meeting, one of its voices carried two people — and
+        measured on a real meeting, one of its voices carried two people, and
         carrying a name across a wrong cut takes one person's words and gives
         them to another. A disagreement is reported instead, for the writer to
         weigh.
@@ -632,7 +632,7 @@ class Chain:
         self.sender.send(
             self.recipient,
             titre_du_compte_rendu(
-                outcome.minutes, f"Compte rendu de réunion — {audio.stem}"
+                outcome.minutes, f"Compte rendu de réunion : {audio.stem}"
             ),
             outcome.minutes,
             [],

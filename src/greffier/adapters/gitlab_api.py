@@ -34,7 +34,7 @@ class Ticket:
     etiquettes: tuple[str, ...] = ()
 
     def say(self) -> str:
-        who = f" — {self.assigne}" if self.assigne else ""
+        who = f", {self.assigne}" if self.assigne else ""
         marques = f" [{', '.join(self.etiquettes)}]" if self.etiquettes else ""
         return f"#{self.number} {self.title}{who}{marques} ({self.state})"
 

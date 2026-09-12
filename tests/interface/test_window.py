@@ -193,8 +193,8 @@ class TestAFailurePublishedToTheState:
     The defect, seen on 2026-09-10 on a meeting of one hour forty-two: the chain
     failed at the sending, the failure was reported only through a modal dialogue,
     and the state stayed frozen on "envoi". Screen locked, nobody to click.
-    Everything that reads that state — the watch, the command line, rebuilding the
-    application — believed a meeting was still being processed, two hours after it
+    Everything that reads that state: the watch, the command line, rebuilding the
+    application, believed a meeting was still being processed, two hours after it
     had ended.
     """
 

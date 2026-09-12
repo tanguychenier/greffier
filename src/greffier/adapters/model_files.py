@@ -3,7 +3,7 @@
 They live outside the application, in the data folder, and that is deliberate:
 an update swaps the bundle and the 1.7 GB stays where it is. It also means a
 freshly downloaded application has none of them, and until now only the
-command-line installer knew how to fetch them — so double-clicking the
+command-line installer knew how to fetch them, so double-clicking the
 published archive gave a tool that could not transcribe anything.
 
 The catalogue lives here rather than in the installer so that both read the
@@ -30,7 +30,7 @@ REQUIS_PARTOUT = "voix"
 """The voice is fetched on every system, and that is a decision.
 
 It is the part people hear, and it has to sound the same on macOS, Linux and
-Windows. The fallback — each system's own synthesiser — sounds different on
+Windows. The fallback, each system's own synthesiser, sounds different on
 each, does not exist at all on some Linux sessions, and sounds like a machine
 where it does. Eighty megabytes next to one and a half gigabytes buys one voice
 everywhere.

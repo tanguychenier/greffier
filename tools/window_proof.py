@@ -7,7 +7,7 @@ et se lance aussi bien à la main sur n'importe quel système :
     .venv/bin/python tools/window_proof.py
 
 La fenêtre est **construite pour de vrai**, puis chaque onglet est affiché par
-son propre code — la méthode déjà retenue sur macOS, qui pilote la fenêtre plutôt
+son propre code, la méthode déjà retenue sur macOS, qui pilote la fenêtre plutôt
 que de simuler des clics sur des coordonnées écran, trop fragiles. Rien n'est
 simulé ici : si Tk manque, si la palette échoue, si un onglet lève une exception
 à la peinture, ce script s'arrête en erreur.
@@ -57,7 +57,7 @@ def capturer(window: object, target: Path) -> bool:
     root.attributes("-topmost", True)
     # Deux passes et une pause : `update` vide la file d'événements de Tk, mais
     # macOS composite ensuite, de façon asynchrone. Une capture prise juste
-    # après un redimensionnement montrait la fenêtre à moitié redessinée —
+    # après un redimensionnement montrait la fenêtre à moitié redessinée,
     # barre de boutons absente alors qu'elle était bien placée, ce qui envoie
     # chercher un défaut d'interface qui n'existe pas.
     root.update()
@@ -118,7 +118,7 @@ def main() -> int:
     from greffier.adapters.configuration import Config
     from greffier.interface.window import Window
 
-    print("tkinter", tk.TkVersion, "— Tcl", tk.TclVersion)
+    print("tkinter", tk.TkVersion, "- Tcl", tk.TclVersion)
 
     window = Window(Config())
     # Une passe de boucle d'événements : sans elle, rien n'est encore peint et
@@ -133,7 +133,7 @@ def main() -> int:
         window.tabs.reveal(caption)
         window.root.update()
         page = window.tabs._pages[caption]
-        print(f"  onglet « {caption} » peint — {len(page.winfo_children())} éléments")
+        print(f"  onglet « {caption} » peint, {len(page.winfo_children())} éléments")
 
     # La pastille de compte se dessine hors des tests : elle touche Tk, qui ne
     # démarre pas sur un exécuteur d'intégration continue. C'est donc ici qu'on
@@ -178,7 +178,7 @@ def main() -> int:
                 # d'onglet change le contenu, et la fenêtre se rétablit sur ce
                 # que ce contenu demande. Fixée une seule fois en tête de
                 # boucle, elle valait encore pour la première capture et plus
-                # pour les suivantes — des images tronquées, dont on cherche le
+                # pour les suivantes, des images tronquées, dont on cherche le
                 # défaut dans l'interface au lieu de l'outil.
                 window.root.geometry(f"{width}x760")
                 window.tabs.reveal(caption)

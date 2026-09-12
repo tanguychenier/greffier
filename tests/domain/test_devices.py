@@ -256,7 +256,7 @@ class TestAHeadsetWins:
 
     On 2026-09-09 a Jabra was set aside at -68 dB in favour of the built-in mic at
     -49 dB: the headset was lying on the desk, a metre from the mouth. Worn, it
-    would have been far better — a headset mic sits three centimetres from the
+    would have been far better, a headset mic sits three centimetres from the
     mouth, a laptop's fifty, and it picks up the whole room.
     """
 

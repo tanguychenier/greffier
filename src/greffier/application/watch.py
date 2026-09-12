@@ -166,7 +166,7 @@ class Watcher:
         `laisser_parler` false on the last pass: the meeting is over, and the
         assistant answering out loud in a room that has just been told the
         meeting is finished would be a strange thing to watch. The sentence is
-        still transcribed and still lands in the minutes — only the voice is
+        still transcribed and still lands in the minutes, only the voice is
         held back.
         """
         if self.transcriber is None:
