@@ -329,7 +329,7 @@ class TestPreparingAMeetingFromTheWindow:
         fenetre = self._fenetre(tmp_path, langue="fr")
         fenetre._dictee = type("Rien", (), {"stop": lambda self: None})()
         fenetre.bouton_parler = type("Bouton", (), {"set_caption": lambda self, t: None})()
-        fenetre._say = lambda genre, texte: fenetre.dits.append(texte)
+        fenetre._say_while_preparing = lambda genre, texte: fenetre.dits.append(texte)
         Window._stop_dictating(fenetre)
         assert any("maintiens le bouton" in dit for dit in fenetre.dits)
 
@@ -340,7 +340,7 @@ class TestPreparingAMeetingFromTheWindow:
         fenetre = self._fenetre(tmp_path, langue="en")
         fenetre._dictee = type("Rien", (), {"stop": lambda self: None})()
         fenetre.bouton_parler = type("Bouton", (), {"set_caption": lambda self, t: None})()
-        fenetre._say = lambda genre, texte: fenetre.dits.append(texte)
+        fenetre._say_while_preparing = lambda genre, texte: fenetre.dits.append(texte)
         Window._stop_dictating(fenetre)
         assert any("hold the button" in dit for dit in fenetre.dits)
 
