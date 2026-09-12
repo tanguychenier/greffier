@@ -7,6 +7,8 @@ live which only show up once you are there.
 
 from types import SimpleNamespace
 
+import pytest
+
 from greffier.adapters import voice_neural, voice_system
 from greffier.adapters.voice_neural import clean, sentences
 
@@ -256,3 +258,64 @@ class TestOneCutStopsTheWholeRemark:
             voice = self._voice_of(tmp_path, monkeypatch, retour=retour)
             voice._play(tmp_path / "un.wav")
             assert not (tmp_path / "p.pid").exists()
+
+
+class TestLaVoixOuverteUneFois:
+    """Ouvrir le modèle de voix prend quatre secondes et demie.
+
+    Une voix neuve était construite à chaque question posée en préparation :
+    quatre secondes et demie avant chaque réponse, pour une remarque qui se
+    prononce ensuite en trois dixièmes. Le moteur est donc gardé pour le
+    processus, par dossier, langue et périphérique.
+    """
+
+    @pytest.fixture
+    def ouvertures(self, monkeypatch, tmp_path):
+        from greffier.adapters import voice_neural
+
+        faites: list[str] = []
+        monkeypatch.setattr(voice_neural, "_OPENED", {})
+        monkeypatch.setattr(
+            voice_neural.NeuralVoice, "_open",
+            lambda self, where: faites.append(where) or object(),
+        )
+        (tmp_path / "tokens.txt").touch()
+        (tmp_path / "fr_FR-upmc-medium.onnx").touch()
+        return faites, tmp_path
+
+    def test_two_questions_open_it_once(self, ouvertures):
+        from greffier.adapters.voice_neural import NeuralVoice
+
+        faites, dossier = ouvertures
+        premiere = NeuralVoice(dossier, device="cpu")
+        seconde = NeuralVoice(dossier, device="cpu")
+        assert premiere._load() is seconde._load()
+        assert faites == ["cpu"]
+
+    def test_another_language_opens_its_own(self, ouvertures):
+        """Une voix anglaise n'est pas la voix française."""
+        from greffier.adapters.voice_neural import NeuralVoice
+
+        faites, dossier = ouvertures
+        NeuralVoice(dossier, language="fr", device="cpu")._load()
+        NeuralVoice(dossier, language="en", device="cpu")._load()
+        assert len(faites) == 2
+
+    def test_warming_opens_it_without_saying_anything(self, ouvertures):
+        from greffier.adapters.voice_neural import NeuralVoice
+
+        faites, dossier = ouvertures
+        NeuralVoice(dossier, device="cpu").warm()
+        assert faites == ["cpu"]
+
+    def test_warming_never_raises(self, monkeypatch, ouvertures):
+        """Appelée depuis un fil pendant qu'on parle : une panne ici ne coûte rien."""
+        from greffier.adapters import voice_neural
+
+        _, dossier = ouvertures
+
+        def qui_refuse(_self, _where):
+            raise RuntimeError("modèle illisible")
+
+        monkeypatch.setattr(voice_neural.NeuralVoice, "_open", qui_refuse)
+        voice_neural.NeuralVoice(dossier, device="cpu").warm()
