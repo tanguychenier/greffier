@@ -51,3 +51,8 @@ a_soulever = "To raise"
 attendu_note = "“{qui}” is expected. Their voice may be recognised; one that merely resembles somebody absent will not."
 point_note = "Noted: {quoi}"
 mode_emploi = "Prepare your meeting: ask questions, supply documents, say who you expect and what you mean to raise. All of it opens the meeting when you start it."
+
+[vide]
+aucune_reunion = "No meeting recorded yet. “Start the meeting”, at the top: the tool listens, then transcribes and writes up at the end."
+aucune_reunion_choisie = "Choose a meeting in the Meetings tab: its voices appear here, with how long each one spoke."
+aucune_voix = "Nothing to name: every voice of this meeting already carries one."

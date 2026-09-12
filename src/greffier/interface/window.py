@@ -38,6 +38,7 @@ from greffier.application.follow import (
     request_a_split,
 )
 from greffier.domain.channels import WhoSpeaks
+from greffier.domain.emptiness import Missing
 from greffier.domain.live import LiveThread, LiveTurn
 from greffier.domain.minutes import title
 from greffier.domain.models import Phase
@@ -370,14 +371,50 @@ class Window:
         parent.rowconfigure(rank, weight=1)
         return arbre
 
+    def _guidance(self, parent: tk.Frame, rank: int) -> tk.Label:
+        """The sentence that takes an empty table's place.
+
+        In the table's own cell, hidden as long as there is something to show:
+        an empty grid says only what the eye has already seen.
+        """
+        said = self._text(parent, "", taille=12, pale=True,
+                          wraplength=700, justify="left")
+        said.grid(row=rank, column=0, sticky="nw", pady=(30, 0))
+        said.grid_remove()
+        return said
+
+    def _say_what_is_missing(
+        self, missing: Missing | None, table: ttk.Treeview,
+        said: tk.Label, buttons: list[Button],
+    ) -> None:
+        """Shows the sentence in place of the table, and holds the buttons."""
+        from greffier.domain.emptiness import may_act
+
+        phrases = {
+            Missing.NO_MEETING_YET: "vide.aucune_reunion",
+            Missing.NO_MEETING_CHOSEN: "vide.aucune_reunion_choisie",
+            Missing.NO_VOICE_TO_NAME: "vide.aucune_voix",
+        }
+        for bouton in buttons:
+            bouton.activer(may_act(missing))
+        if missing is None:
+            said.grid_remove()
+            table.grid()
+            return
+        table.grid_remove()
+        said.configure(text=self.dit(phrases[missing]))
+        said.grid()
+
     def _meetings_tab(self) -> None:
         inside = self._page("Réunions")
         self.listing = self._listing(inside, (
             ("date", "Réunion", 320), ("voix", "Personnes", 90),
             ("mots", "Mots", 80), ("compte_rendu", "Compte rendu", 120),
         ))
+        self.meeting_guidance = self._guidance(inside, rank=0)
         actions = ButtonBar(inside, self.colours)
         actions.grid(row=1, column=0, sticky="ew", pady=(16, 0))
+        self.meeting_buttons = []
         for caption, action, width, principal in (
             ("Traiter", self._process_selection, 100, False),
             ("Rédiger", self._write_up_selection, 100, False),
@@ -391,11 +428,15 @@ class Window:
                             principal=principal, width=width, height=34)
             if caption == "Traiter":
                 bouton._en_avant()
+            if caption != "Rafraîchir":
+                self.meeting_buttons.append(bouton)
             actions.add(bouton, width)
         apart = tk.Frame(inside, bg=self.colours.board)
         apart.grid(row=2, column=0, sticky="e", pady=(10, 0))
-        Button(apart, "Supprimer", self._forget_selection, self.colours,
-               width=110, height=30)._efface().pack(side="right")
+        supprimer = Button(apart, "Supprimer", self._forget_selection, self.colours,
+                           width=110, height=30)._efface()
+        supprimer.pack(side="right")
+        self.meeting_buttons.append(supprimer)
         self.listing.bind("<<TreeviewSelect>>", lambda _e: self._load_voices())
         self._load_meetings()
 
@@ -775,6 +816,7 @@ class Window:
             ("voix", "Voix", 100), ("duree", "Durée", 90),
             ("part", "Part", 80), ("nom", "Nom", 260),
         ), rank=1)
+        self.voice_guidance = self._guidance(inside, rank=1)
 
         entry = tk.Frame(inside, bg=self.colours.board)
         entry.grid(row=2, column=0, sticky="ew", pady=(16, 0))
@@ -784,14 +826,17 @@ class Window:
         self.champ_nom = self._champ(entry, width=20)
         self.champ_nom.pack(side="left", ipady=7, ipadx=5)
         self.champ_nom.bind("<Return>", lambda _e: self._name_voice())
-        Button(entry, "Nommer", self._name_voice, self.colours, principal=True,
-               width=110, height=34).pack(side="left", padx=(11, 9))
-        Button(entry, "Écouter 10 s", self._listen, self.colours,
-               width=140, height=34).pack(side="left")
-        Button(entry, "Retirer le nom", self._forget_the_name, self.colours,
-               width=150, height=34).pack(side="left", padx=(9, 0))
-        Button(entry, "Séparer les deux voix", self._split_the_voice,
-               self.colours, width=190, height=34).pack(side="left", padx=(9, 0))
+        self.voice_buttons = []
+        for caption, action, width, principal, gap in (
+            ("Nommer", self._name_voice, 110, True, (11, 9)),
+            ("Écouter 10 s", self._listen, 140, False, (0, 0)),
+            ("Retirer le nom", self._forget_the_name, 150, False, (9, 0)),
+            ("Séparer les deux voix", self._split_the_voice, 190, False, (9, 0)),
+        ):
+            bouton = Button(entry, caption, action, self.colours,
+                            principal=principal, width=width, height=34)
+            bouton.pack(side="left", padx=gap)
+            self.voice_buttons.append(bouton)
 
     def _preparation_tab(self) -> None:
         """Before a meeting: what to raise, who is expected, and Lucie.
@@ -2114,6 +2159,12 @@ class Window:
                 sum(len(r.text.split()) for r in detail.utterances),
                 "oui" if minutes.exists() else "non",
             ))
+        from greffier.domain import emptiness
+
+        self._say_what_is_missing(
+            emptiness.meetings(len(self.listing.get_children())),
+            self.listing, self.meeting_guidance, self.meeting_buttons,
+        )
         if garde:
             self._choose(garde)
 
@@ -2145,25 +2196,29 @@ class Window:
 
     def _load_voices(self) -> None:
         from greffier.application.name_voice import voices_to_name
+        from greffier.domain import emptiness
 
         self._load_the_conversation()
         for line in self.voice.get_children():
             self.voice.delete(line)
         identifier = self._selection()
-        if identifier is None:
-            return
-        try:
-            detail = self.store.read(identifier)
-        except (OSError, ValueError):
-            return
-        for candidate in voices_to_name(detail):
-            self.voice.insert("", "end", values=(
-                candidate.voice,
-                f"{candidate.duration / 60:.1f} min",
-                f"{candidate.part * 100:.0f} %",
-                candidate.name
-                or (f"≈ {candidate.proposition}" if candidate.proposition else "à nommer"),
-            ))
+        if identifier is not None:
+            try:
+                detail = self.store.read(identifier)
+            except (OSError, ValueError):
+                detail = None
+            for candidate in voices_to_name(detail) if detail else []:
+                self.voice.insert("", "end", values=(
+                    candidate.voice,
+                    f"{candidate.duration / 60:.1f} min",
+                    f"{candidate.part * 100:.0f} %",
+                    candidate.name
+                    or (f"≈ {candidate.proposition}" if candidate.proposition else "à nommer"),
+                ))
+        self._say_what_is_missing(
+            emptiness.voices(identifier is not None, len(self.voice.get_children())),
+            self.voice, self.voice_guidance, self.voice_buttons,
+        )
 
     def _process_selection(self) -> None:
         identifier = self._selection()

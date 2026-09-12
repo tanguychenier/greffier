@@ -51,3 +51,8 @@ a_soulever = "À soulever"
 attendu_note = "« {qui} » est attendu. Sa voix pourra être reconnue ; une voix qui ressemble à quelqu'un d'absent ne le sera pas."
 point_note = "Noté : {quoi}"
 mode_emploi = "Prépare ta réunion : pose des questions, fournis des documents, dis qui tu attends et ce que tu veux soulever. Tout cela ouvrira la séance quand tu démarreras."
+
+[vide]
+aucune_reunion = "Aucune réunion enregistrée. « Démarrer la réunion », en haut : le greffier écoute, puis transcrit et rédige à la fin."
+aucune_reunion_choisie = "Choisis une réunion dans l'onglet Réunions : ses voix s'afficheront ici, avec leur temps de parole."
+aucune_voix = "Rien à nommer : chaque voix de cette réunion porte déjà un nom."
