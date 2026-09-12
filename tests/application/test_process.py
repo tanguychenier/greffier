@@ -385,6 +385,43 @@ class TestTheVoiceBank:
         assert processing.run_chain(AUDIO).names["1"] == "Tanguy"
 
 
+class TestHerOwnVoiceIsNotAParticipant:
+    """What she says comes back through the capture of everybody else's sound.
+
+    Reported in use: « ça détectait mal les voix et en rajoutait à chaque fois ».
+    One of those voices was the assistant answering a question, counted as
+    somebody in the room and asked to be named.
+    """
+
+    def _chaine(self, intervalles):
+        processing = chain()
+        processing.her_name = "Lucie"
+        processing.her_turns_of = lambda _identifier: intervalles
+        return processing
+
+    def test_her_voice_carries_her_name(self):
+        outcome = self._chaine(((13.0, 20.0),)).run_chain(AUDIO)
+        assert outcome.names.get("2") == "Lucie"
+
+    def test_she_is_never_offered_for_naming(self):
+        """A machine's synthesis is not a person to identify."""
+        outcome = self._chaine(((13.0, 20.0),)).run_chain(AUDIO)
+        assert "2" not in outcome.propositions
+
+    def test_the_room_keeps_its_voices(self):
+        outcome = self._chaine(((13.0, 20.0),)).run_chain(AUDIO)
+        assert outcome.names.get("1") == "Tanguy"
+
+    def test_a_meeting_where_she_never_spoke_is_untouched(self):
+        outcome = self._chaine(()).run_chain(AUDIO)
+        assert "Lucie" not in outcome.names.values()
+
+    def test_without_her_name_nothing_is_attributed_to_her(self):
+        processing = chain()
+        processing.her_turns_of = lambda _identifier: ((13.0, 20.0),)
+        assert "Lucie" not in processing.run_chain(AUDIO).names.values()
+
+
 class TestThePreparationIsConsumed:
     def test_the_meeting_takes_it_once_it_is_on_disk(self, tmp_path):
         """Not before: a processing that fails halfway would burn it for nothing."""
