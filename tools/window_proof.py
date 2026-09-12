@@ -33,8 +33,11 @@ def capturer(window: object, target: Path) -> bool:
     Réunions sans que personne ne voie que le septième dépassait de la fenêtre,
     invisible et inatteignable. Une capture coûte une seconde et le montre.
 
-    macOS seulement : `screencapture` sait viser une région de l'écran. Ailleurs,
-    rend Faux sans se plaindre — la preuve de peinture, elle, marche partout.
+    Two ways of taking it. macOS aims `screencapture` at a region of the screen.
+    Elsewhere, `xwd` photographs the window **by its identifier**, which is the
+    better of the two: nothing can slide in front of it, and it works on a
+    virtual display where there is no screen at all. Without either, it answers
+    False rather than complain -- the painting proof itself runs everywhere.
     """
     import shutil
     import subprocess
@@ -42,7 +45,7 @@ def capturer(window: object, target: Path) -> bool:
     import time
 
     if _sys.platform != "darwin" or shutil.which("screencapture") is None:
-        return False
+        return _capture_by_identifier(window, target)
     root = window.root  # type: ignore[attr-defined]
     # Devant, et devant tout le reste. `screencapture -R` photographie une
     # **région de l'écran**, pas une fenêtre : la première version de cet outil
@@ -75,6 +78,38 @@ def capturer(window: object, target: Path) -> bool:
         check=False, capture_output=True,
     )
     return done.returncode == 0 and target.exists()
+
+
+def _capture_by_identifier(window: object, target: Path) -> bool:
+    """The X11 way: the window's own pixels, whatever is in front of it.
+
+    `xwd -id` reads the window rather than a region, so a terminal sitting on
+    top of it changes nothing -- and on a virtual display, where the proof runs,
+    there is nothing in front of anything. ffmpeg converts, being already a
+    requirement of the tool.
+    """
+    import shutil
+    import subprocess
+    import tempfile
+
+    if not (shutil.which("xwd") and shutil.which("ffmpeg")):
+        return False
+    root = window.root  # type: ignore[attr-defined]
+    root.update()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(suffix=".xwd") as brut:
+        taken = subprocess.run(
+            ["xwd", "-id", str(root.winfo_id()), "-out", brut.name],
+            check=False, capture_output=True,
+        )
+        if taken.returncode != 0:
+            return False
+        converted = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+             "-i", brut.name, str(target)],
+            check=False, capture_output=True,
+        )
+    return converted.returncode == 0 and target.exists()
 
 
 def main() -> int:

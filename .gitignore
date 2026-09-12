@@ -15,6 +15,9 @@ comptes-rendus/
 banque-de-voix/
 modeles/
 *.wav
+# Sauf les sons que l'outil prononce lui-même : ils suivent le paquet, pas la
+# machine. La règle au-dessus vise les enregistrements de réunions.
+!src/greffier/sounds/*.wav
 *.srt
 .DS_Store
 
