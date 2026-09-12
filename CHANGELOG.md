@@ -6,6 +6,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## New
 
+- **graph** — an index of what the tool knows, and a preparation that opens on it (`cab175e`)
 - **dictation** — one click to speak, and the silence ends the sentence (`488cb15`)
 - **window** — preparation has its own tab, and the threads can be cleared (`b3e2159`)
 - **tongue** — the tool speaks the language of the machine it runs on (`f6491d7`)
@@ -69,6 +70,8 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **window** — the banner ate every screen, and eight buttons had one weight (`9534b4e`)
+- **voices** — her own answers were counted as a participant (`e286110`)
 - **mypy** — one exception protected nothing, another was missing (`44386f5`)
 - **devices** — somebody else's headset was the default microphone (`52fce92`)
 - **window** — it refused to open on any Python shipped by a distribution (`20495b1`)
