@@ -74,11 +74,26 @@ The window has its own proof, `tools/window_proof.py`, which builds the real
 window, paints every tab and photographs it — because a test that says a tab
 paints without exception will never notice a button sitting outside the frame.
 
-**Coverage.** The target is 90 % on `domain/` and `application/`, where the
-rules live. Measured today: 63 % overall (`pytest --cov=greffier`, unit tests
-alone). A patch is expected not to lower the figure for the part it touches, and
-to raise it where it is low. Coverage is a floor, not a goal: a test that
-asserts nothing covers lines and proves nothing.
+**Coverage. The standard is 100 %**, and the figure is given as it is rather
+than as it should be. Measured with `pytest --cov=greffier`, unit tests alone:
+
+| Layer | Covered | Statements |
+|---|---|---|
+| `ports/` | **100 %** | 41 |
+| `domain/` | 96 % | 2 485 |
+| `application/` | 84 % | 2 072 |
+| `adapters/` | 79 % | 2 910 |
+| `interface/` | 19 % | 2 234 |
+| `cli.py`, `wiring.py` | 19 % | 1 594 |
+| **total** | **63 %** | 11 336 |
+
+The gap is not in the rules: it is in the window and in the command line, the
+two places a test has to drive something that draws or that reads a terminal.
+Closing it is the standing job, and a patch is expected to leave its own layer
+no lower than it found it.
+
+Coverage is a floor and never a goal: a test that asserts nothing covers lines
+and proves nothing. Which is what mutation testing is for.
 
 **Mutation testing** for the domain, when a rule is subtle:
 
