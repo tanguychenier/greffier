@@ -98,7 +98,8 @@ class TestChoosingWhatToSay:
             [
                 opening(because=Because.CONTRIBUTION, remark="une idée", born_at=10.0),
                 opening(because=Because.INDISTINCT_VOICE, remark="qui parle ?", born_at=10.0),
-                opening(because=Because.QUESTION_WITHOUT_ANSWER, remark="et Pascal ?", born_at=10.0),
+                opening(because=Because.QUESTION_WITHOUT_ANSWER,
+                        remark="et Pascal ?", born_at=10.0),
             ],
             now=12.0, lull=5.0,
         )
