@@ -358,6 +358,39 @@ def _regenerate(config: Config, identifier: str) -> bool:
     typer.secho(f"Compte rendu régénéré : {path}", fg=typer.colors.GREEN)
     return True
 
+@application.command("api")
+def api(
+    host: str = typer.Option(None, "--hote", help="Adresse d'écoute"),
+    port: int = typer.Option(None, "--port", help="Port d'écoute"),
+    config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
+) -> None:
+    """Ouvre la porte HTTP : un site pilote l'outil, l'outil reste sur ce poste."""
+    config = Config.load(config_file)
+    if host:
+        config.api.host = host
+    if port:
+        config.api.port = port
+    try:
+        from greffier.interface.api import ensure_a_token, serve
+    except ImportError as manque:
+        typer.secho(
+            "La porte HTTP demande un paquet de plus : "
+            "« uv pip install -e '.[api]' ».", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1) from manque
+
+    jeton = ensure_a_token(config)
+    ouvert = config.api.host not in ("127.0.0.1", "localhost", "::1")
+    typer.secho(f"Greffier écoute sur http://{config.api.host}:{config.api.port}",
+                fg=typer.colors.GREEN)
+    typer.echo(f"  jeton : {jeton}")
+    typer.echo("  en-tête : Authorization: Bearer <jeton>")
+    if ouvert:
+        typer.secho(
+            "  ⚠ cette adresse dépasse la machine : les comptes rendus et les "
+            "transcriptions sortent d'ici.", fg=typer.colors.YELLOW)
+    serve(config)
+
+
 @application.command("verifier")
 def check(
     config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
