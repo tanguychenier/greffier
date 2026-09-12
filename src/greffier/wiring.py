@@ -348,5 +348,13 @@ def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
         cerveau.tools = (  # type: ignore[attr-defined]
             ClaudeWriter.SEARCH_TOOLS if config.conversation.recherche_web else ()
         )
+        if config.conversation.recherche_web:
+            # A short sound, the moment a search actually starts. Called by its
+            # name the assistant takes a few seconds to answer, and nothing said
+            # whether it was thinking or looking something up: waiting without
+            # knowing what for is what makes a wait feel long.
+            from greffier.adapters.cue_sound import cue
+
+            cerveau.on_search = cue()  # type: ignore[attr-defined]
     lui.cerveau = cerveau
     return lui

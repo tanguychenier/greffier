@@ -56,7 +56,7 @@ def sentences(text: str, maximum: int = 240) -> list[str]:
             chunks.append(current)
     return chunks
 
-def _player() -> list[str] | None:
+def player() -> list[str] | None:
     """The command that plays a wav file, according to the system."""
     if SYSTEM == "Darwin" and shutil.which("afplay"):
         return ["afplay"]
@@ -109,7 +109,7 @@ class NeuralVoice:
 
     @property
     def available(self) -> bool:
-        return self.installed and _player() is not None
+        return self.installed and player() is not None
 
     def _load(self) -> Any:
         """Loads whichever model is present, Kokoro or VITS."""
@@ -207,12 +207,12 @@ class NeuralVoice:
 
     def _play(self, file: Path) -> bool:
         """Plays a file and waits for it. False when it was cut."""
-        player = _player()
-        if player is None:
+        command = player()
+        if command is None:
             return False
         command = (
-            [*player, f"(New-Object Media.SoundPlayer '{file}').PlaySync()"]
-            if player[0] == "powershell" else [*player, str(file)]
+            [*command, f"(New-Object Media.SoundPlayer '{file}').PlaySync()"]
+            if command[0] == "powershell" else [*command, str(file)]
         )
         try:
             with self._verrou:
