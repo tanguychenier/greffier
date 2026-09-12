@@ -18,6 +18,7 @@ from typing import ClassVar
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
+from greffier.domain.arithmetic import AUTO
 from greffier.locations import config_folder, data_folder
 
 
@@ -169,6 +170,21 @@ class Live(BaseModel):
     active: bool = Field(default=True, validation_alias=AliasChoices("active", "actif"))
     period: float = Field(default=10.0, validation_alias=AliasChoices("period", "periode"))
     model: str = Field(default="", validation_alias=AliasChoices("model", "modele"))
+
+class Hardware(BaseModel):
+    """What the models run on.
+
+    « auto » takes the graphics card when the driver answers. Cutting a meeting
+    into speaker turns runs the voiceprint model on every excerpt, which on a
+    processor costs more than the transcription and the minutes together.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    device: str = Field(
+        default=AUTO,
+        validation_alias=AliasChoices("device", "peripherique"),
+    )
 
 class Speakers(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
@@ -388,6 +404,9 @@ class Config(BaseSettings):
         default_factory=Backup, validation_alias=AliasChoices("backup", "sauvegarde")
     )
     retention: Retention = Field(default_factory=Retention)
+    hardware: Hardware = Field(
+        default_factory=Hardware, validation_alias=AliasChoices("hardware", "materiel")
+    )
     conversation: Conversation = Field(default_factory=Conversation)
     api: Api = Field(default_factory=Api)
     interface: Interface = Field(default_factory=Interface)

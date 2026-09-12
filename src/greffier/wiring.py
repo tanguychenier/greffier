@@ -55,7 +55,9 @@ def _transcriber(config: Config) -> outbound.Transcriber:
         )
     from greffier.adapters.transcription_faster_whisper import FasterWhisperTranscriber
 
-    return FasterWhisperTranscriber(taille=config.transcription.model)
+    return FasterWhisperTranscriber(
+        taille=config.transcription.model, device=config.hardware.device
+    )
 
 def _live_model(config: Config) -> str:
     """The model this machine can run in the noise of a recording."""
@@ -77,7 +79,7 @@ def light_transcriber(config: Config) -> outbound.Transcriber | None:
         return WhisperCppTranscriber(model=model, vad=None)
     from greffier.adapters.transcription_faster_whisper import FasterWhisperTranscriber
 
-    return FasterWhisperTranscriber(taille=taille)
+    return FasterWhisperTranscriber(taille=taille, device=config.hardware.device)
 
 def follower(config: Config, identifier: str) -> Follower:
     """The thread shown during the meeting, and what feeds it."""
@@ -86,7 +88,8 @@ def follower(config: Config, identifier: str) -> Follower:
     extractor: outbound.VoiceprintExtractor | None = None
     try:
         extractor = TitaNetExtractor(
-            config.paths.models / "diarisation" / "nemo_en_titanet_large.onnx"
+            config.paths.models / "diarisation" / "nemo_en_titanet_large.onnx",
+            device=config.hardware.device,
         )
     except FileNotFoundError:
         extractor = None
@@ -167,7 +170,9 @@ def naming(config: Config) -> Naming:
     return Naming(
         store=store(config),
         bank=FileVoiceBank(config.paths.voice_bank),
-        extractor=TitaNetExtractor(diarisation / "nemo_en_titanet_large.onnx"),
+        extractor=TitaNetExtractor(
+            diarisation / "nemo_en_titanet_large.onnx", device=config.hardware.device
+        ),
     )
 
 def _instructions_of(config: Config) -> Callable[[str], list[str]]:
@@ -358,8 +363,11 @@ def wire_up(config: Config) -> Chain:
         diariser=SherpaDiariser(
             segmentation=diarisation / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx",
             voiceprints=diarisation / "nemo_en_titanet_large.onnx",
+            device=config.hardware.device,
         ),
-        extractor=TitaNetExtractor(diarisation / "nemo_en_titanet_large.onnx"),
+        extractor=TitaNetExtractor(
+            diarisation / "nemo_en_titanet_large.onnx", device=config.hardware.device
+        ),
         bank=FileVoiceBank(config.paths.voice_bank),
         writer=writer(config),
         sender=_sender(config),
@@ -404,6 +412,7 @@ def assistant_voice(config: Config) -> Any | None:
             voice=config.assistant.effective_speaker,
             rate=config.assistant.rate,
             gag=config.paths.gag,
+            device=config.hardware.device,
         )
         if neuronale.available:
             return neuronale
