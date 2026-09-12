@@ -88,6 +88,10 @@ def _without_chatter() -> Iterator[None]:
         os.dup2(copie, 2)
         os.close(copie)
 
+_OPENED: dict[tuple[str, str, str, int], Any] = {}
+
+_TOUR = threading.Lock()
+
 class NeuralVoice:
     """Pronounces a text with a neural voice, locally."""
 
@@ -118,13 +122,34 @@ class NeuralVoice:
     def _load(self) -> Any:
         """Loads whichever model is present, Kokoro or VITS.
 
-        Measured on a five-second remark: 2.43 s to say it on the processor,
-        0.28 s on the card. Being answered out loud without a silence first is
-        the difference between a conversation and a form.
+        Opened once per folder, language and device for the whole process.
+        Somebody preparing a meeting out loud gets a new voice built on every
+        question, and the model takes five to six seconds to open -- longer than
+        the answer it was waiting for. Saying the remark itself takes 2.43 s on
+        the processor and 0.28 s on the card: the opening was the whole wait.
         """
         if self._engine is not None:
             return self._engine
         where = chosen_device(self.device, cuda.a_card_is_usable())
+        clef = (str(self.folder), self.language, where, self.fils)
+        with _TOUR:
+            ready = _OPENED.get(clef)
+            if ready is None:
+                ready = self._open(where)
+                _OPENED[clef] = ready
+        self._engine = ready
+        return ready
+
+    def warm(self) -> None:
+        """Opens the model now, saying nothing.
+
+        Called from a thread while somebody is still typing: a failure here
+        costs nothing, since the answer will open it again and say so properly.
+        """
+        with contextlib.suppress(Exception):
+            self._load()
+
+    def _open(self, where: str) -> Any:
         if where == CARD:
             cuda.show_to_the_loader()
         import sherpa_onnx
@@ -152,8 +177,7 @@ class NeuralVoice:
         configuration = sherpa_onnx.OfflineTtsConfig(model=model)
         if not configuration.validate():
             raise RuntimeError("configuration de synthèse vocale invalide")
-        self._engine = sherpa_onnx.OfflineTts(configuration)
-        return self._engine
+        return sherpa_onnx.OfflineTts(configuration)
 
     @property
     def _voice_table(self) -> Path:
