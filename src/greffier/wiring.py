@@ -320,6 +320,8 @@ def recording(config: Config) -> Recording:
     )
 
 def wire_up(config: Config) -> Chain:
+    from greffier.adapters import her_turns_file
+
     # Read once, here: the chain is built before the meeting and the preparation
     # cannot change under it. Taken -- marked as consumed -- only when a meeting
     # has actually been recorded, which is the chain's business, not ours.
@@ -351,6 +353,10 @@ def wire_up(config: Config) -> Chain:
             + (_attente.header() if _attente is not None else "")
         ),
         expected_people=tuple(_attente.expected) if _attente is not None else (),
+        her_name=config.assistant.name,
+        her_turns_of=lambda identifier: tuple(
+            her_turns_file.read(her_turns_file.file_for(config.paths.live, identifier))
+        ),
         preparation_taken=lambda identifier: take_the_preparation(config, identifier),
         memory=memory(config),
         instructions=_instructions_of(config),
@@ -426,5 +432,13 @@ def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
             from greffier.adapters.cue_sound import cue
 
             cerveau.on_search = cue()  # type: ignore[attr-defined]
+    lui.keep_its_turn = _keep_her_turn(config, identifier)
     lui.cerveau = cerveau
     return lui
+
+
+def _keep_her_turn(config: Config, identifier: str) -> Callable[[float, float], None]:
+    from greffier.adapters import her_turns_file
+
+    file = her_turns_file.file_for(config.paths.live, identifier)
+    return lambda start, end: her_turns_file.keep(file, start, end)
