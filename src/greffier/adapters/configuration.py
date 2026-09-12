@@ -317,6 +317,24 @@ class Email(BaseModel):
     user: str = Field(default="", validation_alias=AliasChoices("user", "utilisateur"))
     sender: str = Field(default="", validation_alias=AliasChoices("sender", "expediteur"))
 
+class Api(BaseModel):
+    """The HTTP door, for a site that wants to drive the tool.
+
+    Shut by default and bound to the loopback when opened: everything this tool
+    holds -- recordings, transcripts, voice prints -- is on the machine, and a
+    door listening on every interface is a decision, never an accident.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    host: str = Field(default="127.0.0.1", validation_alias=AliasChoices("host", "hote"))
+    port: int = Field(default=8765, validation_alias=AliasChoices("port", "port"))
+    #: Written on first start when it is empty, so that a site can be configured
+    #: once. No token, no answer -- even on the loopback, where any process of
+    #: the machine could otherwise read every meeting.
+    token: str = Field(default="", validation_alias=AliasChoices("token", "jeton"))
+
+
 class Config(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="GREFFIER_",
@@ -349,6 +367,7 @@ class Config(BaseSettings):
     )
     retention: Retention = Field(default_factory=Retention)
     conversation: Conversation = Field(default_factory=Conversation)
+    api: Api = Field(default_factory=Api)
     assistant: AssistantSettings = Field(default_factory=AssistantSettings)
     appearance: Appearance = Field(
         default_factory=Appearance, validation_alias=AliasChoices("appearance", "apparence")
@@ -471,6 +490,7 @@ SECTIONS: dict[str, tuple[str, ...]] = {
     "direct": ("actif", "periode", "modele"),
     "locuteurs": ("pas_des_prenoms", "personnes"),
     "compte_rendu": ("moteur", "modele", "langue", "destinataire", "delai"),
+    "api": ("hote", "port", "jeton"),
     "courriel": ("serveur", "port", "utilisateur", "expediteur"),
     "sauvegarde": ("dossier", "apres_chaque_reunion", "gardees"),
     "retention": ("compresser_apres_jours", "effacer_apres_jours"),

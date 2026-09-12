@@ -515,6 +515,45 @@ recordings. What is still open — a few minor defects, and what has never met
 reality (Windows, live in-person) — is detailed in
 [`docs/reste-a-faire.md`](docs/reste-a-faire.md).
 
+## Driving it from a site
+
+```sh
+uv pip install -e '.[api]'
+greffier api            # 127.0.0.1:8765, and prints the token
+```
+
+A primary adapter like the window: it holds no rule of its own, hands what
+arrives to the same chain, and returns what comes back.
+
+| | |
+|---|---|
+| `GET /sante` | open, says the door answers and nothing else |
+| `GET /reunions` | the meetings: title, day, length, people, words |
+| `GET /reunions/{id}` | one of them |
+| `GET /reunions/{id}/compte-rendu` | the minutes, as markdown |
+| `GET /reunions/{id}/transcription` | the transcript, attributed and timestamped |
+| `GET /memoire` | what earlier meetings left: decisions, open points |
+| `POST /reunions` | hands over a recording — **202** and an identifier |
+| `GET /travaux/{id}` | the phases of that processing, the ones the window paints |
+
+An hour of transcription is not a request: handing over a recording answers at
+once with an identifier, and the phases are read back.
+
+Every route but `/sante` wants `Authorization: Bearer <token>`. The token is
+written into `config.toml` the first time the door is opened, so a site is
+configured once; **an empty setting does not mean an open door**, it means no
+answer at all.
+
+**What it does not serve, deliberately: the voice bank.** Voice prints are
+biometric data within the meaning of Article 9, and a door that serves them
+turns a tool where nothing leaves the machine into one where everything can.
+Minutes, transcripts and what earlier meetings left are what a site needs; the
+voices stay here. Nor does any route send anything anywhere — a door that could
+mail the minutes is a door that spams.
+
+It binds the loopback unless told otherwise, and says so plainly when told
+otherwise.
+
 ## Licence
 
 **PolyForm Noncommercial 1.0.0** ([text](LICENCE)). The tool is written for
