@@ -53,3 +53,41 @@ class TestSituerTcl:
         locate_tcl(env, tmp_path)
         assert env["TCL_LIBRARY"].endswith("tcl9.0")
         assert env["TK_LIBRARY"].endswith("tk9.0")
+
+
+class TestWhereADistributionKeepsTcl:
+    """Debian and Ubuntu put init.tcl under share/tcltk, not under lib.
+
+    The check looked in lib only, declared Tcl missing on a machine where Tcl
+    finds its files perfectly well -- `set tcl_library` answers
+    /usr/share/tcltk/tcl8.6 -- and the window refused to open on every
+    distribution Python. Which is the interpreter the installer now prefers,
+    for the antialiasing.
+    """
+
+    def _tcl_in(self, root, chemin):
+        dossier = root / chemin
+        dossier.mkdir(parents=True)
+        (dossier / "init.tcl").write_text("", encoding="utf-8")
+
+    def test_the_debian_layout_is_found(self, tmp_path, monkeypatch):
+        from greffier.interface import startup
+
+        self._tcl_in(tmp_path, "share/tcltk/tcl8.6")
+        monkeypatch.setattr(startup.sys, "base_prefix", str(tmp_path))
+        assert startup._default_tcl()
+
+    def test_the_usual_layout_still_is(self, tmp_path, monkeypatch):
+        from greffier.interface import startup
+
+        self._tcl_in(tmp_path, "lib/tcl8.6")
+        monkeypatch.setattr(startup.sys, "base_prefix", str(tmp_path))
+        assert startup._default_tcl()
+
+    def test_a_prefix_without_tcl_says_no(self, tmp_path, monkeypatch):
+        from greffier.interface import startup
+
+        (tmp_path / "lib").mkdir()
+        monkeypatch.setattr(startup.sys, "base_prefix", str(tmp_path))
+        monkeypatch.setattr(startup, "_OU_VIT_TCL", ("lib/tcl*",))
+        assert not startup._default_tcl()

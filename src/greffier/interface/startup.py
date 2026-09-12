@@ -75,14 +75,24 @@ def available() -> tuple[bool, str]:
     found = " (chemins Tcl résolus)" if pose else ""
     return True, f"Tkinter {tkinter.TkVersion}{found}"
 
+#: Where a Tcl installed by the system keeps `init.tcl`. Debian and Ubuntu put
+#: it under `share/tcltk/`, which cost a window: the check looked in `lib/` only,
+#: declared Tcl missing on a machine where Tcl finds its files perfectly well
+#: (`set tcl_library` answers `/usr/share/tcltk/tcl8.6`), and the window refused
+#: to open on every distribution Python.
+_OU_VIT_TCL = ("lib/tcl*", "share/tcltk/tcl*", "share/tcl*")
+
+
 def _default_tcl() -> bool:
     """True when Tcl will find its files without help.
 
     That is the case for a Python shipped by a distribution or by Homebrew, where
-    Tcl is installed where it expects to be.
+    Tcl is installed where it expects to be -- which is not the same place from
+    one distribution to the next.
     """
     return any(
         (root / "init.tcl").exists()
         for prefixe in (Path(sys.base_prefix), Path("/usr"), Path("/opt/homebrew"))
-        for root in prefixe.glob("lib/tcl*")
+        for motif in _OU_VIT_TCL
+        for root in prefixe.glob(motif)
     )
