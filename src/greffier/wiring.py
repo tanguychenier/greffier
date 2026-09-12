@@ -35,6 +35,7 @@ from greffier.application.record import Recording
 from greffier.application.take_part import AssistantSettings
 from greffier.domain.context import Context as WorkContext
 from greffier.domain.live import Certainty, LiveThread
+from greffier.domain.memory import Trace
 from greffier.domain.names import NamedSpan
 from greffier.domain.participation import Manners
 from greffier.ports import outbound
@@ -212,6 +213,30 @@ def _named_live(config: Config) -> Callable[[str], list[NamedSpan]]:
     return lire
 
 
+def memory(config: Config) -> outbound.Memory:
+    """What earlier meetings left. A file, read whole, written a line at a time."""
+    from greffier.adapters import memory_file
+
+    file = config.paths.memory
+
+    class Memoire:
+        def remember(self, trace: Trace) -> None:
+            memory_file.remember(file, trace)
+
+        def recall(self, limit: int = memory_file.DERNIERES) -> list[Trace]:
+            return memory_file.recall(file, limit)
+
+    return Memoire()
+
+
+def what_earlier_meetings_left(config: Config) -> str:
+    """The recalled section of the header, empty when nothing was left."""
+    from greffier.adapters import memory_file
+    from greffier.domain.memory import recalled
+
+    return recalled(memory_file.recall(config.paths.memory))
+
+
 def context(config: Config) -> WorkContext:
     """What the tool knows of the setting, blended from its three sources.
 
@@ -282,7 +307,8 @@ def wire_up(config: Config) -> Chain:
         dossier_comptes_rendus=config.paths.minutes_folder,
         language=config.transcription.language,
         prompt_seed=_the_context.prompt_seed(),
-        context_header=_the_context.header(),
+        context_header=_the_context.header() + what_earlier_meetings_left(config),
+        memory=memory(config),
         instructions=_instructions_of(config),
         named_live=_named_live(config),
         people=config.speakers.people,
@@ -334,7 +360,7 @@ def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
         ),
         voice=assistant_voice(config),
         tracer=tracer,
-        setting=lambda: context(config).header(),
+        setting=lambda: context(config).header() + what_earlier_meetings_left(config),
     )
     cerveau = assistant(config)
     if cerveau is not None and hasattr(cerveau, "consignes_propres"):

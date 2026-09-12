@@ -95,6 +95,11 @@ class Paths(BaseModel):
         return self.data / "questions"
 
     @property
+    def memory(self) -> Path:
+        """What earlier meetings left: decisions, open points, documents."""
+        return self.data / "memoire.jsonl"
+
+    @property
     def conversations(self) -> Path:
         """What was said with the assistant, meeting by meeting."""
         return self.data / "conversations"
