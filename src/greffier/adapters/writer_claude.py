@@ -7,8 +7,12 @@ reach of models that run on a laptop.
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
+import tempfile
+from collections.abc import Callable
+from pathlib import Path
 from typing import ClassVar
 
 from greffier.domain.languages import name_of
@@ -170,6 +174,38 @@ Ce que tu ne fais jamais :
 N'emploie ni tiret cadratin ni demi-cadratin.
 """
 
+def _event(line: str) -> dict[str, object] | None:
+    """One line of the stream, or None when it is not one.
+
+    A stream is not a contract: a version that prefixes a warning, or breaks a
+    line, must cost the answer nothing.
+    """
+    line = line.strip()
+    if not line.startswith("{"):
+        return None
+    try:
+        read = json.loads(line)
+    except json.JSONDecodeError:
+        return None
+    return read if isinstance(read, dict) else None
+
+
+def _is_a_search(event: dict[str, object], tools: tuple[str, ...]) -> bool:
+    """Whether this event is the assistant reaching for the web."""
+    message = event.get("message")
+    if not isinstance(message, dict):
+        return False
+    content = message.get("content")
+    if not isinstance(content, list):
+        return False
+    return any(
+        isinstance(block, dict)
+        and block.get("type") == "tool_use"
+        and block.get("name") in tools
+        for block in content
+    )
+
+
 class ClaudeWriter:
     """Writes the minutes by calling Claude Code."""
 
@@ -177,13 +213,18 @@ class ClaudeWriter:
 
     def __init__(self, model: str = "", command: str = "claude",
                  timeout: int = 900, language: str = "",
-                 tools: tuple[str, ...] = (), consignes_propres: str = "") -> None:
+                 tools: tuple[str, ...] = (), consignes_propres: str = "",
+                 on_search: Callable[[], None] | None = None) -> None:
         self.model = model
         self.command = command
         self.timeout = timeout
         self.language = language
         self.tools = tools
         self.consignes_propres = consignes_propres
+        #: Called the moment a search actually starts, never when one merely
+        #: might. Without it the call keeps its plain text output, which is
+        #: cheaper to read and is all the minutes need.
+        self.on_search = on_search
 
     def write_up(self, transcription: str) -> str:
         if shutil.which(self.command) is None:
@@ -194,12 +235,15 @@ class ClaudeWriter:
         # `--strict-mcp-config` keeps the machine's own MCP servers out of the
         # call: this assistant has no business loading them, and measured over
         # seven runs it also takes 0.3 s off a round trip that costs 3.
-        command = [self.command, "-p", "--output-format", "text",
+        format_de_sortie = ["stream-json", "--verbose"] if self.on_search else ["text"]
+        command = [self.command, "-p", "--output-format", *format_de_sortie,
                     "--strict-mcp-config",
                     "--allowed-tools", ",".join(self.tools)]
         if self.model:
             command += ["--model", self.model]
         header = self.consignes_propres or guidance(self.language)
+        if self.on_search is not None:
+            return self._answer_watching_the_stream(command, header + transcription)
         outcome = subprocess.run(
             command,
             input=header + transcription,
@@ -208,6 +252,57 @@ class ClaudeWriter:
         text = outcome.stdout.strip()
         if outcome.returncode != 0 or not text:
             details = (outcome.stderr or "").strip().splitlines()
+            raise RuntimeError(
+                "Claude Code n'a rien produit"
+                + (f" : {details[-1]}" if details else ".")
+            )
+        return text
+
+    def _answer_watching_the_stream(self, command: list[str], prompt: str) -> str:
+        """Reads the events as they arrive, to know when a search starts.
+
+        The plain text output says what was answered and nothing about how. The
+        stream carries one event per step, so a search is known the moment it
+        starts rather than guessed from the fact that tools were allowed -- and
+        a cue that sounds on every question would say nothing at all.
+
+        The prompt goes in through a file rather than a pipe we keep writing
+        to: a long transcription fills the pipe's buffer, and the two processes
+        would then wait for each other, one to write and one to be read.
+        """
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".txt", encoding="utf-8", delete=False
+        ) as fichier:
+            fichier.write(prompt)
+            question = Path(fichier.name)
+        cherche_deja = False
+        text = ""
+        try:
+            with question.open(encoding="utf-8") as entree:
+                process = subprocess.Popen(
+                    command, stdin=entree, stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE, text=True,
+                )
+                for ligne in process.stdout or ():
+                    evenement = _event(ligne)
+                    if evenement is None:
+                        continue
+                    if not cherche_deja and _is_a_search(evenement, self.SEARCH_TOOLS):
+                        cherche_deja = True
+                        if self.on_search is not None:
+                            self.on_search()
+                    if evenement.get("type") == "result":
+                        text = str(evenement.get("result") or "").strip()
+                try:
+                    process.wait(timeout=self.timeout)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    raise
+                erreurs = (process.stderr.read() if process.stderr else "").strip()
+        finally:
+            question.unlink(missing_ok=True)
+        if process.returncode != 0 or not text:
+            details = erreurs.splitlines()
             raise RuntimeError(
                 "Claude Code n'a rien produit"
                 + (f" : {details[-1]}" if details else ".")
