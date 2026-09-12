@@ -62,6 +62,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **devices** — somebody else's headset was the default microphone (`52fce92`)
 - **window** — it refused to open on any Python shipped by a distribution (`20495b1`)
 - **dev** — mypy could not follow uvicorn, absent from the dev extra (`7f197c1`)
 - **install** — the window's text was not antialiased on Linux (`e950c7a`)
@@ -143,6 +144,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Documentation
 
+- **readme** — a document one can find things in (`f230405`)
 - **contributing** — the conventions a patch is expected to follow (`6811b58`)
 - **tests** — the email, the capture, the context, Miro and the locations (`5d873a8`)
 - **tests** — the email, the capture, the context, Miro and the locations (`5042389`)
