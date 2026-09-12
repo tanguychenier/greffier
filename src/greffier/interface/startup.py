@@ -70,7 +70,7 @@ def available() -> tuple[bool, str]:
     if not os.environ.get("TCL_LIBRARY") and not _default_tcl():
         return False, (
             "les fichiers de bibliothèque Tcl sont introuvables. "
-            "Renseigne TCL_LIBRARY, ou installe Tcl/Tk pour ce Python."
+            "Renseignez TCL_LIBRARY, ou installez Tcl/Tk pour ce Python."
         )
     found = " (chemins Tcl résolus)" if pose else ""
     return True, f"Tkinter {tkinter.TkVersion}{found}"

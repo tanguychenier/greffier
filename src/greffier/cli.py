@@ -43,7 +43,7 @@ from greffier.wiring import (
 )
 
 application = typer.Typer(
-    add_completion=False, help="Enregistre, transcrit et résume tes réunions."
+    add_completion=False, help="Enregistre, transcrit et résume vos réunions."
 )
 
 def _resume_the_thread(config: Config, identifier: str, the_follower: Any) -> float:
@@ -432,7 +432,7 @@ def configure(
             entry = typer.prompt("Numéro", default=str(defaut + 1))
             if entry.isdigit() and 1 <= int(entry) <= len(options):
                 return options[int(entry) - 1][0]
-            typer.secho("Choisis un numéro de la liste.", fg=typer.colors.YELLOW)
+            typer.secho("Choisissez un numéro de la liste.", fg=typer.colors.YELLOW)
 
     dialogue = assistant.Dialogue(
         ask=lambda question, defaut: typer.prompt(question, default=defaut),
@@ -545,7 +545,8 @@ def record(
     typer.secho(f"● Enregistrement de « {state.name} »", fg=typer.colors.RED)
     typer.echo(f"  {state.audio}")
     if _lancer_veille(config, config_file):
-        typer.echo("  Le matériel est surveillé : branche ou débranche ton casque sans crainte.")
+        typer.echo("  Le matériel est surveillé : branchez ou débranchez votre casque\n"
+                   "  sans crainte.")
     if _lancer_direct(config, config_file):
         typer.echo("  Ce qui se dit s'affiche dans la fenêtre, et s'y corrige.")
     typer.echo("  « greffier arreter » pour arrêter et traiter.")
@@ -633,7 +634,7 @@ def _mic_by_listening(config: Config, materiel: object) -> str:
     if choix.all_silent:
         typer.secho(
             f"⚠ Aucun micro ne capte : le meilleur, « {choix.name} », rend "
-            f"{choix.level_db:.0f} dB. Vérifie le bouton de sourdine de ton "
+            f"{choix.level_db:.0f} dB. Vérifiez le bouton de sourdine de votre "
             "casque, puis l'autorisation micro dans Réglages Système.",
             fg=typer.colors.YELLOW,
         )
@@ -1523,7 +1524,7 @@ def niveau_(
         typer.secho("Aucun micro utilisable.", fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
 
-    typer.secho(f"\nParle maintenant, {seconds:.0f} secondes, micro « {mic} »",
+    typer.secho(f"\nParlez maintenant, {seconds:.0f} secondes, micro « {mic} »",
                 fg=typer.colors.BRIGHT_WHITE, bold=True)
     db = _audio_recorder(config).try_it(mic, seconds)
     verdict = judge(db)

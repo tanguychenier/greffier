@@ -331,7 +331,7 @@ class TestPreparingAMeetingFromTheWindow:
         fenetre.bouton_parler = type("Bouton", (), {"set_caption": lambda self, t: None})()
         fenetre._say_while_preparing = lambda genre, texte: fenetre.dits.append(texte)
         Window._stop_dictating(fenetre)
-        assert any("maintiens le bouton" in dit for dit in fenetre.dits)
+        assert any("Maintenez le bouton" in dit for dit in fenetre.dits)
 
     def test_it_says_it_in_the_language_of_the_machine(self, tmp_path):
         """The same refusal, in English, on a machine that reads English."""
@@ -342,7 +342,7 @@ class TestPreparingAMeetingFromTheWindow:
         fenetre.bouton_parler = type("Bouton", (), {"set_caption": lambda self, t: None})()
         fenetre._say_while_preparing = lambda genre, texte: fenetre.dits.append(texte)
         Window._stop_dictating(fenetre)
-        assert any("hold the button" in dit for dit in fenetre.dits)
+        assert any("Hold the button" in dit for dit in fenetre.dits)
 
     def test_releasing_without_having_pressed_costs_nothing(self, tmp_path):
         from greffier.interface.window import Window

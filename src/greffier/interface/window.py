@@ -97,11 +97,12 @@ class Window:
     _dictee: Any | None = None
 
     def __init__(self, config: Config) -> None:
-        from greffier.wiring import recording, store
+        from greffier.wiring import recording, store, troubles
 
         self.config = config
         self.recorder = recording(config)
         self.store = store(config)
+        self.troubles = troubles(config)
         self.colours = palette(config.appearance.theme)
         self.travaux: list[Job] = []
         self._phase_peinte: Phase | None = None
@@ -1064,7 +1065,7 @@ class Window:
         rank += 1
 
         rank = self._block(inside, rank, "Participants",
-                          "Le nombre de personnes autour de la table, si tu le connais.")
+                          "Le nombre de personnes autour de la table, si vous le connaissez.")
         self.reglage_participants = self._dropdown(inside, rank, "Personnes",
                                                           width=232)
         rank += 1
@@ -1162,6 +1163,11 @@ class Window:
             self._look_for_an_update, self.colours, width=210, height=32,
         )
         self.bouton_maj_greffier.pack(side="left", padx=(0, 9))
+        rank += 1
+        self._text(
+            inside, self.dit("reglages.incidents", ou=str(self.config.paths.troubles)),
+            taille=11, pale=True, wraplength=700, justify="left",
+        ).grid(row=rank, column=0, columnspan=2, sticky="w", pady=(10, 0))
         rank += 1
 
         self._wire_the_settings()
@@ -1548,7 +1554,7 @@ class Window:
         script = Path(tempfile.gettempdir()) / "greffier-session-claude.command"
         script.write_text(
             "#!/bin/zsh -l\n"
-            "echo 'Règle ta session, puis reviens à Greffier : "
+            "echo 'Réglez votre session, puis revenez à Greffier : "
             "l'\\''état se relit tout seul.'\n"
             f"{appel}\n",
             encoding="utf-8",
@@ -2014,6 +2020,7 @@ class Window:
         screen, nobody to click, and the state stayed frozen on the phase under way.
         """
         self.status_line.configure(text=f"Échec : {trouble}")
+        self.troubles.note("traitement", f"{type(trouble).__name__} : {trouble}")
         self._publish_the_failure(audio.stem, trouble)
         self._say("note", f"La rédaction de « {audio.stem} » a échoué : {trouble} "
                            "La transcription est gardée, « Rédiger » la reprend.")
@@ -2505,7 +2512,7 @@ class Window:
             messagebox.showinfo("Greffier", self.dit("voix.choisis_une_reunion"))
             return
         if not voice:
-            messagebox.showinfo("Greffier", "Choisis une voix dans la liste.")
+            messagebox.showinfo("Greffier", "Choisissez une voix dans la liste.")
             return
         if not name:
             messagebox.showinfo("Greffier", "Saisis un nom.")
@@ -2546,19 +2553,11 @@ class Window:
             if hasattr(self, "mot_modeles"):
                 self.mot_modeles.configure(text=self.dit("modeles.tous_en_place"))
             return
-        what = ", ".join(sorted({m.role for m in manquants}))
         if not messagebox.askyesno(
             "Greffier",
-            f"Il manque {model_files.weight(manquants)} de modèles pour "
-            f"fonctionner : {what}.\n\nLes télécharger maintenant ? "
-            "Ils restent sur ce poste et servent à toutes les réunions "
-            "suivantes : une mise à jour ne les redemande pas.",
+            self.dit("modeles.manquants", poids=model_files.weight(manquants)),
         ):
-            self._paint_the_turn("greffier", (
-                f"Il manque {model_files.weight(manquants)} de modèles : {what}. "
-                "Sans eux, la transcription ne peut pas tourner. Réglages ▸ "
-                "« Télécharger les modèles » quand tu voudras."
-            ))
+            self._paint_the_turn("greffier", self.dit("modeles.refuses"))
             return
         self._fetch_the_models(manquants)
 
@@ -2588,9 +2587,11 @@ class Window:
 
         def fini(rates: Any, souci: Exception | None) -> None:
             if souci is not None:
+                self.troubles.note("modeles", f"{type(souci).__name__} : {souci}")
                 messagebox.showerror("Greffier", f"Téléchargement impossible : {souci}")
                 return
             if rates:
+                self.troubles.note("modeles", f"non téléchargés : {len(rates)}")
                 self._paint_the_turn("greffier", (
                     self.dit("modeles.echec_liste")
                     + "\n- ".join(rates)
@@ -2952,7 +2953,7 @@ class Window:
             for piece in kept:
                 self._say("greffier", (
                     f"« {piece.name} » lu, {piece.caracteres} caractères gardés. "
-                    "Tu peux me poser des questions dessus."
+                    "Vous pouvez me poser des questions dessus."
                 ))
             self._offer_to_the_context(appris)
 
