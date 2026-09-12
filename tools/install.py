@@ -1054,6 +1054,34 @@ def install_command(ctx, python):
     return link
 
 
+def _la_fenetre_peut_s_ouvrir(python) -> str | bool | None:
+    """What the code itself says of this interpreter's Tk, or None if unasked.
+
+    Asked of the environment that was just built, through the very function the
+    window calls before painting: nothing else proves that the window opens.
+    """
+    if not Path(python).exists():
+        return None
+    try:
+        lu = subprocess.run(
+            [str(python), "-c",
+             "from greffier.interface.startup import available;"
+             "possible, raison = available();"
+             "print('OUI' if possible else 'NON', raison)"],
+            capture_output=True, text=True, cwd=ROOT, check=False, timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        # An interpreter that cannot even be run says nothing about a window:
+        # the environment step has already reported what it could not build.
+        return None
+    if lu.returncode != 0:
+        return None
+    dit = lu.stdout.strip()
+    if dit.startswith("OUI"):
+        return dit[4:].strip()
+    return False
+
+
 def etape_bureau(ctx, python):
     """Installe l'interface : la commande dans le PATH, l'entrée dans le menu."""
     title("7. Intégration au bureau")
@@ -1095,7 +1123,18 @@ def etape_bureau(ctx, python):
         make_folder(entry.parent)
         entry.write_text(RACCOURCI_LINUX.format(target=f"{link} fenetre"), encoding="utf-8")
         ok(f"« Greffier » dans le menu ({entry})")
-    ok("interface disponible : « greffier fenetre »")
+    # Demandé à l'interpréteur retenu, pas au nôtre : le choix de l'étape 5 peut
+    # très bien porter un Tk que le code ne sait pas amorcer, et une fenêtre qui
+    # refuse de s'ouvrir se découvre alors au premier lancement, une fois
+    # l'installation déclarée finie. Constaté : le texte lissé a été vérifié par
+    # « import tkinter » et la commande, elle, ne démarrait pas.
+    verdict = _la_fenetre_peut_s_ouvrir(python)
+    if verdict is None:
+        ok("interface disponible : « greffier fenetre »")
+    elif verdict:
+        ok(f"interface disponible : « greffier fenetre » — {verdict}")
+    else:
+        alerte("la fenêtre ne peut pas s'ouvrir avec cet interpréteur")
     if SYSTEM == "Linux":
         info("Si Tk manque : « apt install python3-tk ».")
 
