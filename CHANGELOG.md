@@ -6,6 +6,8 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## New
 
+- **assistant** — a discreet sound when she looks something up (`9a72075`)
+- **window-proof** — photograph the window on X11 too, not only on macOS (`d0c04ef`)
 - **tests** — the whole chain proves itself on Linux too (`b040e22`)
 - **minutes** — the names given during the meeting reach the minutes (`0db4691`)
 - **assistant** — give it the glossary of the setting, not only the writer (`e804e19`)
@@ -58,6 +60,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **window** — ending a meeting froze the window instead of showing the end (`cb9728f`)
 - **settings** — no environment variable ever reached a configured machine (`88cdba2`)
 - **install** — the command the README announces was not in the PATH (`524bd4f`)
 - **install** — a dead link where the skills go stopped the installation (`0bad7d9`)
@@ -135,6 +138,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Documentation
 
+- **contributing** — the conventions a patch is expected to follow (`6811b58`)
 - **tests** — the email, the capture, the context, Miro and the locations (`5d873a8`)
 - **tests** — the email, the capture, the context, Miro and the locations (`5042389`)
 - **tests** — the settings, the hardware and the intents, in English (`dd99997`)
