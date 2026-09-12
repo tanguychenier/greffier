@@ -51,6 +51,9 @@ class WhisperCppTranscriber:
         self.vad = vad if vad and vad.exists() else None
         self.fils = fils
 
+    def warm(self) -> None:
+        """Nothing to open: whisper.cpp loads its model in its own process."""
+
     def transcribe(self, audio: Path, language: str, prompt_seed: str) -> list[Utterance]:
         with tempfile.TemporaryDirectory() as folder:
             base = Path(folder) / audio.stem
