@@ -14,8 +14,8 @@ hardware, the acoustics or the model change.
 The first segments the recording, extracts one voice print per speaking turn of
 at least 3 s, then compares:
 
-- **intra**: two samples of the same voice: must be high;
-- **inter**: two different voices, aggregated voice prints: must be clearly
+- **intra**, two samples of the same voice: must be high;
+- **inter**, two different voices, aggregated voice prints: must be clearly
   lower.
 
 The gap between the two distributions dictates the threshold. A first attempt
