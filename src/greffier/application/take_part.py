@@ -149,6 +149,7 @@ class AssistantSettings:
     name_voice: Callable[[str, str], bool] | None = None
     in_reserve: Opening | None = None
     its_own_turns: list[tuple[float, float]] = field(default_factory=list)
+    keep_its_turn: Callable[[float, float], None] | None = None
     its_own_words: list[tuple[float, frozenset[str]]] = field(default_factory=list)
     stopped: bool = False
     _job: threading.Thread | None = None
@@ -335,7 +336,11 @@ class AssistantSettings:
         self.its_own_words.append((now, own_words(remark)))
         prononce = bool(self.voice and self.voice.say(remark))
         if prononce:
-            self.its_own_turns.append((now, now + 1.0 + len(remark) / 15.0))
+            fin = now + 1.0 + len(remark) / 15.0
+            self.its_own_turns.append((now, fin))
+            if self.keep_its_turn is not None:
+                with contextlib.suppress(Exception):
+                    self.keep_its_turn(now, fin)
         self.manners.has_spoken(opening, now)
         if self.tracer is not None:
             with contextlib.suppress(OSError):

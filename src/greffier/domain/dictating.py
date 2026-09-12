@@ -14,22 +14,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-#: Below this, on a microphone whose level the rest of the tool already reads,
-#: nobody is speaking into it. Measured on the meters of the recording screen:
-#: speech sits between -30 and -12 dB, a quiet room between -60 and -50.
 SILENCE_DB = -42.0
 
-#: How long that silence must last. Shorter cuts people off between two words --
-#: French carries pauses of nearly a second inside a sentence. Longer makes them
-#: wait, and they say « allô ? ».
 SILENCE_S = 1.4
 
-#: How much **speech** a take must carry before silence may end it. Counted on
-#: what was said and not on how long the take lasted: a first word followed by a
-#: breath would otherwise be a finished sentence, and what is transcribed is the
-#: speech, never the silence around it.
 MINIMUM_S = 1.0
-
 
 @dataclass(slots=True)
 class Take:
