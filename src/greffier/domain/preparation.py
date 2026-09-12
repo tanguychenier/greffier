@@ -145,3 +145,27 @@ def _that_fit(exchanges: tuple[Exchange, ...], place: int) -> str:
         retenus.append(rendu)
         longueur += len(rendu) + 1
     return "\n".join(reversed(retenus))
+
+
+def question_prompt(preparation: Preparation, setting: str, question: str) -> str:
+    """What is handed to the model when somebody prepares a meeting out loud.
+
+    The question first and the material after, in that order: what is asked is
+    what must be answered, and a model given four thousand characters before the
+    question answers the material instead.
+
+    Said plainly, because the difference matters here: this meeting has not been
+    held. Handed the same material as a meeting that has, the model summarises
+    minutes that do not exist -- and somebody preparing a meeting would be told
+    what was decided in it.
+    """
+    material = preparation.header()
+    return (
+        f"Question : {question.strip()}\n\n"
+        "Cette réunion n'a pas encore eu lieu : on la prépare. Réponds à la "
+        "question, brièvement, pour quelqu'un qui parle et qui écoutera la "
+        "réponse à voix haute. N'invente aucun propos tenu en séance, et dis "
+        "quand tu ne sais pas.\n\n"
+        + (setting or "")
+        + (f"\n{material}" if material else "")
+    )
