@@ -6,6 +6,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## New
 
+- **install** — fetch the sherpa-onnx wheel that talks to the card (`67e9771`)
 - **graph** — an index of what the tool knows, and a preparation that opens on it (`cab175e`)
 - **dictation** — one click to speak, and the silence ends the sentence (`488cb15`)
 - **window** — preparation has its own tab, and the threads can be cleared (`b3e2159`)
@@ -70,6 +71,8 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **cuda** — read the card the way each of the three systems files it (`e965bfa`)
+- **cuda** — keep the card when faster-whisper brings its own onnx runtime (`23a8472`)
 - **window** — the banner ate every screen, and eight buttons had one weight (`9534b4e`)
 - **voices** — her own answers were counted as a participant (`e286110`)
 - **mypy** — one exception protected nothing, another was missing (`44386f5`)
@@ -150,11 +153,15 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Performance
 
+- **transcription** — open the model while the encoder is still closing (`9f81899`)
+- **voice** — let the assistant speak from the graphics card (`f7a9323`)
+- **diarisation** — cut the speaker turns on the graphics card (`6ac0760`)
 - **assistant** — keep the machine's MCP servers out of the call (`91deb38`)
 - **locuteurs** — give the models half the cores instead of one (`ef5f4d6`)
 
 ## Documentation
 
+- **cuda** — write down what was measured, and what did not help (`c3da116`)
 - **readme** — a document one can find things in (`f230405`)
 - **contributing** — the conventions a patch is expected to follow (`6811b58`)
 - **tests** — the email, the capture, the context, Miro and the locations (`5d873a8`)
@@ -212,6 +219,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Refactored
 
+- **cuda** — gather the loading of the nvidia libraries in one adapter (`cb73bd2`)
 - **layers** — two primary adapters were leaning on each other (`5cfe84d`)
 - **install** — the code, in English; the messages, in French (`e0a5314`)
 - **domain** — the edit distance comes from a library (`e45cf35`)

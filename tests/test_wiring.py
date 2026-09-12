@@ -245,3 +245,39 @@ class TestTheContextIsBlended:
 
     def test_an_empty_setting_gives_an_empty_header(self, config):
         assert wiring.context(config).header() == ""
+
+
+class TestQuiOuvreLaCarteEnPremier:
+    """Deux ONNX Runtime ne tiennent pas dans un processus.
+
+    faster-whisper amène le sien avec son détecteur de voix, et celui qui ouvre
+    en second lit un graphe corrompu ou tue l'interpréteur. Le découpage en
+    tours de parole doit donc ouvrir le sien avant, sans quoi il se replie sur
+    le processeur : 43 s au lieu de 5,8 s pour 40 s de réunion.
+    """
+
+    @pytest.fixture
+    def places_gardees(self, monkeypatch):
+        from greffier.adapters import cuda
+
+        gardees = []
+        monkeypatch.setattr(cuda, "keep_the_place", gardees.append)
+        return gardees
+
+    def test_the_place_is_kept_before_the_transcriber_is_built(self, config, places_gardees):
+        config.transcription.engine = "faster-whisper"
+        wiring._transcriber(config)
+        assert [p.name for p in places_gardees] == ["nemo_en_titanet_large.onnx"]
+
+    def test_the_live_transcriber_keeps_it_too(self, config, places_gardees):
+        """Le direct tourne dans son propre processus, qui a la même règle."""
+        config.transcription.engine = "faster-whisper"
+        config.live.model = "small"
+        wiring.light_transcriber(config)
+        assert [p.name for p in places_gardees] == ["nemo_en_titanet_large.onnx"]
+
+    def test_whisper_cpp_keeps_it_as_well(self, config, places_gardees):
+        """whisper.cpp n'amène pas de rival, mais le chemin est le même."""
+        config.transcription.engine = "whisper.cpp"
+        wiring._transcriber(config)
+        assert len(places_gardees) == 1
