@@ -139,8 +139,8 @@ def joined_meeting(identifier: str = "2026-09-10_10h10_reunion") -> StoredMeetin
 class TestSplittingTwoVoicesAfterTheMeeting:
     """Joining two voices could be undone live, and by nothing afterwards.
 
-    The gesture existed on both sides — naming two voices alike joins them, which
-    is exactly what is wanted when the tool has cut one person in two — but only
+    The gesture existed on both sides, naming two voices alike joins them, which
+    is exactly what is wanted when the tool has cut one person in two, but only
     the live thread knew how to go back.
     """
 

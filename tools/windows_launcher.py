@@ -7,7 +7,7 @@ commande, avec trois précautions que l'exécutable impose et que la ligne de
 commande n'a pas :
 
 - **rendre la main sur `--version`.** Un exécutable graphique lancé sans écran
-  — un exécuteur d'intégration continue, par exemple — ne peut pas ouvrir de
+  un exécuteur d'intégration continue, par exemple, ne peut pas ouvrir de
   fenêtre. Répondre sa version est le seul contrôle qu'on puisse faire là, et
   c'est celui que le workflow de publication exécute.
 - **écrire ce qui casse dans un fichier.** Une application graphique Windows
@@ -30,7 +30,7 @@ from pathlib import Path
 
 def log() -> Path:
     """Où écrire ce qui casse. `%LOCALAPPDATA%` sur Windows, le dossier des
-    données ailleurs — le même endroit que le reste des traces de l'outil."""
+    données ailleurs, le même endroit que le reste des traces de l'outil."""
     import os
 
     base = os.environ.get("LOCALAPPDATA")
@@ -58,7 +58,7 @@ def main() -> int:
 
         locate_tcl()
         Window(Config()).loop()
-    except Exception:  # noqa: BLE001 — dernier recours avant l'écran noir
+    except Exception:  # noqa: BLE001, dernier recours avant l'écran noir
         trace = traceback.format_exc()
         target = log()
         with contextlib.suppress(OSError):
@@ -90,7 +90,7 @@ def _dire_a_l_ecran(message: str) -> None:
     """Une boîte de dialogue, ou la sortie d'erreur à défaut.
 
     À défaut, parce que si Tk est justement ce qui manque, une boîte de dialogue
-    Tk ne s'affichera pas — et c'est un cas probable ici.
+    Tk ne s'affichera pas, et c'est un cas probable ici.
     """
     try:
         import tkinter as tk

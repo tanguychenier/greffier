@@ -101,7 +101,7 @@ def _context_line(
     return f"{line} {present_line}" if present_line else line
 
 def _time_range(heure: int, minute: int, duration: float) -> str:
-    """"from 16:46 to 17:03" — the end time follows from the duration."""
+    """"from 16:46 to 17:03", the end time follows from the duration."""
     if duration <= 0:
         return f"à {heure} h {minute:02d}"
     end = (heure * 60 + minute + int(duration // 60)) % (24 * 60)

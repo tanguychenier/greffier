@@ -156,10 +156,10 @@ class _Pilote:
         self._init = init
         self._count = count
 
-    def cuInit(self, _flags):  # noqa: N802 — c'est le nom dans la bibliothèque
+    def cuInit(self, _flags):  # noqa: N802, c'est le nom dans la bibliothèque
         return self._init
 
-    def cuDeviceGetCount(self, pointeur):  # noqa: N802 — idem
+    def cuDeviceGetCount(self, pointeur):  # noqa: N802, idem
         pointeur._obj.value = self._cartes
         return self._count
 

@@ -2,7 +2,7 @@
 
 The defect, measured on the meeting of 11 September: the biggest speaker of the
 room was named by hand in the window, on seventy-six sentences, and the minutes
-that went out called him *une voix non nommée* — while announcing as a
+that went out called him *une voix non nommée*, while announcing as a
 participant somebody who was not in the room. The name reached the voice bank
 and nothing else; the pass that writes the minutes cuts the audio again, into
 its own voices, and named them from the bank alone.

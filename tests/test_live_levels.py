@@ -2,7 +2,7 @@
 
 The case that named it: the window showed "the others are speaking" when it was
 whoever was recording. The header of a WAV produced by ffmpeg is 102 bytes and
-not 44 — an extended "fmt" of 40 bytes, then a "LIST" chunk of 26 — and reading
+not 44: an extended "fmt" of 40 bytes, then a "LIST" chunk of 26, and reading
 from the wrong base shifted the reading by 29 samples, so by two channels out of
 three.
 """

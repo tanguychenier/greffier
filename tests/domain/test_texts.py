@@ -2,8 +2,8 @@
 
 Trois endroits réduisent un texte libre en identifiant de fichier : la banque de
 voix, le nom d'une réunion, l'ancre d'une section de courriel. Tous les trois se
-rabattaient sur un mot fixe quand il ne restait rien — « sans-nom », « reunion »,
-« s- » — donc sur le MÊME identifiant pour des textes différents. Dans la banque
+rabattaient sur un mot fixe quand il ne restait rien : « sans-nom », « reunion »,
+« s- », donc sur le MÊME identifiant pour des textes différents. Dans la banque
 de voix, cela fusionnait deux personnes.
 """
 

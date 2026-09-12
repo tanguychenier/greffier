@@ -34,24 +34,24 @@ Structure attendue, en français, au format Markdown, dans cet ordre :
    et une heure ne sont pas matière à style. Si aucune ligne ne t'est donnée,
    n'en invente pas.
 
-2. `## Décisions` — les décisions effectivement prises, une puce chacune, une à
+2. `## Décisions`, les décisions effectivement prises, une puce chacune, une à
    deux lignes. Une décision est une chose que le groupe a arrêtée, pas une
    intention ni une hypothèse. S'il n'y en a aucune, écris « Aucune décision
    formelle » et passe à la suite.
 
-3. `## Actions` — un tableau à trois colonnes : Qui, Quoi, Quand. Une ligne par
-   action. « Quand » vaut « — » si aucune échéance n'a été dite : ne l'invente
+3. `## Actions`, un tableau à trois colonnes : Qui, Quoi, Quand. Une ligne par
+   action. « Quand » vaut « - » si aucune échéance n'a été dite : ne l'invente
    jamais. Si le responsable n'est pas identifiable, écris « à attribuer ».
 
-4. `## Points ouverts` — ce qui reste non tranché, une puce chacun, avec en une
+4. `## Points ouverts`, ce qui reste non tranché, une puce chacun, avec en une
    demi-ligne ce qui manque pour trancher.
 
-5. `## Détail par sujet` — une sous-section `###` par sujet abordé, titre
+5. `## Détail par sujet`, une sous-section `###` par sujet abordé, titre
    explicite, **trois à cinq phrases** chacune. Dis qui a porté quelle position
    quand c'est identifiable. Une citation entre guillemets seulement si la
    formule exacte compte, jamais plus d'une par sujet.
 
-6. `## Annexe` — **uniquement si la transcription a perdu quelque chose qui change
+6. `## Annexe`, **uniquement si la transcription a perdu quelque chose qui change
    la lecture** : termes manifestement mal transcrits, passages inaudibles portant
    sur une décision ou une échéance. Trois lignes au maximum. Si la transcription
    est fiable, omets cette section entièrement.
@@ -131,7 +131,7 @@ def guidance(language: str = "") -> str:
     header = (
         f"Rédige entièrement en {name}. Tout le document : le titre, les intitulés\n"
         f"de section, les phrases. La transcription qui suit peut être dans une\n"
-        f"autre langue — cela ne change rien à la langue du compte rendu.\n\n"
+        f"autre langue : cela ne change rien à la langue du compte rendu.\n\n"
     )
     return header + GUIDANCE.replace(_MENTION_DE_LANGUE, f"{_MENTION_NUE} {name}") + (
         f"\n\nRappel : le compte rendu s'écrit en {name}.\n"

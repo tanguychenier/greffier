@@ -31,7 +31,7 @@ def voices_are_out_of_reach(timbres: int = 2) -> str | None:
                 "l'assistant (« python3 tools/install.py »), et ffmpeg dans les deux cas")
     if engine == "vits" and timbres > len(SID_VITS):
         return (f"{timbres} timbres demandés, la voix installée en porte "
-                f"{len(SID_VITS)} — cette réunion-là demande « say »")
+                f"{len(SID_VITS)} : cette réunion-là demande « say »")
     return None
 
 
@@ -52,7 +52,7 @@ def the_called_name_is_out_of_reach() -> str | None:
 
     if synthesis_engine() != "say":
         return ("le prénom qui ouvre une phrase n'est pas rendu de façon sûre par la "
-                "voix installée — cette famille-là demande « say »")
+                "voix installée : cette famille-là demande « say »")
     return None
 
 
@@ -64,10 +64,10 @@ def transcription_is_out_of_reach(config) -> str | None:
         ("segmentation", diarisation / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx"),
     ) if not path.exists()]
     if absents:
-        return f"modèles absents ({', '.join(absents)}) — lance tools/install.py"
+        return f"modèles absents ({', '.join(absents)}) : lance tools/install.py"
     if config.transcription.engine == "whisper.cpp":
         if not (config.paths.models / "ggml-large-v3-turbo.bin").exists():
-            return "modèle whisper.cpp absent — lance tools/install.py"
+            return "modèle whisper.cpp absent, lance tools/install.py"
         if not shutil.which("whisper-cli"):
             return "whisper.cpp absent"
         return None
@@ -89,5 +89,5 @@ def _faster_whisper_is_out_of_reach(model: str) -> str | None:
         return "faster-whisper n'est pas installé"
     depot = _MODELS.get(model, model)
     if try_to_load_from_cache(depot, "model.bin") is None:
-        return f"modèle « {model} » absent du cache — lance tools/install.py"
+        return f"modèle « {model} » absent du cache, lance tools/install.py"
     return None

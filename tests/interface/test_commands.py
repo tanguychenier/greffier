@@ -3,7 +3,7 @@
 A command name is displayed text: it stays French, and it must not follow the
 Python identifier around. The defect that called for this file: renaming the
 `veiller` function to `watch` renamed the command with it, because the decorator
-had no name of its own. Nothing failed loudly — `greffier enregistrer` went on
+had no name of its own. Nothing failed loudly, `greffier enregistrer` went on
 launching `greffier veiller` in a detached process, which died at once on *No
 such command*, and the hardware watch was gone from every meeting recorded
 since.

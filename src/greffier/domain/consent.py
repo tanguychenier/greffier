@@ -33,7 +33,7 @@ MENTIONS = {
 
 RAPPEL = (
     "Une voix est une donnée biométrique. Pense à prévenir les participants "
-    "que la réunion est enregistrée — et note-le dans « conversation.information » "
+    "que la réunion est enregistrée, et note-le dans « conversation.information » "
     "pour que le compte rendu le dise."
 )
 

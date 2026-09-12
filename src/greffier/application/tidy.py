@@ -133,7 +133,7 @@ def tidy(
     return faits
 
 def readable(bytes_read: int) -> str:
-    """"151 MB", "34 kB" — for a sentence a person reads."""
+    """"151 MB", "34 kB", for a sentence a person reads."""
     if bytes_read >= 1024**3:
         return f"{bytes_read / 1024**3:.1f} Go"
     if bytes_read >= 1024**2:

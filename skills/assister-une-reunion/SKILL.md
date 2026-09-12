@@ -1,6 +1,6 @@
 ---
 name: assister-une-reunion
-description: Assister une réunion en cours avec Greffier — chercher ce qui manque, proposer sans interrompre, tenir la carte du sujet et enrichir le contexte. À utiliser pendant une réunion, pas pour réparer l'installation.
+description: Assister une réunion en cours avec Greffier : chercher ce qui manque, proposer sans interrompre, tenir la carte du sujet et enrichir le contexte. À utiliser pendant une réunion, pas pour réparer l'installation.
 ---
 
 # Assister une réunion
@@ -124,9 +124,9 @@ qu'un modèle propose quand on lui demande s'il a quelque chose à dire.
 
 **L'échange, lui, se poursuit.** Une question posée puis abandonnée quand on y
 répond vaut moins que pas de question : celui qui a répondu ne sait pas s'il a
-été entendu. On réagit donc en une phrase qui montre ce qu'on a retenu — « très
+été entendu. On réagit donc en une phrase qui montre ce qu'on a retenu, « très
 bien, donc c'est Hubert qui porte la migration, échéance fin septembre » vaut
-mieux qu'un « merci » — et tant qu'il reste une vraie question sur le sujet, on
+mieux qu'un « merci », et tant qu'il reste une vraie question sur le sujet, on
 la pose. On s'arrête en concluant, pas en se faisant couper.
 
 ## Le direct dit ce qui se discute, pas ce qui est décidé
@@ -138,8 +138,8 @@ pour être corrigée, pas pour être citée. Donc :
 - ne comble pas un trou de la transcription par ce que tu as trouvé ailleurs. Si
   la réponse n'est pas dans ce qui a été dit et que tu ne l'as pas cherchée,
   dis-le ;
-- si un mot qui **porte l'information** est déformé — un nom, un chiffre, une
-  échéance — dis ce qui manque plutôt que de deviner.
+- si un mot qui **porte l'information** est déformé : un nom, un chiffre, une
+  échéance, dis ce qui manque plutôt que de deviner.
 
 ## Enrichir le contexte, pour que la fois d'après soit meilleure
 
@@ -150,8 +150,8 @@ personne nommée, un produit dont l'orthographe est établie : cela va dans
 Le fichier est édité à la main, il porte des commentaires et un ordre voulus :
 ne le régénère jamais, tu les effacerais.
 
-Un terme ajouté au contexte est repris par les trois étages — le direct, la
-transcription définitive et la rédaction — donc la même erreur ne se reproduit
+Un terme ajouté au contexte est repris par les trois étages, le direct, la
+transcription définitive et la rédaction, donc la même erreur ne se reproduit
 plus. C'est le seul travail dont le bénéfice est permanent.
 
 ## La carte du sujet
@@ -177,7 +177,7 @@ Trois règles, dans cet ordre :
 
 Écrire la carte pendant la réunion est voulu : ce qui peut être fait pendant vaut
 mieux que fait après. En contrepartie, distingue visiblement ce qui est **acté**
-de ce qui est **en discussion** — une piste évoquée à l'oral ne doit pas
+de ce qui est **en discussion** : une piste évoquée à l'oral ne doit pas
 apparaître comme une décision de l'équipe.
 
 ## Avant de dire que c'est fait
@@ -194,7 +194,7 @@ Et si tu as touché à la chaîne, repasse un enregistrement réel :
 `greffier traiter --sans-compte-rendu <fichier.wav>`.
 
 **Évite `--quand-meme` pendant une réunion** : il ne détruit plus la capture
-depuis le 2026-09-09 — le journal ne publie que pour la réunion qu'il traite —
+depuis le 2026-09-09, le journal ne publie que pour la réunion qu'il traite,
 mais transcrire prend le processeur que la capture et le direct se partagent.
 
 Et si une réunion n'apparaît nulle part alors qu'elle a eu lieu :

@@ -400,13 +400,13 @@ class Window:
         self._load_meetings()
 
     def _live_tab(self) -> None:
-        """What is being said, while it is said — and correctable there."""
+        """What is being said, while it is said, and correctable there."""
         c = self.colours
         inside = self._page("En direct")
         self.direct_etat = self._text(
             inside,
             "Le fil s'affiche ici pendant la réunion. Clique sur un nom pour "
-            "corriger qui parle — un « ? » signale un nom deviné par la voix, "
+            "corriger qui parle : un « ? » signale un nom deviné par la voix, "
             "pas encore confirmé.",
             taille=11, pale=True, wraplength=740, justify="left",
         )
@@ -463,7 +463,7 @@ class Window:
 
         Cut here and now rather than through the setting: the watch is another process
         and only re-reads it at the next slice, up to fifteen seconds later. Measured
-        in a meeting — you press, it keeps talking, and the button looks broken.
+        in a meeting, you press, it keeps talking, and the button looks broken.
         """
         from greffier.adapters import configuration as settings
         from greffier.adapters.voice_neural import NeuralVoice, silence
@@ -980,15 +980,15 @@ class Window:
         self._paint_the_turn("note", self.dit("conversation.avant_une_reunion"))
         self._paint_the_turn(
             "note",
-            "Tu peux aussi m'apprendre quelque chose en une phrase — « retiens "
-            "que FAST veut dire formulaire d'attestation » — ou me fournir un "
+            "Tu peux aussi m'apprendre quelque chose en une phrase, « retiens "
+            "que FAST veut dire formulaire d'attestation », ou me fournir un "
             "document : je réponds dessus et j'en propose le vocabulaire.",
         )
 
     MODELES_TRANSCRIPTION = (
-        ("large-v3-turbo", "large-v3-turbo — le plus juste, conseillé"),
-        ("large-v3", "large-v3 — plus lent, sans gain mesuré ici"),
-        ("small", "small — rapide, pour les postes modestes"),
+        ("large-v3-turbo", "large-v3-turbo : le plus juste, conseillé"),
+        ("large-v3", "large-v3 : plus lent, sans gain mesuré ici"),
+        ("small", "small : rapide, pour les postes modestes"),
     )
     THEMES = (("systeme", "Selon le système"), ("clair", "Clair"), ("sombre", "Sombre"))
     LANGUAGES = (
@@ -999,15 +999,15 @@ class Window:
         ("tr", "Turc"), ("ar", "Arabe"), ("zh", "Chinois"), ("ja", "Japonais"),
     )
     MOTEURS_REDACTION = (
-        ("claude", "Claude Code — la meilleure synthèse"),
-        ("ollama", "Ollama — tout reste sur ce poste"),
-        ("aucun", "Aucun — s'arrêter à la transcription"),
+        ("claude", "Claude Code : la meilleure synthèse"),
+        ("ollama", "Ollama : tout reste sur ce poste"),
+        ("aucun", "Aucun : s'arrêter à la transcription"),
     )
     ATTENDEES = (("", "Déduit de l'enregistrement"),
                     *((str(n), f"{n} personnes") for n in range(2, 13)))
-    PERIODES_DIRECT = (("5.0", "5 s — très réactif, plus de calcul"),
-                       ("10.0", "10 s — conseillé"),
-                       ("20.0", "20 s — économe, l'affichage suit de loin"))
+    PERIODES_DIRECT = (("5.0", "5 s : très réactif, plus de calcul"),
+                       ("10.0", "10 s : conseillé"),
+                       ("20.0", "20 s : économe, l'affichage suit de loin"))
 
     def _settings_tab(self) -> None:
         """The settings people actually change, without opening a file."""
@@ -1355,11 +1355,11 @@ class Window:
         """The tested first names, each with the gender of its voice."""
         from greffier.adapters.configuration import FIRST_NAMES, KINDS
 
-        choix = [(first_name, f"{first_name} — {KINDS[speaker_index]}")
+        choix = [(first_name, f"{first_name} : {KINDS[speaker_index]}")
                  for first_name, speaker_index in FIRST_NAMES.items()]
         actuel = self.config.assistant.name
         if actuel and actuel not in FIRST_NAMES:
-            choix.insert(0, (actuel, f"{actuel} — réglé à la main"))
+            choix.insert(0, (actuel, f"{actuel} : réglé à la main"))
         return choix
 
     def _settable_voices(self) -> list[tuple[str, str]]:
@@ -1415,7 +1415,7 @@ class Window:
         voulu = self.config.audio.mic
         if voulu and voulu not in names:
             names.append(f"{voulu}")
-        return (("", "Automatique — le mieux entendu"),
+        return (("", "Automatique : le mieux entendu"),
                 *((name, name) for name in names))
 
     def _models_present(self) -> tuple[tuple[str, str], ...]:
@@ -1443,7 +1443,7 @@ class Window:
         if present_line:
             return present_line
         return ((self.config.transcription.model,
-                 f"{self.config.transcription.model} — "
+                 f"{self.config.transcription.model}, "
                  "à télécharger au premier usage"),)
 
     def _match_the_writer_model(self) -> None:
@@ -1456,7 +1456,7 @@ class Window:
 
             present_line = available_models()
             choix = tuple((m, m) for m in present_line) or (
-                ("qwen3:8b", "qwen3:8b — à télécharger"),
+                ("qwen3:8b", "qwen3:8b, à télécharger"),
             )
         else:
             choix = (("", "Sans objet : aucun rédacteur"),)
@@ -1481,7 +1481,7 @@ class Window:
         version = diagnostic.claude_version()
         if count is None:
             self.mot_compte.configure(
-                text=f"Claude Code {version} — aucune session ouverte.",
+                text=f"Claude Code {version} : aucune session ouverte.",
                 fg=self.colours.amber)
             self.bouton_session.set_caption("Se connecter")
             return
@@ -1655,7 +1655,7 @@ class Window:
                 if not p.uid.startswith("com.reunions.")
                 and "blackhole" not in p.name.lower()
             ]
-        propositions = (("", "Automatique — le mieux entendu"),
+        propositions = (("", "Automatique : le mieux entendu"),
                         *((name, name) for name in names))
         if propositions == self._micros_connus:
             return
@@ -1801,7 +1801,7 @@ class Window:
             messagebox.showerror("Greffier", str(trouble))
 
     def _close_window(self) -> None:
-        """Closes the window — ending the meeting first, if there is one."""
+        """Closes the window : ending the meeting first, if there is one."""
         phase = None
         with contextlib.suppress(OSError, ValueError):
             phase = self.recorder.read().phase
@@ -2139,7 +2139,7 @@ class Window:
                 "de la réunion.",
             )
             return
-        self._paint_the_turn("note", f"— conversation de « {identifier} » —")
+        self._paint_the_turn("note", f"conversation de « {identifier} »")
         for turn in turns:
             self._paint_the_turn(turn.who, turn.text)
 
@@ -2285,7 +2285,7 @@ class Window:
         if not appris:
             return
         detail = "\n".join(
-            f"  {kind:8} {ecriture}" + (f" — {sens}" if sens else "")
+            f"  {kind:8} {ecriture}" + (f", {sens}" if sens else "")
             for ecriture, sens, kind in appris
         )
         if not messagebox.askyesno(
@@ -2489,7 +2489,7 @@ class Window:
     def _offer_the_models(self) -> None:
         """Offers to fetch the models the machine is missing, and does it.
 
-        The models live outside the application, so an update keeps them — and
+        The models live outside the application, so an update keeps them, and
         so a freshly downloaded application has none. Until now only the
         command-line installer knew how to fetch them, which meant
         double-clicking the published archive gave a tool that could not
@@ -2512,7 +2512,7 @@ class Window:
             f"Il manque {model_files.weight(manquants)} de modèles pour "
             f"fonctionner : {what}.\n\nLes télécharger maintenant ? "
             "Ils restent sur ce poste et servent à toutes les réunions "
-            "suivantes — une mise à jour ne les redemande pas.",
+            "suivantes : une mise à jour ne les redemande pas.",
         ):
             self._paint_the_turn("greffier", (
                 f"Il manque {model_files.weight(manquants)} de modèles : {what}. "
@@ -2539,7 +2539,7 @@ class Window:
                     recu: int, total: int, m: Any = model, n: int = rang
                 ) -> None:
                     part = f"{recu * 100 // total} %" if total else f"{recu >> 20} Mo"
-                    dire(f"{m.role} ({n}/{len(manquants)}) — {part}")
+                    dire(f"{m.role} ({n}/{len(manquants)}) : {part}")
 
                 pose, souci = model_files.fetch(model, dossier, avancement)
                 if not pose:
@@ -2946,7 +2946,7 @@ class Window:
             self.bouton_preparer.set_caption(self.dit("conversation.preparer"))
             return
         morceaux = [self.dit("conversation.en_preparation",
-                                 sujet=preparation.subject or "—")]
+                                 sujet=preparation.subject or "-")]
         if preparation.expected:
             morceaux.append(f"attendus : {', '.join(preparation.expected)}")
         if preparation.to_raise:
@@ -3213,7 +3213,7 @@ class Window:
             say("réflexion…")
             return engine.write_up(
                 f"Question : {question}\n\n"
-                f"Ce qui a été dit — {what} de la réunion « {sur} » :\n{material}"
+                f"Ce qui a été dit : {what} de la réunion « {sur} » :\n{material}"
             )
 
         self._run_job(Job(

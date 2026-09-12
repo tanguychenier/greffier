@@ -248,7 +248,7 @@ def one_person(
 
     Measured on the bank of a real team, the separation is not close. The clean
     entries sit at 0.87 and 0.81 between their own voiceprints; the entries fed
-    from a live voice that held two people sit at 0.43, 0.53 and 0.53 — and one
+    from a live voice that held two people sit at 0.43, 0.53 and 0.53, and one
     of them answers to another person's name at 0.71, higher than to its own.
     """
     if len(voiceprints) < 2:

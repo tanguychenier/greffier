@@ -12,7 +12,7 @@ not patched, so a field forgotten there is lost on the first save from the
 window.
 
 The third: the writing guidance. A hundred lines of adjustments won on real
-meetings — the French has to come out of it character for character.
+meetings, the French has to come out of it character for character.
 """
 
 from greffier.adapters.assistant_terminal import Answers

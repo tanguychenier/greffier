@@ -31,7 +31,7 @@ class TestTables:
         "| Qui | Quoi | Quand |\n"
         "|---|---|---|\n"
         "| Cédric | Tests iPhone | après la réunion |\n"
-        "| Sophie | Demander le rôle valideur | — |\n"
+        "| Sophie | Demander le rôle valideur | - |\n"
     )
 
     def test_a_markdown_table_becomes_a_real_one(self) -> None:
@@ -42,7 +42,7 @@ class TestTables:
 
     def test_the_cells_keep_their_content(self) -> None:
         html = as_html(self.ACTIONS)
-        for expected in ("Cédric", "Tests iPhone", "après la réunion", "Sophie", "—"):
+        for expected in ("Cédric", "Tests iPhone", "après la réunion", "Sophie", "-"):
             assert expected in html
 
     def test_no_pipe_character_is_left(self) -> None:
@@ -90,8 +90,8 @@ class TestInlineText:
 class TestAccentedCharacters:
     def test_the_accents_survive_the_conversion(self) -> None:
         # Le défaut d'origine : « réunion » arrivait en « r√©union ».
-        html = as_html("## Réunion du 25 août — décisions prises")
-        for expected in ("Réunion", "août", "—", "décisions"):
+        html = as_html("## Réunion du 25 août : décisions prises")
+        for expected in ("Réunion", "août", "-", "décisions"):
             assert expected in html
 
     def test_the_document_declares_its_encoding(self) -> None:
@@ -111,8 +111,8 @@ class TestWhatMustNotBeExecuted:
 
 class TestTheSubjectLine:
     def test_the_title_of_the_minutes_becomes_the_subject(self) -> None:
-        obtenu = subject("# Compte rendu — Point Casa\n\nLe 25 août.", "défaut")
-        assert obtenu == "Compte rendu — Point Casa"
+        obtenu = subject("# Compte rendu : Point Casa\n\nLe 25 août.", "défaut")
+        assert obtenu == "Compte rendu : Point Casa"
 
     def test_with_no_title_the_default_is_kept(self) -> None:
         assert subject("Pas de titre ici.", "défaut") == "défaut"
@@ -139,11 +139,11 @@ class TestTheWholeDocument:
 
     def test_a_complete_set_of_minutes_passes_whole(self) -> None:
         source = (
-            "# Compte rendu — Point Casa\n\n"
+            "# Compte rendu : Point Casa\n\n"
             "25 août 2026 · 1 h · Sophie, Katell, Cédric\n\n"
             "## Décisions\n\n- Étape de visa conservée\n\n"
             "## Actions\n\n| Qui | Quoi | Quand |\n|---|---|---|\n"
-            "| Cédric | Tests iPhone | — |\n\n"
+            "| Cédric | Tests iPhone | - |\n\n"
             "## Points ouverts\n\n- Bug photos non reproduit\n"
         )
         html = email(source)
@@ -156,7 +156,7 @@ class TestTheTableOfContents:
     """A table of contents, to know what the document holds without scrolling it."""
 
     COMPLET = (
-        "# Compte rendu — Point Casa\n\n"
+        "# Compte rendu : Point Casa\n\n"
         "25 août 2026, environ 1 heure. Participants : Sophie, Katell.\n\n"
         "## Décisions\n\n- Une décision\n\n"
         "## Actions\n\n| Qui | Quoi | Quand |\n|---|---|---|\n| Sophie | Tester | non dit |\n\n"
@@ -196,7 +196,7 @@ class TestTheHeaderOfTheEmail:
     """The title and the context line form the header, not one more paragraph."""
 
     SOURCE = (
-        "# Compte rendu — Point Casa\n\n"
+        "# Compte rendu : Point Casa\n\n"
         "25 août 2026, environ 1 heure. Participants : Sophie, Katell.\n\n"
         "## Décisions\n\n- Une décision\n\n## Actions\n\n- Une action\n\n"
         "## Points ouverts\n\n- Un point\n"

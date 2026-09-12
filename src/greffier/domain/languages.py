@@ -27,4 +27,4 @@ def label_text(code: str) -> str:
     name = name_of(code)
     if not code or eprouvee(code):
         return name
-    return f"{name} — voix à nommer à la main"
+    return f"{name} : voix à nommer à la main"

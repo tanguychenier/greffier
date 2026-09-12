@@ -196,10 +196,10 @@ class Speakers(BaseModel):
     people: int | None = Field(default=None, validation_alias=AliasChoices("people", "personnes"))
 
 MODELES_CLAUDE: list[tuple[str, str]] = [
-    ("opus", "Opus — recommandé : la synthèse est excellente et le quota tient"),
-    ("fable", "Fable — le haut de la gamme, plus coûteux pour un compte rendu identique"),
-    ("sonnet", "Sonnet — plus léger et plus rapide, synthèse un peu moins fine"),
-    ("haiku", "Haiku — le plus économique, à réserver aux réunions courtes"),
+    ("opus", "Opus, recommandé : la synthèse est excellente et le quota tient"),
+    ("fable", "Fable : le haut de la gamme, plus coûteux pour un compte rendu identique"),
+    ("sonnet", "Sonnet : plus léger et plus rapide, synthèse un peu moins fine"),
+    ("haiku", "Haiku : le plus économique, à réserver aux réunions courtes"),
 ]
 
 class Minutes(BaseModel):
@@ -569,7 +569,7 @@ _COMMENTAIRES = {
                      "# « rien », « annoncé » ou « accord ». Une voix est une donnée\n"
                      "# biométrique ; le compte rendu porte la mention correspondante."),
     "assistant": ("L'assistant comme participant : le nom auquel il répond, et\n"
-                  "# s'il se fait entendre. Il participe toujours — il écoute,\n"
+                  "# s'il se fait entendre. Il participe toujours, il écoute,\n"
                   "# prend des notes, pose ses questions par écrit ; le seul\n"
                   "# réglage est « voix », qui se relit pendant la réunion : on\n"
                   "# peut le faire taire sans rien arrêter. kokoro (neuronale, un\n"
@@ -585,7 +585,7 @@ _HEADER = """# Configuration de Greffier.
 # Écrit par l'onglet Réglages de la fenêtre ; modifiable à la main sans risque.
 # Tout est facultatif : ce qui manque reprend la valeur par défaut. Les
 # variables « GREFFIER_* » et un fichier « .env » l'emportent sur ce fichier,
-# dans cet ordre — on doit pouvoir forcer un réglage le temps d'une commande.
+# dans cet ordre, on doit pouvoir forcer un réglage le temps d'une commande.
 #
 # La version précédente de ce fichier est conservée en « config.toml.precedent ».
 """

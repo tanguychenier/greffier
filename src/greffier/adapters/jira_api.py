@@ -29,7 +29,7 @@ class Request:
     assigne: str = ""
 
     def say(self) -> str:
-        who = f" — {self.assigne}" if self.assigne else ""
+        who = f", {self.assigne}" if self.assigne else ""
         return f"{self.key} {self.title}{who} ({self.state})"
 
 def _identifiers(token: str) -> tuple[str, str]:

@@ -41,7 +41,7 @@ Règles :
   sert à rien.
 - **Si un point figure déjà dans « Déjà sur la carte », reprends son libellé
   mot pour mot.** Une reformulation crée une branche de plus au lieu de
-  compléter celle qui existe, et la carte se remplit de doublons — c'est
+  compléter celle qui existe, et la carte se remplit de doublons, c'est
   arrivé, treize points sont devenus vingt-six. Ne le reprends que s'il s'agit
   vraiment du même point ; sinon, formule le tien.
 """

@@ -3,7 +3,7 @@
 Le découpage fait tourner le modèle d'empreintes sur chaque extrait, et ce
 modèle est gros. Mesuré sur une réunion de 40,7 s, mêmes modèles et mêmes tours
 rendus : 43 s sur le processeur, 5,8 s sur la carte. C'est, de loin, le premier
-poste de dépense du traitement — devant la transcription, pourtant faite par un
+poste de dépense du traitement, devant la transcription, pourtant faite par un
 modèle bien plus lourd. Ces tests vérifient que le choix arrive jusqu'aux
 modèles, et que les bibliothèques CUDA ne sont montrées au chargeur que
 lorsqu'on va s'en servir.

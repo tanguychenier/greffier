@@ -60,7 +60,7 @@ class Dialogue:
 
 def language_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
     """Which language meetings are held in, the system's guess first."""
-    title = "\n— Dans quelle langue ? —"
+    title = "\nDans quelle langue ?"
     dialogue.show(title)
     defaut = _system_language()
     choix = [(code, label_text(code)) for code, _ in LANGUAGES]
@@ -73,7 +73,7 @@ def language_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
             f"\n{name_of(language)} se transcrit et son compte rendu s'écrit, mais la\n"
             "reconnaissance des prénoms n'y est pas éprouvée : elle reste éteinte,\n"
             "et les voix se nomment une fois dans l'onglet Voix. Les motifs\n"
-            "français, laissés actifs, n'échoueraient pas — ils inventeraient des\n"
+            "français, laissés actifs, n'échoueraient pas, ils inventeraient des\n"
             "participants."
         )
 
@@ -103,7 +103,7 @@ def hardware_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
     )
     for constat in state.constats:
         marque = "✓" if constat.present else ("✗" if constat.bloquant else "⚠")
-        dialogue.show(f"  {marque} {constat.name} — {constat.detail}")
+        dialogue.show(f"  {marque} {constat.name}, {constat.detail}")
 
     if state.blocking:
         dialogue.show("\nÀ régler avant de continuer :")
@@ -119,7 +119,7 @@ def hardware_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
 
 def writer_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
     """Claude Code: installed? signed in? otherwise what is left."""
-    dialogue.show("\n— Qui rédige le compte rendu —")
+    dialogue.show("\nQui rédige le compte rendu")
 
     if not diagnostic.claude_installed():
         dialogue.show(
@@ -143,9 +143,9 @@ def writer_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None
         answers.to_do.append("claude   # puis se connecter à l'abonnement")
 
     choix = [
-        ("claude", "Claude Code — meilleure synthèse, la transcription part vers l'API"),
-        ("ollama", "Ollama — tout reste sur ce poste, synthèse plus grossière"),
-        ("aucun", "Aucun — s'arrêter à la transcription attribuée"),
+        ("claude", "Claude Code : meilleure synthèse, la transcription part vers l'API"),
+        ("ollama", "Ollama : tout reste sur ce poste, synthèse plus grossière"),
+        ("aucun", "Aucun : s'arrêter à la transcription attribuée"),
     ]
     defaut = 0 if diagnostic.claude_installed() else (1 if _ollama_usable() else 2)
     engine = dialogue.choose("Rédacteur du compte rendu", choix, defaut)
@@ -181,7 +181,7 @@ def _ollama_model(dialogue: Dialogue, answers: Answers) -> str:
 
 def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
     """By email, or into a folder?"""
-    dialogue.show("\n— Où arrive le compte rendu —")
+    dialogue.show("\nOù arrive le compte rendu")
 
     if not dialogue.confirm("Le recevoir par courriel ?", True):
         defaut = str(data_folder() / "comptes-rendus")
@@ -228,7 +228,7 @@ def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
 
 def vocabulary_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
     """The setting that changes transcription quality the most."""
-    dialogue.show("\n— Vocabulaire de tes réunions —")
+    dialogue.show("\nVocabulaire de tes réunions")
     dialogue.show(
         "Les noms de projets, d'outils et d'acronymes que le modèle ne connaît pas.\n"
         "C'est ce qui améliore le plus la transcription des termes rares."

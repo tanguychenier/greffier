@@ -211,7 +211,7 @@ class NeuralVoice:
 
         Refuses while it is already speaking, and that is the fix: it used to
         cut itself here. A second remark arriving mid-sentence killed the first
-        one — "sometimes she starts talking and it cuts". Interrupting oneself
+        one, "sometimes she starts talking and it cuts". Interrupting oneself
         is never what was wanted; the room already got an answer.
         """
         chunks = sentences(text)
