@@ -17,6 +17,39 @@ out of an English meeting.
 
 ![Greffier's chain: record, transcribe, separate the voices, name them, write, send](assets/chain.svg)
 
+<div align="center">
+
+[![CI](https://github.com/tanguychenier/greffier/actions/workflows/ci.yml/badge.svg)](https://github.com/tanguychenier/greffier/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/tanguychenier/greffier?label=release)](https://github.com/tanguychenier/greffier/releases/latest)
+[![Python](https://img.shields.io/badge/python-3.13%2B-blue)](pyproject.toml)
+[![Licence](https://img.shields.io/badge/licence-PolyForm%20Noncommercial-lightgrey)](LICENCE)
+[![Local first](https://img.shields.io/badge/transcription-locale-green)](#does-it-actually-work)
+
+**[What it does](#what-it-does)** · **[Installation](#installation)** ·
+**[Proofs](#does-it-actually-work)** · **[Use](#use)** ·
+**[Architecture](#architecture)** · **[HTTP door](#driving-it-from-a-site)** ·
+**[Licence](#licence)**
+
+</div>
+
+---
+
+## Table of contents
+
+| | |
+|---|---|
+| **[What it does](#what-it-does)** | recording, transcription, voices, names, minutes, mail |
+| **[Installation](#installation)** | one command; [per system](#what-it-does-and-what-differs-per-system), [models](#the-models), [who writes](#writing-the-minutes), [settings](#configuration), [macOS permissions](#macos-permissions), [taking part](#taking-part) |
+| **[Does it actually work?](#does-it-actually-work)** | what is measured, on what, and what is not proven |
+| **[Use](#use)** | the commands, and [the window](#the-window) |
+| **[Architecture](#architecture)** | the layers, and what enforces them |
+| **[Distributing](#distributing)** · **[Development](#development)** | artefacts, guard hooks, [contributing](CONTRIBUTING.md) |
+| **[State](#state)** | what is done, what is open |
+| **[Driving it from a site](#driving-it-from-a-site)** | the HTTP door, and what it will not serve |
+| **[Licence](#licence)** · **[Frame](#frame)** | noncommercial; recording people is not neutral |
+
+---
+
 ## What it does
 
 ```
