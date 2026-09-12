@@ -199,11 +199,31 @@ installed one is detected: **Kokoro** where its `voices.bin` is present, a
 Left out, the system synthesiser takes over — it works the moment the tool is
 installed, and it sounds like a machine, which is why the neural one exists.
 
-On Linux, an NVIDIA card is not enough on its own: CTranslate2 wants cuBLAS and
-cuDNN, which no distribution ships with the driver. The installer offers the
-`cuda` extra where it can serve. It is worth taking — `large-v3` in `int8`
-needs eight minutes for thirty-eight seconds of audio on the processor, and
-twelve seconds on the card.
+On Linux and Windows, an NVIDIA card is not enough on its own: CTranslate2 and
+onnxruntime want cuBLAS, cuDNN and four more libraries that no system ships with
+the driver. The installer offers the `cuda` extra where it can serve, and
+replaces sherpa-onnx with the build that addresses the card. Both are worth
+taking. Measured on a 40.7-second meeting, same models, same speaking turns
+returned:
+
+| | Processor | Card |
+|---|---|---|
+| Splitting into speaking turns | 30–39 s | **6–9 s** |
+| Voice prints | 4.7–6.2 s | **0.9–1.5 s** |
+| The assistant saying a five-second remark | 2.43 s | **0.28 s** |
+| Whole processing | 59–63 s | **32–34 s** |
+
+macOS has no NVIDIA card to find — Apple stopped carrying them with Mojave — and
+nothing is looked for there: whisper.cpp runs on Metal instead. The numbers, the
+two things that turned out **not** to help, and the trap of running two ONNX
+Runtimes in one process are in [`docs/carte-graphique.md`](docs/carte-graphique.md).
+
+The `[materiel]` section of the settings has the last word:
+
+```toml
+[materiel]
+peripherique = "auto"   # auto | cuda | cpu
+```
 
 ### Writing the minutes
 

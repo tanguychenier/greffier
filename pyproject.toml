@@ -1,6 +1,6 @@
 [project]
 name = "greffier"
-version = "0.3.19"
+version = "0.3.20"
 description = "Enregistre une réunion, identifie qui parle, en rédige le compte rendu — sans rien envoyer ailleurs."
 requires-python = ">=3.13"
 license = { text = "PolyForm-Noncommercial-1.0.0" }
@@ -19,12 +19,15 @@ dependencies = [
 # nettement plus rapide (Metal). Ailleurs, faster-whisper fait le même travail
 # depuis Python, sur les trois systèmes.
 transcription = ["faster-whisper>=1.1"]
-# Accélération par carte NVIDIA. CTranslate2 réclame cuBLAS et cuDNN, qu'aucune
-# distribution n'installe avec le pilote : sans elles la carte est là et reste
-# inutilisable, et la transcription se traîne sur le processeur — treize fois le
-# temps réel, mesuré, soit treize heures pour une réunion d'une heure. Deux
+# Accélération par carte NVIDIA. CTranslate2 et onnxruntime réclament ces
+# bibliothèques, qu'aucune distribution n'installe avec le pilote : sans elles
+# la carte est là et reste inutilisable. Mesuré : la transcription se traîne à
+# treize fois le temps réel, soit treize heures pour une réunion d'une heure, et
+# le découpage en tours de parole met 43 s là où la carte met 5,8 s. Deux
 # gigaoctets de roues, d'où l'extra plutôt que la dépendance.
-cuda = ["nvidia-cublas-cu12>=12.4", "nvidia-cudnn-cu12>=9.1"]
+cuda = ["nvidia-cublas-cu12>=12.4", "nvidia-cudnn-cu12>=9.1",
+        "nvidia-cuda-runtime-cu12>=12.4", "nvidia-cufft-cu12>=11.2",
+        "nvidia-curand-cu12>=10.3"]
 # Icône de zone de notification pour Linux et Windows. macOS a son app native :
 # La porte HTTP, pour un site qui pilote l'outil. Optionnelle : une installation
 # de bureau n'a rien à écouter, et fastapi tire uvicorn et starlette avec lui.

@@ -3,61 +3,65 @@
 from __future__ import annotations
 
 import contextlib
-import ctypes
-import importlib.util
+import threading
 from pathlib import Path
+from typing import Any
 
+from greffier.adapters import cuda
 from greffier.domain.models import Span, Utterance
 from greffier.domain.transcription import without_loop
 
-_CUDA_LIBRARIES = (
-    "cublas/lib/libcublasLt.so*",
-    "cublas/lib/libcublas.so*",
-    "cudnn/lib/libcudnn*.so*",
-    "cuda_nvrtc/lib/libnvrtc.so*",
-)
+_OPENED: dict[tuple[str, str], Any] = {}
 
-def cuda_libraries() -> list[Path]:
-    """The libraries the nvidia wheels install."""
-    package = importlib.util.find_spec("nvidia")
-    if package is None or not package.submodule_search_locations:
-        return []
-    root = Path(next(iter(package.submodule_search_locations)))
-    return [
-        path
-        for motif in _CUDA_LIBRARIES
-        for path in sorted(root.glob(motif))
-    ]
-
-def _show_cuda_to_the_loader() -> None:
-    """Loads what cuda_libraries found."""
-    for path in cuda_libraries():
-        with contextlib.suppress(OSError):
-            ctypes.CDLL(str(path), mode=ctypes.RTLD_GLOBAL)
+_TOUR = threading.Lock()
 
 class FasterWhisperTranscriber:
-    def __init__(self, taille: str = "large-v3", peripherique: str = "auto") -> None:
+    def __init__(self, taille: str = "large-v3", device: str = "auto") -> None:
         self.taille = taille
-        self.peripherique = peripherique
+        self.device = device
         self._model = None
 
     def _load(self) -> object:
-        if self._model is None:
-            _show_cuda_to_the_loader()
-            from faster_whisper import WhisperModel
+        """The model, opened once per size and device for the whole process.
 
-            self._model = WhisperModel(
-                self.taille, device=self.peripherique, compute_type="int8"
-            )
+        Opening large-v3 takes twelve to nineteen seconds -- longer than
+        transcribing forty seconds of meeting. Kept here rather than in the
+        instance so that a model opened while the recording is being closed
+        serves the chain that comes right after.
+        """
+        if self._model is None:
+            clef = (self.taille, self.device)
+            with _TOUR:
+                model = _OPENED.get(clef)
+                if model is None:
+                    cuda.show_to_the_loader()
+                    from faster_whisper import WhisperModel
+
+                    model = WhisperModel(
+                        self.taille, device=self.device, compute_type="int8"
+                    )
+                    _OPENED[clef] = model
+            self._model = model
         return self._model
+
+    def warm(self) -> None:
+        """Opens the model now, without transcribing anything.
+
+        Called from a thread while something else is already taking time: a
+        failure here costs nothing, since the chain will open it again and say
+        so properly.
+        """
+        with contextlib.suppress(Exception):
+            self._load()
 
     def transcribe(self, audio: Path, language: str, prompt_seed: str) -> list[Utterance]:
         try:
             return self._utterances(audio, language, prompt_seed)
         except RuntimeError:
-            if self.peripherique == "cpu":
+            if self.device == "cpu":
                 raise
-            self.peripherique = "cpu"
+            _OPENED.pop((self.taille, self.device), None)
+            self.device = "cpu"
             self._model = None
             return self._utterances(audio, language, prompt_seed)
 

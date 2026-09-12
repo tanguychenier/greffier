@@ -645,3 +645,119 @@ class TestWhetherTheVoiceIsThere:
 
     def test_an_empty_folder_is_not_a_voice(self, the_installer, tmp_path):
         assert not the_installer.voix_presente(tmp_path)
+
+
+class TestRoueCuda:
+    """Quelle roue sherpa-onnx l'installation va chercher, système par système.
+
+    Celle de PyPI ne sait pas parler à la carte, et il n'en existe pas sur PyPI
+    qui le sache. Mesuré sur une réunion de 40,7 s, mêmes modèles et mêmes tours
+    rendus : 43 s de découpage sur le processeur, 5,8 s sur la carte.
+    """
+
+    def test_linux_takes_the_wheel_built_with_onnxruntime(self, the_installer):
+        url = the_installer.roue_cuda_sherpa("Linux", "cp313", "x86_64")
+        assert url.endswith("onnxruntime1.27.1-cp313-cp313-linux_x86_64.whl")
+
+    def test_windows_takes_another_naming(self, the_installer):
+        url = the_installer.roue_cuda_sherpa("Windows", "cp313", "AMD64")
+        assert url.endswith("cuda12.cudnn9-cp313-cp313-win_amd64.whl")
+
+    def test_macos_has_no_nvidia_card(self, the_installer):
+        assert the_installer.roue_cuda_sherpa("Darwin", "cp313", "arm64") is None
+
+    def test_an_arm_machine_has_no_wheel(self, the_installer):
+        """Un Raspberry ou un serveur Graviton : rien de publié pour eux."""
+        assert the_installer.roue_cuda_sherpa("Linux", "cp313", "aarch64") is None
+
+    def test_the_version_is_the_one_asked_for(self, the_installer):
+        url = the_installer.roue_cuda_sherpa("Linux", "cp313", "x86_64")
+        assert f"/{the_installer.SHERPA_CUDA}/" in url
+        assert the_installer.SHERPA_CUDA in url.split("sherpa_onnx-")[1]
+
+    def test_the_python_marker_is_carried(self, the_installer):
+        url = the_installer.roue_cuda_sherpa("Linux", "cp314", "x86_64")
+        assert "cp314-cp314" in url
+
+
+class TestEtapeCarte:
+    @pytest.fixture
+    def travaux(self, the_installer, monkeypatch):
+        faits = []
+        monkeypatch.setattr(
+            the_installer, "run_job",
+            lambda commande, **_k: faits.append(commande) or _Fini(),
+        )
+        monkeypatch.setattr(the_installer, "_marqueur_python", lambda _p: ("cp313", "x86_64"))
+        return faits
+
+    def test_a_machine_without_a_card_installs_nothing(
+        self, the_installer, monkeypatch, travaux
+    ):
+        monkeypatch.setattr(the_installer, "carte_nvidia", lambda: False)
+        the_installer.etape_carte(_Demande(), "python")
+        assert travaux == []
+
+    def test_macos_is_never_asked(self, under, monkeypatch, travaux):
+        """Apple a cessé de porter NVIDIA avec Mojave : il n'y a rien à accélérer."""
+        module = under("Darwin")
+        monkeypatch.setattr(module, "shutil", _AvecNvidiaSmi())
+        module.etape_carte(_Demande(), "python")
+        assert travaux == []
+
+    def test_linux_with_a_card_takes_the_wheel(self, under, monkeypatch, travaux):
+        module = under("Linux")
+        monkeypatch.setattr(module, "carte_nvidia", lambda: True)
+        module.etape_carte(_Demande(), "python")
+        assert len(travaux) == 1
+        assert travaux[0][-1].endswith("linux_x86_64.whl")
+
+    def test_windows_with_a_card_takes_its_own(self, under, monkeypatch, travaux):
+        module = under("Windows")
+        monkeypatch.setattr(module, "carte_nvidia", lambda: True)
+        module.etape_carte(_Demande(), "python")
+        assert travaux[0][-1].endswith("win_amd64.whl")
+
+    def test_an_interpreter_that_will_not_answer_stops_there(
+        self, under, monkeypatch, travaux
+    ):
+        module = under("Linux")
+        monkeypatch.setattr(module, "carte_nvidia", lambda: True)
+        monkeypatch.setattr(module, "_marqueur_python", lambda _p: (None, None))
+        module.etape_carte(_Demande(), "python")
+        assert travaux == []
+
+    def test_a_refusal_leaves_the_command_to_run_later(self, under, monkeypatch, travaux):
+        module = under("Linux")
+        monkeypatch.setattr(module, "carte_nvidia", lambda: True)
+        demande = _Demande()
+        demande.reponse = False
+        module.etape_carte(demande, "python")
+        assert travaux == []
+        assert demande.to_do and demande.to_do[0].startswith("uv pip install")
+
+
+class _Fini:
+    returncode = 0
+
+
+class _AvecNvidiaSmi:
+    """Une machine qui porte l'outil NVIDIA, ce qui ne suffit pas sous macOS."""
+
+    @staticmethod
+    def which(_name):
+        return "/usr/bin/nvidia-smi"
+
+
+class _Demande:
+    """Ce que l'installation passe en contexte, réduit à ce qui sert ici."""
+
+    check_only = False
+    yes = True
+
+    def __init__(self) -> None:
+        self.to_do = []
+        self.reponse = True
+
+    def ask(self, _question):
+        return self.reponse

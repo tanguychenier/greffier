@@ -7,7 +7,7 @@ attendaient. Mesuré sur un entretien de cent cinq secondes : 287 s sur un fil,
 que la moitié, et ce test fige ce constat.
 """
 
-from greffier.domain.arithmetic import compute_threads
+from greffier.domain.arithmetic import chosen_device, compute_threads
 
 
 class TestComputeThreads:
@@ -25,3 +25,34 @@ class TestComputeThreads:
     def test_half_leaves_room_to_work(self):
         """La veille tourne pendant la réunion : tout prendre la gênerait."""
         assert compute_threads(8) < 8
+
+
+class TestChosenDevice:
+    """Sur quoi les modèles tournent, quand on ne le dit pas.
+
+    Mesuré sur une réunion de 40,7 s, mêmes modèles et mêmes tours rendus :
+    43 s de découpage en tours de parole sur le processeur, 5,8 s sur la carte.
+    Le choix par défaut doit donc être la carte dès qu'il y en a une.
+    """
+
+    def test_the_card_when_there_is_one(self):
+        assert chosen_device("auto", a_card_answers=True) == "cuda"
+
+    def test_the_processor_when_there_is_none(self):
+        assert chosen_device("auto", a_card_answers=False) == "cpu"
+
+    def test_asking_for_the_processor_is_honoured(self):
+        """Une carte partagée avec autre chose se refuse."""
+        assert chosen_device("cpu", a_card_answers=True) == "cpu"
+
+    def test_asking_for_a_card_that_is_not_there_falls_back(self):
+        """Les mêmes réglages voyagent d'une machine à l'autre."""
+        assert chosen_device("cuda", a_card_answers=False) == "cpu"
+
+    def test_asking_for_the_card_that_is_there(self):
+        assert chosen_device("cuda", a_card_answers=True) == "cuda"
+
+    def test_anything_else_is_read_as_auto(self):
+        """Une faute de frappe ne doit pas empêcher une réunion."""
+        assert chosen_device("gpu", a_card_answers=True) == "cuda"
+        assert chosen_device("", a_card_answers=False) == "cpu"
