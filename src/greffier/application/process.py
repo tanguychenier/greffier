@@ -150,6 +150,7 @@ class Chain:
     log: outbound.StateJournal | None = None
     notificateur: outbound.Notifier | None = None
     store: outbound.MeetingStore | None = None
+    memory: outbound.Memory | None = None
     dossier_transcriptions: Path | None = None
     dossier_comptes_rendus: Path | None = None
 
@@ -163,6 +164,9 @@ class Chain:
     recipient: str = ""
     disclosure: str = "rien"
     hardware_events: list[str] = field(default_factory=list)
+    #: The documents handed over for this meeting, by name. What was read
+    #: matters to the next meeting as much as what was decided.
+    documents_supplied: list[str] = field(default_factory=list)
 
     def _phase(self, phase: Phase, message: str = "") -> None:
         if self.log:
@@ -547,6 +551,47 @@ class Chain:
             minutes.parent.mkdir(parents=True, exist_ok=True)
             minutes.write_text(outcome.minutes, encoding="utf-8")
             outcome.compte_rendu_ecrit = minutes
+        self._leave_a_trace(audio, outcome)
+
+    @staticmethod
+    def _the_day(outcome: Outcome, audio: Path) -> str:
+        """When the meeting was held, or failing that when it was recorded.
+
+        A recording processed after the fact carries no start: the chain is
+        being handed a file, not running a meeting. The file's own date is then
+        closer to the truth than nothing at all.
+        """
+        if outcome.started_at is not None:
+            return outcome.started_at.date().isoformat()
+        with contextlib.suppress(OSError):
+            return datetime.fromtimestamp(audio.stat().st_mtime).date().isoformat()
+        return ""
+
+    def _leave_a_trace(self, audio: Path, outcome: Outcome) -> None:
+        """Files what this meeting leaves for the next ones.
+
+        Read from the minutes rather than asked for a second time: the model has
+        already sorted that material once, and asking again would cost a call
+        and answer the same question differently.
+
+        Never raises. A meeting whose minutes are written has done its work;
+        failing it over a line of memory would be absurd.
+        """
+        if self.memory is None or not outcome.minutes:
+            return
+        from greffier.domain.memory import Trace, what_the_minutes_left
+
+        with contextlib.suppress(Exception):
+            decisions, ouverts = what_the_minutes_left(outcome.minutes)
+            self.memory.remember(Trace(
+                identifier=audio.stem,
+                title=titre_du_compte_rendu(outcome.minutes, audio.stem),
+                held_on=self._the_day(outcome, audio),
+                people=tuple(dict.fromkeys(outcome.names.values())),
+                decisions=decisions,
+                open_points=ouverts,
+                documents=tuple(self.documents_supplied),
+            ))
 
     def _send(self, audio: Path, outcome: Outcome) -> None:
         """Sends the minutes, with no attachment."""
