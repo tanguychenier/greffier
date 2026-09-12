@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 from greffier.domain.meeting import StoredMeeting
+from greffier.domain.memory import Trace
 from greffier.domain.models import Person, Span, SpeakerTurn, Utterance, Voiceprint
 
 
@@ -107,6 +108,19 @@ class VoiceBank(Protocol):
 
     def record(self, name: str, voiceprint: Voiceprint) -> Person:
         """Files the voiceprint and returns the person, enriched."""
+        ...
+
+
+@runtime_checkable
+class Memory(Protocol):
+    """What earlier meetings left, from one meeting to the next."""
+
+    def remember(self, trace: Trace) -> None:
+        """Files what a meeting left. Never raises: minutes are worth more."""
+        ...
+
+    def recall(self, limit: int = 12) -> list[Trace]:
+        """The most recent meetings first."""
         ...
 
 
