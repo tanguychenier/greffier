@@ -129,3 +129,36 @@ class TestTheRootOfThePackageStaysEmpty:
         assert present_line <= self.AUTORISES, (
             f"hors couche : {sorted(present_line - self.AUTORISES)}"
         )
+
+
+class TestThePrimaryAdaptersDoNotLeanOnEachOther:
+    """The window and the command line are two doors, not a hierarchy.
+
+    The window reached into the command line's private functions to start the
+    live thread and the hardware watch. Starting a detached process is adapter
+    work and belongs to neither door; where one door needs the other's private
+    helpers, the thing they share is in the wrong place.
+    """
+
+    #: What is left of that coupling, named rather than tolerated silently: the
+    #: macOS capture setup, some eighty lines that also carry their own output
+    #: through typer. Moving it needs a machine this one is not.
+    RESTE_CONNU = frozenset({"_prepare_capture", "_restore_the_output"})
+
+    def _imports_of_the_cli(self) -> set[str]:
+        import ast
+
+        window = PAQUET / "interface" / "window.py"
+        noms: set[str] = set()
+        for noeud in ast.walk(ast.parse(window.read_text(encoding="utf-8"))):
+            if (isinstance(noeud, ast.ImportFrom)
+                    and noeud.module == "greffier.cli"):
+                noms |= {alias.name for alias in noeud.names}
+        return noms
+
+    def test_the_window_borrows_nothing_new_from_the_command_line(self):
+        emprunts = self._imports_of_the_cli()
+        assert emprunts <= self.RESTE_CONNU, (
+            f"la fenêtre emprunte à la ligne de commande : "
+            f"{sorted(emprunts - self.RESTE_CONNU)}"
+        )
