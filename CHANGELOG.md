@@ -6,6 +6,10 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## New
 
+- **window** — the Conversation tab prepares the next meeting, out loud (`abfb50d`)
+- **prepare** — answering somebody who is preparing a meeting (`5113df0`)
+- **dictation** — a microphone held down, and a sound saying she heard (`cc2b3a3`)
+- **preparation** — a meeting prepared before it is held, and taken by it (`b6af835`)
 - **api** — an HTTP door, so a site can drive the tool (`c115abb`)
 - **memory** — what earlier meetings left now reaches the next one (`f98d177`)
 - **assistant** — a discreet sound when she looks something up (`9a72075`)
