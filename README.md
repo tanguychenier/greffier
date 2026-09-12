@@ -497,6 +497,9 @@ Install the git hooks once and for all:
 ```
 
 A commit that does not pass `ruff`, `mypy` and the tests is then **refused**.
+The conventions expected of a patch — atomic commits, the Angular convention,
+the layer rules, what the four kinds of test are for — are in
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 Running the checks "on the side" is not enough — three quality remarks made it
 into commits before that guard existed. `--no-verify` remains possible,
 knowingly.
