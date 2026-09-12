@@ -736,6 +736,13 @@ class TestSheAnswersWithoutWaitingForTheSlice:
         lui, ecoute = self._lui(), self.Ecoute()
         instance = self._watcher(tmp_path, monkeypatch, lui, ecoute)
         instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
+        # The answer to the first call runs in a thread, and nothing is listened
+        # for while it speaks. Left to chance, this test measured the machine's
+        # load rather than the pace: one run in three, the thread was still
+        # alive at the third turn, which then refused for the right reason and
+        # the wrong one.
+        if lui._job is not None:
+            lui._job.join(timeout=5)
         instance.listening_turn(where_in(tmp_path, written=9.0), tmp_path)
         assert ecoute.appels == 1, "une seconde plus tard, on n'écoute pas encore"
         instance.listening_turn(where_in(tmp_path, written=12.0), tmp_path)
