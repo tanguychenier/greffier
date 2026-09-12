@@ -2,52 +2,26 @@
 
 from __future__ import annotations
 
-import contextlib
-import ctypes
-import importlib.util
 from pathlib import Path
 
+from greffier.adapters import cuda
 from greffier.domain.models import Span, Utterance
 from greffier.domain.transcription import without_loop
 
-_CUDA_LIBRARIES = (
-    "cublas/lib/libcublasLt.so*",
-    "cublas/lib/libcublas.so*",
-    "cudnn/lib/libcudnn*.so*",
-    "cuda_nvrtc/lib/libnvrtc.so*",
-)
-
-def cuda_libraries() -> list[Path]:
-    """The libraries the nvidia wheels install."""
-    package = importlib.util.find_spec("nvidia")
-    if package is None or not package.submodule_search_locations:
-        return []
-    root = Path(next(iter(package.submodule_search_locations)))
-    return [
-        path
-        for motif in _CUDA_LIBRARIES
-        for path in sorted(root.glob(motif))
-    ]
-
-def _show_cuda_to_the_loader() -> None:
-    """Loads what cuda_libraries found."""
-    for path in cuda_libraries():
-        with contextlib.suppress(OSError):
-            ctypes.CDLL(str(path), mode=ctypes.RTLD_GLOBAL)
 
 class FasterWhisperTranscriber:
-    def __init__(self, taille: str = "large-v3", peripherique: str = "auto") -> None:
+    def __init__(self, taille: str = "large-v3", device: str = "auto") -> None:
         self.taille = taille
-        self.peripherique = peripherique
+        self.device = device
         self._model = None
 
     def _load(self) -> object:
         if self._model is None:
-            _show_cuda_to_the_loader()
+            cuda.show_to_the_loader()
             from faster_whisper import WhisperModel
 
             self._model = WhisperModel(
-                self.taille, device=self.peripherique, compute_type="int8"
+                self.taille, device=self.device, compute_type="int8"
             )
         return self._model
 
@@ -55,9 +29,9 @@ class FasterWhisperTranscriber:
         try:
             return self._utterances(audio, language, prompt_seed)
         except RuntimeError:
-            if self.peripherique == "cpu":
+            if self.device == "cpu":
                 raise
-            self.peripherique = "cpu"
+            self.device = "cpu"
             self._model = None
             return self._utterances(audio, language, prompt_seed)
 
