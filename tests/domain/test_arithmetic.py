@@ -7,6 +7,7 @@ attendaient. Mesuré sur un entretien de cent cinq secondes : 287 s sur un fil,
 que la moitié, et ce test fige ce constat.
 """
 
+from greffier.domain import arithmetic
 from greffier.domain.arithmetic import chosen_device, compute_threads
 
 
@@ -25,6 +26,21 @@ class TestComputeThreads:
     def test_half_leaves_room_to_work(self):
         """La veille tourne pendant la réunion : tout prendre la gênerait."""
         assert compute_threads(8) < 8
+
+    def test_a_machine_that_will_not_say_how_many_cores(self, monkeypatch):
+        """os.cpu_count() rend None dans certains conteneurs : deux cœurs
+        supposés valent mieux que l'exception, et un fil vaut mieux que zéro."""
+        monkeypatch.setattr(arithmetic.os, "cpu_count", lambda: None)
+        assert compute_threads() == 1
+
+    def test_the_machine_is_asked_when_nobody_says(self, monkeypatch):
+        monkeypatch.setattr(arithmetic.os, "cpu_count", lambda: 16)
+        assert compute_threads() == 8
+
+    def test_a_thread_count_is_a_whole_number(self):
+        """Une division réelle rendrait 4.0, que les modèles refusent."""
+        assert isinstance(compute_threads(9), int)
+        assert isinstance(compute_threads(8), int)
 
 
 class TestChosenDevice:
