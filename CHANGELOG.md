@@ -6,6 +6,8 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## New
 
+- **dictation** — one click to speak, and the silence ends the sentence (`488cb15`)
+- **window** — preparation has its own tab, and the threads can be cleared (`b3e2159`)
 - **tongue** — the tool speaks the language of the machine it runs on (`f6491d7`)
 - **window** — the Conversation tab prepares the next meeting, out loud (`abfb50d`)
 - **prepare** — answering somebody who is preparing a meeting (`5113df0`)
@@ -67,6 +69,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **mypy** — one exception protected nothing, another was missing (`44386f5`)
 - **devices** — somebody else's headset was the default microphone (`52fce92`)
 - **window** — it refused to open on any Python shipped by a distribution (`20495b1`)
 - **dev** — mypy could not follow uvicorn, absent from the dev extra (`7f197c1`)
