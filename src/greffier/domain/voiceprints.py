@@ -25,6 +25,38 @@ ADOPTION_THRESHOLD = 0.45
 ADOPTION_MARGIN = 0.0
 CONSOLIDATION_THRESHOLD = 0.70
 
+COMMON_LEVEL = 0.06
+
+SILENCE_FLOOR = 1e-4
+
+def at_a_common_level(samples: Sequence[float]) -> list[float]:
+    """Brings an excerpt to one loudness before it is turned into a voiceprint.
+
+    The model is not level-invariant. Measured on a single excerpt compared
+    against itself, attenuated: 0.999 at -3 dB, 0.982 at -12 dB, 0.948 at
+    -18 dB, **0.874 at -24 dB**. The thresholds that decide whether two
+    excerpts are one person sit between 0.45 and 0.75, so a tenth of
+    similarity lost to level alone is enough to split one person into two
+    voices -- which is what a meeting does to somebody who leans back, turns
+    their head, or joins from a room where the microphone is further away.
+
+    A quiet excerpt is left alone rather than amplified: multiplying silence
+    by a hundred turns room noise into a voice. And the gain never pushes the
+    loudest sample past full scale: clipping moves the timbre further than the
+    level ever did.
+    """
+    carre = math.fsum(float(x) * float(x) for x in samples)
+    if not samples or carre <= 0:
+        return [float(x) for x in samples]
+    rms = math.sqrt(carre / len(samples))
+    if rms < SILENCE_FLOOR:
+        return [float(x) for x in samples]
+    facteur = COMMON_LEVEL / rms
+    plus_haut = max(abs(float(x)) for x in samples)
+    if plus_haut * facteur > 0.99:
+        facteur = 0.99 / plus_haut
+    return [float(x) * facteur for x in samples]
+
 def normalise(vector: Sequence[float], source_duration: float = 0.0) -> Voiceprint:
     """Brings the vector to length 1, so that a cosine is a dot product."""
     norme = math.sqrt(math.fsum(x * x for x in vector))

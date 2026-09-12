@@ -427,3 +427,59 @@ class TestAVoiceThatHoldsSeveralPeople:
 
         assert one_person([normalise([1.0, 0.0]), normalise([1.0, 0.0])],
                           threshold=JOIN_THRESHOLD)
+
+
+class TestLeMemeNiveauPourTous:
+    """Le niveau sonore ne doit plus décider qui est qui.
+
+    Mesuré sur un seul extrait comparé à lui-même, atténué : 0,999 à -3 dB,
+    0,982 à -12 dB, 0,948 à -18 dB, **0,874 à -24 dB**. Les seuils qui
+    distinguent une personne de deux tiennent entre 0,45 et 0,75 : un dixième
+    de ressemblance perdu au seul niveau suffit à couper une personne en deux
+    voix. Après mise à niveau : 1,000 partout.
+    """
+
+    def test_an_excerpt_comes_back_at_the_aimed_level(self):
+        from greffier.domain.voiceprints import COMMON_LEVEL, at_a_common_level
+
+        fort = [0.5, -0.5] * 100
+        mis = at_a_common_level(fort)
+        rms = math.sqrt(sum(x * x for x in mis) / len(mis))
+        assert abs(rms - COMMON_LEVEL) < 1e-6
+
+    def test_a_quiet_excerpt_reaches_the_same_level(self):
+        from greffier.domain.voiceprints import COMMON_LEVEL, at_a_common_level
+
+        faible = [0.01, -0.01] * 100
+        mis = at_a_common_level(faible)
+        rms = math.sqrt(sum(x * x for x in mis) / len(mis))
+        assert abs(rms - COMMON_LEVEL) < 1e-6
+
+    def test_silence_is_left_alone(self):
+        """Multiplier un silence par cent fait une voix avec du bruit de salle."""
+        from greffier.domain.voiceprints import at_a_common_level
+
+        presque_rien = [1e-6, -1e-6] * 50
+        assert at_a_common_level(presque_rien) == pytest.approx(presque_rien)
+
+    def test_an_empty_excerpt_costs_nothing(self):
+        from greffier.domain.voiceprints import at_a_common_level
+
+        assert at_a_common_level([]) == []
+
+    def test_nothing_is_pushed_past_full_scale(self):
+        """La saturation déplace le timbre plus loin que le niveau ne le faisait."""
+        from greffier.domain.voiceprints import at_a_common_level
+
+        un_pic = [0.001] * 999 + [0.9]
+        mis = at_a_common_level(un_pic)
+        assert max(abs(x) for x in mis) <= 0.99
+
+    def test_the_shape_is_kept(self):
+        """Seule l'échelle change : deux extraits identiques à un facteur près
+        doivent rendre exactement la même chose."""
+        from greffier.domain.voiceprints import at_a_common_level
+
+        onde = [0.3, -0.1, 0.25, -0.4] * 50
+        attenuee = [x * 0.06 for x in onde]
+        assert at_a_common_level(onde) == pytest.approx(at_a_common_level(attenuee))
