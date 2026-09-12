@@ -92,9 +92,9 @@ class Outcome:
         return sum(self.profil.splitting.count_them(r.text) for r in self.utterances)
 
     def name_of(self, voice: str | None) -> str:
-        if voice is None:
-            return "Indéterminé"
-        return self.names.get(voice, f"Personne {voice}")
+        from greffier.domain.meeting import named_or_unknown
+
+        return named_or_unknown(voice, self.names, self.speaking_time())
 
     def speaking_time(self) -> dict[str, float]:
         """Seconds spoken per voice, most talkative first."""
