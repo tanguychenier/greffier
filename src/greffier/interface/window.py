@@ -1832,6 +1832,7 @@ class Window:
         the thread that already carries the chain.
         """
         self._paint_the_end()
+        self._open_the_transcription()
         enregistrement: dict[str, Any] = {}
 
         def arreter_puis_traiter(dire: Callable[[str], None]) -> Any:
@@ -1853,6 +1854,22 @@ class Window:
                 enregistrement.get("audio"), outcome, trouble
             ),
         ))
+
+    def _open_the_transcription(self) -> None:
+        """Opens the transcription model while the encoder is still closing.
+
+        Measured: twelve to nineteen seconds to open large-v3, against seven to
+        nine to transcribe forty seconds of meeting, and up to fifteen for the
+        encoder to close its file. Paid at the same time as the closing, it is
+        not paid afterwards, in front of somebody who is waiting.
+        """
+        def ouvrir() -> None:
+            with contextlib.suppress(Exception):
+                from greffier.wiring import _transcriber
+
+                _transcriber(self.config).warm()
+
+        threading.Thread(target=ouvrir, daemon=True).start()
 
     def _paint_the_end(self) -> None:
         """What the click shows before anything has actually stopped.
