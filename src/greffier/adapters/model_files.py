@@ -217,3 +217,42 @@ def _effacer(path: Path) -> None:
             shutil.rmtree(path)
         else:
             path.unlink(missing_ok=True)
+
+
+#: Ce que faster-whisper appelle ses modèles chez Systran, quand le nom donné
+#: n'est pas un chemin. La table de faster-whisper le sait aussi, mais la lire
+#: charge ctranslate2 et la carte avec : cent millisecondes pour peindre une
+#: liste déroulante, ce n'est pas le moment.
+DEPOTS = {
+    "large-v3": "Systran/faster-whisper-large-v3",
+    "large-v3-turbo": "deepdml/faster-whisper-large-v3-turbo-ct2",
+    "large-v2": "Systran/faster-whisper-large-v2",
+    "medium": "Systran/faster-whisper-medium",
+    "small": "Systran/faster-whisper-small",
+    "base": "Systran/faster-whisper-base",
+    "tiny": "Systran/faster-whisper-tiny",
+}
+
+
+def downloaded(model: str) -> bool:
+    """Whether faster-whisper already has this model on the machine.
+
+    Looked up in the cache, never fetched: a window painting a list must not
+    start a download of one and a half gigabytes because somebody opened a tab.
+
+    A name that is a folder is taken as one -- faster-whisper accepts a path,
+    and somebody who gave one has the model by definition.
+    """
+    if not model:
+        return False
+    if Path(model).is_dir():
+        return True
+    try:
+        from huggingface_hub import try_to_load_from_cache
+    except ImportError:
+        return False
+    depot = DEPOTS.get(model, f"Systran/faster-whisper-{model}")
+    try:
+        return try_to_load_from_cache(depot, "model.bin") is not None
+    except Exception:  # noqa: BLE001 - un cache illisible n'est pas un modèle
+        return False

@@ -41,6 +41,7 @@ from greffier.domain.channels import WhoSpeaks
 from greffier.domain.live import LiveThread, LiveTurn
 from greffier.domain.minutes import title
 from greffier.domain.models import Phase
+from greffier.domain.preparation import Preparation
 from greffier.domain.questions import already_noted, note
 from greffier.interface.appearance import (
     MAIN,
@@ -85,6 +86,14 @@ class Job:
 
 class Window:
     """Assembles the interface and keeps it up to date."""
+
+    #: The meeting being prepared, when there is one. Declared here because it
+    #: is read before it is written -- the window takes back at startup the one
+    #: left waiting yesterday evening.
+    _preparation: Preparation | None = None
+    #: The microphone while somebody is dictating, and nothing the rest of the
+    #: time: its absence is what says that nobody is speaking.
+    _dictee: Any | None = None
 
     def __init__(self, config: Config) -> None:
         from greffier.wiring import recording, store
@@ -206,6 +215,7 @@ class Window:
         self._build_state(corps)
         self.tabs = Tabs(corps, c)
         self.tabs_shown = {
+            "Préparation": self.dit("onglets.preparation"),
             "Réunions": self.dit("onglets.reunions"),
             "En direct": self.dit("onglets.direct"),
             "Voix": self.dit("onglets.voix"),
@@ -213,6 +223,7 @@ class Window:
             "Réglages": self.dit("onglets.reglages"),
         }
         self.tabs.grid(row=1, column=0, sticky="nsew", pady=(22, 0))
+        self._preparation_tab()
         self._meetings_tab()
         self._live_tab()
         self._voices_tab()
@@ -779,6 +790,149 @@ class Window:
         Button(entry, "Séparer les deux voix", self._split_the_voice,
                self.colours, width=190, height=34).pack(side="left", padx=(9, 0))
 
+    def _preparation_tab(self) -> None:
+        """Before a meeting: what to raise, who is expected, and Lucie.
+
+        Its own tab and not a corner of the conversation: preparing is a moment
+        of the work, between « nothing yet » and « recording ». Put inside the
+        conversation it was a feature of a chat; put here it is the first step.
+        """
+        c = self.colours
+        inside = self._page("Préparation")
+        inside.rowconfigure(2, weight=1)
+
+        entete = tk.Frame(inside, bg=c.board)
+        entete.grid(row=0, column=0, sticky="ew")
+        entete.columnconfigure(1, weight=1)
+        self.bouton_preparer = Button(
+            entete, self.dit("conversation.preparer"), self._open_a_preparation,
+            self.colours, width=250, height=34)
+        self.bouton_preparer.grid(row=0, column=0)
+        self.ligne_preparation = tk.Label(
+            entete, text="", bg=c.board, fg=c.ink_pale, font=font(11),
+            anchor="w", justify="left")
+        self.ligne_preparation.grid(row=0, column=1, sticky="w", padx=(12, 0))
+
+        listes = tk.Frame(inside, bg=c.board)
+        listes.grid(row=1, column=0, sticky="ew", pady=(12, 0))
+        listes.columnconfigure(1, weight=1)
+        listes.columnconfigure(3, weight=1)
+        tk.Label(listes, text=self.dit("preparation.attendus"), bg=c.board,
+                 fg=c.ink_pale, font=font(11)).grid(row=0, column=0, sticky="w")
+        self.champ_attendu = self._champ(listes)
+        self.champ_attendu.grid(row=0, column=1, sticky="ew", padx=(8, 8), ipady=5)
+        self.champ_attendu.bind("<Return>", lambda _e: self._expect_someone())
+        tk.Label(listes, text=self.dit("preparation.a_soulever"), bg=c.board,
+                 fg=c.ink_pale, font=font(11)).grid(row=0, column=2, sticky="w")
+        self.champ_point = self._champ(listes)
+        self.champ_point.grid(row=0, column=3, sticky="ew", padx=(8, 0), ipady=5)
+        self.champ_point.bind("<Return>", lambda _e: self._raise_a_point())
+
+        frame = tk.Frame(inside, bg=c.board)
+        frame.grid(row=2, column=0, sticky="nsew", pady=(12, 0))
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(0, weight=1)
+        self.fil_preparation = tk.Text(
+            frame, wrap="word", relief="flat", bg=c.board, fg=c.ink, padx=0, pady=0,
+            font=font(12), state="disabled", highlightthickness=0, cursor="arrow")
+        self.fil_preparation.grid(row=0, column=0, sticky="nsew")
+        barre = Scroller(frame, c, self.fil_preparation.yview)
+        barre.grid(row=0, column=1, sticky="ns", padx=(4, 0))
+        self.fil_preparation.configure(yscrollcommand=barre.set)
+        self.fil_preparation.tag_configure(
+            "qui", foreground=c.ink_pale, spacing1=12, spacing3=3,
+            font=font(10, gras=True))
+        self.fil_preparation.tag_configure("dit", foreground=c.ink, spacing3=8)
+        self.fil_preparation.tag_configure(
+            "note", foreground=c.ink_pale, spacing1=5, spacing3=10, font=font(11))
+
+        bas = tk.Frame(inside, bg=c.board)
+        bas.grid(row=3, column=0, sticky="ew", pady=(12, 0))
+        bas.columnconfigure(0, weight=1)
+        self.question_preparation = self._champ(bas)
+        self.question_preparation.grid(row=0, column=0, sticky="ew", ipady=8, ipadx=5)
+        self.question_preparation.bind(
+            "<Return>", lambda _e: self._ask_while_preparing())
+        Button(bas, self.dit("conversation.demander"), self._ask_while_preparing,
+               self.colours, principal=True, width=110, height=36).grid(
+                   row=0, column=1, padx=(11, 0))
+        self.bouton_parler = Button(
+            bas, self.dit("conversation.parler"), self._speak_or_stop,
+            self.colours, width=150, height=36)
+        self.bouton_parler.grid(row=0, column=2, padx=(8, 0))
+        Button(bas, self.dit("conversation.fournir_un_document"),
+               self._supply_a_document, self.colours, width=176, height=36).grid(
+                   row=0, column=3, padx=(8, 0))
+        Button(bas, self.dit("commun.vider"), self._clear_the_preparation_thread,
+               self.colours, width=90, height=36).grid(row=0, column=4, padx=(8, 0))
+        self._say_while_preparing("note", self.dit("preparation.mode_emploi"))
+
+    def _ask_while_preparing(self) -> None:
+        question = self.question_preparation.get().strip()
+        if not question:
+            return
+        self.question_preparation.delete(0, "end")
+        self._ensure_a_preparation()
+        self._answer_while_preparing(question)
+
+    def _ensure_a_preparation(self) -> None:
+        """Opens one on the first question rather than demanding a click first."""
+        from greffier.adapters import preparations_file
+
+        if getattr(self, "_preparation", None) is not None:
+            return
+        self._preparation = preparations_file.open_one(self._preparations_folder(), "")
+        self._paint_the_preparation()
+
+    def _expect_someone(self) -> None:
+        name = self.champ_attendu.get().strip()
+        if not name:
+            return
+        self.champ_attendu.delete(0, "end")
+        self._ensure_a_preparation()
+        preparation = self._preparation
+        if preparation is None:
+            return
+        self._preparation = preparation.expecting(name)
+        self._keep_the_preparation()
+        self._say_while_preparing("note", self.dit("preparation.attendu_note", qui=name))
+
+    def _raise_a_point(self) -> None:
+        point = self.champ_point.get().strip()
+        if not point:
+            return
+        self.champ_point.delete(0, "end")
+        self._ensure_a_preparation()
+        preparation = self._preparation
+        if preparation is None:
+            return
+        self._preparation = preparation.raising(point)
+        self._keep_the_preparation()
+        self._say_while_preparing("note", self.dit("preparation.point_note", quoi=point))
+
+    def _say_while_preparing(self, who: str, text: str) -> None:
+        fil = getattr(self, "fil_preparation", None)
+        if fil is None:
+            return
+        fil.configure(state="normal")
+        if who in ("moi", "greffier"):
+            fil.insert("end", "TOI\n" if who == "moi" else "LUCIE\n", "qui")
+            fil.insert("end", f"{text}\n", "dit")
+        else:
+            fil.insert("end", f"{text}\n", "note")
+        fil.see("end")
+        fil.configure(state="disabled")
+
+    def _clear_the_preparation_thread(self) -> None:
+        """Empties what is shown. What was gathered stays gathered."""
+        fil = getattr(self, "fil_preparation", None)
+        if fil is None:
+            return
+        fil.configure(state="normal")
+        fil.delete("1.0", "end")
+        fil.configure(state="disabled")
+        self._say_while_preparing("note", self.dit("preparation.mode_emploi"))
+
     def _conversation_tab(self) -> None:
         c = self.colours
         inside = self._page("Conversation")
@@ -812,34 +966,15 @@ class Window:
         Button(entry, self.dit("conversation.fournir_un_document"), self._supply_a_document,
                self.colours, width=176, height=36).grid(
                    row=0, column=2, padx=(8, 0))
-        self.bouton_parler = Button(
-            entry, self.dit("conversation.tenir_pour_parler"), lambda: None, self.colours,
-            width=150, height=36)
-        self.bouton_parler.hold(self._start_dictating, self._stop_dictating)
-        self.bouton_parler.grid(row=0, column=3, padx=(8, 0))
-        preparation = tk.Frame(inside, bg=c.board)
-        preparation.grid(row=2, column=0, sticky="ew", pady=(8, 0))
-        self.bouton_preparer = Button(
-            preparation, self.dit("conversation.preparer"), self._open_a_preparation,
-            self.colours, width=250, height=34)
-        self.bouton_preparer.grid(row=0, column=0)
-        self.ligne_preparation = tk.Label(
-            preparation, text="", bg=c.board, fg=c.ink_pale, font=font(11),
-            anchor="w", justify="left")
-        self.ligne_preparation.grid(row=0, column=1, sticky="w", padx=(12, 0))
+        Button(entry, self.dit("commun.vider"), self._clear_the_thread,
+               self.colours, width=90, height=36).grid(row=0, column=3, padx=(8, 0))
         self._paint_the_turn(
             "note",
             "Pose une question sur la réunion en cours, ou sur celle choisie dans "
             "l'onglet Réunions. Pendant une réunion, la réponse vient du fil du "
             "direct, et je peux chercher en ligne si la question sort de la réunion.",
         )
-        self._paint_the_turn(
-            "note",
-            "Avant une réunion : « Préparer la prochaine réunion ». Ce qui se dit "
-            "ici — questions, documents, points à soulever, personnes attendues — "
-            "ouvre la séance quand tu démarres. « Tenir pour parler » pour le faire "
-            "à la voix : un son dit que je t'ai entendu, un autre que je cherche.",
-        )
+        self._paint_the_turn("note", self.dit("conversation.avant_une_reunion"))
         self._paint_the_turn(
             "note",
             "Tu peux aussi m'apprendre quelque chose en une phrase — « retiens "
@@ -1281,15 +1416,32 @@ class Window:
                 *((name, name) for name in names))
 
     def _models_present(self) -> tuple[tuple[str, str], ...]:
+        """The transcription models this machine actually has.
+
+        Looked for where the configured engine keeps them, which is the whole
+        defect this fixes: it looked for whisper.cpp files only, so a machine
+        transcribing perfectly well with faster-whisper -- whose models live in
+        the Hugging Face cache -- was told « aucun modèle trouvé sur le disque »
+        while it was using one.
+        """
+        from greffier.adapters.model_files import downloaded
+
         folder = self.config.paths.models
+
+        def present(key: str) -> bool:
+            if self.config.transcription.engine == "whisper.cpp":
+                return (folder / f"ggml-{key}.bin").exists()
+            return downloaded(key)
+
         present_line = tuple(
             (key, label_text) for key, label_text in self.MODELES_TRANSCRIPTION
-            if (folder / f"ggml-{key}.bin").exists()
+            if present(key)
         )
         if present_line:
             return present_line
         return ((self.config.transcription.model,
-                 f"{self.config.transcription.model} — aucun modèle trouvé sur le disque"),)
+                 f"{self.config.transcription.model} — "
+                 "à télécharger au premier usage"),)
 
     def _match_the_writer_model(self) -> None:
         """The model list follows the chosen writer."""
@@ -2544,6 +2696,18 @@ class Window:
         self.thread.see("end")
         self.thread.configure(state="disabled")
 
+    def _clear_the_thread(self) -> None:
+        """Empties the thread on screen. What was said stays in its meeting.
+
+        Asked for on sight: it kept everything since the window opened, system
+        notes and answers in one column, and nothing emptied it. A thread one
+        cannot clear is a thread one stops reading.
+        """
+        self.thread.configure(state="normal")
+        self.thread.delete("1.0", "end")
+        self.thread.configure(state="disabled")
+        self._paint_the_turn("note", self.dit("conversation.vide"))
+
     def _answer_the_question(self, response: str) -> bool:
         """Treats the input as an answer to the question awaiting one."""
         from greffier.adapters import context_file, questions_file
@@ -2802,9 +2966,10 @@ class Window:
         """Asks, and keeps the exchange whatever comes back."""
         preparing = self._preparing()
         if preparing is None:
-            self._say("note", "Aucun rédacteur configuré : « greffier configurer ».")
+            self._say_while_preparing(
+                "note", "Aucun rédacteur configuré : « greffier configurer ».")
             return
-        self._say("moi", question)
+        self._say_while_preparing("moi", question)
 
         def do_it(say: Callable[[str], None]) -> Any:
             say("réflexion…")
@@ -2812,37 +2977,77 @@ class Window:
 
         def done(outcome: Any, trouble: Exception | None) -> None:
             if trouble is not None:
-                self._say("note", str(trouble))
+                self._say_while_preparing("note", str(trouble))
                 return
             self._preparation, answered = outcome
             self._keep_the_preparation()
-            self._say("greffier", answered)
+            self._say_while_preparing("greffier", answered)
 
         self._run_job(Job(caption="préparation", do_it=do_it, done=done))
 
     # ------------------------------------------------------ parler à la voix
 
+    PAS_DICTEE_MS = 200
+
+    def _speak_or_stop(self) -> None:
+        """One click to speak, one to stop -- and the silence stops it anyway.
+
+        Holding a button down asked the person to hold a mouse while reading the
+        very document they are asking about, which is what somebody preparing a
+        meeting is doing. A click opens the microphone, the end of the sentence
+        closes it, and a second click cuts it short.
+        """
+        if getattr(self, "_dictee", None) is not None:
+            self._stop_dictating()
+            return
+        self._start_dictating()
+
     def _start_dictating(self) -> None:
-        """Opens the microphone while the button is held."""
+        """Opens the microphone, and watches for the end of the sentence."""
         from greffier.adapters.dictation_ffmpeg import Dictation
+        from greffier.domain.dictating import Take
+
+        dictee = Dictation(self.config.audio.mic or self.config.audio.input)
+        fichier = self.config.paths.data / "dictee.wav"
+        try:
+            dictee.start(fichier)
+        except OSError as trouble:
+            self._say_while_preparing("note", str(trouble))
+            return
+        self._dictee = dictee
+        self._prise = Take()
+        self._prise_fichier = fichier
+        self.bouton_parler.set_caption(self.dit("conversation.je_ecoute"))
+        self.root.after(self.PAS_DICTEE_MS, self._watch_the_dictation)
+
+    def _watch_the_dictation(self) -> None:
+        """Follows the level, and closes the take when the sentence is over."""
+        from greffier.adapters.live_levels import read_level
 
         if getattr(self, "_dictee", None) is None:
-            self._dictee = Dictation(self.config.audio.mic or self.config.audio.input)
-        with contextlib.suppress(OSError):
-            self._dictee.start(self.config.paths.data / "dictee.wav")
-            self.bouton_parler.set_caption(self.dit("conversation.je_ecoute"))
+            return
+        with contextlib.suppress(OSError, ValueError):
+            releve = read_level(self._prise_fichier)
+            if releve is not None:
+                self._prise.heard(releve.mic_db, self.PAS_DICTEE_MS / 1000)
+        if self._prise.over:
+            self._stop_dictating()
+            return
+        self.root.after(self.PAS_DICTEE_MS, self._watch_the_dictation)
 
     def _stop_dictating(self) -> None:
-        """Closes it, transcribes what was said, and answers."""
+        """Closes the microphone, transcribes what was said, and answers."""
         dictee = getattr(self, "_dictee", None)
-        self.bouton_parler.set_caption(self.dit("conversation.tenir_pour_parler"))
+        self._dictee = None
+        self.bouton_parler.set_caption(self.dit("conversation.parler"))
         if dictee is None:
             return
         fichier = dictee.stop()
         if fichier is None:
-            self._say("note", self.dit("conversation.rien_entendu"))
+            self._say_while_preparing("note", self.dit("conversation.rien_entendu"))
             return
         self._transcribe_and_ask(fichier)
+
 
     def _transcribe_and_ask(self, audio: Path) -> None:
         from greffier.wiring import light_transcriber
