@@ -856,6 +856,11 @@ def propositions(
 
     config = Config.load(config_file)
     identifier = _reunion_visee(config, meeting)
+    if identifier not in store(config).lister():
+        typer.secho(f"✗ Réunion « {identifier} » inconnue. "
+                    "« greffier reunions » les liste.",
+                    fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
     log = config.paths.propositions / f"{identifier}.jsonl"
     if not log.exists():
         typer.echo("Aucune proposition pour cette réunion.")
@@ -905,8 +910,9 @@ def meetings(
         nommees = sum(1 for v in meeting.speaking_time() if v in meeting.names)
         total = len(voices_to_name(meeting))
         coverage = f"{meeting.coverage * 100:.0f} %"
+        libelle = f"{identifier}  — {meeting.subject}" if meeting.subject else identifier
         typer.echo(
-            f"{identifier:<44} {meeting.duration / 60:5.1f} min  "
+            f"{libelle:<44} {meeting.duration / 60:5.1f} min  "
             f"{nommees}/{total} voix nommées  couverture {coverage}"
         )
 
