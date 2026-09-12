@@ -682,15 +682,71 @@ class TestRoueCuda:
 
 class TestEtapeCarte:
     @pytest.fixture
-    def sans_carte(self, the_installer, monkeypatch):
-        monkeypatch.setattr(the_installer, "carte_nvidia", lambda: False)
-        return the_installer
+    def travaux(self, the_installer, monkeypatch):
+        faits = []
+        monkeypatch.setattr(
+            the_installer, "run_job",
+            lambda commande, **_k: faits.append(commande) or _Fini(),
+        )
+        monkeypatch.setattr(the_installer, "_marqueur_python", lambda _p: ("cp313", "x86_64"))
+        return faits
 
-    def test_a_machine_without_a_card_installs_nothing(self, sans_carte, monkeypatch):
-        travaux = []
-        monkeypatch.setattr(sans_carte, "run_job", lambda *a, **k: travaux.append(a))
-        sans_carte.etape_carte(_Demande(), "python")
+    def test_a_machine_without_a_card_installs_nothing(
+        self, the_installer, monkeypatch, travaux
+    ):
+        monkeypatch.setattr(the_installer, "carte_nvidia", lambda: False)
+        the_installer.etape_carte(_Demande(), "python")
         assert travaux == []
+
+    def test_macos_is_never_asked(self, under, monkeypatch, travaux):
+        """Apple a cessé de porter NVIDIA avec Mojave : il n'y a rien à accélérer."""
+        module = under("Darwin")
+        monkeypatch.setattr(module, "shutil", _AvecNvidiaSmi())
+        module.etape_carte(_Demande(), "python")
+        assert travaux == []
+
+    def test_linux_with_a_card_takes_the_wheel(self, under, monkeypatch, travaux):
+        module = under("Linux")
+        monkeypatch.setattr(module, "carte_nvidia", lambda: True)
+        module.etape_carte(_Demande(), "python")
+        assert len(travaux) == 1
+        assert travaux[0][-1].endswith("linux_x86_64.whl")
+
+    def test_windows_with_a_card_takes_its_own(self, under, monkeypatch, travaux):
+        module = under("Windows")
+        monkeypatch.setattr(module, "carte_nvidia", lambda: True)
+        module.etape_carte(_Demande(), "python")
+        assert travaux[0][-1].endswith("win_amd64.whl")
+
+    def test_an_interpreter_that_will_not_answer_stops_there(
+        self, under, monkeypatch, travaux
+    ):
+        module = under("Linux")
+        monkeypatch.setattr(module, "carte_nvidia", lambda: True)
+        monkeypatch.setattr(module, "_marqueur_python", lambda _p: (None, None))
+        module.etape_carte(_Demande(), "python")
+        assert travaux == []
+
+    def test_a_refusal_leaves_the_command_to_run_later(self, under, monkeypatch, travaux):
+        module = under("Linux")
+        monkeypatch.setattr(module, "carte_nvidia", lambda: True)
+        demande = _Demande()
+        demande.reponse = False
+        module.etape_carte(demande, "python")
+        assert travaux == []
+        assert demande.to_do and demande.to_do[0].startswith("uv pip install")
+
+
+class _Fini:
+    returncode = 0
+
+
+class _AvecNvidiaSmi:
+    """Une machine qui porte l'outil NVIDIA, ce qui ne suffit pas sous macOS."""
+
+    @staticmethod
+    def which(_name):
+        return "/usr/bin/nvidia-smi"
 
 
 class _Demande:
@@ -701,6 +757,7 @@ class _Demande:
 
     def __init__(self) -> None:
         self.to_do = []
+        self.reponse = True
 
     def ask(self, _question):
-        return True
+        return self.reponse
