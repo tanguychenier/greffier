@@ -176,6 +176,14 @@ def cartographe(config: Config) -> outbound.Writer | None:
         consignes_propres=GUIDANCE,
     )
 
+def troubles(config: Config) -> outbound.TroubleLog:
+    """Where an incident is written down, so a report can be answered."""
+    from greffier.adapters.trouble_file import TroubleFile
+    from greffier.adapters.updates import installed_version
+
+    return TroubleFile(config.paths.troubles, installed_version())
+
+
 def store(config: Config) -> FileStore:
     """The master files, a meeting's source of truth."""
     return FileStore(config.paths.data / "reunions")

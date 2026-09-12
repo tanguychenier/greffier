@@ -166,6 +166,15 @@ class Notifier(Protocol):
 
 
 @runtime_checkable
+class TroubleLog(Protocol):
+    """Files what went wrong, so that a report can be answered."""
+
+    def note(self, where: str, what: str) -> None:
+        """Writes one incident down. Never raises: a log is not worth a meeting."""
+        ...
+
+
+@runtime_checkable
 class StateJournal(Protocol):
     """Publishes progress, so the interface knows where the chain is."""
 
