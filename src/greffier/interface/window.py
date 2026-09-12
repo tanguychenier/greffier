@@ -3021,8 +3021,27 @@ class Window:
             speak=(voix.say if voix is not None else None),
         )
 
+    def _open_the_voice(self) -> None:
+        """Opens the voice while the person is still speaking or thinking.
+
+        Measured: four and a half seconds to open the model, then a third of a
+        second per remark. Opened at the first question, the wait would fall on
+        the one answer somebody is listening for.
+        """
+        def ouvrir() -> None:
+            with contextlib.suppress(Exception):
+                from greffier.wiring import assistant_voice
+
+                voix = assistant_voice(self.config)
+                chauffer = getattr(voix, "warm", None)
+                if callable(chauffer):
+                    chauffer()
+
+        threading.Thread(target=ouvrir, daemon=True).start()
+
     def _answer_while_preparing(self, question: str) -> None:
         """Asks, and keeps the exchange whatever comes back."""
+        self._open_the_voice()
         preparing = self._preparing()
         if preparing is None:
             self._say_while_preparing(
@@ -3065,6 +3084,8 @@ class Window:
         """Opens the microphone, and watches for the end of the sentence."""
         from greffier.adapters.dictation_ffmpeg import Dictation
         from greffier.domain.dictating import Take
+
+        self._open_the_voice()
 
         dictee = Dictation(self.config.audio.mic or self.config.audio.input)
         fichier = self.config.paths.data / "dictee.wav"
