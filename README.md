@@ -611,7 +611,7 @@ otherwise.
 
 **PolyForm Noncommercial 1.0.0** ([text](LICENCE)). The tool is written for
 universities, research laboratories, public institutions and anyone using it for
-their own account: the licence names them explicitly: charitable organisations,
+their own account, and the licence names them explicitly: charitable organisations,
 educational institutions, public research organisations, public safety and
 health organisations, environmental protection organisations and government
 institutions, *regardless of the source of their funding*.

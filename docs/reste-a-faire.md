@@ -248,7 +248,7 @@ words. On a video call, `soustraire` caught the case thanks to the channel; in
 person, nothing protected against it.
 
 Measured on the table meeting: « Merci Pierre. On garde donc jeudi… » [thanks
-Pierre, so we keep Thursday], said by Jacques, attributed to Pierre, the line
+Pierre, so we keep Thursday] (said by Jacques, attributed to Pierre): the line
 covered 9.6 s of Pierre's speaking turn against 6.1 s of Jacques's, that is 0.61
 for the leading voice.
 
@@ -437,8 +437,8 @@ meeting may be running, and a helper process reading a half-written file would
 stop on a syntax error.
 
 The **Réglages** tab offers microphone, transcription model and language,
-writer and its model, recipient, live, appearance. What is a list,
-vocabulary, words that are never first names, stays in the file: a form would
+writer and its model, recipient, live, appearance. What is a list
+(vocabulary, words that are never first names) stays in the file: a form would
 truncate them. `chemins` is deliberately never written: freezing those paths is
 exactly what made a machine that had moved read the old folder.
 

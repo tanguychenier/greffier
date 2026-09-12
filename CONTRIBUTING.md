@@ -38,14 +38,14 @@ commit of its own, never a passenger on a fix.
 
 Hexagonal, and enforced rather than hoped for:
 
-- `domain/`, pure. No I/O, no network, no `subprocess`, no framework. The
+- `domain/`: pure. No I/O, no network, no `subprocess`, no framework. The
   rules about voices, names and minutes live here and are testable in
   milliseconds.
-- `application/`, the use cases, orchestrating the domain through **ports**.
-- `ports/`, the interfaces the outside must satisfy.
+- `application/`: the use cases, orchestrating the domain through **ports**.
+- `ports/`: the interfaces the outside must satisfy.
 - `adapters/`: everything that touches the world: ffmpeg, whisper, sherpa-onnx,
   SMTP, the file system, the command-line assistant.
-- `interface/`, the Tk window, a primary adapter like any other.
+- `interface/`: the Tk window, a primary adapter like any other.
 
 `tests/architecture/test_layers.py` reads the imports with `ast`, late imports
 inside functions included, and fails on any dependency running the wrong way.
