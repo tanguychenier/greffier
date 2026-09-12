@@ -680,41 +680,16 @@ def _restore_the_output(precedente: str) -> None:
 
 def _lancer_veille(config: Config, config_file: Path | None) -> bool:
     """Starts the hardware watch, detached."""
-    if platform.system() != "Darwin":
-        return False
-    command = [sys.executable, "-m", "greffier", "veiller"]
-    if config_file:
-        command += ["--config", str(config_file)]
-    log = config.paths.data / "veille.log"
-    try:
-        log.parent.mkdir(parents=True, exist_ok=True)
-        with log.open("a", encoding="utf-8") as trace:
-            subprocess.Popen(
-                command, stdin=subprocess.DEVNULL, stdout=trace, stderr=trace,
-                start_new_session=True,
-            )
-    except OSError:
-        return False
-    return True
+    from greffier.adapters.companions import start_the_watch
+
+    return start_the_watch(config.paths.data, config_file)
 
 def _lancer_direct(config: Config, config_file: Path | None) -> bool:
     """Starts live transcription, detached."""
-    if not config.live.active:
-        return False
-    command = [sys.executable, "-m", "greffier", "assister"]
-    if config_file:
-        command += ["--config", str(config_file)]
-    log = config.paths.data / "direct.log"
-    try:
-        log.parent.mkdir(parents=True, exist_ok=True)
-        with log.open("a", encoding="utf-8") as trace:
-            subprocess.Popen(
-                command, stdin=subprocess.DEVNULL, stdout=trace, stderr=trace,
-                start_new_session=True,
-            )
-    except OSError:
-        return False
-    return True
+    from greffier.adapters.companions import start_the_live_thread
+
+    return start_the_live_thread(config.paths.data, config.live.active, config_file)
+
 
 @application.command("arreter")
 def stop_recording(
