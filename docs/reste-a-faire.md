@@ -921,13 +921,29 @@ measured threshold.
 - **Gatekeeper will refuse the macOS bundle** on any other machine. The bundle is
   signed with a development certificate, not notarised. Fixing it needs a
   Developer ID, so a paid account: a decision, not a task.
-- **The history still carries colleagues' first names** in the commit messages of
-  the 88 commits that predate 2026-09-10. The files are clean; the past is not.
-  An anonymised history exists and has no common ancestor with `main` — GitHub
-  refuses a pull request between disjoint histories, and a merge would erase
-  nothing anyway. Publishing it requires a force-push on `main`, which is a
-  decision. The rewritten history is kept in
-  `~/Documents/greffier-avant-anonymisation-2026-09-10.bundle`.
+- ~~**The history still carries colleagues' first names.**~~ Done on 2026-09-12.
+  Fifteen first names and one surname were replaced across the whole history, in
+  the commit messages **and in the files**, which the previous version of this
+  entry wrongly said were already clean. They were not: `docs/rex-2026-09-10.md`
+  named the participants of a real meeting in its voiceprint table, and the same
+  first names served as fixtures throughout the tests. The 361 commits and the 23
+  tags were rewritten with `git filter-repo` and force-pushed. Two things were
+  deliberately left alone: the credit to a public interview under CC BY-SA, whose
+  attribution the licence requires, and the first name of the synthesised voice,
+  which the transcription is measured on. Two tags still pointed at commits
+  outside `main`, carrying an employer address that is no longer used; they were
+  put back on the matching commits, under the same identity as the rest. Backup
+  taken first:
+  `~/Entreprise/sauvegardes/greffier-avant-anonymisation-2026-09-12.bundle`.
+
+  **What a force-push does not reach.** GitHub keeps the commits of the 79 pull
+  requests under `refs/pull/*/head`, and serves any commit still addressed by its
+  own hash. The old content therefore stays readable to somebody holding one of
+  those addresses, or opening an old pull request page. What was in reach has been
+  done: no pull request title, body or comment, and no release note, names anybody
+  any more. What is left needs GitHub Support, who collect a repository's
+  unreachable objects on request. Deleting and recreating the repository would do
+  it too, and is ruled out: it would lose the stars.
 - **Windows has still not been run on a real machine.** Sixteen tests cover the
   system-specific paths — cursor, PowerShell literal, executable path, voice
   player — and `tools/windows_launcher.py` answers `--version`. Nobody has
