@@ -82,17 +82,14 @@ class TestLesEmpreintes:
     @pytest.fixture
     def sherpa_muet(self, monkeypatch):
         """Le modèle pèse cent mégaoctets : ici on ne garde que ce qu'on lui passe."""
-        recus = {}
-
-        def config(**options):
-            recus.update(options)
-            return SimpleNamespace(**options)
+        recus: list[dict] = []
+        monkeypatch.setattr(empreintes, "_OPENED", {})
 
         monkeypatch.setattr(
             empreintes,
             "sherpa_onnx",
             SimpleNamespace(
-                SpeakerEmbeddingExtractorConfig=config,
+                SpeakerEmbeddingExtractorConfig=lambda **options: recus.append(options),
                 SpeakerEmbeddingExtractor=lambda _config: object(),
             ),
         )
@@ -100,24 +97,35 @@ class TestLesEmpreintes:
 
     def test_the_card_reaches_the_model(self, modeles, avec_carte, chargeur, sherpa_muet):
         outil = empreintes.TitaNetExtractor(modeles / "empreintes.onnx")
-        assert sherpa_muet["provider"] == "cuda"
         assert outil.device == "cuda"
+        assert outil._extractor is not None
+        assert sherpa_muet[0]["provider"] == "cuda"
         assert chargeur == [1]
 
     def test_the_processor_reaches_the_model(self, modeles, sans_carte, chargeur, sherpa_muet):
         outil = empreintes.TitaNetExtractor(modeles / "empreintes.onnx")
-        assert sherpa_muet["provider"] == "cpu"
+        assert outil._extractor is not None
+        assert sherpa_muet[0]["provider"] == "cpu"
         assert outil.device == "cpu"
         assert chargeur == []
 
     def test_the_setting_wins_over_the_card(self, modeles, avec_carte, chargeur, sherpa_muet):
-        empreintes.TitaNetExtractor(modeles / "empreintes.onnx", device="cpu")
-        assert sherpa_muet["provider"] == "cpu"
+        outil = empreintes.TitaNetExtractor(modeles / "empreintes.onnx", device="cpu")
+        assert outil._extractor is not None
+        assert sherpa_muet[0]["provider"] == "cpu"
 
     def test_the_model_keeps_its_threads(self, modeles, sans_carte, chargeur, sherpa_muet):
         """Le choix de la carte ne doit pas faire perdre celui des fils."""
-        empreintes.TitaNetExtractor(modeles / "empreintes.onnx")
-        assert sherpa_muet["num_threads"] >= 1
+        outil = empreintes.TitaNetExtractor(modeles / "empreintes.onnx")
+        assert outil._extractor is not None
+        assert sherpa_muet[0]["num_threads"] >= 1
+
+    def test_naming_a_second_voice_opens_nothing(self, modeles, sans_carte, sherpa_muet):
+        """Cent mégaoctets par clic sur « nommer », c'était le prix précédent."""
+        premier = empreintes.TitaNetExtractor(modeles / "empreintes.onnx")
+        second = empreintes.TitaNetExtractor(modeles / "empreintes.onnx")
+        assert premier._extractor is second._extractor
+        assert len(sherpa_muet) == 1
 
 
 class LaVoix:

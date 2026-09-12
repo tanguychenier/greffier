@@ -48,12 +48,17 @@ def sound_server_present() -> bool:
     return (Path(execution) / "pulse" / "native").exists()
 
 def speedup() -> str:
-    """The compute available for transcription."""
+    """The compute available for transcription.
+
+    The driver is asked rather than the presence of `nvidia-smi`: a machine can
+    carry the tool without a usable card, and a container the card without the
+    tool.
+    """
     if SYSTEM == "Darwin" and platform.machine() == "arm64":
         return "metal"
-    if shutil.which("nvidia-smi"):
-        return "cuda"
-    return "processeur"
+    from greffier.adapters import cuda
+
+    return "cuda" if cuda.a_card_answers() else "processeur"
 
 def recorder(data_folder: Path | None = None) -> Recorder:
     target = data_folder or Path.home()

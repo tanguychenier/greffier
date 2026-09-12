@@ -71,6 +71,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **diagnostic** — ask the driver what the machine can compute with (`d531e1e`)
 - **cuda** — read the card the way each of the three systems files it (`e965bfa`)
 - **cuda** — keep the card when faster-whisper brings its own onnx runtime (`23a8472`)
 - **window** — the banner ate every screen, and eight buttons had one weight (`9534b4e`)
@@ -153,6 +154,8 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Performance
 
+- **voiceprints** — stop reopening the hundred-megabyte model at every click (`ee4db4f`)
+- **voice** — stop opening the voice model at every question (`264c4f8`)
 - **transcription** — open the model while the encoder is still closing (`9f81899`)
 - **voice** — let the assistant speak from the graphics card (`f7a9323`)
 - **diarisation** — cut the speaker turns on the graphics card (`6ac0760`)
