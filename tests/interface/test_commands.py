@@ -17,7 +17,11 @@ import pytest
 
 from greffier.cli import application
 
-SOURCE = Path(__file__).resolve().parents[2] / "src" / "greffier" / "cli.py"
+#: Tout le paquet, et non le seul « cli.py » : les deux lancements que la
+#: fenêtre partageait avec la ligne de commande vivent maintenant dans un
+#: adaptateur, et un verbe lancé depuis n'importe où doit exister.
+PAQUET = Path(__file__).resolve().parents[2] / "src" / "greffier"
+SOURCE = PAQUET / "cli.py"
 
 
 def command_names() -> set[str]:
@@ -29,9 +33,13 @@ class TestWhatTheToolLaunchesItself:
 
     @staticmethod
     def launched() -> list[str]:
-        code = SOURCE.read_text(encoding="utf-8")
-        return re.findall(
-            r'\[sys\.executable,\s*"-m",\s*"greffier",\s*"([a-z-]+)"\]', code)
+        verbes: list[str] = []
+        for fichier in sorted(PAQUET.rglob("*.py")):
+            verbes += re.findall(
+                r'\[sys\.executable,\s*"-m",\s*"greffier",\s*"([a-z-]+)"\]',
+                fichier.read_text(encoding="utf-8"),
+            )
+        return verbes
 
     def test_there_is_something_to_check(self):
         assert self.launched()

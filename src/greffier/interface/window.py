@@ -1555,7 +1555,11 @@ class Window:
                 self.status_line.configure(text=job.messages.get_nowait())
 
     def _start_recording(self) -> None:
-        from greffier.cli import _lancer_direct, _lancer_veille, _prepare_capture
+        from greffier.adapters.companions import (
+            start_the_live_thread,
+            start_the_watch,
+        )
+        from greffier.cli import _prepare_capture
 
         choisi = self.mic.value()
         if choisi:
@@ -1563,8 +1567,9 @@ class Window:
         try:
             precedente = _prepare_capture(self.config)
             self.recorder.start_recording("reunion", sortie_precedente=precedente)
-            _lancer_veille(self.config, None)
-            _lancer_direct(self.config, None)
+            start_the_watch(self.config.paths.data)
+            start_the_live_thread(
+                self.config.paths.data, self.config.live.active)
         except (RuntimeError, FileNotFoundError) as trouble:
             messagebox.showerror("Greffier", str(trouble))
             return
