@@ -96,6 +96,26 @@ class TestTheRecordingCycle:
         assert arrete.phase is Phase.FINALISATION
         assert recorder.audio_recorder.arretes == [4242]
 
+    def test_the_end_is_published_before_the_encoder_is_waited_for(self, recorder):
+        """The click is what ends a meeting, not the encoder catching up.
+
+        Stopping cleanly can take fifteen seconds -- the encoder has to close
+        its own file. Published afterwards, the state said « recording » for all
+        that time, and the window with it: pressing the button looked like
+        pressing nothing.
+        """
+        vu = []
+        arret = recorder.audio_recorder.stop_recording
+
+        def regarder_pendant_l_arret(processus):
+            vu.append(recorder.read().phase)
+            return arret(processus)
+
+        recorder.audio_recorder.stop_recording = regarder_pendant_l_arret
+        recorder.start_recording("point recette")
+        recorder.stop_recording()
+        assert vu == [Phase.FINALISATION], "l'état doit déjà dire la fin pendant l'attente"
+
     def test_the_state_survives_another_process(self, recorder, tmp_path):
         """Two commands an hour apart: the state is on disk."""
         recorder.start_recording("copil")
