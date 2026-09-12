@@ -32,12 +32,12 @@ class TestFallingBackToTheProcessor:
         requests: list[str] = []
 
         class FakeModel:
-            def __init__(self, peripherique: str) -> None:
-                self.peripherique = peripherique
+            def __init__(self, device: str) -> None:
+                self.device = device
 
             def transcribe(self, _audio, **_options):
                 def segments():
-                    if self.peripherique in refuse:
+                    if self.device in refuse:
                         raise RuntimeError("Library libcublas.so.12 is not found")
                     yield FakeSegment("Bonjour à tous")
 
@@ -46,8 +46,8 @@ class TestFallingBackToTheProcessor:
         transcriber = FasterWhisperTranscriber()
 
         def load():
-            requests.append(transcriber.peripherique)
-            return FakeModel(transcriber.peripherique)
+            requests.append(transcriber.device)
+            return FakeModel(transcriber.device)
 
         monkeypatch.setattr(transcriber, "_load", load, raising=False)
         return transcriber, requests
@@ -66,7 +66,7 @@ class TestFallingBackToTheProcessor:
 
         transcriber.transcribe(Path("reunion.wav"), "fr", "")
 
-        assert transcriber.peripherique == "cpu"
+        assert transcriber.device == "cpu"
 
     def test_a_failure_of_the_processor_is_not_hidden(self, monkeypatch):
         """Otherwise the fallback would go round in circles and hide the real cause."""
