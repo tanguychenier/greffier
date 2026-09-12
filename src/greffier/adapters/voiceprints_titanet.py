@@ -14,7 +14,8 @@ import numpy as np
 import sherpa_onnx
 import soundfile as sf
 
-from greffier.domain.arithmetic import compute_threads
+from greffier.adapters import cuda
+from greffier.domain.arithmetic import AUTO, CARD, chosen_device, compute_threads
 from greffier.domain.models import Span, Voiceprint
 from greffier.domain.voiceprints import normalise
 
@@ -25,12 +26,16 @@ MAXIMUM_LENGTH = 60.0
 class TitaNetExtractor:
     """Turns an excerpt of speech into a voiceprint."""
 
-    def __init__(self, model: Path) -> None:
+    def __init__(self, model: Path, device: str = AUTO) -> None:
         if not model.exists():
             raise FileNotFoundError(f"modèle d'empreintes introuvable : {model}")
+        where = chosen_device(device, cuda.a_card_answers())
+        if where == CARD:
+            cuda.show_to_the_loader()
+        self.device = where
         self._extractor = sherpa_onnx.SpeakerEmbeddingExtractor(
             sherpa_onnx.SpeakerEmbeddingExtractorConfig(
-                model=str(model), num_threads=compute_threads())
+                model=str(model), num_threads=compute_threads(), provider=where)
         )
 
     def extract(self, echantillons: np.ndarray, frequency: int) -> Voiceprint:
