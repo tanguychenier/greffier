@@ -8,7 +8,9 @@ docs/rex-2026-09-10.md. TitaNet stays: +0.099 of margin at 14.6 ms per excerpt.
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import sherpa_onnx
@@ -23,20 +25,40 @@ MINIMUM_LENGTH = 1.5
 
 MAXIMUM_LENGTH = 60.0
 
+_OPENED: dict[tuple[str, str], Any] = {}
+
+_TOUR = threading.Lock()
+
 class TitaNetExtractor:
     """Turns an excerpt of speech into a voiceprint."""
 
     def __init__(self, model: Path, device: str = AUTO) -> None:
         if not model.exists():
             raise FileNotFoundError(f"modèle d'empreintes introuvable : {model}")
-        where = chosen_device(device, cuda.a_card_is_usable())
-        if where == CARD:
-            cuda.show_to_the_loader()
-        self.device = where
-        self._extractor = sherpa_onnx.SpeakerEmbeddingExtractor(
-            sherpa_onnx.SpeakerEmbeddingExtractorConfig(
-                model=str(model), num_threads=compute_threads(), provider=where)
-        )
+        self.model = model
+        self.device = chosen_device(device, cuda.a_card_is_usable())
+
+    @property
+    def _extractor(self) -> Any:
+        """The model, opened once per file and device for the whole process.
+
+        It weighs a hundred megabytes and is built afresh every time a voice is
+        named or split. Opened here rather than in the instance, the second
+        click pays nothing.
+        """
+        clef = (str(self.model), self.device)
+        with _TOUR:
+            ready = _OPENED.get(clef)
+            if ready is None:
+                if self.device == CARD:
+                    cuda.show_to_the_loader()
+                ready = sherpa_onnx.SpeakerEmbeddingExtractor(
+                    sherpa_onnx.SpeakerEmbeddingExtractorConfig(
+                        model=str(self.model), num_threads=compute_threads(),
+                        provider=self.device)
+                )
+                _OPENED[clef] = ready
+        return ready
 
     def extract(self, echantillons: np.ndarray, frequency: int) -> Voiceprint:
         """The voiceprint of an excerpt, capped in duration."""
