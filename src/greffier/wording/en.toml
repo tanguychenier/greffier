@@ -10,6 +10,7 @@ micro = "Microphone"
 fin_en_cours = "Meeting over, transcription under way…"
 
 [onglets]
+preparation = "Preparation"
 reunions = "Meetings"
 direct = "Live"
 voix = "Voices"
@@ -17,6 +18,9 @@ conversation = "Conversation"
 reglages = "Settings"
 
 [conversation]
+parler = "Speak"
+avant_une_reunion = "To prepare a meeting that has not happened yet, use the Preparation tab."
+vide = "Thread cleared."
 demander = "Ask"
 fournir_un_document = "Supply a document"
 tenir_pour_parler = "Hold to speak"
@@ -37,3 +41,13 @@ deposer = "Drop in…"
 renommer = "Rename"
 supprimer = "Delete"
 rafraichir = "Refresh"
+
+[commun]
+vider = "Clear"
+
+[preparation]
+attendus = "Expected"
+a_soulever = "To raise"
+attendu_note = "“{qui}” is expected. Their voice may be recognised; one that merely resembles somebody absent will not."
+point_note = "Noted: {quoi}"
+mode_emploi = "Prepare your meeting: ask questions, supply documents, say who you expect and what you mean to raise. All of it opens the meeting when you start it."

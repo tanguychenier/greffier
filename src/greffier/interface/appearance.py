@@ -6,6 +6,7 @@ tool that goes on television has to look like it was made on purpose.
 
 from __future__ import annotations
 
+import contextlib
 import functools
 import tkinter as tk
 from collections.abc import Callable
@@ -171,6 +172,11 @@ class Listing(tk.Canvas):
         self.bind("<Enter>", lambda _e: self._paint(hover=True))
         self.bind("<Leave>", lambda _e: self._paint(hover=False))
         self.bind("<Button-1>", self._deployer)
+        # Faire défiler la page pendant qu'une liste est ouverte la laissait
+        # flotter au-dessus d'un réglage qui avait bougé. La molette la range.
+        self.bind_all("<MouseWheel>", self._ranger, add="+")
+        self.bind_all("<Button-4>", self._ranger, add="+")
+        self.bind_all("<Button-5>", self._ranger, add="+")
 
     def fill_menu(self, choix: list[tuple[str, str]], key: str = "") -> None:
         """Places the possible choices, and selects one."""
@@ -227,6 +233,7 @@ class Listing(tk.Canvas):
         if not self._active or not self._choix:
             return
         c = self.colours
+        self._ranger()
         menu = tk.Menu(self, tearoff=0, font=font(12), bg=c.board, fg=c.ink,
                        activebackground=c.hover, activeforeground=c.ink,
                        borderwidth=0, relief="flat", activeborderwidth=0)
@@ -234,7 +241,26 @@ class Listing(tk.Canvas):
             marque = "✓ " if key == self._key else "   "
             menu.add_command(label=f"{marque}{label_text}",
                              command=functools.partial(self._retenir, key))
-        menu.post(self.winfo_rootx(), self.winfo_rooty() + self.height)
+        self._menu: tk.Menu | None = menu
+        # `tk_popup` et non `post` : le premier prend la main, donc un clic
+        # ailleurs referme la liste. Avec `post`, rien ne la refermait -- elle
+        # restait affichée pendant qu'on faisait défiler la page derrière, et
+        # une liste posée sur un réglage qu'elle ne désigne plus est pire
+        # qu'une liste fermée.
+        try:
+            menu.tk_popup(self.winfo_rootx(), self.winfo_rooty() + self.height)
+        finally:
+            menu.grab_release()
+
+    def _ranger(self, _event: tk.Event | None = None) -> None:
+        """Closes the list and forgets it. Menus are not free to keep."""
+        menu = getattr(self, "_menu", None)
+        if menu is None:
+            return
+        self._menu = None
+        with contextlib.suppress(tk.TclError):
+            menu.unpost()
+            menu.destroy()
 
     def _retenir(self, key: str) -> None:
         change = key != self._key
