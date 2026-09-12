@@ -124,7 +124,7 @@ class NeuralVoice:
         """
         if self._engine is not None:
             return self._engine
-        where = chosen_device(self.device, cuda.a_card_answers())
+        where = chosen_device(self.device, cuda.a_card_is_usable())
         if where == CARD:
             cuda.show_to_the_loader()
         import sherpa_onnx

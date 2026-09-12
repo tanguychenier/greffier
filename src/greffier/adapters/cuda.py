@@ -13,8 +13,11 @@ from __future__ import annotations
 import contextlib
 import ctypes
 import importlib.util
+import sys
 from functools import cache
 from pathlib import Path
+
+from greffier.domain.arithmetic import CARD
 
 LIBRARIES = (
     "cublas/lib/libcublasLt.so*",
@@ -68,3 +71,46 @@ def a_card_answers() -> bool:
             return False
         return how_many.value > 0
     return False
+
+
+def another_runtime_is_open() -> bool:
+    """Whether a second ONNX Runtime is already loaded in this process.
+
+    faster-whisper brings its own along with its voice detector. Two of them
+    cannot share a process: the one that opens second binds to the other's
+    symbols and either reads a corrupt graph or, when the versions are close
+    enough to bind cleanly, kills the interpreter. Both measured. Whichever
+    opens first wins, and the loser falls back on the processor rather than
+    taking the meeting down with it.
+    """
+    return "onnxruntime" in sys.modules
+
+def a_card_is_usable() -> bool:
+    """A card the driver answers for, and a runtime that got in first.
+
+    Once the place has been kept, the rival runtime may load: it arrived
+    second, and the card stays ours for the rest of the process.
+    """
+    return a_card_answers() and (_place_kept or not another_runtime_is_open())
+
+def keep_the_place(model: Path) -> None:
+    """Opens a session on the card and drops it, so this runtime is the first in.
+
+    Called before anything can load the rival runtime. Measured at 1.15 s, and
+    it leaves the driver context alone on the card -- 85 MB, freed with the
+    process.
+    """
+    global _place_kept
+    if _place_kept or not a_card_is_usable() or not model.exists():
+        return
+    _place_kept = True
+    show_to_the_loader()
+    import sherpa_onnx
+
+    with contextlib.suppress(Exception):
+        sherpa_onnx.SpeakerEmbeddingExtractor(
+            sherpa_onnx.SpeakerEmbeddingExtractorConfig(
+                model=str(model), num_threads=1, provider=CARD)
+        )
+
+_place_kept = False

@@ -44,7 +44,22 @@ from greffier.domain.tongue import Wording
 from greffier.ports import outbound
 
 
+def _the_card_first(config: Config) -> None:
+    """Lets the speaker-turn runtime open before the transcription's own.
+
+    Two ONNX Runtimes cannot share a process, and faster-whisper brings one
+    along with its voice detector: whichever opens first keeps the card. Asked
+    here, in the composition root, because no adapter can know what the others
+    will load after it.
+    """
+    from greffier.adapters import cuda
+
+    cuda.keep_the_place(
+        config.paths.models / "diarisation" / "nemo_en_titanet_large.onnx"
+    )
+
 def _transcriber(config: Config) -> outbound.Transcriber:
+    _the_card_first(config)
     models = config.paths.models
     if config.transcription.engine == "whisper.cpp":
         from greffier.adapters.transcription_whisper_cpp import WhisperCppTranscriber
@@ -67,6 +82,7 @@ def _live_model(config: Config) -> str:
 
 def light_transcriber(config: Config) -> outbound.Transcriber | None:
     """The live transcription model: fast rather than precise."""
+    _the_card_first(config)
     taille = config.live.model or _live_model(config)
     if config.transcription.engine == "whisper.cpp":
         models = config.paths.models
