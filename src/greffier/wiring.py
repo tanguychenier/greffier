@@ -38,6 +38,7 @@ from greffier.domain.live import Certainty, LiveThread
 from greffier.domain.memory import Trace
 from greffier.domain.names import NamedSpan
 from greffier.domain.participation import Manners
+from greffier.domain.preparation import Preparation
 from greffier.ports import outbound
 
 
@@ -237,6 +238,23 @@ def what_earlier_meetings_left(config: Config) -> str:
     return recalled(memory_file.recall(config.paths.memory))
 
 
+def waiting_preparation(config: Config) -> Preparation | None:
+    """The preparation a meeting starting now would open on, if there is one."""
+    from greffier.adapters import preparations_file
+
+    return preparations_file.waiting(config.paths.preparations)
+
+
+def take_the_preparation(config: Config, identifier: str) -> None:
+    """Marks it as taken by this meeting. Consumed once, never twice."""
+    from greffier.adapters import preparations_file
+
+    attente = waiting_preparation(config)
+    if attente is not None:
+        preparations_file.write(
+            config.paths.preparations, attente.taken(identifier))
+
+
 def context(config: Config) -> WorkContext:
     """What the tool knows of the setting, blended from its three sources.
 
@@ -286,6 +304,10 @@ def recording(config: Config) -> Recording:
     )
 
 def wire_up(config: Config) -> Chain:
+    # Read once, here: the chain is built before the meeting and the preparation
+    # cannot change under it. Taken -- marked as consumed -- only when a meeting
+    # has actually been recorded, which is the chain's business, not ours.
+    _attente = waiting_preparation(config)
     models = config.paths.models
     diarisation = models / "diarisation"
     _the_context = context(config)
@@ -307,7 +329,13 @@ def wire_up(config: Config) -> Chain:
         dossier_comptes_rendus=config.paths.minutes_folder,
         language=config.transcription.language,
         prompt_seed=_the_context.prompt_seed(),
-        context_header=_the_context.header() + what_earlier_meetings_left(config),
+        context_header=(
+            _the_context.header()
+            + what_earlier_meetings_left(config)
+            + (_attente.header() if _attente is not None else "")
+        ),
+        expected_people=tuple(_attente.expected) if _attente is not None else (),
+        preparation_taken=lambda identifier: take_the_preparation(config, identifier),
         memory=memory(config),
         instructions=_instructions_of(config),
         named_live=_named_live(config),
