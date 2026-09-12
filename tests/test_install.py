@@ -645,3 +645,62 @@ class TestWhetherTheVoiceIsThere:
 
     def test_an_empty_folder_is_not_a_voice(self, the_installer, tmp_path):
         assert not the_installer.voix_presente(tmp_path)
+
+
+class TestRoueCuda:
+    """Quelle roue sherpa-onnx l'installation va chercher, système par système.
+
+    Celle de PyPI ne sait pas parler à la carte, et il n'en existe pas sur PyPI
+    qui le sache. Mesuré sur une réunion de 40,7 s, mêmes modèles et mêmes tours
+    rendus : 43 s de découpage sur le processeur, 5,8 s sur la carte.
+    """
+
+    def test_linux_takes_the_wheel_built_with_onnxruntime(self, the_installer):
+        url = the_installer.roue_cuda_sherpa("Linux", "cp313", "x86_64")
+        assert url.endswith("onnxruntime1.27.1-cp313-cp313-linux_x86_64.whl")
+
+    def test_windows_takes_another_naming(self, the_installer):
+        url = the_installer.roue_cuda_sherpa("Windows", "cp313", "AMD64")
+        assert url.endswith("cuda12.cudnn9-cp313-cp313-win_amd64.whl")
+
+    def test_macos_has_no_nvidia_card(self, the_installer):
+        assert the_installer.roue_cuda_sherpa("Darwin", "cp313", "arm64") is None
+
+    def test_an_arm_machine_has_no_wheel(self, the_installer):
+        """Un Raspberry ou un serveur Graviton : rien de publié pour eux."""
+        assert the_installer.roue_cuda_sherpa("Linux", "cp313", "aarch64") is None
+
+    def test_the_version_is_the_one_asked_for(self, the_installer):
+        url = the_installer.roue_cuda_sherpa("Linux", "cp313", "x86_64")
+        assert f"/{the_installer.SHERPA_CUDA}/" in url
+        assert the_installer.SHERPA_CUDA in url.split("sherpa_onnx-")[1]
+
+    def test_the_python_marker_is_carried(self, the_installer):
+        url = the_installer.roue_cuda_sherpa("Linux", "cp314", "x86_64")
+        assert "cp314-cp314" in url
+
+
+class TestEtapeCarte:
+    @pytest.fixture
+    def sans_carte(self, the_installer, monkeypatch):
+        monkeypatch.setattr(the_installer, "carte_nvidia", lambda: False)
+        return the_installer
+
+    def test_a_machine_without_a_card_installs_nothing(self, sans_carte, monkeypatch):
+        travaux = []
+        monkeypatch.setattr(sans_carte, "run_job", lambda *a, **k: travaux.append(a))
+        sans_carte.etape_carte(_Demande(), "python")
+        assert travaux == []
+
+
+class _Demande:
+    """Ce que l'installation passe en contexte, réduit à ce qui sert ici."""
+
+    check_only = False
+    yes = True
+
+    def __init__(self) -> None:
+        self.to_do = []
+
+    def ask(self, _question):
+        return True

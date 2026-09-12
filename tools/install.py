@@ -195,6 +195,73 @@ def carte_nvidia():
     return SYSTEM != "Darwin" and shutil.which("nvidia-smi") is not None
 
 
+SHERPA_CUDA = "1.13.7"
+
+
+def roue_cuda_sherpa(system, marqueur, machine):
+    """L'adresse de la roue sherpa-onnx qui sait parler à la carte, ou None.
+
+    Le découpage en tours de parole fait tourner le modèle d'empreintes sur
+    chaque extrait, et ce modèle pèse cent mégaoctets : mesuré sur une réunion
+    de 40,7 s, 43 s sur le processeur contre 5,8 s sur la carte, à tours rendus
+    identiques. C'est le premier poste de dépense du traitement. Aucune roue de
+    PyPI ne sait s'adresser à la carte ; celle-ci vient du dépôt de publication
+    du projet sherpa-onnx.
+    """
+    if system == "Linux" and machine == "x86_64":
+        fin = f".onnxruntime1.27.1-{marqueur}-{marqueur}-linux_x86_64.whl"
+    elif system == "Windows" and machine in ("AMD64", "x86_64"):
+        fin = f"-{marqueur}-{marqueur}-win_amd64.whl"
+    else:
+        return None
+    return (
+        "https://huggingface.co/csukuangfj2/sherpa-onnx-wheels/resolve/main/cuda/"
+        f"{SHERPA_CUDA}/sherpa_onnx-{SHERPA_CUDA}%2Bcuda12.cudnn9{fin}"
+    )
+
+
+def _marqueur_python(python):
+    """« cp313 » et la machine, demandés à l'interpréteur de l'environnement."""
+    lu = run_job(
+        [str(python), "-c",
+         "import platform,sys;"
+         "print(f'cp{sys.version_info.major}{sys.version_info.minor}');"
+         "print(platform.machine())"],
+        capture_output=True, text=True,
+    )
+    if lu.returncode != 0:
+        return None, None
+    lignes = lu.stdout.split()
+    return (lignes[0], lignes[1]) if len(lignes) == 2 else (None, None)
+
+
+def etape_carte(ctx, python):
+    """Remplace sherpa-onnx par la version qui emploie la carte."""
+    if not carte_nvidia():
+        return
+    marqueur, machine = _marqueur_python(python)
+    if marqueur is None:
+        return
+    url = roue_cuda_sherpa(SYSTEM, marqueur, machine)
+    if url is None:
+        return
+    if ctx.check_only:
+        return
+    if not ctx.ask("Accélérer le découpage en tours de parole sur la carte ? "
+                   "(260 Mo, sept fois plus rapide)"):
+        ctx.to_do.append(f"uv pip install '{url}'")
+        return
+    commande = (["uv", "pip", "install", "-q", url]
+                if shutil.which("uv") else
+                [str(python), "-m", "pip", "install", "-q", url])
+    lu = run_job(commande, cwd=ROOT)
+    if lu.returncode == 0:
+        ok("découpage accéléré par la carte")
+    else:
+        alerte("la roue CUDA de sherpa-onnx n'a pas pu être installée ; "
+               "le découpage restera sur le processeur")
+
+
 def sound_server_present():
     """Si la session a un serveur de son auquel se brancher.
 
@@ -889,6 +956,7 @@ def etape_environnement(ctx, engine):
             raise SystemExit(1)
         run_job([str(python), "-m", "pip", "install", "-q", "-e", f".[{extras}]"], cwd=ROOT)
     ok(f"dépendances installées ({extras})")
+    etape_carte(ctx, python)
     return python
 
 
