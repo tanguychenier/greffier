@@ -256,8 +256,20 @@ if let i = args.firstIndex(of: "--set-gain"), i + 2 < args.count {
     exit(setInputGain(device.id, valeur) ? 0 : 1)
 }
 
-let micName = option("--mic", "Jabra EVOLVE 30 II")
-let casqueName = option("--casque", "Jabra EVOLVE 30 II")
+// Aucun matériel par défaut. Il y en avait un — le casque de la machine où ce
+// script a été écrit — et sur tout autre Mac la commande cherchait alors un
+// périphérique que personne n'a, pour annoncer qu'il est introuvable.
+let micName = option("--mic", "")
+let casqueName = option("--casque", micName)
+
+guard !micName.isEmpty else {
+    FileHandle.standardError.write("""
+    ❌ Précise le micro : --mic « nom exact ».
+       La liste : swift creer-peripheriques.swift --list
+
+    """.data(using: .utf8)!)
+    exit(1)
+}
 
 guard let blackholeIn = find(devices, named: "BlackHole", input: true),
       let blackholeOut = find(devices, named: "BlackHole", input: false) else {
