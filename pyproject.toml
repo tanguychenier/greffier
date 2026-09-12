@@ -84,19 +84,17 @@ python_version = "3.13"
 strict = true
 files = ["src/greffier"]
 
-# Les adaptateurs enveloppent des bibliothèques sans annotations — sherpa-onnx,
-# faster-whisper, soundfile. Exiger la rigueur là où elle ne peut pas être
-# tenue reviendrait à couvrir le code d'exceptions, ce qui la ferait perdre
-# partout ailleurs. Le cœur, lui, est strict sans concession.
-#
-# Une seule ligne suffit désormais : l'assistant et le diagnostic étaient nommés
-# à part parce qu'ils vivaient à la racine du paquet, hors de toute couche.
-[[tool.mypy.overrides]]
-module = ["greffier.adaptateurs.*"]
-strict = false
-ignore_missing_imports = true
+# L'exception qui relâchait la rigueur sur les adaptateurs visait
+# « greffier.adaptateurs.* » — un dossier renommé « adapters » depuis, donc une
+# exception qui ne s'appliquait plus à rien. Retirée plutôt que réparée : le
+# code la traverse en strict sans une ligne de changement, et une exception qui
+# ne protège rien ne fait qu'induire en erreur qui la lit.
 
 [[tool.mypy.overrides]]
-# Bibliothèques sans annotations, ou absentes tant que l'extra n'est pas installé.
-module = ["sherpa_onnx.*", "soundfile.*", "faster_whisper.*"]
+# Bibliothèques sans annotations, ou absentes tant que l'extra n'est pas
+# installé : huggingface_hub arrive avec faster-whisper, et la vérification de
+# types tourne, elle, sans les extras.
+module = [
+    "sherpa_onnx.*", "soundfile.*", "faster_whisper.*", "huggingface_hub.*",
+]
 ignore_missing_imports = true

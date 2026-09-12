@@ -10,6 +10,7 @@ micro = "Micro"
 fin_en_cours = "Fin de la réunion, transcription en cours…"
 
 [onglets]
+preparation = "Préparation"
 reunions = "Réunions"
 direct = "En direct"
 voix = "Voix"
@@ -17,6 +18,9 @@ conversation = "Conversation"
 reglages = "Réglages"
 
 [conversation]
+parler = "Parler"
+avant_une_reunion = "Pour préparer une réunion à venir, passe par l'onglet Préparation."
+vide = "Fil vidé."
 demander = "Demander"
 fournir_un_document = "Fournir un document"
 tenir_pour_parler = "Tenir pour parler"
@@ -37,3 +41,13 @@ deposer = "Déposer…"
 renommer = "Renommer"
 supprimer = "Supprimer"
 rafraichir = "Rafraîchir"
+
+[commun]
+vider = "Vider"
+
+[preparation]
+attendus = "Attendus"
+a_soulever = "À soulever"
+attendu_note = "« {qui} » est attendu. Sa voix pourra être reconnue ; une voix qui ressemble à quelqu'un d'absent ne le sera pas."
+point_note = "Noté : {quoi}"
+mode_emploi = "Prépare ta réunion : pose des questions, fournis des documents, dis qui tu attends et ce que tu veux soulever. Tout cela ouvrira la séance quand tu démarreras."
