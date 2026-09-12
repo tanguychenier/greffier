@@ -26,6 +26,7 @@ class Preparing:
     brain: outbound.Writer
     #: The glossary and what earlier meetings left, built where those live.
     setting: str = ""
+    known: str = ""
     #: Played the moment a spoken sentence has been taken in. Alone in front of
     #: a machine, hearing nothing at all is indistinguishable from a microphone
     #: that is off.
@@ -55,7 +56,7 @@ class Preparing:
             return preparation, ""
         try:
             answered = str(self.brain.write_up(
-                question_prompt(preparation, self.setting, demande)
+                question_prompt(preparation, self.setting + self.known, demande)
             )).strip()
         except Exception as trouble:  # noqa: BLE001 - rendu à qui a demandé
             return preparation.asked(demande), f"✗ {trouble}"
