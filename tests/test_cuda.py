@@ -8,6 +8,7 @@ only other way to show them would be setting `LD_LIBRARY_PATH` before launching
 Greffier, which no desktop shortcut does.
 """
 
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -139,3 +140,113 @@ class _Pilote:
     def cuDeviceGetCount(self, pointeur):  # noqa: N802 — idem
         pointeur._obj.value = self._cartes
         return self._count
+
+
+class TestDeuxMoteursOnnx:
+    """Deux ONNX Runtime ne tiennent pas dans un processus.
+
+    faster-whisper amène le sien avec son détecteur de voix. Mesuré : celui qui
+    ouvre en second lit un graphe corrompu (« node_index < nodes_.size() was
+    false »), et quand les versions sont assez proches pour se lier proprement,
+    l'interpréteur meurt sur une erreur de segmentation. Celui qui ouvre le
+    premier garde la carte ; l'autre se replie sur le processeur.
+    """
+
+    @pytest.fixture(autouse=True)
+    def sans_memoire(self, monkeypatch):
+        """La place gardée et la réponse du pilote sont retenues : on repart de zéro."""
+        adaptateur.a_card_answers.cache_clear()
+        monkeypatch.setattr(adaptateur, "_place_kept", False)
+
+    @pytest.fixture
+    def avec_carte(self, monkeypatch):
+        monkeypatch.setattr(adaptateur, "a_card_answers", lambda: True)
+
+    @pytest.fixture
+    def le_rival(self, monkeypatch):
+        monkeypatch.setitem(sys.modules, "onnxruntime", object())
+
+    def test_the_rival_is_seen_when_it_is_loaded(self, le_rival):
+        assert adaptateur.another_runtime_is_open() is True
+
+    def test_no_rival_before_anything_transcribes(self, monkeypatch):
+        monkeypatch.delitem(sys.modules, "onnxruntime", raising=False)
+        assert adaptateur.another_runtime_is_open() is False
+
+    def test_the_card_is_lost_to_whoever_came_first(self, avec_carte, le_rival):
+        assert adaptateur.a_card_is_usable() is False
+
+    def test_keeping_the_place_holds_the_card(self, avec_carte, le_rival, monkeypatch):
+        """Le rival peut charger ensuite : la place est prise."""
+        monkeypatch.setattr(adaptateur, "_place_kept", True)
+        assert adaptateur.a_card_is_usable() is True
+
+    def test_without_a_card_nothing_is_usable(self, monkeypatch):
+        monkeypatch.setattr(adaptateur, "a_card_answers", lambda: False)
+        assert adaptateur.a_card_is_usable() is False
+
+
+class TestGarderLaPlace:
+    @pytest.fixture(autouse=True)
+    def sans_memoire(self, monkeypatch):
+        """La place gardée et la réponse du pilote sont retenues : on repart de zéro."""
+        adaptateur.a_card_answers.cache_clear()
+        monkeypatch.setattr(adaptateur, "_place_kept", False)
+
+    @pytest.fixture
+    def sherpa_muet(self, monkeypatch):
+        """Le modèle pèse cent mégaoctets : ici on compte les ouvertures."""
+        ouvertures = []
+        monkeypatch.setitem(
+            sys.modules, "sherpa_onnx",
+            SimpleNamespace(
+                SpeakerEmbeddingExtractorConfig=lambda **o: o,
+                SpeakerEmbeddingExtractor=lambda config: ouvertures.append(config),
+            ),
+        )
+        monkeypatch.setattr(adaptateur, "show_to_the_loader", lambda: None)
+        return ouvertures
+
+    def test_the_place_is_kept_once(self, monkeypatch, tmp_path, sherpa_muet):
+        monkeypatch.setattr(adaptateur, "a_card_answers", lambda: True)
+        monkeypatch.delitem(sys.modules, "onnxruntime", raising=False)
+        modele = tmp_path / "empreintes.onnx"
+        modele.touch()
+        adaptateur.keep_the_place(modele)
+        adaptateur.keep_the_place(modele)
+        assert len(sherpa_muet) == 1, "ouvrir deux fois coûterait une seconde pour rien"
+        assert sherpa_muet[0]["provider"] == "cuda"
+
+    def test_a_machine_without_a_card_keeps_nothing(self, monkeypatch, tmp_path, sherpa_muet):
+        monkeypatch.setattr(adaptateur, "a_card_answers", lambda: False)
+        modele = tmp_path / "empreintes.onnx"
+        modele.touch()
+        adaptateur.keep_the_place(modele)
+        assert sherpa_muet == []
+
+    def test_a_missing_model_keeps_nothing(self, monkeypatch, tmp_path, sherpa_muet):
+        """Avant la première installation des modèles, il n'y a rien à ouvrir."""
+        monkeypatch.setattr(adaptateur, "a_card_answers", lambda: True)
+        monkeypatch.delitem(sys.modules, "onnxruntime", raising=False)
+        adaptateur.keep_the_place(tmp_path / "absent.onnx")
+        assert sherpa_muet == []
+
+    def test_a_model_that_refuses_does_not_stop_the_meeting(
+        self, monkeypatch, tmp_path, sherpa_muet
+    ):
+        monkeypatch.setattr(adaptateur, "a_card_answers", lambda: True)
+        monkeypatch.delitem(sys.modules, "onnxruntime", raising=False)
+        monkeypatch.setitem(
+            sys.modules, "sherpa_onnx",
+            SimpleNamespace(
+                SpeakerEmbeddingExtractorConfig=lambda **o: o,
+                SpeakerEmbeddingExtractor=_qui_refuse,
+            ),
+        )
+        modele = tmp_path / "empreintes.onnx"
+        modele.touch()
+        adaptateur.keep_the_place(modele)
+
+
+def _qui_refuse(_config):
+    raise RuntimeError("le modèle n'a pas pu être ouvert")
