@@ -1597,22 +1597,57 @@ class Window:
         self.root.destroy()
 
     def _terminate(self) -> None:
-        from greffier.cli import _restore_the_output
+        """Ends the meeting on screen at once, and waits afterwards.
 
-        try:
+        Stopping the encoder cleanly takes up to fifteen seconds, and it used to
+        happen here, on the interface's own thread: the window froze on the
+        click, painted nothing, and the only sign that the button had been
+        pressed was that nothing happened. Reported twice in use.
+
+        The click now paints the end, and everything that takes time -- closing
+        the file, stitching the pieces, transcribing, naming, writing -- runs in
+        the thread that already carries the chain.
+        """
+        self._paint_the_end()
+        enregistrement: dict[str, Any] = {}
+
+        def arreter_puis_traiter(dire: Callable[[str], None]) -> Any:
+            from greffier.cli import _restore_the_output
+
             state = self.recorder.stop_recording()
-        except RuntimeError as trouble:
-            messagebox.showerror("Greffier", str(trouble))
-            return
-        _restore_the_output(state.sortie_precedente)
-        audio = state.audio
-        if audio is None:
-            return
+            _restore_the_output(state.sortie_precedente)
+            if state.audio is None:
+                return None
+            enregistrement["audio"] = state.audio
+            return self._chaine(
+                state.audio, state.events, state.start, state.ended_at
+            )(dire)
+
         self._run_job(Job(
             caption="traitement",
-            do_it=self._chaine(audio, state.events, state.start, state.ended_at),
-            done=lambda outcome, trouble: self._processing_done(audio, outcome, trouble),
+            do_it=arreter_puis_traiter,
+            done=lambda outcome, trouble: self._processing_done(
+                enregistrement.get("audio"), outcome, trouble
+            ),
         ))
+
+    def _paint_the_end(self) -> None:
+        """What the click shows before anything has actually stopped.
+
+        Optimistic on purpose: the recorded state still says « recording » until
+        the encoder has closed its file, and a quarter of a second later the
+        refresh would overwrite this -- except that the state now carries the
+        end as soon as the button is pressed, so the two agree.
+        """
+        self._phase_peinte = Phase.FINALISATION
+        self._show_commands(Phase.FINALISATION)
+        self.detail.configure(text="Fin de la réunion, transcription en cours…")
+        self.chrono.configure(text="")
+        self.pastille.itemconfigure(self._point, fill=self.colours.amber)
+        self.vu_toi.reveal(0)
+        self.vu_autres.reveal(0)
+        self.who.configure(text="")
+        self.root.update_idletasks()
 
     def _chaine(
         self,
@@ -1647,10 +1682,20 @@ class Window:
 
         return do_it
 
-    def _processing_done(self, audio: Path, outcome: Any, trouble: Exception | None) -> None:
+    def _processing_done(
+        self, audio: Path | None, outcome: Any, trouble: Exception | None
+    ) -> None:
         self._load_meetings()
         if trouble is not None:
+            # No file: the recording never produced one -- an empty take, a
+            # microphone refused. The chain has nothing to blame, so the reason
+            # is shown plainly, as it was before the stop moved to the thread.
+            if audio is None:
+                messagebox.showerror("Greffier", str(trouble))
+                return
             self._processing_failed(audio, trouble)
+            return
+        if audio is None:
             return
         for warning in getattr(outcome, "avertissements", []):
             self._say("note", warning)

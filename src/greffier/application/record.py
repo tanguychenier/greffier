@@ -278,12 +278,21 @@ class Recording:
         state = self.read()
         if state.audio is None:
             raise RuntimeError("Aucun enregistrement à arrêter.")
+        # Published before the wait, not after. Stopping the encoder cleanly
+        # takes as long as it takes -- it has to close its own file, or the wav
+        # is left without a header -- and up to fifteen seconds were measured.
+        # Until this line moved, every reader of the state, the window first,
+        # went on showing a meeting being recorded throughout: the click seemed
+        # not to have been taken. A meeting ends when the button is pressed,
+        # not when the encoder has caught up.
+        state.phase = Phase.FINALISATION
+        state.message = "Fin de la réunion, écriture du fichier…"
+        state.ended_at = datetime.now(UTC)
+        self.write(state)
         if state.pid is not None and _alive(state.pid):
             self.audio_recorder.stop_recording(state.pid)
-        state.phase = Phase.FINALISATION
-        state.message = "Enregistrement arrêté."
         state.pid = None
-        state.ended_at = datetime.now(UTC)
+        state.message = "Enregistrement arrêté."
         self.write(state)
         chunks = [m for m in (state.chunks or [state.audio]) if m is not None]
         utiles = [m for m in chunks if m.exists() and m.stat().st_size > 0]
