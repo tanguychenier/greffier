@@ -1,7 +1,7 @@
 """Writing a subject's board on a Miro board, as native objects.
 
 **Not in a mindmap widget.** The widget is a third-party app whose nodes the
-REST API can neither create nor modify, leaving only the mouse — tried once and
+REST API can neither create nor modify, leaving only the mouse, tried once and
 it produced mixed-up texts and stray objects. The board is therefore made of
 sticky notes and connectors, which the API can write *and read back*, and
 reading back is what allows a board to be completed rather than duplicated.
@@ -103,7 +103,7 @@ def _keep(board_id: str) -> str:
 def create_the_board(subject: str) -> tuple[str, str]:
     """Creates a subject's board. Returns its identifier."""
     response = _appeler("/boards", "POST", {
-        "name": f"{PREFIXE} — {subject}",
+        "name": f"{PREFIXE} : {subject}",
         "description": (
             f"Carte du sujet « {subject} », tenue par Greffier au fil des réunions. "
             "Jaune : en discussion. Vert : acté. Gris : dépassé. "

@@ -1,6 +1,6 @@
 ---
 name: greffier
-description: Réparer une installation de Greffier — où sont les fichiers, ce que le diagnostic dit, et les pièges qui ne se devinent pas.
+description: Réparer une installation de Greffier, où sont les fichiers, ce que le diagnostic dit, et les pièges qui ne se devinent pas.
 ---
 
 # Réparer Greffier
@@ -15,7 +15,7 @@ se tourne. Ce document dit où regarder, et surtout ce qui ne se devine pas.
 greffier diagnostic      # constate sans rien modifier
 greffier verifier        # dit si la chaîne s'assemble
 greffier contexte        # ce que l'outil sait des sigles et des personnes
-greffier niveau          # dit si le micro suffit à transcrire — parle pendant
+greffier niveau          # dit si le micro suffit à transcrire, parle pendant
 python3 tools/install.py --verifier   # constate sans rien installer
 ```
 
@@ -32,7 +32,7 @@ pannes rapportées sont un de ces sept constats.
 | Linux | `~/.config/greffier` et `~/.local/share/greffier` |
 | Windows | `%APPDATA%\greffier` et `%LOCALAPPDATA%\greffier` |
 
-`XDG_CONFIG_HOME` et `XDG_DATA_HOME`, s'ils sont posés, l'emportent partout —
+`XDG_CONFIG_HOME` et `XDG_DATA_HOME`, s'ils sont posés, l'emportent partout,
 c'est ce qui isole les tests.
 
 **Sur macOS, ce n'est pas la convention XDG, et c'est délibéré.** Les dossiers
@@ -58,7 +58,7 @@ part dans :
 
 C'est le seul endroit où une exception survenue au démarrage de la fenêtre
 laisse une trace. Depuis le dépôt, `greffier fenetre` écrit dans le terminal
-comme n'importe quelle commande — les deux chemins ne racontent pas la même
+comme n'importe quelle commande, les deux chemins ne racontent pas la même
 chose, et une panne qui n'apparaît que par l'application se lit là.
 
 Chaque session s'ouvre sur `=== démarré le AAAA-MM-JJ HH:MM:SS ===`. **Une
@@ -72,7 +72,7 @@ vide aucun tampon, et le journal est resté vide huit jours pour cette raison
 
 **La signature du paquet est stable, à dessein.** Une signature ad hoc n'est que
 le hachage du binaire : chaque reconstruction change l'identité, et macOS
-redemande toutes les autorisations — micro, Outlook, garde du poste. Le paquet est donc
+redemande toutes les autorisations : micro, Outlook, garde du poste. Le paquet est donc
 signé avec un certificat, Apple s'il y en a un dans le trousseau, sinon un
 certificat local créé une fois pour toutes. **Ne signe jamais ad hoc pour
 « aller plus vite »** : les autorisations de l'utilisateur seraient à redonner.
@@ -82,7 +82,7 @@ certificat local créé une fois pour toutes. **Ne signe jamais ad hoc pour
 rendu à partir d'une transcription déjà découpée et attribuée est un travail de
 synthèse, pas de raisonnement long : le haut de la gamme rend le même document
 en entamant un quota bien plus vite. **Ne « corrige » pas ce défaut vers le
-modèle le plus puissant** — c'est un choix, pas un oubli.
+modèle le plus puissant** : c'est un choix, pas un oubli.
 
 **Une modification du code ne se voit pas dans l'application.** Le paquet
 embarque ses propres copies de l'interpréteur, des bibliothèques et du code.
@@ -103,7 +103,7 @@ asymétrie.
 **`greffier traiter --quand-meme` ne détruit plus la réunion en cours**, mais il
 l'a fait deux fois avant le 2026-09-09. Le fichier d'état est unique : un
 traitement lancé à côté y publiait ses phases jusqu'à « terminé », la fenêtre en
-concluait que la réunion était finie, et la capture s'arrêtait — une réunion
+concluait que la réunion était finie, et la capture s'arrêtait, une réunion
 entière perdue sans laisser un octet. Le journal de la chaîne ne publie
 désormais que si l'état porte la réunion qu'il traite
 (`Enregistrement.pour`). **Ne défais pas cette précaution** : c'est elle qui
@@ -113,7 +113,7 @@ partagent.
 
 **Une réunion qui n'apparaît nulle part alors qu'elle a eu lieu** se
 reconstruit : `greffier recuperer <identifiant>` repart du fil du direct. La
-transcription est moins bonne — modèle rapide, voix non recollées — et la
+transcription est moins bonne : modèle rapide, voix non recollées, et la
 réunion porte un avertissement qui le dit. Si l'enregistrement existe encore,
 `greffier traiter` vaut mieux.
 
@@ -129,7 +129,7 @@ qui faisait perdre une réunion entière quand le rédacteur échouait.
 | Enregistrement muet sur macOS | le périphérique agrégé référence un matériel précis : casque débranché, micro absent de l'agrégé. Le reconstruire (`greffier peripheriques`) |
 | Le son des autres n'est pas capté | macOS : BlackHole absent. Linux : aucun serveur de son joignable |
 | Tout marche sauf le compte rendu | la session du rédacteur n'est pas ouverte. `greffier diagnostic` le dit |
-| La fenêtre ne s'ouvre pas depuis le dépôt | Tcl introuvable : `situer_tcl()` pose `TCL_LIBRARY`/`TK_LIBRARY` — vérifier qu'il s'exécute |
+| La fenêtre ne s'ouvre pas depuis le dépôt | Tcl introuvable : `situer_tcl()` pose `TCL_LIBRARY`/`TK_LIBRARY`, vérifier qu'il s'exécute |
 | La transcription échoue après plusieurs minutes | Linux : carte graphique sans cuBLAS. Le repli sur le processeur existe, il est lent |
 | Un réglage a disparu | la version précédente est en `config.toml.precedent`, à côté |
 | Aucun compte rendu, mais la réunion est transcrite | la rédaction a échoué. `greffier rediger` la rejoue sans retranscrire, ou le bouton « Rédiger » |
@@ -146,7 +146,7 @@ qui faisait perdre une réunion entière quand le rédacteur échouait.
 | L'assistant parle avec une voix de robot | le modèle de voix manque, il s'est replié sur celle du système. `python3 tools/install.py` le télécharge (80 Mo, dans `modeles/voix`) |
 | L'assistant parle mais personne ne l'entend | la sortie système est sur « Reunion Sortie », le périphérique de capture. La réunion la repose en quittant ; en cours de réunion, la remettre à la main |
 | L'assistant coupe la parole, ou ne dit jamais rien | `assistant.repos` et `assistant.creux_minimal`. Être appelé par son nom passe outre les deux, à dessein |
-| L'assistant se répond à lui-même | il ne devrait pas : ses propres prises de parole sont exclues de ce qu'il réécoute. Si cela arrive, le haut-parleur est très en avance sur l'horloge de la réunion — le signaler avec le journal |
+| L'assistant se répond à lui-même | il ne devrait pas : ses propres prises de parole sont exclues de ce qu'il réécoute. Si cela arrive, le haut-parleur est très en avance sur l'horloge de la réunion, le signaler avec le journal |
 | Sous Linux, l'installation s'arrête sans rien dire | corrigé le 2026-09-10 : un `.venv` venu d'une autre machine était pris pour valide. Si cela se reproduit, effacer `.venv` et relancer |
 
 ## Avant de conclure

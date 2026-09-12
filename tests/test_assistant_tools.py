@@ -72,7 +72,7 @@ class TestLAssistantPeutChercher:
         assert "N'invente rien pour remplir" in aplati
 
     def test_it_may_search_of_its_own_accord(self):
-        """« Qu'il le fasse lui-même pour se donner du contexte » — demandé."""
+        """« Qu'il le fasse lui-même pour se donner du contexte », demandé."""
         aplati = " ".join(assistant(config()).consignes_propres.split())
         assert "de ton propre chef" in aplati
 

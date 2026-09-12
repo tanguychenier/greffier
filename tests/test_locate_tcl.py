@@ -2,7 +2,7 @@
 
 La règle vit dans `emplacements.py`, avec les autres chemins, et non dans
 `fenetre.py` : ce dernier importe Tk, qui ne démarre pas sur un exécuteur
-d'intégration continue — la seule chose à tester serait alors intestable.
+d'intégration continue, la seule chose à tester serait alors intestable.
 """
 
 from __future__ import annotations

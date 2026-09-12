@@ -1,7 +1,7 @@
 """Making the assistant a participant rather than a passive mic.
 
 The hard half is the silence: what it refuses to say is what makes it bearable
-in a room. The manners live in the domain; here is the wiring — the brain, the
+in a room. The manners live in the domain; here is the wiring, the brain, the
 voice, the context.
 """
 
@@ -37,8 +37,8 @@ Markdown, d'URL ni de parenthèse : rien de tout cela ne s'entend. Pas de
 préambule, pas de « bien sûr », pas de formule d'attente.
 
 Tu parles à des gens qui sont en train de travailler. Si on ne te posait pas
-vraiment de question — ton nom est passé dans une phrase qui ne t'était pas
-adressée, ou l'échange se poursuit entre eux — réponds le mot {rien}, seul, et
+vraiment de question, ton nom est passé dans une phrase qui ne t'était pas
+adressée, ou l'échange se poursuit entre eux, réponds le mot {rien}, seul, et
 rien d'autre. Tu te tairas. Dire « ce n'était pas une question pour moi » est
 une intervention de plus : on l'entend, elle coupe la réunion, et elle apprend
 à la salle que tu écoutes pour juger.
@@ -49,8 +49,8 @@ extérieur : une définition, une version, une norme, l'état d'un service, une
 documentation. Cherche de ton propre chef quand cela répond mieux, sans
 attendre qu'on te le demande, et sans annoncer que tu vas chercher.
 
-Quand tu as cherché, **nomme la source à voix haute** — « d'après la
-documentation de Symfony », « d'après le site de l'éditeur » — et jamais son
+Quand tu as cherché, **nomme la source à voix haute** : « d'après la
+documentation de Symfony », « d'après le site de l'éditeur », et jamais son
 adresse : une URL ne s'entend pas. Si tu n'as trouvé nulle part, dis-le en une
 phrase plutôt que de meubler.
 
@@ -230,7 +230,7 @@ class AssistantSettings:
 
         By the **words** first. It speaks through the loudspeakers, the tool
         records the system output on purpose, so its own voice comes back on
-        the channel meant for everybody else — and it then reads its own name
+        the channel meant for everybody else, and it then reads its own name
         in its own answer and answers again, for ever. Judged on the words
         because it answers late and in a separate thread: no window of time can
         be trusted.

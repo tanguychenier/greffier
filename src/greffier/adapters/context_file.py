@@ -12,7 +12,7 @@ GABARIT = '''# Ce que Greffier doit savoir de votre milieu de travail.
 # Sans ce fichier, la transcription rend le mot le plus proche qu'elle connaît :
 # « déploiement » devient « exploitement », « comptes rendus » devient
 # « prochains délits ». Ces mots ne sont nulle part dans ce qu'un modèle a
-# appris — il faut les lui dire.
+# appris, il faut les lui dire.
 #
 # « ecriture » est ce qui doit s'écrire ; « sens » ne sert pas à la
 # transcription mais évite au compte rendu de laisser un sigle nu.

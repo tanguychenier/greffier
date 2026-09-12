@@ -137,7 +137,7 @@ def writer(config: Config) -> outbound.Writer | None:
     return None
 
 def assistant(config: Config) -> outbound.Writer | None:
-    """Who answers in the conversation — not who writes the minutes."""
+    """Who answers in the conversation, not who writes the minutes."""
     engine = config.minutes.engine
     if engine == "ollama":
         return OllamaWriter(config.minutes.effective_model,

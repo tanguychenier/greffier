@@ -3,15 +3,15 @@
 
 Les vraies réunions ne peuvent pas servir de jeu d'essai : elles contiennent des
 échanges de travail et des voix identifiables. On synthétise donc un dialogue
-avec deux voix du système, ce qui donne un fichier audio réel — passé par le
-même chemin que n'importe quel enregistrement — sans la moindre donnée
+avec deux voix du système, ce qui donne un fichier audio réel, passé par le
+même chemin que n'importe quel enregistrement, sans la moindre donnée
 personnelle, et rejouable par qui veut.
 
     python3 tools/make_meeting.py sortie.wav
 
 Deux moteurs de synthèse, selon le poste : « say » sur macOS, et ailleurs la
 voix VITS que Greffier installe déjà pour l'assistant, tenue par le sherpa-onnx
-qui sert à la segmentation — aucune dépendance nouvelle, aucun appel réseau.
+qui sert à la segmentation, aucune dépendance nouvelle, aucun appel réseau.
 Le réseau français porte deux timbres, ce qui suffit au dialogue à deux voix et
 pas à la réunion de table, qui reste sur « say ».
 """
@@ -76,7 +76,7 @@ DIALOGUE_WITHOUT_NAMES = [
 
 # Une réunion tenue **autour d'une table** : trois personnes, un seul micro,
 # aucune boucle système. Le canal ne désigne alors personne, et c'est tout
-# l'intérêt du cas — c'est la seule configuration où l'attribution ne repose que
+# l'intérêt du cas, c'est la seule configuration où l'attribution ne repose que
 # sur la segmentation et la banque de voix.
 DIALOGUE_PRESENTIEL = [
     ("A", "Bonjour à tous, moi c'est Jacques, on se retrouve autour de la table pour "
@@ -99,7 +99,7 @@ DIALOGUE_PRESENTIEL = [
 #: Les voix qui prêtent leur timbre au dialogue. **Pas celles qui portent les
 #: prénoms du dialogue** : « Jacques », « Sandy » et « Rocko » sont des voix
 #: « eloquence », le synthétiseur par formants que macOS traîne depuis les
-#: années 1980. Mesuré : whisper n'en tire **rien du tout** — sur une réunion
+#: années 1980. Mesuré : whisper n'en tire **rien du tout** : sur une réunion
 #: d'essai de quarante-cinq secondes, les deux répliques de la voix « Sandy »
 #: étaient absentes de la transcription, avec ou sans détection de parole, à
 #: niveau sonore pourtant identique aux autres. Le jeu d'essai prouvait donc que
@@ -114,7 +114,7 @@ VOIX_PRESENTIEL = {"A": "Thomas", "B": "Amélie", "C": "Rocko"}
 #: Fuite mesurée dans la boucle système d'une réunion tenue autour d'une table :
 #: -53 dB au lieu du silence attendu, du son y ayant fui à un moment. C'est
 #: **exactement** le cas qui piégeait le verdict, quand une boucle non nulle
-#: suffisait à conclure « visio » — d'où une fuite dans le fichier d'essai, et
+#: suffisait à conclure « visio », d'où une fuite dans le fichier d'essai, et
 #: non un second canal muet qui rendrait l'épreuve trop facile.
 FUITE_DB = -40.0
 
@@ -266,7 +266,7 @@ def make_in_the_room(destination: Path) -> Path:
 
     Le fichier est **stéréo**, comme ce que rend le périphérique d'enregistrement :
     canal 0 le micro, canal 1 la boucle système. Autour d'une table, la boucle ne
-    porte rien d'utile — juste la fuite mesurée à -53 dB sur la vraie réunion.
+    porte rien d'utile, juste la fuite mesurée à -53 dB sur la vraie réunion.
 
     Un second canal strictement muet aurait rendu l'épreuve trop facile : c'est
     précisément la fuite qui faisait conclure « visio » à tort, et attribuait
@@ -309,7 +309,7 @@ def main() -> int:
         if arguments.in_the_room
         else (len(_DIALOGUE), 2, "mono")
     )
-    print(f"{path} — {float(duration):.1f} s, {utterances} répliques, {voice} voix, {channels}")
+    print(f"{path} : {float(duration):.1f} s, {utterances} répliques, {voice} voix, {channels}")
     return 0
 
 

@@ -3,7 +3,7 @@
 Le réglage vide veut dire « reconnais-la toi-même ». Les deux moteurs
 l'expriment différemment, et se tromper est silencieux : whisper.cpp
 transcrirait dans une langue arbitraire, faster-whisper refuserait un code
-inconnu — dans les deux cas, une heure après le début de la réunion.
+inconnu, dans les deux cas, une heure après le début de la réunion.
 """
 
 import subprocess

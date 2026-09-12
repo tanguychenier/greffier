@@ -46,7 +46,7 @@ class Source:
 
     def say(self) -> str:
         """One line for the screen, showing the real scope."""
-        return f"{self.name} — {self.kind} {self.project} sur {self.adresse} ({self.droit})"
+        return f"{self.name}, {self.kind} {self.project} sur {self.adresse} ({self.droit})"
 
 @dataclass
 class Registry:
@@ -67,7 +67,7 @@ class Registry:
         return [s.name for s in choisies]
 
     def allowed(self, name: str, ecriture: bool) -> tuple[bool, str]:
-        """Is the gesture permitted? If not, why — in the user's terms."""
+        """Is the gesture permitted? If not, why, in the user's terms."""
         source = self.by_name(name)
         if source is None:
             known = ", ".join(self.recorded()) or "aucune"

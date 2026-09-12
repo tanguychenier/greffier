@@ -1,14 +1,14 @@
 """The meeting thread, while the meeting is happening.
 
-What the full chain does afterwards — segment, group the voices, recognise the
-people — is redone here slice by slice, on far less material. Conclusions are
+What the full chain does afterwards, segment, group the voices, recognise the
+people, is redone here slice by slice, on far less material. Conclusions are
 therefore more fragile, and that is the point of this module: **it proposes, it
 does not assert**, and it keeps track of what separates a certainty from a
 guess.
 
 Three sources of knowledge, most reliable first: a human correction, the
 channel (a voice arriving on the mic belongs to whoever is recording), then the
-voiceprint — useful, never sure.
+voiceprint, useful, never sure.
 
 Nothing here knows about whisper, sherpa or a file.
 """
@@ -731,7 +731,7 @@ class LiveThread:
 
         Nothing is poured from a voice that holds several people. What goes into
         the bank is the mean of everything the voice gathered, so a voice the cut
-        got wrong pours one person's voice into another's file — and a file, once
+        got wrong pours one person's voice into another's file, and a file, once
         wrong, is wrong at every meeting that follows. Measured on a real bank:
         three entries out of five carried a stranger, and one answered to another
         person's name more readily than to its own.

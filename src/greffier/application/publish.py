@@ -24,7 +24,7 @@ Règles :
   mots courants, pas le jargon répandu (« sprint », « backlog » le sont).
 - « ecriture » est l'orthographe exacte, telle qu'elle doit apparaître.
 - « sens » développe un sigle ou dit ce qu'est le produit, en huit mots au plus.
-  Vide si le document ne le dit pas — n'invente pas.
+  Vide si le document ne le dit pas, n'invente pas.
 - « genre » vaut « personne » pour un nom de personne, « terme » sinon.
 - Vingt entrées au maximum, les plus utiles. Une amorce trop longue est
   tronquée en silence par le transcripteur.

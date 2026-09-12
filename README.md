@@ -2,7 +2,7 @@
 
 Records a meeting, works out who is speaking, and writes the minutes.
 Transcription and voice recognition run **locally**, on macOS, Linux and
-Windows — on the graphics card where there is one, on the processor otherwise.
+Windows, on the graphics card where there is one, on the processor otherwise.
 Only the writing of the minutes can leave the machine, and only if you want it
 to: `ollama` keeps that here as well.
 
@@ -10,7 +10,7 @@ to: `ollama` keeps that here as well.
 > and produces the record.
 
 **Greffier speaks French.** The window, the command names and the minutes are
-in French, and the name attribution recognises French turns of phrase — `moi
+in French, and the name attribution recognises French turns of phrase: `moi
 c'est Sandy`, `merci Jacques`, `Jacques, tu peux…`. The transcription language
 is a setting and whisper handles a hundred of them, but nothing will pick names
 out of an English meeting.
@@ -60,7 +60,7 @@ meeting audio → transcription → who speaks → names → minutes → mail
   else on the right): in a video call, telling your voice from the others' is a
   hardware certainty, not a deduction.
 - **Transcription** by the `large-v3` model: whisper.cpp with Metal
-  acceleration on macOS, faster-whisper elsewhere — on the NVIDIA card if it is
+  acceleration on macOS, faster-whisper elsewhere, on the NVIDIA card if it is
   there, on the processor otherwise.
 - **Voice identification** by voice print, locally:
   **pyannote-segmentation-3.0** cuts the audio into speaking turns and
@@ -71,7 +71,7 @@ meeting audio → transcription → who speaks → names → minutes → mail
   the tool collects those clues and cross-checks them. Nobody has to introduce
   themselves. What stays uncertain is proposed, never asserted.
 - **Live transcription, correctable**: what is being said appears in the window
-  during the meeting, with who is speaking. Clicking a name corrects it — and
+  during the meeting, with who is speaking. Clicking a name corrects it, and
   that correction covers every passage of that voice, goes into the voice bank,
   and carries into the final minutes. Until then, a wrong attribution was only
   caught by re-reading the minutes, an hour too late.
@@ -81,12 +81,12 @@ meeting audio → transcription → who speaks → names → minutes → mail
 - **It takes part, if you want it to.** Called by its first name it answers out
   loud, on the meeting's own content, in about four seconds. Left alone it asks
   who a voice belongs to when it cannot place one, and names that voice when
-  somebody answers — the answer becomes a name in the minutes rather than small
+  somebody answers: the answer becomes a name in the minutes rather than small
   talk. It raises a decision left without an owner, or a question the room walked
   past. The rest of the time it says nothing, which is the whole difficulty: four
   refusals hold it back, and being called by name is the only thing that escapes
   them. The voice is **Kokoro or a VITS model**, whichever is installed, run
-  locally through the same sherpa-onnx as the voice prints — no new dependency,
+  locally through the same sherpa-onnx as the voice prints: no new dependency,
   no network call, 48× real time.
 
 ## Installation
@@ -107,9 +107,9 @@ them again.
 On macOS it also builds **`/Applications/Greffier.app`**, a self-contained
 application: interpreter, libraries and code are copied inside, and nothing
 points back at the clone or at a hidden folder in the account. It is signed
-with a **stable** identity — an Apple certificate already in the keychain if
+with a **stable** identity: an Apple certificate already in the keychain if
 there is one, otherwise a local certificate created once and for all, macOS
-then asking for the login password a single time — so that granted permissions
+then asking for the login password a single time, so that granted permissions
 survive reinstallation. A code change only shows up there by re-running the
 installer; the command line in the clone follows the code.
 
@@ -121,13 +121,13 @@ environment, whose folder the installer prints.
 It then moves on to the **configuration assistant**, which asks the questions
 that matter and writes a valid `.env`:
 
-- what the machine can do — memory, compute, microphone, system sound capture —
+- what the machine can do (memory, compute, microphone, system sound capture)
   and **which model it can run without suffering**;
 - who writes: is the command-line assistant installed, and **is the session
   open**? Without that, the failure would only surface after an hour of
   transcription;
-- where the minutes arrive: by mail — Outlook already authenticated, otherwise
-  SMTP, with the password kept out of the file — or simply in a folder;
+- where the minutes arrive: by mail (Outlook already authenticated, otherwise
+  SMTP, with the password kept out of the file) or simply in a folder;
 - the vocabulary of your meetings, which also serves as a list of words never
   to mistake for first names.
 
@@ -159,18 +159,18 @@ start it.
 On Linux the installer now looks for an interpreter whose Tk was built with
 Xft, and builds the environment on that one. The Tk carried by the interpreter
 `uv` installs is not: `tk::pkgconfig get fontsystem` answers `x11` and offers 48
-bitmap families, against `xft` and 266 for a distribution's own — the difference
+bitmap families, against `xft` and 266 for a distribution's own: the difference
 between text that is legible and text that is crisp. Ubuntu 24.04 does not ship
 Python 3.13; `apt install python3.13-tk` from the deadsnakes PPA does, and the
 installer says so when it finds nothing better.
 
-The core — transcription, voice identification, name attribution, minutes —
+The core (transcription, voice identification, name attribution, minutes)
 runs identically everywhere. What differs is **system sound capture** and **the
 interface**, precisely the two places the architecture isolates behind ports.
 
 On macOS two audio devices have to be created once: `Reunion Entree`
 (aggregate: microphone + BlackHole) and `Reunion Sortie` (multi-output:
-headphones + BlackHole). On Linux and Windows there is nothing of the sort — the
+headphones + BlackHole). On Linux and Windows there is nothing of the sort: the
 system already exposes a way to re-record its own output.
 
 > A macOS aggregate device references **specific hardware**. Headphones
@@ -196,7 +196,7 @@ the **sherpa-onnx** already loaded for the voice prints, so it costs no new
 dependency and makes no network call. Both families are supported and the
 installed one is detected: **Kokoro** where its `voices.bin` is present, a
 **VITS** model otherwise. The one shipped is a French VITS at 48× real time.
-Left out, the system synthesiser takes over — it works the moment the tool is
+Left out, the system synthesiser takes over: it works the moment the tool is
 installed, and it sounds like a machine, which is why the neural one exists.
 
 On Linux and Windows, an NVIDIA card is not enough on its own: CTranslate2 and
@@ -208,12 +208,12 @@ returned:
 
 | | Processor | Card |
 |---|---|---|
-| Splitting into speaking turns | 30–39 s | **6–9 s** |
-| Voice prints | 4.7–6.2 s | **0.9–1.5 s** |
+| Splitting into speaking turns | 30-39 s | **6-9 s** |
+| Voice prints | 4.7-6.2 s | **0.9-1.5 s** |
 | The assistant saying a five-second remark | 2.43 s | **0.28 s** |
-| Whole processing | 59–63 s | **32–34 s** |
+| Whole processing | 59-63 s | **32-34 s** |
 
-macOS has no NVIDIA card to find — Apple stopped carrying them with Mojave — and
+macOS has no NVIDIA card to find (Apple stopped carrying them with Mojave) and
 nothing is looked for there: whisper.cpp runs on Metal instead. The numbers, the
 two things that turned out **not** to help, and the trap of running two ONNX
 Runtimes in one process are in [`docs/carte-graphique.md`](docs/carte-graphique.md).
@@ -230,8 +230,8 @@ peripherique = "auto"   # auto | cuda | cpu
 **A command-line assistant by default.** Telling a decision from a hypothesis,
 attaching a position to a person, flagging what the transcription lost rather
 than filling it in: that is out of reach of models that run on a laptop. It is
-the **only link in the chain that leaves the machine** — the transcription goes
-to a remote API — and it is a deliberate choice.
+the **only link in the chain that leaves the machine** (the transcription goes
+to a remote API) and it is a deliberate choice.
 
 To let nothing out at all, **Ollama** replaces it without changing anything
 else, at the price of a coarser summary:
@@ -243,7 +243,7 @@ GREFFIER_MINUTES__ENGINE=ollama greffier traiter reunion.wav
 The assistant writes with the **second model in the range**, not the first. That
 is a choice, not a limitation put up with: writing from a transcription that is
 already split and attributed is summarising work, not long reasoning. The top of
-the range produces the same document while eating through a quota far faster —
+the range produces the same document while eating through a quota far faster:
 one meeting a day is enough to feel it. The model is requested **explicitly** at
 call time, so that the minutes do not change author according to the machine's
 personal setting. It can be changed in the Settings tab, or through
@@ -264,7 +264,7 @@ cp .env.exemple .env        # at the root, or in the configuration folder
 
 | System | Configuration and data |
 |---|---|
-| macOS | `~/Library/Application Support/Greffier` — the native location, not a hidden folder: the machine's guards challenged every access to `~/.config` and `~/.local`, to the point of refusing a write in the middle of a meeting |
+| macOS | `~/Library/Application Support/Greffier`, the native location, not a hidden folder: the machine's guards challenged every access to `~/.config` and `~/.local`, to the point of refusing a write in the middle of a meeting |
 | Linux | `~/.config/greffier` and `~/.local/share/greffier` |
 | Windows | `%APPDATA%\greffier` and `%LOCALAPPDATA%\greffier` |
 
@@ -279,7 +279,7 @@ applies and is written to `config.toml` at once, the previous version staying in
 restart.
 
 One block says what writes: installed version, address and organisation of the
-connected account, plan. Three actions beside it — sign in, which opens a
+connected account, plan. Three actions beside it: sign in, which opens a
 terminal where signing in actually happens; update; refresh. Without a session
 everything works except the minutes, and the failure would only surface after
 the transcription. Domain vocabulary and the words that are never first names
@@ -288,12 +288,12 @@ stay in the file: they are lists, and a form would truncate them.
 | Variable | Role |
 |---|---|
 | `GREFFIER_MINUTES__ENGINE` | `claude`, `ollama` or `aucun` |
-| `GREFFIER_MINUTES__MODEL` | the writer's model — the second of the range by default |
+| `GREFFIER_MINUTES__MODEL` | the writer's model, the second of the range by default |
 | `GREFFIER_MINUTES__RECIPIENT` | who to send the minutes to |
 | `GREFFIER_TRANSCRIPTION__LANGUAGE` | two-letter code; **left empty, the model works it out itself** |
-| `GREFFIER_TRANSCRIPTION__VOCABULARY` | proper nouns from the context — the setting that most improves the transcription of rare terms |
+| `GREFFIER_TRANSCRIPTION__VOCABULARY` | proper nouns from the context, the setting that most improves the transcription of rare terms |
 | `GREFFIER_SPEAKERS__NOT_FIRST_NAMES` | words never to mistake for first names |
-| `GREFFIER_SPEAKERS__PEOPLE` | how many people are in the room, when you know — without it the clustering over-splits |
+| `GREFFIER_SPEAKERS__PEOPLE` | how many people are in the room, when you know; without it the clustering over-splits |
 | `GREFFIER_LIVE__ACTIVE` | `false` turns off live transcription, and its compute cost |
 | `GREFFIER_LIVE__PERIOD` | seconds between two transcribed slices (10 by default) |
 | `GREFFIER_APPEARANCE__THEME` | `systeme`, `clair` or `sombre` |
@@ -307,8 +307,8 @@ each person.
 Asked **once**, on first use, as for any application. The package signature
 being stable, neither an update nor a reinstallation asks again.
 
-- **Microphone** — without it, the recording is silent.
-- **Automation ▸ Microsoft Outlook** — only for sending mail. The system dialog
+- **Microphone**: without it, the recording is silent.
+- **Automation ▸ Microsoft Outlook**: only for sending mail. The system dialog
   does not always appear, the processing running detached:
   `System Settings ▸ Privacy & Security ▸ Automation`.
 
@@ -316,7 +316,7 @@ being stable, neither an update nor a reinstallation asks again.
 
 Off by default: a voice coming out of the speakers in the middle of a meeting is
 something you ask for, not something you are given. The button is in the **En
-direct** tab, and it can be pressed as often as you like — the process listening
+direct** tab, and it can be pressed as often as you like: the process listening
 to the meeting rereads the setting every slice, so it takes effect within
 seconds without restarting anything.
 
@@ -345,11 +345,11 @@ machine ships and which everyone can hear is a machine.
 
 These are not claims: every line below has been run.
 
-**Clean-room installation, macOS** — fresh clone, no model present, resumption
+**Clean-room installation, macOS**: fresh clone, no model present, resumption
 disabled. The 1.5 GB were really downloaded (no symbolic link in the model
 folder), the tests passed, voice print model loaded.
 
-**Installation on Linux, bare image** — reproducible by you:
+**Installation on Linux, bare image**, reproducible by you:
 
 ```sh
 docker build -f tools/install-proof-linux.Dockerfile -t greffier-preuve .
@@ -358,7 +358,7 @@ docker build -f tools/install-proof-linux.Dockerfile -t greffier-preuve .
 From a `python:3.13-slim` with nothing but git, the installer puts ffmpeg in
 place through apt, falls back to faster-whisper for want of whisper.cpp,
 downloads the models and the assistant's voice, falls back to `venv + pip` for
-want of `uv`, prepares the transcription model, writes the configuration — then
+want of `uv`, prepares the transcription model, writes the configuration, then
 1351 tests pass and a 192-dimension voice print is really extracted under Linux.
 
 That fallback was dead until 2026-09-10: the installer announced it, skipped
@@ -370,7 +370,7 @@ installer goes all the way through, the window opens, and the chain runs on real
 recordings. Four defects came out of it, all fixed, and they are written up in
 [`docs/reste-a-faire.md`](docs/reste-a-faire.md).
 
-**The live thread, replayed in real time** — a synthetic three-channel video
+**The live thread, replayed in real time**: a synthetic three-channel video
 call is rewritten by ffmpeg at the speed of sound, which reproduces capture
 exactly, indeterminate-size header included. The real command runs on it.
 Result: the person at the microphone shown as "Toi" by the channel, the three
@@ -379,15 +379,15 @@ meeting propagated to the following sentences **and paid into the voice bank**,
 from which the final minutes pick it up.
 
 Measured cost of a ten-second slice, end to end, on an Apple Silicon Mac:
-**1.50 s** — splitting 0.04, channel levelling 0.53, transcription 0.89, voice
+**1.50 s**: splitting 0.04, channel levelling 0.53, transcription 0.89, voice
 print 0.04. With the *large* model, for want of the small one: the ten-second
 period holds with six times the margin needed.
 
-**Real chain, end to end** — an integration test **synthesises a fake
+**Real chain, end to end**: an integration test **synthesises a fake
 two-voice meeting** (a real meeting contains working exchanges and identifiable
 voices, so it cannot serve as a test fixture), runs it through whisper and
-diarisation, and checks that both first names — spoken as self-introduction, as
-address and as thanks — are found:
+diarisation, and checks that both first names (spoken as self-introduction, as
+address and as thanks) are found:
 
 ```sh
 pytest -m integration
@@ -399,20 +399,20 @@ a self-introduction fell between two speaking turns and designated nobody.
 
 The fixture is spoken by whichever synthesiser the machine carries: `say` on
 macOS, and elsewhere **the assistant's own voice**, the French VITS the
-installer already lays down — no new dependency, no network call. The proof
+installer already lays down: no new dependency, no network call. The proof
 therefore runs where the tool runs, rather than only on the machine it was
 written on. The round table is the exception: three people need three timbres,
 and the French network carries two, so that one still asks for `say`.
 
-**On real voices** — two public French interviews and a real four-person
+**On real voices**: two public French interviews and a real four-person
 meeting, since synthetic voices never talk over each other and never move away
 from the microphone. Both interviews come out with the right two voices. On
-[ES2002a of the AMI corpus](https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/) —
-four people, one mixed channel, four headset tracks as an unarguable reference —
-four people come out as six. The transcription holds; the clustering
+[ES2002a of the AMI corpus](https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/):
+four people, one mixed channel, four headset tracks as an unarguable reference,
+and four people come out as six. The transcription holds; the clustering
 over-splits. Numbers in [`docs/reste-a-faire.md`](docs/reste-a-faire.md).
 
-**Quality gate** — `ruff`, `mypy` and the tests, all three blocking, replayed by
+**Quality gate**: `ruff`, `mypy` and the tests, all three blocking, replayed by
 `.github/workflows/ci.yml` on every push and every pull request. The full Linux
 installation proof downloads the models, so it stays on manual dispatch.
 
@@ -465,7 +465,7 @@ systems**: Tkinter comes with Python, there is nothing to install.
   - A name followed by a **`?`** comes from the voice print: it is a proposal,
     not an assertion.
   - **Clicking the name corrects it.** By default the correction covers the
-    whole voice — when the tool gets the person wrong, it gets them wrong for
+    whole voice: when the tool gets the person wrong, it gets them wrong for
     every passage; "only this sentence" is there for overlaps. The correction
     shows at once, applies to the following sentences, goes into the voice bank,
     and that is how the final minutes find the person on their own.
@@ -487,7 +487,7 @@ meeting is going to be about.
 the assistant answering when called, and the only step that may leave the
 machine](assets/how-it-works.svg)
 
-Hexagonal — the domain at the centre, the techniques around it.
+Hexagonal: the domain at the centre, the techniques around it.
 
 ```
 src/greffier/
@@ -499,7 +499,7 @@ src/greffier/
 ├── adapters/      ffmpeg, whisper.cpp, sherpa-onnx, AI writer, Outlook,
 │                  CoreAudio, configuration, system diagnosis, terminal wizard
 ├── interface/     the window (Tkinter): palette, drawn shapes, screens
-├── cli.py         command-line interface (Typer) — a primary adapter
+├── cli.py         command-line interface (Typer), a primary adapter
 ├── wiring.py      the composition root: the only module that knows both the
 │                  concrete adapters and the use cases, so it sits outside the
 │                  layers rather than in one of them
@@ -516,8 +516,8 @@ possible to test the name attribution rules on hand-written sentences, in a few
 milliseconds, without a 1.6 GB model.
 
 None of that is held by good intentions. `tests/architecture/test_layers.py`
-reads the imports with `ast` — late imports written inside functions included,
-which is how they came back — and fails on a domain that touches the world, on
+reads the imports with `ast` (late imports written inside functions included,
+which is how they came back) and fails on a domain that touches the world, on
 a use case that reaches for an adapter, and on any new module settling at the
 package root. Six had settled there before it existed, and the tree above
 described one of them.
@@ -552,10 +552,10 @@ Install the git hooks once and for all:
 ```
 
 A commit that does not pass `ruff`, `mypy` and the tests is then **refused**.
-The conventions expected of a patch — atomic commits, the Angular convention,
-the layer rules, what the four kinds of test are for — are in
+The conventions expected of a patch (atomic commits, the Angular convention,
+the layer rules, what the four kinds of test are for) are in
 [`CONTRIBUTING.md`](CONTRIBUTING.md).
-Running the checks "on the side" is not enough — three quality remarks made it
+Running the checks "on the side" is not enough: three quality remarks made it
 into commits before that guard existed. `--no-verify` remains possible,
 knowingly.
 
@@ -564,8 +564,8 @@ knowingly.
 The port from the original chain of scripts (`~/reunions/`, abandoned on
 2026-08-24) is finished: the eight batches are done and the whole chain runs end
 to end, tried on real meetings, on a synthetic fixture, and on public
-recordings. What is still open — a few minor defects, and what has never met
-reality (Windows, live in-person) — is detailed in
+recordings. What is still open, a few minor defects and what has never met
+reality (Windows, live in-person), is detailed in
 [`docs/reste-a-faire.md`](docs/reste-a-faire.md).
 
 ## Driving it from a site
@@ -586,7 +586,7 @@ arrives to the same chain, and returns what comes back.
 | `GET /reunions/{id}/compte-rendu` | the minutes, as markdown |
 | `GET /reunions/{id}/transcription` | the transcript, attributed and timestamped |
 | `GET /memoire` | what earlier meetings left: decisions, open points |
-| `POST /reunions` | hands over a recording — **202** and an identifier |
+| `POST /reunions` | hands over a recording, **202** and an identifier |
 | `GET /travaux/{id}` | the phases of that processing, the ones the window paints |
 
 An hour of transcription is not a request: handing over a recording answers at
@@ -601,7 +601,7 @@ answer at all.
 biometric data within the meaning of Article 9, and a door that serves them
 turns a tool where nothing leaves the machine into one where everything can.
 Minutes, transcripts and what earlier meetings left are what a site needs; the
-voices stay here. Nor does any route send anything anywhere — a door that could
+voices stay here. Nor does any route send anything anywhere: a door that could
 mail the minutes is a door that spams.
 
 It binds the loopback unless told otherwise, and says so plainly when told
@@ -611,7 +611,7 @@ otherwise.
 
 **PolyForm Noncommercial 1.0.0** ([text](LICENCE)). The tool is written for
 universities, research laboratories, public institutions and anyone using it for
-their own account: the licence names them explicitly — charitable organisations,
+their own account: the licence names them explicitly: charitable organisations,
 educational institutions, public research organisations, public safety and
 health organisations, environmental protection organisations and government
 institutions, *regardless of the source of their funding*.
@@ -620,7 +620,7 @@ Commercial use is the one thing it does not cover, and that needs a separate
 agreement. Say so and we will talk.
 
 A word on the term: a licence that restricts the field of use is **not** "open
-source" in the sense the OSI gives the phrase — the source is open, read it,
+source" in the sense the OSI gives the phrase: the source is open, read it,
 fork it, send patches, but a company may not build a business on it without
 asking. Versions published up to and including `v0.3.11` went out under the MIT
 licence, and stay under it for whoever obtained them.

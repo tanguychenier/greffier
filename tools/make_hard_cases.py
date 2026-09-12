@@ -120,7 +120,7 @@ CAS: dict[str, tuple[dict, list[tuple[str, str]]]] = {
         ],
     ),
     # Le prénom de C n'est jamais prononcé par C : seul un renvoi bref, juste
-    # après son unique tour, le lui attribue — un seul indice, trop peu pour
+    # après son unique tour, le lui attribue, un seul indice, trop peu pour
     # être affirmé, donc une proposition. `voix_a_nommer` écartait jusqu'ici
     # toute voix de moins de dix secondes, proposition comprise : la voix de C
     # ne dépasse jamais ce seuil sur toute la réunion.

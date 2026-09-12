@@ -3,7 +3,7 @@
 
 Le choix d'un modèle d'empreintes décide de tout ce qui suit : le seuil de
 rattachement, le nombre de voix affichées, la justesse des attributions. Il a
-été fait une fois, au début du projet, et jamais remesuré — alors que le
+été fait une fois, au début du projet, et jamais remesuré, alors que le
 catalogue du moteur en propose vingt et un.
 
 Ce que cet outil mesure n'est pas la précision sur un jeu de reconnaissance de
@@ -46,7 +46,7 @@ CATALOGUE = ("https://github.com/k2-fsa/sherpa-onnx/releases/download/"
 #:
 #: TitaNet est celui en place. Les autres sont réputés meilleurs sur les
 #: classements de vérification du locuteur, mais ces classements portent sur des
-#: extraits de plusieurs secondes, prononcés seul devant un micro — ce qui n'est
+#: extraits de plusieurs secondes, prononcés seul devant un micro, ce qui n'est
 #: pas notre cas. D'où la mesure.
 CANDIDATS = {
     "titanet_large": "nemo_en_titanet_large.onnx",

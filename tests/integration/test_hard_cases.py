@@ -2,7 +2,7 @@
 
 `tools/make_hard_cases.py` builds one recording per defect seen in a real
 meeting or made possible by the design. This file puts them through the real
-chain — segmentation, recognition, name attribution — rather than through
+chain (segmentation, recognition, name attribution) rather than through
 doubles, to prove the defect stays fixed.
 
 Slow, transcription included, and dependent on the models: marked

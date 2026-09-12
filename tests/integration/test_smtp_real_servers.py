@@ -2,8 +2,8 @@
 
 The code said it had "not yet met a real server". A test server started inside
 the process would change nothing: it would answer what it was taught to answer.
-This test **connects** — Gmail and Office 365, the two providers the comment
-named — and checks that the convention chosen from the port is the one the
+This test **connects**: Gmail and Office 365, the two providers the comment
+named, and checks that the convention chosen from the port is the one the
 server expects.
 
 What is covered: the connection succeeds, the encryption is in place, and the

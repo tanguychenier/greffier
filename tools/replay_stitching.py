@@ -5,7 +5,7 @@ Le recollage décide combien de personnes le compte rendu annonce. Le régler au
 jugé se paie cher : une réunion réelle de 92 minutes a rendu **298 voix pour
 trois personnes autour d'une table**. Cet outil rejoue la décision sur cette
 réunion-là, avec ses vraies empreintes, et la note contre les noms que
-l'utilisateur a posés à la main — la seule vérité terrain dont on dispose.
+l'utilisateur a posés à la main, la seule vérité terrain dont on dispose.
 
     python3 tools/replay_stitching.py 2026-09-09_16h36_reunion
 

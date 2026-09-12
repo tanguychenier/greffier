@@ -44,7 +44,7 @@ def guidance(language: str = "") -> str:
     header = (
         f"Rédige entièrement en {name}. Tout le document : le titre, les intitulés\n"
         f"de section, les phrases. La transcription qui suit peut être dans une\n"
-        f"autre langue — cela ne change rien à la langue du compte rendu.\n\n"
+        f"autre langue : cela ne change rien à la langue du compte rendu.\n\n"
     )
     return header + GUIDANCE.replace(_MENTION_DE_LANGUE, f"{_MENTION_NUE} {name}") + (
         f"\n\nRappel : le compte rendu s'écrit en {name}.\n"

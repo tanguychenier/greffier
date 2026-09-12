@@ -196,7 +196,7 @@ class TestTheLinksBetweenNodes:
 
 class TestLaRacine:
     def test_the_subject_carries_no_standing(self):
-        """"Oasis — en discussion" would say the subject itself is under debate."""
+        """"Oasis : en discussion" would say the subject itself is under debate."""
         from greffier.domain.board import Board
 
         board = Board("Oasis")

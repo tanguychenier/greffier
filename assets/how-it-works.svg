@@ -122,7 +122,7 @@
     <rect class="card voice" width="304" height="72" rx="8" fill="#151a1f"/>
     <text class="step" x="14" y="20" style="fill:#a8813f">CALLED BY NAME</text>
     <text class="title" x="14" y="40">The assistant answers out loud</text>
-    <text class="sub" x="14" y="56">Kokoro or VITS, local, ~4 s — silent otherwise</text>
+    <text class="sub" x="14" y="56">Kokoro or VITS, local, ~4 s, silent otherwise</text>
   </g>
   <path class="voice dash s5" d="M262 172 V220"/>
   <path class="voice dash s5" d="M434 172 V220"/>

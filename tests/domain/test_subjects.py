@@ -1,4 +1,4 @@
-"""Reconnaître de quel sujet on parle — la difficulté réelle."""
+"""Reconnaître de quel sujet on parle, la difficulté réelle."""
 
 import pytest
 

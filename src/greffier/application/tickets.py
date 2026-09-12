@@ -62,7 +62,7 @@ class Suggestion:
 
     def as_markdown(self, meeting: str) -> str:
         header = [
-            f"# Tickets proposés — {meeting}",
+            f"# Tickets proposés : {meeting}",
             "",
             "Proposés, **pas créés** : relis-les avant de les ouvrir. Un ticket "
             "ouvert à tort dans un outil partagé coûte plus cher à retirer qu'à "

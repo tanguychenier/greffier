@@ -9,7 +9,7 @@ l'interpréteur, joue le rôle que jouait le script shell qui appelait
 
 Généré par `construire.sh` à partir de ce fichier : l'espace réservé qui
 suit cette docstring est remplacé par le PATH mesuré sur la machine qui
-construit le paquet. Le fichier du dépôt n'est donc pas exécutable tel quel —
+construit le paquet. Le fichier du dépôt n'est donc pas exécutable tel quel,
 seule la copie dans le paquet l'est, jamais la ligne de commande.
 """
 
@@ -20,17 +20,17 @@ import os
 import sys
 from pathlib import Path
 
-# `LSEnvironment` (Info.plist) pose PYTHONPATH de façon fiable, mesuré — mais
+# `LSEnvironment` (Info.plist) pose PYTHONPATH de façon fiable, mesuré, mais
 # pas PATH : macOS semble imposer le sien (`/usr/bin:/bin:/usr/sbin:/sbin`)
 # par-dessus, quel que soit ce que dit le paquet. ffmpeg (Homebrew) et claude
 # (`~/.local/bin` ou équivalent) en dépendent, et échouaient donc en silence
-# jusqu'au clic qui en avait besoin — constaté deux fois avant que la vraie
+# jusqu'au clic qui en avait besoin, constaté deux fois avant que la vraie
 # cause n'apparaisse. Le fixer ici, en Python, où rien d'autre ne peut plus
 # l'écraser.
 os.environ["PATH"] = __CHEMIN__ + os.pathsep + os.environ.get("PATH", "")  # noqa: F821
 
 # Le dépôt d'où ce paquet a été fabriqué. L'application n'en dépend pas pour
-# fonctionner — elle embarque tout — mais le bouton de mise à jour a besoin de
+# fonctionner, elle embarque tout, mais le bouton de mise à jour a besoin de
 # savoir où lancer « git pull » et la reconstruction. Absent, la mise à jour se
 # contente de signaler qu'une version existe.
 os.environ.setdefault("GREFFIER_DEPOT_SOURCE", __DEPOT__)  # noqa: F821
@@ -45,7 +45,7 @@ sys.dont_write_bytecode = True
 # par LaunchServices. La fenêtre lance elle-même des processus auxiliaires
 # avec ce même interpréteur (« -m greffier veiller », « -m greffier
 # assister ») : les détourner aussi ouvrait une fenêtre de plus par processus
-# — trois « Greffier » à l'écran au démarrage d'une réunion — pendant que la
+# trois « Greffier » à l'écran au démarrage d'une réunion, pendant que la
 # vraie veille et le vrai direct ne tournaient jamais, laissant l'onglet
 # En direct vide. Constaté en réunion réelle. `sys.orig_argv` porte la ligne
 # de commande du processus telle quelle, avant que « -m » ne réécrive
@@ -81,7 +81,7 @@ if len(sys.orig_argv) == 1:
     except SystemExit:
         # Normal : Typer en lève un à la fin. Mais un SystemExit qui s'échappe
         # de sitecustomize (module chargé par `site`, pas un script) n'est pas
-        # traité comme une sortie propre — mesuré : l'interpréteur l'annonce
+        # traité comme une sortie propre, mesuré : l'interpréteur l'annonce
         # comme une « Fatal Python error » et quitte en erreur. L'avaler ici.
         pass
     except Exception:
@@ -92,7 +92,7 @@ if len(sys.orig_argv) == 1:
         # Vidé explicitement : `os._exit` ne le fait pas, et une trace écrite
         # juste avant la sortie est justement celle qu'on vient chercher.
         # La borne de fin n'arrive que si le processus se termine de lui-même.
-        # Mesuré : quitter l'application depuis le système ne l'écrit pas — macOS
+        # Mesuré : quitter l'application depuis le système ne l'écrit pas, macOS
         # ne laisse pas toujours le processus finir. C'est la borne de **début**
         # qui porte la valeur : elle répond à « l'application tournait-elle à
         # 11 h 05 ? », première question quand une réunion n'a rien enregistré.

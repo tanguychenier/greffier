@@ -95,4 +95,4 @@ def summarise(propositions: list[Suggestion]) -> str:
     ]
     blocked = sum(1 for p in propositions if p.blocked_by)
     sentence = ", ".join(chunks)
-    return sentence + (f" — dont {blocked} en attente d'un outil" if blocked else "")
+    return sentence + (f", dont {blocked} en attente d'un outil" if blocked else "")

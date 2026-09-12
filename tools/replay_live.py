@@ -4,7 +4,7 @@
 Les empreintes sont déjà calculées ; ce qu'on rejoue, c'est la seule chose qui
 décide en séance : **l'ordre du temps**. Le direct ne connaît que le passé,
 alors que le recollage d'après réunion voit tout. Comparer les deux dit où se
-trouve la marge de progrès — et sur la réunion du 2026-09-10, la réponse a
+trouve la marge de progrès, et sur la réunion du 2026-09-10, la réponse a
 contredit l'intuition : aucun gradient de démarrage, le creux est au milieu.
 
 La chronologie vient des tours de la réunion et non de l'ordre du cache : sans

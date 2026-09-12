@@ -13,8 +13,8 @@ trapped the verdict, when a non-zero loopback was enough to conclude "video
 call".
 
 What this test does **not** measure: the quality of the transcription. The
-synthetic voices return approximate text — measured, the same line gives
-"L.S. Dominé, Depuis, I.S.W.A." from one voice to another — and a test
+synthetic voices return approximate text, measured, the same line gives
+"L.S. Dominé, Depuis, I.S.W.A." from one voice to another, and a test
 comparing them would measure `say`, not Greffier. It therefore checks what does
 not depend on the timbre: the channel verdict, the number of voices, and the
 refusal to decide.
@@ -104,7 +104,7 @@ class TestVerdictDeCanal:
 
         On a video call these passages are the one attribution that is never wrong.
         Round a table, keeping them would make every participant one and the same
-        person — measured: three speakers reduced to one "moi" label.
+        person, measured: three speakers reduced to one "moi" label.
         """
         from greffier.adapters.channels_file import FileChannelReader
 

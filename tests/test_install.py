@@ -161,7 +161,7 @@ class TestTheRepairSkill:
 
     Greffier depends on an authenticated assistant to write the minutes: it is
     what one turns to when something breaks, and without this document it misses
-    the essentials — the native locations, the stable signature, the default model
+    the essentials: the native locations, the stable signature, the default model
     chosen on purpose.
     """
 

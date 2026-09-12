@@ -2,7 +2,7 @@
 
 Protocols rather than base classes: an adapter has nothing to inherit, it only
 needs the right shape. Each port matches one thing that differs from system to
-system or from tool to tool — which is exactly the list of what has to be
+system or from tool to tool, which is exactly the list of what has to be
 rewritten for Windows, or the day the transcription model changes.
 """
 

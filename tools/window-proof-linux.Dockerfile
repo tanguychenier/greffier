@@ -14,7 +14,7 @@ FROM debian:trixie-slim
 # `python3-tk` est la seule dépendance système de l'interface, et c'est
 # exactement la ligne que le README demande d'exécuter. `xvfb` (avec `xauth`, qu'il réclame) fournit l'écran
 # que n'importe quelle machine de bureau aurait : sans lui, Tk n'a pas de
-# serveur X et refuse de s'ouvrir — ce qui prouverait seulement l'absence
+# serveur X et refuse de s'ouvrir, ce qui prouverait seulement l'absence
 # d'écran, pas un défaut du code.
 RUN apt-get update -qq \
     && apt-get install -y -qq --no-install-recommends \
@@ -34,7 +34,7 @@ ENV GREFFIER_CONFIG=/travail/config \
     GREFFIER_DONNEES=/travail/donnees \
     NO_COLOR=1
 
-# La fenêtre est réellement construite, puis chaque onglet est affiché — la
+# La fenêtre est réellement construite, puis chaque onglet est affiché, la
 # méthode déjà retenue sur macOS, qui pilote la vraie fenêtre plutôt que de
 # simuler des clics sur des coordonnées. Ce qui est prouvé : Tk s'ouvre, la
 # palette se calcule, les cinq onglets se peignent sans exception.

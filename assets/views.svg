@@ -95,9 +95,9 @@
   <!-- 2. En direct : le fil de ce qui se dit -->
   <g class="view v2">
     <text class="title" x="48" y="176">What is being said, while it is being said</text>
-    <text class="note" x="48" y="200">Toi — « On garde la signature par cachet serveur ? »</text>
-    <text class="note" x="48" y="222">Voix 2 — « Oui, mais il faut tracer l'étape visa. »</text>
-    <text class="note" x="48" y="244">Toi — « Sandy, tu peux ouvrir le ticket ? »</text>
+    <text class="note" x="48" y="200">Toi : « On garde la signature par cachet serveur ? »</text>
+    <text class="note" x="48" y="222">Voix 2 : « Oui, mais il faut tracer l'étape visa. »</text>
+    <text class="note" x="48" y="244">Toi : « Sandy, tu peux ouvrir le ticket ? »</text>
     <text class="note" x="48" y="276">Clicking a name corrects the attribution, and the correction serves at once.</text>
   </g>
 
@@ -105,9 +105,9 @@
   <g class="view v3">
     <text class="title" x="48" y="176">The voices, named just once</text>
     <circle cx="60" cy="200" r="9" fill="var(--vert)" opacity="0.9"/>
-    <text class="note" x="80" y="204">Sophie — reconnue, 12 min de parole</text>
+    <text class="note" x="80" y="204">Sophie : reconnue, 12 min de parole</text>
     <circle cx="60" cy="228" r="9" fill="var(--accent)" opacity="0.9"/>
-    <text class="note" x="80" y="232">Voix 2 — écouter 10 s, taper un prénom</text>
+    <text class="note" x="80" y="232">Voix 2 : écouter 10 s, taper un prénom</text>
     <text class="note" x="48" y="272">The bank then recognises them on its own, from one meeting to the next.</text>
   </g>
 
@@ -124,13 +124,13 @@
   <g class="view v5">
     <text class="title" x="48" y="176">What is set without opening a file</text>
     <rect class="carte" x="48" y="192" width="240" height="26" rx="7"/>
-    <text class="note" x="60" y="209">Micro — automatique</text>
+    <text class="note" x="60" y="209">Micro : automatique</text>
     <rect class="carte" x="304" y="192" width="240" height="26" rx="7"/>
-    <text class="note" x="316" y="209">Modèle — large-v3-turbo</text>
+    <text class="note" x="316" y="209">Modèle : large-v3-turbo</text>
     <rect class="carte" x="48" y="228" width="240" height="26" rx="7"/>
-    <text class="note" x="60" y="245">Thème — selon le système</text>
+    <text class="note" x="60" y="245">Thème : selon le système</text>
     <rect class="carte" x="304" y="228" width="240" height="26" rx="7"/>
-    <text class="note" x="316" y="245">Rédacteur — second de la gamme</text>
+    <text class="note" x="316" y="245">Rédacteur : second de la gamme</text>
     <text class="note" x="48" y="282">No button to confirm: every change applies and is saved.</text>
   </g>
 </svg>

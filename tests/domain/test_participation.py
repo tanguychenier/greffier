@@ -181,7 +181,7 @@ class TestWhatTheSettingGuarantees:
         appel = Opening(because=Because.APPELE, remark="oui ?", born_at=100.0)
         # L'apport n'est même pas cherché quand l'initiative est éteinte : c'est
         # la veille qui s'en charge. Ici on vérifie que l'appel, lui, passe
-        # toujours — quelles que soient les conditions.
+        # toujours, quelles que soient les conditions.
         assert manners.refusal(appel, now=100.0, lull=0.0, density=1.0) is None
         assert manners.refusal(idee, now=100.0, lull=0.0, density=1.0)
 

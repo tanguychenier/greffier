@@ -3,8 +3,8 @@
 // Seul macOS en a besoin : Linux et Windows exposent déjà de quoi réenregistrer
 // leur propre sortie. C'est le point où les trois systèmes divergent le plus.
 //
-//   Reunion Entree  — périphérique agrégé   : micro + BlackHole  → ce qu'on enregistre
-//   Reunion Sortie  — périphérique empilé    : casque + BlackHole → ce qu'on entend
+//   Reunion Entree , périphérique agrégé   : micro + BlackHole  → ce qu'on enregistre
+//   Reunion Sortie , périphérique empilé    : casque + BlackHole → ce qu'on entend
 //
 // Usage : swift creer-peripheriques.swift [--list] [--mic "<nom>"] [--casque "<nom>"]
 //
@@ -102,7 +102,7 @@ func createAggregate(name: String, uid: String, master: Device, extra: Device, s
         [kAudioSubDeviceUIDKey: master.uid,
          kAudioSubDeviceDriftCompensationKey: 0],
         // Correction de dérive sur BlackHole : son horloge est logicielle et
-        // dérive de celle du périphérique physique — sans ça, l'audio se désynchronise.
+        // dérive de celle du périphérique physique, sans ça, l'audio se désynchronise.
         [kAudioSubDeviceUIDKey: extra.uid,
          kAudioSubDeviceDriftCompensationKey: 1],
     ]
@@ -122,7 +122,7 @@ func createAggregate(name: String, uid: String, master: Device, extra: Device, s
         FileHandle.standardError.write("❌ Échec création « \(name) » (OSStatus \(status))\n".data(using: .utf8)!)
         return false
     }
-    print("✅ « \(name) » créé — \(master.name) + \(extra.name)")
+    print("✅ « \(name) » créé : \(master.name) + \(extra.name)")
     return true
 }
 
@@ -256,8 +256,8 @@ if let i = args.firstIndex(of: "--set-gain"), i + 2 < args.count {
     exit(setInputGain(device.id, valeur) ? 0 : 1)
 }
 
-// Aucun matériel par défaut. Il y en avait un — le casque de la machine où ce
-// script a été écrit — et sur tout autre Mac la commande cherchait alors un
+// Aucun matériel par défaut. Il y en avait un, le casque de la machine où ce
+// script a été écrit, et sur tout autre Mac la commande cherchait alors un
 // périphérique que personne n'a, pour annoncer qu'il est introuvable.
 let micName = option("--mic", "")
 let casqueName = option("--casque", micName)

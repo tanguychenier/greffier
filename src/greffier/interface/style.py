@@ -13,7 +13,7 @@ class Palette:
 
     Every value is measured by the tests, contrasts included. Two figures matter
     more than taste: text must clear 4.5:1 on its ground, and the rule must stay
-    visible — measured at 1.28:1 it did not, and an interface whose borders are
+    visible, measured at 1.28:1 it did not, and an interface whose borders are
     invisible looks flat whatever else is done.
     """
 

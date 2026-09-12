@@ -162,7 +162,7 @@ def replay(lines: list[dict[str, Any]], thread: LiveThread | None = None) -> Liv
     """Rebuilds the thread from the log, to display it.
 
     The window then works on the same objects as the listening process, so under
-    the same correction rules — without ever loading a model.
+    the same correction rules, without ever loading a model.
     """
     thread = thread if thread is not None else LiveThread()
     for line in lines:

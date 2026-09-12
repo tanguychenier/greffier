@@ -14,8 +14,8 @@ import re
 REPEATS_ALLOWED = 2
 """How many times in a row a clause may be said before it is a loop.
 
-Two, not one: people do repeat themselves for emphasis — *c'est vrai, c'est
-vrai* — and cutting that would rewrite what was said. Measured, the loops run
+Two, not one: people do repeat themselves for emphasis, *c'est vrai, c'est
+vrai*, and cutting that would rewrite what was said. Measured, the loops run
 from four times up, so nothing real is touched.
 """
 

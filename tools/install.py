@@ -34,7 +34,7 @@ SYSTEM = platform.system()  # Darwin | Linux | Windows
 
 # La console Windows par défaut est en cp1252 : elle ne sait écrire ni « ✓ » ni
 # « é ». Sans ce basculement, l'installeur meurt sur un UnicodeEncodeError à sa
-# toute première ligne — avant même d'avoir dit à quoi il sert.
+# toute première ligne, avant même d'avoir dit à quoi il sert.
 for _flux in (sys.stdout, sys.stderr):
     if hasattr(_flux, "reconfigure"):
         with contextlib.suppress(OSError, ValueError):
@@ -134,13 +134,13 @@ class Context:
             return True
         if not sys.stdin.isatty():
             # Sans terminal (CI, script), ne rien installer en douce.
-            alerte(f"{question} — passé (pas de terminal ; utilise --oui)")
+            alerte(f"{question} : passé (pas de terminal ; utilise --oui)")
             return False
         return input(f"    {question} [o/N] ").strip().lower() in {"o", "oui", "y", "yes"}
 
 
 # Les emplacements sont ceux de l'application, lus dans son module sans
-# dépendance — l'installeur tourne avant que le paquet ne soit installé, d'où le
+# dépendance, l'installeur tourne avant que le paquet ne soit installé, d'où le
 # chargement par chemin. Une seule définition : l'installeur et Greffier ne
 # peuvent pas se contredire sur l'endroit où sont les modèles.
 def _charger_emplacements():
@@ -267,7 +267,7 @@ def sound_server_present():
 
     « pactl » n'enregistre rien : il interroge le serveur, là où ffmpeg s'y
     branche directement par sa prise. Juger la capture sur cet outil déclarait
-    donc perdue une machine parfaitement capable d'enregistrer — PipeWire en
+    donc perdue une machine parfaitement capable d'enregistrer, PipeWire en
     marche, mais « pulseaudio-utils » jamais installé.
     """
     if os.environ.get("PULSE_SERVER"):
@@ -421,7 +421,7 @@ def system_tools_step(ctx):
     ):
         ok("whisper.cpp")
         return "whisper.cpp"
-    alerte("whisper.cpp absent — la transcription passera par faster-whisper (Python)")
+    alerte("whisper.cpp absent, la transcription passera par faster-whisper (Python)")
     return "faster-whisper"
 
 
@@ -456,7 +456,7 @@ def etape_audio(ctx):
         # PipeWire et PulseAudio exposent déjà un « monitor » de la sortie :
         # rien à installer, contrairement à macOS.
         if sound_server_present():
-            ok("PulseAudio/PipeWire — le moniteur de sortie sert de capture")
+            ok("PulseAudio/PipeWire : le moniteur de sortie sert de capture")
             info("Aucun pilote supplémentaire n'est nécessaire sur Linux.")
         else:
             alerte("aucun serveur de son : le son des autres participants ne pourra pas"
@@ -492,7 +492,7 @@ MODELS = [
         # fraction de seconde là où le grand en prend plusieurs : pendant la
         # réunion, il faut rendre une tranche avant que la suivante soit
         # enregistrée, sinon l'affichage prend un retard qu'il ne rattrape plus.
-        # Facultatif — sans lui, le direct se replie sur le grand modèle.
+        # Facultatif, sans lui, le direct se replie sur le grand modèle.
         "nom": "ggml-small.bin",
         "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin",
         "taille_min": 400_000_000,
@@ -519,7 +519,7 @@ SEGMENTATION = (
 #
 # Retenu à l'écoute contre trois autres, dont Kokoro multilingue qui servait
 # jusqu'ici. Il gagne sur les deux tableaux : plus naturel, et **quarante-huit
-# fois le temps réel** contre cinq — quatre secondes de parole calculées en
+# fois le temps réel** contre cinq, quatre secondes de parole calculées en
 # huit centièmes, là où l'autre en prenait presque une seconde. Quatre-vingts
 # mégaoctets contre trois cent vingt-cinq.
 #
@@ -765,13 +765,13 @@ def etape_redaction(ctx):
     tournent sur un portable. C'est le seul maillon de la chaîne qui sort du
     poste, et c'est un choix assumé.
 
-    Ollama reste branchable pour qui veut du 100 % local — l'architecture le
-    permet sans rien changer d'autre — au prix d'une synthèse plus grossière.
+    Ollama reste branchable pour qui veut du 100 % local, l'architecture le
+    permet sans rien changer d'autre, au prix d'une synthèse plus grossière.
     """
     title("4. Rédaction du compte rendu")
 
     if shutil.which("claude"):
-        ok("Claude Code — rédacteur par défaut")
+        ok("Claude Code : rédacteur par défaut")
         info("La transcription sort du poste vers l'API Anthropic ; le reste de la")
         info("chaîne demeure local. Pour ne rien laisser sortir : moteur « ollama ».")
         return {"moteur": "claude", "modele": ""}
@@ -806,7 +806,7 @@ def etape_modele_whisper(ctx, engine, python):
     """Récupère le modèle de faster-whisper, là où whisper.cpp n'existe pas.
 
     Sans cette étape, tout paraît installé et le téléchargement de 1,5 Go se
-    déclenche au lancement de la première réunion — c'est-à-dire au pire moment.
+    déclenche au lancement de la première réunion, c'est-à-dire au pire moment.
     """
     if engine != "faster-whisper" or ctx.check_only or not python.exists():
         return
@@ -898,7 +898,7 @@ def etape_environnement(ctx, engine):
     if engine == "faster-whisper" and carte_nvidia():
         # La carte seule ne suffit pas : CTranslate2 réclame cuBLAS et cuDNN,
         # qu'aucune distribution ne livre avec le pilote. Sans elles la
-        # transcription tombe sur le processeur, treize fois plus lent —
+        # transcription tombe sur le processeur, treize fois plus lent,
         # treize heures pour une réunion d'une heure.
         if ctx.ask("Installer l'accélération CUDA ? (2,2 Go, la transcription"
                         " passe de treize fois le temps réel à un tiers)"):
@@ -917,8 +917,8 @@ def etape_environnement(ctx, engine):
         installer_paquet(ctx, "uv", "interpréteur relogeable, embarqué dans l'application")
 
     # Le contrôle porte sur l'**interpréteur**, jamais sur le dossier. Un
-    # « .venv » venu d'une autre machine — un dossier de projet copié, une
-    # sauvegarde restaurée, une image construite depuis un dépôt de travail —
+    # « .venv » venu d'une autre machine, un dossier de projet copié, une
+    # sauvegarde restaurée, une image construite depuis un dépôt de travail,
     # existe sans que son interpréteur existe : les liens qu'il contient
     # pointent vers un chemin d'ailleurs. L'installation annonçait alors
     # « repli sur venv + pip », sautait la création, et tombait sur
@@ -944,7 +944,7 @@ def etape_environnement(ctx, engine):
                 run_job(["uv", "venv", "--python", "3.13"], cwd=ROOT)
         run_job(["uv", "pip", "install", "-q", "-e", f".[{extras}]"], cwd=ROOT)
     else:
-        alerte("uv absent — repli sur venv + pip, plus lent")
+        alerte("uv absent : repli sur venv + pip, plus lent")
         if not python.exists():
             run_job([sys.executable, "-m", "venv", str(venv)])
         if not python.exists():
@@ -1232,7 +1232,7 @@ def etape_bureau(ctx, python):
     if verdict is None:
         ok("interface disponible : « greffier fenetre »")
     elif verdict:
-        ok(f"interface disponible : « greffier fenetre » — {verdict}")
+        ok(f"interface disponible : « greffier fenetre », {verdict}")
     else:
         alerte("la fenêtre ne peut pas s'ouvrir avec cet interpréteur")
     if SYSTEM == "Linux":
@@ -1249,8 +1249,8 @@ def dossier_skills():
 def etape_skill(ctx):
     """Pose le skill qui apprend à Claude Code à réparer une installation.
 
-    Greffier dépend d'une instance Claude Code authentifiée — c'est elle qui
-    rédige le compte rendu — donc c'est vers elle qu'on se tourne quand quelque
+    Greffier dépend d'une instance Claude Code authentifiée, c'est elle qui
+    rédige le compte rendu, donc c'est vers elle qu'on se tourne quand quelque
     chose casse. Sans ce document, elle tâtonne : elle ne peut pas devenir que
     les données vivent dans Application Support et non dans un dossier caché,
     que la signature du paquet doit rester stable, ni que le modèle par défaut
@@ -1351,7 +1351,7 @@ def main():
     analyseur.add_argument("--config", help="dossier de configuration")
     args = analyseur.parse_args()
 
-    print(_teinte("1;37", f"Greffier — installation sur {SYSTEM} {platform.machine()}"))
+    print(_teinte("1;37", f"Greffier : installation sur {SYSTEM} {platform.machine()}"))
     if sys.version_info < (3, 9):
         erreur(f"Python 3.9 minimum, trouvé {platform.python_version()}")
         return 1
