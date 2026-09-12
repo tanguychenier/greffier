@@ -329,3 +329,39 @@ class TestLesTroisSystemes:
         adaptateur.show_to_the_loader()
         assert {Path(d).name for d in declares} == {"bin"}
         assert len(declares) == 6, "un dossier par paquet, pas un par fichier"
+
+
+class TestLeCalculAnnonce:
+    """Ce que le diagnostic dit du calcul disponible.
+
+    « nvidia-smi est là » n'est pas « une carte répond » : un conteneur peut
+    porter l'outil sans la carte. Le pilote est la seule source sûre.
+    """
+
+    @pytest.fixture
+    def diagnostic(self, monkeypatch):
+        from greffier.adapters import system_diagnostic
+
+        adaptateur.a_card_answers.cache_clear()
+        monkeypatch.setattr(system_diagnostic, "SYSTEM", "Linux")
+        return system_diagnostic
+
+    def test_a_card_that_answers_is_announced(self, diagnostic, monkeypatch):
+        monkeypatch.setattr(adaptateur, "a_card_answers", lambda: True)
+        assert diagnostic.speedup() == "cuda"
+
+    def test_the_tool_without_the_card_is_not(self, diagnostic, monkeypatch):
+        monkeypatch.setattr(adaptateur, "a_card_answers", lambda: False)
+        assert diagnostic.speedup() == "processeur"
+
+    def test_apple_silicon_has_metal_and_never_asks(self, monkeypatch):
+        from greffier.adapters import system_diagnostic
+
+        monkeypatch.setattr(system_diagnostic, "SYSTEM", "Darwin")
+        monkeypatch.setattr(system_diagnostic.platform, "machine", lambda: "arm64")
+        monkeypatch.setattr(adaptateur, "a_card_answers", _jamais_appele)
+        assert system_diagnostic.speedup() == "metal"
+
+
+def _jamais_appele():
+    raise AssertionError("macOS n'a pas de carte NVIDIA à interroger")
