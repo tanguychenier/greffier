@@ -265,6 +265,67 @@ class TestTheRepairSkill:
         assert not (tmp_path / ".claude").exists()
 
 
+class TestAWindowThatDoesNotLookLike1989:
+    """« Les textes sont bizarres, comme pas net » -- reported on sight.
+
+    The interpreter uv installs carries its own Tk, built without Xft: measured
+    on the machine that reported it, `tk::pkgconfig get fontsystem` answers
+    `x11` and offers 48 bitmap families, where the distribution's Tk answers
+    `xft` and offers 266.
+    """
+
+    @staticmethod
+    def _answering(module, monkeypatch, answer, code=0):
+        class Lu:
+            returncode = code
+            stdout = answer
+            stderr = ""
+
+        monkeypatch.setattr(module.subprocess, "run", lambda *a, **k: Lu())
+
+    def test_xft_is_smoothing(self, under, monkeypatch):
+        module = under("Linux", DISPLAY=":0")
+        self._answering(module, monkeypatch, "xft\n")
+        assert module.antialiases("/usr/bin/python3.13") is True
+
+    def test_x11_is_not(self, under, monkeypatch):
+        module = under("Linux", DISPLAY=":0")
+        self._answering(module, monkeypatch, "x11\n")
+        assert module.antialiases("/usr/bin/python3.13") is False
+
+    def test_an_interpreter_that_refuses_answers_nothing(self, under, monkeypatch):
+        module = under("Linux", DISPLAY=":0")
+        self._answering(module, monkeypatch, "", code=1)
+        assert module.antialiases("/usr/bin/python3.13") is None
+
+    def test_over_ssh_the_question_cannot_be_asked(self, under, monkeypatch):
+        """No display, no Tk, and no reason to fail the installation for it."""
+        module = under("Linux")
+        monkeypatch.delenv("DISPLAY", raising=False)
+        assert module.antialiases("/usr/bin/python3.13") is None
+
+    def test_the_system_interpreter_is_preferred_when_it_smooths(
+            self, under, monkeypatch):
+        module = under("Linux", DISPLAY=":0")
+        monkeypatch.setattr(module.shutil, "which",
+                            lambda nom: "/usr/bin/python3.13" if nom == "python3.13" else None)
+        monkeypatch.setattr(module, "antialiases", lambda _: True)
+        assert module.a_smoothing_interpreter() == "/usr/bin/python3.13"
+
+    def test_one_that_does_not_smooth_is_passed_over(self, under, monkeypatch):
+        module = under("Linux", DISPLAY=":0")
+        monkeypatch.setattr(module.shutil, "which",
+                            lambda nom: f"/usr/bin/{nom}" if nom == "python3.13" else None)
+        monkeypatch.setattr(module, "antialiases", lambda _: False)
+        assert module.a_smoothing_interpreter() is None
+
+    def test_elsewhere_the_shipped_tk_already_smooths(self, under, monkeypatch):
+        """macOS and Windows: nothing to look for, and nothing to warn about."""
+        for system in ("Darwin", "Windows"):
+            module = under(system, DISPLAY=":0")
+            assert module.a_smoothing_interpreter() is None
+
+
 class TestTheCommandInThePath:
     """`greffier` lives in the repository's .venv, which no shell knows about.
 

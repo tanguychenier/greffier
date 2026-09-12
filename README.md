@@ -123,11 +123,13 @@ start it.
 | Sending the minutes | Outlook already authenticated, otherwise SMTP | SMTP | SMTP |
 | Interface | **the same window** (Tkinter) | same, but without font antialiasing | same |
 
-On Linux the window renders without font antialiasing: the Tk carried by the
-interpreter `uv` installs is built without Xft (`tk::pkgconfig get fontsystem`
-returns `x11`), so it only exposes the historical X11 families. Apt's has one
-(`xft`), but Greffier requires Python 3.13, which Ubuntu 24.04 does not ship.
-The text is legible and in the right place; it is not crisp.
+On Linux the installer now looks for an interpreter whose Tk was built with
+Xft, and builds the environment on that one. The Tk carried by the interpreter
+`uv` installs is not: `tk::pkgconfig get fontsystem` answers `x11` and offers 48
+bitmap families, against `xft` and 266 for a distribution's own — the difference
+between text that is legible and text that is crisp. Ubuntu 24.04 does not ship
+Python 3.13; `apt install python3.13-tk` from the deadsnakes PPA does, and the
+installer says so when it finds nothing better.
 
 The core — transcription, voice identification, name attribution, minutes —
 runs identically everywhere. What differs is **system sound capture** and **the
