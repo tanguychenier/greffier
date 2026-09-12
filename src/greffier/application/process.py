@@ -167,6 +167,17 @@ class Chain:
     #: The documents handed over for this meeting, by name. What was read
     #: matters to the next meeting as much as what was decided.
     documents_supplied: list[str] = field(default_factory=list)
+    #: Who is expected in the room, from the preparation of this meeting. The
+    #: bank then proposes nobody else. Reported in use: « ça me disait que Sophie
+    #: était en réunion alors que non, elle était sur une autre réunion », and
+    #: the minutes carried her name. A bank grows across meetings and offers
+    #: everyone it has ever heard; said in advance, who is expected turns a
+    #: resemblance to somebody absent back into what it is.
+    expected_people: tuple[str, ...] = field(default=())
+    #: Called with this meeting's name once it is on disk, so that the
+    #: preparation it opened on is not offered to the next one.
+    preparation_taken: Callable[[str], None] | None = None
+    _preparation_prise: bool = field(default=False, repr=False)
 
     def _phase(self, phase: Phase, message: str = "") -> None:
         if self.log:
@@ -280,6 +291,9 @@ class Chain:
         if self.extractor is None or self.bank is None:
             return {}
         known = self.bank.people()
+        if self.expected_people:
+            attendus = {name.casefold() for name in self.expected_people}
+            known = [person for person in known if person.name.casefold() in attendus]
         if not known:
             return {}
         found: dict[str, str] = {}
@@ -552,6 +566,13 @@ class Chain:
             minutes.write_text(outcome.minutes, encoding="utf-8")
             outcome.compte_rendu_ecrit = minutes
         self._leave_a_trace(audio, outcome)
+        if self.preparation_taken is not None and not self._preparation_prise:
+            # Once, and after the meeting is on disk. `_keep` runs twice -- once
+            # before the minutes are written and once after -- and a processing
+            # that fails halfway must burn no preparation at all.
+            self._preparation_prise = True
+            with contextlib.suppress(Exception):
+                self.preparation_taken(audio.stem)
 
     @staticmethod
     def _the_day(outcome: Outcome, audio: Path) -> str:
