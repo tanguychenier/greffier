@@ -29,7 +29,7 @@ class TitaNetExtractor:
     def __init__(self, model: Path, device: str = AUTO) -> None:
         if not model.exists():
             raise FileNotFoundError(f"modèle d'empreintes introuvable : {model}")
-        where = chosen_device(device, cuda.a_card_answers())
+        where = chosen_device(device, cuda.a_card_is_usable())
         if where == CARD:
             cuda.show_to_the_loader()
         self.device = where

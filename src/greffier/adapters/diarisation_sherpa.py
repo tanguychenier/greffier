@@ -42,7 +42,7 @@ class SherpaDiariser:
         model runs on every excerpt, and it is a large one -- so the card is
         worth far more here than on the transcription.
         """
-        device = chosen_device(self.device, cuda.a_card_answers())
+        device = chosen_device(self.device, cuda.a_card_is_usable())
         if device == CARD:
             cuda.show_to_the_loader()
         return device
