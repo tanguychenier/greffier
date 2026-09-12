@@ -116,6 +116,11 @@ class Paths(BaseModel):
         return self.data / "conversations"
 
     @property
+    def troubles(self) -> Path:
+        """What went wrong, one line each, to attach to a report."""
+        return self.data / "incidents.log"
+
+    @property
     def backups(self) -> Path:
         """Where the archives land when no folder is set."""
         return self.data / "sauvegardes"

@@ -111,3 +111,42 @@ class TestJoiningTwoContexts:
         general = Context(termes=(Term("CASA"),))
         general.join(Context(termes=(Term("OTP"),)))
         assert len(general.termes) == 1
+
+
+class TestLesPersonnesAttendues:
+    """Ce que l'amorce gagne à porter les personnes attendues.
+
+    Mesuré sur une réunion portant sept termes rares : onze occurrences sur
+    quinze reviennent sans amorce, quinze sur quinze avec. « backlog » devenait
+    « bâcle », « Kanban » devenait « cambans ». Un prénom annoncé avant la
+    réunion n'a pas encore de voix en banque : sans l'amorce, c'est le premier
+    mot que le modèle remplace.
+    """
+
+    def test_an_expected_person_reaches_the_seed(self):
+        amorce = Context(termes=(Term("OTP"),)).prompt_seed(["Solène"])
+        assert "Solène" in amorce and "OTP" in amorce
+
+    def test_nobody_expected_changes_nothing(self):
+        seul = Context(termes=(Term("OTP"),))
+        assert seul.prompt_seed([]) == seul.prompt_seed()
+
+    def test_a_blank_name_is_not_carried(self):
+        amorce = Context(termes=(Term("OTP"),)).prompt_seed(["  ", ""])
+        assert amorce == Context(termes=(Term("OTP"),)).prompt_seed()
+
+    def test_the_glossary_is_served_first(self):
+        """La banque se remplit seule et pousserait dehors ce qu'on a choisi."""
+        attendus = [f"Personne{n:03}" for n in range(200)]
+        amorce = Context(termes=(Term("Copernic"),)).prompt_seed(attendus)
+        assert "Copernic" in amorce
+
+    def test_what_did_not_fit_can_be_said(self):
+        attendus = [f"Personne{n:03}" for n in range(200)]
+        ecartes = Context(termes=(Term("Copernic"),)).ecartes(attendus)
+        assert "Copernic" not in ecartes
+        assert len(ecartes) > 0
+
+    def test_an_expected_person_already_declared_is_carried_once(self):
+        amorce = Context(intervenants=(Speaker_("Solène"),)).prompt_seed(["Solène"])
+        assert amorce.count("Solène") == 1

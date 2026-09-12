@@ -1,13 +1,14 @@
-# What Greffier says, in English. This file is the reference: a key missing from
-# another language falls back to the sentence written here.
+# What the tool says, in English. One more language is one more file, with the
+# same keys. Anything missing falls back to this one.
 
 [fenetre]
 pret = "Ready"
-aucun_enregistrement = "No recording under way."
+aucun_enregistrement = "Nothing is being recorded."
 demarrer = "Start the meeting"
 terminer = "End the meeting"
 micro = "Microphone"
 fin_en_cours = "Meeting over, transcription under way…"
+quitter_pendant = "A meeting is being recorded.\nEnd it cleanly and quit?"
 
 [onglets]
 preparation = "Preparation"
@@ -19,18 +20,26 @@ reglages = "Settings"
 
 [conversation]
 parler = "Speak"
-avant_une_reunion = "To prepare a meeting that has not happened yet, use the Preparation tab."
+avant_une_reunion = "To prepare a meeting that has not started, use the Preparation tab."
 vide = "Thread cleared."
 demander = "Ask"
-fournir_un_document = "Supply a document"
+fournir_un_document = "Hand over a document"
 tenir_pour_parler = "Hold to speak"
-je_ecoute = "… listening"
+je_ecoute = "… I am listening"
 preparer = "Prepare the next meeting"
 changer_de_sujet = "Change the subject"
 sujet_demande = "Subject of the meeting to prepare:"
 en_preparation = "Preparing: “{sujet}”"
-rien_entendu = "Nothing heard: hold the button down while you speak."
-rien_compris = "Nothing understood. Try again, closer to the microphone."
+rien_entendu = "Nothing heard. Hold the button down while you speak."
+rien_compris = "I did not understand. Try again, closer to the microphone."
+mode_emploi = "Ask about the meeting under way, or about the one chosen in the Meetings tab. During a meeting the answer comes from what has just been said; outside one, I can look online."
+apprendre = "You can also teach me a word in one sentence: “remember that FAST means attestation form”. Or hand me a document: I answer on it and draw the vocabulary of your meetings from it."
+rien_ajoute = "Nothing was added to the context."
+direct_ecrira_juste = " The live thread will spell them right from the next minute on."
+note_sans_suite = "Noted, I will not ask you again."
+rien_ecrit = "Nothing was written."
+document_sans_reunion = "No meeting under way or chosen. I read your documents anyway for their vocabulary, but their text is attached to no meeting."
+choisis_ou_demarre = "Choose a meeting in the Meetings tab, or start one so that I can answer about what is being said."
 
 [reunions]
 traiter = "Process"
@@ -41,13 +50,71 @@ deposer = "Drop in…"
 renommer = "Rename"
 supprimer = "Delete"
 rafraichir = "Refresh"
+compte_rendu_pret = "Minutes ready."
+aucun_redacteur = "No writer is configured."
+aucun_destinataire_long = "No recipient is configured: the minutes stay on this computer. Set an address in the Settings for them to leave on their own."
+choisis_une_reunion = "Choose a meeting in the list."
+aller_traiter = ". Meetings tab, “Process”."
+renommer_titre = "Rename the meeting"
+sujet_demande = "Subject of the meeting:"
+sujet_efface = "Subject cleared: the minutes' own title takes over again."
+rien_a_effacer = "Nothing left to delete for this meeting."
+aucun_compte_rendu = "This meeting has no minutes yet."
+traiter_d_abord = "This meeting has to be processed first."
+aucun_destinataire = "No recipient is configured. Set an address in the Settings."
+aucun_envoi = "No way to send is configured."
+reprendre_la_redaction = ". Select it in Meetings and click “Write up”: the transcript is kept, only the writing is left to redo."
+regenere = "Minutes rewritten with the new names."
+rediger_sans_retranscrire = ". Meetings tab, “Write up” resumes the writing without transcribing it all again."
 
 [commun]
 vider = "Clear"
+aucun_redacteur_configure = "No writer is configured. Run “greffier configurer” to choose one."
 
 [preparation]
-attendus = "Expected"
-a_soulever = "To raise"
-attendu_note = "“{qui}” is expected. Their voice may be recognised; one that merely resembles somebody absent will not."
+attendus = "Who will be there"
+a_soulever = "Points to raise"
+attendu_note = "“{qui}” is expected. Their voice may be recognised during the meeting; one that merely resembles somebody absent will not."
 point_note = "Noted: {quoi}"
-mode_emploi = "Prepare your meeting: ask questions, supply documents, say who you expect and what you mean to raise. All of it opens the meeting when you start it."
+mode_emploi = "Prepare your meeting: ask your questions, hand over the documents that matter, say who will be there and what you mean to raise. All of it is taken up when the meeting starts."
+ouverte = "I am preparing this meeting. What is said here will open it."
+
+[vide]
+aucune_reunion = "No meeting recorded yet. The “Start the meeting” button, at the top, begins listening; the transcript and the minutes come at the end."
+aucune_reunion_choisie = "Choose a meeting in the Meetings tab: its voices appear here, with how long each one spoke."
+aucune_voix = "Nothing to name: every voice of this meeting already carries one."
+
+[voix]
+prenom = "First name"
+rien_a_separer = "This voice has absorbed no other."
+mode_emploi = "Naming a voice files it: it is recognised on its own at later meetings, with nobody having to say the first name aloud."
+choisis_une_reunion = "Choose a meeting in the Meetings tab first."
+choisis_une_voix = "Choose a meeting, then a voice."
+
+[direct]
+mode_emploi = "The thread of the meeting appears here as it goes. Click a name to correct who is speaking: a “?” marks a name recognised from the voice, not yet confirmed."
+repondre_a_la_question = "   Answer “yes” or “no” below, or write the exact spelling."
+
+[reglages]
+applique_aussitot = "Every change applies and is saved at once."
+maj_claude = "Update Claude Code"
+telecharger_modeles = "Download the missing models"
+chercher_maj = "Look for an update"
+version_inconnue = "Version unknown: the package was installed without its metadata."
+verification = "Checking…"
+maj_en_cours = "Updating, closing…"
+claude_absent = "Claude Code is not installed: no minutes can be written."
+ouvrir_claude = "Run “claude” in a terminal, then come back here."
+terminal_ouvert = "A terminal has just opened. Come back here afterwards: the state updates on its own."
+version_plus_recente = "A newer version is installed, but this window is still running the previous one. Close the application and start it again to use it."
+incidents = "If something goes wrong, the incidents are written down in {ou}. That file holds neither what was said nor the names of your meetings: it can be attached to a report as it is."
+
+[modeles]
+tous_en_place = "Every model is in place."
+manquants = "The tool needs {poids} of models that are not on this computer yet.\n\nWithout them it can neither tell the voices apart, nor recognise who is speaking, nor answer you out loud.\n\nMay it download them now?"
+refuses = "The models were not downloaded. The tool cannot tell the voices apart while they are missing. You can install them at any time: Settings, “Download the missing models”."
+echec_liste = "These models could not be downloaded:\n- "
+reessaie = "\nTry again from the Settings when the connection is better."
+pretes = "The models are in place. The tool can transcribe, recognise voices and write up."
+telecharges = "Models downloaded."
+aucun_transcripteur = "No transcription model is installed."

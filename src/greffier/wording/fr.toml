@@ -1,5 +1,9 @@
 # Ce que Greffier dit, en français. Une langue de plus = un fichier de plus,
 # avec les mêmes clés. Ce qui manque retombe sur l'anglais.
+#
+# Deux règles de ton, tenues partout : on vouvoie, et on nomme les choses comme
+# la personne les nomme. « Attendus » et « À soulever » étaient des étiquettes
+# de développeur ; personne ne sait ce qu'elles demandent.
 
 [fenetre]
 pret = "Prêt"
@@ -8,6 +12,7 @@ demarrer = "Démarrer la réunion"
 terminer = "Terminer la réunion"
 micro = "Micro"
 fin_en_cours = "Fin de la réunion, transcription en cours…"
+quitter_pendant = "Une réunion est en cours d'enregistrement.\nVoulez-vous la terminer proprement et quitter ?"
 
 [onglets]
 preparation = "Préparation"
@@ -19,18 +24,26 @@ reglages = "Réglages"
 
 [conversation]
 parler = "Parler"
-avant_une_reunion = "Pour préparer une réunion à venir, passe par l'onglet Préparation."
+avant_une_reunion = "Pour préparer une réunion à venir, passez par l'onglet Préparation."
 vide = "Fil vidé."
 demander = "Demander"
 fournir_un_document = "Fournir un document"
 tenir_pour_parler = "Tenir pour parler"
-je_ecoute = "… je t'écoute"
+je_ecoute = "… je vous écoute"
 preparer = "Préparer la prochaine réunion"
 changer_de_sujet = "Changer de sujet"
 sujet_demande = "Sujet de la réunion à préparer :"
 en_preparation = "En préparation : « {sujet} »"
-rien_entendu = "Rien d'entendu : maintiens le bouton pendant que tu parles."
-rien_compris = "Rien de compris. Reprends plus près du micro."
+rien_entendu = "Rien entendu. Maintenez le bouton enfoncé pendant que vous parlez."
+rien_compris = "Je n'ai pas compris. Reprenez plus près du micro."
+mode_emploi = "Posez une question sur la réunion en cours, ou sur celle choisie dans l'onglet Réunions. Pendant une réunion, la réponse vient de ce qui vient d'être dit ; en dehors, je peux chercher en ligne."
+apprendre = "Vous pouvez aussi m'apprendre un mot en une phrase : « retiens que FAST veut dire formulaire d'attestation ». Ou me donner un document : je réponds dessus et j'en tire le vocabulaire de vos réunions."
+rien_ajoute = "Rien n'a été ajouté au contexte."
+direct_ecrira_juste = " Le fil de la réunion les écrira correctement dès la prochaine minute."
+note_sans_suite = "C'est noté, je ne vous le redemanderai pas."
+rien_ecrit = "Rien n'a été écrit."
+document_sans_reunion = "Aucune réunion en cours ni choisie. Je lis quand même vos documents pour en tirer du vocabulaire, mais leur texte ne sera rattaché à aucune réunion."
+choisis_ou_demarre = "Choisissez une réunion dans l'onglet Réunions, ou démarrez-en une pour m'interroger sur ce qui s'y dit."
 
 [reunions]
 traiter = "Traiter"
@@ -41,13 +54,71 @@ deposer = "Déposer…"
 renommer = "Renommer"
 supprimer = "Supprimer"
 rafraichir = "Rafraîchir"
+compte_rendu_pret = "Compte rendu prêt."
+aucun_redacteur = "Aucun rédacteur n'est configuré."
+aucun_destinataire_long = "Aucun destinataire n'est configuré : le compte rendu reste sur cet ordinateur. Renseignez une adresse dans les Réglages pour qu'il parte tout seul."
+choisis_une_reunion = "Choisissez une réunion dans la liste."
+aller_traiter = ". Onglet Réunions, bouton « Traiter »."
+renommer_titre = "Renommer la réunion"
+sujet_demande = "Sujet de la réunion :"
+sujet_efface = "Sujet effacé : le titre du compte rendu reprend la main."
+rien_a_effacer = "Il ne reste rien à effacer pour cette réunion."
+aucun_compte_rendu = "Cette réunion n'a pas encore de compte rendu."
+traiter_d_abord = "Cette réunion doit d'abord être traitée."
+aucun_destinataire = "Aucun destinataire n'est configuré. Renseignez une adresse dans les Réglages."
+aucun_envoi = "Aucun moyen d'envoi n'est configuré."
+reprendre_la_redaction = ". Sélectionnez-la dans Réunions puis cliquez « Rédiger » : la transcription est gardée, seule la rédaction est à refaire."
+regenere = "Compte rendu réécrit avec les nouveaux noms."
+rediger_sans_retranscrire = ". Onglet Réunions, « Rédiger » reprend la rédaction sans tout retranscrire."
 
 [commun]
 vider = "Vider"
+aucun_redacteur_configure = "Aucun rédacteur n'est configuré. Lancez « greffier configurer » pour en choisir un."
 
 [preparation]
-attendus = "Attendus"
-a_soulever = "À soulever"
-attendu_note = "« {qui} » est attendu. Sa voix pourra être reconnue ; une voix qui ressemble à quelqu'un d'absent ne le sera pas."
-point_note = "Noté : {quoi}"
-mode_emploi = "Prépare ta réunion : pose des questions, fournis des documents, dis qui tu attends et ce que tu veux soulever. Tout cela ouvrira la séance quand tu démarreras."
+attendus = "Qui sera présent"
+a_soulever = "Points à aborder"
+attendu_note = "« {qui} » est attendu. Sa voix pourra être reconnue pendant la réunion ; une voix qui ressemble à quelqu'un d'absent ne le sera pas."
+point_note = "C'est noté : {quoi}"
+mode_emploi = "Préparez votre réunion : posez vos questions, donnez les documents utiles, dites qui sera présent et ce que vous voulez aborder. Tout cela sera repris au démarrage de la réunion."
+ouverte = "Je prépare cette réunion. Ce qui se dira ici l'ouvrira."
+
+[vide]
+aucune_reunion = "Aucune réunion enregistrée pour l'instant. Le bouton « Démarrer la réunion », en haut, lance l'écoute ; la transcription et le compte rendu viennent à la fin."
+aucune_reunion_choisie = "Choisissez une réunion dans l'onglet Réunions : ses voix apparaîtront ici, avec leur temps de parole."
+aucune_voix = "Rien à nommer : chaque voix de cette réunion porte déjà un nom."
+
+[voix]
+prenom = "Prénom"
+rien_a_separer = "Cette voix n'en a absorbé aucune autre."
+mode_emploi = "Nommer une voix la met en mémoire : elle sera reconnue d'elle-même aux réunions suivantes, sans que personne ait à prononcer le prénom."
+choisis_une_reunion = "Choisissez d'abord une réunion dans l'onglet Réunions."
+choisis_une_voix = "Choisissez une réunion, puis une voix."
+
+[direct]
+mode_emploi = "Le fil de la réunion s'affiche ici au fur et à mesure. Cliquez sur un nom pour corriger qui parle : un « ? » signale un nom reconnu à la voix, pas encore confirmé."
+repondre_a_la_question = "   Répondez « oui » ou « non » ci-dessous, ou écrivez l'orthographe exacte."
+
+[reglages]
+applique_aussitot = "Chaque changement s'applique et s'enregistre aussitôt."
+maj_claude = "Mettre à jour Claude Code"
+telecharger_modeles = "Télécharger les modèles manquants"
+chercher_maj = "Chercher une mise à jour"
+version_inconnue = "Version inconnue : le paquet a été installé sans ses métadonnées."
+verification = "Vérification…"
+maj_en_cours = "Mise à jour en cours, fermeture…"
+claude_absent = "Claude Code n'est pas installé : aucun compte rendu ne pourra être rédigé."
+ouvrir_claude = "Lancez « claude » dans un terminal, puis revenez ici."
+terminal_ouvert = "Un terminal vient de s'ouvrir. Revenez ici ensuite : l'état se met à jour tout seul."
+version_plus_recente = "Une version plus récente est installée, mais cette fenêtre tourne encore sur la précédente. Fermez l'application et relancez-la pour en profiter."
+incidents = "Si quelque chose ne marche pas, les incidents sont consignés dans {ou}. Ce fichier ne contient ni vos propos, ni les noms de vos réunions : il peut être joint tel quel à un signalement."
+
+[modeles]
+tous_en_place = "Tous les modèles sont en place."
+manquants = "Greffier a besoin de {poids} de modèles qui ne sont pas encore sur cet ordinateur.\n\nSans eux, il ne peut ni séparer les voix, ni reconnaître qui parle, ni vous répondre à voix haute.\n\nAcceptez-vous de les télécharger maintenant ?"
+refuses = "Les modèles n'ont pas été téléchargés. Greffier ne pourra pas séparer les voix tant qu'ils manquent. Vous pourrez les installer à tout moment : Réglages, « Télécharger les modèles manquants »."
+echec_liste = "Ces modèles n'ont pas pu être téléchargés :\n- "
+reessaie = "\nRéessayez depuis les Réglages quand la connexion sera meilleure."
+pretes = "Les modèles sont en place. Greffier peut transcrire, reconnaître les voix et rédiger."
+telecharges = "Modèles téléchargés."
+aucun_transcripteur = "Aucun modèle de transcription n'est installé."

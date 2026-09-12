@@ -19,7 +19,7 @@ import soundfile as sf
 from greffier.adapters import cuda
 from greffier.domain.arithmetic import AUTO, CARD, chosen_device, compute_threads
 from greffier.domain.models import Span, Voiceprint
-from greffier.domain.voiceprints import normalise
+from greffier.domain.voiceprints import at_a_common_level, normalise
 
 MINIMUM_LENGTH = 1.5
 
@@ -61,13 +61,19 @@ class TitaNetExtractor:
         return ready
 
     def extract(self, echantillons: np.ndarray, frequency: int) -> Voiceprint:
-        """The voiceprint of an excerpt, capped in duration."""
+        """The voiceprint of an excerpt, capped in duration and levelled.
+
+        Levelled because the model is not level-invariant: the same excerpt
+        attenuated by 24 dB comes back at 0.874 of itself, and the thresholds
+        that tell one person from two sit between 0.45 and 0.75.
+        """
         borne = int(MAXIMUM_LENGTH * frequency)
         if len(echantillons) > borne:
             milieu = len(echantillons) // 2
             echantillons = echantillons[milieu - borne // 2 : milieu + borne // 2]
+        au_niveau = np.asarray(at_a_common_level(echantillons.tolist()), dtype="float32")
         stream = self._extractor.create_stream()
-        stream.accept_waveform(sample_rate=frequency, waveform=echantillons)
+        stream.accept_waveform(sample_rate=frequency, waveform=au_niveau)
         stream.input_finished()
         vector = self._extractor.compute(stream)
         return normalise(vector, source_duration=len(echantillons) / frequency)

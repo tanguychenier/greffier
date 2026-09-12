@@ -27,6 +27,11 @@ jobs:
       - name: Dependencies
         run: pip install -q -e ".[dev]"
 
+      # Sans écran virtuel, Tk ne démarre pas et toute l'interface reste hors
+      # des tests : la moitié de l'outil que les gens touchent.
+      - name: A screen for the window
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq xvfb
+
       # Blocking, not "tolerated": a quality remark let through ends up hiding a
       # real regression.
       - name: ruff
@@ -36,7 +41,9 @@ jobs:
         run: mypy
 
       - name: Tests
-        run: python -m pytest tests/ -v --cov=greffier --cov-report=term
+        run: xvfb-run -a python -m pytest tests/ -v --cov=greffier --cov-report=term
+        env:
+          GREFFIER_ECRAN_D_ESSAI: "1"
 
       # The integration tests must skip cleanly where the models are absent
       # rather than fail: no runner carries 1.7 GB of models.

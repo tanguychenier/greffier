@@ -95,14 +95,25 @@ no lower than it found it.
 Coverage is a floor and never a goal: a test that asserts nothing covers lines
 and proves nothing. Which is what mutation testing is for.
 
-**Mutation testing** for the domain, when a rule is subtle:
+**Mutation testing** for the domain, when a rule is subtle. It is configured in
+`pyproject.toml` and takes no argument:
 
 ```sh
-mutmut run --paths-to-mutate src/greffier/domain
+mutmut run          # the domain, against tests/domain and tests/domaine
+mutmut results      # what survived
+mutmut show <id>    # the line it changed, and to what
 ```
 
 A surviving mutant means the test suite accepts a code that is wrong. Either the
 test is missing, or the line was.
+
+Run for the first time on 2026-09-12, on `emptiness.py` and `arithmetic.py`:
+33 mutants, 29 killed, **4 survivors**, all in `compute_threads`. Three came
+from a fallback nobody exercised (`os.cpu_count()` returning `None`, which it
+does in some containers) and one from a real division read as an integer one.
+Three tests killed them. The last survivor replaces `or 2` with `or 3`, which
+this function cannot tell apart since both halve to one thread: an equivalent
+mutant, and the honest ceiling here is 32 out of 33.
 
 ## Before sending
 

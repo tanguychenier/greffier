@@ -137,7 +137,7 @@ def writer_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None
     if diagnostic.claude_installed() and not diagnostic.claude_signed_in():
         dialogue.show(
             "Claude Code est installé mais aucune session n'est ouverte.\n"
-            "Lance « claude » une fois et connecte-toi à ton abonnement : sans cela,\n"
+            "Lancez « claude » une fois et connectez-vous à votre abonnement : sans\n"
             "la transcription fonctionnera mais aucun compte rendu ne sera rédigé."
         )
         answers.to_do.append("claude   # puis se connecter à l'abonnement")
@@ -205,7 +205,7 @@ def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
     if diagnostic.outlook_present():
         dialogue.show(
             "Outlook est installé : Greffier passera par lui. Aucun mot de passe\n"
-            "à saisir, ton compte est déjà authentifié.\n"
+            "à saisir, votre compte est déjà authentifié.\n"
             "macOS demandera une autorisation d'automatisation au premier envoi."
         )
         answers.to_do.append(
@@ -228,7 +228,7 @@ def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
 
 def vocabulary_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
     """The setting that changes transcription quality the most."""
-    dialogue.show("\nVocabulaire de tes réunions")
+    dialogue.show("\nVocabulaire de vos réunions")
     dialogue.show(
         "Les noms de projets, d'outils et d'acronymes que le modèle ne connaît pas.\n"
         "C'est ce qui améliore le plus la transcription des termes rares."

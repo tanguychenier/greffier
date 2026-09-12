@@ -176,6 +176,14 @@ def cartographe(config: Config) -> outbound.Writer | None:
         consignes_propres=GUIDANCE,
     )
 
+def troubles(config: Config) -> outbound.TroubleLog:
+    """Where an incident is written down, so a report can be answered."""
+    from greffier.adapters.trouble_file import TroubleFile
+    from greffier.adapters.updates import installed_version
+
+    return TroubleFile(config.paths.troubles, installed_version())
+
+
 def store(config: Config) -> FileStore:
     """The master files, a meeting's source of truth."""
     return FileStore(config.paths.data / "reunions")
@@ -393,7 +401,9 @@ def wire_up(config: Config) -> Chain:
         dossier_transcriptions=config.paths.transcripts,
         dossier_comptes_rendus=config.paths.minutes_folder,
         language=config.transcription.language,
-        prompt_seed=_the_context.prompt_seed(),
+        prompt_seed=_the_context.prompt_seed(
+            tuple(_attente.expected) if _attente is not None else ()
+        ),
         context_header=(
             _the_context.header()
             + what_earlier_meetings_left(config)

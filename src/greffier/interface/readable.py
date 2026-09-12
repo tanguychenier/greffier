@@ -102,9 +102,9 @@ def live_state_line(in_a_meeting: bool, annonce: str, sentences: int) -> str:
         )
     if sentences == 0:
         awaiting = annonce or "En attente de la première tranche…"
-        return f"{awaiting} Clique sur un nom pour corriger qui parle."
+        return f"{awaiting} Cliquez sur un nom pour corriger qui parle."
     aide = (
-        "Clique sur un nom pour corriger qui parle : « ? » signale un nom deviné "
+        "Cliquez sur un nom pour corriger qui parle : « ? » signale un nom reconnu "
         "par la voix, pas encore confirmé."
     )
     return f"{sentences} phrase(s) transcrite(s). {aide}"
