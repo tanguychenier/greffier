@@ -97,6 +97,27 @@ class Button(tk.Canvas):
             )
         self.configure(cursor=MAIN if hover else "")
 
+    def _en_avant(self) -> Button:
+        """The action of a screen, without competing with the one of the window.
+
+        One filled button per view: « Démarrer la réunion » is what the tool is
+        for and keeps it. The action of a tab is marked by its outline and its
+        ink, which the eye finds second rather than first.
+        """
+        self.itemconfigure(self._forme, outline=self.colours.accent)
+        self.itemconfigure(self._text, fill=self.colours.accent)
+        return self
+
+    def _efface(self) -> Button:
+        """Irreversible, so quiet: pale text, no border, alone at the far end.
+
+        « Supprimer » sat in a row of eight identical buttons, beside
+        « Traiter ». What cannot be undone must not look like what can.
+        """
+        self.itemconfigure(self._forme, outline="", fill=self.colours.board)
+        self.itemconfigure(self._text, fill=self.colours.calm)
+        return self
+
     def hold(self, press: Callable[[], None], release: Callable[[], None]) -> Button:
         """Acts while it is held down rather than when it is clicked.
 
