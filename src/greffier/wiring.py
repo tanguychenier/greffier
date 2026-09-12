@@ -39,6 +39,7 @@ from greffier.domain.memory import Trace
 from greffier.domain.names import NamedSpan
 from greffier.domain.participation import Manners
 from greffier.domain.preparation import Preparation
+from greffier.domain.tongue import Wording
 from greffier.ports import outbound
 
 
@@ -253,6 +254,21 @@ def take_the_preparation(config: Config, identifier: str) -> None:
     if attente is not None:
         preparations_file.write(
             config.paths.preparations, attente.taken(identifier))
+
+
+def spoken_language(config: Config) -> str:
+    """The language the tool speaks: the setting, or failing that the machine."""
+    from greffier.adapters import locale_system
+    from greffier.domain.tongue import choose
+
+    return choose(config.interface.language or locale_system.read())
+
+
+def wording(config: Config) -> Wording:
+    """What the tool says, in the language it speaks."""
+    from greffier.adapters import wording_files
+
+    return wording_files.wording(spoken_language(config))
 
 
 def context(config: Config) -> WorkContext:

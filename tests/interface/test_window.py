@@ -267,17 +267,29 @@ class TestPreparingAMeetingFromTheWindow:
     lost, and the meeting then started from nothing.
     """
 
-    def _fenetre(self, tmp_path, preparation=None):
-        """The window without a screen: these methods only read `self`."""
+    def _fenetre(self, tmp_path, preparation=None, langue="fr"):
+        """The window without a screen: these methods only read `self`.
+
+        The language is said rather than inherited: the sentences these methods
+        produce are translated, and a test that read the machine's language
+        would pass here and fail on a runner set to English -- which is exactly
+        what it did.
+        """
         from greffier.adapters.configuration import Config
 
         config = Config()
+        config.interface.language = langue
         config.paths.data = tmp_path
+        from greffier.interface.window import Window
+
         sans_ecran = type("SansEcran", (), {
             "config": config,
             "_preparation": preparation,
             "dits": [],
             "demandes": [],
+            # The same wording the window uses: these methods say things, and a
+            # test that stubbed the sentences would check nothing about them.
+            "dit": Window.dit,
         })()
         return sans_ecran
 
@@ -314,12 +326,23 @@ class TestPreparingAMeetingFromTheWindow:
             self, tmp_path):
         from greffier.interface.window import Window
 
-        fenetre = self._fenetre(tmp_path)
+        fenetre = self._fenetre(tmp_path, langue="fr")
         fenetre._dictee = type("Rien", (), {"stop": lambda self: None})()
         fenetre.bouton_parler = type("Bouton", (), {"set_caption": lambda self, t: None})()
         fenetre._say = lambda genre, texte: fenetre.dits.append(texte)
         Window._stop_dictating(fenetre)
         assert any("maintiens le bouton" in dit for dit in fenetre.dits)
+
+    def test_it_says_it_in_the_language_of_the_machine(self, tmp_path):
+        """The same refusal, in English, on a machine that reads English."""
+        from greffier.interface.window import Window
+
+        fenetre = self._fenetre(tmp_path, langue="en")
+        fenetre._dictee = type("Rien", (), {"stop": lambda self: None})()
+        fenetre.bouton_parler = type("Bouton", (), {"set_caption": lambda self, t: None})()
+        fenetre._say = lambda genre, texte: fenetre.dits.append(texte)
+        Window._stop_dictating(fenetre)
+        assert any("hold the button" in dit for dit in fenetre.dits)
 
     def test_releasing_without_having_pressed_costs_nothing(self, tmp_path):
         from greffier.interface.window import Window

@@ -1,0 +1,39 @@
+# What Greffier says, in English. This file is the reference: a key missing from
+# another language falls back to the sentence written here.
+
+[fenetre]
+pret = "Ready"
+aucun_enregistrement = "No recording under way."
+demarrer = "Start the meeting"
+terminer = "End the meeting"
+micro = "Microphone"
+fin_en_cours = "Meeting over, transcription under way…"
+
+[onglets]
+reunions = "Meetings"
+direct = "Live"
+voix = "Voices"
+conversation = "Conversation"
+reglages = "Settings"
+
+[conversation]
+demander = "Ask"
+fournir_un_document = "Supply a document"
+tenir_pour_parler = "Hold to speak"
+je_ecoute = "… listening"
+preparer = "Prepare the next meeting"
+changer_de_sujet = "Change the subject"
+sujet_demande = "Subject of the meeting to prepare:"
+en_preparation = "Preparing: “{sujet}”"
+rien_entendu = "Nothing heard: hold the button down while you speak."
+rien_compris = "Nothing understood. Try again, closer to the microphone."
+
+[reunions]
+traiter = "Process"
+rediger = "Write up"
+ouvrir = "Open"
+envoyer = "Send by mail"
+deposer = "Drop in…"
+renommer = "Rename"
+supprimer = "Delete"
+rafraichir = "Refresh"
