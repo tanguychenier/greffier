@@ -193,8 +193,8 @@ class Listing(tk.Canvas):
         self.bind("<Enter>", lambda _e: self._paint(hover=True))
         self.bind("<Leave>", lambda _e: self._paint(hover=False))
         self.bind("<Button-1>", self._deployer)
-        # Faire défiler la page pendant qu'une liste est ouverte la laissait
-        # flotter au-dessus d'un réglage qui avait bougé. La molette la range.
+        # Scrolling the page while a list was open left it floating above a
+        # setting that had moved. The wheel puts it away.
         self.bind_all("<MouseWheel>", self._ranger, add="+")
         self.bind_all("<Button-4>", self._ranger, add="+")
         self.bind_all("<Button-5>", self._ranger, add="+")
@@ -263,11 +263,10 @@ class Listing(tk.Canvas):
             menu.add_command(label=f"{marque}{label_text}",
                              command=functools.partial(self._retenir, key))
         self._menu: tk.Menu | None = menu
-        # `tk_popup` et non `post` : le premier prend la main, donc un clic
-        # ailleurs referme la liste. Avec `post`, rien ne la refermait -- elle
-        # restait affichée pendant qu'on faisait défiler la page derrière, et
-        # une liste posée sur un réglage qu'elle ne désigne plus est pire
-        # qu'une liste fermée.
+        # `tk_popup` rather than `post`: the first one grabs, so a click
+        # elsewhere closes the list. With `post`, nothing closed it: it stayed
+        # on screen while the page scrolled behind it, and a list sitting over
+        # a setting it no longer names is worse than a closed one.
         try:
             menu.tk_popup(self.winfo_rootx(), self.winfo_rooty() + self.height)
         finally:

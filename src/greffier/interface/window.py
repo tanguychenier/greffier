@@ -2959,7 +2959,7 @@ class Window:
 
         self._run_job(Job(caption="lecture", do_it=do_it, done=done))
 
-    # ------------------------------------------------ préparer une réunion
+    # ---------------------------------------------- preparing a meeting
 
     def _preparations_folder(self) -> Path:
         return self.config.paths.preparations
@@ -3098,7 +3098,7 @@ class Window:
 
         self._run_job(Job(caption="préparation", do_it=do_it, done=done))
 
-    # ------------------------------------------------------ parler à la voix
+    # ------------------------------------------------- speaking out loud
 
     PAS_DICTEE_MS = 200
 

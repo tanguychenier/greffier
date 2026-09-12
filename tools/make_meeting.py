@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""Fabrique une fausse réunion à deux voix, pour les tests d'intégration.
+"""Makes a fake two-voice meeting, for the integration tests.
 
-Les vraies réunions ne peuvent pas servir de jeu d'essai : elles contiennent des
-échanges de travail et des voix identifiables. On synthétise donc un dialogue
-avec deux voix du système, ce qui donne un fichier audio réel, passé par le
-même chemin que n'importe quel enregistrement, sans la moindre donnée
-personnelle, et rejouable par qui veut.
+Real meetings cannot serve as a test set: they hold working exchanges and
+identifiable voices. A dialogue is therefore synthesised with two system
+voices, which gives a real audio file, put through the same path as any
+recording, carrying no personal data at all, and replayable by anybody.
 
-    python3 tools/make_meeting.py sortie.wav
+    python3 tools/make_meeting.py output.wav
 
-Deux moteurs de synthèse, selon le poste : « say » sur macOS, et ailleurs la
-voix VITS que Greffier installe déjà pour l'assistant, tenue par le sherpa-onnx
-qui sert à la segmentation, aucune dépendance nouvelle, aucun appel réseau.
-Le réseau français porte deux timbres, ce qui suffit au dialogue à deux voix et
-pas à la réunion de table, qui reste sur « say ».
+Two synthesis engines, depending on the machine: « say » on macOS, and
+elsewhere the VITS voice the tool already installs for the assistant, driven by
+the same sherpa-onnx that serves the segmentation. No new dependency, no
+network call. The French network carries two timbres, which is enough for the
+two-voice dialogue and not for the meeting round a table, which stays on
+« say ».
 """
 
 import argparse
@@ -23,12 +23,12 @@ import sys
 import tempfile
 from pathlib import Path
 
-# Le dialogue est écrit pour exercer les trois façons de nommer quelqu'un, et
-# pour que chaque voix accumule assez d'indices pour être certaine :
-#   Jacques  auto-présentation (3) + « Merci Jacques » (1) = 4
-#   Sandy    interpellation (2) + « Merci Sandy » (1)      = 3
-# Chaque réplique dépasse trois secondes, seuil en deçà duquel une empreinte
-# vocale ne porte pas assez de voix pour être exploitable.
+# The dialogue is written to exercise the three ways of naming somebody, and so
+# that each voice gathers enough evidence to be certain:
+#   Jacques  introduces himself (3) + « Merci Jacques » (1) = 4
+#   Sandy    addressed by name (2) + « Merci Sandy » (1)    = 3
+# Every line runs past three seconds, below which a voiceprint does not carry
+# enough voice to be worth anything.
 _DIALOGUE = [
     ("A", "Bonjour à tous, moi c'est {premier}, je vous propose de commencer par le "
           "point sur la recette, qui nous occupe depuis le début de la semaine."),
@@ -60,9 +60,9 @@ def two_voice_dialogue() -> list[tuple[str, str]]:
     premier, second = first_names()
     return [(who, line.format(premier=premier, second=second)) for who, line in _DIALOGUE]
 
-# Une seconde réunion, avec les mêmes voix mais **aucun prénom prononcé**. Elle
-# sert à prouver la banque de voix : si des noms apparaissent malgré tout, ils ne
-# peuvent venir que de la reconnaissance vocale.
+# A second meeting, the same voices but **no first name spoken**. It is what
+# proves the voice bank: if names come out anyway, they can only come from
+# recognising the voices.
 DIALOGUE_WITHOUT_NAMES = [
     ("A", "On reprend là où nous nous étions arrêtés la dernière fois, avec le "
           "calendrier de la semaine prochaine et les points encore en suspens."),
@@ -74,10 +74,10 @@ DIALOGUE_WITHOUT_NAMES = [
           "avec l'équipe avant la fin de la journée."),
 ]
 
-# Une réunion tenue **autour d'une table** : trois personnes, un seul micro,
-# aucune boucle système. Le canal ne désigne alors personne, et c'est tout
-# l'intérêt du cas, c'est la seule configuration où l'attribution ne repose que
-# sur la segmentation et la banque de voix.
+# A meeting held **round a table**: three people, one microphone, no system
+# loopback. The channel then designates nobody, which is the whole point of the
+# case: it is the only configuration where attribution rests on the
+# segmentation and the voice bank alone.
 DIALOGUE_PRESENTIEL = [
     ("A", "Bonjour à tous, moi c'est Jacques, on se retrouve autour de la table pour "
           "faire le point sur le calendrier de la recette, qui nous occupe depuis lundi."),
@@ -93,34 +93,34 @@ DIALOGUE_PRESENTIEL = [
           "l'envoyer à l'ensemble des services concernés."),
 ]
 
-#: Trois voix pour le présentiel. Sandy ne se présente pas et n'est jamais
-#: interpellée : elle doit rester une voix à nommer, sinon c'est que la chaîne
-#: invente.
-#: Les voix qui prêtent leur timbre au dialogue. **Pas celles qui portent les
-#: prénoms du dialogue** : « Jacques », « Sandy » et « Rocko » sont des voix
-#: « eloquence », le synthétiseur par formants que macOS traîne depuis les
-#: années 1980. Mesuré : whisper n'en tire **rien du tout** : sur une réunion
-#: d'essai de quarante-cinq secondes, les deux répliques de la voix « Sandy »
-#: étaient absentes de la transcription, avec ou sans détection de parole, à
-#: niveau sonore pourtant identique aux autres. Le jeu d'essai prouvait donc que
-#: la chaîne ne retrouvait pas un prénom, quand elle n'avait jamais reçu la
-#: phrase qui le porte.
+#: Three voices for the room. Sandy neither introduces herself nor is ever
+#: addressed by name: she has to stay a voice waiting for one, and if she does
+#: not, the chain is inventing.
+#: The voices that lend their timbre to the dialogue. **Not the ones carrying
+#: the first names in it**: « Jacques », « Sandy » and « Rocko » are
+#: « eloquence » voices, the formant synthesiser macOS has dragged along since
+#: the nineteen-eighties. Measured: whisper gets **nothing at all** out of them.
+#: On a forty-five-second test meeting, both lines of the « Sandy » voice were
+#: absent from the transcript, with or without speech detection, at a level
+#: identical to the others. The test set was therefore proving that the chain
+#: could not find a first name, when it had never been handed the sentence
+#: carrying it.
 #:
-#: « Thomas » et « Amélie » sont des voix par concaténation : elles s'entendent,
-#: mais un modèle de transcription les comprend, ce qui est tout ce qu'on leur
-#: demande ici.
+#: « Thomas » and « Amélie » are concatenative voices: audibly synthetic, but a
+#: transcription model understands them, which is all that is asked of them.
 VOIX_PRESENTIEL = {"A": "Thomas", "B": "Amélie", "C": "Rocko"}
 
-#: Fuite mesurée dans la boucle système d'une réunion tenue autour d'une table :
-#: -53 dB au lieu du silence attendu, du son y ayant fui à un moment. C'est
-#: **exactement** le cas qui piégeait le verdict, quand une boucle non nulle
-#: suffisait à conclure « visio », d'où une fuite dans le fichier d'essai, et
-#: non un second canal muet qui rendrait l'épreuve trop facile.
+#: Leak measured in the system loopback of a meeting held round a table: -53 dB
+#: instead of the expected silence, sound having leaked into it at some point.
+#: That is **exactly** the case that trapped the verdict, when a loopback that
+#: was not strictly nil was enough to conclude « video call ». Hence a leak in
+#: the test file, rather than a silent second channel that would make the test
+#: too easy.
 FUITE_DB = -40.0
 
 
-# Deux voix aussi éloignées que possible : la segmentation doit pouvoir les
-# distinguer, sinon le test mesurerait la synthèse vocale et non la chaîne.
+# Two voices as far apart as possible: the segmentation has to tell them apart,
+# or the test would measure the speech synthesis rather than the chain.
 VOICE = {"A": "Thomas", "B": "Amélie"}
 SILENCE = 0.4  # secondes entre deux répliques, comme dans une vraie discussion
 
@@ -262,15 +262,16 @@ def make(destination: Path, voice: dict | None = None, dialogue=None) -> Path:
 
 
 def make_in_the_room(destination: Path) -> Path:
-    """Fabrique une réunion de table : trois voix sur le micro, une boucle qui fuit.
+    """Makes a meeting round a table: three voices on the microphone, a leaking loopback.
 
-    Le fichier est **stéréo**, comme ce que rend le périphérique d'enregistrement :
-    canal 0 le micro, canal 1 la boucle système. Autour d'une table, la boucle ne
-    porte rien d'utile, juste la fuite mesurée à -53 dB sur la vraie réunion.
+    The file is **stereo**, the way the recording device renders it: channel 0
+    the microphone, channel 1 the system loopback. Round a table the loopback
+    carries nothing useful, just the leak measured at -53 dB on the real
+    meeting.
 
-    Un second canal strictement muet aurait rendu l'épreuve trop facile : c'est
-    précisément la fuite qui faisait conclure « visio » à tort, et attribuait
-    toute la réunion à la personne qui enregistrait.
+    A strictly silent second channel would have made the test too easy: it is
+    precisely the leak that wrongly concluded « video call », and attributed
+    the whole meeting to whoever was recording.
     """
     with tempfile.TemporaryDirectory() as folder:
         melange = Path(folder) / "micro.wav"

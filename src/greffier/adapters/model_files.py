@@ -219,10 +219,10 @@ def _effacer(path: Path) -> None:
             path.unlink(missing_ok=True)
 
 
-#: Ce que faster-whisper appelle ses modèles chez Systran, quand le nom donné
-#: n'est pas un chemin. La table de faster-whisper le sait aussi, mais la lire
-#: charge ctranslate2 et la carte avec : cent millisecondes pour peindre une
-#: liste déroulante, ce n'est pas le moment.
+#: What faster-whisper calls its models at Systran, when the name given is not
+#: a path. The faster-whisper table knows it too, but reading it loads
+#: ctranslate2 and the graphics card with it: a hundred milliseconds to paint a
+#: drop-down list is not the moment for that.
 DEPOTS = {
     "large-v3": "Systran/faster-whisper-large-v3",
     "large-v3-turbo": "deepdml/faster-whisper-large-v3-turbo-ct2",

@@ -429,9 +429,9 @@ class Config(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        # Chaque source passe par la même traduction : une source qui parlerait
-        # français et une autre anglais poseraient deux clés pour un seul
-        # réglage, et la priorité se jouerait alors sur l'orthographe.
+        # Every source goes through the same translation: one speaking French
+        # and another English would lay two keys for a single setting, and
+        # precedence would then be decided by spelling.
         return tuple(
             _Canonical(settings_cls, source)
             for source in (init_settings, env_settings, dotenv_settings,
