@@ -6,6 +6,8 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## New
 
+- **api** — an HTTP door, so a site can drive the tool (`c115abb`)
+- **memory** — what earlier meetings left now reaches the next one (`f98d177`)
 - **assistant** — a discreet sound when she looks something up (`9a72075`)
 - **window-proof** — photograph the window on X11 too, not only on macOS (`d0c04ef`)
 - **tests** — the whole chain proves itself on Linux too (`b040e22`)
@@ -60,6 +62,8 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **dev** — mypy could not follow uvicorn, absent from the dev extra (`7f197c1`)
+- **install** — the window's text was not antialiased on Linux (`e950c7a`)
 - **window** — ending a meeting froze the window instead of showing the end (`cb9728f`)
 - **settings** — no environment variable ever reached a configured machine (`88cdba2`)
 - **install** — the command the README announces was not in the PATH (`524bd4f`)
