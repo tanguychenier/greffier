@@ -19,7 +19,7 @@ import threading
 import time
 import tkinter as tk
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from tkinter import messagebox, ttk
@@ -790,11 +790,33 @@ class Window:
         Button(entry, "Fournir un document", self._supply_a_document,
                self.colours, width=176, height=36).grid(
                    row=0, column=2, padx=(8, 0))
+        self.bouton_parler = Button(
+            entry, "Tenir pour parler", lambda: None, self.colours,
+            width=150, height=36)
+        self.bouton_parler.hold(self._start_dictating, self._stop_dictating)
+        self.bouton_parler.grid(row=0, column=3, padx=(8, 0))
+        preparation = tk.Frame(inside, bg=c.board)
+        preparation.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        self.bouton_preparer = Button(
+            preparation, "Préparer la prochaine réunion", self._open_a_preparation,
+            self.colours, width=250, height=34)
+        self.bouton_preparer.grid(row=0, column=0)
+        self.ligne_preparation = tk.Label(
+            preparation, text="", bg=c.board, fg=c.ink_pale, font=font(11),
+            anchor="w", justify="left")
+        self.ligne_preparation.grid(row=0, column=1, sticky="w", padx=(12, 0))
         self._paint_the_turn(
             "note",
             "Pose une question sur la réunion en cours, ou sur celle choisie dans "
             "l'onglet Réunions. Pendant une réunion, la réponse vient du fil du "
             "direct, et je peux chercher en ligne si la question sort de la réunion.",
+        )
+        self._paint_the_turn(
+            "note",
+            "Avant une réunion : « Préparer la prochaine réunion ». Ce qui se dit "
+            "ici — questions, documents, points à soulever, personnes attendues — "
+            "ouvre la séance quand tu démarres. « Tenir pour parler » pour le faire "
+            "à la voix : un son dit que je t'ai entendu, un autre que je cherche.",
         )
         self._paint_the_turn(
             "note",
@@ -2672,11 +2694,173 @@ class Window:
 
         self._run_job(Job(caption="lecture", do_it=do_it, done=done))
 
+    # ------------------------------------------------ préparer une réunion
+
+    def _preparations_folder(self) -> Path:
+        return self.config.paths.preparations
+
+    def _load_the_preparation(self) -> None:
+        """Takes back the one waiting, so that closing the window loses nothing."""
+        from greffier.adapters import preparations_file
+
+        with contextlib.suppress(OSError, ValueError):
+            self._preparation = preparations_file.waiting(self._preparations_folder())
+        self._paint_the_preparation()
+
+    def _paint_the_preparation(self) -> None:
+        preparation = getattr(self, "_preparation", None)
+        if not hasattr(self, "ligne_preparation"):
+            return
+        if preparation is None:
+            self.ligne_preparation.configure(text="")
+            self.bouton_preparer.set_caption("Préparer la prochaine réunion")
+            return
+        morceaux = [f"En préparation : « {preparation.subject or 'sans sujet'} »"]
+        if preparation.expected:
+            morceaux.append(f"attendus : {', '.join(preparation.expected)}")
+        if preparation.to_raise:
+            morceaux.append(f"{len(preparation.to_raise)} point(s) à soulever")
+        self.ligne_preparation.configure(text=" · ".join(morceaux))
+        self.bouton_preparer.set_caption("Changer de sujet")
+
+    def _open_a_preparation(self) -> None:
+        from tkinter import simpledialog
+
+        from greffier.adapters import preparations_file
+
+        sujet = simpledialog.askstring(
+            "Greffier", "Sujet de la réunion à préparer :", parent=self.root)
+        if sujet is None:
+            return
+        existante = getattr(self, "_preparation", None)
+        if existante is not None:
+            self._preparation = replace(existante, subject=sujet.strip())
+        else:
+            self._preparation = preparations_file.open_one(
+                self._preparations_folder(), sujet)
+        self._keep_the_preparation()
+        self.tabs.reveal("Conversation")
+        self._say("note", "Je prépare cette réunion. Ce qui se dira ici l'ouvrira.")
+
+    def _keep_the_preparation(self) -> None:
+        from greffier.adapters import preparations_file
+
+        preparation = getattr(self, "_preparation", None)
+        if preparation is None:
+            return
+        with contextlib.suppress(OSError):
+            preparations_file.write(self._preparations_folder(), preparation)
+        self._paint_the_preparation()
+
+    def _preparing(self) -> Any:
+        """The use case, wired to this window's voice and cues."""
+        from greffier.adapters.cue_sound import HEARD, cue
+        from greffier.application.prepare import Preparing
+        from greffier.wiring import assistant, assistant_voice, context, what_earlier_meetings_left
+
+        cerveau = assistant(self.config)
+        if cerveau is None:
+            return None
+        voix = assistant_voice(self.config)
+        return Preparing(
+            brain=cerveau,
+            setting=(context(self.config).header()
+                     + what_earlier_meetings_left(self.config)),
+            heard=cue(HEARD),
+            speak=(voix.say if voix is not None else None),
+        )
+
+    def _answer_while_preparing(self, question: str) -> None:
+        """Asks, and keeps the exchange whatever comes back."""
+        preparing = self._preparing()
+        if preparing is None:
+            self._say("note", "Aucun rédacteur configuré : « greffier configurer ».")
+            return
+        self._say("moi", question)
+
+        def do_it(say: Callable[[str], None]) -> Any:
+            say("réflexion…")
+            return preparing.answer(self._preparation, question)
+
+        def done(outcome: Any, trouble: Exception | None) -> None:
+            if trouble is not None:
+                self._say("note", str(trouble))
+                return
+            self._preparation, answered = outcome
+            self._keep_the_preparation()
+            self._say("greffier", answered)
+
+        self._run_job(Job(caption="préparation", do_it=do_it, done=done))
+
+    # ------------------------------------------------------ parler à la voix
+
+    def _start_dictating(self) -> None:
+        """Opens the microphone while the button is held."""
+        from greffier.adapters.dictation_ffmpeg import Dictation
+
+        if getattr(self, "_dictee", None) is None:
+            self._dictee = Dictation(self.config.audio.mic or self.config.audio.input)
+        with contextlib.suppress(OSError):
+            self._dictee.start(self.config.paths.data / "dictee.wav")
+            self.bouton_parler.set_caption("… je t'écoute")
+
+    def _stop_dictating(self) -> None:
+        """Closes it, transcribes what was said, and answers."""
+        dictee = getattr(self, "_dictee", None)
+        self.bouton_parler.set_caption("Tenir pour parler")
+        if dictee is None:
+            return
+        fichier = dictee.stop()
+        if fichier is None:
+            self._say("note", "Rien d'entendu : maintiens le bouton pendant que tu parles.")
+            return
+        self._transcribe_and_ask(fichier)
+
+    def _transcribe_and_ask(self, audio: Path) -> None:
+        from greffier.wiring import light_transcriber
+
+        transcripteur = light_transcriber(self.config)
+        if transcripteur is None:
+            self._say("note", "Aucun modèle de transcription installé.")
+            return
+        preparing = self._preparing()
+
+        def do_it(say: Callable[[str], None]) -> Any:
+            say("j'écoute…")
+            dites = transcripteur.transcribe(audio, self.config.transcription.language, "")
+            return " ".join(u.text for u in dites)
+
+        def done(said: Any, trouble: Exception | None) -> None:
+            if trouble is not None:
+                self._say("note", str(trouble))
+                return
+            question = (preparing.transcribed(str(said))
+                        if preparing is not None else str(said).strip())
+            if not question:
+                self._say("note", "Rien de compris. Reprends plus près du micro.")
+                return
+            self._ask_this(question)
+
+        self._run_job(Job(caption="dictée", do_it=do_it, done=done))
+
+    def _ask_this(self, question: str) -> None:
+        """Routes a question, spoken or typed, to whoever should answer it."""
+        if getattr(self, "_preparation", None) is not None:
+            self._answer_while_preparing(question)
+            return
+        self.question.delete(0, "end")
+        self.question.insert(0, question)
+        self._ask()
+
     def _ask(self) -> None:
         from greffier.wiring import assistant
 
         question = self.question.get().strip()
         if not question:
+            return
+        if getattr(self, "_preparation", None) is not None:
+            self.question.delete(0, "end")
+            self._answer_while_preparing(question)
             return
         if self._questions_attente and self._answer_the_question(question):
             return
@@ -2728,6 +2912,9 @@ class Window:
         ))
 
     def spin(self) -> None:
+        # Taken back at startup: a preparation gathered yesterday evening must
+        # still be there this morning, and closing a window is not giving up.
+        self.root.after(300, self._load_the_preparation)
         self.root.after(600, self._report_missing_minutes)
         self.root.after(900, self._remind_of_the_disclosure)
         self.root.mainloop()
