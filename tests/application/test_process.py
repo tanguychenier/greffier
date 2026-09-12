@@ -5,6 +5,7 @@ rails, not whisper. The doubles hold in a few lines because the ports are
 `Protocol`, with nothing to inherit.
 """
 
+import contextlib
 import subprocess
 from pathlib import Path
 
@@ -338,11 +339,69 @@ class TestTheVoiceBank:
         assert outcome.names["1"] == "Marcel"
         assert any("Marcel" in a and "Tanguy" in a for a in outcome.warnings)
 
+    def test_it_does_not_name_somebody_who_is_not_expected(self):
+        """Reported in use, and the worst defect there is.
+
+        « Ça me disait que Sophie était en réunion alors que non, elle était sur
+        une autre réunion » -- and the minutes carried her name. A bank grows
+        across meetings and offers everybody it has ever heard; said in advance,
+        who is expected turns a resemblance to somebody absent back into what it
+        is. An unnamed voice is asked about; a wrongly named one is believed.
+        """
+        from greffier.domain.voiceprints import normalise
+
+        vectors = {(0.0, 12.0): [1.0, 0.0, 0.0], (13.0, 20.0): [0.0, 1.0, 0.0],
+                    (21.0, 28.0): [1.0, 0.0, 0.0]}
+        bank = FakeBank([Person("Sophie", [normalise([0.02, 1.0, 0.0])])])
+        processing = chain(extractor=FakeExtractor(vectors), bank=bank)
+        processing.expected_people = ("Jacques", "Lucie")
+        assert "Sophie" not in processing.run_chain(AUDIO).names.values()
+
+    def test_somebody_expected_is_still_recognised(self):
+        """Naming who is expected must not stop the bank from doing its work."""
+        from greffier.domain.voiceprints import normalise
+
+        vectors = {(0.0, 12.0): [1.0, 0.0, 0.0], (13.0, 20.0): [0.0, 1.0, 0.0],
+                    (21.0, 28.0): [1.0, 0.0, 0.0]}
+        bank = FakeBank([Person("Josiane", [normalise([0.02, 1.0, 0.0])])])
+        processing = chain(extractor=FakeExtractor(vectors), bank=bank)
+        processing.expected_people = ("Josiane",)
+        assert processing.run_chain(AUDIO).names["2"] == "Josiane"
+
+    def test_expecting_nobody_leaves_the_bank_as_it_was(self):
+        """Not having prepared a meeting must cost nothing."""
+        from greffier.domain.voiceprints import normalise
+
+        vectors = {(0.0, 12.0): [1.0, 0.0, 0.0], (13.0, 20.0): [0.0, 1.0, 0.0],
+                    (21.0, 28.0): [1.0, 0.0, 0.0]}
+        bank = FakeBank([Person("Josiane", [normalise([0.02, 1.0, 0.0])])])
+        processing = chain(extractor=FakeExtractor(vectors), bank=bank)
+        assert processing.run_chain(AUDIO).names["2"] == "Josiane"
+
     def test_an_empty_bank_gets_in_the_way_of_nothing(self):
         vectors = {(0.0, 12.0): [1.0, 0.0, 0.0], (13.0, 20.0): [0.0, 1.0, 0.0],
                     (21.0, 28.0): [1.0, 0.0, 0.0]}
         processing = chain(extractor=FakeExtractor(vectors), bank=FakeBank([]))
         assert processing.run_chain(AUDIO).names["1"] == "Tanguy"
+
+
+class TestThePreparationIsConsumed:
+    def test_the_meeting_takes_it_once_it_is_on_disk(self, tmp_path):
+        """Not before: a processing that fails halfway would burn it for nothing."""
+        prises: list[str] = []
+        processing = chain()
+        processing.preparation_taken = prises.append
+        processing.dossier_transcriptions = tmp_path
+        processing.run_chain(AUDIO)
+        assert prises == [AUDIO.stem]
+
+    def test_a_meeting_that_fails_takes_nothing(self, tmp_path):
+        prises: list[str] = []
+        processing = chain(transcriber=FakeTranscriber([]))
+        processing.preparation_taken = prises.append
+        with contextlib.suppress(Exception):
+            processing.run_chain(AUDIO)
+        assert prises == []
 
 
 class TestReadingTheOutcome:

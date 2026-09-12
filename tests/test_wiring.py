@@ -201,6 +201,43 @@ class TestTheRecording:
         assert capture.peripherique == "Jabra" and capture.maximum_length == 7200
 
 
+class TestAMeetingPreparedBeforehand:
+    def test_the_chain_opens_on_what_was_gathered(self, config,
+                                                  sans_charger_les_modeles):
+        from greffier.adapters import preparations_file
+
+        config.minutes.engine = "aucun"
+        preparation = preparations_file.open_one(config.paths.preparations, "recette")
+        preparations_file.write(
+            config.paths.preparations,
+            preparation.raising("valider les anomalies").expecting("Jacques"),
+        )
+        chaine = wiring.wire_up(config)
+        assert "valider les anomalies" in chaine.context_header
+        assert chaine.expected_people == ("Jacques",)
+
+    def test_a_meeting_prepared_by_nobody_opens_on_nothing(
+            self, config, sans_charger_les_modeles):
+        config.minutes.engine = "aucun"
+        chaine = wiring.wire_up(config)
+        assert "Préparation" not in chaine.context_header
+        assert chaine.expected_people == ()
+
+    def test_taking_it_leaves_none_for_the_next_meeting(self, config):
+        """Consumed once: two meetings would each believe it was theirs."""
+        from greffier.adapters import preparations_file
+
+        preparation = preparations_file.open_one(config.paths.preparations, "recette")
+        preparations_file.write(
+            config.paths.preparations, preparation.raising("un point"))
+        assert wiring.waiting_preparation(config) is not None
+        wiring.take_the_preparation(config, "2026-09-12_reunion")
+        assert wiring.waiting_preparation(config) is None
+
+    def test_taking_when_there_is_nothing_is_not_an_error(self, config):
+        wiring.take_the_preparation(config, "2026-09-12_reunion")
+
+
 class TestTheContextIsBlended:
     def test_the_vocabulary_of_the_settings_is_in_it(self, config):
         config.transcription.vocabulary = ["Kanban"]
