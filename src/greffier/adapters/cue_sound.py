@@ -21,6 +21,13 @@ SOUNDS = Path(__file__).resolve().parent.parent / "sounds"
 
 WEB_SEARCH = SOUNDS / "web-search.wav"
 
+#: Played when a spoken sentence has been taken in, outside a meeting. In the
+#: room the assistant stays silent, and a cue on every sentence would be
+#: unbearable; preparing alone, the opposite is true -- somebody who has just
+#: spoken to a machine and hears nothing at all wonders whether the microphone
+#: is on, and says it again.
+HEARD = SOUNDS / "heard.wav"
+
 
 def cue(file: Path = WEB_SEARCH) -> Callable[[], None]:
     """Something to call when the moment comes; silent when it cannot play.
