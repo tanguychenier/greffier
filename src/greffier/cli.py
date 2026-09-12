@@ -487,6 +487,7 @@ def devices(
     lister: bool = typer.Option(False, "--lister", help="Montrer les périphériques disponibles"),
     mic: str = typer.Option(None, "--micro", help="Micro à intégrer au périphérique agrégé"),
     casque: str = typer.Option(None, "--casque", help="Sortie à dupliquer vers BlackHole"),
+    config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
 ) -> None:
     """Crée les deux périphériques audio macOS nécessaires à l'enregistrement.
 
@@ -507,10 +508,20 @@ def devices(
     arguments = ["swift", str(source)]
     if lister:
         arguments.append("--list")
+    # Le micro des réglages quand la commande n'en nomme pas : sans cela le
+    # script retombait sur un matériel écrit en dur, celui du poste où il a été
+    # écrit, et la commande échouait chez tout le monde d'autre.
+    mic = mic or Config.load(config_file).audio.mic
     if mic:
         arguments += ["--mic", mic]
     if casque:
         arguments += ["--casque", casque]
+    if not lister and not mic:
+        typer.secho(
+            "✗ aucun micro : nomme-le avec « --micro », ou renseigne-le dans "
+            "les réglages. « greffier peripheriques --lister » les montre.",
+            fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
     raise typer.Exit(subprocess.run(arguments, check=False).returncode)
 
 @application.command("enregistrer")
