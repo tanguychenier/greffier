@@ -6,6 +6,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## New
 
+- **tongue** — the tool speaks the language of the machine it runs on (`f6491d7`)
 - **window** — the Conversation tab prepares the next meeting, out loud (`abfb50d`)
 - **prepare** — answering somebody who is preparing a meeting (`5113df0`)
 - **dictation** — a microphone held down, and a sound saying she heard (`cc2b3a3`)
@@ -205,6 +206,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Refactored
 
+- **layers** — two primary adapters were leaning on each other (`5cfe84d`)
 - **install** — the code, in English; the messages, in French (`e0a5314`)
 - **domain** — the edit distance comes from a library (`e45cf35`)
 - the French words the rename had left in every layer (`b0b57b3`)
