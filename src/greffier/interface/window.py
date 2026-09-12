@@ -2924,6 +2924,7 @@ class Window:
             "Greffier", self.dit("conversation.sujet_demande"), parent=self.root)
         if sujet is None:
             return
+        self._say_what_is_known(sujet.strip())
         existante = getattr(self, "_preparation", None)
         if existante is not None:
             self._preparation = replace(existante, subject=sujet.strip())
@@ -2933,6 +2934,16 @@ class Window:
         self._keep_the_preparation()
         self.tabs.reveal("Conversation")
         self._say("note", "Je prépare cette réunion. Ce qui se dira ici l'ouvrira.")
+
+    def _say_what_is_known(self, subject: str) -> None:
+        """Opens the preparation on what earlier meetings on this subject left."""
+        from greffier.wiring import known_about
+
+        if not subject:
+            return
+        connu = known_about(self.config, subject)
+        if connu:
+            self._say_while_preparing("note", connu.strip())
 
     def _keep_the_preparation(self) -> None:
         from greffier.adapters import preparations_file
@@ -2948,16 +2959,25 @@ class Window:
         """The use case, wired to this window's voice and cues."""
         from greffier.adapters.cue_sound import HEARD, cue
         from greffier.application.prepare import Preparing
-        from greffier.wiring import assistant, assistant_voice, context, what_earlier_meetings_left
+        from greffier.wiring import (
+            assistant,
+            assistant_voice,
+            context,
+            known_about,
+            what_earlier_meetings_left,
+        )
 
         cerveau = assistant(self.config)
         if cerveau is None:
             return None
         voix = assistant_voice(self.config)
+        preparation = getattr(self, "_preparation", None)
         return Preparing(
             brain=cerveau,
             setting=(context(self.config).header()
                      + what_earlier_meetings_left(self.config)),
+            known=(known_about(self.config, preparation.subject)
+                   if preparation is not None else ""),
             heard=cue(HEARD),
             speak=(voix.say if voix is not None else None),
         )

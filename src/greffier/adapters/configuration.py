@@ -95,6 +95,11 @@ class Paths(BaseModel):
         return self.data / "questions"
 
     @property
+    def graph(self) -> Path:
+        """The index of what the tool knows, rebuilt from everything else."""
+        return self.data / "graphe.sqlite3"
+
+    @property
     def preparations(self) -> Path:
         """Meetings prepared before they are held."""
         return self.data / "preparations"
