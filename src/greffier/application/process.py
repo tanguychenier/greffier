@@ -23,6 +23,7 @@ from greffier.domain.boilerplate import (
     is_an_annotation,
     is_boilerplate,
 )
+from greffier.domain.her_voice import voices_of
 from greffier.domain.language import LanguageProfile
 from greffier.domain.meeting import StoredMeeting
 from greffier.domain.minutes import title as titre_du_compte_rendu
@@ -164,18 +165,10 @@ class Chain:
     recipient: str = ""
     disclosure: str = "rien"
     hardware_events: list[str] = field(default_factory=list)
-    #: The documents handed over for this meeting, by name. What was read
-    #: matters to the next meeting as much as what was decided.
     documents_supplied: list[str] = field(default_factory=list)
-    #: Who is expected in the room, from the preparation of this meeting. The
-    #: bank then proposes nobody else. Reported in use: « ça me disait que Sophie
-    #: était en réunion alors que non, elle était sur une autre réunion », and
-    #: the minutes carried her name. A bank grows across meetings and offers
-    #: everyone it has ever heard; said in advance, who is expected turns a
-    #: resemblance to somebody absent back into what it is.
     expected_people: tuple[str, ...] = field(default=())
-    #: Called with this meeting's name once it is on disk, so that the
-    #: preparation it opened on is not offered to the next one.
+    her_name: str = ""
+    her_turns_of: Callable[[str], tuple[tuple[float, float], ...]] | None = None
     preparation_taken: Callable[[str], None] | None = None
     _preparation_prise: bool = field(default=False, repr=False)
 
@@ -286,6 +279,12 @@ class Chain:
             return {}
         return voiceprints_per_voice(self.extractor, audio, per_voice)
 
+    def _her_voices(self, turns: list[SpeakerTurn], identifier: str) -> set[str]:
+        """The voices that are the assistant answering, not somebody in the room."""
+        if self.her_turns_of is None or not self.her_name:
+            return set()
+        return voices_of(turns, self.her_turns_of(identifier))
+
     def _recognise(self, audio: Path, turns: list[SpeakerTurn]) -> dict[str, str]:
         """Names from the voice bank, for people already known."""
         if self.extractor is None or self.bank is None:
@@ -300,7 +299,10 @@ class Chain:
         per_voice: dict[str, list[Span]] = {}
         for turn in turns:
             per_voice.setdefault(turn.voice, []).append(turn.span)
+        siennes = self._her_voices(turns, audio.stem)
         for voice, intervalles in per_voice.items():
+            if voice in siennes:
+                continue
             if sum(i.duration for i in intervalles) < MATERIAL_TO_RECOGNISE:
                 continue
             extraits = self.extractor.extract_spans(audio, intervalles)
@@ -328,10 +330,18 @@ class Chain:
         )
         attribution = noms_domaine.attribute(mentions, turns)
 
+        siennes = self._her_voices(turns, outcome.audio.stem)
+        for voice in siennes:
+            outcome.names[voice] = self.her_name
+
         for voice, name in depuis_banque.items():
+            if voice in siennes:
+                continue
             outcome.names[voice] = name
 
         for voice, found in attribution.certitudes.items():
+            if voice in siennes:
+                continue
             connu = depuis_banque.get(voice)
             if connu and connu.lower() != found.name.lower():
                 outcome.warnings.append(
@@ -342,6 +352,8 @@ class Chain:
             outcome.names[voice] = found.name
 
         for proposition in attribution.propositions:
+            if proposition.voice in siennes:
+                continue
             if proposition.voice not in outcome.names:
                 outcome.propositions[proposition.voice] = proposition.name
 
