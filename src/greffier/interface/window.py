@@ -91,6 +91,9 @@ class Window:
     #: is read before it is written -- the window takes back at startup the one
     #: left waiting yesterday evening.
     _preparation: Preparation | None = None
+    #: The microphone while somebody is dictating, and nothing the rest of the
+    #: time: its absence is what says that nobody is speaking.
+    _dictee: Any | None = None
 
     def __init__(self, config: Config) -> None:
         from greffier.wiring import recording, store
@@ -854,9 +857,8 @@ class Window:
                self.colours, principal=True, width=110, height=36).grid(
                    row=0, column=1, padx=(11, 0))
         self.bouton_parler = Button(
-            bas, self.dit("conversation.tenir_pour_parler"), lambda: None,
+            bas, self.dit("conversation.parler"), self._speak_or_stop,
             self.colours, width=150, height=36)
-        self.bouton_parler.hold(self._start_dictating, self._stop_dictating)
         self.bouton_parler.grid(row=0, column=2, padx=(8, 0))
         Button(bas, self.dit("conversation.fournir_un_document"),
                self._supply_a_document, self.colours, width=176, height=36).grid(
@@ -2985,27 +2987,67 @@ class Window:
 
     # ------------------------------------------------------ parler à la voix
 
+    PAS_DICTEE_MS = 200
+
+    def _speak_or_stop(self) -> None:
+        """One click to speak, one to stop -- and the silence stops it anyway.
+
+        Holding a button down asked the person to hold a mouse while reading the
+        very document they are asking about, which is what somebody preparing a
+        meeting is doing. A click opens the microphone, the end of the sentence
+        closes it, and a second click cuts it short.
+        """
+        if getattr(self, "_dictee", None) is not None:
+            self._stop_dictating()
+            return
+        self._start_dictating()
+
     def _start_dictating(self) -> None:
-        """Opens the microphone while the button is held."""
+        """Opens the microphone, and watches for the end of the sentence."""
         from greffier.adapters.dictation_ffmpeg import Dictation
+        from greffier.domain.dictating import Take
+
+        dictee = Dictation(self.config.audio.mic or self.config.audio.input)
+        fichier = self.config.paths.data / "dictee.wav"
+        try:
+            dictee.start(fichier)
+        except OSError as trouble:
+            self._say_while_preparing("note", str(trouble))
+            return
+        self._dictee = dictee
+        self._prise = Take()
+        self._prise_fichier = fichier
+        self.bouton_parler.set_caption(self.dit("conversation.je_ecoute"))
+        self.root.after(self.PAS_DICTEE_MS, self._watch_the_dictation)
+
+    def _watch_the_dictation(self) -> None:
+        """Follows the level, and closes the take when the sentence is over."""
+        from greffier.adapters.live_levels import read_level
 
         if getattr(self, "_dictee", None) is None:
-            self._dictee = Dictation(self.config.audio.mic or self.config.audio.input)
-        with contextlib.suppress(OSError):
-            self._dictee.start(self.config.paths.data / "dictee.wav")
-            self.bouton_parler.set_caption(self.dit("conversation.je_ecoute"))
+            return
+        with contextlib.suppress(OSError, ValueError):
+            releve = read_level(self._prise_fichier)
+            if releve is not None:
+                self._prise.heard(releve.mic_db, self.PAS_DICTEE_MS / 1000)
+        if self._prise.over:
+            self._stop_dictating()
+            return
+        self.root.after(self.PAS_DICTEE_MS, self._watch_the_dictation)
 
     def _stop_dictating(self) -> None:
-        """Closes it, transcribes what was said, and answers."""
+        """Closes the microphone, transcribes what was said, and answers."""
         dictee = getattr(self, "_dictee", None)
-        self.bouton_parler.set_caption(self.dit("conversation.tenir_pour_parler"))
+        self._dictee = None
+        self.bouton_parler.set_caption(self.dit("conversation.parler"))
         if dictee is None:
             return
         fichier = dictee.stop()
         if fichier is None:
-            self._say("note", self.dit("conversation.rien_entendu"))
+            self._say_while_preparing("note", self.dit("conversation.rien_entendu"))
             return
         self._transcribe_and_ask(fichier)
+
 
     def _transcribe_and_ask(self, audio: Path) -> None:
         from greffier.wiring import light_transcriber

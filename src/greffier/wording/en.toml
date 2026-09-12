@@ -18,6 +18,7 @@ conversation = "Conversation"
 reglages = "Settings"
 
 [conversation]
+parler = "Speak"
 avant_une_reunion = "To prepare a meeting that has not happened yet, use the Preparation tab."
 vide = "Thread cleared."
 demander = "Ask"

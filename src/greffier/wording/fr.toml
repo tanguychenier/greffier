@@ -18,6 +18,7 @@ conversation = "Conversation"
 reglages = "Réglages"
 
 [conversation]
+parler = "Parler"
 avant_une_reunion = "Pour préparer une réunion à venir, passe par l'onglet Préparation."
 vide = "Fil vidé."
 demander = "Demander"
