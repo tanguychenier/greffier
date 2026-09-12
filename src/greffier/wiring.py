@@ -393,7 +393,9 @@ def wire_up(config: Config) -> Chain:
         dossier_transcriptions=config.paths.transcripts,
         dossier_comptes_rendus=config.paths.minutes_folder,
         language=config.transcription.language,
-        prompt_seed=_the_context.prompt_seed(),
+        prompt_seed=_the_context.prompt_seed(
+            tuple(_attente.expected) if _attente is not None else ()
+        ),
         context_header=(
             _the_context.header()
             + what_earlier_meetings_left(config)

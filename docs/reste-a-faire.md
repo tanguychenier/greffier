@@ -1053,3 +1053,49 @@ au découpage :
   séparation des voix : « ça détectait mal les voix » et « les mots étaient
   faux » ne se réparent pas au même endroit, et le premier ne s'améliore pas en
   travaillant sur le second.
+
+## Ce que valent les réglages de transcription, mesuré (2026-09-12)
+
+La plainte d'usage était : « les mots affichés n'étaient pas ceux dits en
+séance ». Personne n'avait mesuré ce que les réglages de décodage y changent.
+Deux mesures, sur une réunion synthétisée dont le texte est connu mot pour mot.
+
+### Les réglages de décodage ne changent rien
+
+Seize combinaisons de `beam_size` (1 et 5), `vad_filter`, `condition_on_previous_text`
+et `temperature`, sur 114 mots de référence :
+
+| | Taux d'erreur de mots |
+|---|---|
+| Les seize combinaisons | **1,75 %**, exactement le même |
+
+Le temps, lui, varie : 5,2 s pour la plus rapide, 10,0 s pour la plus lente,
+soit **1,9 fois**. Conclusion : sur une parole propre, les réglages par défaut
+ne sont pas le problème, et rien ne justifie d'en changer sans un corpus qui
+les départage. Le corpus synthétique ne le fait pas : il ne porte ni
+recouvrement, ni accent, ni éloignement du micro, qui sont les trois causes de
+la plainte.
+
+### L'amorce de vocabulaire, elle, change tout
+
+Même chaîne, une réunion portant sept termes rares (Copernic, Kanban, FAST,
+Symfony, OTP, recette, backlog), quinze occurrences attendues :
+
+| | Termes retrouvés |
+|---|---|
+| Sans amorce | **11 / 15** |
+| Avec amorce | **15 / 15** |
+
+Ce qui manquait : « backlog » transcrit « bâcle », « Kanban » transcrit
+« cambans ». Le README affirmait que c'était le réglage le plus utile ; c'est
+maintenant mesuré.
+
+Conséquence dans le code : les **personnes attendues**, déclarées à la
+préparation, rejoignent l'amorce. Elles n'ont pas encore de voix en banque, et
+leur prénom est exactement le genre de mot rare que le modèle remplace.
+
+### Ce qu'il reste à mesurer
+
+Un corpus **réel** en français, avec transcription de référence, pour départager
+ce que le synthétique ne départage pas. Les deux entretiens publics déjà
+employés n'ont pas de référence mot à mot, et le corpus AMI est en anglais.
