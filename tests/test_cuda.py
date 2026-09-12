@@ -1,4 +1,7 @@
-"""How the CUDA libraries are shown to the system loader, and whether a card answers.
+"""How the CUDA libraries are shown to the loader, and whether a card answers.
+
+Checked for all three systems, since nobody has the three machines to hand: the
+detected system is forced and what the adapter deduces from it is read back.
 
 The `nvidia-*` wheels lay their libraries in the packages folder, outside the
 path the loader looks in. Neither CTranslate2 nor onnxruntime finds them there,
@@ -9,20 +12,27 @@ Greffier, which no desktop shortcut does.
 """
 
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from greffier.adapters import cuda as adaptateur
 
+SOUS_LINUX = ("cublas/lib/libcublas.so.12", "cublas/lib/libcublasLt.so.12",
+              "cudnn/lib/libcudnn.so.9", "cudnn/lib/libcudnn_graph.so.9",
+              "cuda_nvrtc/lib/libnvrtc.so.12", "cuda_runtime/lib/libcudart.so.12",
+              "cufft/lib/libcufft.so.11", "curand/lib/libcurand.so.10")
 
-@pytest.fixture
-def wheels_in(monkeypatch, tmp_path):
+SOUS_WINDOWS = ("cublas/bin/cublas64_12.dll", "cublas/bin/cublasLt64_12.dll",
+                "cudnn/bin/cudnn64_9.dll", "cudnn/bin/cudnn_graph64_9.dll",
+                "cuda_nvrtc/bin/nvrtc64_120_0.dll", "cuda_runtime/bin/cudart64_12.dll",
+                "cufft/bin/cufft64_11.dll", "curand/bin/curand64_10.dll")
+
+
+def _poser(monkeypatch, tmp_path, fichiers):
     """An "nvidia" folder filled the way the wheels fill it."""
-    for relatif in ("cublas/lib/libcublas.so.12", "cublas/lib/libcublasLt.so.12",
-                    "cudnn/lib/libcudnn.so.9", "cudnn/lib/libcudnn_graph.so.9",
-                    "cuda_nvrtc/lib/libnvrtc.so.12", "cuda_runtime/lib/libcudart.so.12",
-                    "cufft/lib/libcufft.so.11", "curand/lib/libcurand.so.10"):
+    for relatif in fichiers:
         path = tmp_path / relatif
         path.parent.mkdir(parents=True, exist_ok=True)
         path.touch()
@@ -31,6 +41,18 @@ def wheels_in(monkeypatch, tmp_path):
         lambda _name: SimpleNamespace(submodule_search_locations=[str(tmp_path)]),
     )
     return tmp_path
+
+
+@pytest.fixture
+def wheels_in(monkeypatch, tmp_path):
+    monkeypatch.setattr(adaptateur, "SYSTEM", "Linux")
+    return _poser(monkeypatch, tmp_path, SOUS_LINUX)
+
+
+@pytest.fixture
+def wheels_under_windows(monkeypatch, tmp_path):
+    monkeypatch.setattr(adaptateur, "SYSTEM", "Windows")
+    return _poser(monkeypatch, tmp_path, SOUS_WINDOWS)
 
 
 class TestBibliothequesTrouvees:
@@ -250,3 +272,60 @@ class TestGarderLaPlace:
 
 def _qui_refuse(_config):
     raise RuntimeError("le modèle n'a pas pu être ouvert")
+
+
+class TestLesTroisSystemes:
+    """Chaque système range ses bibliothèques ailleurs, ou n'en a aucune.
+
+    Les roues NVIDIA posent des « .so » sous « lib/ » sur Linux et des « .dll »
+    sous « bin/ » sur Windows. macOS n'a pas de carte NVIDIA depuis Mojave :
+    tout y reste sur le processeur, où whisper.cpp a Metal de toute façon.
+    """
+
+    def test_windows_looks_for_its_dll(self, wheels_under_windows):
+        noms = [chemin.name for chemin in adaptateur.libraries("Windows")]
+        assert set(noms) == {"cublas64_12.dll", "cublasLt64_12.dll", "cudnn64_9.dll",
+                             "cudnn_graph64_9.dll", "nvrtc64_120_0.dll",
+                             "cudart64_12.dll", "cufft64_11.dll", "curand64_10.dll"}
+
+    def test_windows_loads_cublaslt_before_cublas(self, wheels_under_windows):
+        noms = [chemin.name for chemin in adaptateur.libraries("Windows")]
+        assert noms.index("cublasLt64_12.dll") < noms.index("cublas64_12.dll")
+
+    def test_macos_has_nothing_to_load(self, wheels_in):
+        """Les fichiers sont là -- une machine mal rangée -- et pourtant rien."""
+        assert adaptateur.libraries("Darwin") == []
+
+    def test_macos_never_answers_for_a_card(self, monkeypatch):
+        """Et sans même essayer d'ouvrir un pilote qui n'existe pas."""
+        essais = []
+        monkeypatch.setattr(adaptateur, "SYSTEM", "Darwin")
+        monkeypatch.setattr(adaptateur.ctypes, "CDLL", lambda *a, **k: essais.append(a))
+        adaptateur.a_card_answers.cache_clear()
+        assert adaptateur.a_card_answers() is False
+        assert essais == []
+        adaptateur.a_card_answers.cache_clear()
+
+    @pytest.mark.parametrize(
+        ("system", "pilote"), [("Linux", "libcuda.so.1"), ("Windows", "nvcuda.dll")]
+    )
+    def test_each_system_asks_its_own_driver(self, monkeypatch, system, pilote):
+        demandes: list[str] = []
+        monkeypatch.setattr(adaptateur, "SYSTEM", system)
+        monkeypatch.setattr(
+            adaptateur.ctypes, "CDLL",
+            lambda nom, **_k: (demandes.append(nom), _Pilote(1))[1],
+        )
+        adaptateur.a_card_answers.cache_clear()
+        assert adaptateur.a_card_answers() is True
+        assert demandes == [pilote]
+        adaptateur.a_card_answers.cache_clear()
+
+    def test_windows_declares_the_folder_to_the_loader(self, monkeypatch, wheels_under_windows):
+        """Sans ça, une DLL chargée d'ici ne trouve pas celles dont elle dépend."""
+        declares = []
+        monkeypatch.setattr(adaptateur.os, "add_dll_directory", declares.append, raising=False)
+        monkeypatch.setattr(adaptateur.ctypes, "CDLL", lambda *_a, **_k: None)
+        adaptateur.show_to_the_loader()
+        assert {Path(d).name for d in declares} == {"bin"}
+        assert len(declares) == 6, "un dossier par paquet, pas un par fichier"
