@@ -100,7 +100,28 @@ deux se font maintenant en même temps :
 | Sans préchauffage | 12 s d'encodeur + 21,98 s = **33,98 s** |
 | Avec préchauffage | 12 s d'encodeur + 12,06 s = **24,06 s** |
 
-## 7. Rejouer ces mesures
+## 7. Les modèles rouverts à chaque fois
+
+La carte a rendu visible ce que la lenteur du processeur cachait : plusieurs
+modèles étaient **rouverts à chaque usage**.
+
+| Ce qui rouvrait | Quand | Coût |
+|---|---|---|
+| Voix de l'assistante | à chaque question posée en préparation | 4,59 s |
+| Empreintes TitaNet (101 Mo) | à chaque clic sur « nommer », « séparer », « oublier » | 0,3 à 1,2 s |
+| Transcription large-v3 | à chaque traitement | 12 à 19 s |
+
+Trois questions posées de suite à l'assistante, avant et après :
+
+    question 1 : 4,59 s     question 1 : 4,59 s
+    question 2 : 4,6 s      question 2 : 0,29 s
+    question 3 : 4,6 s      question 3 : 0,31 s
+
+Les trois modèles sont maintenant gardés pour le processus, par fichier et par
+périphérique. La voix s'ouvre en plus pendant que la personne parle au micro ou
+que le rédacteur réfléchit, pour que même la première réponse arrive parlée.
+
+## 8. Rejouer ces mesures
 
 Les scripts de mesure ne sont pas versionnés : ils tiennent en une vingtaine de
 lignes chacun et dépendent d'un enregistrement qui, lui, ne peut pas l'être. Ce
