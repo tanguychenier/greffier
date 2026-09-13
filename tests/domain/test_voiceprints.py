@@ -483,3 +483,72 @@ class TestLeMemeNiveauPourTous:
         onde = [0.3, -0.1, 0.25, -0.4] * 50
         attenuee = [x * 0.06 for x in onde]
         assert at_a_common_level(onde) == pytest.approx(at_a_common_level(attenuee))
+
+
+class TestLeSeuilSuitLaMatiere:
+    """Le même seuil pour deux secondes et pour une minute ne tient pas.
+
+    Mesuré sur quatre réunions AMI contre leurs annotations manuelles, au micro
+    posé au milieu de la table, qui est la condition réelle de l'outil :
+
+    | Matière de chaque côté | 0,75 | 0,45 |
+    |---|---|---|
+    | 2,5 s | 99,8 % des vraies paires refusées | 35,2 % refusées, 0,1 % confondues |
+    | 10 s | 39,4 % refusées | aucune refusée, 0,5 % confondues |
+    | 25 s | 4,0 % refusées | aucune refusée, aucune confondue |
+    """
+
+    def test_short_material_is_held_to_less(self):
+        from greffier.domain.voiceprints import THRESHOLD_ON_SHORT, threshold_for
+
+        assert threshold_for(2.0) == THRESHOLD_ON_SHORT
+        assert threshold_for(5.0) == THRESHOLD_ON_SHORT
+
+    def test_ample_material_keeps_the_full_threshold(self):
+        """Joindre deux voix établies est la faute qui ne se reprend pas."""
+        from greffier.domain.voiceprints import JOIN_THRESHOLD, threshold_for
+
+        assert threshold_for(25.0) == JOIN_THRESHOLD
+        assert threshold_for(600.0) == JOIN_THRESHOLD
+
+    def test_it_climbs_between_the_two(self):
+        from greffier.domain.voiceprints import threshold_for
+
+        montants = [threshold_for(m) for m in (5, 10, 15, 20, 25)]
+        assert montants == sorted(montants)
+        assert len(set(montants)) == len(montants)
+
+    def test_the_ceiling_can_be_lowered_by_the_caller(self):
+        from greffier.domain.voiceprints import threshold_for
+
+        assert threshold_for(600.0, ceiling=0.6) == 0.6
+        assert threshold_for(2.0, ceiling=0.6) == pytest.approx(0.45)
+
+    def test_a_fragment_now_reaches_the_voice_it_belongs_to(self):
+        """C'était le défaut : un fragment ressemblant à 0,60 à une voix établie
+        était refusé, puisqu'on lui demandait 0,75 comme à une minute de parole.
+        Il fondait alors une personne de plus."""
+        from greffier.domain.voiceprints import join_voices
+
+        etablie = normalise([1.0, 0.0, 0.0], source_duration=60.0)
+        fragment = normalise([0.60, 0.80, 0.0], source_duration=4.0)
+        membership = join_voices({"etablie": [etablie], "fragment": [fragment]})
+        assert membership["fragment"] == membership["etablie"] == "etablie"
+
+    def test_two_scraps_still_do_not_join_each_other(self):
+        """Mesuré : deux petits groupes franchissaient le seuil par accident
+        statistique. Le plancher de matière reste, sur le côté le plus fourni."""
+        from greffier.domain.voiceprints import join_voices
+
+        un = normalise([1.0, 0.0, 0.0], source_duration=3.0)
+        presque = normalise([0.99, 0.14, 0.0], source_duration=3.0)
+        membership = join_voices({"a": [un], "b": [presque]})
+        assert len(set(membership.values())) == 2
+
+    def test_two_people_with_ample_material_stay_apart(self):
+        from greffier.domain.voiceprints import join_voices
+
+        un = normalise([1.0, 0.0, 0.0], source_duration=60.0)
+        autre = normalise([0.5, 0.87, 0.0], source_duration=60.0)
+        membership = join_voices({"a": [un], "b": [autre]})
+        assert len(set(membership.values())) == 2

@@ -78,6 +78,34 @@ class TitaNetExtractor:
         vector = self._extractor.compute(stream)
         return normalise(vector, source_duration=len(echantillons) / frequency)
 
+    def extract_together(self, audio: Path, intervalles: list[Span]) -> Voiceprint | None:
+        """One voiceprint for all these passages at once, or None.
+
+        A real conversation is made of short turns: measured on a meeting round
+        a table, the median passage lasts 1.57 s and a quarter of them are under
+        0.66 s, while the model asks for 1.5 s. Forty-five of the hundred and
+        twenty-one voices the segmenter produced therefore carried no voiceprint
+        at all, and nothing could ever join them: they stayed separate people,
+        one per « oui » and per « d'accord ».
+
+        Taken together they are the same voice by the segmenter's own verdict,
+        so they are cut out and read as one excerpt.
+        """
+        data, frequency = sf.read(audio, dtype="float32", always_2d=True)
+        signal = data.mean(axis=1)
+        morceaux = []
+        for span in sorted(intervalles, key=lambda s: s.start):
+            start = max(0, int(span.start * frequency))
+            end = min(int(span.end * frequency), len(signal))
+            if end > start:
+                morceaux.append(signal[start:end])
+        if not morceaux:
+            return None
+        ensemble = np.concatenate(morceaux)
+        if len(ensemble) < MINIMUM_LENGTH * frequency:
+            return None
+        return self.extract(ensemble, frequency)
+
     def extract_spans(
         self,
         audio: Path,

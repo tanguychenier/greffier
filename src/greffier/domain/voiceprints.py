@@ -20,6 +20,12 @@ CONFLICT_THRESHOLD = 0.70
 JOIN_THRESHOLD = 0.75
 VOICEPRINTS_PER_PERSON = 8
 MINIMUM_JOIN_MATERIAL = 6.0
+
+SHORT_MATERIAL = 5.0
+
+AMPLE_MATERIAL = 25.0
+
+THRESHOLD_ON_SHORT = 0.45
 ESTABLISHED_MATERIAL = 30.0
 ADOPTION_THRESHOLD = 0.45
 ADOPTION_MARGIN = 0.0
@@ -137,11 +143,48 @@ def recognise(
         return None
     return Match(name=name, similarity=best, margin=margin)
 
+def threshold_for(material: float, ceiling: float = JOIN_THRESHOLD) -> float:
+    """The threshold that fits how much speech there is to compare.
+
+    The number was never wrong in itself: it was the same whatever there was on
+    either side. Measured on four AMI meetings against their manual
+    annotations, through the far-field microphone in the middle of the table,
+    which is the condition this tool actually works in:
+
+    | Material on each side | 0.75 | 0.45 |
+    |---|---|---|
+    | 2.5 s | **99.8 % of true pairs refused** | 35.2 % refused, 0.1 % confused |
+    | 10 s | 39.4 % refused | none refused, 0.5 % confused |
+    | 25 s | 4.0 % refused | none refused, none confused |
+
+    A voice holding two seconds was therefore refused nine times out of ten and
+    founded a new one instead: four people came out of a real meeting as
+    fourteen voices, every fragment pure, none of them joined.
+
+    With ample material the clouds are far apart and a high threshold costs
+    nothing, so it stays: joining two established voices is the mistake that
+    cannot be taken back.
+    """
+    if material <= SHORT_MATERIAL:
+        return THRESHOLD_ON_SHORT
+    if material >= AMPLE_MATERIAL:
+        return ceiling
+    part = (material - SHORT_MATERIAL) / (AMPLE_MATERIAL - SHORT_MATERIAL)
+    return THRESHOLD_ON_SHORT + part * (ceiling - THRESHOLD_ON_SHORT)
+
+
 def join_voices(
     per_voice: dict[str, list[Voiceprint]],
     threshold: float = JOIN_THRESHOLD,
 ) -> dict[str, str]:
-    """Stitches back together the segment groups that are one person."""
+    """Stitches back together the segment groups that are one person.
+
+    The threshold handed in is the one for ample material; what each pair is
+    actually held to follows the thinner of the two sides, since that is the
+    one carrying the noise. The floor on material stays on the thicker side:
+    a voice already established may take in a scrap, and two scraps crossing
+    the threshold by statistical accident was measured and must not happen.
+    """
     groups = {voice: list(voiceprints) for voice, voiceprints in per_voice.items() if voiceprints}
     membership = {voice: voice for voice in per_voice}
 
@@ -152,13 +195,11 @@ def join_voices(
         for i, a in enumerate(names):
             for b in names[i + 1:]:
                 score = similarity(agregats[a], agregats[b])
-                material = max(
-                    sum(e.source_duration for e in groups[a]),
-                    sum(e.source_duration for e in groups[b]),
-                )
+                de_chaque = (sum(e.source_duration for e in groups[a]),
+                             sum(e.source_duration for e in groups[b]))
                 if (
-                    score >= threshold
-                    and material >= MINIMUM_JOIN_MATERIAL
+                    score >= threshold_for(min(de_chaque), threshold)
+                    and max(de_chaque) >= MINIMUM_JOIN_MATERIAL
                     and (best is None or score > best[0])
                 ):
                     best = (score, a, b)

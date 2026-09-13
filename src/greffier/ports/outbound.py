@@ -102,6 +102,14 @@ class VoiceprintExtractor(Protocol):
     def extract_spans(self, audio: Path, intervalles: list[Span]) -> list[Voiceprint]:
         ...
 
+    def extract_together(self, audio: Path, intervalles: list[Span]) -> Voiceprint | None:
+        """One signature for several passages read as one, or None if too short.
+
+        A voice made only of short turns has no signature of its own otherwise,
+        and a voice without one can never be joined to anybody.
+        """
+        ...
+
 
 @runtime_checkable
 class VoiceBank(Protocol):

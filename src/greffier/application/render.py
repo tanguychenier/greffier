@@ -373,13 +373,40 @@ def voiceprints_per_voice(
     all_of_them = [(voice, i) for voice, intervalles in per_voice.items() for i in intervalles]
     voiceprints = extractor.extract_spans(audio, [i for _, i in all_of_them])
     if len(voiceprints) != len(all_of_them):
-        return {
+        # The usual case, not the exception: a span shorter than the model
+        # accepts is dropped, so the two lists rarely match.
+        groupees: dict[str, list[Any]] = {
             voice: extractor.extract_spans(audio, intervalles)
             for voice, intervalles in per_voice.items()
         }
-    groupees: dict[str, list[Any]] = {voice: [] for voice in per_voice}
+        return _gathered(extractor, audio, per_voice, groupees)
+    groupees = {voice: [] for voice in per_voice}
     for (voice, _), voiceprint in zip(all_of_them, voiceprints, strict=True):
         groupees[voice].append(voiceprint)
+    return _gathered(extractor, audio, per_voice, groupees)
+
+
+def _gathered(
+    extractor: Any, audio: Path, per_voice: dict[str, list[Any]],
+    groupees: dict[str, list[Any]],
+) -> dict[str, list[Any]]:
+    """Gives a voice made only of short turns the signature it lacked.
+
+    Measured on a meeting round a table: forty-five of the hundred and
+    twenty-one voices the segmenter produced held no signature at all, every
+    one of their passages being shorter than the model accepts. Nothing could
+    join them to anybody, so each stayed a separate person, one per « oui ».
+    Read together, their passages make one excerpt the model does accept.
+    """
+    ensemble = getattr(extractor, "extract_together", None)
+    if not callable(ensemble):
+        return groupees
+    for voice, deja in groupees.items():
+        if deja or not per_voice.get(voice):
+            continue
+        seule = ensemble(audio, per_voice[voice])
+        if seule is not None:
+            groupees[voice] = [seule]
     return groupees
 
 def review_voices(

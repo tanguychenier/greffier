@@ -281,3 +281,35 @@ class TestQuiOuvreLaCarteEnPremier:
         config.transcription.engine = "whisper.cpp"
         wiring._transcriber(config)
         assert len(places_gardees) == 1
+
+
+class TestQuiEcouteUneQuestionDictee:
+    """Le modèle qui transcrit une question dictée n'est pas celui d'une réunion.
+
+    Mesuré sur les mêmes trente-six secondes : 1,8 s avec « base » contre 9,4 s
+    avec « large-v3 », pour les mêmes mots. Une question dictée est proche,
+    propre et courte, le seul cas où le grand modèle n'apporte rien et coûte
+    quatre fois l'attente. Et l'attente est tout l'intérêt de parler plutôt que
+    de taper.
+    """
+
+    def test_it_is_the_small_one(self, config):
+        config.transcription.engine = "faster-whisper"
+        config.transcription.model = "large-v3"
+        assert wiring.dictation_transcriber(config).taille == wiring.DICTATION_MODEL
+
+    def test_it_does_not_follow_the_meeting_model(self, config):
+        config.transcription.engine = "faster-whisper"
+        config.transcription.model = "large-v3"
+        ecoute = wiring.dictation_transcriber(config)
+        assert ecoute.taille != wiring._transcriber(config).taille
+
+    def test_whisper_cpp_keeps_the_models_it_has(self, config):
+        """macOS ne télécharge pas un modèle de plus pour dicter une phrase."""
+        config.transcription.engine = "whisper.cpp"
+        ecoute = wiring.dictation_transcriber(config)
+        assert ecoute is None or ecoute.model.name.startswith("ggml-")
+
+    def test_it_can_be_opened_before_anybody_speaks(self, config):
+        config.transcription.engine = "faster-whisper"
+        assert callable(wiring.dictation_transcriber(config).warm)

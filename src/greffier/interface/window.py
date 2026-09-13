@@ -2959,7 +2959,7 @@ class Window:
 
         self._run_job(Job(caption="lecture", do_it=do_it, done=done))
 
-    # ------------------------------------------------ préparer une réunion
+    # ---------------------------------------------- preparing a meeting
 
     def _preparations_folder(self) -> Path:
         return self.config.paths.preparations
@@ -3057,20 +3057,24 @@ class Window:
         )
 
     def _open_the_voice(self) -> None:
-        """Opens the voice while the person is still speaking or thinking.
+        """Opens the voice and the ear while the person is still speaking.
 
-        Measured: four and a half seconds to open the model, then a third of a
-        second per remark. Opened at the first question, the wait would fall on
-        the one answer somebody is listening for.
+        Measured: four and a half seconds to open the voice, then a third of a
+        second per remark; and up to thirty-seven seconds to open the model that
+        listens. Opened at the first question, both waits would fall on the one
+        answer somebody is listening for.
         """
         def ouvrir() -> None:
             with contextlib.suppress(Exception):
-                from greffier.wiring import assistant_voice
+                from greffier.wiring import assistant_voice, dictation_transcriber
 
                 voix = assistant_voice(self.config)
                 chauffer = getattr(voix, "warm", None)
                 if callable(chauffer):
                     chauffer()
+                ecoute = dictation_transcriber(self.config)
+                if ecoute is not None:
+                    ecoute.warm()
 
         threading.Thread(target=ouvrir, daemon=True).start()
 
@@ -3098,7 +3102,7 @@ class Window:
 
         self._run_job(Job(caption="préparation", do_it=do_it, done=done))
 
-    # ------------------------------------------------------ parler à la voix
+    # ------------------------------------------------- speaking out loud
 
     PAS_DICTEE_MS = 200
 
@@ -3165,9 +3169,9 @@ class Window:
 
 
     def _transcribe_and_ask(self, audio: Path) -> None:
-        from greffier.wiring import light_transcriber
+        from greffier.wiring import dictation_transcriber
 
-        transcripteur = light_transcriber(self.config)
+        transcripteur = dictation_transcriber(self.config)
         if transcripteur is None:
             self._say("note", self.dit("modeles.aucun_transcripteur"))
             return

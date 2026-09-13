@@ -19,6 +19,34 @@ def held_on(identifier: str) -> tuple[int, int, int, int, int] | None:
     annee, mois, jour, heure, minute = found.groups()
     return (int(annee), int(mois), int(jour), int(heure or 0), int(minute or 0))
 
+IDENTIFIABLE_SECONDS = 6.0
+
+def named_or_unknown(
+    voice: str | None,
+    names: dict[str, str],
+    speaking: dict[str, float],
+    floor: float = IDENTIFIABLE_SECONDS,
+) -> str:
+    """What a voice is called, and « Indéterminé » when it cannot be anybody.
+
+    Measured on four AMI meetings against their manual annotations, through the
+    microphone in the middle of the table: above six seconds of speech the chain
+    finds exactly one voice per person, four for four, none split and none
+    confused. Below it, the scraps -- a « oui », a « hmm », a crossing of two
+    people -- were each given a number of their own, and a meeting of four came
+    out announcing eleven and twenty people.
+
+    A voice somebody has named keeps its name whatever it holds: the human
+    correction is the one thing nothing argues with.
+    """
+    if voice is None:
+        return "Indéterminé"
+    if voice in names:
+        return names[voice]
+    if speaking.get(voice, 0.0) < floor:
+        return "Indéterminé"
+    return f"Personne {voice}"
+
 @dataclass(frozen=True, slots=True)
 class Join:
     """What has to be kept in order to undo a join of two voices.
@@ -153,9 +181,7 @@ class StoredMeeting:
         return manques
 
     def name_of(self, voice: str | None) -> str:
-        if voice is None:
-            return "Indéterminé"
-        return self.names.get(voice, f"Personne {voice}")
+        return named_or_unknown(voice, self.names, self.speaking_time())
 
     def spans_of(self, voice: str) -> list[Span]:
         return [t.span for t in self.turns if t.voice == voice]

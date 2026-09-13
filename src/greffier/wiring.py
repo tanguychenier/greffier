@@ -97,6 +97,27 @@ def light_transcriber(config: Config) -> outbound.Transcriber | None:
 
     return FasterWhisperTranscriber(taille=taille, device=config.hardware.device)
 
+#: The model that transcribes a dictated question. Measured on the same
+#: thirty-six seconds: 1.8 s with « base » against 9.4 s with « large-v3 », for
+#: the same words. A question dictated into the microphone is close, clean and
+#: short, which is the one case where the big model buys nothing and costs four
+#: times the wait -- and the wait is the whole point of speaking rather than
+#: typing.
+DICTATION_MODEL = "base"
+
+
+def dictation_transcriber(config: Config) -> outbound.Transcriber | None:
+    """What listens to a question spoken to the assistant, fast rather than fine."""
+    _the_card_first(config)
+    if config.transcription.engine == "whisper.cpp":
+        return light_transcriber(config)
+    from greffier.adapters.transcription_faster_whisper import FasterWhisperTranscriber
+
+    return FasterWhisperTranscriber(
+        taille=DICTATION_MODEL, device=config.hardware.device
+    )
+
+
 def follower(config: Config, identifier: str) -> Follower:
     """The thread shown during the meeting, and what feeds it."""
     log, requests = files(config.paths.live, identifier)
