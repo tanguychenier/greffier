@@ -92,3 +92,20 @@ changeait, **mesuré** sans être tenu par un test, et **ouvert**.
 - **Effacer une réunion** depuis la fenêtre.
 - **Un premier lancement** qui prend par la main quand rien n'est configuré.
 - **Exporter** la transcription dans un format que les autres outils lisent.
+
+## Ce qui a été essayé et retiré
+
+**Rattacher une bribe à ses voisines.** Une bribe trop courte pour porter une
+empreinte, encadrée des deux côtés par la même voix et à moins de deux secondes
+de chacune, lui appartient presque sûrement. La règle a été écrite, branchée et
+mesurée sur une réunion réelle au micro de table :
+
+| | Justesse | Faux | Sans avis |
+|---|---|---|---|
+| Sans la règle | 91,6 % | 0,3 % | 8,1 % |
+| Avec la règle | 91,8 % | **0,5 %** | 7,7 % |
+
+Deux dixièmes gagnés d'un côté, deux dixièmes perdus de l'autre : l'échange se
+fait un pour un entre « je ne sais pas » et « je me trompe ». Le second coûte
+plus cher que le premier, puisqu'il attribue les mots de quelqu'un à un autre
+et que personne ne le voit. La règle a donc été retirée.
