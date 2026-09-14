@@ -236,7 +236,14 @@ class Window:
         self.status_line.grid(row=2, column=0, sticky="ew", pady=(14, 0))
         self._report_resumable_meetings()
         self._report_a_newer_bundle()
-        self._offer_the_models()
+        # Both of those write a line in the window. The next one opens a box,
+        # and a box opened from here is a question asked before there is
+        # anything behind it to make sense of the question: on a machine with
+        # no models -- a fresh installation, that is -- the very first thing
+        # somebody saw of Greffier was « a gigabyte and a half, shall I? » over
+        # an empty grey rectangle. `after_idle` runs it once the events that
+        # paint the window have been dealt with, and not before.
+        self.root.after_idle(self._offer_the_models)
 
     def _build_state(self, parent: tk.Frame) -> None:
         c = self.colours
