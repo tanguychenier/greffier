@@ -22,7 +22,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
-from tkinter import messagebox, ttk
+from tkinter import ttk
 from typing import Any
 
 from greffier.adapters.configuration import Config
@@ -44,6 +44,7 @@ from greffier.domain.minutes import title
 from greffier.domain.models import Phase
 from greffier.domain.preparation import Preparation
 from greffier.domain.questions import already_noted, note
+from greffier.interface import asking
 from greffier.interface.appearance import (
     MAIN,
     Button,
@@ -522,7 +523,7 @@ class Window:
             settings.save_settings(self.config)
         except OSError as trouble:
             self.config.assistant.voice = avant
-            messagebox.showerror("Greffier", f"Réglage non enregistré : {trouble}")
+            asking.complain("Greffier", f"Réglage non enregistré : {trouble}")
             return
         self.bouton_voix.set_caption(self._voice_caption())
         self.bouton_voix.highlight(self.config.assistant.voice != "aucun")
@@ -546,7 +547,7 @@ class Window:
             settings.save_settings(self.config)
         except OSError as trouble:
             self.config.assistant.initiative = avant
-            messagebox.showerror("Greffier", f"Réglage non enregistré : {trouble}")
+            asking.complain("Greffier", f"Réglage non enregistré : {trouble}")
             return
         self.bouton_initiative.set_caption(self._initiative_caption())
         self.bouton_initiative.highlight(self.config.assistant.initiative)
@@ -764,7 +765,7 @@ class Window:
         """Undoes the last join that produced this voice."""
         defaite = self._thread.split(identifier)
         if defaite is None:
-            messagebox.showinfo(
+            asking.tell(
                 "Greffier", self.dit("voix.rien_a_separer")
             )
             return
@@ -772,7 +773,7 @@ class Window:
         try:
             request_a_split(requests, identifier)
         except OSError as trouble:
-            messagebox.showerror(
+            asking.complain(
                 "Greffier",
                 f"La séparation est affichée mais n'a pas pu être transmise : {trouble}",
             )
@@ -790,13 +791,13 @@ class Window:
         try:
             self._thread.correct(number, name, whole_voice)
         except (KeyError, ValueError) as trouble:
-            messagebox.showerror("Greffier", str(trouble))
+            asking.complain("Greffier", str(trouble))
             return
         _, requests = files(self.config.paths.live, self._fil_reunion)
         try:
             ask(requests, number, name, whole_voice)
         except OSError as trouble:
-            messagebox.showerror(
+            asking.complain(
                 "Greffier",
                 f"La correction est affichée mais n'a pas pu être transmise : {trouble}",
             )
@@ -1242,7 +1243,7 @@ class Window:
     def _install_from_the_repository(self, verdict: Any) -> None:
         from greffier.adapters.updates import install
 
-        if not messagebox.askyesno(
+        if not asking.ask_yes_no(
             "Greffier",
             f"{verdict.say()}\n\nInstaller maintenant ? Greffier va se fermer, "
             f"se reconstruire depuis son dépôt, puis se relancer.\n\n"
@@ -1251,7 +1252,7 @@ class Window:
             return
         launched, ou = install()
         if not launched:
-            messagebox.showerror("Greffier", f"Mise à jour impossible : {ou}")
+            asking.complain("Greffier", f"Mise à jour impossible : {ou}")
             return
         self._close_for_the_update()
 
@@ -1263,7 +1264,7 @@ class Window:
             install_from_release,
         )
 
-        if not messagebox.askyesno(
+        if not asking.ask_yes_no(
             "Greffier",
             f"{verdict.say()}\n\nTélécharger « {verdict.artefact_nom} » et "
             "l'installer ? Greffier va se fermer puis se relancer sur la "
@@ -1287,11 +1288,11 @@ class Window:
 
         def done(outcome: Any, trouble: Exception | None) -> None:
             if trouble is not None:
-                messagebox.showerror("Greffier", f"Mise à jour impossible : {trouble}")
+                asking.complain("Greffier", f"Mise à jour impossible : {trouble}")
                 return
             launched, ou = outcome
             if not launched:
-                messagebox.showerror("Greffier", f"Mise à jour impossible : {ou}")
+                asking.complain("Greffier", f"Mise à jour impossible : {ou}")
                 return
             if not sur_mac:
                 self._paint_the_turn("greffier", (
@@ -1809,7 +1810,7 @@ class Window:
             start_the_live_thread(
                 self.config.paths.data, self.config.live.active)
         except (RuntimeError, FileNotFoundError) as trouble:
-            messagebox.showerror("Greffier", str(trouble))
+            asking.complain("Greffier", str(trouble))
             return
         self._probe_the_send()
 
@@ -1834,13 +1835,13 @@ class Window:
         try:
             self.recorder.pause()
         except RuntimeError as trouble:
-            messagebox.showerror("Greffier", str(trouble))
+            asking.complain("Greffier", str(trouble))
 
     def _resume(self) -> None:
         try:
             self.recorder.resume()
         except RuntimeError as trouble:
-            messagebox.showerror("Greffier", str(trouble))
+            asking.complain("Greffier", str(trouble))
 
     def _close_window(self) -> None:
         """Closes the window : ending the meeting first, if there is one."""
@@ -1848,7 +1849,7 @@ class Window:
         with contextlib.suppress(OSError, ValueError):
             phase = self.recorder.read().phase
         if phase in (Phase.RECORDING, Phase.PAUSE):
-            if not messagebox.askyesno(
+            if not asking.ask_yes_no(
                 "Greffier",
                 self.dit("fenetre.quitter_pendant"),
             ):
@@ -1972,7 +1973,7 @@ class Window:
             # microphone refused. The chain has nothing to blame, so the reason
             # is shown plainly, as it was before the stop moved to the thread.
             if audio is None:
-                messagebox.showerror("Greffier", str(trouble))
+                asking.complain("Greffier", str(trouble))
                 return
             self._processing_failed(audio, trouble)
             return
@@ -2028,9 +2029,9 @@ class Window:
         with contextlib.suppress(OSError, ValueError):
             transcrite = bool(self.store.read(audio.stem).utterances)
         if not transcrite:
-            messagebox.showerror("Greffier", str(trouble))
+            asking.complain("Greffier", str(trouble))
             return
-        if messagebox.askyesno(
+        if asking.ask_yes_no(
             "Greffier",
             f"{trouble}\n\nLa transcription et les voix sont gardées : rien n'est "
             "perdu. Seule la rédaction a échoué.\n\nReprendre la rédaction "
@@ -2054,7 +2055,7 @@ class Window:
 
         engine = writer(self.config)
         if engine is None:
-            messagebox.showinfo("Greffier", self.dit("reunions.aucun_redacteur"))
+            asking.tell("Greffier", self.dit("reunions.aucun_redacteur"))
             return
 
         def do_it(say: Callable[[str], None]) -> Any:
@@ -2220,7 +2221,7 @@ class Window:
         try:
             audio = self.store.read(identifier).audio
         except (OSError, ValueError) as trouble:
-            messagebox.showerror("Greffier", str(trouble))
+            asking.complain("Greffier", str(trouble))
             return
         self._run_job(Job(
             caption=f"traitement de {identifier}",
@@ -2259,7 +2260,7 @@ class Window:
             + (f"\n             ⚠ {p.blocked_by}" if p.blocked_by else "")
             for p in propositions
         )
-        if not messagebox.askyesno(
+        if not asking.ask_yes_no(
             "Greffier",
             f"{summarise(propositions)}\n\n{detail}\n\n"
             "Les sons et les vidéos deviennent des réunions à transcrire ; les "
@@ -2335,7 +2336,7 @@ class Window:
             f"  {kind:8} {ecriture}" + (f", {sens}" if sens else "")
             for ecriture, sens, kind in appris
         )
-        if not messagebox.askyesno(
+        if not asking.ask_yes_no(
             "Greffier",
             f"{len(appris)} entrée(s) trouvée(s) dans les documents :\n\n"
             f"{detail}\n\nLes ajouter au contexte ?",
@@ -2367,7 +2368,7 @@ class Window:
         try:
             gardee = self.store.read(identifier)
         except (OSError, ValueError) as trouble:
-            messagebox.showerror("Greffier", str(trouble))
+            asking.complain("Greffier", str(trouble))
             return
         from tkinter import simpledialog
 
@@ -2385,7 +2386,7 @@ class Window:
         try:
             self.store.record(gardee)
         except OSError as trouble:
-            messagebox.showerror("Greffier", str(trouble))
+            asking.complain("Greffier", str(trouble))
             return
         self._load_meetings()
         self.status_line.configure(
@@ -2404,14 +2405,14 @@ class Window:
         ou = self._locations()
         pieces = tidy.pieces_de(ou, identifier)
         if not pieces:
-            messagebox.showinfo("Greffier", self.dit("reunions.rien_a_effacer"))
+            asking.tell("Greffier", self.dit("reunions.rien_a_effacer"))
             self._load_meetings()
             return
         detail = "\n".join(
             f"  {tidy.readable(p.bytes_read):>8}  {p.what}" for p in pieces
         )
         total = tidy.readable(sum(p.bytes_read for p in pieces))
-        if not messagebox.askyesno(
+        if not asking.ask_yes_no(
             "Greffier",
             f"Effacer définitivement « {identifier} » ?\n\n{detail}\n\n"
             f"{total} au total. L'enregistrement audio ne peut pas être refait.",
@@ -2452,7 +2453,7 @@ class Window:
             return
         path = self.config.paths.minutes_folder / f"{identifier}.md"
         if not path.exists():
-            messagebox.showinfo("Greffier", self.dit("reunions.aucun_compte_rendu"))
+            asking.tell("Greffier", self.dit("reunions.aucun_compte_rendu"))
             return
         opener = {"darwin": "open", "win32": "start"}.get(sys.platform, "xdg-open")
         subprocess.run([opener, str(path)], check=False)
@@ -2466,22 +2467,22 @@ class Window:
             return
         path = self.config.paths.minutes_folder / f"{identifier}.md"
         if not path.exists():
-            messagebox.showinfo("Greffier", self.dit("reunions.traiter_d_abord"))
+            asking.tell("Greffier", self.dit("reunions.traiter_d_abord"))
             return
         minutes = path.read_text(encoding="utf-8")
         objet = title(minutes, f"Compte rendu : {identifier}")
         target = self.config.minutes.recipient
         if not target:
-            messagebox.showinfo(
+            asking.tell(
                 "Greffier",
                 self.dit("reunions.aucun_destinataire"),
             )
             return
-        if not messagebox.askyesno("Greffier", f"Envoyer à {target} ?\n\n{objet}"):
+        if not asking.ask_yes_no("Greffier", f"Envoyer à {target} ?\n\n{objet}"):
             return
         sender = _sender(self.config, exiger_destinataire=False)
         if sender is None:
-            messagebox.showerror("Greffier", self.dit("reunions.aucun_envoi"))
+            asking.complain("Greffier", self.dit("reunions.aucun_envoi"))
             return
 
         def do_it(say: Callable[[str], None]) -> Any:
@@ -2494,7 +2495,7 @@ class Window:
 
     def _sending_done(self, target: str, trouble: Exception | None) -> None:
         if trouble is not None:
-            messagebox.showerror("Greffier", str(trouble))
+            asking.complain("Greffier", str(trouble))
             return
         self.status_line.configure(text=f"Envoyé à {target}")
         self._say("greffier", f"Compte rendu envoyé à {target}.")
@@ -2509,19 +2510,19 @@ class Window:
         identifier, voice = self._selection(), self._selected_voice()
         name = self.champ_nom.get().strip()
         if not identifier:
-            messagebox.showinfo("Greffier", self.dit("voix.choisis_une_reunion"))
+            asking.tell("Greffier", self.dit("voix.choisis_une_reunion"))
             return
         if not voice:
-            messagebox.showinfo("Greffier", "Choisissez une voix dans la liste.")
+            asking.tell("Greffier", "Choisissez une voix dans la liste.")
             return
         if not name:
-            messagebox.showinfo("Greffier", "Saisis un nom.")
+            asking.tell("Greffier", "Saisis un nom.")
             return
         acte = naming(self.config)
         try:
             acte.name_voice(identifier, voice, name)
         except (KeyError, RuntimeError, ValueError, OSError) as trouble:
-            messagebox.showerror("Greffier", str(trouble))
+            asking.complain("Greffier", str(trouble))
             return
         self.champ_nom.delete(0, "end")
         self._load_voices()
@@ -2530,7 +2531,7 @@ class Window:
                                "prochaines réunions.")
         if acte.doute:
             self._say("greffier", acte.doute)
-            messagebox.showwarning("Greffier", acte.doute)
+            asking.warn("Greffier", acte.doute)
         self._regenerate_after_naming(identifier)
 
     def _offer_the_models(self) -> None:
@@ -2553,7 +2554,7 @@ class Window:
             if hasattr(self, "mot_modeles"):
                 self.mot_modeles.configure(text=self.dit("modeles.tous_en_place"))
             return
-        if not messagebox.askyesno(
+        if not asking.ask_yes_no(
             "Greffier",
             self.dit("modeles.manquants", poids=model_files.weight(manquants)),
         ):
@@ -2588,7 +2589,7 @@ class Window:
         def fini(rates: Any, souci: Exception | None) -> None:
             if souci is not None:
                 self.troubles.note("modeles", f"{type(souci).__name__} : {souci}")
-                messagebox.showerror("Greffier", f"Téléchargement impossible : {souci}")
+                asking.complain("Greffier", f"Téléchargement impossible : {souci}")
                 return
             if rates:
                 self.troubles.note("modeles", f"non téléchargés : {len(rates)}")
@@ -2648,12 +2649,12 @@ class Window:
 
         identifier, voice = self._selection(), self._selected_voice()
         if not (identifier and voice):
-            messagebox.showinfo("Greffier", self.dit("voix.choisis_une_voix"))
+            asking.tell("Greffier", self.dit("voix.choisis_une_voix"))
             return
         try:
             naming(self.config).split(identifier, voice)
         except (KeyError, RuntimeError, ValueError, OSError) as souci:
-            messagebox.showerror("Greffier", str(souci))
+            asking.complain("Greffier", str(souci))
             return
         self._load_voices()
         self.status_line.configure(
@@ -2667,9 +2668,9 @@ class Window:
 
         identifier, voice = self._selection(), self._selected_voice()
         if not (identifier and voice):
-            messagebox.showinfo("Greffier", self.dit("voix.choisis_une_voix"))
+            asking.tell("Greffier", self.dit("voix.choisis_une_voix"))
             return
-        if not messagebox.askyesno(
+        if not asking.ask_yes_no(
             "Greffier",
             f"Retirer le nom de la voix {voice} ?\n\n"
             "La réunion l'oublie. L'empreinte déjà versée en banque, elle, "
@@ -2679,7 +2680,7 @@ class Window:
         try:
             naming(self.config).forget(identifier, voice)
         except (KeyError, RuntimeError, ValueError, OSError) as trouble:
-            messagebox.showerror("Greffier", str(trouble))
+            asking.complain("Greffier", str(trouble))
             return
         self._load_voices()
         self.status_line.configure(text=f"La voix {voice} n'a plus de nom.")
@@ -2723,23 +2724,23 @@ class Window:
 
         identifier, voice = self._selection(), self._selected_voice()
         if not (identifier and voice):
-            messagebox.showinfo("Greffier", self.dit("voix.choisis_une_voix"))
+            asking.tell("Greffier", self.dit("voix.choisis_une_voix"))
             return
         player = shutil.which("afplay") or shutil.which("aplay") or shutil.which("ffplay")
         if player is None:
-            messagebox.showinfo("Greffier", "Aucun lecteur audio disponible.")
+            asking.tell("Greffier", "Aucun lecteur audio disponible.")
             return
         try:
             detail = self.store.read(identifier)
             candidate = next(c for c in voices_to_name(detail) if c.voice == voice)
             if candidate.extrait is None:
-                messagebox.showinfo("Greffier",
+                asking.tell("Greffier",
                                     "Aucun extrait exploitable pour cette voix.")
                 return
             output = self.config.paths.data / "extraits" / f"{identifier}-{voice}.wav"
             extrait = extract_audio(detail.audio, candidate.extrait, output)
         except (StopIteration, RuntimeError, OSError, ValueError) as trouble:
-            messagebox.showerror("Greffier", str(trouble))
+            asking.complain("Greffier", str(trouble))
             return
         arguments = ([player, "-nodisp", "-autoexit", "-loglevel", "error", str(extrait)]
                      if player.endswith("ffplay") else [player, str(extrait)])
