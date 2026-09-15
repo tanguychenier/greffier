@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Rejoue le fil du direct sur une réunion étiquetée, sans audio ni modèle.
+"""Replays the live thread on a labelled meeting, with no audio and no model.
 
-Les empreintes sont déjà calculées ; ce qu'on rejoue, c'est la seule chose qui
-décide en séance : **l'ordre du temps**. Le direct ne connaît que le passé,
-alors que le recollage d'après réunion voit tout. Comparer les deux dit où se
-trouve la marge de progrès, et sur la réunion du 2026-09-10, la réponse a
-contredit l'intuition : aucun gradient de démarrage, le creux est au milieu.
+The voiceprints are already computed; what is replayed is the only thing that
+decides during a sitting: **the order of time**. Live only knows the past,
+where the post-meeting stitching sees everything. Comparing the two says
+where the room for progress is, and on the meeting of 2026-09-10 the answer
+contradicted intuition: no start-up gradient, the dip is in the middle.
 
-La chronologie vient des tours de la réunion et non de l'ordre du cache : sans
-elle, le chiffre ne mesure rien.
+The chronology comes from the meeting's turns and not from the order of the
+cache: without it the figure measures nothing.
 
     python3 tools/replay_live.py 2026-09-10_10h10_reunion
 
-Les empreintes viennent du cache de « replay_stitching.py » : lance-le d'abord.
+The voiceprints come from the cache of `replay_stitching.py`: run it first.
 """
 
 from __future__ import annotations
@@ -31,62 +31,61 @@ from greffier.domain.models import Span, Utterance, Voiceprint  # noqa: E402
 from greffier.domain.names import join_namesakes  # noqa: E402
 from greffier.locations import data_folder  # noqa: E402
 
-#: Tous les combien de phrases le fil recolle ses voix, comme en séance.
-RECOLLAGE_TOUS_LES = 40
+#: Every how many sentences the thread stitches its voices, as in a sitting.
+STITCH_EVERY = 40
 
-#: Combien de tranches de temps pour chercher un gradient.
-TRANCHES = 6
+#: How many slices of time to look for a gradient in.
+SLICES = 6
 
 
-def suite_chronologique(
-    meeting: dict, per_voice: dict[str, list[Voiceprint]], nommees: set[str]
+def in_time_order(
+    meeting: dict, per_voice: dict[str, list[Voiceprint]], named: set[str]
 ) -> list[tuple[float, float, str, Voiceprint]]:
-    """Les tours dans l'ordre du temps, avec leur empreinte et leur vraie voix.
+    """The turns in the order of time, with their voiceprint and their true voice.
 
-    La Nième empreinte d'une voix correspond au Nième tour de cette voix : c'est
-    l'ordre dans lequel le cache a été construit, et c'est ce qui permet de
-    retrouver la chronologie sans réécouter l'audio.
+    The Nth voiceprint of a voice matches the Nth turn of that voice: it is the
+    order the cache was built in, and what makes the chronology recoverable
+    without listening to the audio again.
     """
-    rangs: Counter = Counter()
-    suite = []
+    ranks: Counter = Counter()
+    sequence = []
     for turn in sorted(meeting["tours"], key=lambda t: float(t["debut"])):
         voice = str(turn["voix"])
-        rank = rangs[voice]
-        rangs[voice] += 1
+        rank = ranks[voice]
+        ranks[voice] += 1
         voiceprints = per_voice.get(voice, [])
-        if voice not in nommees or rank >= len(voiceprints):
+        if voice not in named or rank >= len(voiceprints):
             continue
-        suite.append(
+        sequence.append(
             (float(turn["debut"]), float(turn["fin"]), voice, voiceprints[rank])
         )
-    return suite
+    return sequence
 
 
-def verite_nommee(meeting: dict) -> set[str]:
-    """Les voix nommées, une par personne.
+def named_truth(meeting: dict) -> set[str]:
+    """The named voices, one per person.
 
-    Passe par la réunion des homonymes : sur la réunion du 2026-09-10, le
-    fichier porte seize voix nommées dont **neuf « Lise »**. Les compter comme
-    neuf personnes fausserait la vérité terrain autant que le compte rendu.
+    Goes through the joining of namesakes: on the meeting of 2026-09-10 the
+    file carries sixteen named voices, **nine of them "Lise"**. Counting them
+    as nine people would distort the ground truth as much as the minutes.
     """
     names = {str(v): name for v, name in (meeting.get("noms") or {}).items()}
-    poids: Counter = Counter()
+    weight: Counter = Counter()
     for turn in meeting["tours"]:
-        poids[str(turn["voix"])] += float(turn["fin"]) - float(turn["debut"])
-    membership = join_namesakes(names, dict(poids))
-    return {voice for voice, gardee in membership.items() if voice == gardee}
+        weight[str(turn["voix"])] += float(turn["fin"]) - float(turn["debut"])
+    membership = join_namesakes(names, dict(weight))
+    return {voice for voice, kept in membership.items() if voice == kept}
 
 
-def replay(suite: list) -> tuple[LiveThread, list[tuple[str, int]], list[bool]]:
-    """Refait le fil phrase par phrase, et dit lesquelles sont justes.
+def replay(sequence: list) -> tuple[LiveThread, list[tuple[str, int]], list[bool]]:
+    """Redoes the thread sentence by sentence, and says which ones are right.
 
-    Une voix du fil vaut pour la personne majoritaire qu'elle contient : le fil
-    ne connaît pas les noms, et le juger sur ses identifiants n'aurait aucun
-    sens.
+    A voice of the thread stands for the majority person it holds: the thread
+    knows no names, and judging it on its identifiers would make no sense.
     """
     thread = LiveThread()
-    attribue: list[tuple[str, int]] = []
-    for start, end, vraie, voiceprint in suite:
+    attributed: list[tuple[str, int]] = []
+    for start, end, true_voice, voiceprint in sequence:
         voice = thread.attach(voiceprint=voiceprint, local=False)
         thread.record_turn(
             Block(
@@ -95,80 +94,79 @@ def replay(suite: list) -> tuple[LiveThread, list[tuple[str, int]], list[bool]]:
             ),
             voice,
         )
-        attribue.append((vraie, len(thread.turns)))
-        if len(attribue) % RECOLLAGE_TOUS_LES == 0:
+        attributed.append((true_voice, len(thread.turns)))
+        if len(attributed) % STITCH_EVERY == 0:
             thread.stitch()
     thread.stitch()
     final = {t.number: t.voice for t in thread.turns}
     groups: dict[str, Counter] = {}
-    for vraie, number in attribue:
-        groups.setdefault(final.get(number, "?"), Counter())[vraie] += 1
-    majorite = {v: c.most_common(1)[0][0] for v, c in groups.items()}
-    justes = [majorite.get(final.get(n)) == vraie for vraie, n in attribue]
-    return thread, attribue, justes
+    for true_voice, number in attributed:
+        groups.setdefault(final.get(number, "?"), Counter())[true_voice] += 1
+    majority = {v: c.most_common(1)[0][0] for v, c in groups.items()}
+    right = [majority.get(final.get(n)) == true_voice for true_voice, n in attributed]
+    return thread, attributed, right
 
 
 def main() -> int:
-    analyse = argparse.ArgumentParser(description=__doc__)
-    analyse.add_argument("meeting")
-    arguments = analyse.parse_args()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("meeting")
+    arguments = parser.parse_args()
 
     path = data_folder() / "reunions" / f"{arguments.meeting}.json"
     cache = Path("/tmp/greffier-empreintes") / f"{arguments.meeting}.pickle"
     if not cache.exists():
-        print("Les empreintes manquent : lance d'abord "
-              "« tools/replay_stitching.py » sur cette réunion.", file=sys.stderr)
+        print("The voiceprints are missing: run tools/replay_stitching.py on this "
+              "meeting first.", file=sys.stderr)
         return 1
     meeting = json.loads(path.read_text())
     try:
         per_voice = pickle.loads(cache.read_bytes())
     except (pickle.UnpicklingError, ModuleNotFoundError, AttributeError, EOFError):
-        print("Cache illisible : relance « tools/replay_stitching.py » "
-              "sur cette réunion, il le refera.", file=sys.stderr)
+        print("Unreadable cache: run tools/replay_stitching.py on this meeting "
+              "again, it will rebuild it.", file=sys.stderr)
         return 1
-    nommees = verite_nommee(meeting)
-    if not nommees:
-        print("Aucune voix nommée : il n'y a pas de vérité terrain à comparer.",
+    named = named_truth(meeting)
+    if not named:
+        print("No named voice: there is no ground truth to compare with.",
               file=sys.stderr)
         return 1
 
-    suite = suite_chronologique(meeting, per_voice, nommees)
-    if not suite:
-        print("Aucun tour étiqueté.", file=sys.stderr)
+    sequence = in_time_order(meeting, per_voice, named)
+    if not sequence:
+        print("No labelled turn.", file=sys.stderr)
         return 1
-    thread, attribue, justes = replay(suite)
+    thread, attributed, right = replay(sequence)
 
-    print(f"{len(suite)} tours étiquetés, de {suite[0][0] / 60:.0f} "
-          f"à {suite[-1][1] / 60:.0f} min")
-    print(f"voix créées : {len(thread.voice) - 1} pour {len(nommees)} personnes nommées")
-    print(f"justesse du direct : {sum(justes)}/{len(justes)} "
-          f"= {sum(justes) / len(justes):.1%}")
+    print(f"{len(sequence)} labelled turns, from {sequence[0][0] / 60:.0f} "
+          f"to {sequence[-1][1] / 60:.0f} min")
+    print(f"voices created: {len(thread.voice) - 1} for {len(named)} named people")
+    print(f"live accuracy: {sum(right)}/{len(right)} = {sum(right) / len(right):.1%}")
 
-    taille = len(justes) // TRANCHES
-    print(f"\n{'tranche':>10} {'minutes':>16} {'phrases':>8} {'justesse':>9}")
-    for i in range(TRANCHES):
-        a = i * taille
-        b = (i + 1) * taille if i < TRANCHES - 1 else len(justes)
-        part = justes[a:b]
-        print(f"{i + 1:>5}/{TRANCHES:<4} {suite[a][0] / 60:>7.0f} → "
-              f"{suite[b - 1][1] / 60:<6.0f} {len(part):>8} "
+    size = len(right) // SLICES
+    print(f"\n{'slice':>10} {'minutes':>16} {'sentences':>9} {'accuracy':>9}")
+    for i in range(SLICES):
+        a = i * size
+        b = (i + 1) * size if i < SLICES - 1 else len(right)
+        part = right[a:b]
+        print(f"{i + 1:>5}/{SLICES:<4} {sequence[a][0] / 60:>7.0f} → "
+              f"{sequence[b - 1][1] / 60:<6.0f} {len(part):>9} "
               f"{sum(part) / len(part):>8.1%}")
 
-    print("\n== ce que pèsent les voix du fil ==")
+    print("\n== what the voices of the thread weigh ==")
     final = {t.number: t.voice for t in thread.turns}
-    poids: Counter = Counter()
+    weight: Counter = Counter()
     turns: Counter = Counter()
     content: dict[str, Counter] = {}
-    for vraie, number in attribue:
+    for true_voice, number in attributed:
         voice = final.get(number, "?")
         turns[voice] += 1
-        content.setdefault(voice, Counter())[vraie] += 1
+        content.setdefault(voice, Counter())[true_voice] += 1
     for turn in thread.turns:
-        poids[final.get(turn.number, "?")] += turn.span.duration
-    print(f"{'voix':>6} {'tours':>6} {'secondes':>9}  qui elle contient")
-    for voice, seconds in poids.most_common():
-        dit = ", ".join(f"{n} × {q}" for n, q in content.get(voice, Counter()).most_common())
-        print(f"{voice:>6} {turns[voice]:>6} {seconds:>9.0f}  {dit}")
+        weight[final.get(turn.number, "?")] += turn.span.duration
+    print(f"{'voice':>6} {'turns':>6} {'seconds':>9}  who it holds")
+    for voice, seconds in weight.most_common():
+        held = ", ".join(f"{n} × {q}" for n, q in content.get(voice, Counter()).most_common())
+        print(f"{voice:>6} {turns[voice]:>6} {seconds:>9.0f}  {held}")
     return 0
 
 

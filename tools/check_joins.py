@@ -1,4 +1,4 @@
-"""Applique le recollage des voix à une vraie réunion sur-découpée."""
+"""Applies the stitching of the voices to a real over-segmented meeting."""
 
 import sys
 from pathlib import Path
@@ -30,8 +30,8 @@ config = sherpa_onnx.OfflineSpeakerDiarizationConfig(
 engine = sherpa_onnx.OfflineSpeakerDiarization(config)
 
 data, frequency = sf.read(audio, dtype="float32", always_2d=True)
-actifs = [i for i in range(data.shape[1]) if float(np.sqrt(np.mean(data[:, i] ** 2))) > 1e-5]
-signal = data[:, actifs].mean(axis=1)
+active = [i for i in range(data.shape[1]) if float(np.sqrt(np.mean(data[:, i] ** 2))) > 1e-5]
+signal = data[:, active].mean(axis=1)
 segments = engine.process(signal).sort_by_start_time()
 
 extractor = sherpa_onnx.SpeakerEmbeddingExtractor(
@@ -49,47 +49,47 @@ def voiceprint(start: float, end: float):
 
 
 per_voice: dict[str, list] = {}
-duree_voix: dict[str, float] = {}
+voice_duration: dict[str, float] = {}
 for segment in segments:
     voice = f"v{segment.speaker}"
-    duree_voix[voice] = duree_voix.get(voice, 0.0) + (segment.end - segment.start)
+    voice_duration[voice] = voice_duration.get(voice, 0.0) + (segment.end - segment.start)
     if segment.end - segment.start >= 3.0:
         per_voice.setdefault(voice, []).append(voiceprint(segment.start, segment.end))
 
-# Les voix trop brèves n'ont aucune empreinte exploitable : elles restent seules.
-for voice in duree_voix:
+# Voices too brief have no usable voiceprint: they stay alone.
+for voice in voice_duration:
     per_voice.setdefault(voice, [])
 
-print(f"AVANT : {len(duree_voix)} voix distinctes sur {len(segments)} segments")
+print(f"BEFORE: {len(voice_duration)} distinct voices over {len(segments)} segments")
 membership = join_voices(per_voice)
-retenues = sorted(set(membership.values()), key=lambda v: -duree_voix.get(v, 0))
-avec_parole = [v for v in retenues if duree_voix.get(v, 0) >= 10]
-print(f"APRÈS : {len(retenues)} voix, dont {len(avec_parole)} avec au moins 10 s de parole\n")
+kept = sorted(set(membership.values()), key=lambda v: -voice_duration.get(v, 0))
+with_speech = [v for v in kept if voice_duration.get(v, 0) >= 10]
+print(f"AFTER: {len(kept)} voices, {len(with_speech)} of them with at least 10 s of speech\n")
 
-cumul: dict[str, float] = {}
+cumulated: dict[str, float] = {}
 for voice, into in membership.items():
-    cumul[into] = cumul.get(into, 0.0) + duree_voix.get(voice, 0.0)
+    cumulated[into] = cumulated.get(into, 0.0) + voice_duration.get(voice, 0.0)
 
-total = sum(cumul.values()) or 1
-for voice in sorted(cumul, key=lambda v: -cumul[v]):
-    absorbees = [v for v, into in membership.items() if into == voice and v != voice]
-    if cumul[voice] < 5:
+total = sum(cumulated.values()) or 1
+for voice in sorted(cumulated, key=lambda v: -cumulated[v]):
+    absorbed = [v for v, into in membership.items() if into == voice and v != voice]
+    if cumulated[voice] < 5:
         continue
     print(
-        f"  {voice:5s} {cumul[voice] / 60:5.1f} min ({cumul[voice] / total * 100:4.1f} %)"
-        + (f"  ← recolle {', '.join(absorbees)}" if absorbees else "")
+        f"  {voice:5s} {cumulated[voice] / 60:5.1f} min ({cumulated[voice] / total * 100:4.1f} %)"
+        + (f"  ← joins {', '.join(absorbed)}" if absorbed else "")
     )
 
-restants = {v: aggregate(e) for v, e in per_voice.items() if e and membership[v] == v}
-names = sorted(restants)
+remaining = {v: aggregate(e) for v, e in per_voice.items() if e and membership[v] == v}
+names = sorted(remaining)
 near_ones = [
-    (similarity(restants[a], restants[b]), a, b)
+    (similarity(remaining[a], remaining[b]), a, b)
     for i, a in enumerate(names)
     for b in names[i + 1 :]
 ]
 if near_ones:
-    pire = max(near_ones)
+    worst = max(near_ones)
     print(
-        f"\nplus fort rapprochement restant entre deux voix : "
-        f"{pire[0]:.3f} ({pire[1]} ↔ {pire[2]})"
+        f"\nstrongest remaining closeness between two voices: "
+        f"{worst[0]:.3f} ({worst[1]} ↔ {worst[2]})"
     )

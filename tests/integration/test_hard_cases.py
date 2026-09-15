@@ -43,13 +43,13 @@ def config() -> Config:
 
 
 def _fabriquer_cas(name: str, tmp_path_factory) -> Path:
-    from make_hard_cases import CAS
+    from make_hard_cases import CASES
     from make_meeting import make
 
-    hors_de_portee = voices_are_out_of_reach(len(set(CAS[name][0].values())))
+    hors_de_portee = voices_are_out_of_reach(len(set(CASES[name][0].values())))
     if hors_de_portee:
         pytest.skip(hors_de_portee)
-    voice, dialogue = CAS[name]
+    voice, dialogue = CASES[name]
     destination = tmp_path_factory.mktemp("audio") / f"cas-{name}.wav"
     return make(destination, voice=voice, dialogue=dialogue)
 
