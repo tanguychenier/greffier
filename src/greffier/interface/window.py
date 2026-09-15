@@ -431,6 +431,7 @@ class Window:
             ("Envoyer par courriel", self._send_selection, 180, False),
             ("Déposer…", self._drop_files, 116, False),
             ("Renommer", self._rename_selection, 110, False),
+            ("Exporter…", self._export_selection, 110, False),
             ("Rafraîchir", self._load_meetings, 116, False),
         ):
             bouton = Button(actions, caption, action, self.colours,
@@ -2708,6 +2709,57 @@ class Window:
             return
         self._load_voices()
         self.status_line.configure(text=f"La voix {voice} n'a plus de nom.")
+
+    def _export_selection(self) -> None:
+        """Writes the transcript in a shape another tool can open.
+
+        The format is not asked for in a box of its own: the save dialogue
+        already asks for a name, and the extension chosen there says which of
+        the three is wanted -- one gesture instead of two.
+        """
+        from greffier.domain import export as formats
+
+        identifier = self._selection()
+        if identifier is None:
+            self.status_line.configure(text=self.dit("reunions.choisis_une_reunion"))
+            return
+        try:
+            gardee = self.store.read(identifier)
+        except (OSError, ValueError) as trouble:
+            asking.complain("Greffier", str(trouble))
+            return
+        if not gardee.utterances:
+            asking.tell("Greffier", "Cette réunion n'a pas encore été transcrite.")
+            return
+        cible = asking.where_to_save(
+            "Exporter la transcription",
+            initialfile=f"{identifier}.srt",
+            filetypes=(
+                ("Sous-titres SRT", "*.srt"),
+                ("Sous-titres WebVTT", "*.vtt"),
+                ("Tableur CSV", "*.csv"),
+            ),
+            parent=self.root,
+        )
+        if not cible:
+            return
+        chemin = Path(cible)
+        shape = chemin.suffix.lstrip(".").lower() or "srt"
+        if shape not in formats.FORMATS:
+            asking.complain("Greffier", f"« {chemin.suffix} » n'est pas un format "
+                                         f"connu : {', '.join(formats.FORMATS)}.")
+            return
+        try:
+            chemin.write_text(
+                formats.rendered(shape, gardee.utterances, gardee.names),
+                encoding="utf-8-sig" if shape == "csv" else "utf-8",
+            )
+        except OSError as trouble:
+            asking.complain("Greffier", f"Écriture impossible : {trouble}")
+            return
+        self.status_line.configure(
+            text=f"{chemin.name} écrit, {len(gardee.utterances)} tour(s) de parole."
+        )
 
     def _everywhere(self) -> Any:
         """Where a person can have been written down."""
