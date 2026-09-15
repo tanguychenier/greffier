@@ -132,3 +132,26 @@ class TestNoButtonIsSqueezedOutOfShape:
         window.root.update()
         window.root.update()
         assert self._squeezed(window.tabs._pages[caption]) == []
+
+
+class TestForgettingSomebodyIsReachable:
+    def test_the_voices_tab_offers_it(self, window) -> None:
+        window.tabs.reveal("Voix")
+        window.root.update()
+        assert window.bouton_oublier.winfo_ismapped()
+
+    def test_it_aims_at_the_first_name_that_was_typed(self, window) -> None:
+        window.champ_nom.insert(0, "  Élodie  ")
+        assert window._person_aimed_at() == "Élodie"
+
+    def test_with_nothing_typed_and_nothing_chosen_it_aims_at_nobody(
+        self, window
+    ) -> None:
+        assert window._person_aimed_at() == ""
+
+    def test_it_says_so_rather_than_erasing_at_random(self, window) -> None:
+        from greffier.interface import asking
+
+        asking.forget_what_was_asked()
+        window._forget_a_person()
+        assert any("prénom" in dit for dit in asking.unanswered())
