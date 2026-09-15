@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol
 
+from greffier.domain import doubt
 from greffier.domain.meeting import HORODATAGE, StoredMeeting
 from greffier.domain.models import Span, SpeakerTurn, Utterance
 from greffier.ports import outbound
@@ -214,7 +215,12 @@ def reliability_header(meeting: Transcribed) -> str:
     return "\n".join(lines) + "\n\n"
 
 def render_transcript(meeting: Transcribed, header: str = "") -> str:
-    """Readable transcript, timestamped and attributed."""
+    """Readable transcript, timestamped, attributed, and honest about doubt.
+
+    A line the model was unsure of carries a mark. Reading a transcript, one
+    wants to know where to listen again rather than to compare two decimals;
+    the figure itself goes to the spreadsheet, through `greffier exporter`.
+    """
     lines: list[str] = []
     current: str | None = None
     for utterance in meeting.utterances:
@@ -223,7 +229,8 @@ def render_transcript(meeting: Transcribed, header: str = "") -> str:
             lines.append(f"\n[{name}]")
             current = name
         start = int(utterance.span.start)
-        lines.append(f"{start // 60:02d}:{start % 60:02d}  {utterance.text}")
+        mark = f"{doubt.MARK} " if doubt.is_unsure(utterance) else ""
+        lines.append(f"{start // 60:02d}:{start % 60:02d}  {mark}{utterance.text}")
     return header + "\n".join(lines).strip() + "\n"
 
 def to_resume(store: Any, minutes_folder: Path, how_many: int = 20) -> list[str]:

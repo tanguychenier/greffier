@@ -186,7 +186,9 @@ def sheet(utterances: Sequence[Utterance], names: dict[str, str] | None = None) 
     named = names or {}
     out = io.StringIO()
     graveur = csv.writer(out, delimiter=";", lineterminator="\n")
-    graveur.writerow(["debut", "fin", "duree", "voix", "nom", "texte"])
+    graveur.writerow(
+        ["debut", "fin", "duree", "voix", "nom", "confiance", "texte"]
+    )
     for utterance in sorted(utterances, key=lambda u: u.span.start):
         graveur.writerow([
             f"{utterance.span.start:.2f}",
@@ -194,6 +196,7 @@ def sheet(utterances: Sequence[Utterance], names: dict[str, str] | None = None) 
             f"{utterance.span.duration:.2f}",
             utterance.voice or "",
             named.get(utterance.voice or "", ""),
+            "" if utterance.confidence is None else f"{utterance.confidence:.2f}",
             utterance.text.strip(),
         ])
     return out.getvalue()

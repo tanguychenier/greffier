@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import math
 import threading
 from pathlib import Path
 from typing import Any
@@ -74,7 +75,28 @@ class FasterWhisperTranscriber:
         )
         return [
             Utterance(span=Span(s.start, s.end),
-                      text=without_loop(s.text.strip()))
+                      text=without_loop(s.text.strip()),
+                      confidence=_how_sure(s))
             for s in segments
             if s.text.strip()
         ]
+
+
+def _how_sure(segment: object) -> float | None:
+    """The model's own certainty about a segment, between 0 and 1.
+
+    Whisper gives `avg_logprob`, the mean log probability of the tokens it
+    chose. Its exponential is the average probability per token, which is the
+    figure the literature uses and the only one comparable from one segment to
+    the next -- a log probability alone says nothing without the length.
+
+    None rather than a guess where the engine did not say: a turn nobody can
+    judge must not be shown as a turn the tool doubts.
+    """
+    mean = getattr(segment, "avg_logprob", None)
+    if mean is None:
+        return None
+    try:
+        return min(1.0, max(0.0, math.exp(float(mean))))
+    except (OverflowError, TypeError, ValueError):
+        return None

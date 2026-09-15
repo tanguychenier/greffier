@@ -2239,6 +2239,23 @@ class Window:
             emptiness.voices(identifier is not None, len(self.voice.get_children())),
             self.voice, self.voice_guidance, self.voice_buttons,
         )
+        self._say_what_is_unsure(detail if identifier is not None else None)
+
+    def _say_what_is_unsure(self, detail: Any) -> None:
+        """Says how much of this meeting is worth listening to again.
+
+        The model returns a certainty for every turn and the chain used to
+        throw it away, so the minutes read the same whether the words were
+        heard clearly or invented over a fan. Only said when it is worth
+        saying: one doubtful turn in two hours is noise.
+        """
+        from greffier.domain import doubt
+
+        if detail is None:
+            return
+        dit = doubt.said_in_french(doubt.count(detail.utterances))
+        if dit:
+            self.status_line.configure(text=dit)
 
     def _process_selection(self) -> None:
         identifier = self._selection()

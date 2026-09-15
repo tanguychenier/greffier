@@ -86,14 +86,17 @@ changeait, **mesuré** sans être tenu par un test, et **ouvert**.
 
 - **Dire qu'il doute, au moment où il doute.** Il sait se faire corriger, il ne
   demande jamais.
-- **Une confiance par tour attribué** dans la transcription, pas seulement dans
-  l'écran des voix.
 - **Un retour arrière** sur la séparation de deux voix.
 - **Effacer une réunion** depuis la fenêtre.
 - **Un premier lancement** qui prend par la main quand rien n'est configuré.
 
 ## Ce qui vient d'arriver
 
+- **Une confiance par tour**, mesurée avant d'être montrée : la transcription
+  lisible marque « (?) » les passages que le modèle n'a pas bien entendus, le
+  tableur porte le chiffre, et la fenêtre dit combien de passages méritent une
+  réécoute. Le seuil vient de `tools/measure_confidence.py`, voir
+  `docs/calibrage.md`. Couvert par `test_doubt`.
 - **Exporter la transcription** en SRT, WebVTT ou CSV, en ligne de commande et
   depuis la fenêtre. Les sous-titres sont découpés comme des sous-titres : deux
   lignes de quarante-deux caractères au plus, le nom du locuteur compté dans la
