@@ -93,3 +93,42 @@ class TestWhatTheWindowShowsWithNothingYet:
 
     def test_the_status_line_starts_empty(self, window) -> None:
         assert window.status_line.cget("text") == ""
+
+
+class TestNoButtonIsSqueezedOutOfShape:
+    """At its narrowest, the window must still hold everything it draws.
+
+    Two buttons have already been lost this way. The seventh of the Réunions
+    tab sat outside the frame; « Séparer les deux voix » was subtler and worse:
+    Tk did not push it out, it **squeezed** it, handing 130 px to a button that
+    asked for 190 and cutting its last word off. Nothing raises, nothing moves,
+    the label is simply wrong. Measured at 880 px, the smallest size the window
+    itself declares.
+    """
+
+    @staticmethod
+    def _squeezed(page) -> list[str]:
+        from greffier.interface.appearance import Button
+
+        etroits = []
+
+        def walk(widget) -> None:
+            for child in widget.winfo_children():
+                if (isinstance(child, Button) and child.winfo_ismapped()
+                        and child.winfo_width() < child.winfo_reqwidth()):
+                    etroits.append(
+                        f"{child.winfo_width()} px pour "
+                        f"{child.winfo_reqwidth()} demandés"
+                    )
+                walk(child)
+
+        walk(page)
+        return etroits
+
+    @pytest.mark.parametrize("caption", TABS)
+    def test_at_its_narrowest_no_button_is_cut(self, window, caption: str) -> None:
+        window.root.geometry("880x660")
+        window.tabs.reveal(caption)
+        window.root.update()
+        window.root.update()
+        assert self._squeezed(window.tabs._pages[caption]) == []

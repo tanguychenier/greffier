@@ -825,23 +825,32 @@ class Window:
 
         entry = tk.Frame(inside, bg=self.colours.board)
         entry.grid(row=2, column=0, sticky="ew", pady=(16, 0))
-        self._text(entry, self.dit("voix.prenom"), taille=11, pale=True).pack(
-            side="left", padx=(0, 9)
+        entry.columnconfigure(2, weight=1)
+        self._text(entry, self.dit("voix.prenom"), taille=11, pale=True).grid(
+            row=0, column=0, sticky="w", padx=(0, 9)
         )
         self.champ_nom = self._champ(entry, width=20)
-        self.champ_nom.pack(side="left", ipady=7, ipadx=5)
+        self.champ_nom.grid(row=0, column=1, sticky="w", ipady=7, ipadx=5)
         self.champ_nom.bind("<Return>", lambda _e: self._name_voice())
+        # A bar that wraps, not four buttons packed side by side: at 880 px,
+        # the narrowest the window can be, « Séparer les deux voix » ran past
+        # the edge of the card with its last word cut off, reachable by nobody.
+        # The Réunions tab has wrapped its seven buttons since the day the
+        # seventh disappeared the same way.
+        actions = ButtonBar(entry, self.colours)
+        actions.grid(row=0, column=2, sticky="ew", padx=(11, 0))
         self.voice_buttons = []
-        for caption, action, width, principal, gap in (
-            ("Nommer", self._name_voice, 110, True, (11, 9)),
-            ("Écouter 10 s", self._listen, 140, False, (0, 0)),
-            ("Retirer le nom", self._forget_the_name, 150, False, (9, 0)),
-            ("Séparer les deux voix", self._split_the_voice, 190, False, (9, 0)),
+        for caption, action, width, principal in (
+            ("Nommer", self._name_voice, 110, True),
+            ("Écouter 10 s", self._listen, 140, False),
+            ("Retirer le nom", self._forget_the_name, 150, False),
+            ("Séparer les deux voix", self._split_the_voice, 190, False),
         ):
-            bouton = Button(entry, caption, action, self.colours,
+            bouton = Button(actions, caption, action, self.colours,
                             principal=principal, width=width, height=34)
-            bouton.pack(side="left", padx=gap)
+            actions.add(bouton, width)
             self.voice_buttons.append(bouton)
+
 
     def _preparation_tab(self) -> None:
         """Before a meeting: what to raise, who is expected, and Lucie.
