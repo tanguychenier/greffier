@@ -39,6 +39,11 @@ SYSTEM = platform.system()
 TROU_SIGNIFICATIF = 8.0
 COUVERTURE_SUSPECTE = 0.60
 
+#: The line the minutes carry when one take served the whole room.
+ATTRIBUTION_PAR_LES_VOIX = (
+    "Attribution des propos par reconnaissance des voix (une seule prise de son)."
+)
+
 _HORODATAGE = HORODATAGE
 
 _MOIS = ("janvier", "février", "mars", "avril", "mai", "juin", "juillet",
@@ -169,6 +174,19 @@ def instructions_header(instructions: list[str]) -> str:
     return "\n".join(lines) + "\n\n"
 
 
+def take_header(one_take: bool) -> str:
+    """How the words were given to people, when no channel could say."""
+    if not one_take:
+        return ""
+    return (
+        "[Prise de son]\n"
+        "Une seule prise de son pour toute la salle : les propos sont attribués "
+        "par reconnaissance des voix, aucun canal ne désigne qui parle. Reproduis "
+        "cette phrase telle quelle sous la ligne de contexte, sans rien y ajouter :\n"
+        f"{ATTRIBUTION_PAR_LES_VOIX}\n\n"
+    )
+
+
 def hardware_header(events: list[str]) -> str:
     """What the watch observed of the hardware, told to the writer."""
     if not events:
@@ -259,6 +277,7 @@ def regenerate_minutes(
             started_at=meeting.started_at,
             ended_at=meeting.ended_at,
         )
+        + take_header(meeting.one_take)
         + hardware_header(meeting.hardware_events)
         + reliability_header(meeting)
         + disclosure_header(disclosure)

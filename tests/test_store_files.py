@@ -87,6 +87,18 @@ class TestASubjectChosenByHand:
         store.record(gardee)
         assert store.read("2026-09-09_10h05_reunion").subject == "Point Oasis"
 
+    def test_a_single_take_survives_being_written(self, tmp_path):
+        store = FileStore(tmp_path)
+        gardee = meeting("2026-09-09_10h05_reunion")
+        gardee.one_take = True
+        store.record(gardee)
+        assert store.read("2026-09-09_10h05_reunion").one_take
+
+    def test_a_master_file_from_before_is_not_a_single_take(self, tmp_path):
+        store = FileStore(tmp_path)
+        store.record(meeting("2026-09-09_10h05_reunion"))
+        assert not store.read("2026-09-09_10h05_reunion").one_take
+
     def test_with_no_subject_the_identifier_names_the_meeting(self):
         assert meeting("2026-09-09_10h05_reunion").caption == "2026-09-09_10h05_reunion"
 

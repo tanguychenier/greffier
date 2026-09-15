@@ -63,7 +63,7 @@ une séance.
 
 ## Phase 4. Deux courtes tâches produit
 
-- [ ] Présentiel : quand la prise de son n'a qu'un canal, la fenêtre et le
+- [x] Présentiel : quand la prise de son n'a qu'un canal, la fenêtre et le
       compte rendu disent que l'attribution repose sur les voix.
       *Preuve : un test dans `test_window`, et la ligne dans un compte rendu réel.*
 - [ ] Nombre de participants : quand les voix détectées dépassent le nombre

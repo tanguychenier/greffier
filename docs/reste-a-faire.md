@@ -1111,8 +1111,11 @@ reste à faire.
 - **L'assistante ne lit pas les sources connectées** (GitLab, Jira, Trello)
   quand elle décide de parler. Elle les a pour une question écrite, pas orale.
   Rien n'est configuré ici, donc le construire ne prouverait rien.
-- **En présentiel, le canal ne désigne personne** et rien ne le dit à
-  l'utilisateur : tout repose alors sur les empreintes.
+- ~~**En présentiel, le canal ne désigne personne** et rien ne le dit à
+  l'utilisateur : tout repose alors sur les empreintes.~~ Fait le 15/09 : une
+  seule prise de son (fichier mono, ou boucle système muette avec plusieurs
+  voix) est notée à l'écran, gardée dans le fichier maître, et le compte rendu
+  porte la ligne « Attribution des propos par reconnaissance des voix ».
 - **Le nombre de participants** se règle, mais rien ne le suggère quand le
   compte détecté paraît trop haut.
 - **Un corpus réel en français**, avec transcription de référence, pour

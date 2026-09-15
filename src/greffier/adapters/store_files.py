@@ -35,6 +35,7 @@ class FileStore:
             "propositions": meeting.propositions,
             "avertissements": meeting.warnings,
             "evenements_materiel": meeting.hardware_events,
+            "prise_unique": meeting.one_take,
             "couverture": round(meeting.coverage, 4),
             "tours": [
                 {"debut": t.span.start, "fin": t.span.end,
@@ -95,6 +96,7 @@ class FileStore:
             propositions=content.get("propositions", {}),
             warnings=content.get("avertissements", []),
             hardware_events=content.get("evenements_materiel", []),
+            one_take=bool(content.get("prise_unique", False)),
             joins=[
                 Join(
                     absorbed=str(f.get("absorbee", "")),

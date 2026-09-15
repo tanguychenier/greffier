@@ -44,6 +44,11 @@ MOTS_MINIMUM = 20
 
 AVERTISSEMENT_SANS_BOUCLE = "· boucle système muette, à préciser"
 
+NOTE_PRISE_UNIQUE = (
+    "Une seule prise de son pour toute la salle : aucun canal ne désigne qui "
+    "parle, les noms viennent des voix seules. Relis-les si deux voix se ressemblent."
+)
+
 MATERIAL_TO_RECOGNISE = 6.0
 """Seconds of speech required before the voice bank may name a voice.
 
@@ -85,6 +90,8 @@ class Outcome:
     started_at: datetime | None = None
     ended_at: datetime | None = None
     subject: str = ""
+    one_take: bool = False
+    """One sound take for the whole room: a mono file, or a system loop that stayed silent."""
 
     @property
     def words(self) -> int:
@@ -191,25 +198,33 @@ class Chain:
                 "Enregistrement muet sur tous les canaux. "
                 "Vérifie l'autorisation micro et le périphérique d'entrée.",
             )
-        if len(levels) >= 2:
-            if levels[0] < SEUIL_MUET_DB:
-                outcome.warnings.append(
-                    "Ton micro est resté muet : seuls les autres participants sont transcrits."
-                )
-            elif max(levels[1:]) < SEUIL_MUET_DB:
-                outcome.warnings.append(AVERTISSEMENT_SANS_BOUCLE)
+        if len(levels) == 1:
+            outcome.one_take = True
+        elif levels[0] < SEUIL_MUET_DB:
+            outcome.warnings.append(
+                "Ton micro est resté muet : seuls les autres participants sont transcrits."
+            )
+        elif max(levels[1:]) < SEUIL_MUET_DB:
+            outcome.warnings.append(AVERTISSEMENT_SANS_BOUCLE)
 
     def _preciser_les_canaux(self, outcome: Outcome) -> None:
-        """Says what the silence of the system loop meant."""
-        if AVERTISSEMENT_SANS_BOUCLE not in outcome.warnings:
-            return
-        outcome.warnings.remove(AVERTISSEMENT_SANS_BOUCLE)
-        if len(outcome.significant_voices()) > 1:
-            return
-        outcome.warnings.append(
-            "Aucun son système capté et une seule voix entendue : si la réunion "
-            "était en visio, les autres participants n'ont pas été enregistrés."
-        )
+        """Says what the silence of the system loop meant.
+
+        Several voices through the microphone alone is a room: the take was
+        single, and the reader is told so. One voice is a video call that may
+        have lost everybody else.
+        """
+        if AVERTISSEMENT_SANS_BOUCLE in outcome.warnings:
+            outcome.warnings.remove(AVERTISSEMENT_SANS_BOUCLE)
+            if len(outcome.significant_voices()) > 1:
+                outcome.one_take = True
+            else:
+                outcome.warnings.append(
+                    "Aucun son système capté et une seule voix entendue : si la réunion "
+                    "était en visio, les autres participants n'ont pas été enregistrés."
+                )
+        if outcome.one_take and len(outcome.significant_voices()) > 1:
+            outcome.warnings.append(NOTE_PRISE_UNIQUE)
 
     def _warn_about_coverage(self, outcome: Outcome) -> None:
         """Tells the user what the transcription lost."""
@@ -484,6 +499,7 @@ class Chain:
             hardware_header,
             reliability_header,
             render_transcript,
+            take_header,
         )
 
         duration = outcome.turns[-1].span.end if outcome.turns else 0.0
@@ -497,6 +513,7 @@ class Chain:
                             voices_heard=len(heard),
                             started_at=outcome.started_at,
                             ended_at=outcome.ended_at)
+            + take_header(outcome.one_take)
             + hardware_header(self.hardware_events)
             + reliability_header(outcome)
             + disclosure_header(self.disclosure)
@@ -654,4 +671,5 @@ def _as_stored_meeting(outcome: Outcome, duration: float) -> StoredMeeting:
         subject=outcome.subject,
         started_at=outcome.started_at,
         ended_at=outcome.ended_at,
+        one_take=outcome.one_take,
     )

@@ -103,6 +103,7 @@ BAVARDAGE = [
     utterance(21, 28, "On valide donc jeudi, et on prévient les utilisateurs mercredi soir."),
 ]
 TURNS = [turn(0, 12, "1"), turn(13, 20, "2"), turn(21, 28, "1")]
+TWO_LONG_VOICES = [turn(0, 40, "1"), turn(40, 90, "2")]
 
 
 def chain(**overrides):
@@ -893,14 +894,17 @@ class TestTheChainKeepsTheMeeting:
 class TestTheChannelsInARoom:
     """Silence on the system loopback does not mean the same thing everywhere."""
 
-    def test_a_meeting_in_a_room_raises_no_alarm(self):
-        """The table mic hears everybody: there is nothing to report.
+    def test_a_meeting_in_a_room_raises_no_alarm_but_says_how_names_are_given(self):
+        """The table mic hears everybody: nobody is missing, so no alarm.
 
-        Announcing "only your voice is transcribed" was false there, and the writer
-        reads those warnings. Letting it believe people are missing makes it write
-        careful minutes over a complete transcription.
+        What the reader is owed instead is the one fact the channels cannot give
+        any more: no channel says who is speaking, the names come from the voices.
         """
-        from greffier.application.process import AVERTISSEMENT_SANS_BOUCLE, Outcome
+        from greffier.application.process import (
+            AVERTISSEMENT_SANS_BOUCLE,
+            NOTE_PRISE_UNIQUE,
+            Outcome,
+        )
 
         outcome = Outcome(audio=AUDIO)
         outcome.warnings.append(AVERTISSEMENT_SANS_BOUCLE)
@@ -909,7 +913,50 @@ class TestTheChannelsInARoom:
             SpeakerTurn(Span(40, 90), "1"),
         ]
         chain()._preciser_les_canaux(outcome)
-        assert outcome.warnings == []
+        assert outcome.warnings == [NOTE_PRISE_UNIQUE]
+        assert outcome.one_take
+        assert not any("visio" in a for a in outcome.warnings)
+
+    def test_a_mono_recording_of_several_voices_is_a_single_take(self):
+        """An imported file has one channel: the room case, without any loop."""
+        from greffier.application.process import NOTE_PRISE_UNIQUE
+
+        processing = chain(
+            audio_recorder=FakeRecorder(levels=(-30.0,)), diariser=FakeDiariser(TWO_LONG_VOICES)
+        )
+        outcome = processing.run_chain(AUDIO)
+        assert outcome.one_take
+        assert NOTE_PRISE_UNIQUE in outcome.warnings
+
+    def test_a_mono_recording_of_one_voice_has_nothing_to_say_about_names(self):
+        """One voice: there is nobody to tell apart, so no note."""
+        from greffier.application.process import NOTE_PRISE_UNIQUE
+
+        outcome = chain(audio_recorder=FakeRecorder(levels=(-30.0,))).run_chain(AUDIO)
+        assert outcome.one_take
+        assert NOTE_PRISE_UNIQUE not in outcome.warnings
+
+    def test_two_live_channels_are_not_a_single_take(self):
+        """Microphone and system loop both carry sound: the channels do tell."""
+        from greffier.application.process import NOTE_PRISE_UNIQUE
+
+        outcome = chain(audio_recorder=FakeRecorder(levels=(-30.0, -35.0))).run_chain(AUDIO)
+        assert not outcome.one_take
+        assert NOTE_PRISE_UNIQUE not in outcome.warnings
+
+    def test_a_single_take_reaches_the_writer_and_the_master_file(self):
+        from greffier.application.process import _as_stored_meeting
+        from greffier.application.render import ATTRIBUTION_PAR_LES_VOIX
+
+        writer = FakeWriter()
+        processing = chain(
+            audio_recorder=FakeRecorder(levels=(-30.0,)),
+            diariser=FakeDiariser(TWO_LONG_VOICES),
+            writer=writer,
+        )
+        outcome = processing.run_chain(AUDIO)
+        assert ATTRIBUTION_PAR_LES_VOIX in writer.recu
+        assert _as_stored_meeting(outcome, 90.0).one_take
 
     def test_one_voice_with_no_loopback_is_flagged(self):
         """There, a badly wired video call may really have lost everybody."""

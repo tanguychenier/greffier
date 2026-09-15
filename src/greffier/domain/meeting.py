@@ -83,6 +83,8 @@ class StoredMeeting:
     started_at: datetime | None = None
     ended_at: datetime | None = None
     joins: list[Join] = field(default_factory=list)
+    one_take: bool = False
+    """One sound take for the whole room: no channel says who is speaking."""
 
     def attendees(self, minimum: float = 10.0) -> list[str]:
         """The voices that carried the meeting, most talkative first."""
