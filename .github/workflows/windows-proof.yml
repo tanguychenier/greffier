@@ -40,8 +40,8 @@ jobs:
         # answer are all on file. Everything else is minimised first: the
         # runner's terminal covered the desktop, and a window behind it could
         # not be told from a window that never opened. At forty seconds the
-        # first question is refused with Escape, so that the window itself
-        # shows on the two later photographs. Every visible top-level window
+        # first question is refused (its « No » button, by its mnemonic), so
+        # that the window itself shows on the two later photographs. Every visible top-level window
         # is listed with each photograph, the process's main window is not
         # enough: Tk withdraws its root while a question is up.
         run: |
@@ -65,12 +65,18 @@ jobs:
           "@
           (New-Object -ComObject Shell.Application).MinimizeAll()
           Start-Sleep -Seconds 2
+          [Windows]::Visible() | Set-Content proof\fenetres-avant.txt
           $p = Start-Process -FilePath dist\Greffier\Greffier.exe -PassThru
           $clock = [Diagnostics.Stopwatch]::StartNew()
           foreach ($moment in 20, 60, 100) {
             if ($moment -eq 60) {
+              # A Yes/No box has no Cancel: Escape does nothing to it, and its
+              # close button is greyed out. N is the mnemonic of « No ».
               Start-Sleep -Seconds ([Math]::Max(0, 40 - [int]$clock.Elapsed.TotalSeconds))
-              [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
+              Add-Type -AssemblyName Microsoft.VisualBasic
+              try { [Microsoft.VisualBasic.Interaction]::AppActivate("Greffier") } catch { "AppActivate: $_" | Add-Content proof\deroule.txt }
+              Start-Sleep -Seconds 1
+              [System.Windows.Forms.SendKeys]::SendWait("n")
             }
             Start-Sleep -Seconds ([Math]::Max(0, $moment - [int]$clock.Elapsed.TotalSeconds))
             $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
