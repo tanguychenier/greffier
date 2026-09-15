@@ -121,3 +121,53 @@ qu'il faut faire tomber en premier.
   décodage : c'est un problème de séparation, pas de transcription.
 - Les 12 voix de 036c mettent la phase 5 (adopter les petits agrégats au seuil
   du direct) devant une vraie réunion, avec un chiffre à battre : 64,1 %.
+
+## Les seize combinaisons de décodage, sur le réel (2026-09-15)
+
+`python3 tools/measure_decoding.py` : même préparation audio que la chaîne,
+`large-v3` sur la carte, les seize combinaisons de `beam_size` (5 ou 1),
+`vad_filter`, `condition_on_previous_text` et `temperature` (l'échelle de
+repli de faster-whisper, ou 0). Sur le synthétique elles donnaient toutes
+1,75 % ; sur le réel elles vont **de 21,5 % à 409 %**.
+
+| Combinaison | 032a (19,7 min) | 036c (26,8 min) | Temps 032a |
+|---|---|---|---|
+| **beam 5, vad, cond, échelle** *(le produit)* | 22,1 % | **29,8 %** | 373 s |
+| beam 5, sans vad, cond, échelle | **21,5 %** | 30,1 % | 292 s |
+| beam 1, sans vad, cond, échelle | 24,2 % | 31,4 % | 198 s |
+| beam 1, vad, cond, échelle | 24,4 % | 31,7 % | 239 s |
+| beam 1, sans vad, sans cond (échelle ou 0) | 22,9 % | 33,3 % | 162 s |
+| beam 5, vad, sans cond (échelle ou 0) | 24,0 % | 34,0 % | 225 s |
+| beam 5, sans vad, sans cond (échelle ou 0) | 24,4 % | 34,3 % | 225 s |
+| beam 1, vad, sans cond (échelle ou 0) | 24,5 % | 34,5 % | 158 s |
+| beam 5, vad, cond, **température 0** | 22,1 % | **43,6 %** | 322 s |
+| beam 5, sans vad, cond, **température 0** | 21,5 % | **85,3 %** | 329 s |
+| beam 1, vad, cond, **température 0** | 31,3 % | **80,4 %** | 173 s |
+| beam 1, sans vad, cond, **température 0** | **409 %** (17 642 mots pour 4 103) | **88,9 %** | 784 s |
+
+### Ce qui bouge un chiffre, et ce qui ne bouge pas
+
+- **Le réglage du produit est le bon.** Meilleur sur 036c, à 0,6 point du
+  meilleur sur 032a. Rien à changer.
+- **La zone dangereuse est nette** : `condition_on_previous_text` **sans**
+  l'échelle de température. Le modèle se met à boucler : 17 642 mots
+  transcrits pour 4 103 prononcés sur 032a, et quatre fois sur quatre au-delà
+  de 43 % sur 036c. L'échelle de repli est ce qui sauve le conditionnement ;
+  la couper est la seule façon de casser la transcription par un réglage.
+- **Sans conditionnement, rien ne boucle jamais**, mais on paie 2 à 4 points.
+  C'est le repli sûr si un jour une boucle est observée en séance.
+- **Le faisceau** vaut 1 à 2 points et coûte 1,5 à 2 fois le temps.
+- **Le filtre de voix** joue un demi-point, dans un sens ou dans l'autre.
+- **Ce qu'aucun réglage ne rattrape** : sur 036c le meilleur reste à 29,8 %,
+  et les omissions (19,3 % au réglage produit) sont les mots dits pendant
+  qu'un autre parle. Ce n'est pas un problème de décodage.
+
+### L'amorce, sans vocabulaire à lui donner
+
+Le produit n'envoie une amorce que si un vocabulaire est configuré :
+« Réunion de travail. Vocabulaire : … ». Mesurée seule, la phrase de tête
+sans aucun terme derrière **coûte** : 24,9 % au lieu de 22,1 % sur 032a,
+30,5 % au lieu de 29,8 % sur 036c, et deux à cinq termes rares de moins. Le
+gain mesuré le 12/09 (11 puis 15 termes sur 15) vient donc des termes, pas de
+la phrase qui les précède. Rien à changer tant que l'amorce n'existe qu'avec
+des termes ; si un jour elle est envoyée à vide, ce chiffre dit de ne pas.
