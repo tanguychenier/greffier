@@ -224,3 +224,63 @@ class TestSendingTheMinutes:
         (donnees / "comptes-rendus" / "r.md").write_text("# Compte rendu", encoding="utf-8")
         answered = _run(reglages, "envoyer", "r")
         assert answered.exit_code != 0
+
+
+class TestForgettingSomebodyEverywhere:
+    """`connus --oublier` empties the bank; this empties the rest.
+
+    Article 17 is not satisfied by a voiceprint being deleted while the first
+    name stays written in the minutes, the transcript and the memory.
+    """
+
+    @staticmethod
+    def _a_meeting_naming(donnees, name: str) -> None:
+        import json
+
+        (donnees / "reunions").mkdir(parents=True, exist_ok=True)
+        (donnees / "comptes-rendus").mkdir(parents=True, exist_ok=True)
+        (donnees / "reunions" / "2026-09-10_point.json").write_text(
+            json.dumps({
+                "format": 2, "identifiant": "2026-09-10_point",
+                "audio": str(donnees / "enregistrements" / "2026-09-10_point.wav"),
+                "noms": {"v1": name}, "propositions": {},
+                "repliques": [{"debut": 0, "fin": 2,
+                                "texte": f"{name} reprend la recette.", "voix": "v1"}],
+                "fusions": [],
+            }, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (donnees / "comptes-rendus" / "2026-09-10_point.md").write_text(
+            f"# Compte rendu\n\n- {name} reprend la recette.\n", encoding="utf-8",
+        )
+
+    def test_it_says_where_the_name_is_and_erases_nothing(self, poste):
+        reglages, donnees = poste
+        self._a_meeting_naming(donnees, "Élodie")
+        answered = _run(reglages, "oublier-une-personne", "Élodie")
+        assert answered.exit_code == 0
+        assert "compte rendu" in answered.stdout
+        assert "Rien n'a été effacé" in answered.stdout
+        assert "Élodie" in (donnees / "comptes-rendus" / "2026-09-10_point.md").read_text()
+
+    def test_the_accent_is_not_a_second_person(self, poste):
+        # The bank holds « Elodie », the minutes say « Élodie ». One person.
+        reglages, donnees = poste
+        self._a_meeting_naming(donnees, "Élodie")
+        answered = _run(reglages, "oublier-une-personne", "Elodie")
+        assert "au total" in answered.stdout
+
+    def test_with_faire_the_name_is_gone_and_the_decision_stays(self, poste):
+        reglages, donnees = poste
+        self._a_meeting_naming(donnees, "Élodie")
+        answered = _run(reglages, "oublier-une-personne", "Élodie", "--faire")
+        assert answered.exit_code == 0
+        compte_rendu = (donnees / "comptes-rendus" / "2026-09-10_point.md").read_text()
+        assert "Élodie" not in compte_rendu
+        assert "reprend la recette" in compte_rendu
+
+    def test_somebody_who_is_written_nowhere_is_said_so(self, poste):
+        reglages, _ = poste
+        answered = _run(reglages, "oublier-une-personne", "Personne")
+        assert answered.exit_code == 1
+        assert "nulle part" in answered.stdout

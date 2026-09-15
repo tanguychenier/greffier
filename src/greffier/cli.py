@@ -157,6 +157,23 @@ def _locations(config: Config) -> ranger_module.Places:
         pieces=config.paths.pieces,
     )
 
+def _everywhere(config: Config) -> Any:
+    """Where a person can have been written down, according to the configuration."""
+    from greffier.application.erase_person import Everywhere
+
+    return Everywhere(
+        meetings=config.paths.data / "reunions",
+        minutes_folder=config.paths.minutes_folder,
+        transcripts=config.paths.transcripts,
+        live=config.paths.live,
+        propositions=config.paths.propositions,
+        questions=config.paths.questions,
+        conversations=config.paths.conversations,
+        preparations=config.paths.preparations,
+        memory=config.paths.memory,
+        troubles=config.paths.troubles,
+    )
+
 def _refuse_during_a_meeting(config: Config, quand_meme: bool) -> None:
     """Refuses to process while a meeting is recording."""
     if quand_meme:
@@ -1889,6 +1906,89 @@ def forget(
     remaining = tidy.pieces_de(ou, identifier)
     for piece in remaining:
         typer.secho(f"⚠ {piece.path} n'a pas pu être effacé", fg=typer.colors.YELLOW)
+
+@application.command("oublier-une-personne")
+def forget_a_person(
+    name: str = typer.Argument(..., help="La personne à effacer partout"),
+    for_real: bool = typer.Option(
+        False, "--faire", help="Effacer (sans quoi la commande ne fait que dire où)"
+    ),
+    config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
+) -> None:
+    """Efface quelqu'un de tout ce que l'outil a gardé de lui.
+
+    « greffier connus --oublier » ne vide que la banque de voix. Le prénom, lui,
+    reste dans les réunions, les comptes rendus, les transcriptions, les fils du
+    direct, les questions, les conversations, la mémoire, l'index et les réunions
+    préparées : neuf endroits sur dix restaient écrits.
+
+    La réunion, elle, n'est pas effacée : ce qui s'est décidé autour de la table
+    appartient à tous ceux qui y étaient. Le tour de parole reste, la phrase
+    reste, et le nom devient « Indéterminé », ce que la fenêtre affiche déjà
+    pour une voix que personne n'a nommée.
+
+    Sans « --faire », la commande dit seulement où le nom se trouve : un prénom
+    est un mot courant, et le même mot désignant quelqu'un d'autre part avec.
+    """
+    from greffier.adapters import graph_sqlite
+    from greffier.application import erase_person
+
+    config = Config.load(config_file)
+    ou = _everywhere(config)
+    bank = FileVoiceBank(config.paths.voice_bank)
+    person = bank.find(name)
+    empreintes = len(person.voiceprints) if person else 0
+
+    traces = erase_person.inventory(ou, name, voiceprints=empreintes)
+    if not traces:
+        typer.secho(f"« {name} » n'est écrit nulle part.", fg=typer.colors.YELLOW)
+        raise typer.Exit(1)
+
+    typer.echo(f"\n« {name} » est écrit ici :")
+    for trace in traces:
+        ou_exactement = trace.path.name if trace.path.parent.name else trace.path
+        marque = " (donnée biométrique)" if trace.biometric else ""
+        typer.echo(f"  {trace.occurrences:>4}  {trace.what}{marque}"
+                   f"  {ou_exactement}")
+    total = sum(trace.occurrences for trace in traces)
+    typer.echo(f"  {'─' * 4}\n  {total:>4}  au total, dans "
+               f"{len(traces)} endroit(s)\n")
+
+    if not for_real:
+        typer.echo("Rien n'a été effacé. « --faire » pour le faire.")
+        return
+
+    done = erase_person.erase(
+        ou, name,
+        forget_the_voiceprints=_forget_the_voiceprints(bank),
+        forget_in_the_index=lambda who: graph_sqlite.forget_person(
+            config.paths.graph, who
+        ) if config.paths.graph.exists() else 0,
+    )
+    typer.secho(
+        f"✓ {done.occurrences} occurrence(s) effacée(s) dans {done.files} fichier(s)",
+        fg=typer.colors.GREEN,
+    )
+    if done.voiceprints:
+        typer.secho(f"✓ {done.voiceprints} empreinte(s) vocale(s) effacée(s)",
+                    fg=typer.colors.GREEN)
+    if done.index_entries:
+        typer.secho(f"✓ {done.index_entries} entrée(s) retirée(s) de l'index",
+                    fg=typer.colors.GREEN)
+    reste = erase_person.inventory(ou, name)
+    for trace in reste:
+        typer.secho(f"⚠ {trace.path} nomme encore « {name} »",
+                    fg=typer.colors.YELLOW)
+
+
+def _forget_the_voiceprints(bank: FileVoiceBank) -> Callable[[str], int]:
+    """Erases somebody from the bank, and says how many prints went with them."""
+    def forget(name: str) -> int:
+        person = bank.find(name)
+        how_many = len(person.voiceprints) if person else 0
+        return how_many if bank.forget(name) else 0
+    return forget
+
 
 @application.command("revoir")
 def revoir(

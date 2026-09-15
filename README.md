@@ -428,6 +428,8 @@ greffier voix                          # the voices of the last meeting
 greffier voix --ecouter 3              # pull ten seconds out of it
 greffier voix --nommer 3 --nom Josiane # name it: recognised from then on
 greffier connus                        # the voices already in the bank
+greffier oublier-une-personne "Élodie" # says where that name is written
+greffier oublier-une-personne "Élodie" --faire   # and takes it out, everywhere
 
 greffier assister                      # shows what is said, collects proposals
 greffier propositions                  # links, instructions and decisions collected
