@@ -42,6 +42,12 @@ SEUIL_MUET_DB = -70.0
 COUVERTURE_BASSE = 0.80
 MOTS_MINIMUM = 20
 
+#: Under this share of the speaking time, a voice that still passed the ten
+#: second floor is more likely a remnant of somebody else than an attendee.
+#: Measured on the meeting of 2026-09-10: six people, and three such voices
+#: (37 s, 25 s and 16 s out of 3 878) that were pieces of the others.
+PART_D_UNE_VOIX_MINCE = 0.05
+
 AVERTISSEMENT_SANS_BOUCLE = "· boucle système muette, à préciser"
 
 NOTE_PRISE_UNIQUE = (
@@ -254,8 +260,14 @@ class Chain:
             )
 
     def _warn_about_attendees(self, outcome: Outcome) -> None:
-        """Says when the announced count contradicts what the audio holds."""
+        """Says when the announced count contradicts what the audio holds.
+
+        With no count announced, says when the count heard looks too high: a
+        voice that carries almost none of the speaking time is more likely a
+        piece of somebody else, and giving the count is what groups it back.
+        """
         if self.people is None:
+            self._suggest_the_count(outcome)
             return
         heard = len(outcome.significant_voices())
         if heard == 0 or heard == self.people:
@@ -265,6 +277,19 @@ class Chain:
             f"mais {heard} voix distinctes ont été entendues. Le nombre "
             "annoncé l'emporte, donc des personnes ont pu être confondues. "
             "Laisse « participants » vide pour que le nombre soit déduit."
+        )
+
+    def _suggest_the_count(self, outcome: Outcome) -> None:
+        significant = outcome.significant_voices()
+        total = sum(significant.values())
+        thin = [v for v, seconds in significant.items() if seconds < PART_D_UNE_VOIX_MINCE * total]
+        if len(significant) < 3 or not thin:
+            return
+        outcome.warnings.append(
+            f"{len(significant)} voix entendues, dont {len(thin)} qui parlent moins de "
+            f"{PART_D_UNE_VOIX_MINCE:.0%} du temps : peut-être des restes d'une autre voix. "
+            "Si tu connais le nombre de participants, renseigne « participants » puis "
+            "relance « Traiter » : les voix seront regroupées à ce nombre."
         )
 
     def _identify_voices(self, audio: Path, turns: list[SpeakerTurn]) -> list[SpeakerTurn]:

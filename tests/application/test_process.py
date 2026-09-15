@@ -155,6 +155,35 @@ class TestTheGuardRails:
         outcome = chain().run_chain(AUDIO)
         assert not any("annoncés" in a for a in outcome.warnings)
 
+    def test_with_no_count_given_a_thin_voice_makes_the_tool_suggest_one(self):
+        """The meeting of 2026-09-10: six people, and three voices of a few
+        seconds that were pieces of the others. Nothing suggested giving the count."""
+        turns = [turn(0, 600, "1"), turn(600, 1200, "2"), turn(1200, 1800, "3"),
+                 turn(1800, 1812, "4")]
+        outcome = chain(diariser=FakeDiariser(turns)).run_chain(AUDIO)
+        assert any("4 voix entendues, dont 1" in a for a in outcome.warnings)
+        assert any("participants" in a for a in outcome.warnings)
+
+    def test_voices_that_all_carry_their_share_suggest_nothing(self):
+        turns = [turn(0, 600, "1"), turn(600, 1200, "2"), turn(1200, 1800, "3")]
+        outcome = chain(diariser=FakeDiariser(turns)).run_chain(AUDIO)
+        assert not any("voix entendues" in a for a in outcome.warnings)
+
+    def test_two_voices_are_never_too_many(self):
+        """A conversation of two where one hardly speaks is still a conversation of two."""
+        turns = [turn(0, 600, "1"), turn(600, 612, "2")]
+        outcome = chain(diariser=FakeDiariser(turns)).run_chain(AUDIO)
+        assert not any("voix entendues" in a for a in outcome.warnings)
+
+    def test_a_count_given_takes_the_suggestion_s_place(self):
+        turns = [turn(0, 600, "1"), turn(600, 1200, "2"), turn(1200, 1800, "3"),
+                 turn(1800, 1812, "4")]
+        processing = chain(diariser=FakeDiariser(turns))
+        processing.people = 3
+        outcome = processing.run_chain(AUDIO)
+        assert not any("voix entendues" in a for a in outcome.warnings)
+        assert any("3 participants sont annoncés" in a for a in outcome.warnings)
+
     def test_the_word_threshold_stays_low_but_not_zero(self):
         assert 0 < MOTS_MINIMUM <= 50
 
