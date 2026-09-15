@@ -57,7 +57,7 @@ def main() -> int:
         from greffier.locations import locate_tcl
 
         locate_tcl()
-        Window(Config()).loop()
+        Window(Config()).spin()
     except Exception:  # noqa: BLE001, dernier recours avant l'écran noir
         trace = traceback.format_exc()
         target = log()
