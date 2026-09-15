@@ -1907,6 +1907,53 @@ def forget(
     for piece in remaining:
         typer.secho(f"⚠ {piece.path} n'a pas pu être effacé", fg=typer.colors.YELLOW)
 
+@application.command("exporter")
+def export(
+    meeting: str = typer.Argument(None, help="Réunion (défaut : la dernière)"),
+    shape: str = typer.Option(
+        "srt", "--format", help="srt, vtt ou csv",
+    ),
+    vers: Path = typer.Option(
+        None, "--vers", help="Fichier à écrire (défaut : à côté des transcriptions)"
+    ),
+    config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
+) -> None:
+    """Écrit la transcription dans un format que d'autres outils lisent.
+
+    Trois formats, pour trois outils : « srt » pour un lecteur vidéo ou un banc
+    de montage, « vtt » pour un navigateur, « csv » pour un tableur, une ligne
+    par tour de parole avec ses temps, de quoi compter qui a parlé combien.
+
+    Les sous-titres sont découpés comme des sous-titres : deux lignes de
+    quarante-deux caractères au plus, la durée du tour partagée entre les blocs.
+    """
+    from greffier.domain import export as formats
+
+    config = Config.load(config_file)
+    identifier = _reunion_visee(config, meeting)
+    if shape not in formats.FORMATS:
+        typer.secho(f"✗ format inconnu : {shape} "
+                    f"(connus : {', '.join(formats.FORMATS)})",
+                    fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+    try:
+        gardee = store(config).read(identifier)
+    except (OSError, ValueError) as trouble:
+        typer.secho(f"✗ {trouble}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1) from trouble
+
+    texte = formats.rendered(shape, gardee.utterances, gardee.names)
+    cible = vers or config.paths.transcripts / f"{identifier}.{shape}"
+    cible.parent.mkdir(parents=True, exist_ok=True)
+    # Le tableur français ne lit l'UTF-8 d'un CSV que s'il porte sa marque
+    # d'ordre : sans elle, « réunion » s'ouvre en « rÃ©union ».
+    cible.write_text(texte, encoding="utf-8-sig" if shape == "csv" else "utf-8")
+    typer.secho(
+        f"✓ {cible} ({len(gardee.utterances)} tour(s) de parole)",
+        fg=typer.colors.GREEN,
+    )
+
+
 @application.command("oublier-une-personne")
 def forget_a_person(
     name: str = typer.Argument(..., help="La personne à effacer partout"),

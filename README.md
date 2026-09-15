@@ -434,6 +434,9 @@ greffier oublier-une-personne "Élodie" --faire   # and takes it out, everywhere
 greffier assister                      # shows what is said, collects proposals
 greffier propositions                  # links, instructions and decisions collected
 
+greffier exporter --format srt         # subtitles for a player or an editing suite
+greffier exporter --format csv         # one line per turn, for a spreadsheet
+
 greffier montage                       # the notable passages, real voices
 greffier lire                          # the minutes read aloud
 greffier tickets                       # the decided actions, ready to open

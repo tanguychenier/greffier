@@ -284,3 +284,60 @@ class TestForgettingSomebodyEverywhere:
         answered = _run(reglages, "oublier-une-personne", "Personne")
         assert answered.exit_code == 1
         assert "nulle part" in answered.stdout
+
+
+class TestHandingTheTranscriptToAnotherTool:
+    """Three formats, three tools: a player, a browser, a spreadsheet."""
+
+    @staticmethod
+    def _a_transcribed_meeting(donnees) -> None:
+        import json
+
+        (donnees / "reunions").mkdir(parents=True, exist_ok=True)
+        (donnees / "reunions" / "2026-09-10_point.json").write_text(
+            json.dumps({
+                "format": 2, "identifiant": "2026-09-10_point",
+                "audio": str(donnees / "enregistrements" / "2026-09-10_point.wav"),
+                "traitee_le": "2026-09-10T11:00:00", "duree": 4.0,
+                "noms": {"v1": "Sophie"}, "propositions": {},
+                "avertissements": [], "evenements_materiel": [], "tours": [],
+                "repliques": [
+                    {"debut": 1.5, "fin": 3.25, "texte": "La recette est prête.",
+                     "voix": "v1", "source": "inconnue"},
+                ],
+                "fusions": [],
+            }, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+    def test_subtitles_a_player_reads(self, poste):
+        reglages, donnees = poste
+        self._a_transcribed_meeting(donnees)
+        answered = _run(reglages, "exporter", "2026-09-10_point", "--format", "srt")
+        assert answered.exit_code == 0
+        ecrit = (donnees / "transcriptions" / "2026-09-10_point.srt").read_text()
+        assert ecrit.startswith("1\n00:00:01,500 --> 00:00:03,250\nSophie : ")
+
+    def test_a_spreadsheet_opens_it_with_its_accents(self, poste):
+        # Without the byte order mark, a French spreadsheet shows « rÃ©union ».
+        reglages, donnees = poste
+        self._a_transcribed_meeting(donnees)
+        _run(reglages, "exporter", "2026-09-10_point", "--format", "csv")
+        brut = (donnees / "transcriptions" / "2026-09-10_point.csv").read_bytes()
+        assert brut.startswith(b"\xef\xbb\xbf")
+        assert b"debut;fin;duree;voix;nom;texte" in brut
+
+    def test_it_writes_where_it_is_told(self, poste, tmp_path):
+        reglages, donnees = poste
+        self._a_transcribed_meeting(donnees)
+        ailleurs = tmp_path / "sous-titres" / "point.vtt"
+        _run(reglages, "exporter", "2026-09-10_point", "--format", "vtt",
+             "--vers", str(ailleurs))
+        assert ailleurs.read_text().startswith("WEBVTT")
+
+    def test_a_format_nobody_has_is_refused_by_name(self, poste):
+        reglages, donnees = poste
+        self._a_transcribed_meeting(donnees)
+        answered = _run(reglages, "exporter", "2026-09-10_point", "--format", "docx")
+        assert answered.exit_code == 1
+        assert "srt" in answered.stderr
