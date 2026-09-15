@@ -40,7 +40,7 @@ TROU_SIGNIFICATIF = 8.0
 COUVERTURE_SUSPECTE = 0.60
 
 #: The line the minutes carry when one take served the whole room.
-ATTRIBUTION_PAR_LES_VOIX = (
+ATTRIBUTION_BY_VOICE_LINE = (
     "Attribution des propos par reconnaissance des voix (une seule prise de son)."
 )
 
@@ -183,7 +183,7 @@ def take_header(one_take: bool) -> str:
         "Une seule prise de son pour toute la salle : les propos sont attribués "
         "par reconnaissance des voix, aucun canal ne désigne qui parle. Reproduis "
         "cette phrase telle quelle sous la ligne de contexte, sans rien y ajouter :\n"
-        f"{ATTRIBUTION_PAR_LES_VOIX}\n\n"
+        f"{ATTRIBUTION_BY_VOICE_LINE}\n\n"
     )
 
 

@@ -65,7 +65,7 @@ jobs:
           "@
           (New-Object -ComObject Shell.Application).MinimizeAll()
           Start-Sleep -Seconds 2
-          [Windows]::Visible() | Set-Content proof\fenetres-avant.txt
+          [Windows]::Visible() | Set-Content proof\windows-before.txt
           $p = Start-Process -FilePath dist\Greffier\Greffier.exe -PassThru
           $clock = [Diagnostics.Stopwatch]::StartNew()
           foreach ($moment in 20, 60, 100) {
@@ -74,7 +74,7 @@ jobs:
               # close button is greyed out. N is the mnemonic of « No ».
               Start-Sleep -Seconds ([Math]::Max(0, 40 - [int]$clock.Elapsed.TotalSeconds))
               Add-Type -AssemblyName Microsoft.VisualBasic
-              try { [Microsoft.VisualBasic.Interaction]::AppActivate("Greffier") } catch { "AppActivate: $_" | Add-Content proof\deroule.txt }
+              try { [Microsoft.VisualBasic.Interaction]::AppActivate("Greffier") } catch { "AppActivate: $_" | Add-Content proof\timeline.txt }
               Start-Sleep -Seconds 1
               [System.Windows.Forms.SendKeys]::SendWait("n")
             }
@@ -83,26 +83,26 @@ jobs:
             $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
             $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
             $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-            $bitmap.Save("proof\ecran-$($moment)s.png")
+            $bitmap.Save("proof\screen-$($moment)s.png")
             $graphics.Dispose(); $bitmap.Dispose()
             $titles = [Windows]::Visible()
-            $titles | Set-Content "proof\fenetres-$($moment)s.txt"
-            "--- $moment s: $($bounds.Width)x$($bounds.Height), alive=$(-not $p.HasExited)" | Tee-Object -Append proof\deroule.txt
-            $titles | Tee-Object -Append proof\deroule.txt
+            $titles | Set-Content "proof\windows-$($moment)s.txt"
+            "--- $moment s: $($bounds.Width)x$($bounds.Height), alive=$(-not $p.HasExited)" | Tee-Object -Append proof\timeline.txt
+            $titles | Tee-Object -Append proof\timeline.txt
           }
           if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
       - name: What it left behind
         if: always()
         run: |
           $log = Join-Path $env:LOCALAPPDATA "Greffier\demarrage.log"
-          if (Test-Path $log) { Copy-Item $log proof\demarrage.log } else { "aucun demarrage.log" | Set-Content proof\demarrage.log }
+          if (Test-Path $log) { Copy-Item $log proof\startup.log } else { "no startup log" | Set-Content proof\startup.log }
           foreach ($folder in @("$env:LOCALAPPDATA\greffier", "$env:APPDATA\greffier", "$env:LOCALAPPDATA\Greffier")) {
             if (Test-Path $folder) {
-              "=== $folder" | Add-Content proof\dossiers.txt
-              Get-ChildItem -Recurse $folder | ForEach-Object { $_.FullName } | Add-Content proof\dossiers.txt
+              "=== $folder" | Add-Content proof\folders.txt
+              Get-ChildItem -Recurse $folder | ForEach-Object { $_.FullName } | Add-Content proof\folders.txt
             }
           }
-          if (-not (Test-Path proof\dossiers.txt)) { "aucun dossier cree" | Set-Content proof\dossiers.txt }
+          if (-not (Test-Path proof\folders.txt)) { "no folder created" | Set-Content proof\folders.txt }
       - uses: actions/upload-artifact@v4
         if: always()
         with:

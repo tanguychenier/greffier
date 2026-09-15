@@ -63,18 +63,18 @@ class TestWritingTheMinutesAgain:
 
     def test_a_single_take_survives_the_rewrite(self) -> None:
         """Regenerating must not lose how the names were given in the first place."""
-        from greffier.application.render import ATTRIBUTION_PAR_LES_VOIX
+        from greffier.application.render import ATTRIBUTION_BY_VOICE_LINE
 
         writer = FakeWriter()
         regenerate_minutes(a_meeting(one_take=True), writer)
-        assert ATTRIBUTION_PAR_LES_VOIX in writer.recu
+        assert ATTRIBUTION_BY_VOICE_LINE in writer.recu
 
     def test_two_channels_say_nothing_about_the_take(self) -> None:
-        from greffier.application.render import ATTRIBUTION_PAR_LES_VOIX
+        from greffier.application.render import ATTRIBUTION_BY_VOICE_LINE
 
         writer = FakeWriter()
         regenerate_minutes(a_meeting(), writer)
-        assert ATTRIBUTION_PAR_LES_VOIX not in writer.recu
+        assert ATTRIBUTION_BY_VOICE_LINE not in writer.recu
 
     def test_the_hardware_events_survive_the_rewrite(self) -> None:
         """Le défaut visé : régénérer ne doit pas rendre le compte rendu moins
