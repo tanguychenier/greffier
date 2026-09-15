@@ -41,7 +41,12 @@ class TestOpeningBeforeAsking:
             built.root.update()
             asked = asking.unanswered()
             assert asked, "la proposition des modèles n'est jamais venue"
-            assert any("Go" in question or "modèle" in question for question in asked)
+            # Compared against the catalogue and not against French words: the
+            # window speaks the language of the machine, and the continuous
+            # integration runner speaks English.
+            gabarit = built.dit("modeles.manquants", poids="0 Mo")
+            debut = gabarit.split("0 Mo")[0][:40]
+            assert any(question.startswith(debut) for question in asked)
         finally:
             built.root.destroy()
 
@@ -84,7 +89,7 @@ class TestEveryTabPaints:
 class TestWhatTheWindowShowsWithNothingYet:
     def test_it_says_it_is_ready_rather_than_nothing(self, window) -> None:
         window.root.update()
-        assert "Prêt" in window.title.cget("text")
+        assert window.title.cget("text") == window.dit("fenetre.pret")
 
     def test_the_status_line_starts_empty(self, window) -> None:
         assert window.status_line.cget("text") == ""
