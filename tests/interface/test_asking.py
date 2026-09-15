@@ -52,15 +52,33 @@ class TestAnsweringForNobody:
 
 
 class TestNoBoxEscapesThisModule:
-    def test_the_window_never_calls_messagebox_itself(self) -> None:
-        # A single `messagebox.showinfo` left in the window is a window that can
-        # hang on a screen with nobody in front of it, and the suite would stop
-        # dead rather than say why.
+    def test_the_window_never_opens_one_itself(self) -> None:
+        # A single `messagebox.showinfo` or `filedialog.askopenfilenames` left
+        # in the window is a window that can hang on a screen with nobody in
+        # front of it, and the suite would stop dead rather than say why.
         arbre = ast.parse(WINDOW.read_text(encoding="utf-8"))
         appels = [
             node for node in ast.walk(arbre)
             if isinstance(node, ast.Attribute)
             and isinstance(node.value, ast.Name)
-            and node.value.id == "messagebox"
+            and node.value.id in ("messagebox", "filedialog")
         ]
         assert appels == [], f"{len(appels)} boîte(s) hors de asking.py"
+
+
+class TestPickingAFileIsABoxToo:
+    def test_nothing_is_taken_in_where_nobody_can_choose(self, monkeypatch) -> None:
+        monkeypatch.setenv(asking.TEST_SCREEN, "1")
+        asking.forget_what_was_asked()
+        assert asking.files_to_open("Déposer des enregistrements") == ()
+        assert asking.unanswered() == ["Déposer des enregistrements"]
+
+    def test_nothing_is_written_where_nobody_can_choose(self, monkeypatch) -> None:
+        monkeypatch.setenv(asking.TEST_SCREEN, "1")
+        asking.forget_what_was_asked()
+        assert asking.where_to_save(
+            "Exporter la transcription",
+            initialfile="reunion.srt",
+            filetypes=(("Sous-titres SRT", "*.srt"),),
+        ) == ""
+        assert asking.unanswered() == ["Exporter la transcription"]

@@ -2265,14 +2265,12 @@ class Window:
 
     def _drop_files(self) -> None:
         """Picks files, shows what it would do with them, then asks."""
-        from tkinter import filedialog
-
         from greffier.application import publish as job
         from greffier.domain.store import offer, summarise
 
-        choisis = filedialog.askopenfilenames(
+        choisis = asking.files_to_open(
+            "Déposer des enregistrements, des vidéos ou des documents",
             parent=self.root,
-            title="Déposer des enregistrements, des vidéos ou des documents",
         )
         if not choisis:
             return
@@ -3006,15 +3004,12 @@ class Window:
 
     def _supply_a_document(self) -> None:
         """Hands the tool a document during the meeting, in one gesture."""
-        from tkinter import filedialog
-
         from greffier.adapters import attachments_file
         from greffier.application import publish as job
         from greffier.domain.store import Destination, offer
 
-        choisis = filedialog.askopenfilenames(
-            parent=self.root,
-            title="Fournir des documents pour cette réunion",
+        choisis = asking.files_to_open(
+            "Fournir des documents pour cette réunion", parent=self.root,
         )
         if not choisis:
             return
