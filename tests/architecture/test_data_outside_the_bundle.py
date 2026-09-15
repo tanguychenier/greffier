@@ -76,7 +76,7 @@ class TestAnOlderFileStaysReadable:
         assert store_files.FORMAT >= 2, "le format a évolué : la lecture doit suivre"
 
     def test_a_meeting_without_the_recent_fields_reads(self, tmp_path):
-        """Le cas d'une réunion écrite avant la mise à jour."""
+        """The case of a meeting written before the update."""
         import json
         from datetime import UTC, datetime
 

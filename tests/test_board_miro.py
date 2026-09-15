@@ -54,7 +54,7 @@ class TestWhereTheTokenComesFrom:
 
 class TestPublicationSansReseau:
     def mark(self, monkeypatch, present_line=(), poses=None):
-        """Remplace l'API par une doublure qui note ce qu'on lui demande."""
+        """Replaces the API with a stand-in that writes down what it is asked."""
         appels = []
 
         def faux(path, methode="GET", corps=None):
@@ -94,7 +94,7 @@ class TestPublicationSansReseau:
         from greffier.domain.board import Board, Contribution, Kind, Standing, join
 
         board = Board("Oasis")
-        # Une piste : seuls une piste et une action peuvent être actées.
+        # A lead: only a lead and an action can be settled.
         join(board, [Contribution("Décidé", kind=Kind.LEAD, state=Standing.AGREED)])
         appels = self.mark(monkeypatch)
         board_miro.publish(board, "uXjVtest=")

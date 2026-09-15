@@ -1033,7 +1033,7 @@ class TestNamesakesAfterTheMeeting:
     here; the name can.
     """
 
-    #: 0,700 entre elles, 0,92 de Josiane chacune.
+    #: 0.700 from each other, 0.92 from Josiane each.
     VECTORS = {
         (0.0, 12.0): [1.0, 0.0, 0.0],
         (21.0, 28.0): [1.0, 0.0, 0.0],

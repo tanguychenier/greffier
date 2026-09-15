@@ -76,13 +76,13 @@ class TestWhatIsNeverWritten:
         assert "chemins" not in settings.SECTIONS
 
     def test_a_field_left_unset_is_left_out(self):
-        """TOML n'a pas de « null » : écrire « personnes = None » casserait tout."""
+        """TOML has no « null »: writing « personnes = None » would break everything."""
         rendered = settings.render(Config(locuteurs={"personnes": None}))
         assert "personnes" not in rendered
         assert tomllib.loads(rendered)
 
     def test_the_smtp_password_has_no_place_here(self):
-        """Il vient d'une variable d'environnement, jamais d'un fichier."""
+        """It comes from an environment variable, never from a file."""
         assert "mot_de_passe" not in settings.render(Config())
 
 

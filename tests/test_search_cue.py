@@ -131,7 +131,7 @@ class TestTheSoundItself:
         from greffier.adapters import cue_sound
 
         monkeypatch.setattr("greffier.adapters.voice_neural.player", lambda: None)
-        cue_sound.cue()()  # ne doit rien lever
+        cue_sound.cue()()  # must raise nothing
 
     def test_a_missing_file_stays_silent(self, monkeypatch, tmp_path):
         from greffier.adapters import cue_sound
@@ -139,4 +139,4 @@ class TestTheSoundItself:
         monkeypatch.setattr(
             "greffier.adapters.voice_neural.player", lambda: ["/bin/true"]
         )
-        cue_sound.cue(tmp_path / "parti.wav")()  # ne doit rien lever
+        cue_sound.cue(tmp_path / "parti.wav")()  # must raise nothing

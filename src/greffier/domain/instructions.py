@@ -17,8 +17,8 @@ class Origin(StrEnum):
 
 class Kind(StrEnum):
     INSTRUCTION = "instruction"   # « Greffier, ouvre le ticket… »
-    LINK = "lien"                 # une adresse collée
-    DECISION = "decision"         # « on décide de… », « il faut que… »
+    LINK = "lien"                 # a pasted address
+    DECISION = "decision"         # « on décide de… », « il faut que… » (decision markers)
 
 _LINK = re.compile(r"https?://[^\s<>\"'()\[\]]{4,}")
 

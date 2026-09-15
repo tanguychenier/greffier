@@ -227,7 +227,7 @@ class TestBeingAddressedWithNoAnswer:
         assert outcome.certitudes == {}
 
     def test_but_the_name_is_still_offered(self):
-        # Proposer garde l'information sans la présenter comme acquise : c'est
+        # Proposing keeps the information without presenting it as settled: it is
         # à l'utilisateur de trancher, en écoutant dix secondes.
         utterances = [
             utterance(10, 12, "Tanguy, tu peux nous sortir les horaires ?"),

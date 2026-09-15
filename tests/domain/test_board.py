@@ -137,13 +137,13 @@ class TestStandings:
             assert noeud is not None and noeud.state is Standing.AGREED
 
     def test_a_problem_can_be_overtaken(self):
-        """Un problème peut avoir cessé d'en être un."""
+        """A problem may have stopped being one."""
         board = Board("Oasis")
         join(board, [Contribution("Un souci", kind=Kind.PROBLEM)])
         assert mark_overdue(board, "Un souci") is True
 
     def test_a_decision_does_not_go_back_to_a_discussion(self):
-        """« Acté » qui redeviendrait « en discussion » ferait douter de tout."""
+        """« Acté » turning back into « en discussion » would cast doubt on everything."""
         board = Board("Oasis")
         join(board, [Contribution("Monter la recette", kind=Kind.LEAD, state=Standing.AGREED)])
         join(board, [Contribution("Monter la recette", kind=Kind.LEAD,
@@ -213,7 +213,7 @@ class TestTheSamePointSaidTwice:
         )
 
     def test_two_distinct_points_do_not_join(self):
-        """Fusionner à tort perd de l'information : c'est le pire défaut ici."""
+        """Merging wrongly loses information: it is the worst defect here."""
         from greffier.domain.board import same_point
 
         assert not same_point(

@@ -144,7 +144,7 @@ class TestTheButton:
 
 class TestWhenSpeakingFails:
     def test_a_phrasing_that_fails_does_not_cost_the_rest(self):
-        """`a_parle` s'appelle après coup : rien n'a été dit, rien n'est retenu."""
+        """`a_parle` is called after the fact: nothing was said, nothing is kept."""
         manners = Manners()
         assert manners.refusal(opening(born_at=10.0), now=11.0, lull=5.0) is None
         assert manners.spoke_at is None
@@ -179,9 +179,9 @@ class TestWhatTheSettingGuarantees:
         manners = Manners(active=True)
         idee = Opening(because=Because.CONTRIBUTION, remark="une remarque", born_at=100.0)
         appel = Opening(because=Because.APPELE, remark="oui ?", born_at=100.0)
-        # L'apport n'est même pas cherché quand l'initiative est éteinte : c'est
-        # la veille qui s'en charge. Ici on vérifie que l'appel, lui, passe
-        # toujours, quelles que soient les conditions.
+        # The contribution is not even looked for when initiative is off: the
+        # watch takes care of that. Here the check is that the call itself goes
+        # through always, whatever the conditions.
         assert manners.refusal(appel, now=100.0, lull=0.0, density=1.0) is None
         assert manners.refusal(idee, now=100.0, lull=0.0, density=1.0)
 
@@ -295,7 +295,7 @@ class TestItsOwnNameNeverLeavesItsMouth:
         assert without_own_name(propos, "Lucie") == propos
 
     def test_french_typography_survives(self):
-        """Le français garde une espace avant les deux-points."""
+        """French keeps a space before the colon."""
         propos = "Merci, c'est noté : je mets Hubert sur cette voix."
         assert without_own_name(propos, "Lucie") == propos
 
@@ -306,7 +306,7 @@ class TestItsOwnNameNeverLeavesItsMouth:
         assert without_own_name("phrase entière", "") == "phrase entière"
 
     def test_what_is_left_calls_nobody_any_more(self):
-        """Le bouclage complet : ce qu'elle dit ne doit plus l'appeler."""
+        """The full loop: what she says must no longer call her."""
         for question in (
             "Lucie, est-ce que tu peux faire des recherches sur Internet ?",
             "Lucie, tu as compris le sujet Lucie ?",

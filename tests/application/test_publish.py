@@ -38,10 +38,10 @@ class TestReadingTheDocuments:
 
 
 class TestLearningFromADocument:
-    """Le document n'est pas versé tel quel : on en tire du vocabulaire.
+    """The document is not poured in as it is: vocabulary is drawn from it.
 
-    Un compte rendu de dix pages dans l'amorce du transcripteur la ferait
-    tronquer sans prévenir.
+    Ten pages of minutes in the transcriber's prompt would have it truncated
+    without warning.
     """
 
     def test_the_entries_are_read(self, tmp_path):
@@ -76,7 +76,7 @@ class TestLearningFromADocument:
         assert appris == (("FAST", "", "terme"),)
 
     def test_only_the_start_of_the_document_is_read(self, tmp_path):
-        """Cent pages ne se lisent pas pour en tirer vingt mots."""
+        """A hundred pages are not read to draw twenty words from them."""
         file = tmp_path / "gros.md"
         file.write_text("x" * (LU_AU_PLUS * 2), encoding="utf-8")
         writer = FakeWriter("[]")
@@ -91,7 +91,7 @@ class TestLearningFromADocument:
 
 class TestFilingTheFiles:
     def test_a_sound_is_copied_where_the_chain_works(self, tmp_path):
-        """Un fichier déposé depuis une clé USB ne doit pas rester la seule copie."""
+        """A file handed over from a USB stick must not remain the only copy."""
         source = tmp_path / "ailleurs" / "reunion.wav"
         source.parent.mkdir()
         source.write_bytes(b"x" * 300_000)

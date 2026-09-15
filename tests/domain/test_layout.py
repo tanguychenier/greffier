@@ -1,4 +1,4 @@
-"""Disposer un arbre sans que rien ne se recouvre."""
+"""Laying out a tree so that nothing overlaps."""
 
 from greffier.domain.board import Board, Contribution, join
 from greffier.domain.layout import (

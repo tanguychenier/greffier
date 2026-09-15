@@ -51,7 +51,7 @@ def gitlab(monkeypatch) -> FakeGitLab:
 
 @pytest.fixture
 def silent_server(monkeypatch):
-    """Aucun appel ne doit partir : le refus se décide avant le réseau."""
+    """No call must leave: the refusal is decided before the network."""
     def jamais(*_args, **_options):
         raise AssertionError("aucun appel ne devait partir")
 
@@ -93,7 +93,7 @@ class TestReadingFromGitLab:
         assert "#42" in said and "Sophie" in said and "recette" in said
 
     def test_the_project_in_the_register_bounds_the_call(self, gitlab):
-        """La portée vient du registre, jamais de la phrase tapée."""
+        """The scope comes from the registry, never from the sentence typed."""
         gitlab_api.tickets(source(), "glpat-x")
         assert "equipe%2Foutil" in gitlab.first_call.full_url
 
@@ -126,7 +126,7 @@ class TestWritingToGitLab:
             gitlab_api.create_a_ticket(source(), "glpat-x", "Faire la chose")
 
     def test_commenting_is_a_write(self, silent_server):
-        """Un commentaire notifie des gens et reste attaché à leur travail."""
+        """A comment notifies people and stays attached to their work."""
         with pytest.raises(gitlab_api.GitLabRefused, match="lecture seule"):
             gitlab_api.comment(source(), "glpat-x", 42, "vu")
 
@@ -139,7 +139,7 @@ class TestWritingToGitLab:
             gitlab_api.comment(source(Right.ECRITURE), "glpat-x", 42, "   ")
 
     def test_the_created_ticket_comes_back_with_its_url(self, gitlab):
-        """Une écriture dont on ne montre pas le résultat n'est pas vérifiable."""
+        """A write whose result is not shown cannot be checked."""
         gitlab.charge = UN_TICKET
         cree = gitlab_api.create_a_ticket(
             source(Right.ECRITURE), "glpat-x", "Corriger l'envoi"

@@ -42,9 +42,9 @@ def audio_recorder():
 
 @pytest.fixture
 def recorder(tmp_path, monkeypatch, audio_recorder):
-    # Le PID factice doit paraître vivant : c'est lui qui décide si un
-    # enregistrement est en cours. Celui du processus de test aussi, puisque
-    # c'est lui qui porte le traitement quand la chaîne publie son avancement.
+    # The fake PID has to look alive: it is what decides whether a
+    # recording is under way. The test process's too, since it is the one
+    # carrying the processing when the chain publishes its progress.
     import os
 
     monkeypatch.setattr(
@@ -139,7 +139,7 @@ class TestTheRecordingCycle:
     def test_an_empty_recording_is_flagged(self, recorder, monkeypatch):
         recorder.start_recording("muet")
         state = recorder.read()
-        # L'audio capté vit dans les morceaux : c'est là qu'il faut regarder.
+        # The captured audio lives in the chunks: that is where to look.
         for morceau in state.chunks:
             morceau.write_bytes(b"")
         with pytest.raises(RuntimeError, match="vide"):
@@ -192,7 +192,7 @@ class TestHardwareThatChanges:
         assert [m.name for m in audio_recorder.assembles[0]] == [
             f"{state.identifier}-01.wav", f"{state.identifier}-02.wav",
         ]
-        # Après recollage, l'état ne connaît plus qu'un fichier : le final.
+        # Once stitched, the state only knows one file: the final one.
         assert state.chunks == [state.audio]
 
     def test_the_pieces_are_deleted_once_stitched(self, recorder):
@@ -214,7 +214,7 @@ class TestHardwareThatChanges:
 
 class TestWhatMustNotBreak:
     def test_a_dead_process_does_not_pass_for_a_live_one(self, recorder, monkeypatch):
-        """Redémarrage pendant une réunion : l'état ment, les processus non."""
+        """Restart during a meeting: the state lies, the processes do not."""
         recorder.start_recording("interrompue")
         monkeypatch.setattr("greffier.application.record._alive", lambda pid: False)
         state = recorder.read()
@@ -277,7 +277,7 @@ class TestPausing:
         assert state.phase is Phase.PAUSE
         assert state.pid is None
         assert len(audio_recorder.arretes) == 1
-        # Le morceau déjà capté reste, rien n'est recollé pour l'instant.
+        # The chunk already captured stays, nothing is stitched for now.
         assert len(state.chunks) == 1
 
     def test_resuming_opens_one_more_piece(self, recorder):
@@ -322,7 +322,7 @@ class TestPausing:
     def test_the_pause_survives_rereading_the_state(self, recorder):
         recorder.start_recording("point")
         recorder.pause()
-        # L'interface relit le fichier : la pause doit y être.
+        # The interface reads the file again: the pause has to be in it.
         assert recorder.read().phase is Phase.PAUSE
         assert recorder.read().suspendu_le is not None
 

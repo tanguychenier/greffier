@@ -1,9 +1,9 @@
-"""Le compte Claude Code, lu du fichier de session.
+"""The Claude Code account, read from the session file.
 
-C'est ce compte qui rédige : sans session, tout fonctionne sauf le compte
-rendu, et l'échec n'apparaîtrait qu'après la transcription. L'onglet Réglages
-l'affiche, donc la lecture doit être gratuite, instantanée, et ne jamais tomber
-sur un fichier absent ou abîmé.
+That account is the one writing: without a session everything works except
+the minutes, and the failure would only show after the transcription. The
+Settings tab shows it, so the read has to be free, instant, and never fall
+on an absent or damaged file.
 """
 
 import json
@@ -42,7 +42,7 @@ class TestReadingTheAccount:
         assert str(diagnostic.claude_account()) == "moi@exemple.fr · Acme"
 
     def test_a_session_with_no_details_is_still_a_session(self, a_clean_home):
-        """Le fichier peut porter un identifiant sans profil : c'est connecté."""
+        """The file may carry an identifier without a profile: that is signed in."""
         write(a_clean_home, {"userID": "abc"})
         count = diagnostic.claude_account()
         assert count is not None and str(count) == "session ouverte"
@@ -61,7 +61,7 @@ class TestReadingTheAccount:
 
 class TestWhatIsNeverRead:
     def test_no_token_is_touched(self, a_clean_home):
-        """La fenêtre affiche de quoi reconnaître le compte, rien de secret."""
+        """The window shows enough to recognise the account, nothing secret."""
         write(a_clean_home, {"oauthAccount": {"emailAddress": "moi@exemple.fr",
                                          "accessToken": "secret-à-ne-jamais-lire"}})
         count = diagnostic.claude_account()
@@ -71,7 +71,7 @@ class TestWhatIsNeverRead:
         assert not hasattr(count, "accessToken")
 
     def test_the_reading_never_goes_through_the_network(self, a_clean_home, monkeypatch):
-        """Un appel réseau ferait attendre l'ouverture de l'onglet pour rien."""
+        """A network call would make the tab wait to open for nothing."""
         def interdit(*_args, **_options):
             raise AssertionError("aucun sous-processus ne doit être lancé")
 

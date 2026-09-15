@@ -221,7 +221,7 @@ class TestPublishingWhatWasSaid:
 
         instance = follower(tmp_path, extractor=Broken())
         instance.take_in(tmp_path / "tranche.wav", [utterance(0, 8)], offset=0.0)
-        # La phrase s'affiche sans nom, et se corrige d'un clic.
+        # The sentence shows without a name, and is corrected in one click.
         assert len(instance.thread.turns) == 1
 
 
@@ -243,7 +243,7 @@ class TestCorrectionsComingIn:
         assert instance.thread.label(instance.thread.turns[0].voice) == "Marc"
 
     def test_the_correction_is_confirmed_in_the_log(self, tmp_path: Path) -> None:
-        # C'est ainsi que la fenêtre sait que sa correction a été prise, et que
+        # That is how the window knows its correction was taken, and that
         # toute autre fenêtre ouverte l'apprend aussi.
         instance = self._a_thread(tmp_path)
         ask(instance.requests, number=1, name="Marc")

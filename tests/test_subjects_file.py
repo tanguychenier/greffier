@@ -1,4 +1,4 @@
-"""Le registre des sujets : ce qui ne se devine pas s'écrit une fois."""
+"""The registry of subjects: what cannot be guessed is written once."""
 
 from greffier.adapters.subjects_file import lay_the_template, noter_la_carte, read
 
@@ -29,7 +29,7 @@ class TestReadingTheSetting:
 
 
 class TestAjoutSeul:
-    """Le fichier porte des commentaires : on ne le régénère jamais."""
+    """The file carries comments: it is never regenerated."""
 
     def test_the_board_of_a_new_subject_is_noted(self, tmp_path):
         file = tmp_path / "sujets.toml"
@@ -38,7 +38,7 @@ class TestAjoutSeul:
         assert subject is not None and subject.board == "uXjV1="
 
     def test_a_subject_already_mapped_is_untouched(self, tmp_path):
-        """Deux cartes pour un sujet est ce qu'on cherche à éviter."""
+        """Two maps for one subject is what is to be avoided."""
         file = tmp_path / "sujets.toml"
         noter_la_carte(file, "Oasis", "premiere=")
         assert noter_la_carte(file, "Oasis", "seconde=") is False

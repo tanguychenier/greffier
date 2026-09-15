@@ -129,7 +129,7 @@ class TestTheRoundTrip:
 
 
 def joined_meeting(identifier: str = "2026-09-10_10h10_reunion") -> StoredMeeting:
-    """Une réunion où deux voix ont été réunies sous le même nom."""
+    """A meeting where two voices were joined under the same name."""
     detail = StoredMeeting(
         identifier=identifier,
         audio=Path(f"/tmp/{identifier}.wav"),
@@ -194,7 +194,7 @@ class TestSplittingTwoVoicesAfterTheMeeting:
         assert {t.voice for t in relue.turns} == {"v1", "v2"}
 
     def test_a_file_written_before_stays_readable(self, tmp_path):
-        """Aucune réunion déjà traitée ne doit devenir illisible."""
+        """No meeting already processed may become unreadable."""
         import json
 
         magasin = FileStore(tmp_path)

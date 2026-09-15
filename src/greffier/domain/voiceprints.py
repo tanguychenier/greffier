@@ -104,7 +104,7 @@ class Match:
 
     name: str
     similarity: float
-    margin: float          # écart avec la deuxième personne la plus proche
+    margin: float          # gap with the second closest person
 
     @property
     def sure(self) -> bool:

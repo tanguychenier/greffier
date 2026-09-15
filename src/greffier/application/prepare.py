@@ -58,7 +58,7 @@ class Preparing:
             answered = str(self.brain.write_up(
                 question_prompt(preparation, self.setting + self.known, demande)
             )).strip()
-        except Exception as trouble:  # noqa: BLE001 - rendu à qui a demandé
+        except Exception as trouble:  # noqa: BLE001 - handed back to whoever asked
             return preparation.asked(demande), f"✗ {trouble}"
         if answered and self.speak is not None:
             with contextlib.suppress(Exception):

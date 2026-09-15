@@ -109,6 +109,6 @@ class TestNiveaux:
 class TestReadingTheSetting:
     def test_an_unreadable_file_does_not_stop_the_meeting(self, tmp_path) -> None:
         # Une tranche découpée pendant l'écriture peut arriver tronquée : le
-        # direct affiche alors la phrase sans « Toi », il ne s'arrête pas.
+        # live then shows the sentence without « Toi », it does not stop.
         absent = tmp_path / "rien.wav"
         assert FileChannelReader().local_passages(absent) == []

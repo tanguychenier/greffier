@@ -152,9 +152,9 @@ class TestCuttingTheSoundFromAnotherProcess:
         assert gag.read_text() == "4242"
 
     def test_it_is_deleted_when_the_sound_stops(self, tmp_path):
-        """Un numéro qui traîne ferait tuer un processus qui n'est plus le nôtre.
+        """A lingering number would kill a process that is no longer ours.
 
-        Sur un système qui recycle les numéros, ce serait n'importe lequel.
+        On a system that recycles numbers, it would be any process at all.
         """
         from greffier.adapters.voice_neural import NeuralVoice
 
@@ -261,12 +261,12 @@ class TestOneCutStopsTheWholeRemark:
 
 
 class TestLaVoixOuverteUneFois:
-    """Ouvrir le modèle de voix prend quatre secondes et demie.
+    """Opening the voice model takes four and a half seconds.
 
-    Une voix neuve était construite à chaque question posée en préparation :
-    quatre secondes et demie avant chaque réponse, pour une remarque qui se
-    prononce ensuite en trois dixièmes. Le moteur est donc gardé pour le
-    processus, par dossier, langue et périphérique.
+    A new voice was built at every question asked in preparation: four and a
+    half seconds before every answer, for a remark then spoken in three
+    tenths. The engine is therefore kept for the process, per folder,
+    language and device.
     """
 
     @pytest.fixture
@@ -293,7 +293,7 @@ class TestLaVoixOuverteUneFois:
         assert faites == ["cpu"]
 
     def test_another_language_opens_its_own(self, ouvertures):
-        """Une voix anglaise n'est pas la voix française."""
+        """An English voice is not the French voice."""
         from greffier.adapters.voice_neural import NeuralVoice
 
         faites, dossier = ouvertures
@@ -309,7 +309,7 @@ class TestLaVoixOuverteUneFois:
         assert faites == ["cpu"]
 
     def test_warming_never_raises(self, monkeypatch, ouvertures):
-        """Appelée depuis un fil pendant qu'on parle : une panne ici ne coûte rien."""
+        """Called from a thread while somebody speaks: a failure here costs nothing."""
         from greffier.adapters import voice_neural
 
         _, dossier = ouvertures

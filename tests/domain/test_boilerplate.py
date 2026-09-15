@@ -110,7 +110,7 @@ class TestTheTranscriberLoop:
         assert (gardee.span.start, gardee.span.end) == (30.0, 41.0)
 
     def test_twice_in_a_row_is_a_person(self):
-        """Quelqu'un se répète, ou deux tranches se recouvrent. On n'y touche pas."""
+        """Somebody repeats themselves, or two slices overlap. Left untouched."""
         assert len(collapse_loops(self._loop(2))) == 2
 
     def test_three_times_is_a_loop(self):

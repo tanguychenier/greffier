@@ -134,10 +134,10 @@ class Certainty(StrEnum):
     The order matters: a source can never be overwritten by a weaker one.
     """
 
-    HUMAINE = "humaine"        # quelqu'un l'a corrigé à la main
-    CANAL = "canal"            # le micro le dit : c'est toi
+    HUMAINE = "humaine"        # somebody corrected it by hand
+    CANAL = "canal"            # the microphone says it: it is you
     RECONNUE = "reconnue"      # la banque de voix reconnaît, marge suffisante
-    PROBABLE = "probable"      # au-dessus du seuil, mais peu de matière
+    PROBABLE = "probable"      # above the threshold, but little material
     UNKNOWN = "inconnue"      # aucune idée, et on le dit
 
     @property

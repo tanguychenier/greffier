@@ -1,8 +1,8 @@
-"""Reconstruire une réunion depuis le fil du direct, faute de traitement.
+"""Rebuilding a meeting from the live thread, for want of a processing.
 
-Le 2026-09-09, une réunion n'a jamais été finalisée : le fil existait, mais
-rien ne savait le lire. La différence que ces tests protègent est celle entre
-approximatif et perdu.
+On 2026-09-09 a meeting was never finalised: the thread existed, but nothing
+knew how to read it. The difference these tests protect is the one between
+approximate and lost.
 """
 
 from pathlib import Path
@@ -58,7 +58,7 @@ class TestRebuildingAMeeting:
 
 
 class TestBeingHonestAboutIt:
-    """Une transcription de moindre qualité ne doit pas passer pour ordinaire."""
+    """A transcript of lesser quality must not pass for an ordinary one."""
 
     def test_the_meeting_carries_its_warning(self):
         meeting = depuis_le_fil("2026-09-09_10h05_reunion", THREAD)
@@ -74,7 +74,7 @@ class TestBeingHonestAboutIt:
 
 
 class TestStitchingAfterTheMeeting:
-    """Le direct découpe par tranches : une minute de parole fait six tours."""
+    """Live cuts in slices: one minute of speech makes six turns."""
 
     def test_the_consecutive_turns_of_one_voice_stitch_together(self):
         from greffier.application.recover import join_spans

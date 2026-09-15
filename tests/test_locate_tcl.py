@@ -1,8 +1,8 @@
-"""Tcl doit être trouvé même quand l'interpréteur porte un chemin de compilation.
+"""Tcl has to be found even when the interpreter carries a build path.
 
-La règle vit dans `emplacements.py`, avec les autres chemins, et non dans
-`fenetre.py` : ce dernier importe Tk, qui ne démarre pas sur un exécuteur
-d'intégration continue, la seule chose à tester serait alors intestable.
+The rule lives in `locations.py`, with the other paths, and not in
+`window.py`: the latter imports Tk, which does not start on a continuous
+integration runner, so the only thing to test would be untestable.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ class TestSituerTcl:
         assert env["TK_LIBRARY"] == str(tmp_path / "lib" / "tk9.0")
 
     def test_with_no_tcl_folder_nothing_is_invented(self, tmp_path):
-        """Sur une distribution où Tk vient du système, il n'y a rien à côté."""
+        """On a distribution where Tk comes from the system, there is nothing beside it."""
         (tmp_path / "lib").mkdir()
         env: dict[str, str] = {}
         locate_tcl(env, tmp_path)

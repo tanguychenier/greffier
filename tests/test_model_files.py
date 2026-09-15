@@ -66,7 +66,7 @@ class TestWhatIsMissing:
         assert "ggml-silero-v5.1.2.bin" in {m.name for m in model_files.missing(tmp_path)}
 
     def test_the_engine_decides_what_is_needed(self, tmp_path):
-        """faster-whisper n'a pas besoin des fichiers de whisper.cpp."""
+        """faster-whisper does not need whisper.cpp's files."""
         noms = {m.name for m in model_files.missing(tmp_path, engine="faster-whisper")}
         assert "ggml-large-v3-turbo.bin" not in noms
         assert "diarisation/nemo_en_titanet_large.onnx" in noms
@@ -121,7 +121,7 @@ class TestDownloadingAModel:
         assert (tmp_path / "diarisation" / "nemo_en_titanet_large.onnx").exists()
 
     def test_an_archive_is_unpacked_under_the_expected_name(self, monkeypatch, tmp_path):
-        """La voix arrive dans un dossier au nom du modèle : il faut le renommer."""
+        """The voice arrives in a folder named after the model: it has to be renamed."""
         boite = BytesIO()
         source = tmp_path / "vits-piper-fr_FR-upmc-medium"
         source.mkdir()
@@ -199,7 +199,7 @@ class TestOneCatalogueOnly:
             del sys.modules[nom]
 
     def test_it_imports_nothing_from_the_project(self):
-        """Sinon il ne pourrait pas se charger seul."""
+        """Otherwise it could not load on its own."""
         source = Path("src/greffier/adapters/model_files.py").read_text(encoding="utf-8")
         assert "import greffier" not in source
         assert "from greffier" not in source

@@ -79,11 +79,11 @@ class TestFallingBackToTheProcessor:
 
 
 class TestLeModeleOuvertUneFois:
-    """Ouvrir large-v3 prend douze à dix-neuf secondes.
+    """Opening large-v3 takes twelve to nineteen seconds.
 
-    Plus longtemps que de transcrire quarante secondes de réunion. Le modèle est
-    donc gardé pour le processus : celui qu'on ouvre pendant que l'encodeur
-    ferme son fichier sert la chaîne qui suit tout de suite après.
+    Longer than transcribing forty seconds of meeting. The model is therefore
+    kept for the process: the one opened while the encoder closes its file
+    serves the chain that follows right after.
     """
 
     @pytest.fixture
@@ -109,7 +109,7 @@ class TestLeModeleOuvertUneFois:
         assert ouvertures == [("large-v3", "cuda")]
 
     def test_another_size_opens_its_own(self, ouvertures):
-        """Le direct prend un modèle plus léger : ce n'est pas le même."""
+        """Live takes a lighter model: it is not the same one."""
         FasterWhisperTranscriber(taille="large-v3", device="cuda")._load()
         FasterWhisperTranscriber(taille="small", device="cuda")._load()
         assert ouvertures == [("large-v3", "cuda"), ("small", "cuda")]
@@ -119,8 +119,8 @@ class TestLeModeleOuvertUneFois:
         assert ouvertures == [("large-v3", "cuda")]
 
     def test_warming_never_raises(self, monkeypatch, ouvertures):
-        """Appelé depuis un fil pendant la fermeture : une panne ici ne coûte rien,
-        la chaîne rouvrira le modèle et le dira proprement."""
+        """Called from a thread during the closing: a failure here costs nothing,
+        the chain will open the model again and say so properly."""
         from greffier.adapters import transcription_faster_whisper as adaptateur
 
         class QuiRefuse:

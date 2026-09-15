@@ -118,7 +118,7 @@ class TestThePackageManager:
         assert command[0] == "sudo"
 
     def test_ffmpeg_is_known_to_every_manager(self, the_installer):
-        """C'est le seul outil vraiment indispensable : il doit s'installer partout."""
+        """The only tool that is truly indispensable: it has to install everywhere."""
         attendus = {"brew", "apt-get", "dnf", "pacman", "zypper", "apk", "winget", "scoop"}
         assert attendus <= set(the_installer.PACKAGES["ffmpeg"])
 
@@ -520,11 +520,11 @@ class TestAccelerationByTheCard:
 
 
 class TestTheLanguageOfTheMachine:
-    """L'installeur gravait « fr » dans le gabarit, quel que soit le poste.
+    """The installer carved « fr » into the template, whatever the machine.
 
-    La langue que le système annonce est un renseignement gratuit que rien ne
-    lisait : un poste allemand ressortait réglé sur le français, et personne ne
-    s'en apercevait avant la première transcription.
+    The language the system announces is a free piece of information nothing
+    read: a German machine came out set to French, and nobody noticed before
+    the first transcription.
     """
 
     def test_the_announced_language_is_kept(self, under, monkeypatch):
@@ -673,11 +673,11 @@ class TestWhetherTheVoiceIsThere:
 
 
 class TestRoueCuda:
-    """Quelle roue sherpa-onnx l'installation va chercher, système par système.
+    """Which sherpa-onnx wheel the installation fetches, system by system.
 
-    Celle de PyPI ne sait pas parler à la carte, et il n'en existe pas sur PyPI
-    qui le sache. Mesuré sur une réunion de 40,7 s, mêmes modèles et mêmes tours
-    rendus : 43 s de découpage sur le processeur, 5,8 s sur la carte.
+    PyPI's cannot talk to the card, and none on PyPI can. Measured on a 40.7 s
+    meeting, same models and same turns returned: 43 s of segmentation on the
+    processor, 5.8 s on the card.
     """
 
     def test_linux_takes_the_wheel_built_with_onnxruntime(self, the_installer):
@@ -692,7 +692,7 @@ class TestRoueCuda:
         assert the_installer.sherpa_cuda_wheel("Darwin", "cp313", "arm64") is None
 
     def test_an_arm_machine_has_no_wheel(self, the_installer):
-        """Un Raspberry ou un serveur Graviton : rien de publié pour eux."""
+        """A Raspberry or a Graviton server: nothing published for them."""
         assert the_installer.sherpa_cuda_wheel("Linux", "cp313", "aarch64") is None
 
     def test_the_version_is_the_one_asked_for(self, the_installer):
@@ -724,7 +724,7 @@ class TestEtapeCarte:
         assert travaux == []
 
     def test_macos_is_never_asked(self, under, monkeypatch, travaux):
-        """Apple a cessé de porter NVIDIA avec Mojave : il n'y a rien à accélérer."""
+        """Apple stopped supporting NVIDIA with Mojave: there is nothing to speed up."""
         module = under("Darwin")
         monkeypatch.setattr(module, "shutil", _AvecNvidiaSmi())
         module.card_step(_Demande(), "python")
@@ -767,7 +767,7 @@ class _Fini:
 
 
 class _AvecNvidiaSmi:
-    """Une machine qui porte l'outil NVIDIA, ce qui ne suffit pas sous macOS."""
+    """A machine carrying the NVIDIA tool, which is not enough on macOS."""
 
     @staticmethod
     def which(_name):
@@ -775,7 +775,7 @@ class _AvecNvidiaSmi:
 
 
 class _Demande:
-    """Ce que l'installation passe en contexte, réduit à ce qui sert ici."""
+    """What the installation passes as context, reduced to what serves here."""
 
     check_only = False
     yes = True

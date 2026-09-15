@@ -1,4 +1,4 @@
-"""Le registre des sources dans un fichier, et les jetons hors de ce fichier."""
+"""The registry of sources in a file, and the tokens out of that file."""
 
 from pathlib import Path
 
@@ -24,7 +24,7 @@ class TestTheTemplateFile:
         assert file.exists()
 
     def test_it_never_overwrites_an_existing_file(self, file):
-        """Le registre est écrit à la main : l'écraser perdrait des accès."""
+        """The registry is written by hand: overwriting it would lose accesses."""
         write(file, "# le mien\n")
         assert not sources_file.lay_the_template(file)
         assert file.read_text(encoding="utf-8") == "# le mien\n"
@@ -112,7 +112,7 @@ projet = "a/b"
         assert sources_file.read(file).recorded() == ["bonne"]
 
     def test_an_unknown_kind_is_dropped(self, file):
-        """« github » n'est pas branché : mieux vaut absent qu'à moitié.'"""
+        """« github » is not wired: better absent than half done."""
         write(file, """
 [[sources]]
 nom = "x"
@@ -131,7 +131,7 @@ class TestWhereTheTokenComesFrom:
         assert sources_file.token_for(source) == "glpat-secret"
 
     def test_a_missing_variable_does_not_raise(self, monkeypatch):
-        """Un jeton absent est un réglage à finir, pas une panne."""
+        """A missing token is a setting to finish, not a breakdown."""
         monkeypatch.delenv("GREFFIER_ABSENT", raising=False)
         source = Source(name="x", kind=Kind.GITLAB, adresse="https://x.fr",
                         project="a/b", token="GREFFIER_ABSENT")

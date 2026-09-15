@@ -1,8 +1,8 @@
-"""Ce que les participants doivent pouvoir savoir, et sa trace.
+"""What the attendees have to be able to know, and its trace.
 
-Une voix est une donnée biométrique. Le principe retenu : ce qui n'est pas
-écrit n'a pas eu lieu, une mention orale ne se retrouve pas six mois plus
-tard, une ligne dans le compte rendu si.
+A voice is biometric data. The principle kept: what is not written did not
+happen, a spoken mention cannot be found six months later, a line in the
+minutes can.
 """
 
 from greffier.domain.consent import (
@@ -25,8 +25,8 @@ class TestReadingTheSetting:
         assert read("  Accord ") is Disclosure.AGREEMENT
 
     def test_an_unknown_value_falls_back_to_the_most_careful(self):
-        """Une faute d'orthographe ne doit pas faire écrire que les
-        participants ont donné leur accord."""
+        """A spelling mistake must not have it written that the attendees
+        gave their consent."""
         assert read("oui") is Disclosure.NOTHING
         assert read("") is Disclosure.NOTHING
 

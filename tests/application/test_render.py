@@ -77,8 +77,8 @@ class TestWritingTheMinutesAgain:
         assert ATTRIBUTION_BY_VOICE_LINE not in writer.recu
 
     def test_the_hardware_events_survive_the_rewrite(self) -> None:
-        """Le défaut visé : régénérer ne doit pas rendre le compte rendu moins
-        fiable que l'original en perdant ce que la veille du matériel savait."""
+        """The defect aimed at: regenerating must not make the minutes less
+        reliable than the original by losing what the hardware watch knew."""
         meeting = a_meeting(hardware_events=["casque branché à 12:03"])
         writer = FakeWriter()
         regenerate_minutes(meeting, writer)
@@ -112,5 +112,5 @@ class TestTheInstructionsGivenDuringTheMeeting:
         assert render.instructions_header([]) == ""
 
     def test_the_header_ends_cleanly(self):
-        """Il est collé aux autres : sans la ligne vide, deux blocs se touchent."""
+        """It is stuck to the others: without the blank line, two blocks touch."""
         assert render.instructions_header(["une"]).endswith("\n\n")

@@ -1,8 +1,8 @@
-"""Ce qu'une liste vide doit dire, et ce que ses boutons peuvent faire.
+"""What an empty list has to say, and what its buttons may do.
 
-Signalé à l'usage sur l'onglet « Voix » : un tableau vide sous quatre boutons
-actifs. Le tableau ne disait que ce que l'œil voyait déjà, et les boutons
-laissaient croire qu'il y avait quelque chose à faire.
+Reported in use on the « Voix » tab: an empty table under four active
+buttons. The table only said what the eye already saw, and the buttons
+suggested there was something to do.
 """
 
 from greffier.domain.emptiness import Missing, may_act, meetings, thread, voices
@@ -19,20 +19,20 @@ class TestLesReunions:
 
 class TestLesVoix:
     def test_nothing_chosen_is_not_nothing_to_name(self):
-        """Les deux cas sont vides, les deux phrases ne sont pas les mêmes :
-        l'un demande un clic, l'autre dit que le travail est fait."""
+        """Both cases are empty, the two sentences are not the same:
+        one asks for a click, the other says the work is done."""
         assert voices(a_meeting_is_chosen=False, how_many=0) is Missing.NO_MEETING_CHOSEN
         assert voices(a_meeting_is_chosen=True, how_many=0) is Missing.NO_VOICE_TO_NAME
 
     def test_a_meeting_chosen_without_its_voices_yet(self):
-        """Une réunion choisie mais pas encore traitée : rien à nommer non plus."""
+        """A meeting chosen but not yet processed: nothing to name either."""
         assert voices(a_meeting_is_chosen=True, how_many=0) is Missing.NO_VOICE_TO_NAME
 
     def test_voices_to_name_say_nothing(self):
         assert voices(a_meeting_is_chosen=True, how_many=3) is None
 
     def test_nothing_chosen_wins_over_the_count(self):
-        """Sans réunion choisie, le nombre de voix ne veut rien dire."""
+        """With no meeting chosen, the number of voices means nothing."""
         assert voices(a_meeting_is_chosen=False, how_many=7) is Missing.NO_MEETING_CHOSEN
 
 

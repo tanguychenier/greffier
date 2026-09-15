@@ -45,7 +45,7 @@ class TestLAssistantPeutChercher:
         assert engine.tools == ()
 
     def test_the_assistant_does_not_recite_the_plan_of_the_minutes(self):
-        """Répondre « qui est Maud ? » n'appelle pas Décisions / Actions."""
+        """Answering « qui est Maud ? » does not call for Décisions / Actions."""
         engine = assistant(config())
         assert isinstance(engine, ClaudeWriter)
         assert engine.consignes_propres
@@ -72,7 +72,7 @@ class TestLAssistantPeutChercher:
         assert "N'invente rien pour remplir" in aplati
 
     def test_it_may_search_of_its_own_accord(self):
-        """« Qu'il le fasse lui-même pour se donner du contexte », demandé."""
+        """« Let it do it itself to give itself context », as asked."""
         aplati = " ".join(assistant(config()).consignes_propres.split())
         assert "de ton propre chef" in aplati
 

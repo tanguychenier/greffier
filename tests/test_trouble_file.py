@@ -1,4 +1,4 @@
-"""Le fichier d'incidents : ce qu'il garde, et ce qu'il ne fait jamais tomber."""
+"""The incidents file: what it keeps, and what it never brings down."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ class TestIlEcrit:
 
 class TestIlNeTombeJamais:
     def test_a_folder_that_cannot_be_written_costs_nothing(self, tmp_path):
-        """Un journal ne vaut pas une réunion : il se tait plutôt que d'échouer."""
+        """A log is not worth a meeting: it keeps quiet rather than fail."""
         obstacle = tmp_path / "obstacle"
         obstacle.write_text("je ne suis pas un dossier")
         TroubleFile(obstacle / "incidents.log").note("chaîne", "quelque chose")
@@ -34,7 +34,7 @@ class TestIlNeTombeJamais:
         assert TroubleFile(tmp_path / "absent.log").read() == []
 
     def test_an_incident_without_a_place_is_swallowed(self, tmp_path):
-        """Le domaine refuse, l'adaptateur se tait : personne ne perd sa réunion."""
+        """The domain refuses, the adapter keeps quiet: nobody loses their meeting."""
         TroubleFile(tmp_path / "incidents.log").note("  ", "quelque chose")
         assert not (tmp_path / "incidents.log").exists()
 

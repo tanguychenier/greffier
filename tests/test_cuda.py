@@ -68,7 +68,7 @@ class TestBibliothequesTrouvees:
         assert names.index("libcublasLt.so.12") < names.index("libcublas.so.12")
 
     def test_without_the_wheels_there_is_nothing_to_load(self, monkeypatch):
-        """Le cas ordinaire : elles ne servent qu'à une carte NVIDIA."""
+        """The ordinary case: they only serve an NVIDIA card."""
         monkeypatch.setattr(adaptateur.importlib.util, "find_spec", lambda _name: None)
         assert adaptateur.libraries() == []
 
@@ -82,8 +82,8 @@ class TestBibliothequesTrouvees:
 
 class TestChargement:
     def test_an_unreadable_library_does_not_stop_the_transcription(self, wheels_in):
-        """La carte sera inutilisable, et le repli sur le processeur suffit :
-        renoncer à transcrire pour autant serait pire que lent."""
+        """The card will be unusable, and falling back on the processor is enough:
+        giving up transcribing for that would be worse than slow."""
         essais = []
 
         def chargeur_qui_tombe(path, **_options):
@@ -100,13 +100,13 @@ class TestChargement:
 class TestUneCarteRepond:
     @pytest.fixture(autouse=True)
     def sans_memoire(self):
-        """La réponse est mise en cache : chaque cas doit repartir de zéro."""
+        """The answer is cached: each case has to start from scratch."""
         adaptateur.a_card_answers.cache_clear()
         yield
         adaptateur.a_card_answers.cache_clear()
 
     def test_no_driver_means_no_card(self, monkeypatch):
-        """Le cas de loin le plus courant : une machine sans NVIDIA."""
+        """By far the most common case: a machine without NVIDIA."""
         def pas_de_pilote(_name, **_options):
             raise OSError("libcuda.so.1: cannot open shared object file")
 
@@ -118,7 +118,7 @@ class TestUneCarteRepond:
         assert adaptateur.a_card_answers() is True
 
     def test_a_driver_installed_without_a_card(self, monkeypatch):
-        """Arrive dans un conteneur : le pilote est là, la carte n'est pas passée."""
+        """Happens in a container: the driver is there, the card was not passed through."""
         monkeypatch.setattr(adaptateur.ctypes, "CDLL", lambda *_a, **_k: _Pilote(0))
         assert adaptateur.a_card_answers() is False
 
@@ -131,7 +131,7 @@ class TestUneCarteRepond:
         assert adaptateur.a_card_answers() is False
 
     def test_a_driver_without_the_expected_calls(self, monkeypatch):
-        """Une bibliothèque homonyme ne doit pas faire tomber le démarrage."""
+        """A library of the same name must not bring the start-up down."""
         monkeypatch.setattr(adaptateur.ctypes, "CDLL", lambda *_a, **_k: object())
         assert adaptateur.a_card_answers() is False
 
@@ -149,14 +149,14 @@ class TestUneCarteRepond:
 
 
 class _Pilote:
-    """Ce que ctypes rend quand libcuda.so.1 est là."""
+    """What ctypes returns when libcuda.so.1 is there."""
 
     def __init__(self, cartes: int, init: int = 0, count: int = 0) -> None:
         self._cartes = cartes
         self._init = init
         self._count = count
 
-    def cuInit(self, _flags):  # noqa: N802, c'est le nom dans la bibliothèque
+    def cuInit(self, _flags):  # noqa: N802, it is the name in the library
         return self._init
 
     def cuDeviceGetCount(self, pointeur):  # noqa: N802, idem
@@ -165,18 +165,18 @@ class _Pilote:
 
 
 class TestDeuxMoteursOnnx:
-    """Deux ONNX Runtime ne tiennent pas dans un processus.
+    """Two ONNX Runtimes do not fit in one process.
 
-    faster-whisper amène le sien avec son détecteur de voix. Mesuré : celui qui
-    ouvre en second lit un graphe corrompu (« node_index < nodes_.size() was
-    false »), et quand les versions sont assez proches pour se lier proprement,
-    l'interpréteur meurt sur une erreur de segmentation. Celui qui ouvre le
-    premier garde la carte ; l'autre se replie sur le processeur.
+    faster-whisper brings its own with its voice detector. Measured: whichever
+    opens second reads a corrupted graph (« node_index < nodes_.size() was
+    false »), and when the versions are close enough to bind cleanly, the
+    interpreter dies on a segmentation fault. Whichever opens first keeps the
+    card; the other falls back on the processor.
     """
 
     @pytest.fixture(autouse=True)
     def sans_memoire(self, monkeypatch):
-        """La place gardée et la réponse du pilote sont retenues : on repart de zéro."""
+        """The seat kept and the driver's answer are remembered: start from scratch."""
         adaptateur.a_card_answers.cache_clear()
         monkeypatch.setattr(adaptateur, "_place_kept", False)
 
@@ -199,7 +199,7 @@ class TestDeuxMoteursOnnx:
         assert adaptateur.a_card_is_usable() is False
 
     def test_keeping_the_place_holds_the_card(self, avec_carte, le_rival, monkeypatch):
-        """Le rival peut charger ensuite : la place est prise."""
+        """The rival may load afterwards: the seat is taken."""
         monkeypatch.setattr(adaptateur, "_place_kept", True)
         assert adaptateur.a_card_is_usable() is True
 
@@ -211,13 +211,13 @@ class TestDeuxMoteursOnnx:
 class TestGarderLaPlace:
     @pytest.fixture(autouse=True)
     def sans_memoire(self, monkeypatch):
-        """La place gardée et la réponse du pilote sont retenues : on repart de zéro."""
+        """The seat kept and the driver's answer are remembered: start from scratch."""
         adaptateur.a_card_answers.cache_clear()
         monkeypatch.setattr(adaptateur, "_place_kept", False)
 
     @pytest.fixture
     def sherpa_muet(self, monkeypatch):
-        """Le modèle pèse cent mégaoctets : ici on compte les ouvertures."""
+        """The model weighs a hundred megabytes: here the openings are counted."""
         ouvertures = []
         monkeypatch.setitem(
             sys.modules, "sherpa_onnx",
@@ -247,7 +247,7 @@ class TestGarderLaPlace:
         assert sherpa_muet == []
 
     def test_a_missing_model_keeps_nothing(self, monkeypatch, tmp_path, sherpa_muet):
-        """Avant la première installation des modèles, il n'y a rien à ouvrir."""
+        """Before the first installation of the models, there is nothing to open."""
         monkeypatch.setattr(adaptateur, "a_card_answers", lambda: True)
         monkeypatch.delitem(sys.modules, "onnxruntime", raising=False)
         adaptateur.keep_the_place(tmp_path / "absent.onnx")
@@ -275,11 +275,11 @@ def _qui_refuse(_config):
 
 
 class TestLesTroisSystemes:
-    """Chaque système range ses bibliothèques ailleurs, ou n'en a aucune.
+    """Every system keeps its libraries elsewhere, or has none.
 
-    Les roues NVIDIA posent des « .so » sous « lib/ » sur Linux et des « .dll »
-    sous « bin/ » sur Windows. macOS n'a pas de carte NVIDIA depuis Mojave :
-    tout y reste sur le processeur, où whisper.cpp a Metal de toute façon.
+    The NVIDIA wheels put « .so » files under « lib/ » on Linux and « .dll »
+    files under « bin/ » on Windows. macOS has had no NVIDIA card since Mojave:
+    everything stays on the processor there, where whisper.cpp has Metal anyway.
     """
 
     def test_windows_looks_for_its_dll(self, wheels_under_windows):
@@ -293,11 +293,11 @@ class TestLesTroisSystemes:
         assert noms.index("cublasLt64_12.dll") < noms.index("cublas64_12.dll")
 
     def test_macos_has_nothing_to_load(self, wheels_in):
-        """Les fichiers sont là -- une machine mal rangée -- et pourtant rien."""
+        """The files are there -- an untidy machine -- and still nothing."""
         assert adaptateur.libraries("Darwin") == []
 
     def test_macos_never_answers_for_a_card(self, monkeypatch):
-        """Et sans même essayer d'ouvrir un pilote qui n'existe pas."""
+        """And without even trying to open a driver that does not exist."""
         essais = []
         monkeypatch.setattr(adaptateur, "SYSTEM", "Darwin")
         monkeypatch.setattr(adaptateur.ctypes, "CDLL", lambda *a, **k: essais.append(a))
@@ -322,7 +322,7 @@ class TestLesTroisSystemes:
         adaptateur.a_card_answers.cache_clear()
 
     def test_windows_declares_the_folder_to_the_loader(self, monkeypatch, wheels_under_windows):
-        """Sans ça, une DLL chargée d'ici ne trouve pas celles dont elle dépend."""
+        """Without it, a DLL loaded from here does not find those it depends on."""
         declares = []
         monkeypatch.setattr(adaptateur.os, "add_dll_directory", declares.append, raising=False)
         monkeypatch.setattr(adaptateur.ctypes, "CDLL", lambda *_a, **_k: None)
@@ -332,10 +332,10 @@ class TestLesTroisSystemes:
 
 
 class TestLeCalculAnnonce:
-    """Ce que le diagnostic dit du calcul disponible.
+    """What the diagnostic says of the computing available.
 
-    « nvidia-smi est là » n'est pas « une carte répond » : un conteneur peut
-    porter l'outil sans la carte. Le pilote est la seule source sûre.
+    « nvidia-smi is there » is not « a card answers »: a container may carry
+    the tool without the card. The driver is the only safe source.
     """
 
     @pytest.fixture

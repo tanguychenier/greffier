@@ -1369,7 +1369,7 @@ class Window:
         """A scrolling area, returning the frame to put content in."""
         c = self.colours
         page.rowconfigure(0, weight=0)   # la ligne d'état, en tête
-        page.rowconfigure(1, weight=1)   # la zone qui défile
+        page.rowconfigure(1, weight=1)   # the scrolling area
         page.columnconfigure(0, weight=1)
         toile = tk.Canvas(page, bg=c.board, highlightthickness=0, borderwidth=0)
         toile.grid(row=1, column=0, sticky="nsew")
@@ -2182,7 +2182,7 @@ class Window:
             trouble: Exception | None = None
             try:
                 outcome = job.do_it(job.messages.put)
-            except Exception as attrape:  # noqa: BLE001 - remonté à l'interface
+            except Exception as attrape:  # noqa: BLE001 - reported to the interface
                 trouble = attrape
             self.root.after(0, lambda: self._finish(job, outcome, trouble))
 
@@ -2312,8 +2312,8 @@ class Window:
         except (OSError, ValueError) as trouble:
             asking.complain("Greffier", str(trouble))
             return
-        # Avant d'ouvrir les modèles : un fichier abîmé rendait une exception de
-        # la bibliothèque audio, vingt secondes plus tard, dans un fil.
+        # Before opening the models: a damaged file returned an exception from
+        # the audio library, twenty seconds later, in a thread.
         empeche = why_unreadable(audio)
         if empeche:
             asking.complain("Greffier", empeche)

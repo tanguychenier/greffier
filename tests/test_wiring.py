@@ -248,12 +248,12 @@ class TestTheContextIsBlended:
 
 
 class TestQuiOuvreLaCarteEnPremier:
-    """Deux ONNX Runtime ne tiennent pas dans un processus.
+    """Two ONNX Runtimes do not fit in one process.
 
-    faster-whisper amène le sien avec son détecteur de voix, et celui qui ouvre
-    en second lit un graphe corrompu ou tue l'interpréteur. Le découpage en
-    tours de parole doit donc ouvrir le sien avant, sans quoi il se replie sur
-    le processeur : 43 s au lieu de 5,8 s pour 40 s de réunion.
+    faster-whisper brings its own with its voice detector, and whichever opens
+    second reads a corrupted graph or kills the interpreter. The cut into
+    speaker turns therefore has to open its own first, otherwise it falls back
+    on the processor: 43 s instead of 5.8 s for 40 s of meeting.
     """
 
     @pytest.fixture
@@ -270,27 +270,27 @@ class TestQuiOuvreLaCarteEnPremier:
         assert [p.name for p in places_gardees] == ["nemo_en_titanet_large.onnx"]
 
     def test_the_live_transcriber_keeps_it_too(self, config, places_gardees):
-        """Le direct tourne dans son propre processus, qui a la même règle."""
+        """Live runs in its own process, which has the same rule."""
         config.transcription.engine = "faster-whisper"
         config.live.model = "small"
         wiring.light_transcriber(config)
         assert [p.name for p in places_gardees] == ["nemo_en_titanet_large.onnx"]
 
     def test_whisper_cpp_keeps_it_as_well(self, config, places_gardees):
-        """whisper.cpp n'amène pas de rival, mais le chemin est le même."""
+        """whisper.cpp brings no rival, but the path is the same."""
         config.transcription.engine = "whisper.cpp"
         wiring._transcriber(config)
         assert len(places_gardees) == 1
 
 
 class TestQuiEcouteUneQuestionDictee:
-    """Le modèle qui transcrit une question dictée n'est pas celui d'une réunion.
+    """The model transcribing a dictated question is not a meeting's.
 
-    Mesuré sur les mêmes trente-six secondes : 1,8 s avec « base » contre 9,4 s
-    avec « large-v3 », pour les mêmes mots. Une question dictée est proche,
-    propre et courte, le seul cas où le grand modèle n'apporte rien et coûte
-    quatre fois l'attente. Et l'attente est tout l'intérêt de parler plutôt que
-    de taper.
+    Measured on the same thirty-six seconds: 1.8 s with « base » against 9.4 s
+    with « large-v3 », for the same words. A dictated question is close, clean
+    and short, the only case where the large model brings nothing and costs
+    four times the wait. And the wait is the whole point of speaking rather
+    than typing.
     """
 
     def test_it_is_the_small_one(self, config):
@@ -305,7 +305,7 @@ class TestQuiEcouteUneQuestionDictee:
         assert ecoute.taille != wiring._transcriber(config).taille
 
     def test_whisper_cpp_keeps_the_models_it_has(self, config):
-        """macOS ne télécharge pas un modèle de plus pour dicter une phrase."""
+        """macOS does not download one more model to dictate a sentence."""
         config.transcription.engine = "whisper.cpp"
         ecoute = wiring.dictation_transcriber(config)
         assert ecoute is None or ecoute.model.name.startswith("ggml-")

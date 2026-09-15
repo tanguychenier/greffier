@@ -1,9 +1,9 @@
-"""Comment se juge la capture du son des autres participants sous Linux.
+"""How the capture of the other attendees' sound is judged on Linux.
 
-« pactl » n'enregistre rien : il interroge le serveur de son, quand ffmpeg s'y
-branche directement par sa prise. Le juger absent revenait à déclarer perdue une
-machine parfaitement capable d'enregistrer, PipeWire en marche, mais
-« pulseaudio-utils » jamais installé, et à envoyer chercher un paquet inutile.
+« pactl » records nothing: it queries the sound server, where ffmpeg plugs
+straight into its socket. Judging it absent amounted to declaring lost a
+machine perfectly able to record, PipeWire running, but « pulseaudio-utils »
+never installed, and to sending for a useless package.
 """
 
 import pytest
@@ -14,7 +14,7 @@ from greffier.adapters.audio_ffmpeg import why_unreadable
 
 @pytest.fixture
 def session(monkeypatch, tmp_path):
-    """Une session sans « pactl », dont on ouvre ou non la prise du serveur."""
+    """A session without « pactl », whose server socket is opened or not."""
     monkeypatch.setattr(diagnostic, "SYSTEM", "Linux")
     monkeypatch.setattr(diagnostic.shutil, "which", lambda _outil: None)
     monkeypatch.delenv("PULSE_SERVER", raising=False)
@@ -37,7 +37,7 @@ class TestServeurDeSon:
         assert not diagnostic.sound_server_present()
 
     def test_a_declared_server_is_believed(self, session, monkeypatch):
-        """Un serveur distant ou par socket nommé ne pose aucune prise ici."""
+        """A remote server or one over a named socket puts no socket here."""
         monkeypatch.setenv("PULSE_SERVER", "tcp:192.168.1.10:4713")
         assert diagnostic.sound_server_present()
 
@@ -50,7 +50,7 @@ class TestConstatDeCapture:
         assert "pactl" not in constat.detail
 
     def test_the_mic_is_still_found_through_the_sound_server(self, session, monkeypatch):
-        """Un poste sans /proc/asound, un conteneur, mais avec un serveur."""
+        """A machine without /proc/asound, a container, but with a server."""
         monkeypatch.setattr(diagnostic.Path, "exists", lambda self: False)
         monkeypatch.setattr(diagnostic, "sound_server_present", lambda: True)
         assert diagnostic.mic_present().present

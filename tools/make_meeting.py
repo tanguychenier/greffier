@@ -142,7 +142,7 @@ def _installed_voice() -> Path | None:
     try:
         from greffier.adapters.configuration import Config
         from greffier.adapters.voice_neural import NeuralVoice
-    except ImportError:  # lancé hors du venv, sans le paquet
+    except ImportError:  # launched outside the venv, without the package
         return None
     folder = Config().paths.models / "voix"
     return folder if NeuralVoice(folder).installed else None

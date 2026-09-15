@@ -1,4 +1,4 @@
-"""Ce qu'une sauvegarde emporte, et ce qu'elle laisse."""
+"""What a backup takes along, and what it leaves."""
 
 from datetime import datetime
 
@@ -13,11 +13,11 @@ from greffier.domain.backup import (
 
 class TestWhatIsBackedUp:
     def test_the_voice_bank_comes_first(self):
-        """Elle a été construite un nom à la fois : rien ne la refera."""
+        """It was built one name at a time: nothing will rebuild it."""
         assert CONTENT[0] == "banque-de-voix"
 
     def test_the_audio_is_left_out(self):
-        """C'est lui qui rend une sauvegarde impossible : 115 Mo par heure."""
+        """It is what makes a backup impossible: 115 MB per hour."""
         assert "enregistrements" in ECARTES
         assert "enregistrements" not in CONTENT
 
@@ -25,7 +25,7 @@ class TestWhatIsBackedUp:
         assert "modeles" in ECARTES
 
     def test_every_exclusion_says_why(self):
-        """Une sauvegarde qui grossit sans raison connue finit par ne plus se faire."""
+        """A backup that grows for no known reason ends up not being made."""
         for folder, because in ECARTES.items():
             assert len(because) > 20, folder
 
@@ -40,7 +40,7 @@ class TestWhatIsBackedUp:
 
 class TestTheBackupName:
     def test_the_name_carries_the_date_to_the_minute(self):
-        """Deux sauvegardes du même jour doivent pouvoir coexister."""
+        """Two backups of the same day have to be able to coexist."""
         name = BackupName(datetime(2026, 9, 9, 14, 5))
         assert str(name) == "greffier-2026-09-09_14h05"
 
@@ -67,14 +67,14 @@ class TestKeepingOnlySoMany:
         assert "greffier-2026-09-10_12h00" not in a_partir
 
     def test_the_most_recent_one_never_goes(self):
-        """Une rotation qui peut tout effacer est une purge, pas une rotation."""
+        """A rotation that can erase everything is a purge, not a rotation."""
         names = self.names(5)
         a_partir = to_erase(names, kept=0)
         assert "greffier-2026-09-05_12h00" not in a_partir
         assert len(a_partir) == 4
 
     def test_what_is_not_a_backup_is_left_alone(self):
-        """On efface dans un dossier qui peut contenir autre chose."""
+        """Erasing happens in a folder that may hold something else."""
         assert to_erase(["mes-documents", "greffier-2026-09-01_12h00"]) == []
 
     def test_the_count_keeps_a_week_of_work(self):

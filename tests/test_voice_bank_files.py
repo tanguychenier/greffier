@@ -28,7 +28,7 @@ class TestTheVoiceBank:
         assert len(people[0].voiceprints) == 1
 
     def test_recognition_survives_the_round_trip_to_disk(self, bank):
-        """Le vrai but : reconnue d'une réunion à l'autre."""
+        """The real goal: recognised from one meeting to the next."""
         bank.record("Josiane", voice(1.0, 0.02, 0.0))
         bank.record("Marc", voice(0.0, 0.0, 1.0))
         found = recognise(voice(0.99, 0.05, 0.0), bank.people())
@@ -73,7 +73,7 @@ class TestTheVoiceBank:
         assert bank.find("Josiane B") is None
 
     def test_forgetting_really_deletes(self, bank):
-        """Donnée biométrique : la suppression doit être simple et complète."""
+        """Biometric data: deletion has to be simple and complete."""
         bank.record("Josiane", voice(1.0, 0.0))
         assert bank.forget("Josiane") is True
         assert bank.people() == []
@@ -122,7 +122,7 @@ class TestTheMasterFile:
         assert magasin.read("2026-08-24_reunion").turns[1].span.start == 60
 
     def test_the_coverage_shows_what_is_missing(self):
-        """75 s de texte sur 100 s d'audio : un quart n'a pas été transcrit."""
+        """75 s of text over 100 s of audio: a quarter was not transcribed."""
         assert a_meeting().coverage == pytest.approx(0.75)
 
     def test_the_holes_are_listed(self):
@@ -242,10 +242,10 @@ class TestRepairingABank:
     """Correcting at the grain of the voiceprint, not of the person."""
 
     def test_one_voiceprint_can_go_without_losing_the_others(self, tmp_path):
-        """Effacer quelqu'un pour une empreinte fautive perd tout le reste.
+        """Erasing somebody for one faulty voiceprint loses all the rest.
 
-        Ce qui décide de la reconnaissance est l'empreinte : c'est donc à ce
-        grain qu'on doit pouvoir corriger.
+        What decides recognition is the voiceprint: that is the grain at which
+        correcting has to be possible.
         """
         bank = FileVoiceBank(tmp_path)
         for vector in ([1.0, 0.0], [0.0, 1.0], [0.5, 0.5]):
@@ -296,7 +296,7 @@ class TestForgettingAMeetingEverywhere:
         assert retires == {"Pascal": 1, "Kilian": 1}
         pascal = bank.find("Pascal")
         assert pascal is not None and len(pascal.voiceprints) == 1
-        # Kilian n'avait que celle-là : il disparaît plutôt que de rester vide.
+        # Kilian only had that one: he disappears rather than stay empty.
         assert bank.find("Kilian") is None
 
     def test_an_unknown_meeting_touches_nothing(self, tmp_path):
@@ -306,7 +306,7 @@ class TestForgettingAMeetingEverywhere:
         assert bank.find("Pascal") is not None
 
     def test_where_it_came_from_survives_being_written(self, tmp_path):
-        """Sans persistance, la trace ne servirait qu'au processus qui l'a posée."""
+        """Without persistence, the trace would only serve the process that put it down."""
         from dataclasses import replace
 
         bank = FileVoiceBank(tmp_path)

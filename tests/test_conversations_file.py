@@ -1,4 +1,4 @@
-"""La conversation gardée : elle doit survivre à une fermeture de la fenêtre."""
+"""The conversation kept: it has to survive the window closing."""
 
 from greffier.adapters.conversations_file import (
     TURNS_REREAD,
@@ -37,7 +37,7 @@ class TestWhatIsKept:
         assert read(file) == []
 
     def test_only_the_last_turns_are_read_back(self, tmp_path):
-        """Au-delà, on ne relit plus une conversation, on la parcourt."""
+        """Beyond that, a conversation is no longer reread, it is skimmed."""
         file = file_for(tmp_path, "essai")
         for number in range(TURNS_REREAD + 20):
             add(file, "moi", f"tour {number}")
@@ -64,7 +64,7 @@ class TestOneConversationPerMeeting:
 
 class TestWritingThatBreaksNothing:
     def test_a_folder_that_cannot_be_made_does_not_raise(self, tmp_path):
-        """Converser vaut mieux que planter parce qu'on ne peut pas archiver."""
+        """Conversing beats crashing because archiving is impossible."""
         obstacle = tmp_path / "occupe"
         obstacle.write_text("je ne suis pas un dossier", encoding="utf-8")
         add(obstacle / "essai.jsonl", "moi", "question")

@@ -34,7 +34,7 @@ class TestTheClock:
 
 class TestASubjectAPersonCanRead:
     def test_the_title_of_the_minutes_replaces_the_timestamp(self, tmp_path: Path) -> None:
-        # « 2026-08-25_14h33_reunion » ne dit rien de ce qui s'est passé.
+        # « 2026-08-25_14h33_reunion » says nothing of what happened.
         minutes = tmp_path / "cr.md"
         minutes.write_text("# Compte rendu : bug photos et signature Fast\n")
         assert _readable_subject("2026-08-25_14h33_reunion", minutes) == (
@@ -123,9 +123,9 @@ class TestTheRowOfButtons:
     that did not line up.
     """
 
-    #: Les largeurs demandées dans l'onglet Réunions, dans l'ordre.
+    #: The widths asked for in the Meetings tab, in order.
     #: « Envoyer par courriel » vaut 180 : le libellé complet, parce que
-    #: « Envoyer » seul ne dit pas ce qui est envoyé.
+    #: « Envoyer » alone does not say what is sent.
     MEETINGS = [100, 100, 96, 180, 116, 110, 110, 116]
 
     def test_everything_fits_on_one_row_when_there_is_room(self) -> None:
@@ -223,8 +223,8 @@ class TestAFailurePublishedToTheState:
         from greffier.interface.window import Window
 
         state = self._a_state_under_way(tmp_path, dans_l_etat or identifier)
-        # Sans Tk : la méthode ne lit que `self.config`, et c'est justement ce
-        # qui la rend éprouvable sans écran.
+        # Without Tk: the method only reads `self.config`, and that is precisely
+        # what makes it testable without a screen.
         without_a_screen = type("SansEcran", (), {"config": self._config_in(tmp_path)})()
         Window._publish_the_failure(without_a_screen, identifier, trouble)
         return json.loads(state.read_text(encoding="utf-8"))

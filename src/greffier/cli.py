@@ -219,8 +219,8 @@ def process(
 
     config = Config.load(config_file)
     _refuse_during_a_meeting(config, quand_meme)
-    # Avant les modèles, qui mettent vingt secondes à s'ouvrir : un fichier
-    # abîmé rendait une exception de la bibliothèque audio, après l'attente.
+    # Before the models, which take twenty seconds to open: a damaged file
+    # returned an exception from the audio library, after the wait.
     empeche = why_unreadable(audio)
     if empeche:
         typer.secho(f"✗ {empeche}", fg=typer.colors.RED, err=True)
@@ -533,9 +533,9 @@ def devices(
     arguments = ["swift", str(source)]
     if lister:
         arguments.append("--list")
-    # Le micro des réglages quand la commande n'en nomme pas : sans cela le
-    # script retombait sur un matériel écrit en dur, celui du poste où il a été
-    # écrit, et la commande échouait chez tout le monde d'autre.
+    # The microphone of the settings when the command names none: without
+    # it the script fell back on hard-coded hardware, that of the machine it
+    # was written on, and the command failed for everybody else.
     mic = mic or Config.load(config_file).audio.mic
     if mic:
         arguments += ["--mic", mic]
@@ -766,7 +766,7 @@ def stop_recording(
         typer.secho(f"✗ {trouble}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1) from trouble
     audio = state.audio
-    if audio is None:  # pragma: no cover - « arreter » lève déjà dans ce cas
+    if audio is None:  # pragma: no cover - « arreter » already raises in that case
         raise typer.Exit(1)
     _restore_the_output(state.sortie_precedente)
     typer.secho(f"■ Enregistrement arrêté : {audio.name}", fg=typer.colors.GREEN)
@@ -1985,8 +1985,8 @@ def export(
     texte = formats.rendered(shape, gardee.utterances, gardee.names)
     cible = vers or config.paths.transcripts / f"{identifier}.{shape}"
     cible.parent.mkdir(parents=True, exist_ok=True)
-    # Le tableur français ne lit l'UTF-8 d'un CSV que s'il porte sa marque
-    # d'ordre : sans elle, « réunion » s'ouvre en « rÃ©union ».
+    # The French spreadsheet only reads a CSV's UTF-8 when it carries its
+    # byte order mark: without it « réunion » opens as « rÃ©union ».
     cible.write_text(texte, encoding="utf-8-sig" if shape == "csv" else "utf-8")
     typer.secho(
         f"✓ {cible} ({len(gardee.utterances)} tour(s) de parole)",

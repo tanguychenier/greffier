@@ -1,4 +1,4 @@
-"""Savoir si une version est postérieure à une autre."""
+"""Knowing whether a version is later than another."""
 
 from greffier.domain.version import is_newer, read
 
@@ -32,10 +32,10 @@ class TestComparingVersions:
         assert is_newer("0.1.0", "0.2.0") is False
 
     def test_ten_comes_after_nine(self):
-        """Une comparaison de chaînes affirme exactement l'inverse.
+        """A string comparison asserts exactly the opposite.
 
-        L'erreur ne se voit qu'au dixième incrément, soit des mois après la
-        mise en service.
+        The error only shows at the tenth increment, months after going
+        into service.
         """
         assert is_newer("0.10.0", "0.9.0") is True
         assert is_newer("0.9.0", "0.10.0") is False

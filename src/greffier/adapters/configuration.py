@@ -511,7 +511,7 @@ class _Canonical(PydanticBaseSettingsSource):
         super().__init__(settings_cls)
         self._source = source
 
-    def get_field_value(  # pragma: no cover - la source ne lit jamais champ par champ
+    def get_field_value(  # pragma: no cover - the source never reads field by field
         self, field: object, field_name: str
     ) -> tuple[object, str, bool]:
         return None, field_name, False
@@ -523,7 +523,7 @@ class _Canonical(PydanticBaseSettingsSource):
 class _TomlSource(PydanticBaseSettingsSource):
     """Reads config.toml when it exists, as a last resort."""
 
-    def get_field_value(  # pragma: no cover - la source ne lit jamais champ par champ
+    def get_field_value(  # pragma: no cover - the source never reads field by field
         self, field: object, field_name: str
     ) -> tuple[object, str, bool]:
         return None, field_name, False
