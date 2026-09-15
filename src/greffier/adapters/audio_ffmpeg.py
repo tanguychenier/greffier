@@ -208,3 +208,32 @@ class FfmpegRecorder:
                 else max(float(value), SILENCE_NUMERIQUE)
             )
         return mesures
+
+def why_unreadable(audio: Path) -> str:
+    """Why this file cannot be a recording, in French, or "" if it can.
+
+    Asked **before** anything heavy starts. A file that is not sound gave an
+    `av.error.InvalidDataError` and a page of Python traceback -- after twenty
+    seconds spent loading the models, since the chain only met the file once
+    everything else was in memory. Reading a header costs milliseconds.
+    """
+    import soundfile
+
+    if not audio.exists():
+        return f"{audio.name} n'existe pas."
+    try:
+        if audio.stat().st_size == 0:
+            return f"{audio.name} est vide."
+    except OSError as trouble:
+        return f"{audio.name} est illisible : {trouble.strerror or trouble}."
+    try:
+        renseignements = soundfile.info(str(audio))
+    except (RuntimeError, OSError):
+        return (
+            f"{audio.name} n'est pas un enregistrement lisible : son en-tête ne "
+            "dit pas de quel son il s'agit. Le fichier est peut-être incomplet, "
+            "ou ce n'est pas un fichier audio."
+        )
+    if renseignements.frames <= 0:
+        return f"{audio.name} ne contient aucun son."
+    return ""

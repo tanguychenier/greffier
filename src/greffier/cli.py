@@ -215,8 +215,16 @@ def process(
     ),
 ) -> None:
     """Transcrit un enregistrement, identifie qui parle, rédige le compte rendu."""
+    from greffier.adapters.audio_ffmpeg import why_unreadable
+
     config = Config.load(config_file)
     _refuse_during_a_meeting(config, quand_meme)
+    # Avant les modèles, qui mettent vingt secondes à s'ouvrir : un fichier
+    # abîmé rendait une exception de la bibliothèque audio, après l'attente.
+    empeche = why_unreadable(audio)
+    if empeche:
+        typer.secho(f"✗ {empeche}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
     chaine = wire_up(config)
     chaine.log = recording(config).pour(audio.stem)
     if sans_cr:
@@ -553,6 +561,7 @@ def record(
     Une veille est ensuite lancée pour suivre le matériel pendant la séance.
     """
     config = Config.load(config_file)
+    _say_what_room_is_left(config)
     precedente = _prepare_capture(config)
     try:
         state = recording(config).start_recording(name, sortie_precedente=precedente)
@@ -567,6 +576,37 @@ def record(
     if _lancer_direct(config, config_file):
         typer.echo("  Ce qui se dit s'affiche dans la fenêtre, et s'y corrige.")
     typer.echo("  « greffier arreter » pour arrêter et traiter.")
+
+def _room_left(config: Config) -> int | None:
+    """Bytes still free where the recordings are written."""
+    cible = config.paths.recordings
+    while not cible.exists() and cible.parent != cible:
+        cible = cible.parent
+    try:
+        return shutil.disk_usage(cible).free
+    except OSError:
+        return None
+
+
+def _say_what_room_is_left(config: Config) -> None:
+    """Says, before starting, how much meeting the disk can still hold.
+
+    A recording is the one piece nothing rebuilds, and a disk filling up during
+    a meeting ends with a clock going up on screen and nothing being written.
+    """
+    from greffier.domain import space
+
+    libre = _room_left(config)
+    if libre is None:
+        return
+    reste = space.Room(libre, channels=2 if platform.system() == "Darwin" else 1)
+    dit = space.said_in_french(reste)
+    if not dit:
+        return
+    couleur = (typer.colors.RED if reste.verdict is space.Verdict.TOO_LITTLE
+               else typer.colors.YELLOW)
+    typer.secho(f"⚠ {dit}", fg=couleur)
+
 
 def _devices_swift() -> Path | None:
     source = Path(__file__).resolve().parent.parent.parent / "macos/creer-peripheriques.swift"
@@ -2377,6 +2417,18 @@ def watch(
         releve = read_level(chunks[-1])
         return None if releve is None else releve.mic_db
 
+    def room_left() -> int | None:
+        """Bytes still free where the recording is being written."""
+        import shutil
+
+        cible = config.paths.recordings
+        while not cible.exists() and cible.parent != cible:
+            cible = cible.parent
+        try:
+            return shutil.disk_usage(cible).free
+        except OSError:
+            return None
+
     veilleuse = HardwareWatch(
         recorder=recorder,
         lister=player,
@@ -2385,6 +2437,7 @@ def watch(
         notify_user=notify_user,
         captured_size=captured_size,
         captured_level=captured_level,
+        room_left=room_left,
     )
     turns = veilleuse.loop()
     typer.echo(f"Veille terminée après {turns} tours.")
