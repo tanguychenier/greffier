@@ -36,10 +36,13 @@ décodage : il ne départage rien. Tout réglage attend cette phase.
 Seize tests couvrent les chemins propres au système ; personne n'a jamais
 double-cliqué.
 
-- [ ] Sur le runner Windows, lancer `Greffier.exe` sans argument, attendre,
+- [x] Sur le runner Windows, lancer `Greffier.exe` sans argument, attendre,
       photographier l'écran et remonter les images en artefact (déclenchement
       à la main, pas par un tag).
       *Preuve : les images regardées : polices, boîtes du premier lancement, dossier de données sous `%LOCALAPPDATA%`.*
+      Fait le 15/09 (`windows-proof.yml`). Regardé : la première question s'ouvre
+      bien, mais affiche sa clé `modeles.manquants` au lieu de la phrase, et
+      `demarrage.log` porte `'Window' object has no attribute 'loop'`.
 - [ ] Corriger ce que les images montrent.
       *Preuve : les images d'après, et un test par défaut trouvé.*
 - [ ] Le vrai double-clic : machine virtuelle Windows 11 d'évaluation pilotée

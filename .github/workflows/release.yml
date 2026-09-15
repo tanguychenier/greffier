@@ -85,11 +85,14 @@ jobs:
           python -m pip install -q pyinstaller
       - name: Build
         # `--collect-all sherpa_onnx` because its native libraries are not
-        # Python modules: PyInstaller does not see them on its own.
+        # Python modules: PyInstaller does not see them on its own. And
+        # `--collect-data greffier` for the sentences and the sounds: without
+        # it the window opened on the runner showed `modeles.manquants` in
+        # place of its first question.
         run: |
           pyinstaller --noconfirm --name Greffier --windowed `
             --collect-all sherpa_onnx --collect-all soundfile `
-            --collect-submodules greffier `
+            --collect-submodules greffier --collect-data greffier `
             tools/windows_launcher.py
       - name: It starts
         # A `--windowed` executable detaches from the terminal and returns at
