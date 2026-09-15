@@ -24,12 +24,15 @@ décodage : il ne départage rien. Tout réglage attend cette phase.
       retrouvés, justesse de l'attribution des locuteurs (la mesure des 91,6 %
       de l'AMI, par la même machinerie que `replay_stitching.py`).
       *Preuve : le tableau des trois chiffres par enregistrement dans `corpus.md`.*
-- [ ] Rejouer les seize combinaisons de décodage et l'amorce de vocabulaire
+- [x] Rejouer les seize combinaisons de décodage et l'amorce de vocabulaire
       sur le réel ; ne garder que ce qui bouge un chiffre.
       *Preuve : le tableau avant/après, et les réglages par défaut justifiés par lui.*
       Mesuré le 2026-09-15 : la chaîne fond quatre personnes en deux voix sur la
       réunion à un cinquième de recouvrement (64,1 % de justesse, 23,9 % de faux) ;
-      ce cas passe devant les réglages de décodage.
+      ce cas passe devant les réglages de décodage. Les seize combinaisons vont
+      de 21,5 % à 409 % sur le réel : le réglage du produit est le meilleur ou à
+      0,6 point du meilleur, et rien ne change ; la zone dangereuse (conditionnement
+      sans échelle de température) est écrite dans `corpus.md`.
 
 ## Phase 2. Windows, vu pour de vrai
 
