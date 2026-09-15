@@ -20,13 +20,16 @@ décodage : il ne départage rien. Tout réglage attend cette phase.
 - [x] Retenir deux ou trois enregistrements de 20 à 40 minutes qui couvrent
       les trois causes de la plainte : recouvrement, accent, distance au micro.
       *Preuve : un script de téléchargement dans `tools/`, jamais d'audio dans le dépôt.*
-- [ ] Écrire `tools/measure_corpus.py` : taux d'erreur de mots, termes rares
+- [x] Écrire `tools/measure_corpus.py` : taux d'erreur de mots, termes rares
       retrouvés, justesse de l'attribution des locuteurs (la mesure des 91,6 %
       de l'AMI, par la même machinerie que `replay_stitching.py`).
       *Preuve : le tableau des trois chiffres par enregistrement dans `corpus.md`.*
 - [ ] Rejouer les seize combinaisons de décodage et l'amorce de vocabulaire
       sur le réel ; ne garder que ce qui bouge un chiffre.
       *Preuve : le tableau avant/après, et les réglages par défaut justifiés par lui.*
+      Mesuré le 2026-09-15 : la chaîne fond quatre personnes en deux voix sur la
+      réunion à un cinquième de recouvrement (64,1 % de justesse, 23,9 % de faux) ;
+      ce cas passe devant les réglages de décodage.
 
 ## Phase 2. Windows, vu pour de vrai
 
