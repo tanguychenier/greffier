@@ -1101,7 +1101,15 @@ reste à faire.
 ### Ce qui reste ouvert, vérifié
 
 - **Windows n'a jamais été lancé sur une vraie machine.** Seize tests couvrent
-  les chemins propres au système ; personne n'a double-cliqué.
+  les chemins propres au système ; personne n'a double-cliqué. **Lancé sur un
+  runner Windows le 15/09** (`windows-proof.yml`, cinq passes, images
+  regardées) : quatre défauts vus et corrigés, qu'aucun des seize tests ne
+  voyait. Le lanceur appelait `loop()`, méthode disparue au passage à
+  l'anglais, donc l'exécutable publié en 0.3.23 ne s'ouvrait pas ; PyInstaller
+  n'emportait ni les phrases ni les sons, et la première question affichait
+  sa clé `modeles.manquants` ; cette question venait avant la fenêtre ; trois
+  libellés restaient en français dans une interface anglaise. Reste le vrai
+  double-clic sur une machine à lui.
 - **Gatekeeper refusera le paquet macOS** ailleurs : il faudrait un Developer
   ID, donc un compte payant. Décision, pas tâche.
 - **Pas d'AppImage pour Linux**, seulement l'arbre des sources et son
