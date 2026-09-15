@@ -37,15 +37,41 @@ jobs:
         # A `--windowed` executable detaches at once: the process is kept, the
         # screen is photographed at twenty, sixty and a hundred seconds, so
         # that the first painting, the first question and what follows the
-        # answer nobody gives are all on file. The window titles are listed
-        # with each photograph: a photograph of an empty desktop with a
-        # window title next to it means the window opened off screen.
+        # answer are all on file. Everything else is minimised first: the
+        # runner's terminal covered the desktop, and a window behind it could
+        # not be told from a window that never opened. At forty seconds the
+        # first question is refused with Escape, so that the window itself
+        # shows on the two later photographs. Every visible top-level window
+        # is listed with each photograph, the process's main window is not
+        # enough: Tk withdraws its root while a question is up.
         run: |
           New-Item -ItemType Directory -Force -Path proof | Out-Null
           Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+          Add-Type @"
+          using System; using System.Text; using System.Runtime.InteropServices; using System.Collections.Generic;
+          public class Windows {
+            [DllImport("user32.dll")] static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+            [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr hWnd);
+            [DllImport("user32.dll")] static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
+            delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+            public static List<string> Visible() {
+              var found = new List<string>();
+              EnumWindows((hWnd, lParam) => {
+                if (!IsWindowVisible(hWnd)) return true;
+                var text = new StringBuilder(256); GetWindowText(hWnd, text, 256);
+                if (text.Length > 0) found.Add(text.ToString());
+                return true; }, IntPtr.Zero);
+              return found; } }
+          "@
+          (New-Object -ComObject Shell.Application).MinimizeAll()
+          Start-Sleep -Seconds 2
           $p = Start-Process -FilePath dist\Greffier\Greffier.exe -PassThru
           $clock = [Diagnostics.Stopwatch]::StartNew()
           foreach ($moment in 20, 60, 100) {
+            if ($moment -eq 60) {
+              Start-Sleep -Seconds ([Math]::Max(0, 40 - [int]$clock.Elapsed.TotalSeconds))
+              [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
+            }
             Start-Sleep -Seconds ([Math]::Max(0, $moment - [int]$clock.Elapsed.TotalSeconds))
             $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
             $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
@@ -53,8 +79,7 @@ jobs:
             $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
             $bitmap.Save("proof\ecran-$($moment)s.png")
             $graphics.Dispose(); $bitmap.Dispose()
-            $titles = Get-Process | Where-Object { $_.MainWindowTitle } |
-              ForEach-Object { "$($_.ProcessName): $($_.MainWindowTitle)" }
+            $titles = [Windows]::Visible()
             $titles | Set-Content "proof\fenetres-$($moment)s.txt"
             "--- $moment s: $($bounds.Width)x$($bounds.Height), alive=$(-not $p.HasExited)" | Tee-Object -Append proof\deroule.txt
             $titles | Tee-Object -Append proof\deroule.txt
