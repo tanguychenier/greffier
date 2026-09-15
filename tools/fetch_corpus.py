@@ -53,7 +53,7 @@ SUMMRE_MEETINGS = {
     "032a_EARH": "data/dev/dev-00009-of-00029.parquet",
     "036c_EAPH": "data/dev/dev-00015-of-00029.parquet",
 }
-SUMMRE_LICENCE = "CC BY-SA 4.0, LINAGORA et LPL Aix-Marseille (ANR-20-CE23-0017)"
+SUMMRE_LICENCE = "CC BY-SA 4.0, LINAGORA and LPL Aix-Marseille (ANR-20-CE23-0017)"
 
 #: The hearing kept: 22 July 2026, "Les Oubliés de la République", five
 #: witnesses, the chair, the rapporteur and the members who asked questions.
@@ -67,8 +67,8 @@ ASSEMBLEE_MINUTES_PDF = (
 )
 ASSEMBLEE_NAME = "assemblee-2026-07-22"
 ASSEMBLEE_LICENCE = (
-    "Vidéo : téléchargement ouvert par le portail, licence non écrite. "
-    "Compte rendu : document parlementaire public. Mesure locale, aucune redistribution."
+    "Video: download open on the portal, licence unstated. "
+    "Minutes: public parliamentary document. Local measurement, no redistribution."
 )
 
 #: What every recording is brought to: what the transcriber reads.
@@ -105,15 +105,15 @@ def fetch_summre(into: Path) -> list[Path]:
     for meeting, shard in SUMMRE_MEETINGS.items():
         target = into / f"summre-{meeting}.wav"
         if target.exists():
-            print(f"  {target.name} déjà là")
+            print(f"  {target.name} already there")
             written.append(target)
             continue
-        print(f"  {meeting} : téléchargement de {shard}")
+        print(f"  {meeting}: downloading {shard}")
         local = hf_hub_download(SUMMRE_REPOSITORY, shard, repo_type="dataset")
         table = pq.read_table(local, filters=[("meeting_id", "=", meeting)])
         rows = table.to_pylist()
         if not rows:
-            raise SystemExit(f"{meeting} absent de {shard}")
+            raise SystemExit(f"{meeting} not in {shard}")
 
         tracks: list[np.ndarray] = []
         turns: list[Turn] = []
@@ -144,7 +144,7 @@ def fetch_summre(into: Path) -> list[Path]:
         reference = {
             "source": f"SUMM-RE {meeting}, split dev",
             "licence": SUMMRE_LICENCE,
-            "reference": "manuelle, alignée au mot, une piste par personne",
+            "reference": "manual, word-aligned, one track per person",
             "speakers": sorted({str(turn["speaker"]) for turn in turns}),
             "turns": turns,
         }
@@ -152,7 +152,7 @@ def fetch_summre(into: Path) -> list[Path]:
             json.dumps(reference, ensure_ascii=False, indent=1), encoding="utf-8"
         )
         minutes = length / SAMPLE_RATE / 60
-        print(f"  {target.name} : {len(tracks)} voix, {minutes:.1f} min, {len(turns)} tours")
+        print(f"  {target.name}: {len(tracks)} voices, {minutes:.1f} min, {len(turns)} turns")
         written.append(target)
     return written
 
@@ -170,14 +170,14 @@ def _resample(signal: np.ndarray, rate: int, wanted: int) -> np.ndarray:
 def fetch_assemblee(into: Path) -> list[Path]:
     for tool in ("ffmpeg", "pdftotext"):
         if shutil.which(tool) is None:
-            raise SystemExit(f"{tool} manque sur le PATH")
+            raise SystemExit(f"{tool} is missing from the PATH")
     target = into / f"{ASSEMBLEE_NAME}.wav"
     video = into / f"{ASSEMBLEE_NAME}.mp4"
     if not target.exists():
         if not video.exists():
-            print("  téléchargement de la vidéo (1,2 Go)")
+            print("  downloading the video (1.2 GB)")
             _download(ASSEMBLEE_VIDEO, video)
-        print("  extraction de la piste audio")
+        print("  extracting the audio track")
         subprocess.run(
             [
                 "ffmpeg",
@@ -198,28 +198,28 @@ def fetch_assemblee(into: Path) -> list[Path]:
         video.unlink()
         _keep_the_speech(target)
     else:
-        print(f"  {target.name} déjà là")
+        print(f"  {target.name} already there")
 
     minutes = into / f"{ASSEMBLEE_NAME}.pdf"
     if not minutes.exists():
-        print("  téléchargement du compte rendu")
+        print("  downloading the minutes")
         _download(ASSEMBLEE_MINUTES_PDF, minutes)
     text = subprocess.run(
         ["pdftotext", "-layout", str(minutes), "-"], check=True, capture_output=True, text=True
     ).stdout
     turns = minutes_turns(text)
     reference = {
-        "source": "Assemblée nationale, commission d'enquête sur l'augmentation de la pauvreté, "
-        "audition du 22 juillet 2026, compte rendu n° 10",
+        "source": "Assemblée nationale, committee of inquiry on the rise of poverty, "
+        "hearing of 22 July 2026, minutes n° 10",
         "licence": ASSEMBLEE_LICENCE,
-        "reference": "compte rendu relu : locuteurs et propos, sans horodatage",
+        "reference": "edited minutes: speakers and words, no timings",
         "speakers": sorted({turn["speaker"] for turn in turns}),
         "turns": turns,
     }
     target.with_suffix(".reference.json").write_text(
         json.dumps(reference, ensure_ascii=False, indent=1), encoding="utf-8"
     )
-    print(f"  {target.name} : {len(reference['speakers'])} locuteurs nommés, {len(turns)} tours")
+    print(f"  {target.name}: {len(reference['speakers'])} named speakers, {len(turns)} turns")
     return [target]
 
 
@@ -238,7 +238,7 @@ def _keep_the_speech(target: Path) -> None:
     end = start + int(ASSEMBLEE_MINUTES * 60 * rate)
     sf.write(str(target), data[start:end], rate)
     since = first * ASSEMBLEE_WINDOW / 60
-    print(f"  parole à partir de {since:.1f} min, {ASSEMBLEE_MINUTES:.0f} min gardées")
+    print(f"  speech from {since:.1f} min on, {ASSEMBLEE_MINUTES:.0f} min kept")
 
 
 def minutes_turns(text: str) -> list[dict[str, str]]:
@@ -304,7 +304,7 @@ def main() -> int:
     options = parser.parse_args()
     wanted = list(SOURCES) if "all" in options.sources else options.sources
     options.into.mkdir(parents=True, exist_ok=True)
-    print(f"Corpus dans {options.into}")
+    print(f"Corpus in {options.into}")
     for name in wanted:
         print(name)
         SOURCES[name](options.into)

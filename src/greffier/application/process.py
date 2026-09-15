@@ -46,11 +46,11 @@ MOTS_MINIMUM = 20
 #: second floor is more likely a remnant of somebody else than an attendee.
 #: Measured on the meeting of 2026-09-10: six people, and three such voices
 #: (37 s, 25 s and 16 s out of 3 878) that were pieces of the others.
-PART_D_UNE_VOIX_MINCE = 0.05
+THIN_VOICE_SHARE = 0.05
 
 AVERTISSEMENT_SANS_BOUCLE = "· boucle système muette, à préciser"
 
-NOTE_PRISE_UNIQUE = (
+SINGLE_TAKE_NOTE = (
     "Une seule prise de son pour toute la salle : aucun canal ne désigne qui "
     "parle, les noms viennent des voix seules. Relis-les si deux voix se ressemblent."
 )
@@ -230,7 +230,7 @@ class Chain:
                     "était en visio, les autres participants n'ont pas été enregistrés."
                 )
         if outcome.one_take and len(outcome.significant_voices()) > 1:
-            outcome.warnings.append(NOTE_PRISE_UNIQUE)
+            outcome.warnings.append(SINGLE_TAKE_NOTE)
 
     def _warn_about_coverage(self, outcome: Outcome) -> None:
         """Tells the user what the transcription lost."""
@@ -282,12 +282,12 @@ class Chain:
     def _suggest_the_count(self, outcome: Outcome) -> None:
         significant = outcome.significant_voices()
         total = sum(significant.values())
-        thin = [v for v, seconds in significant.items() if seconds < PART_D_UNE_VOIX_MINCE * total]
+        thin = [v for v, seconds in significant.items() if seconds < THIN_VOICE_SHARE * total]
         if len(significant) < 3 or not thin:
             return
         outcome.warnings.append(
             f"{len(significant)} voix entendues, dont {len(thin)} qui parlent moins de "
-            f"{PART_D_UNE_VOIX_MINCE:.0%} du temps : peut-être des restes d'une autre voix. "
+            f"{THIN_VOICE_SHARE:.0%} du temps : peut-être des restes d'une autre voix. "
             "Si tu connais le nombre de participants, renseigne « participants » puis "
             "relance « Traiter » : les voix seront regroupées à ce nombre."
         )

@@ -931,7 +931,7 @@ class TestTheChannelsInARoom:
         """
         from greffier.application.process import (
             AVERTISSEMENT_SANS_BOUCLE,
-            NOTE_PRISE_UNIQUE,
+            SINGLE_TAKE_NOTE,
             Outcome,
         )
 
@@ -942,40 +942,40 @@ class TestTheChannelsInARoom:
             SpeakerTurn(Span(40, 90), "1"),
         ]
         chain()._preciser_les_canaux(outcome)
-        assert outcome.warnings == [NOTE_PRISE_UNIQUE]
+        assert outcome.warnings == [SINGLE_TAKE_NOTE]
         assert outcome.one_take
         assert not any("visio" in a for a in outcome.warnings)
 
     def test_a_mono_recording_of_several_voices_is_a_single_take(self):
         """An imported file has one channel: the room case, without any loop."""
-        from greffier.application.process import NOTE_PRISE_UNIQUE
+        from greffier.application.process import SINGLE_TAKE_NOTE
 
         processing = chain(
             audio_recorder=FakeRecorder(levels=(-30.0,)), diariser=FakeDiariser(TWO_LONG_VOICES)
         )
         outcome = processing.run_chain(AUDIO)
         assert outcome.one_take
-        assert NOTE_PRISE_UNIQUE in outcome.warnings
+        assert SINGLE_TAKE_NOTE in outcome.warnings
 
     def test_a_mono_recording_of_one_voice_has_nothing_to_say_about_names(self):
         """One voice: there is nobody to tell apart, so no note."""
-        from greffier.application.process import NOTE_PRISE_UNIQUE
+        from greffier.application.process import SINGLE_TAKE_NOTE
 
         outcome = chain(audio_recorder=FakeRecorder(levels=(-30.0,))).run_chain(AUDIO)
         assert outcome.one_take
-        assert NOTE_PRISE_UNIQUE not in outcome.warnings
+        assert SINGLE_TAKE_NOTE not in outcome.warnings
 
     def test_two_live_channels_are_not_a_single_take(self):
         """Microphone and system loop both carry sound: the channels do tell."""
-        from greffier.application.process import NOTE_PRISE_UNIQUE
+        from greffier.application.process import SINGLE_TAKE_NOTE
 
         outcome = chain(audio_recorder=FakeRecorder(levels=(-30.0, -35.0))).run_chain(AUDIO)
         assert not outcome.one_take
-        assert NOTE_PRISE_UNIQUE not in outcome.warnings
+        assert SINGLE_TAKE_NOTE not in outcome.warnings
 
     def test_a_single_take_reaches_the_writer_and_the_master_file(self):
         from greffier.application.process import _as_stored_meeting
-        from greffier.application.render import ATTRIBUTION_PAR_LES_VOIX
+        from greffier.application.render import ATTRIBUTION_BY_VOICE_LINE
 
         writer = FakeWriter()
         processing = chain(
@@ -984,7 +984,7 @@ class TestTheChannelsInARoom:
             writer=writer,
         )
         outcome = processing.run_chain(AUDIO)
-        assert ATTRIBUTION_PAR_LES_VOIX in writer.recu
+        assert ATTRIBUTION_BY_VOICE_LINE in writer.recu
         assert _as_stored_meeting(outcome, 90.0).one_take
 
     def test_one_voice_with_no_loopback_is_flagged(self):

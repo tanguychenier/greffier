@@ -136,11 +136,11 @@ def measure(audio: Path, seed: str, only_defaults: bool) -> list[dict[str, Any]]
 
 
 def print_row(row: dict[str, Any]) -> None:
-    seed = " amorce" if row["seed"] else ""
+    seed = " seeded" if row["seed"] else ""
     print(
         f"{row['recording']:<18} {row['label']:<34}{seed:<7} "
-        f"erreur {100 * row['word_error_rate']:5.1f} %  "
-        f"termes {row['rare_terms_found']:>3}/{row['rare_terms']:<3}  "
+        f"error {100 * row['word_error_rate']:5.1f} %  "
+        f"terms {row['rare_terms_found']:>3}/{row['rare_terms']:<3}  "
         f"{row['seconds']:6.1f} s"
     )
 
@@ -161,11 +161,11 @@ def main() -> int:
         if options.only in audio.stem and audio.with_suffix(".reference.json").exists()
     )
     if not recordings:
-        print(f"Aucun enregistrement avec référence dans {options.corpus}")
+        print(f"No recording with a reference in {options.corpus}")
         return 1
     for audio in recordings:
         rows = measure(audio, options.seed, options.defaults_only)
-        print(f"--- {audio.stem}, du meilleur au pire")
+        print(f"--- {audio.stem}, best to worst")
         for row in sorted(rows, key=lambda row: row["word_error_rate"]):
             print_row(row)
     return 0

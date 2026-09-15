@@ -318,17 +318,17 @@ def measure(audio: Path, again: bool) -> dict[str, object]:
 def print_row(row: dict[str, object]) -> None:
     judged = int(str(row["sentences_judged"])) or 1
     wer = float(str(row["word_error_rate"])) * 100
-    note = "" if row["reference_timed"] else " (texte relu)"
+    note = "" if row["reference_timed"] else " (edited text)"
     right, wrong, blank = (
         100 * int(str(row[key])) / judged
         for key in ("attribution_right", "attribution_wrong", "attribution_no_opinion")
     )
     print(
         f"{row['recording']:<24} "
-        f"erreur de mots {wer:5.1f} %{note:<14} "
-        f"termes rares {row['rare_terms_found']:>3}/{row['rare_terms']:<3} "
-        f"justesse {right:5.1f} % faux {wrong:4.1f} % sans avis {blank:4.1f} % "
-        f"voix {row['voices']}/{row['people']} (+{row['scraps']} miettes)"
+        f"word error rate {wer:5.1f} %{note:<14} "
+        f"rare terms {row['rare_terms_found']:>3}/{row['rare_terms']:<3} "
+        f"right {right:5.1f} % wrong {wrong:4.1f} % no opinion {blank:4.1f} % "
+        f"voices {row['voices']}/{row['people']} (+{row['scraps']} scraps)"
     )
 
 
@@ -347,7 +347,7 @@ def main() -> int:
         if options.only in audio.stem and audio.with_suffix(".reference.json").exists()
     )
     if not recordings:
-        print(f"Aucun enregistrement avec référence dans {options.corpus}")
+        print(f"No recording with a reference in {options.corpus}")
         return 1
     for audio in recordings:
         row = measure(audio, options.again)

@@ -1,115 +1,119 @@
-# Le plan, en cases à cocher
+# The plan, as boxes to tick
 
-Ce qui reste à faire sur Greffier après la 0.3.23, dans l'ordre où chaque
-phase débloque la suivante. Une case se coche dans la PR qui termine le point,
-avec la preuve en face : un chiffre mesuré, une image regardée, un test qui
-échouerait si le comportement changeait. Le détail de chaque point est dans
-`reste-a-faire.md` et `scenarios.md` ; ici, seulement l'état.
+What is left to do on Greffier after 0.3.23, in the order each phase unlocks
+the next. A box is ticked in the PR that finishes the point, with its proof
+next to it: a measured figure, an image looked at, a test that would fail if
+the behaviour changed. The detail of each point is in `reste-a-faire.md` and
+`scenarios.md`; here, only the state.
 
-## Phase 1. Un corpus réel en français
+## Phase 1. A real corpus in French
 
-Le synthétique donne 1,75 % d'erreur quelle que soit la combinaison de
-décodage : il ne départage rien. Tout réglage attend cette phase.
+The synthetic meeting gives 1.75 % of errors whatever the decoding
+combination: it tells nothing apart. Every setting waits for this phase.
 
-- [x] Vérifier les corpus candidats sur quatre critères : français, plusieurs
-      locuteurs dans une pièce, texte de référence avec les tours de parole,
-      licence qui permet l'usage. Pistes : SUMM-RE, ORFEO, CID, ESLO, auditions
-      de commissions de l'Assemblée nationale (vidéo publique et compte rendu
-      nominatif sous Licence Ouverte).
-      *Preuve : un tableau dans `corpus.md`, un candidat retenu ou refusé par ligne, avec la raison.*
-- [x] Retenir deux ou trois enregistrements de 20 à 40 minutes qui couvrent
-      les trois causes de la plainte : recouvrement, accent, distance au micro.
-      *Preuve : un script de téléchargement dans `tools/`, jamais d'audio dans le dépôt.*
-- [x] Écrire `tools/measure_corpus.py` : taux d'erreur de mots, termes rares
-      retrouvés, justesse de l'attribution des locuteurs (la mesure des 91,6 %
-      de l'AMI, par la même machinerie que `replay_stitching.py`).
-      *Preuve : le tableau des trois chiffres par enregistrement dans `corpus.md`.*
-- [x] Rejouer les seize combinaisons de décodage et l'amorce de vocabulaire
-      sur le réel ; ne garder que ce qui bouge un chiffre.
-      *Preuve : le tableau avant/après, et les réglages par défaut justifiés par lui.*
-      Mesuré le 2026-09-15 : la chaîne fond quatre personnes en deux voix sur la
-      réunion à un cinquième de recouvrement (64,1 % de justesse, 23,9 % de faux) ;
-      ce cas passe devant les réglages de décodage. Les seize combinaisons vont
-      de 21,5 % à 409 % sur le réel : le réglage du produit est le meilleur ou à
-      0,6 point du meilleur, et rien ne change ; la zone dangereuse (conditionnement
-      sans échelle de température) est écrite dans `corpus.md`.
+- [x] Check the candidate corpora against four criteria: French, several
+      speakers in one room, a reference text with the turns, a licence that
+      allows the use. Leads: SUMM-RE, ORFEO, CID, ESLO, committee hearings of
+      the Assemblée nationale (public video and minutes naming every speaker,
+      under the Licence Ouverte).
+      *Proof: a table in `corpus.md`, one candidate kept or refused per line, with the reason.*
+- [x] Keep two or three recordings of 20 to 40 minutes covering the three
+      causes of the complaint: overlap, accent, distance to the microphone.
+      *Proof: a download script in `tools/`, never any audio in the repository.*
+- [x] Write `tools/measure_corpus.py`: word error rate, rare terms found,
+      speaker attribution accuracy (the 91.6 % figure of the AMI, through
+      the same machinery as `replay_stitching.py`).
+      *Proof: the table of the three figures per recording in `corpus.md`.*
+- [x] Replay the sixteen decoding combinations and the vocabulary prompt on
+      the real recordings; keep only what moves a figure.
+      *Proof: the before/after table, and the default settings justified by it.*
+      Measured on 2026-09-15: the chain fuses four people into two voices on
+      the meeting with a fifth of overlap (64.1 % right, 23.9 % wrong); that
+      case comes before any decoding setting. The sixteen combinations go
+      from 21.5 % to 409 % on real speech: the product's setting is the best
+      or within 0.6 point of the best, and nothing changes; the danger zone
+      (conditioning without the temperature ladder) is written in `corpus.md`.
 
-## Phase 2. Windows, vu pour de vrai
+## Phase 2. Windows, seen for real
 
-Seize tests couvrent les chemins propres au système ; personne n'a jamais
-double-cliqué.
+Sixteen tests cover the paths specific to the system; nobody ever
+double-clicked.
 
-- [x] Sur le runner Windows, lancer `Greffier.exe` sans argument, attendre,
-      photographier l'écran et remonter les images en artefact (déclenchement
-      à la main, pas par un tag).
-      *Preuve : les images regardées : polices, boîtes du premier lancement, dossier de données sous `%LOCALAPPDATA%`.*
-      Fait le 15/09 (`windows-proof.yml`). Regardé : la première question s'ouvre
-      bien, mais affiche sa clé `modeles.manquants` au lieu de la phrase, et
-      `demarrage.log` porte `'Window' object has no attribute 'loop'`.
-- [x] Corriger ce que les images montrent.
-      *Preuve : les images d'après, et un test par défaut trouvé.*
-      Quatre défauts vus et corrigés le 15/09 : le lanceur appelait une méthode
-      disparue, l'exécutable n'emportait ni phrases ni sons, la question des
-      modèles venait avant la fenêtre, trois libellés restaient en français
-      en dur dans une interface anglaise.
-- [ ] Le vrai double-clic : machine virtuelle Windows 11 d'évaluation pilotée
-      en VNC, ou son disque Windows à lui. À trancher par lui.
-      *Preuve : une ligne « lancé sur Windows le … » dans le README, avec ce qui a été vu.*
+- [x] On the Windows runner, launch `Greffier.exe` with no argument, wait,
+      photograph the screen and bring the images back as an artefact (run by
+      hand, never by a tag).
+      *Proof: the images looked at: fonts, first-launch boxes, data folder under `%LOCALAPPDATA%`.*
+      Done on 15/09 (`windows-proof.yml`). Looked at: the first question
+      opens, but shows its key `modeles.manquants` instead of the sentence,
+      and `demarrage.log` carries `'Window' object has no attribute 'loop'`.
+- [x] Fix what the images show.
+      *Proof: the images after, and one test per defect found.*
+      Four defects seen and fixed on 15/09: the launcher called a method that
+      no longer existed, the executable carried neither sentences nor sounds,
+      the models question came before the window, three labels stayed
+      hard-coded in French inside an English interface.
+- [ ] The real double click: a Windows 11 evaluation virtual machine driven
+      over VNC, or his own Windows disk. His call.
+      *Proof: a line "launched on Windows on …" in the README, with what was seen.*
 
-## Phase 3. `initiative` sur une vraie réunion
+## Phase 3. `initiative` on a real meeting
 
-Livrée désactivée ; la moitié proactive de l'assistante n'a jamais traversé
-une séance.
+Shipped disabled; the proactive half of the assistant has never been
+through a sitting.
 
-- [ ] Récupérer la réunion du 2026-09-10 (six personnes, 3 878 s) depuis le
-      Mac : audio, json et jsonl. Elle n'est pas sur ce PC.
-- [ ] Étendre `tools/replay_live.py` pour alimenter `watch.py` avec le fil des
-      phrases, `initiative` activée, et journaliser chaque prise de parole
-      qu'elle aurait faite et ce qu'elle aurait dit.
-      *Preuve : le journal des interventions sur la réunion réelle.*
-- [ ] Juger chaque intervention : bon moment, utile, intrusive. Décider la
-      valeur par défaut sur ces chiffres.
-      *Preuve : le tableau dans `reste-a-faire.md`, et le réglage par défaut qui en découle.*
+- [ ] Fetch the meeting of 2026-09-10 (six people, 3 878 s) from the Mac:
+      audio, json and jsonl. It is not on this PC.
+- [ ] Extend `tools/replay_live.py` to feed `watch.py` with the thread of
+      sentences, `initiative` on, and log every time she would have spoken
+      and what she would have said.
+      *Proof: the log of the interventions on the real meeting.*
+- [ ] Judge each intervention: right moment, useful, intrusive. Decide the
+      default value on those figures.
+      *Proof: the table in `reste-a-faire.md`, and the default setting that follows from it.*
 
-## Phase 4. Deux courtes tâches produit
+## Phase 4. Two short product tasks
 
-- [x] Présentiel : quand la prise de son n'a qu'un canal, la fenêtre et le
-      compte rendu disent que l'attribution repose sur les voix.
-      *Preuve : un test dans `test_window`, et la ligne dans un compte rendu réel.*
-- [x] Nombre de participants : quand les voix détectées dépassent le nombre
-      déclaré, la fenêtre le suggère.
-      *Preuve : un test sur les réunions synthétiques, et la suggestion vue à l'écran.*
+- [x] In a room: when the sound comes from a single take, the window and
+      the minutes say the attribution rests on the voices.
+      *Proof: a test in `test_window`, and the line in real minutes.*
+- [x] Attendee count: when the voices heard exceed the number declared, the
+      window suggests it.
+      *Proof: a test on the synthetic meetings, and the suggestion seen on screen.*
 
-## Phase 5. La chaîne d'après réunion au seuil du direct
+## Phase 5. The post-meeting chain at the live threshold
 
-Le direct a réuni Lise en une voix, l'après-réunion l'a éclatée en neuf.
+Live gathered Lise into one voice; the post-meeting chain split her into
+nine.
 
-- [ ] Mesurer avec `replay_stitching.py`, sur l'AMI et le corpus de la
-      phase 1, l'adoption des petits agrégats à 0,50 au lieu de 0,75.
-      *Preuve : le tableau justesse / faux / sans avis, comme pour la « bribe rattachée ». Gardé seulement si les deux côtés s'améliorent.*
+- [ ] Measure with `replay_stitching.py`, on the AMI and on the phase 1
+      corpus, the adoption of the small aggregates at 0.50 instead of 0.75.
+      *Proof: the right / wrong / no opinion table, as for the "attached scrap". Kept only if both sides improve.*
 
-## Phase 6. Le reste, après
+## Phase 6. The rest, afterwards
 
-- [ ] Dire qu'il doute au moment où il doute.
-- [ ] Un premier lancement qui prend par la main quand rien n'est configuré.
-- [ ] Regrouper les voix parasites sous « Les autres ».
-- [ ] Les sources GitLab, Jira, Trello pour une question orale (attend une
-      configuration réelle).
-- [ ] Un AppImage pour Linux.
-- [ ] Les 22 sauts de la suite d'intégration : la réunion de table à trois
-      timbres, et « Lucie » entendue « UCI ».
-- [ ] Une recherche à jour sur la séparation des voix ; tout candidat doit
-      battre +0,099 de marge à 14,6 ms.
+- [ ] Say it doubts at the moment it doubts.
+- [ ] A first launch that takes you by the hand when nothing is configured.
+- [ ] Group the stray voices under "Les autres".
+- [ ] The GitLab, Jira and Trello sources for a spoken question (waits for
+      a real configuration).
+- [ ] An AppImage for Linux.
+- [ ] The 22 skips of the integration suite: the table meeting with three
+      timbres, and "Lucie" heard as "UCI".
+- [ ] An up-to-date survey of speaker separation; any candidate has to beat
+      +0.099 of margin at 14.6 ms.
+- [ ] The older documents of `docs/` (`reste-a-faire`, `scenarios`,
+      `calibrage`, `separation-des-voix`, `carte-graphique`, `rex-2026-09-10`)
+      put into English, like the code.
 
-## Décisions qui sont à lui, pas des tâches
+## Decisions that are his, not tasks
 
-- Notarisation macOS : compte Apple payant, sinon Gatekeeper refuse le paquet
-  sur un autre Mac.
-- La prise de son : deux micros écartés contre la pieuvre. À mesurer sur une
-  réunion étiquetée avant d'acheter quoi que ce soit.
+- macOS notarisation: a paid Apple account, otherwise Gatekeeper refuses the
+  bundle on another Mac.
+- The sound take: two microphones apart against the octopus one. To be
+  measured on a labelled meeting before buying anything.
 
-## Règles sur toute la durée
+## Rules for the whole run
 
-Une PR par point sur `main` protégée ; CI verte en `LANG=C` sous xvfb avant
-chaque push ; changelog régénéré par `tools/changelog.py` ; une release par
-phase terminée ; chaque chiffre annoncé est mesuré et écrit dans `docs/`.
+One PR per point on the protected `main`; CI green under `LANG=C` and xvfb
+before every push; changelog regenerated by `tools/changelog.py`; one release
+per finished phase; every figure announced is measured and written in `docs/`.
