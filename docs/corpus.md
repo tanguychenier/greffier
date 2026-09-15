@@ -214,3 +214,30 @@ and what the live threshold (0.50) would have done instead.
 
 `CONSOLIDATION_THRESHOLD` goes from 0.70 to 0.80. The three recordings are
 measured again through the whole chain below.
+
+## The whole chain again, consolidation at 0.80 (2026-09-16)
+
+`python3 tools/measure_corpus.py --again`, one recording at a time, same
+default settings, `CONSOLIDATION_THRESHOLD` at 0.80:
+
+| | Word error rate | Rare terms | Right | Wrong | No opinion | Voices / people |
+|---|---|---|---|---|---|---|
+| Assemblée, 40 min | 40.1 % *(edited text)* | 486 / 578 | **96.9 %** | 3.1 % | 0.0 % | 5 / 7, one scrap |
+| SUMM-RE 032a | 24.5 % | 220 / 254 | 87.5 % | 2.3 % | 10.2 % | **4 / 4** |
+| SUMM-RE 036c | 28.4 % | 174 / 227 | **71.9 %** | **9.0 %** | 19.1 % | **4 / 4**, sixteen scraps |
+
+036c returns its four people: wrong attributions go from 23.9 % to 9.0 %,
+and each of the four voices carries one person (235 of 266 sentences, 73 of
+81, 59 of 70, 40 of 43). The share of *no opinion* rises to 19.1 %: 146
+short sentences, median 1.1 s, the backchannels thrown in while somebody
+else speaks, attached to no turn at all. That is the overlap again, not the
+stitching.
+
+**A caveat the two runs make visible.** The same setting on the same file
+does not give the same transcription twice: 032a came back at 24.5 % where
+the first run gave 21.6 %, 036c with 645 sentences where the first run had
+917. The temperature ladder samples where the model is unsure, so the
+sentence-level figures move by a few points from one run to the next. The
+comparison that settles a threshold is the turn-level one of
+`measure_stitching.py`, computed once from a cached segmentation, where
+036c goes from 72.2 % to 93.5 % right with nothing else changed.
