@@ -32,7 +32,7 @@ class TestCompressing:
 
 class TestDeleting:
     def test_switched_off_by_default(self):
-        """Effacer perd la seule pièce qu'on ne peut pas refaire."""
+        """Erasing loses the only piece that cannot be made again."""
         assert Rule().effacer_apres == 0
         assert Rule().decide(9999, True, True) is Gesture.NOTHING
 
@@ -46,7 +46,7 @@ class TestDeleting:
 
 
 class TestAMeetingNotYetTranscribedIsUntouchable:
-    """Son audio est tout ce qui existe d'elle."""
+    """Its audio is all that exists of it."""
 
     def test_never_compressed(self):
         assert Rule(compresser_apres=1).decide(365, False, False) is Gesture.NOTHING

@@ -1,4 +1,4 @@
-"""Ce qui peut entrer en banque sous le nom d'une personne."""
+"""What may enter the bank under a person's name."""
 
 import pytest
 
@@ -16,10 +16,10 @@ class TestWhatIsAccepted:
 
 class TestWhatIsRefused:
     def test_a_label_of_the_window_is_refused(self):
-        """Le cas mesuré : la banque du poste portait « A nommer ».
+        """The case measured: the machine's bank carried « A nommer ».
 
-        C'est ce que la colonne « Nom » affiche pour une voix qui n'en a pas
-        encore. Entrée en banque, elle est reconnue à chaque réunion suivante.
+        It is what the « Nom » column shows for a voice that has none yet.
+        Once in the bank, it is recognised at every following meeting.
         """
         assert not acceptable("A nommer")
         assert not acceptable("à nommer")
@@ -36,14 +36,14 @@ class TestWhatIsRefused:
         assert not acceptable("je crois que c'était plutôt Marcel qui parlait là")
 
     def test_the_refusal_says_why(self):
-        """Un refus sans raison fait recommencer la même saisie."""
+        """A refusal without a reason has the same entry typed again."""
         assert refusal("") and refusal("M") and refusal("Voix 12")
 
 
 class TestTidyingAName:
     def test_the_case_is_made_uniform(self):
-        """Sans quoi « marcel » et « Marcel » sont deux personnes en banque,
-        chacune avec la moitié des empreintes."""
+        """Otherwise « marcel » and « Marcel » are two people in the bank,
+        each with half of the voiceprints."""
         assert normalise("marcel") == "Marcel"
 
     def test_the_spaces_collapse(self):

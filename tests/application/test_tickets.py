@@ -1,4 +1,4 @@
-"""Les tickets proposés à partir d'un compte rendu."""
+"""The tickets proposed from the minutes."""
 
 from greffier.application.tickets import Ticket, depuis_reponse, extract_json, offer
 
@@ -66,7 +66,7 @@ class TestWhatIsWrittenOut:
         assert "**Pour** Josiane" in rendered
 
     def test_the_document_says_it_creates_nothing(self):
-        """Un ticket ouvert à tort coûte plus cher à retirer qu'à ne pas créer."""
+        """A ticket opened wrongly costs more to withdraw than not to create."""
         assert "pas créés" in depuis_reponse(RESPONSE).as_markdown("x")
 
     def test_with_no_decision_it_says_so(self):

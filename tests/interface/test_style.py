@@ -137,8 +137,8 @@ class TestChoosingTheTheme:
         assert style.palette("systeme") is CLAIR
 
     def test_an_unknown_value_does_not_bring_the_window_down(self, monkeypatch) -> None:
-        """Un fichier écrit à la main peut porter n'importe quoi : on se rabat
-        sur le système plutôt que de refuser de s'ouvrir."""
+        """A file written by hand may carry anything: fall back on the
+        system rather than refuse to open."""
         import greffier.interface.style as style
 
         monkeypatch.setattr(style, "system_is_dark", lambda: False)

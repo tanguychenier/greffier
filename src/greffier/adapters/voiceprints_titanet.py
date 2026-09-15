@@ -3,7 +3,7 @@
 Measured against three better-ranked candidates on 931 turns of a real meeting:
 CAM++ and ResNet293 have a **negative** margin on 2.5-second excerpts, meaning
 no threshold separates "same person" from "different people". See
-docs/rex-2026-09-10.md. TitaNet stays: +0.099 of margin at 14.6 ms per excerpt.
+docs/retrospective-2026-09-10.md. TitaNet stays: +0.099 of margin at 14.6 ms per excerpt.
 """
 
 from __future__ import annotations

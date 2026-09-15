@@ -1,9 +1,9 @@
-"""Ce qu'on écrit quand quelque chose rate, et ce qu'on n'écrit pas.
+"""What is written when something fails, and what is not.
 
-Un outil employé par beaucoup de gens reçoit « ça n'a pas marché » et rien
-d'autre. Ce qui manque n'est jamais le rapport, c'est ce que la machine voyait
-à cet instant. Mais un fichier d'incidents ne sera joint à un rapport que s'il
-peut l'être sans être relu : rien de personnel n'y entre.
+A tool used by many people receives « ça n'a pas marché » and nothing else.
+What is missing is never the report, it is what the machine saw at that
+instant. But an incidents file will only be attached to a report if it can
+be without being reread: nothing personal enters it.
 """
 
 from datetime import datetime
@@ -24,7 +24,7 @@ class TestCeQuOnEcrit:
         assert "0.3.22" in ligne and "Linux x86_64" in ligne
 
     def test_a_line_stays_one_line(self):
-        """Une trace sur douze lignes rendrait le fichier illisible."""
+        """A twelve-line trace would make the file unreadable."""
         ligne = Trouble("chaîne", "première ligne\ndeuxième\ttroisième").line()
         assert "\n" not in ligne
         assert ligne.count("\t") == 2
@@ -36,7 +36,7 @@ class TestCeQuOnEcrit:
 
 class TestCeQuOnNEcritPas:
     def test_a_path_is_taken_out(self):
-        """Un chemin porte le nom du compte, et souvent le sujet d'une réunion."""
+        """A path carries the account name, and often a meeting's subject."""
         sans = without_traces("échec sur /home/quelqu-un/reunions/point-budget.wav")
         assert "quelqu-un" not in sans and "point-budget" not in sans
         assert "<chemin>" in sans

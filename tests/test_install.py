@@ -85,19 +85,19 @@ class TestThePackageManager:
     def test_windows_prefers_winget_to_scoop(self, under, monkeypatch):
         module = under("Windows")
         monkeypatch.setattr(module.shutil, "which", lambda outil: "C:\\\\winget.exe")
-        outil, _ = module.gestionnaire()
+        outil, _ = module.package_manager()
         assert outil == "winget"
 
     def test_windows_with_no_manager_does_not_crash(self, under, monkeypatch):
         module = under("Windows")
         monkeypatch.setattr(module.shutil, "which", lambda outil: None)
-        assert module.gestionnaire() is None
+        assert module.package_manager() is None
 
     def test_linux_recognises_apt(self, under, monkeypatch):
         module = under("Linux")
         monkeypatch.setattr(module.shutil, "which", lambda outil: "/usr/bin/apt-get"
                             if outil == "apt-get" else None)
-        outil, command = module.gestionnaire()
+        outil, command = module.package_manager()
         assert outil == "apt-get" and "install" in command
 
     def test_root_does_not_call_sudo(self, under, monkeypatch):
@@ -106,7 +106,7 @@ class TestThePackageManager:
         monkeypatch.setattr(module.shutil, "which", lambda outil: "/usr/bin/apt-get"
                             if outil == "apt-get" else None)
         monkeypatch.setattr(module.os, "geteuid", lambda: 0, raising=False)
-        _, command = module.gestionnaire()
+        _, command = module.package_manager()
         assert "sudo" not in command
 
     def test_an_ordinary_user_goes_through_sudo(self, under, monkeypatch):
@@ -114,13 +114,13 @@ class TestThePackageManager:
         monkeypatch.setattr(module.shutil, "which", lambda outil: "/usr/bin/apt-get"
                             if outil == "apt-get" else None)
         monkeypatch.setattr(module.os, "geteuid", lambda: 501, raising=False)
-        _, command = module.gestionnaire()
+        _, command = module.package_manager()
         assert command[0] == "sudo"
 
     def test_ffmpeg_is_known_to_every_manager(self, the_installer):
-        """C'est le seul outil vraiment indispensable : il doit s'installer partout."""
+        """The only tool that is truly indispensable: it has to install everywhere."""
         attendus = {"brew", "apt-get", "dnf", "pacman", "zypper", "apk", "winget", "scoop"}
-        assert attendus <= set(the_installer.PAQUETS["ffmpeg"])
+        assert attendus <= set(the_installer.PACKAGES["ffmpeg"])
 
 
 class TestFittingIntoTheDesktop:
@@ -129,14 +129,14 @@ class TestFittingIntoTheDesktop:
     def test_macos_gets_a_launch_agent(self, under, monkeypatch, tmp_path):
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         module = under("Darwin")
-        file = module.integrer_au_bureau(None, "/Applications/Greffier.app")
+        file = module.integrate_with_desktop(None, "/Applications/Greffier.app")
         assert file.parent == tmp_path / "Library/LaunchAgents"
         content = file.read_text(encoding="utf-8")
         assert "com.reunions.greffier" in content and "RunAtLoad" in content
 
     def test_linux_gets_a_desktop_entry(self, under, monkeypatch, tmp_path):
         module = under("Linux", XDG_CONFIG_HOME=str(tmp_path / "config"))
-        file = module.integrer_au_bureau(None, "/usr/local/bin/greffier")
+        file = module.integrate_with_desktop(None, "/usr/local/bin/greffier")
         assert file == tmp_path / "config/autostart/greffier.desktop"
         content = file.read_text(encoding="utf-8")
         assert content.startswith("[Desktop Entry]")
@@ -144,7 +144,7 @@ class TestFittingIntoTheDesktop:
 
     def test_windows_gets_a_startup_script(self, under, tmp_path):
         module = under("Windows", APPDATA=str(tmp_path / "Roaming"))
-        file = module.integrer_au_bureau(None, r"C:\\Greffier\\greffier.exe")
+        file = module.integrate_with_desktop(None, r"C:\\Greffier\\greffier.exe")
         assert file.parent.name == "Startup"
         content = file.read_text(encoding="utf-8")
         # A .cmd and not a .lnk: a Windows shortcut is a binary format that
@@ -153,7 +153,7 @@ class TestFittingIntoTheDesktop:
 
     def test_an_unknown_system_does_not_crash(self, under):
         module = under("Haiku")
-        assert module.integrer_au_bureau(None, "/quelque/part") is None
+        assert module.integrate_with_desktop(None, "/quelque/part") is None
 
 
 class TestTheRepairSkill:
@@ -200,7 +200,7 @@ class TestTheRepairSkill:
     def test_it_is_laid_where_the_assistant_looks_for_it(self, under, monkeypatch, tmp_path):
         module = under("Darwin")
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-        assert module.dossier_skills() == tmp_path / ".claude/skills"
+        assert module.skills_folder() == tmp_path / ".claude/skills"
 
     def test_a_copy_and_not_a_link(self, under, monkeypatch, tmp_path):
         """The repository may be moved: a link would point into the void."""
@@ -216,7 +216,7 @@ class TestTheRepairSkill:
             def ask(self, _question):
                 return True
 
-        module.etape_skill(Context())
+        module.skill_step(Context())
         pose = tmp_path / ".claude/skills/greffier/SKILL.md"
         assert pose.is_file() and not pose.is_symlink()
         assert pose.read_text(encoding="utf-8") == (
@@ -244,7 +244,7 @@ class TestTheRepairSkill:
             def ask(self, _question):
                 return True
 
-        module.etape_skill(Context())
+        module.skill_step(Context())
         pose = tmp_path / ".claude/skills/greffier/SKILL.md"
         assert pose.is_file(), "the skill goes down once the dead link is out of the way"
 
@@ -261,7 +261,7 @@ class TestTheRepairSkill:
             def ask(self, _question):
                 return True
 
-        module.etape_skill(Context())
+        module.skill_step(Context())
         assert not (tmp_path / ".claude").exists()
 
 
@@ -362,7 +362,7 @@ class TestTheCommandInThePath:
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         python, launcher = self._an_environment(tmp_path)
 
-        module.etape_bureau(self._a_context(), python)
+        module.desktop_step(self._a_context(), python)
 
         link = tmp_path / ".local/bin/greffier"
         assert link.is_symlink(), "a link, so it follows the repository when the code changes"
@@ -374,7 +374,7 @@ class TestTheCommandInThePath:
         monkeypatch.delenv("XDG_DATA_HOME", raising=False)
         python, _ = self._an_environment(tmp_path)
 
-        module.etape_bureau(self._a_context(), python)
+        module.desktop_step(self._a_context(), python)
 
         entry = tmp_path / ".local/share/applications/greffier.desktop"
         assert entry.exists(), "with no menu entry the window only opens from a terminal"
@@ -386,7 +386,7 @@ class TestTheCommandInThePath:
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         python, _ = self._an_environment(tmp_path)
 
-        module.etape_bureau(self._a_context(), python)
+        module.desktop_step(self._a_context(), python)
 
         assert not (tmp_path / ".local/bin").exists()
         assert "PATH" in capsys.readouterr().out
@@ -396,7 +396,7 @@ class TestTheCommandInThePath:
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         python, _ = self._an_environment(tmp_path)
 
-        module.etape_bureau(self._a_context(check_only=True), python)
+        module.desktop_step(self._a_context(check_only=True), python)
 
         assert not (tmp_path / ".local/bin/greffier").exists()
         assert not (tmp_path / ".local/share/applications/greffier.desktop").exists()
@@ -410,7 +410,7 @@ class TestTheCommandInThePath:
         stale.parent.mkdir(parents=True)
         stale.symlink_to(tmp_path / "elsewhere/.venv/bin/greffier")
 
-        module.etape_bureau(self._a_context(), python)
+        module.desktop_step(self._a_context(), python)
 
         assert stale.resolve() == launcher.resolve()
 
@@ -445,16 +445,16 @@ class TestMakingAFolder:
 class TestWhatTheConsoleCanShow:
     def test_the_symbols_have_an_ascii_fallback(self, the_installer):
         """A Windows console in cp1252 cannot write "✓"."""
-        assert set(the_installer.SYMBOLES) == {"ok", "alerte", "erreur"}
-        assert all(value for value in the_installer.SYMBOLES.values())
+        assert set(the_installer.SYMBOLS) == {"ok", "warn", "error"}
+        assert all(value for value in the_installer.SYMBOLS.values())
 
     def test_the_fallback_is_chosen_from_the_encoding(self, the_installer, monkeypatch):
         class NarrowConsole:
             encoding = "cp1252"
 
         monkeypatch.setattr(the_installer.sys, "stdout", NarrowConsole())
-        assert the_installer._ecrivable("✓") is False
-        assert the_installer._ecrivable("ok") is True
+        assert the_installer._printable("✓") is False
+        assert the_installer._printable("ok") is True
 
 
 class TestCapturingSoundOnLinux:
@@ -503,28 +503,28 @@ class TestAccelerationByTheCard:
         monkeypatch.setattr(module.shutil, "which",
                             lambda outil: "/usr/bin/nvidia-smi" if outil == "nvidia-smi" else None)
 
-        assert module.carte_nvidia()
+        assert module.nvidia_card()
 
     def test_with_no_card_nothing_is_offered(self, under, monkeypatch):
         module = under("Linux")
         monkeypatch.setattr(module.shutil, "which", lambda _outil: None)
 
-        assert not module.carte_nvidia()
+        assert not module.nvidia_card()
 
     def test_macos_is_served_by_metal(self, under, monkeypatch):
         """No NVIDIA card is usable there, and the chip already has Metal."""
         module = under("Darwin")
         monkeypatch.setattr(module.shutil, "which", lambda _outil: "/usr/bin/nvidia-smi")
 
-        assert not module.carte_nvidia()
+        assert not module.nvidia_card()
 
 
 class TestTheLanguageOfTheMachine:
-    """L'installeur gravait « fr » dans le gabarit, quel que soit le poste.
+    """The installer carved « fr » into the template, whatever the machine.
 
-    La langue que le système annonce est un renseignement gratuit que rien ne
-    lisait : un poste allemand ressortait réglé sur le français, et personne ne
-    s'en apercevait avant la première transcription.
+    The language the system announces is a free piece of information nothing
+    read: a German machine came out set to French, and nobody noticed before
+    the first transcription.
     """
 
     def test_the_announced_language_is_kept(self, under, monkeypatch):
@@ -550,12 +550,37 @@ class TestTheLanguageOfTheMachine:
 
     def test_the_template_no_longer_hard_codes_a_language(self, the_installer):
         """The first cover of the template: the line could change in silence."""
-        assert 'langue = "fr"' not in the_installer.GABARIT
-        assert "langue = {langue!r}" in the_installer.GABARIT
+        assert 'langue = "fr"' not in the_installer.TEMPLATE
+        assert "langue = {language!r}" in the_installer.TEMPLATE
+
+    def test_the_configuration_step_writes_a_file_on_a_fresh_machine(
+        self, under, tmp_path, monkeypatch
+    ):
+        """Every placeholder of the template has its argument.
+
+        From 2026-09-10 to 2026-09-16 the arguments were in English and the
+        placeholders in French: step 6 died on KeyError('modeles') on any
+        machine without a config.toml, that is on every first installation.
+        """
+        module = under("Linux")
+        monkeypatch.setattr(module, "data_folder", lambda: tmp_path / "data")
+        context = type("Context", (), {})()
+        context.config = tmp_path / "config"
+        context.models = tmp_path / "models"
+        context.check_only = False
+        written = module.configuration_step(
+            context, "faster-whisper", {"moteur": "claude", "modele": "opus"}
+        )
+        text = written.read_text(encoding="utf-8")
+        assert f'modeles = {str(tmp_path / "models")!r}' in text
+        assert "moteur = 'faster-whisper'" in text
+        assert "moteur = 'claude'" in text
+        assert "modele = 'opus'" in text
+        assert "{" not in text
 
     def test_the_language_catalogue_loads_without_the_package(self, the_installer):
         """The installer runs before anything at all is installed."""
-        languages = the_installer._charger_langues()
+        languages = the_installer._load_languages()
 
         assert languages is not None
         assert ("fr", "Français") in languages.LANGUAGES
@@ -579,7 +604,7 @@ class TestAnEnvironmentInheritedFromBefore:
                             lambda name: "/usr/bin/uv" if (name == "uv" and avec_uv) else None)
         monkeypatch.setattr(the_installer, "run_job",
                             lambda command, **_: lancees.append(list(command)))
-        monkeypatch.setattr(the_installer, "carte_nvidia", lambda: False)
+        monkeypatch.setattr(the_installer, "nvidia_card", lambda: False)
         return lancees
 
     def test_a_venv_with_no_interpreter_is_remade(self, the_installer, tmp_path, monkeypatch):
@@ -590,7 +615,7 @@ class TestAnEnvironmentInheritedFromBefore:
 
         context = type("Ctx", (), {"check_only": False, "to_do": [],
                                     "ask": lambda self, _q: False})()
-        the_installer.etape_environnement(context, "whisper.cpp")
+        the_installer.environment_step(context, "whisper.cpp")
 
         assert not (tmp_path / ".venv").exists() or lancees, "rien n'a été refait"
         assert any("venv" in " ".join(c) for c in lancees), lancees
@@ -604,7 +629,7 @@ class TestAnEnvironmentInheritedFromBefore:
 
         context = type("Ctx", (), {"check_only": False, "to_do": [],
                                     "ask": lambda self, _q: False})()
-        the_installer.etape_environnement(context, "whisper.cpp")
+        the_installer.environment_step(context, "whisper.cpp")
 
         assert not any(c[:2] == ["uv", "venv"] for c in lancees), lancees
         assert any("install" in " ".join(c) for c in lancees), lancees
@@ -617,7 +642,7 @@ class TestAnEnvironmentInheritedFromBefore:
         context = type("Ctx", (), {"check_only": False, "to_do": [],
                                     "ask": lambda self, _q: False})()
         with pytest.raises(SystemExit):
-            the_installer.etape_environnement(context, "whisper.cpp")
+            the_installer.environment_step(context, "whisper.cpp")
 
 
 class TestWhetherTheVoiceIsThere:
@@ -631,52 +656,52 @@ class TestWhetherTheVoiceIsThere:
     def test_a_vits_model_is_recognised(self, the_installer, tmp_path):
         (tmp_path / "fr_FR-upmc-medium.onnx").write_text("")
         (tmp_path / "tokens.txt").write_text("")
-        assert the_installer.voix_presente(tmp_path)
+        assert the_installer.voice_present(tmp_path)
 
     def test_a_kokoro_model_is_recognised_too(self, the_installer, tmp_path):
         (tmp_path / "model.onnx").write_text("")
         (tmp_path / "tokens.txt").write_text("")
-        assert the_installer.voix_presente(tmp_path)
+        assert the_installer.voice_present(tmp_path)
 
     def test_a_network_without_its_vocabulary_is_not_enough(self, the_installer, tmp_path):
         """The model cannot be built without its tokens: better say so first."""
         (tmp_path / "fr_FR-upmc-medium.onnx").write_text("")
-        assert not the_installer.voix_presente(tmp_path)
+        assert not the_installer.voice_present(tmp_path)
 
     def test_an_empty_folder_is_not_a_voice(self, the_installer, tmp_path):
-        assert not the_installer.voix_presente(tmp_path)
+        assert not the_installer.voice_present(tmp_path)
 
 
 class TestRoueCuda:
-    """Quelle roue sherpa-onnx l'installation va chercher, système par système.
+    """Which sherpa-onnx wheel the installation fetches, system by system.
 
-    Celle de PyPI ne sait pas parler à la carte, et il n'en existe pas sur PyPI
-    qui le sache. Mesuré sur une réunion de 40,7 s, mêmes modèles et mêmes tours
-    rendus : 43 s de découpage sur le processeur, 5,8 s sur la carte.
+    PyPI's cannot talk to the card, and none on PyPI can. Measured on a 40.7 s
+    meeting, same models and same turns returned: 43 s of segmentation on the
+    processor, 5.8 s on the card.
     """
 
     def test_linux_takes_the_wheel_built_with_onnxruntime(self, the_installer):
-        url = the_installer.roue_cuda_sherpa("Linux", "cp313", "x86_64")
+        url = the_installer.sherpa_cuda_wheel("Linux", "cp313", "x86_64")
         assert url.endswith("onnxruntime1.27.1-cp313-cp313-linux_x86_64.whl")
 
     def test_windows_takes_another_naming(self, the_installer):
-        url = the_installer.roue_cuda_sherpa("Windows", "cp313", "AMD64")
+        url = the_installer.sherpa_cuda_wheel("Windows", "cp313", "AMD64")
         assert url.endswith("cuda12.cudnn9-cp313-cp313-win_amd64.whl")
 
     def test_macos_has_no_nvidia_card(self, the_installer):
-        assert the_installer.roue_cuda_sherpa("Darwin", "cp313", "arm64") is None
+        assert the_installer.sherpa_cuda_wheel("Darwin", "cp313", "arm64") is None
 
     def test_an_arm_machine_has_no_wheel(self, the_installer):
-        """Un Raspberry ou un serveur Graviton : rien de publié pour eux."""
-        assert the_installer.roue_cuda_sherpa("Linux", "cp313", "aarch64") is None
+        """A Raspberry or a Graviton server: nothing published for them."""
+        assert the_installer.sherpa_cuda_wheel("Linux", "cp313", "aarch64") is None
 
     def test_the_version_is_the_one_asked_for(self, the_installer):
-        url = the_installer.roue_cuda_sherpa("Linux", "cp313", "x86_64")
+        url = the_installer.sherpa_cuda_wheel("Linux", "cp313", "x86_64")
         assert f"/{the_installer.SHERPA_CUDA}/" in url
         assert the_installer.SHERPA_CUDA in url.split("sherpa_onnx-")[1]
 
     def test_the_python_marker_is_carried(self, the_installer):
-        url = the_installer.roue_cuda_sherpa("Linux", "cp314", "x86_64")
+        url = the_installer.sherpa_cuda_wheel("Linux", "cp314", "x86_64")
         assert "cp314-cp314" in url
 
 
@@ -688,51 +713,51 @@ class TestEtapeCarte:
             the_installer, "run_job",
             lambda commande, **_k: faits.append(commande) or _Fini(),
         )
-        monkeypatch.setattr(the_installer, "_marqueur_python", lambda _p: ("cp313", "x86_64"))
+        monkeypatch.setattr(the_installer, "_python_tag", lambda _p: ("cp313", "x86_64"))
         return faits
 
     def test_a_machine_without_a_card_installs_nothing(
         self, the_installer, monkeypatch, travaux
     ):
-        monkeypatch.setattr(the_installer, "carte_nvidia", lambda: False)
-        the_installer.etape_carte(_Demande(), "python")
+        monkeypatch.setattr(the_installer, "nvidia_card", lambda: False)
+        the_installer.card_step(_Demande(), "python")
         assert travaux == []
 
     def test_macos_is_never_asked(self, under, monkeypatch, travaux):
-        """Apple a cessé de porter NVIDIA avec Mojave : il n'y a rien à accélérer."""
+        """Apple stopped supporting NVIDIA with Mojave: there is nothing to speed up."""
         module = under("Darwin")
         monkeypatch.setattr(module, "shutil", _AvecNvidiaSmi())
-        module.etape_carte(_Demande(), "python")
+        module.card_step(_Demande(), "python")
         assert travaux == []
 
     def test_linux_with_a_card_takes_the_wheel(self, under, monkeypatch, travaux):
         module = under("Linux")
-        monkeypatch.setattr(module, "carte_nvidia", lambda: True)
-        module.etape_carte(_Demande(), "python")
+        monkeypatch.setattr(module, "nvidia_card", lambda: True)
+        module.card_step(_Demande(), "python")
         assert len(travaux) == 1
         assert travaux[0][-1].endswith("linux_x86_64.whl")
 
     def test_windows_with_a_card_takes_its_own(self, under, monkeypatch, travaux):
         module = under("Windows")
-        monkeypatch.setattr(module, "carte_nvidia", lambda: True)
-        module.etape_carte(_Demande(), "python")
+        monkeypatch.setattr(module, "nvidia_card", lambda: True)
+        module.card_step(_Demande(), "python")
         assert travaux[0][-1].endswith("win_amd64.whl")
 
     def test_an_interpreter_that_will_not_answer_stops_there(
         self, under, monkeypatch, travaux
     ):
         module = under("Linux")
-        monkeypatch.setattr(module, "carte_nvidia", lambda: True)
-        monkeypatch.setattr(module, "_marqueur_python", lambda _p: (None, None))
-        module.etape_carte(_Demande(), "python")
+        monkeypatch.setattr(module, "nvidia_card", lambda: True)
+        monkeypatch.setattr(module, "_python_tag", lambda _p: (None, None))
+        module.card_step(_Demande(), "python")
         assert travaux == []
 
     def test_a_refusal_leaves_the_command_to_run_later(self, under, monkeypatch, travaux):
         module = under("Linux")
-        monkeypatch.setattr(module, "carte_nvidia", lambda: True)
+        monkeypatch.setattr(module, "nvidia_card", lambda: True)
         demande = _Demande()
         demande.reponse = False
-        module.etape_carte(demande, "python")
+        module.card_step(demande, "python")
         assert travaux == []
         assert demande.to_do and demande.to_do[0].startswith("uv pip install")
 
@@ -742,7 +767,7 @@ class _Fini:
 
 
 class _AvecNvidiaSmi:
-    """Une machine qui porte l'outil NVIDIA, ce qui ne suffit pas sous macOS."""
+    """A machine carrying the NVIDIA tool, which is not enough on macOS."""
 
     @staticmethod
     def which(_name):
@@ -750,7 +775,7 @@ class _AvecNvidiaSmi:
 
 
 class _Demande:
-    """Ce que l'installation passe en contexte, réduit à ce qui sert ici."""
+    """What the installation passes as context, reduced to what serves here."""
 
     check_only = False
     yes = True

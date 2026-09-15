@@ -44,9 +44,9 @@ class Phase(StrEnum):
 class Source(StrEnum):
     """Where an utterance's sound comes from."""
 
-    MIC = "micro"          # la personne qui tient le Mac
-    SYSTEM = "systeme"      # les participants distants
-    UNKNOWN = "inconnue"    # présentiel : une seule source pour tout le monde
+    MIC = "micro"          # the person holding the Mac
+    SYSTEM = "systeme"      # the remote attendees
+    UNKNOWN = "inconnue"    # in a room: one source for everybody
 
 @dataclass(frozen=True, slots=True)
 class Span:
@@ -70,7 +70,7 @@ class SpeakerTurn:
     """A segment where one voice speaks, as diarisation returns it."""
 
     span: Span
-    voice: str          # identifiant acoustique, pas un nom : « v1 », « v2 »…
+    voice: str          # an acoustic identifier, not a name: « v1 », « v2 »…
     source: Source = Source.UNKNOWN
 
 @dataclass(slots=True)

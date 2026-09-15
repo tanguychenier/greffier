@@ -38,7 +38,7 @@ class TestTables:
         html = as_html(self.ACTIONS)
         assert "<table" in html and "</table>" in html
         assert html.count("</th>") == 3
-        assert html.count("<tr>") == 3  # une d'en-tête, deux de corps
+        assert html.count("<tr>") == 3  # one of header, two of body
 
     def test_the_cells_keep_their_content(self) -> None:
         html = as_html(self.ACTIONS)
@@ -100,7 +100,7 @@ class TestAccentedCharacters:
 
 class TestWhatMustNotBeExecuted:
     def test_html_inside_the_minutes_is_escaped(self) -> None:
-        # Une transcription peut contenir n'importe quoi ; rien n'est exécuté.
+        # A transcript may hold anything; nothing is executed.
         html = as_html("Il a dit <script>alert(1)</script> en réunion.")
         assert "<script>" not in html
         assert "&lt;script&gt;" in html

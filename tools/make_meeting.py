@@ -122,7 +122,7 @@ FUITE_DB = -40.0
 # Two voices as far apart as possible: the segmentation has to tell them apart,
 # or the test would measure the speech synthesis rather than the chain.
 VOICE = {"A": "Thomas", "B": "Amélie"}
-SILENCE = 0.4  # secondes entre deux répliques, comme dans une vraie discussion
+SILENCE = 0.4  # seconds between two lines, as in a real discussion
 
 
 #: The speaker ids of the French VITS voice, for machines without « say ».
@@ -142,7 +142,7 @@ def _installed_voice() -> Path | None:
     try:
         from greffier.adapters.configuration import Config
         from greffier.adapters.voice_neural import NeuralVoice
-    except ImportError:  # lancé hors du venv, sans le paquet
+    except ImportError:  # launched outside the venv, without the package
         return None
     folder = Config().paths.models / "voix"
     return folder if NeuralVoice(folder).installed else None

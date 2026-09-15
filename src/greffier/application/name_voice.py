@@ -24,7 +24,7 @@ class VoiceToName:
     duration: float
     part: float
     name: str | None = None          # déjà nommée
-    proposition: str | None = None  # nom deviné, à confirmer
+    proposition: str | None = None  # name guessed, to be confirmed
     extrait: Span | None = None
 
     @property

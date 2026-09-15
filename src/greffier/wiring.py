@@ -300,7 +300,7 @@ def known_about(config: Config, subject: str) -> str:
 
     try:
         return graph_sqlite.known_about(config.paths.graph, subject).header()
-    except Exception:  # noqa: BLE001 - un index est un confort, jamais un dû
+    except Exception:  # noqa: BLE001 - an index is a convenience, never a due
         return ""
 
 

@@ -1,16 +1,15 @@
-"""Sur quoi tournent le découpage, les empreintes et la voix.
+"""What the segmentation, the voiceprints and the voice run on.
 
-Le découpage fait tourner le modèle d'empreintes sur chaque extrait, et ce
-modèle est gros. Mesuré sur une réunion de 40,7 s, mêmes modèles et mêmes tours
-rendus : 43 s sur le processeur, 5,8 s sur la carte. C'est, de loin, le premier
-poste de dépense du traitement, devant la transcription, pourtant faite par un
-modèle bien plus lourd. Ces tests vérifient que le choix arrive jusqu'aux
-modèles, et que les bibliothèques CUDA ne sont montrées au chargeur que
-lorsqu'on va s'en servir.
+The segmentation runs the voiceprint model on every excerpt, and that model
+is large. Measured on a 40.7 s meeting, same models and same turns returned:
+43 s on the processor, 5.8 s on the card. It is by far the first cost item of
+the processing, ahead of the transcription, though done by a much heavier
+model. These tests check that the choice reaches the models, and that the
+CUDA libraries are only shown to the loader when they are about to be used.
 
-La voix suit la même règle : 2,43 s pour prononcer une remarque de cinq
-secondes sur le processeur, 0,28 s sur la carte. C'est la différence entre une
-conversation et un formulaire.
+The voice follows the same rule: 2.43 s to speak a five-second remark on the
+processor, 0.28 s on the card. That is the difference between a conversation
+and a form.
 """
 
 from __future__ import annotations
@@ -44,7 +43,7 @@ def avec_carte(monkeypatch):
 
 @pytest.fixture
 def chargeur(monkeypatch):
-    """Compte les fois où les bibliothèques CUDA sont montrées au chargeur."""
+    """Counts the times the CUDA libraries are shown to the loader."""
     appels = []
     monkeypatch.setattr(cuda, "show_to_the_loader", lambda: appels.append(1))
     return appels
@@ -66,7 +65,7 @@ class TestLeDecoupage:
         assert chargeur == [], "rien à charger sans carte"
 
     def test_the_setting_wins_over_the_card(self, modeles, avec_carte, chargeur):
-        """Une carte prise par autre chose se refuse dans le fichier de réglages."""
+        """A card taken by something else is refused in the settings file."""
         outil = decoupage.SherpaDiariser(
             modeles / "segmentation.onnx", modeles / "empreintes.onnx", device="cpu"
         )
@@ -81,7 +80,7 @@ class TestLeDecoupage:
 class TestLesEmpreintes:
     @pytest.fixture
     def sherpa_muet(self, monkeypatch):
-        """Le modèle pèse cent mégaoctets : ici on ne garde que ce qu'on lui passe."""
+        """The model weighs a hundred megabytes: here only what is passed to it is kept."""
         recus: list[dict] = []
         monkeypatch.setattr(empreintes, "_OPENED", {})
 
@@ -115,13 +114,13 @@ class TestLesEmpreintes:
         assert sherpa_muet[0]["provider"] == "cpu"
 
     def test_the_model_keeps_its_threads(self, modeles, sans_carte, chargeur, sherpa_muet):
-        """Le choix de la carte ne doit pas faire perdre celui des fils."""
+        """Choosing the card must not lose the choice of threads."""
         outil = empreintes.TitaNetExtractor(modeles / "empreintes.onnx")
         assert outil._extractor is not None
         assert sherpa_muet[0]["num_threads"] >= 1
 
     def test_naming_a_second_voice_opens_nothing(self, modeles, sans_carte, sherpa_muet):
-        """Cent mégaoctets par clic sur « nommer », c'était le prix précédent."""
+        """A hundred megabytes per click on « nommer », that was the previous price."""
         premier = empreintes.TitaNetExtractor(modeles / "empreintes.onnx")
         second = empreintes.TitaNetExtractor(modeles / "empreintes.onnx")
         assert premier._extractor is second._extractor
@@ -129,7 +128,7 @@ class TestLesEmpreintes:
 
 
 class LaVoix:
-    """Ce que sherpa reçoit pour fabriquer une voix, sans charger les 76 Mo."""
+    """What sherpa receives to make a voice, without loading the 76 MB."""
 
     def __init__(self, monkeypatch, dossier):
         self.recus: dict = {}

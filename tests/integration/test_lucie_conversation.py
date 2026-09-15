@@ -37,13 +37,13 @@ from tests.integration.prerequisites import (
 
 NAME = "Lucie"
 
-#: Deux voix du système, pour que les personnes se distinguent à l'oreille.
+#: Two system voices, so that the people can be told apart by ear.
 VOIX_DE_LA_SALLE = "Thomas"
 VOIX_DE_L_ASSISTANTE = "Amélie"
 
 
 def _synthetiser(voice: str, text: str, cible: Path) -> Path | None:
-    """Une phrase prononcée, en wav 16 kHz mono, par le moteur du poste."""
+    """A sentence spoken, as 16 kHz mono wav, by the machine's engine."""
     from make_meeting import speak
 
     return speak(text, voice, cible)
@@ -88,8 +88,8 @@ class HautParleur:
 
     def say(self, text: str) -> bool:
         if self.parle_encore:
-            # Ce que fait la vraie voix depuis le correctif : elle refuse
-            # plutôt que de se couper elle-même.
+            # What the real voice does since the fix: it refuses
+            # rather than cut itself off.
             self.coupures += 1
             return False
         self.dites.append(text)
@@ -126,9 +126,9 @@ class Reunion:
     rang: int = 0
     dernier_tour: int = 0
 
-    #: Une tranche plus courte que ceci n'est pas transcrite : le modèle y
-    #: invente plus qu'il n'entend. Le harnais complète donc chaque prise par
-    #: du silence, comme une vraie pièce entre deux phrases.
+    #: A slice shorter than this is not transcribed: the model invents
+    #: more than it hears in it. The harness therefore pads every take with
+    #: silence, like a real room between two sentences.
     TRANCHE_UTILE = 3.4
 
     def dire(self, voice: str, text: str, avant: float = 0.6) -> None:
@@ -238,7 +238,7 @@ class TestAWholeConversation:
         assert len(voice.dites) == 1, voice.dites
         assert NAME not in voice.dites[0], "son nom ne doit jamais sortir"
 
-        # Le haut-parleur : ce qu'elle a dit entre dans la pièce.
+        # The loudspeaker: what she said enters the room.
         reunion.dire(VOIX_DE_L_ASSISTANTE, voice.dites[0])
         _a_turn(veilleur, assistante, tmp_path)
         assert len(voice.dites) == 1, (
@@ -331,7 +331,7 @@ class TestAWholeConversation:
     def test_a_participant_restating_their_idea_is_heard(
         self, transcriber, tmp_path
     ):
-        """Le risque du garde par les mots : prendre un humain pour elle."""
+        """The risk of the guard by words: taking a human for her."""
         from greffier.domain.participation import own_words
 
         assistante = _assistante(CerveauDeTest(), HautParleur())

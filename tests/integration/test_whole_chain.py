@@ -78,7 +78,7 @@ class TestChaineReelle:
         assert outcome.words > 60, "la transcription a perdu l'essentiel du dialogue"
 
     def test_the_two_voices_are_told_apart(self, outcome):
-        """Cinq répliques alternées, deux voix : ni fusion, ni sur-découpage."""
+        """Five alternating lines, two voices: no fusion, no over-splitting."""
         assert len(outcome.significant_voices()) == 2
 
     def test_fragments_do_not_count_as_participants(self, outcome):

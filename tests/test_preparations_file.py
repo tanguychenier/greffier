@@ -34,8 +34,8 @@ class TestWhichOneAMeetingTakes:
         ancienne = fichiers.open_one(tmp_path, "ancienne").raising("a")
         fichiers.write(tmp_path, ancienne)
         recente = fichiers.open_one(tmp_path, "récente").raising("b")
-        # Deux préparations dans la même minute portent le même nom : on force
-        # ici ce que l'horloge ferait d'elle-même une minute plus tard.
+        # Two preparations in the same minute carry the same name: forced here
+        # is what the clock would do on its own a minute later.
         recente = replace(recente, identifier="2026-12-31_23h59_preparation")
         fichiers.write(tmp_path, recente)
         assert fichiers.waiting(tmp_path).subject == "récente"

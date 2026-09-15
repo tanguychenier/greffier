@@ -19,7 +19,7 @@ class TestASourceThatCannotBe:
                    adresse="https://x.fr", project="a/b")
 
     def test_a_source_with_no_project_is_refused(self):
-        """Autoriser « tout GitLab » ne bornerait rien."""
+        """Allowing « all of GitLab » would bound nothing."""
         with pytest.raises(ValueError, match="sans projet"):
             Source(name="x", kind=Kind.GITLAB,
                    adresse="https://x.fr", project="  ")
@@ -32,7 +32,7 @@ class TestASourceThatCannotBe:
 
 class TestRights:
     def test_read_only_is_the_default(self):
-        """Le cas qui rend service sans rien risquer."""
+        """The case that helps without risking anything."""
         assert gitlab().droit is Right.LECTURE
         assert not gitlab().can_write
 
@@ -49,7 +49,7 @@ class TestWhatIsAllowed:
         assert "n'est pas inscrite" in because
 
     def test_the_refusal_says_what_is_known(self):
-        """Un « non » sans raison laisse croire à une panne."""
+        """A « no » without a reason looks like a breakdown."""
         _, because = Registry([gitlab("recherche")]).allowed("x", ecriture=False)
         assert "recherche" in because
 
@@ -77,7 +77,7 @@ class TestWhatIsAllowed:
 
 class TestTheTokenDoesNotLiveHere:
     def test_the_register_carries_only_a_variable_name(self):
-        """Un secret dans un fichier de configuration finit dans une sauvegarde."""
+        """A secret in a configuration file ends up in a backup."""
         assert gitlab().token == "GREFFIER_GITLAB_JETON"
         assert "glpat" not in gitlab().token
 

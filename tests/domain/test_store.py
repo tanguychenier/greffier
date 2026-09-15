@@ -1,9 +1,8 @@
-"""Classer un fichier déposé : ce qu'il est, et ce qu'on peut en faire.
+"""Sorting a file handed over: what it is, and what can be done with it.
 
-Traiter tout de la même façon produirait un fourre-tout qui n'organise rien.
-Une vidéo de deux heures mal classée coûte une transcription pour rien ; un
-document classé en réunion produit un compte rendu d'un texte que personne n'a
-prononcé.
+Treating everything the same way would produce a catch-all that organises
+nothing. A two-hour video sorted wrongly costs a transcription for nothing;
+a document sorted as a meeting produces minutes of a text nobody spoke.
 """
 
 from pathlib import Path
@@ -37,7 +36,7 @@ class TestSounds:
         assert "trop court" in propose.because
 
     def test_the_threshold_stays_low(self):
-        """Une réunion d'une minute pèse déjà 2 Mo en WAV."""
+        """A one-minute meeting already weighs 2 MB as WAV."""
         assert 50_000 <= MINIMUM_SOUND_SIZE <= 2_000_000
 
 
@@ -48,7 +47,7 @@ class TestVideos:
         assert propose.feasible
 
     def test_what_is_missing_is_named_rather_than_the_file_dropped(self):
-        """Dire « il faudrait ffmpeg » est plus utile que faire disparaître."""
+        """Saying « ffmpeg would be needed » is more useful than making it vanish."""
         propose = offer(Path("x.mp4"), 10_000_000, frozenset())
         assert propose.destination is Destination.VIDEO
         assert not propose.feasible

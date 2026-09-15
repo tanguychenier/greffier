@@ -88,8 +88,8 @@ class TestLaSalleNeFabriquePasDeMonde:
         assert len(_voices(config, salles["propre"])) == 2
 
     def test_somebody_leaning_back_stays_one_person(self, config, salles):
-        """Une voix qui perd 18 dB à mi-réunion coûtait 0,05 de ressemblance à
-        elle-même, assez pour devenir quelqu'un d'autre."""
+        """A voice losing 18 dB mid-meeting cost 0.05 of resemblance to
+        itself, enough to become somebody else."""
         assert len(_voices(config, salles["loin"])) == 2
 
     def test_a_room_with_a_background_holds_two_people(self, config, salles):
@@ -101,8 +101,8 @@ class TestLaSalleNeFabriquePasDeMonde:
     def test_one_sentence_at_the_end_is_a_voice_but_not_yet_a_person(
         self, config, salles
     ):
-        """Elle existe comme voix, et n'est pas annoncée comme une personne
-        identifiée : sous six secondes, rien ne permet de le dire."""
+        """It exists as a voice, and is not announced as an identified
+        person: under six seconds, nothing allows saying so."""
         parle = _voices(config, salles["tard"])
         assert len(parle) == 2
         montrees = [s for s in parle.values() if s >= IDENTIFIABLE_SECONDS]

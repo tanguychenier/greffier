@@ -1,4 +1,4 @@
-"""Lire le contexte du milieu, et le compléter depuis ce qu'on sait déjà."""
+"""Reading the working context, and completing it from what is already known."""
 
 from greffier.adapters.context_file import (
     from_the_bank,
@@ -24,7 +24,7 @@ class TestReadingTheContextFile:
         assert read(tmp_path / "jamais-ecrit.toml").empty
 
     def test_an_unreadable_file_does_not_block_the_meeting(self, tmp_path):
-        """Mieux vaut démarrer sans glossaire que refuser de démarrer."""
+        """Better to start without a glossary than to refuse to start."""
         file = tmp_path / "contexte.toml"
         file.write_text("[[termes]\nceci n'est pas du TOML", encoding="utf-8")
         assert read(file).empty
@@ -40,7 +40,7 @@ class TestReadingTheContextFile:
 
 
 class TestSourcesDeja:
-    """Deux sources existaient déjà et n'étaient pas exploitées."""
+    """Two sources already existed and were not used."""
 
     def test_the_vocabulary_from_the_settings_is_taken_in(self):
         context = from_vocabulary(["CASA", "OTP", "  "])
@@ -93,7 +93,7 @@ class TestAddingFromTheConversation:
         assert add_a_person(file, "maud") is False
 
     def test_the_comments_survive_the_additions(self, tmp_path):
-        """Le fichier est édité à la main : on ajoute au bout, on ne régénère pas."""
+        """The file is edited by hand: append at the end, never regenerate."""
         from greffier.adapters.context_file import (
             add_a_person,
             lay_the_template,

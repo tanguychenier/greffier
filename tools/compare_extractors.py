@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
-"""Comparer des extracteurs d'empreintes sur une réunion déjà étiquetée.
+"""Compares voiceprint extractors on a meeting already labelled.
 
-Le choix d'un modèle d'empreintes décide de tout ce qui suit : le seuil de
-rattachement, le nombre de voix affichées, la justesse des attributions. Il a
-été fait une fois, au début du projet, et jamais remesuré, alors que le
-catalogue du moteur en propose vingt et un.
+The choice of a voiceprint model decides everything downstream: the
+attachment threshold, the number of voices shown, the accuracy of the
+attributions. It was made once, at the start of the project, and never
+measured again, while the engine's catalogue offers twenty-one.
 
-Ce que cet outil mesure n'est pas la précision sur un jeu de reconnaissance de
-locuteur, où tous ces modèles sont excellents. C'est la seule chose qui compte
-ici : **sur des extraits courts, l'écart entre "même personne" et "personnes
-différentes"**. C'est cet écart qui rend un seuil possible, et c'est lui qui
-manquait quand le fil affichait cent onze voix.
+What this tool measures is not the accuracy on a speaker recognition set,
+where all these models are excellent. It is the only thing that counts
+here: **on short excerpts, the gap between "same person" and "different
+people"**. That gap is what makes a threshold possible, and it is what was
+missing when the thread showed a hundred and eleven voices.
 
     python3 tools/compare_extractors.py 2026-09-09_16h36_reunion
 
-La vérité terrain vient du recollage final de la réunion, qui a été contrôlé
-contre les noms posés à la main. Les empreintes sont mises en cache par modèle :
-le calcul coûte quelques minutes, la comparaison ensuite est immédiate.
+The ground truth comes from the final stitching of the meeting, which was
+checked against the names put down by hand. The voiceprints are cached per
+model: computing costs a few minutes, comparing is then immediate.
 
-**Ne pas lancer pendant une réunion** : l'extraction prend tout le processeur
-que la transcription en direct utilise.
+**Do not run during a meeting**: the extraction takes all the processor the
+live transcription is using.
 """
 
 from __future__ import annotations
@@ -42,21 +42,21 @@ from greffier.locations import data_folder  # noqa: E402
 CATALOGUE = ("https://github.com/k2-fsa/sherpa-onnx/releases/download/"
              "speaker-recongition-models/")
 
-#: Les candidats, et pourquoi chacun.
+#: The candidates, and why each one.
 #:
-#: TitaNet est celui en place. Les autres sont réputés meilleurs sur les
-#: classements de vérification du locuteur, mais ces classements portent sur des
-#: extraits de plusieurs secondes, prononcés seul devant un micro, ce qui n'est
-#: pas notre cas. D'où la mesure.
-CANDIDATS = {
+#: TitaNet is the one in place. The others are reputed better on the speaker
+#: verification rankings, but those rankings bear on excerpts of several
+#: seconds, spoken alone in front of a microphone, which is not our case.
+#: Hence the measurement.
+CANDIDATES = {
     "titanet_large": "nemo_en_titanet_large.onnx",
     "campplus_LM": "wespeaker_en_voxceleb_CAM++_LM.onnx",
     "resnet293_LM": "wespeaker_en_voxceleb_resnet293_LM.onnx",
     "eres2netv2": "3dspeaker_speech_eres2netv2_sv_zh-cn_16k-common.onnx",
 }
 
-#: La longueur des extraits mesurés. C'est celle d'un bloc de tranche en direct,
-#: donc celle où le choix du modèle se joue.
+#: The length of the excerpts measured. It is that of a live slice block,
+#: hence the one where the choice of model is decided.
 WINDOW = 2.5
 CACHE = Path("/tmp/greffier-extracteurs")
 
@@ -65,17 +65,17 @@ def download(name: str, target: Path) -> Path:
     if target.exists():
         return target
     target.parent.mkdir(parents=True, exist_ok=True)
-    print(f"  téléchargement de {name}…", file=sys.stderr)
-    partiel = target.with_suffix(".partiel")
-    with urllib.request.urlopen(CATALOGUE + name) as stream, partiel.open("wb") as output:
-        while morceau := stream.read(1 << 20):
-            output.write(morceau)
-    partiel.replace(target)
+    print(f"  downloading {name}…", file=sys.stderr)
+    partial = target.with_suffix(".partial")
+    with urllib.request.urlopen(CATALOGUE + name) as stream, partial.open("wb") as output:
+        while chunk := stream.read(1 << 20):
+            output.write(chunk)
+    partial.replace(target)
     return target
 
 
 def voiceprints(model: Path, meeting: dict, key: str) -> list:
-    """Une empreinte par fenêtre, dans l'ordre du temps. Mise en cache."""
+    """One voiceprint per window, in the order of time. Cached."""
     file = CACHE / f"{key}.pickle"
     if file.exists():
         return pickle.loads(file.read_bytes())
@@ -92,33 +92,33 @@ def voiceprints(model: Path, meeting: dict, key: str) -> list:
         for turn in meeting["tours"]:
             at_instant = turn["debut"]
             while at_instant + MINIMUM_LENGTH <= turn["fin"]:
-                bout = min(at_instant + WINDOW, turn["fin"])
+                until = min(at_instant + WINDOW, turn["fin"])
                 stream.seek(int(at_instant * frequency))
-                block = stream.read(int((bout - at_instant) * frequency),
-                                 dtype="float32", always_2d=True)
+                block = stream.read(int((until - at_instant) * frequency),
+                                    dtype="float32", always_2d=True)
                 if len(block) >= MINIMUM_LENGTH * frequency:
                     signal = np.ascontiguousarray(block.mean(axis=1))
                     rendered.append((at_instant, extractor.extract(signal, frequency)))
-                at_instant = bout
+                at_instant = until
     rendered.sort()
     file.parent.mkdir(parents=True, exist_ok=True)
     file.write_bytes(pickle.dumps(rendered))
     return rendered
 
 
-def verite(meeting: dict) -> list:
-    """Qui parlait quand, d'après le recollage final de la réunion."""
+def truth(meeting: dict) -> list:
+    """Who spoke when, according to the final stitching of the meeting."""
     cache = Path("/tmp/greffier-empreintes") / f"{meeting['identifiant']}.pickle"
     if not cache.exists():
         raise SystemExit(
-            "La vérité terrain manque : lance d'abord "
-            "« tools/replay_stitching.py » sur cette réunion."
+            "The ground truth is missing: run tools/replay_stitching.py on this "
+            "meeting first."
         )
     try:
         per_voice = pickle.loads(cache.read_bytes())
     except (pickle.UnpicklingError, ModuleNotFoundError, AttributeError, EOFError):
-        print("Cache illisible : relance « tools/replay_stitching.py » "
-              "sur cette réunion, il le refera.", file=sys.stderr)
+        print("Unreadable cache: run tools/replay_stitching.py on this meeting "
+              "again, it will rebuild it.", file=sys.stderr)
         return 1
     membership = stitch(per_voice)
     return sorted(
@@ -127,49 +127,49 @@ def verite(meeting: dict) -> list:
     )
 
 
-def grade(etiquetees: list) -> dict:
-    """L'écart entre « même personne » et « personnes différentes ».
+def grade(labelled: list) -> dict:
+    """The gap between "same person" and "different people".
 
-    Sur les agrégats, parce que c'est la comparaison que fait le rattachement :
-    une phrase contre une voix accumulée, jamais deux phrases entre elles.
+    On the aggregates, because that is the comparison the attachment makes: a
+    sentence against an accumulated voice, never two sentences with each other.
     """
-    par = defaultdict(list)
-    for who, voiceprint in etiquetees:
-        par[who].append(voiceprint)
-    gros = sorted(par, key=lambda q: -len(par[q]))[:3]
-    if len(gros) < 2:
+    per = defaultdict(list)
+    for who, voiceprint in labelled:
+        per[who].append(voiceprint)
+    largest = sorted(per, key=lambda q: -len(per[q]))[:3]
+    if len(largest) < 2:
         return {}
-    memes, others = [], []
-    for who in gros:
-        reference = aggregate(par[who][:40])
-        memes += [similarity(e, reference) for e in par[who][40:140]]
-        for other in gros:
+    same, others = [], []
+    for who in largest:
+        reference = aggregate(per[who][:40])
+        same += [similarity(e, reference) for e in per[who][40:140]]
+        for other in largest:
             if other != who:
-                others += [similarity(e, reference) for e in par[other][40:140]]
-    if len(memes) < 10 or len(others) < 10:
+                others += [similarity(e, reference) for e in per[other][40:140]]
+    if len(same) < 10 or len(others) < 10:
         return {}
-    memes.sort()
+    same.sort()
     others.sort()
     return {
-        "meme": stat.median(memes),
-        "meme_bas": memes[len(memes) // 10],
-        "autre": stat.median(others),
-        "autre_haut": others[9 * len(others) // 10],
-        # Ce qui décide : la place qui reste entre les deux distributions. Un
-        # écart négatif veut dire qu'aucun seuil ne les sépare proprement.
-        "marge": memes[len(memes) // 10] - others[9 * len(others) // 10],
+        "same": stat.median(same),
+        "same_low": same[len(same) // 10],
+        "other": stat.median(others),
+        "other_high": others[9 * len(others) // 10],
+        # What decides: the room left between the two distributions. A
+        # negative gap means no threshold separates them cleanly.
+        "margin": same[len(same) // 10] - others[9 * len(others) // 10],
     }
 
 
 def main() -> int:
-    parseur = argparse.ArgumentParser(description=__doc__)
-    parseur.add_argument("meeting")
-    arguments = parseur.parse_args()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("meeting")
+    arguments = parser.parse_args()
 
     path = data_folder() / "reunions" / f"{arguments.meeting}.json"
     meeting = json.loads(path.read_text())
     meeting["identifiant"] = arguments.meeting
-    turns = verite(meeting)
+    turns = truth(meeting)
 
     def who(at_instant: float) -> str | None:
         for start, end, voice in turns:
@@ -177,26 +177,26 @@ def main() -> int:
                 return voice
         return None
 
-    print(f"{len(turns)} tours, fenêtres de {WINDOW} s\n")
-    print(f"{'modèle':16} {'même':>7} {'décile':>7} │ {'autre':>7} {'décile':>7} │ "
-          f"{'marge':>7} {'ms/extrait':>11}")
+    print(f"{len(turns)} turns, windows of {WINDOW} s\n")
+    print(f"{'model':16} {'same':>7} {'decile':>7} │ {'other':>7} {'decile':>7} │ "
+          f"{'margin':>7} {'ms/excerpt':>11}")
     print("─" * 74)
-    for key, name in CANDIDATS.items():
+    for key, name in CANDIDATES.items():
         model = download(name, CACHE / name)
-        depart = time.time()
-        extraits = voiceprints(model, meeting, key)
-        cout = 1000 * (time.time() - depart) / max(1, len(extraits))
-        etiquetees = [(who(t), e) for t, e in extraits]
-        scores = grade([(q, e) for q, e in etiquetees if q])
+        started = time.time()
+        excerpts = voiceprints(model, meeting, key)
+        cost = 1000 * (time.time() - started) / max(1, len(excerpts))
+        labelled = [(who(t), e) for t, e in excerpts]
+        scores = grade([(q, e) for q, e in labelled if q])
         if not scores:
-            print(f"{key:16} pas assez de matière étiquetée")
+            print(f"{key:16} not enough labelled material")
             continue
-        print(f"{key:16} {scores['meme']:7.3f} {scores['meme_bas']:7.3f} │ "
-              f"{scores['autre']:7.3f} {scores['autre_haut']:7.3f} │ "
-              f"{scores['marge']:+7.3f} {cout:10.1f}")
-    print("\nLa marge est ce qui décide : c'est la place qui reste entre le "
-          "premier décile\ndes mêmes et le neuvième des autres. Négative, aucun "
-          "seuil ne les sépare.")
+        print(f"{key:16} {scores['same']:7.3f} {scores['same_low']:7.3f} │ "
+              f"{scores['other']:7.3f} {scores['other_high']:7.3f} │ "
+              f"{scores['margin']:+7.3f} {cost:10.1f}")
+    print("\nThe margin is what decides: it is the room left between the first "
+          "decile\nof the same and the ninth of the others. Negative, no "
+          "threshold separates them.")
     return 0
 
 

@@ -17,9 +17,9 @@ import pytest
 
 from greffier.cli import application
 
-#: Tout le paquet, et non le seul « cli.py » : les deux lancements que la
-#: fenêtre partageait avec la ligne de commande vivent maintenant dans un
-#: adaptateur, et un verbe lancé depuis n'importe où doit exister.
+#: The whole package, and not « cli.py » alone: the two launches the
+#: window shared with the command line now live in an adapter, and a
+#: verb launched from anywhere has to exist.
 PAQUET = Path(__file__).resolve().parents[2] / "src" / "greffier"
 SOURCE = PAQUET / "cli.py"
 

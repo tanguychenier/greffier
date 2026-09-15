@@ -1,9 +1,9 @@
-"""Ce que les deux moteurs reçoivent comme langue.
+"""What the two engines receive as a language.
 
-Le réglage vide veut dire « reconnais-la toi-même ». Les deux moteurs
-l'expriment différemment, et se tromper est silencieux : whisper.cpp
-transcrirait dans une langue arbitraire, faster-whisper refuserait un code
-inconnu, dans les deux cas, une heure après le début de la réunion.
+The empty setting means « recognise it yourself ». The two engines express it
+differently, and getting it wrong is silent: whisper.cpp would transcribe in
+an arbitrary language, faster-whisper would refuse an unknown code, in both
+cases an hour after the start of the meeting.
 """
 
 import subprocess
@@ -27,7 +27,7 @@ class TestWhisperCpp:
 
         def faux_run(command, **_options):
             vue["commande"] = list(command)
-            # Un .srt vide suffit : c'est la commande qui est éprouvée.
+            # An empty .srt is enough: it is the command that is tested.
             Path(command[command.index("-of") + 1] + ".srt").write_text("", encoding="utf-8")
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
@@ -41,7 +41,7 @@ class TestWhisperCpp:
         assert command[command.index("-l") + 1] == "en"
 
     def test_an_empty_language_becomes_auto(self, monkeypatch, model):
-        """« -l » attend une valeur : sans elle, l'option suivante serait avalée."""
+        """« -l » expects a value: without it, the next option would be swallowed."""
         command = self._command(monkeypatch, model, "")
         assert command[command.index("-l") + 1] == "auto"
 
@@ -67,6 +67,6 @@ class TestFasterWhisper:
         assert self._langue_recue(monkeypatch, "es") == "es"
 
     def test_an_empty_language_becomes_none(self, monkeypatch):
-        """La chaîne « auto » serait refusée : c'est l'absence qui déclenche
-        la détection."""
+        """The string « auto » would be refused: it is the absence that triggers
+        the detection."""
         assert self._langue_recue(monkeypatch, "") is None

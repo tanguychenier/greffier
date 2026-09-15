@@ -54,7 +54,7 @@ def config() -> Config:
 
 @pytest.fixture(scope="session")
 def table(tmp_path_factory) -> Path:
-    # Trois personnes autour de la table, donc trois timbres.
+    # Three people around the table, hence three timbres.
     hors_de_portee = voices_are_out_of_reach(3)
     if hors_de_portee:
         pytest.skip(hors_de_portee)
@@ -137,11 +137,11 @@ class TestChaineEnPresentiel:
         assert outcome.name_of(outcome.utterances[0].voice) == "Jacques"
 
     def test_no_sentence_astride_is_attributed(self, outcome):
-        """Une phrase que deux voix se partagent ne doit désigner personne.
+        """A sentence two voices share must designate nobody.
 
-        C'est la règle de `domain/attribution.py`, éprouvée ici sur la vraie
-        chaîne : rien ne garantit que la découpe de whisper tombe sur un
-        changement de locuteur, et le présentiel n'a pas le canal pour rattraper.
+        It is the rule of `domain/attribution.py`, tested here on the real
+        chain: nothing guarantees whisper's cut falls on a change of speaker,
+        and a room has no channel to catch it.
         """
         from greffier.domain.attribution import PART_MINIMALE, time_per_voice
 

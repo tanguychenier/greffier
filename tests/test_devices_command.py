@@ -65,8 +65,8 @@ class TestWhichMicrophoneIsUsed:
         answered = runner.invoke(
             application, ["peripheriques", "--config", str(reglages)])
         assert answered.exit_code == 1
-        # Sur la sortie d'erreur : c'en est une, et un script qui appelle la
-        # commande doit pouvoir séparer le message du reste.
+        # On the error output: it is one, and a script calling the
+        # command has to be able to tell the message from the rest.
         assert "aucun micro" in answered.stderr
         assert not swift, "rien ne doit être lancé sans savoir quoi chercher"
 

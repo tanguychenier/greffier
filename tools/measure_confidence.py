@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""Mesure ce que vaut la confiance rendue par le modèle.
+"""Measures what the confidence the model returns is worth.
 
-Whisper donne un `avg_logprob` par segment ; son exponentielle est la
-probabilité moyenne par jeton. Reste à savoir si ce chiffre sépare vraiment les
-tours justes des tours faux, et où poser la limite. Personne ne l'avait mesuré,
-et un seuil non mesuré est un seuil inventé.
+Whisper gives an `avg_logprob` per segment; its exponential is the mean
+probability per token. What remains to know is whether that figure really
+separates right turns from wrong ones, and where to put the line. Nobody had
+measured it, and a threshold not measured is a threshold made up.
 
-    .venv/bin/python tools/measure_confidence.py reunion.wav reference.txt
+    .venv/bin/python tools/measure_confidence.py meeting.wav reference.txt
 
-`reference.txt` porte le texte attendu, une ligne par tour de parole, dans
-l'ordre. Le script transcrit, aligne chaque tour sur sa référence, et range les
-tours par confiance en disant, pour chaque palier, combien de mots sont faux
-au-dessus et au-dessous.
+`reference.txt` carries the expected text, one line per speaker turn, in
+order. The script transcribes, aligns each turn on its reference, and sorts
+the turns by confidence, saying for each step how many words are wrong above
+and below.
 
-Sans argument, il fabrique lui-même une réunion avec `tools/make_meeting.py`,
-donc avec la synthèse vocale installée sur la machine.
+With no argument, it makes a meeting itself with `tools/make_meeting.py`,
+hence with the speech synthesis installed on the machine.
 """
 
 from __future__ import annotations
@@ -22,31 +22,31 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-RACINE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(RACINE / "src"))
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
 
 
 def _bare(text: str) -> list[str]:
-    """Les mots seuls : ni ponctuation, ni majuscules, ni traits d'union.
+    """The words alone: no punctuation, no capitals, no hyphens.
 
-    Le modèle choisit sa ponctuation et ses coupures ; « Jacques. Je vous »
-    contre « Jacques, je vous » est la même phrase entendue pareil, et la
-    compter comme deux mots faux noie les vraies erreurs.
+    The model chooses its punctuation and its cuts; "Jacques. Je vous" against
+    "Jacques, je vous" is the same sentence heard the same, and counting it as
+    two wrong words drowns the real errors.
     """
     import re
     import unicodedata
 
-    depouille = unicodedata.normalize("NFD", text.lower().replace("-", ""))
-    sans_accents = "".join(c for c in depouille if unicodedata.category(c) != "Mn")
-    return re.findall(r"[a-z0-9']+", sans_accents)
+    stripped = unicodedata.normalize("NFD", text.lower().replace("-", ""))
+    unaccented = "".join(c for c in stripped if unicodedata.category(c) != "Mn")
+    return re.findall(r"[a-z0-9']+", unaccented)
 
 
 def _word_errors(said: str, expected: str) -> tuple[int, int]:
-    """Mots faux et mots attendus, par la distance d'édition sur les mots."""
+    """Wrong words and expected words, by the edit distance on the words."""
     from rapidfuzz.distance import Levenshtein
 
-    attendus = _bare(expected)
-    return Levenshtein.distance(_bare(said), attendus), len(attendus)
+    wanted = _bare(expected)
+    return Levenshtein.distance(_bare(said), wanted), len(wanted)
 
 
 def _transcribe(audio: Path, language: str = "fr") -> list[object]:
@@ -55,47 +55,47 @@ def _transcribe(audio: Path, language: str = "fr") -> list[object]:
 
     config = Config()
     engine = _transcriber(config)
-    print(f"  transcription de {audio.name}…", flush=True)
+    print(f"  transcribing {audio.name}…", flush=True)
     return list(engine.transcribe(audio, language, ""))
 
 
 def _aligned(utterances: list[object], reference: list[str]) -> list[tuple[object, str]]:
-    """Chaque tour avec la ligne de référence la plus proche, dans l'ordre.
+    """Each turn with the closest reference line, in order.
 
-    Le découpage du modèle ne suit pas celui de la référence : deux phrases
-    peuvent tomber dans un segment. On avance donc dans la référence au fur et
-    à mesure, ce qui suffit pour un jeu d'essai dont l'ordre est connu.
+    The model's cuts do not follow the reference's: two sentences may fall in
+    one segment. So the reference is walked as we go, which is enough for a
+    test set whose order is known.
     """
     out = []
-    reste = list(reference)
+    left = list(reference)
     for utterance in utterances:
-        if not reste:
+        if not left:
             break
-        out.append((utterance, reste.pop(0)))
+        out.append((utterance, left.pop(0)))
     return out
 
 
-def _say_what_differs(paires: list[tuple[object, str]]) -> None:
-    """Les mots qui ne sont pas les bons, pour juger de ce qu'on mesure.
+def _say_what_differs(pairs: list[tuple[object, str]]) -> None:
+    """The words that are not the right ones, to judge what is measured.
 
-    Un taux d'erreur sans les mots derrière ne se relit pas : la première
-    version de ce script comptait « pré-production » contre « préproduction »
-    comme deux mots faux, et l'écart mesuré était le sien, pas celui du modèle.
+    An error rate without the words behind it cannot be read back: the first
+    version of this script counted "pré-production" against "préproduction"
+    as two wrong words, and the gap measured was its own, not the model's.
     """
     from rapidfuzz.distance import Levenshtein
 
-    for utterance, attendu in paires:
-        dits, attendus = _bare(getattr(utterance, "text", "")), _bare(attendu)
-        ecarts = [
-            (geste, dits[i] if i < len(dits) else "",
-             attendus[j] if j < len(attendus) else "")
-            for geste, i, _, j, _ in Levenshtein.opcodes(dits, attendus)
-            if geste != "equal"
+    for utterance, expected in pairs:
+        said, wanted = _bare(getattr(utterance, "text", "")), _bare(expected)
+        gaps = [
+            (edit, said[i] if i < len(said) else "",
+             wanted[j] if j < len(wanted) else "")
+            for edit, i, _, j, _ in Levenshtein.opcodes(said, wanted)
+            if edit != "equal"
         ]
-        if ecarts:
-            print("    écarts : " + ", ".join(
-                f"« {dit or '∅'} » au lieu de « {attendu_mot or '∅'} »"
-                for _, dit, attendu_mot in ecarts
+        if gaps:
+            print("    gaps: " + ", ".join(
+                f"« {heard or '∅'} » instead of « {expected_word or '∅'} »"
+                for _, heard, expected_word in gaps
             ))
 
 
@@ -109,48 +109,47 @@ def main() -> int:
         if line.strip()
     ]
     if not audio.exists():
-        print(f"✗ {audio} est introuvable")
+        print(f"✗ {audio} not found")
         return 1
 
-    paires = _aligned(_transcribe(audio), reference)
-    if not paires:
-        print("✗ rien n'a été transcrit")
+    pairs = _aligned(_transcribe(audio), reference)
+    if not pairs:
+        print("✗ nothing was transcribed")
         return 1
 
-    mesures = []
-    for utterance, attendu in paires:
-        faux, total = _word_errors(getattr(utterance, "text", ""), attendu)
-        mesures.append((getattr(utterance, "confidence", None), faux, total,
-                        getattr(utterance, "text", "")))
+    measures = []
+    for utterance, expected in pairs:
+        wrong, total = _word_errors(getattr(utterance, "text", ""), expected)
+        measures.append((getattr(utterance, "confidence", None), wrong, total,
+                         getattr(utterance, "text", "")))
 
-    juges = [m for m in mesures if m[0] is not None]
-    if not juges:
-        print("✗ le moteur n'a rendu aucune confiance : rien à mesurer")
+    judged = [m for m in measures if m[0] is not None]
+    if not judged:
+        print("✗ the engine returned no confidence: nothing to measure")
         return 1
 
-    print(f"\n{len(juges)} tour(s) jugé(s) sur {len(mesures)}\n")
-    _say_what_differs(paires)
-    print("  confiance   mots faux / attendus   texte")
-    for confiance, faux, total, texte in sorted(juges, key=lambda m: m[0] or 0.0):
-        marque = "✗" if faux else " "
-        print(f"  {confiance:>9.2f}   {marque} {faux:>3} / {total:<3}"
-              f"           {texte[:56]}")
+    print(f"\n{len(judged)} turn(s) judged out of {len(measures)}\n")
+    _say_what_differs(pairs)
+    print("  confidence   wrong / expected words   text")
+    for confidence, wrong, total, text in sorted(judged, key=lambda m: m[0] or 0.0):
+        mark = "✗" if wrong else " "
+        print(f"  {confidence:>10.2f}   {mark} {wrong:>3} / {total:<3}"
+              f"            {text[:56]}")
 
-    justes = [m[0] for m in juges if m[1] == 0]
-    fautifs = [m[0] for m in juges if m[1] > 0]
+    right = [m[0] for m in judged if m[1] == 0]
+    faulty = [m[0] for m in judged if m[1] > 0]
     print()
-    if justes:
-        print(f"  tours justes    : {len(justes)}, confiance de "
-              f"{min(justes):.2f} à {max(justes):.2f}")
-    if fautifs:
-        print(f"  tours fautifs   : {len(fautifs)}, confiance de "
-              f"{min(fautifs):.2f} à {max(fautifs):.2f}")
-    if justes and fautifs and max(fautifs) < min(justes):
-        limite = (max(fautifs) + min(justes)) / 2
-        print(f"\n  Les deux ne se recouvrent pas : la limite tombe à {limite:.2f}")
-    elif justes and fautifs:
-        print("\n  Les deux se recouvrent : aucun seuil ne les sépare "
-              "proprement sur ce jeu.")
+    if right:
+        print(f"  right turns     : {len(right)}, confidence from "
+              f"{min(right):.2f} to {max(right):.2f}")
+    if faulty:
+        print(f"  faulty turns    : {len(faulty)}, confidence from "
+              f"{min(faulty):.2f} to {max(faulty):.2f}")
+    if right and faulty and max(faulty) < min(right):
+        limit = (max(faulty) + min(right)) / 2
+        print(f"\n  The two do not overlap: the line falls at {limit:.2f}")
+    elif right and faulty:
+        print("\n  The two overlap: no threshold separates them cleanly on this set.")
     return 0
 
 

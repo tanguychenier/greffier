@@ -65,7 +65,7 @@ def button_grid(
     demandee = max(largeurs)
     plafond = int(demandee * ETIREMENT_MAXIMUM)
     for rangs in range(1, total + 1):
-        by_rank = -(-total // rangs)  # division entière par excès
+        by_rank = -(-total // rangs)  # integer division rounding up
         if by_rank * demandee + (by_rank - 1) * gap <= offerte:
             break
     else:

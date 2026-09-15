@@ -163,7 +163,7 @@ class TestTheRelayScript:
         assert "n'a pas quitté" in updates._RELAIS
 
     def test_it_never_merges(self):
-        """Un dépôt divergent ne doit pas être rafistolé par une mise à jour."""
+        """A diverged repository must not be patched up by an update."""
         assert "git pull --ff-only" in updates._RELAIS
 
     def test_a_pull_that_fails_leaves_the_bundle_untouched(self):
@@ -194,8 +194,8 @@ class TestABundleNewerThanTheProcess:
         faux.mkdir(parents=True)
         executable = faux / "Greffier"
         executable.write_text("")
-        # Le module a été chargé avant que ce fichier n'existe : c'est exactement
-        # la situation d'un paquet reconstruit sous une application qui tourne.
+        # The module was loaded before this file existed: it is exactly
+        # the situation of a package rebuilt under a running application.
         assert updates.bundle_is_newer(str(executable))
 
     def test_an_older_bundle_says_nothing(self, tmp_path):
@@ -266,7 +266,7 @@ class TestTheArtefactForThisSystem:
     def test_a_release_with_no_archive_says_so(
         self, monkeypatch, installed_0_2_0
     ):
-        """Arrive quand la construction a échoué pour un système : ça se dit."""
+        """Happens when the build failed for one system: it has to be said."""
         monkeypatch.setattr(updates.platform, "system", lambda: "Darwin")
         answer(monkeypatch, {"tag_name": "v0.3.0", "assets": []})
         verdict = updates.check()
@@ -293,7 +293,7 @@ class TestDownloadingAndUnpacking:
         assert vus and vus[-1][0] == len(bytes_read)
 
     def test_an_empty_archive_is_refused(self, monkeypatch, tmp_path):
-        """Mieux vaut refuser que remplacer l'application par du vide."""
+        """Better to refuse than to replace the application with nothing."""
         answer_bytes(monkeypatch, b"")
         recu, trouble = updates.download(
             "https://exemple/a.zip", tmp_path / "a.zip"
@@ -354,8 +354,8 @@ class TestAnUpdateLosesNothing:
             assert interdit not in relais, interdit
 
     def test_the_relay_keeps_the_old_bundle_before_replacing_it(self):
-        """Et le remet si le neuf ne démarre pas : constaté aujourd'hui, une
-        mise à jour a laissé le poste sans application du tout."""
+        """And puts it back when the new one does not start: seen today, an
+        update left the machine with no application at all."""
         relais = updates._RELAIS_BINAIRE
         assert ".precedent" in relais
         assert relais.count('mv "$DE_COTE" "$APP"') >= 2, "restauré dans les deux échecs"

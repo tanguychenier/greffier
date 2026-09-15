@@ -16,6 +16,7 @@ from greffier.domain.voiceprints import (
     RECOGNITION_THRESHOLD,
     aggregate,
     conflicting_names,
+    consolidate,
     enrichir,
     join_voices,
     normalise,
@@ -326,17 +327,29 @@ class TestStitchingAfterTheMeeting:
         assert membership["une"] != membership["deux"]
 
     def test_someone_who_moves_seats_is_brought_together(self):
-        """Two well fed groups, too unlike each other for the pairs pass.
+        """Two well fed groups of the same person, once the pairs pass is over.
 
-        0.72 does not pass the join threshold of 0.75: without consolidation the same
-        person stays two participants all the way into the minutes.
+        Measured on the SUMM-RE meetings (`docs/corpus.md`): the same person cut
+        in two halves scores 0.932 at the lowest, two different people 0.730 at
+        the highest. 0.90 is the same person; without consolidation she would
+        stay two participants all the way into the minutes.
         """
         per_voice = {
             "avant": [voice(1.0, 0.0, 0.0, duration=600.0)],
-            "apres": [voice(0.72, 0.694, 0.0, duration=600.0)],
+            "apres": [voice(0.90, 0.436, 0.0, duration=600.0)],
         }
         membership = stitch(per_voice)
         assert membership["avant"] == membership["apres"]
+
+    def test_two_people_alike_at_seventy_percent_are_not_brought_together(self):
+        """The two pairs of 036c, 0.717 and 0.704, each with minutes of speech: four
+        people came out as two voices while consolidation sat at 0.70."""
+        per_voice = {
+            "une": [voice(1.0, 0.0, 0.0, duration=600.0)],
+            "autre": [voice(0.72, 0.694, 0.0, duration=600.0)],
+        }
+        membership = stitch(per_voice)
+        assert membership["une"] != membership["autre"]
 
     def test_an_adopted_fragment_helps_adopt_the_next(self):
         """The order stops being arbitrary: it starts from the best fed fragment.
@@ -369,17 +382,39 @@ class TestStitchingAfterTheMeeting:
         assert membership["a"] != membership["b"]
 
     def test_the_stitching_thresholds_come_from_a_measurement(self):
-        """Replayed on the real meeting by `tools/replay_stitching.py`.
+        """Replayed on real meetings by `replay_stitching.py` and `measure_stitching.py`.
 
         298 voices returned by the segmentation, 172 after the pairs pass, 24 after
         adoption, 23 after consolidation, of which 3 carry more than ten seconds,
         which is the exact number of people in the room. No group joins two people,
         checked against the names given by hand.
+
+        Consolidation was then measured against a word-for-word reference
+        (`docs/corpus.md`, 2026-09-15): at 0.70 it fused two pairs of different
+        people scoring 0.717 and 0.704; the same person cut in two halves never
+        scores under 0.932, two different people never over 0.730. Hence 0.80.
         """
         assert ADOPTION_THRESHOLD == 0.45
         assert ADOPTION_MARGIN == 0.0
-        assert CONSOLIDATION_THRESHOLD == 0.70
+        assert CONSOLIDATION_THRESHOLD == 0.80
         assert ESTABLISHED_MATERIAL == 30.0
+
+    def test_two_established_groups_at_seventy_percent_stay_two_people(self):
+        """The pair of 036c: 0.717 between two people, each with ample material."""
+        per_voice = {
+            "a": [voice(1.0, 0.0, 0.0, duration=40.0)],
+            "b": [voice(0.717, 0.697, 0.0, duration=40.0)],
+        }
+        membership = consolidate(per_voice, {"a": "a", "b": "b"})
+        assert membership["a"] != membership["b"]
+
+    def test_two_established_groups_at_ninety_percent_are_one_person(self):
+        per_voice = {
+            "a": [voice(1.0, 0.0, 0.0, duration=40.0)],
+            "b": [voice(0.93, 0.37, 0.0, duration=40.0)],
+        }
+        membership = consolidate(per_voice, {"a": "a", "b": "b"})
+        assert membership["a"] == membership["b"]
 
 
 class TestAVoiceThatHoldsSeveralPeople:
@@ -430,13 +465,13 @@ class TestAVoiceThatHoldsSeveralPeople:
 
 
 class TestLeMemeNiveauPourTous:
-    """Le niveau sonore ne doit plus décider qui est qui.
+    """The sound level must no longer decide who is who.
 
-    Mesuré sur un seul extrait comparé à lui-même, atténué : 0,999 à -3 dB,
-    0,982 à -12 dB, 0,948 à -18 dB, **0,874 à -24 dB**. Les seuils qui
-    distinguent une personne de deux tiennent entre 0,45 et 0,75 : un dixième
-    de ressemblance perdu au seul niveau suffit à couper une personne en deux
-    voix. Après mise à niveau : 1,000 partout.
+    Measured on a single excerpt compared with itself, attenuated: 0.999 at
+    -3 dB, 0.982 at -12 dB, 0.948 at -18 dB, **0.874 at -24 dB**. The
+    thresholds telling one person from two sit between 0.45 and 0.75: a tenth
+    of resemblance lost to the level alone is enough to cut a person into two
+    voices. After levelling: 1.000 everywhere.
     """
 
     def test_an_excerpt_comes_back_at_the_aimed_level(self):
@@ -456,7 +491,7 @@ class TestLeMemeNiveauPourTous:
         assert abs(rms - COMMON_LEVEL) < 1e-6
 
     def test_silence_is_left_alone(self):
-        """Multiplier un silence par cent fait une voix avec du bruit de salle."""
+        """Multiplying a silence by a hundred makes a voice out of room noise."""
         from greffier.domain.voiceprints import at_a_common_level
 
         presque_rien = [1e-6, -1e-6] * 50
@@ -468,7 +503,7 @@ class TestLeMemeNiveauPourTous:
         assert at_a_common_level([]) == []
 
     def test_nothing_is_pushed_past_full_scale(self):
-        """La saturation déplace le timbre plus loin que le niveau ne le faisait."""
+        """Clipping moves the timbre further than the level did."""
         from greffier.domain.voiceprints import at_a_common_level
 
         un_pic = [0.001] * 999 + [0.9]
@@ -476,8 +511,8 @@ class TestLeMemeNiveauPourTous:
         assert max(abs(x) for x in mis) <= 0.99
 
     def test_the_shape_is_kept(self):
-        """Seule l'échelle change : deux extraits identiques à un facteur près
-        doivent rendre exactement la même chose."""
+        """Only the scale changes: two excerpts identical up to a factor
+        have to return exactly the same thing."""
         from greffier.domain.voiceprints import at_a_common_level
 
         onde = [0.3, -0.1, 0.25, -0.4] * 50
@@ -486,16 +521,17 @@ class TestLeMemeNiveauPourTous:
 
 
 class TestLeSeuilSuitLaMatiere:
-    """Le même seuil pour deux secondes et pour une minute ne tient pas.
+    """The same threshold for two seconds and for a minute does not hold.
 
-    Mesuré sur quatre réunions AMI contre leurs annotations manuelles, au micro
-    posé au milieu de la table, qui est la condition réelle de l'outil :
+    Measured on four AMI meetings against their manual annotations, through
+    the microphone in the middle of the table, which is the tool's real
+    condition:
 
-    | Matière de chaque côté | 0,75 | 0,45 |
+    | Material on each side | 0.75 | 0.45 |
     |---|---|---|
-    | 2,5 s | 99,8 % des vraies paires refusées | 35,2 % refusées, 0,1 % confondues |
-    | 10 s | 39,4 % refusées | aucune refusée, 0,5 % confondues |
-    | 25 s | 4,0 % refusées | aucune refusée, aucune confondue |
+    | 2.5 s | 99.8 % of true pairs refused | 35.2 % refused, 0.1 % confused |
+    | 10 s | 39.4 % refused | none refused, 0.5 % confused |
+    | 25 s | 4.0 % refused | none refused, none confused |
     """
 
     def test_short_material_is_held_to_less(self):
@@ -505,7 +541,7 @@ class TestLeSeuilSuitLaMatiere:
         assert threshold_for(5.0) == THRESHOLD_ON_SHORT
 
     def test_ample_material_keeps_the_full_threshold(self):
-        """Joindre deux voix établies est la faute qui ne se reprend pas."""
+        """Joining two established voices is the mistake that cannot be taken back."""
         from greffier.domain.voiceprints import JOIN_THRESHOLD, threshold_for
 
         assert threshold_for(25.0) == JOIN_THRESHOLD
@@ -525,9 +561,9 @@ class TestLeSeuilSuitLaMatiere:
         assert threshold_for(2.0, ceiling=0.6) == pytest.approx(0.45)
 
     def test_a_fragment_now_reaches_the_voice_it_belongs_to(self):
-        """C'était le défaut : un fragment ressemblant à 0,60 à une voix établie
-        était refusé, puisqu'on lui demandait 0,75 comme à une minute de parole.
-        Il fondait alors une personne de plus."""
+        """That was the defect: a fragment resembling an established voice at 0.60
+        was refused, being asked 0.75 like a minute of speech. It then founded
+        one more person."""
         from greffier.domain.voiceprints import join_voices
 
         etablie = normalise([1.0, 0.0, 0.0], source_duration=60.0)
@@ -536,8 +572,8 @@ class TestLeSeuilSuitLaMatiere:
         assert membership["fragment"] == membership["etablie"] == "etablie"
 
     def test_two_scraps_still_do_not_join_each_other(self):
-        """Mesuré : deux petits groupes franchissaient le seuil par accident
-        statistique. Le plancher de matière reste, sur le côté le plus fourni."""
+        """Measured: two small groups crossed the threshold by statistical
+        accident. The material floor stays, on the better fed side."""
         from greffier.domain.voiceprints import join_voices
 
         un = normalise([1.0, 0.0, 0.0], source_duration=3.0)

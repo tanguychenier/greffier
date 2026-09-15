@@ -82,7 +82,7 @@ class TestWhoIsSpeaking:
     def test_the_channels_are_not_swapped_with_ffmpeg_s_header(
         self, tmp_path: Path
     ) -> None:
-        # C'est le défaut constaté : avec ces chunks, la lecture était décalée
+        # The defect seen: with these chunks, the reading was offset
         # et l'interface annonçait « les autres parlent ».
         releve = read_level(
             wav(tmp_path / "b.wav", [FORT, MUET, MUET], avec_liste=True, fmt_etendu=True)
@@ -113,7 +113,7 @@ class TestTheLengthWrittenSoFar:
     """
 
     def test_the_length_is_counted_in_bytes_not_in_the_header(self, tmp_path: Path) -> None:
-        # L'en-tête annonce 0xFFFFFFFF tant que le fichier est ouvert : s'y fier
+        # The header announces 0xFFFFFFFF as long as the file is open: trusting it
         # donnerait une durée absurde.
         file = wav(tmp_path / "en-cours.wav", [FORT, MUET], avec_liste=True,
                       fmt_etendu=True)
@@ -124,5 +124,5 @@ class TestTheLengthWrittenSoFar:
         assert written_duration(file) == 0.0
 
     def test_a_missing_file_gives_no_length(self, tmp_path: Path) -> None:
-        # Le premier morceau n'existe pas encore quand la fenêtre lit l'état.
+        # The first chunk does not exist yet when the window reads the state.
         assert written_duration(tmp_path / "rien.wav") is None

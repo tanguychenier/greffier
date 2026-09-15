@@ -114,13 +114,13 @@ class TestJoiningTwoContexts:
 
 
 class TestLesPersonnesAttendues:
-    """Ce que l'amorce gagne à porter les personnes attendues.
+    """What the prompt gains from carrying the expected people.
 
-    Mesuré sur une réunion portant sept termes rares : onze occurrences sur
-    quinze reviennent sans amorce, quinze sur quinze avec. « backlog » devenait
-    « bâcle », « Kanban » devenait « cambans ». Un prénom annoncé avant la
-    réunion n'a pas encore de voix en banque : sans l'amorce, c'est le premier
-    mot que le modèle remplace.
+    Measured on a meeting carrying seven rare terms: eleven occurrences out of
+    fifteen come back without the prompt, fifteen out of fifteen with it.
+    « backlog » became « bâcle », « Kanban » became « cambans ». A first name
+    announced before the meeting has no voice in the bank yet: without the
+    prompt, it is the first word the model replaces.
     """
 
     def test_an_expected_person_reaches_the_seed(self):

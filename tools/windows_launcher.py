@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
-"""Point d'entrée de l'exécutable Windows.
+"""Entry point of the Windows executable.
 
-PyInstaller a besoin d'un script à empaqueter, et `python -m greffier fenetre`
-n'en est pas un. Ce fichier ne fait rien d'autre que ce que ferait cette
-commande, avec trois précautions que l'exécutable impose et que la ligne de
-commande n'a pas :
+PyInstaller needs a script to bundle, and `python -m greffier fenetre` is
+not one. This file does nothing but what that command would do, with three
+precautions the executable requires and the command line does not:
 
-- **rendre la main sur `--version`.** Un exécutable graphique lancé sans écran
-  un exécuteur d'intégration continue, par exemple, ne peut pas ouvrir de
-  fenêtre. Répondre sa version est le seul contrôle qu'on puisse faire là, et
-  c'est celui que le workflow de publication exécute.
-- **écrire ce qui casse dans un fichier.** Une application graphique Windows
-  n'a pas de console : une exception non rattrapée disparaît, et l'utilisateur
-  voit une fenêtre qui ne s'ouvre pas, sans rien à envoyer pour comprendre.
-- **dire ce qui manque en clair.** ffmpeg absent du PATH est le cas le plus
-  probable sur un poste neuf, et « ModuleNotFoundError » ne le dit à personne.
+- **hand back on `--version`.** A graphical executable launched with no
+  screen, a continuous integration runner for instance, cannot open a
+  window. Answering its version is the only check possible there, and it is
+  the one the release workflow runs.
+- **write what breaks to a file.** A Windows graphical application has no
+  console: an uncaught exception vanishes, and the user sees a window that
+  does not open, with nothing to send to understand why.
+- **say plainly what is missing.** ffmpeg absent from the PATH is the most
+  likely case on a fresh machine, and « ModuleNotFoundError » tells nobody.
 
-Jamais lancé sur une machine Windows au moment d'écrire ces lignes : ce que le
-workflow prouvera, c'est qu'il se construit et qu'il démarre.
+Opened on a Windows runner on 2026-09-15 (`windows-proof.yml`), never yet on
+somebody's own machine.
 """
 
 from __future__ import annotations
@@ -29,8 +28,8 @@ from pathlib import Path
 
 
 def log() -> Path:
-    """Où écrire ce qui casse. `%LOCALAPPDATA%` sur Windows, le dossier des
-    données ailleurs, le même endroit que le reste des traces de l'outil."""
+    """Where to write what breaks. `%LOCALAPPDATA%` on Windows, the data folder
+    elsewhere, the same place as the rest of the tool's traces."""
     import os
 
     base = os.environ.get("LOCALAPPDATA")
@@ -50,8 +49,8 @@ def main() -> int:
         print(f"Greffier {version()}")
         return 0
     try:
-        # Importé ici et non en tête : sur `--version`, charger l'interface
-        # coûterait Tk et les modèles pour une chaîne de caractères.
+        # Imported here and not at the top: on `--version`, loading the
+        # interface would cost Tk and the models for a string.
         from greffier.adapters.configuration import Config
         from greffier.interface.window import Window
         from greffier.locations import locate_tcl
@@ -63,20 +62,20 @@ def main() -> int:
         target = log()
         with contextlib.suppress(OSError):
             target.write_text(trace, encoding="utf-8")
-        _dire_a_l_ecran(
+        _say_on_screen(
             "Greffier n'a pas pu démarrer.\n\n"
             f"Le détail est dans :\n{target}\n\n"
-            + _cause_probable(trace)
+            + _likely_cause(trace)
         )
         return 1
     return 0
 
 
-def _cause_probable(trace: str) -> str:
-    """Ce qui manque, quand la trace le dit clairement.
+def _likely_cause(trace: str) -> str:
+    """What is missing, when the trace says it clearly.
 
-    Deux cas couvrent presque tout sur un poste neuf, et aucun des deux ne se
-    devine à la lecture d'une trace Python.
+    Two cases cover almost everything on a fresh machine, and neither can be
+    guessed from reading a Python trace.
     """
     if "ffmpeg" in trace.lower():
         return ("ffmpeg est probablement absent. Installez-le, ou lancez "
@@ -86,11 +85,11 @@ def _cause_probable(trace: str) -> str:
     return ""
 
 
-def _dire_a_l_ecran(message: str) -> None:
-    """Une boîte de dialogue, ou la sortie d'erreur à défaut.
+def _say_on_screen(message: str) -> None:
+    """A dialog box, or the error output failing that.
 
-    À défaut, parce que si Tk est justement ce qui manque, une boîte de dialogue
-    Tk ne s'affichera pas, et c'est un cas probable ici.
+    Failing that, because if Tk is precisely what is missing, a Tk dialog box
+    will not show, and it is a likely case here.
     """
     try:
         import tkinter as tk

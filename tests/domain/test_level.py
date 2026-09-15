@@ -13,7 +13,7 @@ from greffier.domain.level import (
 
 class TestTheThresholds:
     def test_the_making_things_up_threshold_is_the_measured_one(self):
-        """À -43 dB, « Test, test de réunion » est devenu « Merci d'avoir
+        """At -43 dB, « Test, test de réunion » became « Merci d'avoir
         regardé cette vidéo ! »."""
         assert INSUFFISANT_DB == -43.0
 
@@ -70,7 +70,7 @@ class TestWhatIsSaidAboutIt:
 
 class TestStartingAMeeting:
     def test_a_weak_level_still_starts(self):
-        """Une réunion qui a lieu vaut mieux qu'une réunion refusée."""
+        """A meeting that takes place beats a meeting refused."""
         assert sufficient(-35.0) is True
 
     def test_it_warns_under_the_making_things_up_threshold(self):

@@ -1,27 +1,26 @@
 #!/usr/bin/env python3
-"""Fabrique les réunions sur lesquelles la chaîne s'est déjà trompée.
+"""Makes the meetings the chain has already got wrong.
 
-`make_meeting.py` produit une réunion propre : deux voix nettes, des
-prénoms prononcés dans les trois formes attendues. Elle prouve que la chaîne
-fonctionne quand tout va bien.
+`make_meeting.py` produces a clean meeting: two clear voices, first names
+said in the three expected forms. It proves the chain works when all goes
+well.
 
-Ce fichier-ci produit l'inverse. Chaque cas reproduit une erreur constatée sur
-une réunion réelle, ou un piège que la conception rend possible :
+This file produces the opposite. Each case reproduces an error seen on a
+real meeting, or a trap the design makes possible:
 
-    absent            un prénom cité désigne quelqu'un qui n'est pas là
-    sans-reponse      on interpelle quelqu'un qui ne répond pas
-    interjections     des mots courants ouvrent les phrases en majuscule
-    voix-breve        une personne ne dit que quelques mots de toute la réunion
-    trois-voix        trois locuteurs, dont deux proches
-    homonymes         un prénom désigne tantôt un présent, tantôt un absent
-    proposition-breve une voix courte est nommée par un renvoi, la proposition
-                      ne doit pas se perdre avec le fragment qui la porte
+    absent            a first name mentioned designates somebody who is not there
+    sans-reponse      somebody is called out and does not answer
+    interjections     common words open sentences with a capital
+    voix-breve        one person says only a few words in the whole meeting
+    trois-voix        three speakers, two of them alike
+    homonymes         a first name designates now somebody present, now somebody absent
+    proposition-breve a short voice is named by a reference; the proposal must
+                      not be lost with the fragment that carries it
 
-    python3 tools/make_hard_cases.py sortie/            # tous
-    python3 tools/make_hard_cases.py sortie/ --cas absent
+    python3 tools/make_hard_cases.py output/            # all of them
+    python3 tools/make_hard_cases.py output/ --case absent
 
-macOS uniquement : « say » est le seul moteur de synthèse disponible sans rien
-installer.
+The case names are the ones the tests and the recordings carry, in French.
 """
 
 import argparse
@@ -31,19 +30,19 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from make_meeting import make  # noqa: E402
 
-# Voix nettement distinctes, pour que le test mesure la chaîne et non la
-# capacité de la synthèse vocale à faire deux timbres différents.
-TROIS_VOIX = {"A": "Jacques", "B": "Amélie", "C": "Grandpa (Français (France))"}
-DEUX_VOIX = {"A": "Jacques", "B": "Amélie"}
+# Clearly distinct voices, so that the test measures the chain and not the
+# ability of the speech synthesis to make two different timbres.
+THREE_VOICES = {"A": "Jacques", "B": "Amélie", "C": "Grandpa (Français (France))"}
+TWO_VOICES = {"A": "Jacques", "B": "Amélie"}
 
-# Chaque réplique dépasse trois secondes : en deçà, une empreinte vocale ne
-# porte pas assez de voix pour être exploitable.
-CAS: dict[str, tuple[dict, list[tuple[str, str]]]] = {
-    # Lise est citée six fois et ne parle jamais. Elle ne doit apparaître
-    # nulle part comme participante. Le compte rendu d'une réunion réelle
-    # avait correctement traité ce cas ; il sert de non-régression.
+# Every line lasts more than three seconds: under that, a voiceprint does not
+# carry enough voice to be usable.
+CASES: dict[str, tuple[dict, list[tuple[str, str]]]] = {
+    # Lise is mentioned six times and never speaks. She must appear nowhere
+    # as an attendee. The minutes of a real meeting had handled this case
+    # correctly; it serves as a non-regression.
     "absent": (
-        DEUX_VOIX,
+        TWO_VOICES,
         [
             ("A", "Lise nous a envoyé son retour hier soir par courriel, et elle "
                   "soulève un point que nous avions complètement laissé de côté."),
@@ -55,10 +54,10 @@ CAS: dict[str, tuple[dict, list[tuple[str, str]]]] = {
                   "l'ensemble du dossier et donner son accord formel."),
         ],
     ),
-    # Le bug du 25 août : on interpelle quelqu'un, cette personne ne répond
-    # pas, et son prénom se colle à la voix qui parle ensuite.
+    # The bug of 25 August: somebody is called out, that person does not
+    # answer, and their first name sticks to the voice that speaks next.
     "sans-reponse": (
-        DEUX_VOIX,
+        TWO_VOICES,
         [
             ("A", "Tanguy, tu peux nous sortir les horaires exacts du traitement "
                   "automatique, ceux que tu avais réglés la semaine dernière ?"),
@@ -70,10 +69,10 @@ CAS: dict[str, tuple[dict, list[tuple[str, str]]]] = {
                   "utilisateurs concernés dès demain en début de journée."),
         ],
     ),
-    # Le second bug du 25 août : « Ouais » a été promu prénom et s'est vu
-    # attribuer treize minutes de temps de parole.
+    # The second bug of 25 August: "Ouais" was promoted to a first name and
+    # given thirteen minutes of speaking time.
     "interjections": (
-        DEUX_VOIX,
+        TWO_VOICES,
         [
             ("A", "Ouais, enfin, ça dépend vraiment de la charge du serveur au "
                   "moment précis où plusieurs personnes déposent leurs documents."),
@@ -85,11 +84,11 @@ CAS: dict[str, tuple[dict, list[tuple[str, str]]]] = {
                   "parce que le problème touche déjà plusieurs utilisateurs."),
         ],
     ),
-    # Une personne dit une seule phrase de toute la réunion. Le recollage
-    # écarte les voix de moins de dix secondes : celle-ci doit être soit
-    # rattachée correctement, soit honnêtement absente, jamais inventée.
+    # One person says a single sentence in the whole meeting. The stitching
+    # sets aside voices under ten seconds: this one must be either attached
+    # correctly, or honestly absent, never invented.
     "voix-breve": (
-        TROIS_VOIX,
+        THREE_VOICES,
         [
             ("A", "Nous commençons par le point sur la recette, qui nous occupe "
                   "depuis lundi et sur lequel il reste deux anomalies ouvertes."),
@@ -102,10 +101,10 @@ CAS: dict[str, tuple[dict, list[tuple[str, str]]]] = {
                   "de l'envoyer, probablement demain en fin de matinée."),
         ],
     ),
-    # Trois voix, avec auto-présentation pour deux d'entre elles seulement.
-    # La troisième doit rester sans nom plutôt que d'hériter de celui d'un autre.
+    # Three voices, with a self-introduction for two of them only. The third
+    # must stay unnamed rather than inherit somebody else's name.
     "trois-voix": (
-        TROIS_VOIX,
+        THREE_VOICES,
         [
             ("A", "Bonjour à tous, moi c'est Jacques, je vous propose de commencer "
                   "par le point sur la recette et les anomalies encore ouvertes."),
@@ -119,13 +118,13 @@ CAS: dict[str, tuple[dict, list[tuple[str, str]]]] = {
                   "vert, l'opération prend une vingtaine de minutes tout au plus."),
         ],
     ),
-    # Le prénom de C n'est jamais prononcé par C : seul un renvoi bref, juste
-    # après son unique tour, le lui attribue, un seul indice, trop peu pour
-    # être affirmé, donc une proposition. `voix_a_nommer` écartait jusqu'ici
-    # toute voix de moins de dix secondes, proposition comprise : la voix de C
-    # ne dépasse jamais ce seuil sur toute la réunion.
+    # C's first name is never said by C: only a brief reference, right after
+    # their single turn, gives it to them, a single clue, too little to be
+    # asserted, hence a proposal. `voix_a_nommer` used to set aside every
+    # voice under ten seconds, proposal included: C's voice never passes that
+    # threshold in the whole meeting.
     "proposition-breve": (
-        TROIS_VOIX,
+        THREE_VOICES,
         [
             ("A", "Bonjour à tous, moi c'est Jacques, je vous propose de commencer "
                   "par le point sur la recette et les anomalies encore ouvertes."),
@@ -138,10 +137,10 @@ CAS: dict[str, tuple[dict, list[tuple[str, str]]]] = {
                   "relire avant de l'envoyer, probablement demain en fin de matinée."),
         ],
     ),
-    # Le même prénom pour un présent et pour un absent. L'outil doit proposer
-    # plutôt qu'affirmer, et ne pas attribuer la voix au hasard.
+    # The same first name for somebody present and somebody absent. The tool
+    # must propose rather than assert, and not give the voice at random.
     "homonymes": (
-        DEUX_VOIX,
+        TWO_VOICES,
         [
             ("A", "Bonjour, moi c'est Jacques, et je précise tout de suite que "
                   "l'autre Jacques, celui du service financier, n'est pas parmi nous."),
@@ -157,19 +156,19 @@ CAS: dict[str, tuple[dict, list[tuple[str, str]]]] = {
 
 
 def main() -> int:
-    player = argparse.ArgumentParser(description=__doc__)
-    player.add_argument("folder", type=Path, help="Où écrire les fichiers")
-    player.add_argument("--case", choices=sorted(CAS), help="Un seul cas")
-    arguments = player.parse_args()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("folder", type=Path, help="Where to write the files")
+    parser.add_argument("--case", choices=sorted(CASES), help="One case only")
+    arguments = parser.parse_args()
 
-    voulus = [arguments.case] if arguments.case else sorted(CAS)
+    wanted = [arguments.case] if arguments.case else sorted(CASES)
     arguments.folder.mkdir(parents=True, exist_ok=True)
-    for name in voulus:
-        voice, dialogue = CAS[name]
+    for name in wanted:
+        voice, dialogue = CASES[name]
         target = arguments.folder / f"cas-{name}.wav"
         make(target, voice=voice, dialogue=dialogue)
-        taille = target.stat().st_size / 1024
-        print(f"  {target.name:<26} {taille:6.0f} Ko  {len(dialogue)} répliques")
+        size = target.stat().st_size / 1024
+        print(f"  {target.name:<26} {size:6.0f} KB  {len(dialogue)} lines")
     return 0
 
 

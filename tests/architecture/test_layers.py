@@ -28,7 +28,7 @@ INTERDIT_AU_DOMAINE = frozenset({
     "soundfile", "numpy", "faster_whisper", "tomllib",
 })
 
-#: Les couches qu'un module d'une couche donnée n'a pas le droit d'importer.
+#: The layers a module of a given layer is not allowed to import.
 INTERDITS = {
     "domain": ("greffier.adapters", "greffier.application", "greffier.interface",
                 "greffier.cli", "greffier.wiring", "greffier.locations"),

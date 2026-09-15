@@ -254,5 +254,5 @@ def downloaded(model: str) -> bool:
     depot = DEPOTS.get(model, f"Systran/faster-whisper-{model}")
     try:
         return try_to_load_from_cache(depot, "model.bin") is not None
-    except Exception:  # noqa: BLE001 - un cache illisible n'est pas un modèle
+    except Exception:  # noqa: BLE001 - an unreadable cache is not a model
         return False

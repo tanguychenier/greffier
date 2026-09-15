@@ -62,7 +62,7 @@ def process(config, audio):
 
 class TestReconnaissanceEntreReunions:
     def test_le_parcours_complet(self, atelier):
-        """Première réunion → nommage → seconde réunion reconnue toute seule."""
+        """First meeting → naming → second meeting recognised on its own."""
         from make_meeting import first_names
 
         config, premiere, seconde = atelier

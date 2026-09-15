@@ -216,7 +216,7 @@ returned:
 macOS has no NVIDIA card to find (Apple stopped carrying them with Mojave) and
 nothing is looked for there: whisper.cpp runs on Metal instead. The numbers, the
 two things that turned out **not** to help, and the trap of running two ONNX
-Runtimes in one process are in [`docs/carte-graphique.md`](docs/carte-graphique.md).
+Runtimes in one process are in [`docs/graphics-card.md`](docs/graphics-card.md).
 
 The `[materiel]` section of the settings has the last word:
 
@@ -368,7 +368,7 @@ what "nothing works on Linux" looks like from the outside.
 **Then on a real Linux desktop**, which the container could not show: the
 installer goes all the way through, the window opens, and the chain runs on real
 recordings. Four defects came out of it, all fixed, and they are written up in
-[`docs/reste-a-faire.md`](docs/reste-a-faire.md).
+[`docs/what-is-left.md`](docs/what-is-left.md).
 
 **The live thread, replayed in real time**: a synthetic three-channel video
 call is rewritten by ffmpeg at the speed of sound, which reproduces capture
@@ -410,7 +410,7 @@ from the microphone. Both interviews come out with the right two voices. On
 [ES2002a of the AMI corpus](https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/):
 four people, one mixed channel, four headset tracks as an unarguable reference,
 and four people come out as six. The transcription holds; the clustering
-over-splits. Numbers in [`docs/reste-a-faire.md`](docs/reste-a-faire.md).
+over-splits. Numbers in [`docs/what-is-left.md`](docs/what-is-left.md).
 
 **Quality gate**: `ruff`, `mypy` and the tests, all three blocking, replayed by
 `.github/workflows/ci.yml` on every push and every pull request. The full Linux
@@ -548,7 +548,7 @@ recognition thresholds on a recording of your own:
 ```
 
 The method and the thresholds in force are in
-[`docs/calibrage.md`](docs/calibrage.md).
+[`docs/calibration.md`](docs/calibration.md).
 
 Install the git hooks once and for all:
 
@@ -571,7 +571,7 @@ The port from the original chain of scripts (`~/reunions/`, abandoned on
 to end, tried on real meetings, on a synthetic fixture, and on public
 recordings. What is still open, a few minor defects and what has never met
 reality (Windows, live in-person), is detailed in
-[`docs/reste-a-faire.md`](docs/reste-a-faire.md).
+[`docs/what-is-left.md`](docs/what-is-left.md).
 
 ## Driving it from a site
 

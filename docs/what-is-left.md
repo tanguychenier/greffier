@@ -2,9 +2,10 @@
 
 **Read the last entry first.** This is a journal: every section below describes
 the state on the day it was written, and the sections keep their date rather
-than being rewritten. What is actually left today is under « Ce que valent les
-points restés ouverts (2026-09-15) », which went through every earlier « still
-open » line against the code and struck out the ones that had been done since.
+than being rewritten. What is actually left today is under "What the points
+left open are worth (2026-09-15)", which went through every earlier "still
+open" line against the code and struck out the ones that had been done since;
+the state as boxes to tick is in `plan.md`.
 
 State as of 2026-09-01, after the fix of the last three defects of the initial
 diagnosis (segmentation, lost proposal, live text).
@@ -64,7 +65,7 @@ models actually present rather than merely assumed from the symptoms.
 
 | Defect | What it cost | State |
 |---|---|---|
-| The raw clustering threshold, never measured (`threshold=0.8`), merged two voices as early as segmentation | On a three-speaker test set, 2 voices found instead of 3, before the domain's re-stitching even came into play | fixed: `threshold=0.45`, measured and documented in `docs/calibrage.md` |
+| The raw clustering threshold, never measured (`threshold=0.8`), merged two voices as early as segmentation | On a three-speaker test set, 2 voices found instead of 3, before the domain's re-stitching even came into play | fixed: `threshold=0.45`, measured and documented in `docs/calibration.md` |
 | `fusionner_voix` merged clusters that held too little material | Two small recent groups crossed `SEUIL_FUSION` by statistical accident | fixed: asymmetric material guard, `MATIERE_MINIMALE_FUSION` |
 | `voix_a_nommer` discarded any voice under ten seconds, suggestion included | A first name detected in a short answer never showed up (neither in the naming screen nor in the CLI summary | fixed) a short voice that already carries a name or a proposal escapes the filter |
 | The live text duplicated the end of a sentence at the boundary between two slices | « dernier. » then « dernier. Sandy, tu peux nous dire… » : the speaker was right, the text was not | fixed : `retirer_repetition`, word-by-word overlap between two slices |
@@ -570,7 +571,7 @@ assert, it was wrong to trust its bank. Because inside that bank:
 | « A » and « B » | **0.77** |
 | the eight other pairs | 0.22 to 0.53 |
 
-Two different people measure at 0.41 according to `docs/calibrage.md`. A pair at
+Two different people measure at 0.41 according to `docs/calibration.md`. A pair at
 0.77 says that one of the two names carries the other's voice. The « A » voice
 print had been paid in eight days earlier from an 85 s cluster, in a meeting of
 992 speaking turns where no channel had identified the local speaker, the
@@ -930,7 +931,7 @@ measured threshold.
 - ~~**The history still carries colleagues' first names.**~~ Done on 2026-09-12.
   Fifteen first names and one surname were replaced across the whole history, in
   the commit messages **and in the files**, which the previous version of this
-  entry wrongly said were already clean. They were not: `docs/rex-2026-09-10.md`
+  entry wrongly said were already clean. They were not: `docs/retrospective-2026-09-10.md`
   named the participants of a real meeting in its voiceprint table, and the same
   first names served as fixtures throughout the tests. The 361 commits and the 23
   tags were rewritten with `git filter-repo` and force-pushed. Two things were
@@ -1015,166 +1016,166 @@ proof.
 Counted on this machine: **36 of the 56 tests skipped before, 22 after** -- and
 those 22 say which synthesis they are waiting for.
 
-## Retour d'expérience à faire, réunion du 2026-09-10 (10 h 10)
+## Retrospective to hold, meeting of 2026-09-10 (10:10)
 
-Trente-deux minutes en présentiel, micro pieuvre, l'assistant muet, `actif`
-était faux au démarrage de la veille, défaut corrigé depuis. Ce que le fil
-montrait pendant la séance, relevé en lecture seule :
+Thirty-two minutes in a room, an octopus microphone, the assistant silent,
+`actif` was false when the watch started, a defect fixed since. What the
+thread showed during the sitting, read without touching anything:
 
-| | Réunion du 09-09 | Réunion du 10-09 |
+| | Meeting of 09-09 | Meeting of 10-09 |
 |---|---|---|
-| Voix dans le fil | **111** | **14** dont 13 nommables |
-| Tours affichés | 974 | 371 |
-| Part portée par les quatre voix principales | - | **92 %** |
+| Voices in the thread | **111** | **14**, 13 of them nameable |
+| Turns shown | 974 | 371 |
+| Share carried by the four main voices | - | **92 %** |
 
-Le plafond et le seuil mesuré tiennent. Ce qui reste tient à la **banque**, pas
-au découpage :
+The ceiling and the measured threshold hold. What is left lies with the
+**bank**, not with the segmentation:
 
-- « Tanguy » s'affichait sur **trois voix à la fois**, dont deux avec un point
-  d'interrogation. Corrigé : le recollage réunit d'abord les voix que la banque
-  nomme pareil.
-- « Kilian ? » sur une voix de trois tours, « Florent ? » sur une de quatre, alors
-  que ni l'un ni l'autre n'était présent. Corrigé : la banque ne nomme plus une
-  voix de moins de six secondes.
+- "Tanguy" showed on **three voices at once**, two of them with a question
+  mark. Fixed: the stitching first joins the voices the bank names alike.
+- "Kilian ?" on a voice of three turns, "Florent ?" on one of four, when
+  neither was present. Fixed: the bank no longer names a voice under six
+  seconds.
 
-### Ce que le REX doit trancher
+### What the retrospective has to settle
 
-- **L'algorithme.** Le rattachement compare une phrase à l'agrégat d'une voix,
-  et rien d'autre. Deux pistes non explorées : tenir compte de **qui vient de
-  parler** : un tour de parole succède rarement à lui-même, et jamais après un
-  silence de dix secondes, et de la **position dans la salle**, que deux canaux
-  donneraient gratuitement.
-- **Les prises et les sondes.** Un micro pieuvre au centre d'une table entend
-  tout le monde au même niveau, ce qui est confortable pour la transcription et
-  ruineux pour la séparation des voix : c'est exactement le cas où le canal ne
-  désigne personne. Deux micros écartés, ou un micro par personne, donneraient
-  une différence de temps d'arrivée dont la séparation ferait un usage
-  autrement plus sûr que le timbre. À mesurer avant d'acheter quoi que ce soit.
-- **L'auto-correction des attributions déjà affichées.** Le fil réunit des voix,
-  mais il ne réattribue jamais une phrase à une autre voix existante. Quand une
-  voix se révèle être une autre, les phrases déjà montrées restent où elles
-  étaient. C'est faisable (le fil est rejouable, `rejouer()` le fait déjà) et
-  personne ne l'a mesuré.
-- **La qualité de la transcription elle-même**, que le REX doit séparer de la
-  séparation des voix : « ça détectait mal les voix » et « les mots étaient
-  faux » ne se réparent pas au même endroit, et le premier ne s'améliore pas en
-  travaillant sur le second.
+- **The algorithm.** The attachment compares a sentence to a voice's
+  aggregate, and nothing else. Two leads not explored: taking into account
+  **who has just spoken**: a turn rarely follows itself, and never after a
+  ten-second silence, and the **position in the room**, which two channels
+  would give for free.
+- **The takes and the probes.** An octopus microphone in the middle of a
+  table hears everybody at the same level, comfortable for transcription and
+  ruinous for speaker separation: it is exactly the case where the channel
+  designates nobody. Two microphones apart, or one per person, would give a
+  difference in time of arrival that separation would use far more safely
+  than timbre. To be measured before buying anything.
+- **Self-correction of attributions already shown.** The thread joins
+  voices, but never reattributes a sentence to another existing voice. When
+  a voice turns out to be another, the sentences already shown stay where
+  they were. Feasible (the thread can be replayed, `rejouer()` already does)
+  and nobody has measured it.
+- **The quality of the transcription itself**, which the retrospective has
+  to keep apart from speaker separation: "it told the voices apart badly"
+  and "the words were wrong" are not repaired in the same place, and the
+  first does not improve by working on the second.
 
-## Ce que valent les points restés « ouverts » (2026-09-15)
+## What the points left "open" are worth (2026-09-15)
 
-Ce document est un journal, et un journal vieillit. Repris point par point
-contre le code d'aujourd'hui, la moitié de ce qu'il donnait pour ouvert était
-fait depuis, ce qui est pire qu'un document absent : on croit savoir ce qu'il
-reste à faire.
+This document is a journal, and a journal ages. Taken point by point against
+today's code, half of what it gave as open had been done since, which is
+worse than no document at all: one believes one knows what is left to do.
 
-**Ce qui était écrit ouvert et ne l'était plus.**
+**What was written open and no longer was.**
 
-- ~~`skills/greffier/SKILL.md` n'est pas dans le dépôt.~~ Les deux SKILL.md sont
-  suivis (`git ls-files skills/`).
-- ~~`tools/make_meeting.py` dépend de `say`, donc de macOS.~~ La voix VITS
-  installée pour l'assistante parle le jeu d'essai depuis la 0.3.11.
-- ~~Le thème ne suit que macOS.~~ `system_is_dark()` interroge le portail XDG,
-  puis `gsettings`, puis le thème GTK ; Windows lit sa base de registre.
-- ~~La fenêtre n'a pas d'anticrénelage.~~ Corrigé en 0.3.13 : l'installeur
-  choisit un Python du système, dont le Tk est construit avec Xft.
-- ~~Aucun moyen d'effacer une réunion depuis l'onglet Réunions.~~ Le bouton
-  « Supprimer » y est, avec le détail de ce qui part et son poids.
-- ~~Deux voix fusionnées à la main ne peuvent pas être séparées.~~ Le retour
-  arrière existe depuis la 0.3.x : bouton, `greffier voix --separer`, et le cas
-  d'usage lui-même.
+- ~~`skills/greffier/SKILL.md` is not in the repository.~~ Both SKILL.md are
+  tracked (`git ls-files skills/`).
+- ~~`tools/make_meeting.py` depends on `say`, hence on macOS.~~ The VITS
+  voice installed for the assistant speaks the test set since 0.3.11.
+- ~~The theme only follows macOS.~~ `system_is_dark()` asks the XDG portal,
+  then `gsettings`, then the GTK theme; Windows reads its registry.
+- ~~The window has no anti-aliasing.~~ Fixed in 0.3.13: the installer picks
+  a system Python whose Tk is built with Xft.
+- ~~No way to delete a meeting from the Meetings tab.~~ The "Supprimer"
+  button is there, with the detail of what goes and its weight.
+- ~~Two voices joined by hand cannot be split again.~~ The way back exists
+  since 0.3.x: a button, `greffier voix --separer`, and the use case itself.
 
-**Ce qui a été fait ce jour-là**, chacun mesuré et couvert :
+**What was done that day**, each measured and covered:
 
-- la fenêtre s'ouvre **avant** de poser une question. `Window(Config())` restait
-  bloqué dans une boîte modale ouverte depuis `__init__`, donc sur une machine
-  sans modèles, c'est-à-dire une installation neuve. `tools/window_proof.py`
-  s'arrêtait au même endroit, et ses photographies étaient illisibles, écrites
-  en rgba sur un canal alpha que X n'a jamais rempli ;
-- **effacer quelqu'un partout** (article 17), là où « connus --oublier » ne
-  vidait que la banque et laissait le prénom dans neuf endroits sur dix ;
-- **exporter** la transcription en SRT, WebVTT et CSV ;
-- **une confiance par tour**, mesurée avant d'être montrée : voir
-  `docs/calibrage.md`, deux régimes séparés à 0,85 ;
-- **le disque plein** et le **fichier audio abîmé**, les deux dernières façons
-  de perdre un enregistrement sans s'en apercevoir.
+- the window opens **before** asking a question. `Window(Config())` stayed
+  stuck in a modal box opened from `__init__`, hence on a machine with no
+  models, that is a fresh installation. `tools/window_proof.py` stopped at
+  the same place, and its photographs were unreadable, written in rgba on an
+  alpha channel X never filled;
+- **erasing somebody everywhere** (article 17), where "connus --oublier"
+  only emptied the bank and left the first name in nine places out of ten;
+- **exporting** the transcript as SRT, WebVTT and CSV;
+- **one confidence per turn**, measured before being shown: see
+  `docs/calibration.md`, two regimes separated at 0.85;
+- **the full disk** and the **damaged audio file**, the last two ways of
+  losing a recording without noticing.
 
-### Ce qui reste ouvert, vérifié
+### What is still open, checked
 
-- **Windows n'a jamais été lancé sur une vraie machine.** Seize tests couvrent
-  les chemins propres au système ; personne n'a double-cliqué. **Lancé sur un
-  runner Windows le 15/09** (`windows-proof.yml`, cinq passes, images
-  regardées) : quatre défauts vus et corrigés, qu'aucun des seize tests ne
-  voyait. Le lanceur appelait `loop()`, méthode disparue au passage à
-  l'anglais, donc l'exécutable publié en 0.3.23 ne s'ouvrait pas ; PyInstaller
-  n'emportait ni les phrases ni les sons, et la première question affichait
-  sa clé `modeles.manquants` ; cette question venait avant la fenêtre ; trois
-  libellés restaient en français dans une interface anglaise. Reste le vrai
-  double-clic sur une machine à lui.
-- **Gatekeeper refusera le paquet macOS** ailleurs : il faudrait un Developer
-  ID, donc un compte payant. Décision, pas tâche.
-- **Pas d'AppImage pour Linux**, seulement l'arbre des sources et son
-  installeur.
-- **`initiative` est faux par défaut** : la moitié proactive de l'assistante est
-  mesurée, testée, et n'a jamais traversé une vraie réunion.
-- **L'assistante ne lit pas les sources connectées** (GitLab, Jira, Trello)
-  quand elle décide de parler. Elle les a pour une question écrite, pas orale.
-  Rien n'est configuré ici, donc le construire ne prouverait rien.
-- ~~**En présentiel, le canal ne désigne personne** et rien ne le dit à
-  l'utilisateur : tout repose alors sur les empreintes.~~ Fait le 15/09 : une
-  seule prise de son (fichier mono, ou boucle système muette avec plusieurs
-  voix) est notée à l'écran, gardée dans le fichier maître, et le compte rendu
-  porte la ligne « Attribution des propos par reconnaissance des voix ».
-- ~~**Le nombre de participants** se règle, mais rien ne le suggère quand le
-  compte détecté paraît trop haut.~~ Fait le 15/09 : sans nombre annoncé, une
-  voix qui passe le seuil des dix secondes mais porte moins de 5 % de la parole
-  déclenche la suggestion de renseigner « participants » et de relancer
-  « Traiter ». Le seuil vient de la réunion du 10/09 : trois voix de 37, 25 et
-  16 s sur 3 878, toutes des morceaux des six autres.
-- **Un corpus réel en français**, avec transcription de référence, pour
-  départager ce que le synthétique ne départage pas.
+- **Windows had never been launched on a real machine.** Sixteen tests
+  cover the paths specific to the system; nobody had double-clicked.
+  **Launched on a Windows runner on 15/09** (`windows-proof.yml`, five runs,
+  images looked at): four defects seen and fixed that none of the sixteen
+  tests saw. The launcher called `loop()`, a method gone when the code went
+  English, so the executable published in 0.3.23 did not open; PyInstaller
+  carried neither the sentences nor the sounds, and the first question showed
+  its key `modeles.manquants`; that question came before the window; three
+  labels stayed in French inside an English interface. The real double click
+  on a machine of his own remains.
+- **Gatekeeper will refuse the macOS bundle** elsewhere: it would take a
+  Developer ID, hence a paid account. A decision, not a task.
+- **No AppImage for Linux**, only the source tree and its installer.
+- **`initiative` is false by default**: the proactive half of the assistant
+  is measured, tested, and has never been through a real meeting.
+- **The assistant does not read the connected sources** (GitLab, Jira,
+  Trello) when she decides to speak. She has them for a written question,
+  not a spoken one. Nothing is configured here, so building it would prove
+  nothing.
+- ~~**In a room, the channel designates nobody** and nothing tells the user:
+  everything then rests on the voiceprints.~~ Done on 15/09: a single take
+  (a mono file, or a silent system loop with several voices) is noted on
+  screen, kept in the master file, and the minutes carry the line
+  "Attribution des propos par reconnaissance des voix".
+- ~~**The attendee count** can be set, but nothing suggests it when the
+  count detected looks too high.~~ Done on 15/09: with no count announced,
+  a voice that passes the ten-second floor but carries less than 5 % of the
+  speech triggers the suggestion to fill in "participants" and run "Traiter"
+  again. The threshold comes from the meeting of 10/09: three voices of 37,
+  25 and 16 s out of 3,878, all pieces of the six others.
+- **A real corpus in French**, with a reference transcription, to tell apart
+  what the synthetic does not. Done on 15/09: see `corpus.md`.
 
-## Ce que valent les réglages de transcription, mesuré (2026-09-12)
+## What the transcription settings are worth, measured (2026-09-12)
 
-La plainte d'usage était : « les mots affichés n'étaient pas ceux dits en
-séance ». Personne n'avait mesuré ce que les réglages de décodage y changent.
-Deux mesures, sur une réunion synthétisée dont le texte est connu mot pour mot.
+The complaint in use was: "the words shown were not the ones said in the
+meeting". Nobody had measured what the decoding settings change to that.
+Two measurements, on a synthesised meeting whose text is known word for
+word.
 
-### Les réglages de décodage ne changent rien
+### The decoding settings change nothing
 
-Seize combinaisons de `beam_size` (1 et 5), `vad_filter`, `condition_on_previous_text`
-et `temperature`, sur 114 mots de référence :
+Sixteen combinations of `beam_size` (1 and 5), `vad_filter`,
+`condition_on_previous_text` and `temperature`, on 114 reference words:
 
-| | Taux d'erreur de mots |
+| | Word error rate |
 |---|---|
-| Les seize combinaisons | **1,75 %**, exactement le même |
+| All sixteen combinations | **1.75 %**, exactly the same |
 
-Le temps, lui, varie : 5,2 s pour la plus rapide, 10,0 s pour la plus lente,
-soit **1,9 fois**. Conclusion : sur une parole propre, les réglages par défaut
-ne sont pas le problème, et rien ne justifie d'en changer sans un corpus qui
-les départage. Le corpus synthétique ne le fait pas : il ne porte ni
-recouvrement, ni accent, ni éloignement du micro, qui sont les trois causes de
-la plainte.
+Time, on the other hand, varies: 5.2 s for the fastest, 10.0 s for the
+slowest, **1.9 times**. Conclusion: on clean speech the default settings are
+not the problem, and nothing justifies changing them without a corpus that
+tells them apart. The synthetic corpus does not: it carries neither overlap,
+nor accent, nor distance to the microphone, the three causes of the
+complaint. (Measured on real speech on 2026-09-15: they go from 21.5 % to
+409 %, see `corpus.md`.)
 
-### L'amorce de vocabulaire, elle, change tout
+### The vocabulary prompt, on the other hand, changes everything
 
-Même chaîne, une réunion portant sept termes rares (Copernic, Kanban, FAST,
-Symfony, OTP, recette, backlog), quinze occurrences attendues :
+Same chain, a meeting carrying seven rare terms (Copernic, Kanban, FAST,
+Symfony, OTP, recette, backlog), fifteen occurrences expected:
 
-| | Termes retrouvés |
+| | Terms found |
 |---|---|
-| Sans amorce | **11 / 15** |
-| Avec amorce | **15 / 15** |
+| Without the prompt | **11 / 15** |
+| With the prompt | **15 / 15** |
 
-Ce qui manquait : « backlog » transcrit « bâcle », « Kanban » transcrit
-« cambans ». Le README affirmait que c'était le réglage le plus utile ; c'est
-maintenant mesuré.
+What was missing: "backlog" transcribed "bâcle", "Kanban" transcribed
+"cambans". The README claimed it was the most useful setting; it is now
+measured.
 
-Conséquence dans le code : les **personnes attendues**, déclarées à la
-préparation, rejoignent l'amorce. Elles n'ont pas encore de voix en banque, et
-leur prénom est exactement le genre de mot rare que le modèle remplace.
+Consequence in the code: the **expected people**, declared at preparation,
+join the prompt. They have no voice in the bank yet, and their first name is
+exactly the kind of rare word the model replaces.
 
-### Ce qu'il reste à mesurer
+### What is left to measure
 
-Un corpus **réel** en français, avec transcription de référence, pour départager
-ce que le synthétique ne départage pas. Les deux entretiens publics déjà
-employés n'ont pas de référence mot à mot, et le corpus AMI est en anglais.
+A **real** corpus in French, with a reference transcription, to tell apart
+what the synthetic does not. The two public interviews already used have no
+word-for-word reference, and the AMI corpus is in English. (Done on
+2026-09-15: `corpus.md`.)

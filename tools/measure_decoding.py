@@ -3,7 +3,7 @@
 
 On a synthesised meeting the sixteen combinations of `beam_size`,
 `vad_filter`, `condition_on_previous_text` and `temperature` gave the same
-1.75 % word error rate (`reste-a-faire.md`, 2026-09-12). Real speech may tell
+1.75 % word error rate (`what-is-left.md`, 2026-09-12). Real speech may tell
 them apart; this is where that is settled, with the two figures decoding can
 move: the word error rate and the rare terms found. Attribution does not
 depend on decoding and is not repeated here.

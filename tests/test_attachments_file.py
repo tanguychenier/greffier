@@ -1,4 +1,4 @@
-"""Les documents fournis pour une réunion, gardés sous forme de texte."""
+"""The documents handed over for a meeting, kept as text."""
 
 from pathlib import Path
 
@@ -20,7 +20,7 @@ class TestGarder:
         assert "Point sur CASA" in piece.file.read_text(encoding="utf-8")
 
     def test_the_original_name_survives_the_flattening(self, base):
-        """« cahier des charges V3.pdf » est ce qu'il faut montrer à l'écran."""
+        """« cahier des charges V3.pdf » is what has to be shown on screen."""
         attachments_file.write(base, "r", "Cahier des charges V3.pdf", "du texte")
         assert attachments_file.lister(base, "r")[0].name == "Cahier des charges V3.pdf"
 
@@ -33,7 +33,7 @@ class TestGarder:
         assert attachments_file.write(base, "r", "vide.txt", "   \n ") is None
 
     def test_with_no_meeting_nothing_is_filed(self, base):
-        """Ranger un texte sous une réunion au hasard rendrait le dossier trompeur."""
+        """Filing a text under a random meeting would make the folder misleading."""
         assert attachments_file.write(base, "", "x.txt", "du texte") is None
 
     def test_dropping_the_same_document_again_replaces_the_old_one(self, base):
@@ -61,7 +61,7 @@ class TestLister:
 
 class TestMatiere:
     def test_every_document_is_announced_by_its_name(self, base):
-        """Sans le nom, deux documents contradictoires deviennent une seule voix."""
+        """Without the name, two contradictory documents become a single voice."""
         attachments_file.write(base, "r", "Ordre du jour.pdf", "on parlera de CASA")
         attachments_file.write(base, "r", "Note.txt", "CASA est reporté")
         rendered = attachments_file.material(base, "r")
@@ -79,7 +79,7 @@ class TestMatiere:
         assert len(rendered) < attachments_file.AT_MOST + 200
 
     def test_one_slab_does_not_crowd_out_the_other_documents(self, base):
-        """Sans borne par document, les trois autres n'apparaissaient pas du tout."""
+        """Without a bound per document, the other three did not show at all."""
         attachments_file.write(base, "r", "pave.txt", "x" * 40_000)
         attachments_file.write(base, "r", "bref.txt", "la décision")
         assert "la décision" in attachments_file.material(base, "r")

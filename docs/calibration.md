@@ -134,13 +134,13 @@ microphone becomes a new group.
 recomputing the aggregate after each merge. On the same recording:
 
 ```
-AVANT : 27 voix distinctes sur 172 segments
-APRÈS : 22 voix, dont 5 avec au moins 10 s de parole
+BEFORE: 27 distinct voices over 172 segments
+AFTER:  22 voices, 5 of them with at least 10 s of speech
 
-  v0      6.1 min (54.7 %)  ← recolle v8, v14, v2, v26
+  v0      6.1 min (54.7 %)  ← joins v8, v14, v2, v26
   v4      2.6 min (23.3 %)
   v49     0.7 min ( 6.4 %)
-  v32     0.6 min ( 5.8 %)  ← recolle v10
+  v32     0.6 min ( 5.8 %)  ← joins v10
   v17     0.5 min ( 4.1 %)
 
 plus fort rapprochement restant : 0.645 (v17 ↔ v4)
@@ -213,13 +213,13 @@ sorts the turns by their certainty. A synthesised meeting of 114 known words
 was measured clean, then with white noise mixed in at four known
 signal-to-noise ratios:
 
-| Prise | Confiance | Ce que vaut le texte |
+| Take | Confidence | What the text is worth |
 |---|---|---|
-| propre | 0,95 - 0,97 | fidèle, aux accords près |
-| + 10 dB | 0,91 - 0,93 | fidèle, aux accords près |
-| + 5 dB | 0,81 | phrases entières inventées |
-| 0 dB | 0,65 - 0,76 | idem |
-| - 5 dB | 0,61 - 0,81 | idem |
+| clean | 0.95 - 0.97 | faithful, agreements aside |
+| + 10 dB | 0.91 - 0.93 | faithful, agreements aside |
+| + 5 dB | 0.81 | whole sentences invented |
+| 0 dB | 0.65 - 0.76 | same |
+| - 5 dB | 0.61 - 0.81 | same |
 
 Two regimes, and **nothing observed between 0.81 and 0.91**. `UNSURE_BELOW`
 goes in that gap, at **0.85**.

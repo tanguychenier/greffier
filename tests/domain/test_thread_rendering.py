@@ -1,4 +1,4 @@
-"""Le fil du direct, rendu en texte pour qu'on puisse l'interroger."""
+"""The live thread, rendered as text so that it can be queried."""
 
 from greffier.domain.live import LiveThread, LiveTurn
 from greffier.domain.models import Span
@@ -12,10 +12,10 @@ def thread_with(*turns: tuple[int, float, float, str, str]) -> LiveThread:
 
 
 class TestRenderingTheThread:
-    """Avant, la conversation exigeait un compte rendu, donc une réunion finie.
+    """Before, the conversation required minutes, hence a finished meeting.
 
-    Impossible de demander « qu'a-t-on décidé sur Oasis ? » pendant qu'on en
-    parle, alors que le fil était déjà là.
+    Impossible to ask « qu'a-t-on décidé sur Oasis ? » while it is being
+    discussed, though the thread was already there.
     """
 
     def test_the_text_is_timestamped_and_attributed(self):
@@ -24,7 +24,7 @@ class TestRenderingTheThread:
         assert "Bonjour à tous." in rendered
 
     def test_the_turns_of_one_voice_are_grouped(self):
-        """Une étiquette par phrase rend le texte illisible pour qui le résume."""
+        """One label per sentence makes the text unreadable for whoever summarises it."""
         rendered = thread_with(
             (1, 0.0, 5.0, "Première phrase.", "v1"),
             (2, 5.0, 9.0, "Seconde phrase.", "v1"),
@@ -46,7 +46,7 @@ class TestRenderingTheThread:
         assert thread_with((1, 0.0, 5.0, "   ", "v1")).rendered() == ""
 
     def test_only_the_end_can_be_asked_for(self):
-        """Une longue réunion n'a pas à repartir en entier à chaque question."""
+        """A long meeting does not have to be sent whole at every question."""
         rendered = thread_with(
             (1, 0.0, 10.0, "Le début, très ancien.", "v1"),
             (2, 600.0, 610.0, "La fin, celle qui compte.", "v1"),

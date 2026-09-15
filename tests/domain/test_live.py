@@ -122,7 +122,7 @@ class TestRecognisedByTheBank:
         #
         # They followed the threshold of 0.70 (0.65 then 0.95): at 0.65 the
         # voice is now recognised on its first scrap, which is exactly
-        # l'effet voulu par l'abaissement du 2026-09-09.
+        # the effect intended by the lowering of 2026-09-09.
         julie = Person(name="Julie", voiceprints=[voiceprint(1, 0, duration=30)])
         thread = LiveThread(known=[julie])
         voice = thread.attach(voiceprint(0.42, 0.9075), local=False)

@@ -57,7 +57,7 @@ class TestWhatMustNotBeUnderstood:
         assert understand("qu'a-t-on décidé sur Oasis ?") is None
 
     def test_asking_for_a_definition_is_not_one(self):
-        """« OTP c'est quoi ? » demande, il n'apprend pas."""
+        """« OTP c'est quoi ? » asks, it does not teach."""
         assert understand("OTP c'est quoi ?") is None
 
     def test_a_fact_that_is_not_a_term(self):
@@ -68,7 +68,7 @@ class TestWhatMustNotBeUnderstood:
         assert understand("retiens que Sophie est en congé") is None
 
     def test_too_long_a_sentence_as_a_subject_is_refused(self):
-        """Plus de cinq mots n'est pas un terme : c'est qu'on a mal découpé."""
+        """More than five words is not a term: the cut was wrong."""
         assert understand(
             "retiens que le processus complet de validation des dossiers "
             "signifie autre chose"

@@ -1,4 +1,4 @@
-"""Ce qui, pendant la réunion, appelle une action."""
+"""What, during the meeting, calls for an action."""
 
 from greffier.domain.instructions import (
     Kind,
@@ -28,8 +28,8 @@ class TestPastedLinks:
         assert links_in(text) == ["https://a.fr", "https://b.fr"]
 
     def test_a_link_said_out_loud_is_not_claimed_as_read(self):
-        """« miro point com slash board » ne donne pas une adresse valable :
-        mieux vaut ne rien proposer que proposer n'importe quoi."""
+        """« miro point com slash board » does not give a valid address:
+        better to propose nothing than to propose anything."""
         assert links_in("va voir sur miro point com slash board slash b n 7 x") == []
 
     def test_a_text_without_a_link_produces_nothing(self):
@@ -69,7 +69,7 @@ class TestDecisions:
 
 class TestTheWatchRules:
     def test_an_instruction_is_picked_up_once(self):
-        """La transcription au fil de l'eau repasse sur les mêmes passages."""
+        """The running transcription goes over the same passages again."""
         watch_rules = WatchRules(profil=FRENCH)
         utterances = [utterance(10, "Greffier, ouvre le ticket 1234")]
         assert len(watch_rules.listen(utterances)) == 1
@@ -81,8 +81,8 @@ class TestTheWatchRules:
         assert watch_rules.paste("https://miro.com/x", 30) == []
 
     def test_where_it_came_from_is_kept(self):
-        """Le presse-papier est exact, la parole est transcrite : la fiabilité
-        n'est pas la même et le lecteur doit pouvoir en juger."""
+        """The clipboard is exact, speech is transcribed: the reliability is
+        not the same and the reader has to be able to judge it."""
         watch_rules = WatchRules(profil=FRENCH)
         watch_rules.paste("https://a.fr", 1)
         watch_rules.listen([utterance(2, "Greffier, note le sujet")])

@@ -137,7 +137,7 @@ def _process(config: Config, audio: Path, identifiant: str) -> None:
         chaine.log = type("Journal", (), {"publish": staticmethod(dire)})()
         chaine.run_chain(audio, send=False)
         dire("termine", "Compte rendu prêt.")
-    except Exception as trouble:  # noqa: BLE001 - rendu au client, jamais avalé
+    except Exception as trouble:  # noqa: BLE001 - handed to the client, never swallowed
         dire("echec", str(trouble))
 
 

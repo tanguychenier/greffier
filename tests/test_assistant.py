@@ -1,4 +1,4 @@
-"""L'assistant de première configuration, avec des réponses simulées."""
+"""The first-configuration assistant, with simulated answers."""
 
 import json
 

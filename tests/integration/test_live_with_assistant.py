@@ -145,9 +145,9 @@ def test_the_transcription_does_not_wait_for_the_answer(meeting, tmp_path):
         situer=lambda: Position(morceau=meeting, written=duration, offset=0.0),
         assistant_of=assistant,
     )
-    # Le modèle se charge à la première transcription -- seize secondes sur une
-    # carte, mesuré. Le compter ici ferait échouer le test sur une machine
-    # parfaitement saine, pour une lenteur qui n'arrive qu'une fois par session.
+    # The model loads at the first transcription -- sixteen seconds on a
+    # card, measured. Counting it here would fail the test on a perfectly
+    # healthy machine, for a slowness that only happens once per session.
     transcriber.transcribe(meeting, "fr", "")
     depart = time.monotonic()
     watcher.transcription_turn(watcher.situer(), tmp_path)
@@ -209,7 +209,7 @@ def test_no_assistant_changes_nothing(meeting, tmp_path):
 
 
 def test_the_reason_for_speaking_is_the_call(called_by_its_name, meeting, tmp_path):
-    """Ce n'est pas un apport spontané : c'est qu'on l'a nommée."""
+    """It is not a spontaneous contribution: she was named."""
     transcriber = light_transcriber(Config())
     if transcriber is None:
         pytest.skip("aucun modèle de transcription installé")

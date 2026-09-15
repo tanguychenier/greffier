@@ -14,7 +14,7 @@ class TestASubjectAndTheNamesItGoesBy:
         assert Subject("Oasis").recognises("oasis") is True
 
     def test_it_is_recognised_under_its_aliases(self):
-        """Personne ne peut deviner qu'« esup-oasis » désigne « Oasis »."""
+        """Nobody can guess that « esup-oasis » designates « Oasis »."""
         subject = Subject("Oasis", ("esup-oasis",))
         assert subject.recognises("esup oasis") is True
 
@@ -24,7 +24,7 @@ class TestASubjectAndTheNamesItGoesBy:
 
 class TestCountingTheMentions:
     def test_all_the_names_count_together(self):
-        """C'est tout l'intérêt du registre."""
+        """That is the whole point of the registry."""
         registre = Registry([Subject("Oasis", ("esup-oasis",))])
         comptes = registre.count_them("On parle d'Oasis, puis d'esup-oasis, puis d'Oasis.")
         assert comptes == {"Oasis": 3}
@@ -37,14 +37,14 @@ class TestCountingTheMentions:
         assert Registry([Subject("Oasis")]).count_them("On parle d'autre chose.") == {}
 
     def test_a_longer_word_does_not_count(self):
-        """« prod » ne doit pas se compter dans « production »."""
+        """« prod » must not be counted inside « production »."""
         assert Registry([Subject("prod")]).count_them("la production tourne") == {}
 
     def test_an_alias_holding_the_name_does_not_count_twice(self):
-        """« esup-oasis » contient « oasis » : c'est une mention, pas deux.
+        """« esup-oasis » contains « oasis »: it is one mention, not two.
 
-        Additionner les occurrences de chaque appellation faisait de trois
-        mentions d'Oasis quatre.
+        Adding up the occurrences of each name made three mentions of Oasis
+        four.
         """
         registre = Registry([Subject("Oasis", ("esup-oasis",))])
         assert registre.count_them("Oasis, puis esup-oasis, puis Oasis") == {"Oasis": 3}
@@ -61,7 +61,7 @@ class TestTheSubjectsKept:
         assert registre.subjects_of(text) == ["Oasis", "recette"]
 
     def test_a_passing_mention_is_not_a_subject(self):
-        """Ouvrir une carte pour chaque allusion la remplirait de bruit."""
+        """Opening a map for every allusion would fill it with noise."""
         registre = Registry([Subject("Docker")])
         assert registre.subjects_of("On a parlé de Docker une fois.") == []
 

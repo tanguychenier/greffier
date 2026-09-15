@@ -73,7 +73,7 @@ def test_it_looks_for_nothing_while_it_rests():
 
 
 def test_what_it_says_is_pronounced(monkeypatch):
-    """Ni titre, ni liste, ni adresse : tout cela serait lu à voix haute."""
+    """No title, no list, no address: all of that would be read out loud."""
     opening = _assistant(SANS_RESPONSABLE).contribution(now=600.0)
     assert opening is not None
     remark = opening.remark

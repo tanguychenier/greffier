@@ -1,4 +1,4 @@
-"""La file des questions : déposée par un processus, lue et répondue par l'autre."""
+"""The queue of questions: dropped by one process, read and answered by the other."""
 
 from greffier.adapters.questions_file import (
     answer,
@@ -37,7 +37,7 @@ class TestFile:
         assert answers == {1: "backlog"}
 
     def test_answering_does_not_lose_the_question(self, tmp_path):
-        """La trace de ce qui a été demandé est ce dont le contexte apprend."""
+        """The trace of what was asked is what the context learns from."""
         file = questions_file(tmp_path, "essai")
         publish(file, question())
         answer(file, 1, "backlog")
@@ -47,7 +47,7 @@ class TestFile:
         assert read(questions_file(tmp_path, "jamais")) == ([], {})
 
     def test_a_truncated_line_does_not_lose_the_rest(self, tmp_path):
-        """La file est écrite par un autre processus, qui peut être interrompu."""
+        """The queue is written by another process, which may be interrupted."""
         file = questions_file(tmp_path, "essai")
         publish(file, question())
         with file.open("a", encoding="utf-8") as stream:
@@ -64,7 +64,7 @@ class TestFile:
 
 
 class TestMemoireApresRedemarrage:
-    """Le processus qui écoute peut être relancé en cours de réunion."""
+    """The listening process may be restarted during a meeting."""
 
     def test_the_questions_already_asked_are_found(self, tmp_path):
         file = questions_file(tmp_path, "essai")

@@ -1,10 +1,10 @@
-"""Ce qui tient lieu d'identifiant quand la réduction en ASCII ne laisse rien.
+"""What stands as an identifier when reducing to ASCII leaves nothing.
 
-Trois endroits réduisent un texte libre en identifiant de fichier : la banque de
-voix, le nom d'une réunion, l'ancre d'une section de courriel. Tous les trois se
-rabattaient sur un mot fixe quand il ne restait rien : « sans-nom », « reunion »,
-« s- », donc sur le MÊME identifiant pour des textes différents. Dans la banque
-de voix, cela fusionnait deux personnes.
+Three places reduce free text to a file identifier: the voice bank, a
+meeting's name, the anchor of an email section. All three fell back on a fixed
+word when nothing was left: « sans-nom », « reunion », « s- », hence on the
+SAME identifier for different texts. In the voice bank, that merged two
+people.
 """
 
 from greffier.domain.texts import short_voiceprint
@@ -15,8 +15,8 @@ class TestAShortFingerprint:
         assert short_voiceprint("Дмитрий") != short_voiceprint("Ольга")
 
     def test_the_same_text_always_returns_the_same(self):
-        """Une voix nommée aujourd'hui doit se retrouver demain : « hash »,
-        lui, change d'une exécution à l'autre."""
+        """A voice named today has to be found tomorrow: « hash », for its
+        part, changes from one run to the next."""
         assert short_voiceprint("田中") == short_voiceprint("田中")
 
     def test_it_fits_in_a_file_name(self):
@@ -25,5 +25,5 @@ class TestAShortFingerprint:
         assert voiceprint.isalnum()
 
     def test_the_empty_string_has_one_too(self):
-        """Un titre entièrement fait de ponctuation n'est pas une erreur."""
+        """A title made entirely of punctuation is not an error."""
         assert short_voiceprint("")

@@ -69,7 +69,7 @@ UNE_DEMANDE = {
 
 class TestTheCredentials:
     def test_the_secret_carries_the_address_and_the_token(self, jira):
-        """Basic demande les deux ; un seul secret est à déposer."""
+        """Basic asks for both; a single secret is to be stored."""
         jira_api.requests(source(), SECRET)
         expected = base64.b64encode(SECRET.encode()).decode()
         assert jira.first_call.get_header("Authorization") == f"Basic {expected}"
@@ -79,7 +79,7 @@ class TestTheCredentials:
             jira_api.requests(source(), "jeton-tout-seul")
 
     def test_the_account_address_is_not_in_the_register(self):
-        """Elle identifie une personne : elle vit dans le secret, pas ici."""
+        """It identifies a person: it lives in the secret, not here."""
         assert "@" not in source().token
 
 
@@ -144,7 +144,7 @@ class TestWritingToJira:
         assert envoye["fields"]["project"]["key"] == "PROJ"
 
     def test_the_description_leaves_in_document_format(self, jira):
-        """Du texte brut est refusé par l'API 3, et l'erreur ne le dit pas."""
+        """Raw text is refused by API 3, and the error does not say so."""
         jira.charge = {"key": "PROJ-13"}
         jira_api.create_a_request(
             source(Right.ECRITURE), SECRET, "x", description="parce que"
