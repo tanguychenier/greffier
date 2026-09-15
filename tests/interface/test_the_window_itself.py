@@ -11,6 +11,8 @@ window hung there instead of photographing it.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from greffier.interface import asking
@@ -174,3 +176,32 @@ class TestExportingFromTheWindow:
         assert window.status_line.cget("text") == window.dit(
             "reunions.choisis_une_reunion"
         )
+
+
+class TestWhatAProcessedMeetingTellsOnScreen:
+    """Read off the chain's own Outcome, not off a stand-in.
+
+    The window used to read `avertissements` and `voix_significatives` on an
+    object whose fields had been renamed in English: every warning of the chain
+    went unshown, and the offer to name the voices never came.
+    """
+
+    def test_the_chain_s_warnings_are_said_in_the_thread(self, window) -> None:
+        from greffier.application.process import Outcome
+
+        outcome = Outcome(audio=Path("/tmp/2026-09-15_10h00_reunion.wav"))
+        outcome.warnings.append("Ton micro est resté muet : seuls les autres sont transcrits.")
+        window._processing_done(outcome.audio, outcome, None)
+        window.root.update()
+        assert "Ton micro est resté muet" in window.thread.get("1.0", "end")
+
+    def test_voices_without_a_name_are_offered_for_naming(self, window) -> None:
+        from greffier.application.process import Outcome
+        from greffier.domain.models import Span, SpeakerTurn
+
+        outcome = Outcome(audio=Path("/tmp/2026-09-15_10h00_reunion.wav"))
+        outcome.turns = [SpeakerTurn(Span(0, 40), "1"), SpeakerTurn(Span(40, 90), "2")]
+        outcome.names = {"1": "Josiane"}
+        window._processing_done(outcome.audio, outcome, None)
+        window.root.update()
+        assert "1 voix ne portent pas encore de nom" in window.thread.get("1.0", "end")

@@ -2037,7 +2037,7 @@ class Window:
             return
         if audio is None:
             return
-        for warning in getattr(outcome, "avertissements", []):
+        for warning in getattr(outcome, "warnings", []):
             self._say("note", warning)
         self.status_line.configure(text=self.dit("reunions.compte_rendu_pret"))
         self._choose(audio.stem)
@@ -2142,8 +2142,8 @@ class Window:
     def _offer_what_comes_next(self, identifier: str, outcome: Any) -> None:
         """What the tool asks of its own accord, once the minutes are ready."""
         self._say("greffier", f"Le compte rendu de « {identifier} » est prêt.")
-        significatives: dict[str, float] = getattr(outcome, "voix_significatives", dict)()
-        names: dict[str, str] = getattr(outcome, "noms", {})
+        significatives: dict[str, float] = getattr(outcome, "significant_voices", dict)()
+        names: dict[str, str] = getattr(outcome, "names", {})
         sans_nom = [voice for voice in significatives if voice not in names]
         if sans_nom:
             self._say(
