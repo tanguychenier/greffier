@@ -91,7 +91,14 @@ changeait, **mesuré** sans être tenu par un test, et **ouvert**.
 - **Un retour arrière** sur la séparation de deux voix.
 - **Effacer une réunion** depuis la fenêtre.
 - **Un premier lancement** qui prend par la main quand rien n'est configuré.
-- **Exporter** la transcription dans un format que les autres outils lisent.
+
+## Ce qui vient d'arriver
+
+- **Exporter la transcription** en SRT, WebVTT ou CSV, en ligne de commande et
+  depuis la fenêtre. Les sous-titres sont découpés comme des sous-titres : deux
+  lignes de quarante-deux caractères au plus, le nom du locuteur compté dans la
+  largeur de sa ligne et écrit une fois par tour, la durée du tour partagée
+  entre ses blocs. Couvert par `test_export`.
 
 ## Ce qui a été essayé et retiré
 

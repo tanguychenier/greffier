@@ -19,8 +19,8 @@ have been shown.
 from __future__ import annotations
 
 import os
-from tkinter import messagebox
-from typing import Literal
+from tkinter import filedialog, messagebox
+from typing import Any, Literal
 
 TEST_SCREEN = "GREFFIER_ECRAN_D_ESSAI"
 """Set by the suite and by the window proof, on a screen they created."""
@@ -80,3 +80,33 @@ def complain(title: str, message: str) -> None:
         _unanswered.append(message)
         return
     messagebox.showerror(title, message)
+
+
+def files_to_open(title: str, parent: Any = None) -> tuple[str, ...]:
+    """Asks for files to take in, and takes none where nobody can choose."""
+    if not somebody_is_there():
+        _unanswered.append(title)
+        return ()
+    return tuple(filedialog.askopenfilenames(parent=parent, title=title))
+
+
+def where_to_save(
+    title: str,
+    *,
+    initialfile: str,
+    filetypes: tuple[tuple[str, str], ...],
+    parent: Any = None,
+) -> str:
+    """Asks where to write, and writes nowhere where nobody can choose.
+
+    A file picker is a modal box like any other: opened on a screen with nobody
+    in front of it, it waits for a click that never comes.
+    """
+    if not somebody_is_there():
+        _unanswered.append(title)
+        return ""
+    return str(filedialog.asksaveasfilename(
+        parent=parent, title=title, initialfile=initialfile,
+        filetypes=list(filetypes),
+        defaultextension=filetypes[0][1].lstrip("*") if filetypes else "",
+    ))

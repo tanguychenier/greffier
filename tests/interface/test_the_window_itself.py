@@ -155,3 +155,22 @@ class TestForgettingSomebodyIsReachable:
         asking.forget_what_was_asked()
         window._forget_a_person()
         assert any("prénom" in dit for dit in asking.unanswered())
+
+
+class TestExportingFromTheWindow:
+    def test_the_meetings_tab_offers_it(self, window) -> None:
+        window.tabs.reveal("Réunions")
+        window.root.update()
+        intitules = [
+            bouton.itemcget(bouton._text, "text")
+            for bouton in window.meeting_buttons
+        ]
+        assert "Exporter…" in intitules
+
+    def test_with_no_meeting_chosen_it_says_so_rather_than_writing(
+        self, window
+    ) -> None:
+        window._export_selection()
+        assert window.status_line.cget("text") == window.dit(
+            "reunions.choisis_une_reunion"
+        )
