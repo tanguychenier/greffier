@@ -56,3 +56,68 @@ Ce que le script ne fait pas : il ne garde ni la vidéo (1,2 Go, effacée après
 extraction) ni les fichiers parquet de Hugging Face (un gigaoctet, dans le
 cache de `huggingface_hub`, à effacer soi-même). Aucun de ces fichiers n'entre
 dans le dépôt.
+
+## La mesure, réglages par défaut (2026-09-15)
+
+`python3 tools/measure_corpus.py`, chaîne installée telle quelle : `large-v3` sur
+la carte, aucune amorce de vocabulaire, aucun nombre de participants déclaré.
+Trois chiffres par enregistrement, définis dans l'outil et tenus par
+`tests/test_measure_corpus.py` :
+
+- **l'erreur de mots**, les deux textes lus de la même façon (minuscules, sans
+  ponctuation, sans « euh »), distance d'édition sur les mots ;
+- **les termes rares retrouvés** : les mots que la référence n'emploie qu'une
+  fois et qui font au moins sept lettres, ceux qu'un modèle remplace par un
+  mot plus courant ;
+- **l'attribution** : chaque voix rendue est réputée être la personne qu'elle
+  porte le plus souvent, puis chaque phrase est *juste*, *fausse*, ou *sans
+  avis* quand elle n'a reçu aucune voix. Les deux derniers ne sont pas la
+  même faute : un mauvais nom dans un compte rendu est pire qu'un blanc.
+
+| | Erreur de mots | Termes rares | Juste | Faux | Sans avis | Voix rendues / personnes |
+|---|---|---|---|---|---|---|
+| Assemblée, 40 min | 47,1 % *(texte relu)* | 433 / 578 (75 %) | **96,7 %** | 2,9 % | 0,4 % | 5 / 7, une miette |
+| SUMM-RE 032a, 19,7 min | **21,6 %** | 224 / 254 (88 %) | **89,0 %** | 2,8 % | 8,2 % | 4 / 4 |
+| SUMM-RE 036c, 26,8 min | 33,0 % | 169 / 227 (74 %) | **64,1 %** | **23,9 %** | 12,1 % | **2 / 4**, dix miettes |
+
+### Ce que les chiffres disent
+
+**Les mots se perdent dans le recouvrement, pas dans le vocabulaire.** Sur
+032a, les 21,6 % se décomposent en 12,1 % d'omissions, 4,4 % de substitutions
+et 5,2 % d'ajouts. Les omissions sont les petits mots lancés pendant que
+quelqu'un d'autre parle : « ouais » (17 fois), « ok » (14), « ben » (11),
+« non » (9). Une part des substitutions n'en sont pas : « vingt » écrit « 20 »,
+« etcetera » écrit « etc », « y'a » écrit « il y a ». Les ajouts sont menés par
+le « ne » de négation (15 fois), que les gens ne prononcent pas et que le
+modèle réécrit. Sur 036c, où un cinquième du temps est parlé à deux, les
+omissions montent à 19,3 %.
+
+**L'Assemblée ne se mesure pas en erreur de mots.** Contre les 4 700 mots du
+compte rendu couverts par les 40 minutes, 24 % des mots entendus n'y figurent
+pas (« et », « donc », « je », « que » : le texte publié resserre) et le
+compte rendu écrit « nous » là où l'auditionné a dit « on ». Le chiffre mesure
+la relecture. Ce que l'audition apporte, c'est la salle : 96,7 % d'attribution
+juste avec des micros de table, deux voix pour le président (2 et 19), et
+Mme Maurer fondue dans la voix de M. Abdelatif (11 phrases sur 92, ce sont les
+2,9 % de faux). Les deux « personnes » restantes des 7 ont une phrase chacune.
+
+**Le défaut, c'est 036c : quatre personnes rendues en deux voix.** La voix 0
+porte 093 et 099 (437 et 103 phrases), la voix 26 porte 092 et 091 (84 et 72).
+Ce ne sont pas des voix éclatées, ce sont des personnes **fondues deux à
+deux**, et dix miettes d'une phrase autour. Le compte rendu annoncerait deux
+participants là où il y en a quatre, et un quart des phrases porterait le
+mauvais nom. La même chaîne sur 032a, même studio, même dispositif, rend 4
+voix pour 4 personnes à 89 %. La différence entre les deux réunions : 1,4 min
+de parole superposée d'un côté, 5,1 de l'autre, et des paires de voix plus
+proches. C'est le cas que le synthétique ne produisait pas, et c'est celui
+qu'il faut faire tomber en premier.
+
+### Ce que ça change dans le plan
+
+- La case suivante (rejouer les seize combinaisons et l'amorce) se joue sur
+  036c et 032a, où la référence est mot à mot ; l'Assemblée ne sert qu'à
+  l'attribution.
+- Les omissions dans le recouvrement ne se règlent pas par un réglage de
+  décodage : c'est un problème de séparation, pas de transcription.
+- Les 12 voix de 036c mettent la phase 5 (adopter les petits agrégats au seuil
+  du direct) devant une vraie réunion, avec un chiffre à battre : 64,1 %.
