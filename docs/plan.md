@@ -43,8 +43,12 @@ double-cliqué.
       Fait le 15/09 (`windows-proof.yml`). Regardé : la première question s'ouvre
       bien, mais affiche sa clé `modeles.manquants` au lieu de la phrase, et
       `demarrage.log` porte `'Window' object has no attribute 'loop'`.
-- [ ] Corriger ce que les images montrent.
+- [x] Corriger ce que les images montrent.
       *Preuve : les images d'après, et un test par défaut trouvé.*
+      Quatre défauts vus et corrigés le 15/09 : le lanceur appelait une méthode
+      disparue, l'exécutable n'emportait ni phrases ni sons, la question des
+      modèles venait avant la fenêtre, trois libellés restaient en français
+      en dur dans une interface anglaise.
 - [ ] Le vrai double-clic : machine virtuelle Windows 11 d'évaluation pilotée
       en VNC, ou son disque Windows à lui. À trancher par lui.
       *Preuve : une ligne « lancé sur Windows le … » dans le README, avec ce qui a été vu.*

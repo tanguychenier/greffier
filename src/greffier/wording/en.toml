@@ -7,6 +7,7 @@ aucun_enregistrement = "Nothing is being recorded."
 demarrer = "Start the meeting"
 terminer = "End the meeting"
 micro = "Microphone"
+micro_automatique = "Automatic: the one heard best"
 fin_en_cours = "Meeting over, transcription under way…"
 quitter_pendant = "A meeting is being recorded.\nEnd it cleanly and quit?"
 

@@ -11,6 +11,7 @@ aucun_enregistrement = "Aucun enregistrement en cours."
 demarrer = "Démarrer la réunion"
 terminer = "Terminer la réunion"
 micro = "Micro"
+micro_automatique = "Automatique : le mieux entendu"
 fin_en_cours = "Fin de la réunion, transcription en cours…"
 quitter_pendant = "Une réunion est en cours d'enregistrement.\nVoulez-vous la terminer proprement et quitter ?"
 
