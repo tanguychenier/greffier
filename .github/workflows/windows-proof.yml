@@ -1,0 +1,79 @@
+# Opens the Windows executable on a Windows runner and photographs the screen.
+#
+# The release workflow proves that the executable builds and answers
+# `--version`. This one proves what a person would see: the window itself, on
+# a machine that never had Greffier, with nothing installed and nothing
+# configured. The photographs come back as an artefact, to be looked at; the
+# start-up log and the folders the tool created come with them.
+#
+# Run by hand, never by a tag: it costs a Windows runner for a quarter of an
+# hour, and its result is an image, not a check.
+name: Windows proof
+
+on:
+  workflow_dispatch:
+
+jobs:
+  look:
+    name: Open the window and look
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Dependencies
+        run: |
+          python -m pip install -q -e ".[transcription]"
+          python -m pip install -q pyinstaller
+      - name: Build
+        run: |
+          pyinstaller --noconfirm --name Greffier --windowed `
+            --collect-all sherpa_onnx --collect-all soundfile `
+            --collect-submodules greffier `
+            tools/windows_launcher.py
+      - name: Open it, and photograph the screen three times
+        # A `--windowed` executable detaches at once: the process is kept, the
+        # screen is photographed at twenty, sixty and a hundred seconds, so
+        # that the first painting, the first question and what follows the
+        # answer nobody gives are all on file. The window titles are listed
+        # with each photograph: a photograph of an empty desktop with a
+        # window title next to it means the window opened off screen.
+        run: |
+          New-Item -ItemType Directory -Force -Path proof | Out-Null
+          Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+          $p = Start-Process -FilePath dist\Greffier\Greffier.exe -PassThru
+          $clock = [Diagnostics.Stopwatch]::StartNew()
+          foreach ($moment in 20, 60, 100) {
+            Start-Sleep -Seconds ([Math]::Max(0, $moment - [int]$clock.Elapsed.TotalSeconds))
+            $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+            $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+            $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+            $bitmap.Save("proof\ecran-$($moment)s.png")
+            $graphics.Dispose(); $bitmap.Dispose()
+            $titles = Get-Process | Where-Object { $_.MainWindowTitle } |
+              ForEach-Object { "$($_.ProcessName): $($_.MainWindowTitle)" }
+            $titles | Set-Content "proof\fenetres-$($moment)s.txt"
+            "--- $moment s: $($bounds.Width)x$($bounds.Height), alive=$(-not $p.HasExited)" | Tee-Object -Append proof\deroule.txt
+            $titles | Tee-Object -Append proof\deroule.txt
+          }
+          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+      - name: What it left behind
+        if: always()
+        run: |
+          $log = Join-Path $env:LOCALAPPDATA "Greffier\demarrage.log"
+          if (Test-Path $log) { Copy-Item $log proof\demarrage.log } else { "aucun demarrage.log" | Set-Content proof\demarrage.log }
+          foreach ($folder in @("$env:LOCALAPPDATA\greffier", "$env:APPDATA\greffier", "$env:LOCALAPPDATA\Greffier")) {
+            if (Test-Path $folder) {
+              "=== $folder" | Add-Content proof\dossiers.txt
+              Get-ChildItem -Recurse $folder | ForEach-Object { $_.FullName } | Add-Content proof\dossiers.txt
+            }
+          }
+          if (-not (Test-Path proof\dossiers.txt)) { "aucun dossier cree" | Set-Content proof\dossiers.txt }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-proof
+          path: proof
