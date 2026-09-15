@@ -249,3 +249,66 @@ class TestTheWholeLoop:
         v, _, _ = hardware_watch([AVEC], recorder=recorder)
         v.loop(dormir=sommeils.append)
         assert sommeils == [pytest.approx(4.0), pytest.approx(4.0)]
+
+
+class TestTheDiskFillingUp:
+    """A recording is the one piece nothing rebuilds."""
+
+    @staticmethod
+    def _watch(free_bytes, said):
+        from greffier.application.watch_hardware import HardwareWatch
+        from greffier.domain.devices import WatchRules
+
+        class Recorder:
+            def __init__(self):
+                self.reported = []
+
+            def read(self):
+                raise OSError("pas d'état")
+
+            def reprendre(self, because):
+                return None
+
+            def report(self, warning):
+                self.reported.append(warning)
+
+        class Lister:
+            def read(self):
+                from greffier.domain.devices import Hardware
+
+                return Hardware(devices=())
+
+        recorder = Recorder()
+        watch = HardwareWatch(
+            recorder=recorder,
+            lister=Lister(),
+            watch_rules=WatchRules(wanted_mic="", agrege=""),
+            reconstruire=lambda _mic: True,
+            notify_user=said.append,
+            room_left=lambda: free_bytes,
+        )
+        return watch, recorder
+
+    def test_a_disk_with_room_says_nothing(self):
+        said = []
+        watch, recorder = self._watch(200 * 1024**3, said)
+        watch.turn()
+        assert said == [] and recorder.reported == []
+
+    def test_a_disk_filling_up_says_so_once(self):
+        # Once: a watch that repeats itself every ten seconds is one people
+        # learn to ignore.
+        said = []
+        watch, recorder = self._watch(100 * 1024**2, said)
+        watch.turn()
+        watch.turn()
+        watch.turn()
+        assert len(said) == 1
+        assert "d'enregistrement possible" in said[0]
+        assert recorder.reported == said
+
+    def test_a_disk_it_cannot_measure_is_not_an_alarm(self):
+        said = []
+        watch, _ = self._watch(None, said)
+        watch.turn()
+        assert said == []

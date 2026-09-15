@@ -11,6 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from greffier.domain import space
 from greffier.domain.capture import CaptureWatch
 from greffier.domain.devices import Action, Hardware, WatchRules
 from greffier.domain.level import LevelWatch
@@ -43,12 +44,15 @@ class HardwareWatch:
     notify_user: Callable[[str], None] = lambda _: None
     captured_size: Callable[[], int | None] | None = None
     captured_level: Callable[[], float | None] | None = None
+    room_left: Callable[[], int | None] | None = None
+    channels: int = 1
     span: float = SPAN
 
     def __post_init__(self) -> None:
         self._previous: Hardware | None = None
         self._capture = CaptureWatch()
         self._level = LevelWatch()
+        self._said_the_disk_is_filling = False
 
     def recorded(self) -> bool:
         """False as soon as the recording stops: the watch ends with it."""
@@ -58,9 +62,10 @@ class HardwareWatch:
             return False
 
     def turn(self) -> None:
-        """One pass: whether capture advances and carries sound."""
+        """One pass: whether capture advances, carries sound, and has room."""
         self._check_the_capture()
         self._check_the_level()
+        self._check_the_room_left()
         current = self.lister.read()
         if not current.devices:
             return
@@ -100,6 +105,27 @@ class HardwareWatch:
             return
         self.recorder.report(because)
         self.notify_user("L'enregistrement n'avance plus.")
+
+    def _check_the_room_left(self) -> None:
+        """Says, once, that the disk will not hold the rest of the meeting.
+
+        Once and not every pass: a watch that repeats itself every ten seconds
+        is a watch people learn to ignore. And said while it can still be acted
+        on -- somebody in a meeting can free something up or stop early, and
+        can do neither if the first they hear of it is a transcript missing its
+        last half-hour.
+        """
+        if self.room_left is None or self._said_the_disk_is_filling:
+            return
+        libre = self.room_left()
+        if libre is None:
+            return
+        because = space.said_during_the_meeting(space.Room(libre, self.channels))
+        if not because:
+            return
+        self._said_the_disk_is_filling = True
+        self.recorder.report(because)
+        self.notify_user(because)
 
     def _check_the_level(self) -> None:
         """Says, once, that the captured sound is too weak to transcribe."""

@@ -29,7 +29,7 @@ changeait, **mesuré** sans être tenu par un test, et **ouvert**.
 | **Musique ou vidéo** jouée pendant la réunion | ouvert | |
 | La même personne **présente et connectée** : sa voix arrive deux fois | ouvert | |
 | Réunion plus longue que le garde-fou de quatre heures | ouvert | |
-| Réunion de trente secondes | ouvert | |
+| Réunion de trente secondes | couvert | le jeu d'essai fait 35 s, `test_whole_chain` |
 
 ## La langue
 
@@ -65,13 +65,13 @@ changeait, **mesuré** sans être tenu par un test, et **ouvert**.
 | Aucun modèle installé | couvert | la fenêtre le dit et propose |
 | La carte graphique ne peut pas calculer | couvert | `test_transcription_device` |
 | Deux moteurs ONNX dans un processus | couvert | `test_cuda` |
-| **Disque plein** pendant l'enregistrement | ouvert | |
+| **Disque plein** pendant l'enregistrement | couvert | `test_space`, la veille prévient une fois |
 | Le **micro disparaît** en séance | partiellement | veille matérielle sur macOS |
 | La machine **se met en veille** | ouvert | |
 | Le **réseau tombe** pendant la rédaction | partiellement | le délai existe, le parcours non |
 | L'application **s'arrête** en séance | partiellement | `greffier recuperer` |
 | Les **modèles sont effacés** entre deux réunions | ouvert | |
-| Fichier audio **abîmé** | ouvert | |
+| Fichier audio **abîmé** | couvert | `why_unreadable`, avant l'ouverture des modèles |
 | **Changement d'heure** pendant la réunion | ouvert | |
 
 ## Ce que la loi demande

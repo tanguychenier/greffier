@@ -341,3 +341,15 @@ class TestHandingTheTranscriptToAnotherTool:
         answered = _run(reglages, "exporter", "2026-09-10_point", "--format", "docx")
         assert answered.exit_code == 1
         assert "srt" in answered.stderr
+
+
+class TestWhatBreaksARecording:
+    def test_a_file_that_is_not_sound_is_refused_in_french(self, poste, tmp_path):
+        # And refused before the models open: the traceback it used to raise
+        # came twenty seconds in, from the audio library.
+        reglages, _ = poste
+        faux = tmp_path / "abime.wav"
+        faux.write_bytes(b"\x00\x01\x02\x03" * 5000)
+        answered = _run(reglages, "traiter", str(faux))
+        assert answered.exit_code == 1
+        assert "n'est pas un enregistrement lisible" in answered.stderr

@@ -1830,6 +1830,8 @@ class Window:
         choisi = self.mic.value()
         if choisi:
             self.config.audio.mic = choisi
+        if not self._the_disk_can_hold_a_meeting():
+            return
         try:
             precedente = _prepare_capture(self.config)
             self.recorder.start_recording("reunion", sortie_precedente=precedente)
@@ -1840,6 +1842,35 @@ class Window:
             asking.complain("Greffier", str(trouble))
             return
         self._probe_the_send()
+
+    def _the_disk_can_hold_a_meeting(self) -> bool:
+        """Says what room is left, and asks before starting on almost none.
+
+        A recording is the one piece nothing rebuilds. A disk filling up during
+        a meeting leaves a clock going up on screen while nothing is written,
+        and the loss is found afterwards.
+        """
+        import shutil
+
+        from greffier.domain import space
+
+        cible = self.config.paths.recordings
+        while not cible.exists() and cible.parent != cible:
+            cible = cible.parent
+        try:
+            libre = shutil.disk_usage(cible).free
+        except OSError:
+            return True
+        reste = space.Room(libre, channels=2 if platform.system() == "Darwin" else 1)
+        dit = space.said_in_french(reste)
+        if not dit:
+            return True
+        if reste.verdict is space.Verdict.TOO_LITTLE:
+            return asking.ask_yes_no(
+                "Greffier", f"{dit}\n\nDémarrer quand même ?", default="no",
+            )
+        self.status_line.configure(text=dit)
+        return True
 
     def _probe_the_send(self) -> None:
         """Checks now that the minutes will be able to leave.
@@ -2258,6 +2289,8 @@ class Window:
             self.status_line.configure(text=dit)
 
     def _process_selection(self) -> None:
+        from greffier.adapters.audio_ffmpeg import why_unreadable
+
         identifier = self._selection()
         if identifier is None:
             self.status_line.configure(text=self.dit("reunions.choisis_une_reunion"))
@@ -2266,6 +2299,12 @@ class Window:
             audio = self.store.read(identifier).audio
         except (OSError, ValueError) as trouble:
             asking.complain("Greffier", str(trouble))
+            return
+        # Avant d'ouvrir les modèles : un fichier abîmé rendait une exception de
+        # la bibliothèque audio, vingt secondes plus tard, dans un fil.
+        empeche = why_unreadable(audio)
+        if empeche:
+            asking.complain("Greffier", empeche)
             return
         self._run_job(Job(
             caption=f"traitement de {identifier}",
