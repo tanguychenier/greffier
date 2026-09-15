@@ -79,7 +79,7 @@ changeait, **mesuré** sans être tenu par un test, et **ouvert**.
 | Situation | État | Où |
 |---|---|---|
 | Dire dans le compte rendu ce qui a été annoncé aux participants | couvert | ligne de consentement |
-| **Effacer une personne** de la banque et de toutes les réunions | ouvert | |
+| **Effacer une personne** de la banque et de toutes les réunions | couvert | `test_erase_person`, `greffier oublier-une-personne` |
 | Effacer une réunion entière | partiellement | en ligne de commande, pas dans la fenêtre |
 
 ## Ce que l'outil devrait avoir

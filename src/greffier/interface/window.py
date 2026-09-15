@@ -825,23 +825,42 @@ class Window:
 
         entry = tk.Frame(inside, bg=self.colours.board)
         entry.grid(row=2, column=0, sticky="ew", pady=(16, 0))
-        self._text(entry, self.dit("voix.prenom"), taille=11, pale=True).pack(
-            side="left", padx=(0, 9)
+        entry.columnconfigure(2, weight=1)
+        self._text(entry, self.dit("voix.prenom"), taille=11, pale=True).grid(
+            row=0, column=0, sticky="w", padx=(0, 9)
         )
         self.champ_nom = self._champ(entry, width=20)
-        self.champ_nom.pack(side="left", ipady=7, ipadx=5)
+        self.champ_nom.grid(row=0, column=1, sticky="w", ipady=7, ipadx=5)
         self.champ_nom.bind("<Return>", lambda _e: self._name_voice())
+        # A bar that wraps, not four buttons packed side by side: at 880 px,
+        # the narrowest the window can be, « Séparer les deux voix » ran past
+        # the edge of the card with its last word cut off, reachable by nobody.
+        # The Réunions tab has wrapped its seven buttons since the day the
+        # seventh disappeared the same way.
+        actions = ButtonBar(entry, self.colours)
+        actions.grid(row=0, column=2, sticky="ew", padx=(11, 0))
         self.voice_buttons = []
-        for caption, action, width, principal, gap in (
-            ("Nommer", self._name_voice, 110, True, (11, 9)),
-            ("Écouter 10 s", self._listen, 140, False, (0, 0)),
-            ("Retirer le nom", self._forget_the_name, 150, False, (9, 0)),
-            ("Séparer les deux voix", self._split_the_voice, 190, False, (9, 0)),
+        for caption, action, width, principal in (
+            ("Nommer", self._name_voice, 110, True),
+            ("Écouter 10 s", self._listen, 140, False),
+            ("Retirer le nom", self._forget_the_name, 150, False),
+            ("Séparer les deux voix", self._split_the_voice, 190, False),
         ):
-            bouton = Button(entry, caption, action, self.colours,
+            bouton = Button(actions, caption, action, self.colours,
                             principal=principal, width=width, height=34)
-            bouton.pack(side="left", padx=gap)
+            actions.add(bouton, width)
             self.voice_buttons.append(bouton)
+
+        # Set apart and a line below, like « Supprimer » in the Réunions tab:
+        # this one erases a person from every meeting at once, and a gesture of
+        # that weight does not belong in a row with « Écouter 10 s ».
+        apart = tk.Frame(inside, bg=self.colours.board)
+        apart.grid(row=3, column=0, sticky="e", pady=(10, 0))
+        self.bouton_oublier = Button(
+            apart, "Oublier la personne", self._forget_a_person, self.colours,
+            width=180, height=30,
+        )._efface()
+        self.bouton_oublier.pack(side="right")
 
     def _preparation_tab(self) -> None:
         """Before a meeting: what to raise, who is expected, and Lucie.
@@ -2691,6 +2710,101 @@ class Window:
             return
         self._load_voices()
         self.status_line.configure(text=f"La voix {voice} n'a plus de nom.")
+
+    def _everywhere(self) -> Any:
+        """Where a person can have been written down."""
+        from greffier.application.erase_person import Everywhere
+
+        paths = self.config.paths
+        return Everywhere(
+            meetings=paths.data / "reunions",
+            minutes_folder=paths.minutes_folder,
+            transcripts=paths.transcripts,
+            live=paths.live,
+            propositions=paths.propositions,
+            questions=paths.questions,
+            conversations=paths.conversations,
+            preparations=paths.preparations,
+            memory=paths.memory,
+            troubles=paths.troubles,
+        )
+
+    def _person_aimed_at(self) -> str:
+        """The first name typed, or the one the selected voice carries."""
+        typed = self.champ_nom.get().strip()
+        if typed:
+            return typed
+        chosen = self.voice.selection()
+        if not chosen:
+            return ""
+        values = self.voice.item(chosen[0], "values")
+        return str(values[3]).strip() if len(values) > 3 else ""
+
+    def _forget_a_person(self) -> None:
+        """Erases somebody from everything the tool kept of them.
+
+        Removing the name from one voice leaves it in the minutes, the
+        transcript, the thread and the memory. This is the other gesture, the
+        one Article 17 asks for, and it says where the name stands before doing
+        anything: a first name is a common word, and the same word meaning
+        somebody else goes with it.
+        """
+        from greffier.adapters import graph_sqlite
+        from greffier.adapters.voice_bank_files import FileVoiceBank
+        from greffier.application import erase_person
+
+        name = self._person_aimed_at()
+        if not name:
+            asking.tell("Greffier", "Tapez le prénom à effacer, ou choisissez "
+                                     "une voix déjà nommée.")
+            return
+        ou = self._everywhere()
+        bank = FileVoiceBank(self.config.paths.voice_bank)
+        person = bank.find(name)
+        empreintes = len(person.voiceprints) if person else 0
+        traces = erase_person.inventory(ou, name, voiceprints=empreintes)
+        if not traces:
+            asking.tell("Greffier", f"« {name} » n'est écrit nulle part.")
+            return
+
+        detail = "\n".join(
+            f"  {trace.occurrences:>4}  {trace.what}"
+            + ("  (donnée biométrique)" if trace.biometric else "")
+            for trace in traces
+        )
+        total = sum(trace.occurrences for trace in traces)
+        if not asking.ask_yes_no(
+            "Greffier",
+            f"Effacer « {name} » partout ?\n\n{detail}\n\n"
+            f"{total} occurrence(s). Les réunions restent : ce qui s'est décidé "
+            "appartient à tous ceux qui étaient là. Le nom devient "
+            "« Indéterminé », et cela ne se défait pas.",
+            default="no",
+        ):
+            return
+        done = erase_person.erase(
+            ou, name,
+            forget_the_voiceprints=lambda who: self._forget_the_voiceprints(bank, who),
+            forget_in_the_index=lambda who: (
+                graph_sqlite.forget_person(self.config.paths.graph, who)
+                if self.config.paths.graph.exists() else 0
+            ),
+        )
+        self._load_meetings()
+        self._load_voices()
+        self.status_line.configure(
+            text=f"« {name} » effacé : {done.occurrences} occurrence(s) dans "
+                 f"{done.files} fichier(s)"
+            + (f", {done.voiceprints} empreinte(s) vocale(s)"
+               if done.voiceprints else "")
+        )
+
+    @staticmethod
+    def _forget_the_voiceprints(bank: Any, name: str) -> int:
+        """Erases somebody from the bank, and says how many prints went."""
+        person = bank.find(name)
+        how_many = len(person.voiceprints) if person else 0
+        return how_many if bank.forget(name) else 0
 
     def _regenerate_after_naming(self, identifier: str) -> None:
         """Replays the writing, in a separate thread."""
