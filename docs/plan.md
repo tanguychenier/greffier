@@ -3,7 +3,7 @@
 What is left to do on Greffier after 0.3.23, in the order each phase unlocks
 the next. A box is ticked in the PR that finishes the point, with its proof
 next to it: a measured figure, an image looked at, a test that would fail if
-the behaviour changed. The detail of each point is in `reste-a-faire.md` and
+the behaviour changed. The detail of each point is in `what-is-left.md` and
 `scenarios.md`; here, only the state.
 
 ## Phase 1. A real corpus in French
@@ -69,7 +69,7 @@ through a sitting.
       *Proof: the log of the interventions on the real meeting.*
 - [ ] Judge each intervention: right moment, useful, intrusive. Decide the
       default value on those figures.
-      *Proof: the table in `reste-a-faire.md`, and the default setting that follows from it.*
+      *Proof: the table in `what-is-left.md`, and the default setting that follows from it.*
 
 ## Phase 4. Two short product tasks
 
@@ -85,9 +85,16 @@ through a sitting.
 Live gathered Lise into one voice; the post-meeting chain split her into
 nine.
 
-- [ ] Measure with `replay_stitching.py`, on the AMI and on the phase 1
+- [x] Measure with `replay_stitching.py`, on the AMI and on the phase 1
       corpus, the adoption of the small aggregates at 0.50 instead of 0.75.
       *Proof: the right / wrong / no opinion table, as for the "attached scrap". Kept only if both sides improve.*
+      Measured on 15/09 with `tools/measure_stitching.py` on the two SUMM-RE
+      meetings (the AMI files are no longer on this disk): the live threshold
+      is the wrong lead (pairs at 0.50 fuse the same people a step earlier);
+      the pass that fused four people into two is the consolidation at 0.70,
+      inside the different-people range on this corpus (max 0.730) while the
+      same person never scores under 0.932. Consolidation raised to 0.80;
+      036c goes from 2 to 4 voices, 032a unchanged.
 
 ## Phase 6. The rest, afterwards
 
@@ -101,9 +108,10 @@ nine.
       timbres, and "Lucie" heard as "UCI".
 - [ ] An up-to-date survey of speaker separation; any candidate has to beat
       +0.099 of margin at 14.6 ms.
-- [ ] The older documents of `docs/` (`reste-a-faire`, `scenarios`,
-      `calibrage`, `separation-des-voix`, `carte-graphique`, `rex-2026-09-10`)
-      put into English, like the code.
+- [x] The older documents of `docs/` put into English, like the code, and
+      renamed: `what-is-left`, `scenarios`, `calibration`,
+      `speaker-separation`, `graphics-card`, `retrospective-2026-09-10`
+      (done on 15/09).
 
 ## Decisions that are his, not tasks
 

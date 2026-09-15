@@ -1,7 +1,7 @@
 # A real corpus in French
 
 On a synthesised meeting, the sixteen decoding combinations give the same
-1.75 % word error rate (`reste-a-faire.md`, 2026-09-12): the synthetic
+1.75 % word error rate (`what-is-left.md`, 2026-09-12): the synthetic
 carries neither overlap, nor accent, nor distance to the microphone, the
 three causes of the complaint "the words shown were not the ones said in the
 meeting". Telling settings apart takes real speech, with a reference written
@@ -170,3 +170,47 @@ behind it **costs**: 24.9 % instead of 22.1 % on 032a, 30.5 % instead of
 (11 then 15 terms out of 15) therefore comes from the terms, not from the
 sentence in front of them. Nothing to change as long as the prompt only
 exists with terms; if it is ever sent empty, this figure says not to.
+
+## The stitching, pass by pass (2026-09-15)
+
+`python3 tools/measure_stitching.py`: the segmenter's own groups and their
+voiceprints computed once, then every strategy scored in a second against
+the reference timings, on the turns and weighted by speaking time. The
+question was which of the three passes fused four people into two on 036c,
+and what the live threshold (0.50) would have done instead.
+
+| Strategy | 032a: voices / right / wrong | 036c: voices / right / wrong |
+|---|---|---|
+| segmenter alone | 13 (+57 scraps) / 95.6 % / 4.4 % | 26 (+155 scraps) / 96.8 % / 3.2 % |
+| pairs at 0.75 | 5 / 93.8 % / 6.2 % | **4** / 93.5 % / 6.5 % |
+| pairs at 0.65, 0.55 or 0.50 *(the live threshold)* | 4 / 93.3 % / 6.7 % | **2** / 72.5 % / 27.5 % |
+| pairs + adoption (0.45, 0.55 or 0.65) | 4 / 93.3 % / 6.7 % | **4** / 93.5 % / 6.5 % |
+| pairs + adoption + consolidation at **0.70** *(the product until today)* | 4 / 93.3 % / 6.7 % | **2** / 72.2 % / 27.8 % |
+| pairs + adoption + consolidation at 0.80 or 0.90 | 4 / 93.3 % / 6.7 % | **4** / 93.5 % / 6.5 % |
+
+### What it says
+
+- **The consolidation pass did it, not the pairs and not the adoption.**
+  After pairs and adoption, 036c holds exactly four established groups, one
+  per person, at 93.5 % right. Consolidation at 0.70 then joined 093 with
+  099 at 0.717 and 091 with 092 at 0.704: two different people each time.
+- **The live threshold is the wrong lead.** Lowering the pairs pass to 0.50
+  fuses the same two pairs a step earlier. The live thread does better on
+  the meeting of 2026-09-10 for another reason, worth its own measurement,
+  not by its threshold.
+- **Where 0.80 comes from.** At the scale of established groups, on both
+  meetings: the same person cut in two halves scores **0.932 at the lowest**
+  (0.946 on 036c), two different people **0.730 at the highest** (0.581 on
+  032a). Slices of forty seconds against the rest of the same person: median
+  0.94 to 0.97, one outlier at 0.711. 0.70 sat inside the different-people
+  range on this corpus; 0.80 sits between the two with 0.07 below and 0.13
+  above. The AMI figure that set 0.70 (different people never over 0.652)
+  held for English meetings through a far-field microphone; French speakers
+  close to their microphone come out more alike.
+- **The cost of raising it**: a person whose two halves score under 0.80
+  stays two attendees. Not seen on this corpus (minimum 0.932); the outlier
+  at 0.711 is a forty-second slice, which adoption handles before
+  consolidation is reached.
+
+`CONSOLIDATION_THRESHOLD` goes from 0.70 to 0.80. The three recordings are
+measured again through the whole chain below.

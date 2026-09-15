@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Mesure les seuils de reconnaissance sur un corpus public de réunions.
 
-Le calibrage du dépôt (`docs/calibrage.md`) repose sur des enregistrements
+Le calibrage du dépôt (`docs/calibration.md`) repose sur des enregistrements
 faits ici, et il lui manque la mesure qui compte le plus : **la même personne,
 sur deux séances différentes**. C'est elle qui dit si `SEUIL_RECONNAISSANCE`
 est bien placé, un seuil trop haut ne reconnaît plus personne d'une réunion à

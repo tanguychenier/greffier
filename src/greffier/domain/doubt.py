@@ -12,7 +12,7 @@ its exponential is the average probability per token. The chain threw it away.
 
 What counts as doubt is a threshold, and a threshold is a measurement. This one
 comes from `tools/measure_confidence.py`, which transcribes a meeting whose
-words are known and sorts the turns by that figure; see `docs/calibrage.md`.
+words are known and sorts the turns by that figure; see `docs/calibration.md`.
 """
 
 from __future__ import annotations
