@@ -1116,8 +1116,12 @@ reste à faire.
   seule prise de son (fichier mono, ou boucle système muette avec plusieurs
   voix) est notée à l'écran, gardée dans le fichier maître, et le compte rendu
   porte la ligne « Attribution des propos par reconnaissance des voix ».
-- **Le nombre de participants** se règle, mais rien ne le suggère quand le
-  compte détecté paraît trop haut.
+- ~~**Le nombre de participants** se règle, mais rien ne le suggère quand le
+  compte détecté paraît trop haut.~~ Fait le 15/09 : sans nombre annoncé, une
+  voix qui passe le seuil des dix secondes mais porte moins de 5 % de la parole
+  déclenche la suggestion de renseigner « participants » et de relancer
+  « Traiter ». Le seuil vient de la réunion du 10/09 : trois voix de 37, 25 et
+  16 s sur 3 878, toutes des morceaux des six autres.
 - **Un corpus réel en français**, avec transcription de référence, pour
   départager ce que le synthétique ne départage pas.
 

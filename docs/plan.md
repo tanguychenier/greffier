@@ -66,7 +66,7 @@ une séance.
 - [x] Présentiel : quand la prise de son n'a qu'un canal, la fenêtre et le
       compte rendu disent que l'attribution repose sur les voix.
       *Preuve : un test dans `test_window`, et la ligne dans un compte rendu réel.*
-- [ ] Nombre de participants : quand les voix détectées dépassent le nombre
+- [x] Nombre de participants : quand les voix détectées dépassent le nombre
       déclaré, la fenêtre le suggère.
       *Preuve : un test sur les réunions synthétiques, et la suggestion vue à l'écran.*
 
