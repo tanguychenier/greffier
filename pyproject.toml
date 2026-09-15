@@ -32,6 +32,9 @@ cuda = ["nvidia-cublas-cu12>=12.4", "nvidia-cudnn-cu12>=9.1",
 # La porte HTTP, pour un site qui pilote l'outil. Optionnelle : une installation
 # de bureau n'a rien à écouter, et fastapi tire uvicorn et starlette avec lui.
 api = ["fastapi>=0.115", "uvicorn>=0.30", "python-multipart>=0.0.9"]
+# Lecture des corpus publics par `tools/fetch_corpus.py` : SUMM-RE est servi en
+# parquet sur Hugging Face. Un outil de mesure, jamais le logiciel installé.
+corpus = ["pyarrow>=17", "huggingface_hub>=0.25"]
 # uvicorn est là pour mypy autant que pour l'usage : sans lui, la vérification
 # de types échoue sur un import qu'elle ne peut pas suivre.
 dev = ["pytest>=8.3", "pytest-cov>=6.0", "ruff>=0.8", "mypy>=1.13",
@@ -99,6 +102,7 @@ files = ["src/greffier"]
 # types tourne, elle, sans les extras.
 module = [
     "sherpa_onnx.*", "soundfile.*", "faster_whisper.*", "huggingface_hub.*",
+    "pyarrow.*",
 ]
 ignore_missing_imports = true
 
