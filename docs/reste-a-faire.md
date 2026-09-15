@@ -1,5 +1,11 @@
 # What remains to be done
 
+**Read the last entry first.** This is a journal: every section below describes
+the state on the day it was written, and the sections keep their date rather
+than being rewritten. What is actually left today is under « Ce que valent les
+points restés ouverts (2026-09-15) », which went through every earlier « still
+open » line against the code and struck out the ones that had been done since.
+
 State as of 2026-09-01, after the fix of the last three defects of the initial
 diagnosis (segmentation, lost proposal, live text).
 
@@ -1053,6 +1059,64 @@ au découpage :
   séparation des voix : « ça détectait mal les voix » et « les mots étaient
   faux » ne se réparent pas au même endroit, et le premier ne s'améliore pas en
   travaillant sur le second.
+
+## Ce que valent les points restés « ouverts » (2026-09-15)
+
+Ce document est un journal, et un journal vieillit. Repris point par point
+contre le code d'aujourd'hui, la moitié de ce qu'il donnait pour ouvert était
+fait depuis, ce qui est pire qu'un document absent : on croit savoir ce qu'il
+reste à faire.
+
+**Ce qui était écrit ouvert et ne l'était plus.**
+
+- ~~`skills/greffier/SKILL.md` n'est pas dans le dépôt.~~ Les deux SKILL.md sont
+  suivis (`git ls-files skills/`).
+- ~~`tools/make_meeting.py` dépend de `say`, donc de macOS.~~ La voix VITS
+  installée pour l'assistante parle le jeu d'essai depuis la 0.3.11.
+- ~~Le thème ne suit que macOS.~~ `system_is_dark()` interroge le portail XDG,
+  puis `gsettings`, puis le thème GTK ; Windows lit sa base de registre.
+- ~~La fenêtre n'a pas d'anticrénelage.~~ Corrigé en 0.3.13 : l'installeur
+  choisit un Python du système, dont le Tk est construit avec Xft.
+- ~~Aucun moyen d'effacer une réunion depuis l'onglet Réunions.~~ Le bouton
+  « Supprimer » y est, avec le détail de ce qui part et son poids.
+- ~~Deux voix fusionnées à la main ne peuvent pas être séparées.~~ Le retour
+  arrière existe depuis la 0.3.x : bouton, `greffier voix --separer`, et le cas
+  d'usage lui-même.
+
+**Ce qui a été fait ce jour-là**, chacun mesuré et couvert :
+
+- la fenêtre s'ouvre **avant** de poser une question. `Window(Config())` restait
+  bloqué dans une boîte modale ouverte depuis `__init__`, donc sur une machine
+  sans modèles, c'est-à-dire une installation neuve. `tools/window_proof.py`
+  s'arrêtait au même endroit, et ses photographies étaient illisibles, écrites
+  en rgba sur un canal alpha que X n'a jamais rempli ;
+- **effacer quelqu'un partout** (article 17), là où « connus --oublier » ne
+  vidait que la banque et laissait le prénom dans neuf endroits sur dix ;
+- **exporter** la transcription en SRT, WebVTT et CSV ;
+- **une confiance par tour**, mesurée avant d'être montrée : voir
+  `docs/calibrage.md`, deux régimes séparés à 0,85 ;
+- **le disque plein** et le **fichier audio abîmé**, les deux dernières façons
+  de perdre un enregistrement sans s'en apercevoir.
+
+### Ce qui reste ouvert, vérifié
+
+- **Windows n'a jamais été lancé sur une vraie machine.** Seize tests couvrent
+  les chemins propres au système ; personne n'a double-cliqué.
+- **Gatekeeper refusera le paquet macOS** ailleurs : il faudrait un Developer
+  ID, donc un compte payant. Décision, pas tâche.
+- **Pas d'AppImage pour Linux**, seulement l'arbre des sources et son
+  installeur.
+- **`initiative` est faux par défaut** : la moitié proactive de l'assistante est
+  mesurée, testée, et n'a jamais traversé une vraie réunion.
+- **L'assistante ne lit pas les sources connectées** (GitLab, Jira, Trello)
+  quand elle décide de parler. Elle les a pour une question écrite, pas orale.
+  Rien n'est configuré ici, donc le construire ne prouverait rien.
+- **En présentiel, le canal ne désigne personne** et rien ne le dit à
+  l'utilisateur : tout repose alors sur les empreintes.
+- **Le nombre de participants** se règle, mais rien ne le suggère quand le
+  compte détecté paraît trop haut.
+- **Un corpus réel en français**, avec transcription de référence, pour
+  départager ce que le synthétique ne départage pas.
 
 ## Ce que valent les réglages de transcription, mesuré (2026-09-12)
 
