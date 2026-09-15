@@ -86,6 +86,11 @@ class Job:
     done: Callable[[Any, Exception | None], None] = lambda _outcome, _trouble: None
     messages: queue.Queue[str] = field(default_factory=queue.Queue)
 
+#: How many tenths of a second the first question may wait for the window to
+#: be on screen. A screen that never shows it (a headless session) still gets
+#: its question, late rather than never.
+PATIENCE_BEFORE_ASKING = 50
+
 class Window:
     """Assembles the interface and keeps it up to date."""
 
@@ -242,8 +247,11 @@ class Window:
         # no models -- a fresh installation, that is -- the very first thing
         # somebody saw of Greffier was « a gigabyte and a half, shall I? » over
         # an empty grey rectangle. `after_idle` runs it once the events that
-        # paint the window have been dealt with, and not before.
-        self.root.after_idle(self._offer_the_models)
+        # paint the window have been dealt with, and not before. On Windows
+        # that is still too early: photographed on a runner, the question
+        # stood alone on the desktop, the window only appeared once it was
+        # answered. So the question waits until the window can be seen.
+        self.root.after_idle(self._offer_the_models_once_seen)
 
     def _build_state(self, parent: tk.Frame) -> None:
         c = self.colours
@@ -266,7 +274,7 @@ class Window:
         self.chrono = self._text(line, "", taille=27)
         self.chrono.grid(row=0, column=2, sticky="e")
 
-        self.detail = self._text(inside, "Aucun enregistrement en cours.",
+        self.detail = self._text(inside, self.dit("fenetre.aucun_enregistrement"),
                                   taille=12, pale=True)
         self.detail.grid(row=1, column=0, sticky="ew", pady=(5, 0))
 
@@ -301,7 +309,9 @@ class Window:
         rest = tk.Frame(self.commands, bg=c.board)
         Button(rest, self.dit("fenetre.demarrer"), self._start_recording, c,
                principal=True, width=192, height=38).pack(side="left")
-        self._text(rest, "Micro", taille=11, pale=True).pack(side="left", padx=(20, 8))
+        self._text(rest, self.dit("fenetre.micro"), taille=11, pale=True).pack(
+            side="left", padx=(20, 8)
+        )
         self.mic = Listing(rest, c, width=286, height=36)
         self.mic.pack(side="left")
         self._load_mics()
@@ -1486,7 +1496,7 @@ class Window:
         voulu = self.config.audio.mic
         if voulu and voulu not in names:
             names.append(f"{voulu}")
-        return (("", "Automatique : le mieux entendu"),
+        return (("", self.dit("fenetre.micro_automatique")),
                 *((name, name) for name in names))
 
     def _models_present(self) -> tuple[tuple[str, str], ...]:
@@ -1725,7 +1735,7 @@ class Window:
                 if not p.uid.startswith("com.reunions.")
                 and "blackhole" not in p.name.lower()
             ]
-        propositions = (("", "Automatique : le mieux entendu"),
+        propositions = (("", self.dit("fenetre.micro_automatique")),
                         *((name, name) for name in names))
         if propositions == self._micros_connus:
             return
@@ -1776,7 +1786,9 @@ class Window:
                 self._point, fill=c.amber if en_pause else c.calm
             )
         self.title.configure(text=state.name or self.dit("fenetre.pret"))
-        self.detail.configure(text=state.message or "Aucun enregistrement en cours.")
+        self.detail.configure(
+            text=state.message or self.dit("fenetre.aucun_enregistrement")
+        )
         self.chrono.configure(text=clock(state.seconds) if active or en_pause else "")
 
         self._follow_the_live_thread(state)
@@ -2614,6 +2626,14 @@ class Window:
             self._say("greffier", acte.doute)
             asking.warn("Greffier", acte.doute)
         self._regenerate_after_naming(identifier)
+
+    def _offer_the_models_once_seen(self, tries: int = 0) -> None:
+        """Asks only over a window that is on screen, and never waits forever."""
+        self.root.update_idletasks()
+        if self.root.winfo_viewable() or tries >= PATIENCE_BEFORE_ASKING:
+            self._offer_the_models()
+            return
+        self.root.after(100, lambda: self._offer_the_models_once_seen(tries + 1))
 
     def _offer_the_models(self) -> None:
         """Offers to fetch the models the machine is missing, and does it.

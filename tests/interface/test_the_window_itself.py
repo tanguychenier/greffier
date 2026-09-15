@@ -40,8 +40,14 @@ class TestOpeningBeforeAsking:
 
         built = Window(Config())
         try:
-            built.root.update()
-            asked = asking.unanswered()
+            asked: list[str] = []
+            for _ in range(20):
+                built.root.update()
+                asked = asking.unanswered()
+                if asked:
+                    break
+                built.root.after(100)
+                built.root.update()
             assert asked, "la proposition des modèles n'est jamais venue"
             # Compared against the catalogue and not against French words: the
             # window speaks the language of the machine, and the continuous
@@ -49,6 +55,55 @@ class TestOpeningBeforeAsking:
             gabarit = built.dit("modeles.manquants", poids="0 Mo")
             debut = gabarit.split("0 Mo")[0][:40]
             assert any(question.startswith(debut) for question in asked)
+        finally:
+            built.root.destroy()
+
+    def test_the_question_waits_for_the_window_to_be_seen(self, test_screen, monkeypatch) -> None:
+        """On Windows, idle came before the window was on screen: the question
+        stood alone on the desktop. It now waits until the window is viewable."""
+        from greffier.adapters.configuration import Config
+        from greffier.interface.window import Window
+
+        seen_when_asked: list[bool] = []
+        original = Window._offer_the_models
+
+        def noting(self) -> None:
+            seen_when_asked.append(bool(self.root.winfo_viewable()))
+            original(self)
+
+        monkeypatch.setattr(Window, "_offer_the_models", noting)
+        built = Window(Config())
+        try:
+            built.root.withdraw()
+            built.root.update()
+            assert seen_when_asked == [], "posée sur une fenêtre retirée de l'écran"
+            built.root.deiconify()
+            for _ in range(20):
+                built.root.update()
+                if seen_when_asked:
+                    break
+                built.root.after(100)
+                built.root.update()
+            assert seen_when_asked == [True]
+        finally:
+            built.root.destroy()
+
+    def test_a_window_that_never_shows_still_gets_its_question(
+        self, test_screen, monkeypatch
+    ) -> None:
+        from greffier.adapters.configuration import Config
+        from greffier.interface import window as module
+        from greffier.interface.window import Window
+
+        monkeypatch.setattr(module, "PATIENCE_BEFORE_ASKING", 2)
+        built = Window(Config())
+        try:
+            built.root.withdraw()
+            for _ in range(6):
+                built.root.update()
+                built.root.after(120)
+                built.root.update()
+            assert asking.unanswered()
         finally:
             built.root.destroy()
 
