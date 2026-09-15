@@ -55,7 +55,7 @@ changeait, **mesuré** sans être tenu par un test, et **ouvert**.
 | Un nom **corrigé en cours** de réunion | partiellement | `test_live_with_assistant` |
 | Une empreinte **fausse entre en banque**, et il faut s'en remettre | partiellement | `intruding_voiceprints` existe, le parcours non |
 | Une banque de **centaines** de personnes | ouvert | |
-| Deux voix fusionnées à la main, à **séparer de nouveau** | ouvert | sans retour arrière |
+| Deux voix fusionnées à la main, à **séparer de nouveau** | couvert | `greffier voix --separer`, bouton dans l'onglet Voix |
 
 ## Ce qui casse
 
@@ -80,14 +80,12 @@ changeait, **mesuré** sans être tenu par un test, et **ouvert**.
 |---|---|---|
 | Dire dans le compte rendu ce qui a été annoncé aux participants | couvert | ligne de consentement |
 | **Effacer une personne** de la banque et de toutes les réunions | couvert | `test_erase_person`, `greffier oublier-une-personne` |
-| Effacer une réunion entière | partiellement | en ligne de commande, pas dans la fenêtre |
+| Effacer une réunion entière | couvert | `greffier oublier`, et « Supprimer » dans l'onglet Réunions |
 
 ## Ce que l'outil devrait avoir
 
 - **Dire qu'il doute, au moment où il doute.** Il sait se faire corriger, il ne
   demande jamais.
-- **Un retour arrière** sur la séparation de deux voix.
-- **Effacer une réunion** depuis la fenêtre.
 - **Un premier lancement** qui prend par la main quand rien n'est configuré.
 
 ## Ce qui vient d'arriver
