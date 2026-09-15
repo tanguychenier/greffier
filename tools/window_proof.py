@@ -18,11 +18,18 @@ se peint et change d'onglet sans exception.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 RACINE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RACINE / "src"))
+
+# Nobody is in front of this window: it is built to be photographed. Saying so
+# keeps the boxes shut, and a box is what stopped this proof dead -- on a
+# machine without the models it hung on the question offering to fetch them,
+# which is precisely the machine this script exists to photograph.
+os.environ.setdefault("GREFFIER_ECRAN_D_ESSAI", "1")
 
 
 def capturer(window: object, target: Path) -> bool:
@@ -104,9 +111,14 @@ def _capture_by_identifier(window: object, target: Path) -> bool:
         )
         if taken.returncode != 0:
             return False
+        # `-pix_fmt rgb24`, sans quoi ffmpeg écrit un PNG **rgba** dont le canal
+        # alpha vient de bits que X n'a jamais remplis : à l'écran l'image
+        # apparaît délavée, un bouton bleu franc passe pour du texte bleu pâle
+        # et les cartes blanches disparaissent sur le fond. Une capture qu'on ne
+        # peut pas regarder ne sert à rien, et c'est tout ce qu'on lui demande.
         converted = subprocess.run(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-             "-i", brut.name, str(target)],
+             "-i", brut.name, "-pix_fmt", "rgb24", str(target)],
             check=False, capture_output=True,
         )
     return converted.returncode == 0 and target.exists()
