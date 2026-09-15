@@ -16,6 +16,7 @@ from greffier.domain.voiceprints import (
     RECOGNITION_THRESHOLD,
     aggregate,
     conflicting_names,
+    consolidate,
     enrichir,
     join_voices,
     normalise,
@@ -326,17 +327,29 @@ class TestStitchingAfterTheMeeting:
         assert membership["une"] != membership["deux"]
 
     def test_someone_who_moves_seats_is_brought_together(self):
-        """Two well fed groups, too unlike each other for the pairs pass.
+        """Two well fed groups of the same person, once the pairs pass is over.
 
-        0.72 does not pass the join threshold of 0.75: without consolidation the same
-        person stays two participants all the way into the minutes.
+        Measured on the SUMM-RE meetings (`docs/corpus.md`): the same person cut
+        in two halves scores 0.932 at the lowest, two different people 0.730 at
+        the highest. 0.90 is the same person; without consolidation she would
+        stay two participants all the way into the minutes.
         """
         per_voice = {
             "avant": [voice(1.0, 0.0, 0.0, duration=600.0)],
-            "apres": [voice(0.72, 0.694, 0.0, duration=600.0)],
+            "apres": [voice(0.90, 0.436, 0.0, duration=600.0)],
         }
         membership = stitch(per_voice)
         assert membership["avant"] == membership["apres"]
+
+    def test_two_people_alike_at_seventy_percent_are_not_brought_together(self):
+        """The two pairs of 036c, 0.717 and 0.704, each with minutes of speech: four
+        people came out as two voices while consolidation sat at 0.70."""
+        per_voice = {
+            "une": [voice(1.0, 0.0, 0.0, duration=600.0)],
+            "autre": [voice(0.72, 0.694, 0.0, duration=600.0)],
+        }
+        membership = stitch(per_voice)
+        assert membership["une"] != membership["autre"]
 
     def test_an_adopted_fragment_helps_adopt_the_next(self):
         """The order stops being arbitrary: it starts from the best fed fragment.
@@ -369,17 +382,39 @@ class TestStitchingAfterTheMeeting:
         assert membership["a"] != membership["b"]
 
     def test_the_stitching_thresholds_come_from_a_measurement(self):
-        """Replayed on the real meeting by `tools/replay_stitching.py`.
+        """Replayed on real meetings by `replay_stitching.py` and `measure_stitching.py`.
 
         298 voices returned by the segmentation, 172 after the pairs pass, 24 after
         adoption, 23 after consolidation, of which 3 carry more than ten seconds,
         which is the exact number of people in the room. No group joins two people,
         checked against the names given by hand.
+
+        Consolidation was then measured against a word-for-word reference
+        (`docs/corpus.md`, 2026-09-15): at 0.70 it fused two pairs of different
+        people scoring 0.717 and 0.704; the same person cut in two halves never
+        scores under 0.932, two different people never over 0.730. Hence 0.80.
         """
         assert ADOPTION_THRESHOLD == 0.45
         assert ADOPTION_MARGIN == 0.0
-        assert CONSOLIDATION_THRESHOLD == 0.70
+        assert CONSOLIDATION_THRESHOLD == 0.80
         assert ESTABLISHED_MATERIAL == 30.0
+
+    def test_two_established_groups_at_seventy_percent_stay_two_people(self):
+        """The pair of 036c: 0.717 between two people, each with ample material."""
+        per_voice = {
+            "a": [voice(1.0, 0.0, 0.0, duration=40.0)],
+            "b": [voice(0.717, 0.697, 0.0, duration=40.0)],
+        }
+        membership = consolidate(per_voice, {"a": "a", "b": "b"})
+        assert membership["a"] != membership["b"]
+
+    def test_two_established_groups_at_ninety_percent_are_one_person(self):
+        per_voice = {
+            "a": [voice(1.0, 0.0, 0.0, duration=40.0)],
+            "b": [voice(0.93, 0.37, 0.0, duration=40.0)],
+        }
+        membership = consolidate(per_voice, {"a": "a", "b": "b"})
+        assert membership["a"] == membership["b"]
 
 
 class TestAVoiceThatHoldsSeveralPeople:

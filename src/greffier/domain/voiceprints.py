@@ -2,7 +2,7 @@
 
 A voiceprint is a vector; the whole file is cosines and thresholds, and every
 threshold here was measured on real meetings rather than chosen. See
-docs/calibrage.md and docs/rex-2026-09-10.md for the figures.
+docs/calibration.md and docs/retrospective-2026-09-10.md for the figures.
 """
 
 from __future__ import annotations
@@ -29,7 +29,14 @@ THRESHOLD_ON_SHORT = 0.45
 ESTABLISHED_MATERIAL = 30.0
 ADOPTION_THRESHOLD = 0.45
 ADOPTION_MARGIN = 0.0
-CONSOLIDATION_THRESHOLD = 0.70
+#: Two established groups above this are one person. Set at 0.70 on the AMI
+#: corpus, where two different people never passed 0.652; on the SUMM-RE
+#: meeting 036c two pairs of different people reached 0.717 and 0.704, and
+#: four people came out as two voices. Measured at the scale of established
+#: groups on both SUMM-RE meetings: the same person cut in two halves scores
+#: 0.932 at the lowest, two different people 0.730 at the highest. 0.80 sits
+#: between the two with a margin on each side.
+CONSOLIDATION_THRESHOLD = 0.80
 
 COMMON_LEVEL = 0.06
 
