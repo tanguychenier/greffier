@@ -6,6 +6,15 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## New
 
+- **doubt**: say which passages the model did not hear well (`13ff498`)
+- **meetings**: exporting from the window (`651e8be`)
+- **export**: hand the transcript to the tools that are not this one (`bdab4a5`)
+- **voices**: forgetting somebody, from the window (`0c7f39f`)
+- **erasure**: forget somebody, everywhere they were written down (`0197d5b`)
+- **incidents**: write down what goes wrong, so a report can be answered (`ebaac2a`)
+- **tongue**: the window's plain sentences come from the catalogue (`2817c45`)
+- **transcription**: put the people expected at a meeting in the seed (`dfb0a73`)
+- **interface**: say what an empty list is waiting for (`0020df7`)
 - **install**: fetch the sherpa-onnx wheel that talks to the card (`765d9cb`)
 - **graph**: an index of what the tool knows, and a preparation that opens on it (`4cc96fa`)
 - **dictation**: one click to speak, and the silence ends the sentence (`0c4c3c4`)
@@ -71,6 +80,14 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **recording**: a disk filling up, and a file that is not sound (`c2e4fe8`)
+- **voices**: buttons that wrap, rather than a label cut in half (`5fa03e9`)
+- **window-proof**: a photograph somebody can actually look at (`37f5e9d`)
+- **window**: open before asking anything, and prove the window opens at all (`2ea5fb9`)
+- **minutes**: a voice too thin to be anybody is no longer given a number (`b4ae9a8`)
+- **voiceprints**: hold a thin voice to what a thin voice can prove (`b44e6f5`)
+- **tongue**: the tool addresses people as vous, and drops its own jargon (`87bbdce`)
+- **voiceprints**: stop the sound level from inventing a second person (`77443e7`)
 - **diagnostic**: ask the driver what the machine can compute with (`33bdab0`)
 - **cuda**: read the card the way each of the three systems files it (`9993183`)
 - **cuda**: keep the card when faster-whisper brings its own onnx runtime (`44b9a31`)
@@ -154,6 +171,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Performance
 
+- **dictation**: stop listening to a spoken question with the meeting's model (`5e8c2a8`)
 - **voiceprints**: stop reopening the hundred-megabyte model at every click (`7dd882a`)
 - **voice**: stop opening the voice model at every question (`5e05600`)
 - **transcription**: open the model while the encoder is still closing (`0c680e9`)
@@ -164,6 +182,9 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Documentation
 
+- **scenarios**: say what is actually left, and strike out what is not (`712bd88`)
+- **scenarios**: record a rule that was tried, measured and taken back (`43b2751`)
+- **scenarios**: list what the tool has met, and what it never has (`904d51a`)
 - record that the history no longer names anybody (`f80dfde`)
 - **cuda**: write down what was measured, and what did not help (`410106d`)
 - **readme**: a document one can find things in (`beac2e5`)
@@ -223,6 +244,9 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Refactored
 
+- **interface**: the file pickers go through the same door as the boxes (`84b1c60`)
+- **interface**: put every box behind a door that knows who is there (`40f9c19`)
+- **tools**: say the installer in English, keep what the user reads in French (`d5dd942`)
 - **cuda**: gather the loading of the nvidia libraries in one adapter (`37f4a67`)
 - **layers**: two primary adapters were leaning on each other (`bf8a286`)
 - **install**: the code, in English; the messages, in French (`28549c4`)
