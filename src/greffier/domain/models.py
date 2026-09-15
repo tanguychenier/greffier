@@ -81,6 +81,12 @@ class Utterance:
     text: str
     voice: str | None = None
     source: Source = Source.UNKNOWN
+    confidence: float | None = None
+    """How sure the model was of these words, between 0 and 1.
+
+    None where the engine did not say, which is not the same as zero: a turn
+    the tool cannot judge must not be shown as a turn it doubts.
+    """
 
 @dataclass(frozen=True, slots=True)
 class Voiceprint:

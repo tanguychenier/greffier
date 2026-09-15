@@ -325,7 +325,7 @@ class TestHandingTheTranscriptToAnotherTool:
         _run(reglages, "exporter", "2026-09-10_point", "--format", "csv")
         brut = (donnees / "transcriptions" / "2026-09-10_point.csv").read_bytes()
         assert brut.startswith(b"\xef\xbb\xbf")
-        assert b"debut;fin;duree;voix;nom;texte" in brut
+        assert b"debut;fin;duree;voix;nom;confiance;texte" in brut
 
     def test_it_writes_where_it_is_told(self, poste, tmp_path):
         reglages, donnees = poste

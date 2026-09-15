@@ -105,13 +105,13 @@ class TestSubtitlesABrowserReads:
 class TestOneLinePerTurnForASpreadsheet:
     def test_the_columns_are_named(self) -> None:
         premiere = sheet([said(0, 1, "oui")], NAMES).splitlines()[0]
-        assert premiere == "debut;fin;duree;voix;nom;texte"
+        assert premiere == "debut;fin;duree;voix;nom;confiance;texte"
 
     def test_a_turn_carries_its_times_its_voice_and_its_name(self) -> None:
         lignes = list(csv.reader(
             io.StringIO(sheet([said(1, 3.5, "D'accord.")], NAMES)), delimiter=";"
         ))
-        assert lignes[1] == ["1.00", "3.50", "2.50", "v1", "Sophie", "D'accord."]
+        assert lignes[1] == ["1.00", "3.50", "2.50", "v1", "Sophie", "", "D'accord."]
 
     def test_a_semicolon_in_what_was_said_does_not_make_a_column(self) -> None:
         lignes = list(csv.reader(
@@ -131,7 +131,7 @@ class TestAskingForAShape:
 
     def test_a_meeting_with_nothing_said_produces_a_file_all_the_same(self) -> None:
         # A spreadsheet with its header and no row is readable; a crash is not.
-        assert sheet([]).strip() == "debut;fin;duree;voix;nom;texte"
+        assert sheet([]).strip() == "debut;fin;duree;voix;nom;confiance;texte"
         assert vtt([]).strip() == "WEBVTT"
         assert srt([]) == ""
 
@@ -173,3 +173,17 @@ class TestNamingTheSpeakerWithoutRepeatingOneself:
         sortie = vtt([said(0, 30, " ".join(["mot"] * 60), voice="v2")], NAMES)
         assert sortie.count("<v Julien>") == sortie.count("-->")
         assert "Julien :" not in sortie
+
+
+class TestHowSureTheModelWas:
+    def test_the_figure_is_carried_into_the_spreadsheet(self) -> None:
+        peu_sur = Utterance(span=Span(0, 1), text="bailleurs", voice="v1",
+                            confidence=0.42)
+        lignes = list(csv.reader(io.StringIO(sheet([peu_sur], NAMES)), delimiter=";"))
+        assert lignes[1][5] == "0.42"
+
+    def test_a_turn_nobody_judged_leaves_the_column_empty(self) -> None:
+        # Empty, not zero: no figure is not a low figure, and a spreadsheet
+        # would average a zero in.
+        lignes = list(csv.reader(io.StringIO(sheet([said(0, 1, "oui")])), delimiter=";"))
+        assert lignes[1][5] == ""

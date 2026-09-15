@@ -196,6 +196,54 @@ fragments with no new constraint; only two small groups still fragile can no
 longer merge with each other on a statistical accident. Starting value, to be
 revalidated by the same method as above.
 
+## What the model's own certainty is worth (2026-09-15)
+
+Whisper returns an `avg_logprob` for every segment; its exponential is the
+average probability per token, between 0 and 1. The chain threw it away, so the
+minutes read the same whether the words were heard clearly or guessed at over a
+fan. Before showing that figure to anybody, it had to be measured: does it
+actually separate a turn transcribed word for word from one the model invented?
+
+```sh
+.venv/bin/python tools/measure_confidence.py <enregistrement.wav> <reference.txt>
+```
+
+The tool transcribes, aligns each turn with the line it is meant to be, and
+sorts the turns by their certainty. A synthesised meeting of 114 known words
+was measured clean, then with white noise mixed in at four known
+signal-to-noise ratios:
+
+| Prise | Confiance | Ce que vaut le texte |
+|---|---|---|
+| propre | 0,95 - 0,97 | fidèle, aux accords près |
+| + 10 dB | 0,91 - 0,93 | fidèle, aux accords près |
+| + 5 dB | 0,81 | phrases entières inventées |
+| 0 dB | 0,65 - 0,76 | idem |
+| - 5 dB | 0,61 - 0,81 | idem |
+
+Two regimes, and **nothing observed between 0.81 and 0.91**. `UNSURE_BELOW`
+goes in that gap, at **0.85**.
+
+What the figure catches, and what it does not. Above the threshold the only
+errors left were agreements: « celle » for « celles », « relevée » for
+« relevées », « concernant » for « concernés ». Below it, a sentence about a
+deployment came back as « qui nous réplique depuis le début de la semaine ». So
+the threshold marks the turns where the model stops hearing and starts writing,
+and says nothing about a plural.
+
+Two things this does not measure, and they are the same two the rest of this
+document names: a real voice in a real room, and two people at once. The
+recording is synthesised and the noise is added, which is not a meeting held
+badly. The figure holds for this machine, this model and this kind of
+degradation.
+
+A first attempt at the same measurement compared the words with their
+punctuation and their hyphens, and counted « pré-production » against
+« préproduction » as two errors. Every turn then looked wrong, including the
+ones that were right, and the conclusion drawn from it -- « the certainty
+separates nothing » -- was the tool's own fault. Comparing bare words, without
+case, accents or hyphens, is what made the two regimes visible.
+
 ## Known limits
 
 - The voice print model is `nemo_en_titanet_large`, trained on English. It works

@@ -44,6 +44,10 @@ class FileStore:
             "repliques": [
                 {"debut": r.span.start, "fin": r.span.end,
                  "texte": r.text, "voix": r.voice, "source": r.source.value}
+                # Absent rather than null where the engine said nothing: a file
+                # written before this reads back exactly as it did, and « not
+                # judged » stays distinct from « judged and poor ».
+                | ({} if r.confidence is None else {"confiance": r.confidence})
                 for r in meeting.utterances
             ],
             "fusions": [
@@ -110,7 +114,8 @@ class FileStore:
             ],
             utterances=[
                 Utterance(Span(r["debut"], r["fin"]), r["texte"], r.get("voix"),
-                         Source(r.get("source", "inconnue")))
+                         Source(r.get("source", "inconnue")),
+                         confidence=r.get("confiance"))
                 for r in content.get("repliques", [])
             ],
         )
