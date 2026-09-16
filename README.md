@@ -587,6 +587,16 @@ recognition thresholds on a recording of your own:
 The method and the thresholds in force are in
 [`docs/calibration.md`](docs/calibration.md).
 
+To check that the assistant hears her name in your voice, no meeting
+needed, ten questions into the microphone:
+
+```sh
+.venv/bin/python tools/measure_the_name.py --record 10
+```
+
+It says what the live model heard on each take, with the seed the watch
+gives it and without, and how many times out of ten she was called.
+
 Install the git hooks once and for all:
 
 ```sh
