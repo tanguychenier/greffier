@@ -7,6 +7,7 @@ from greffier.domain.instructions import (
     decisions_in,
     instruction_after,
     links_in,
+    worth_a_look,
 )
 from greffier.domain.models import Span, Utterance
 from greffier.domain.profiles.french import FRENCH
@@ -65,6 +66,36 @@ class TestDecisions:
 
     def test_an_ordinary_sentence_is_not_a_decision(self):
         assert not decisions_in("le déploiement s'est bien passé hier", FRENCH)
+
+
+class TestWhenALookIsWorthItsPrice:
+    """Measured on two real meetings, the look ran every ten seconds for one
+    intervention in forty minutes, on the one decision left without a date.
+    A decision announced or a question left in the air is where she had
+    something to say."""
+
+    def test_a_decision_announced_is_worth_a_look(self):
+        assert worth_a_look(["on part sur jeudi pour la recette"], FRENCH)
+
+    def test_a_question_left_in_the_air_is_worth_a_look(self):
+        assert worth_a_look(["et qui prévient les utilisateurs ?"], FRENCH)
+
+    def test_the_rest_of_the_talk_is_not(self):
+        assert not worth_a_look(["le déploiement s'est bien passé hier", "oui"], FRENCH)
+        assert not worth_a_look([], FRENCH)
+        assert not worth_a_look(["   "], FRENCH)
+
+    def test_a_room_settling_something_in_its_own_words_is_worth_a_look(self):
+        # Measured on SUMM-RE 032b, four people fixing a date: none of it is
+        # a decision the minutes would quote, all of it is the moment.
+        for said in ("ouais donc juste après les vacances de noël un jeudi",
+                     "c'est parfait + mh ouais c'est ça", "un jeudi c'est bien",
+                     "ok ça marche", "qui s'en occupe"):
+            assert worth_a_look([said], FRENCH), said
+
+    def test_the_settling_words_do_not_widen_the_decisions_of_the_minutes(self):
+        assert not decisions_in("c'est parfait", FRENCH)
+        assert not decisions_in("un jeudi c'est bien", FRENCH)
 
 
 class TestTheWatchRules:

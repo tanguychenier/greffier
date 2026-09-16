@@ -623,6 +623,21 @@ class TestTheTwoButtonsDuringAMeeting:
         watcher._apply_the_buttons(True, False)
         assert not watcher.initiative
 
+    def test_with_the_initiative_it_looks_only_after_a_decision_or_a_question(self):
+        # The look costs a call to the model every ten seconds otherwise.
+        looks = []
+        her = self._assistant_of()
+        her.look_for_a_contribution_aside = lambda now: looks.append(now)
+        watcher = self._watcher(her, (True, True))
+        watcher.watch_rules.profile = __import__(
+            "greffier.domain.profiles.french", fromlist=["FRENCH"]).FRENCH
+        watcher.initiative = True
+        watcher.assistant_turn([utterance(0, "le déploiement s'est bien passé")], now=10.0)
+        assert looks == []
+        watcher.assistant_turn([utterance(10, "on part sur jeudi pour la recette")], now=20.0)
+        watcher.assistant_turn([utterance(20, "et qui prévient les utilisateurs ?")], now=30.0)
+        assert looks == [20.0, 30.0]
+
     def test_without_the_initiative_it_does_not_ask_who_is_speaking(self):
         """The rule that makes it bearable: a word only when it is called."""
         her = self._assistant_of()

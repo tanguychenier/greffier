@@ -100,6 +100,20 @@ _DECISIONS = [
     re.compile(r"(?i:\bd'ici (?:lundi|mardi|mercredi|jeudi|vendredi|la semaine|le)\b)"),
 ]
 
+#: How a room settles something out loud, measured on SUMM-RE 032b where
+#: four people fixed a date: « donc juste après les vacances de noël un
+#: jeudi », « c'est parfait », « ok ouais ». None of it is a decision the
+#: minutes would quote, all of it is the moment to look.
+_SETTLING = [
+    *_DECISIONS,
+    re.compile(r"(?i:\b(?:c'est|ça) (?:parfait|bon|bien|validé|réglé|calé|noté|ok|good)\b)"),
+    re.compile(r"(?i:\bon (?:fait|garde|prend|choisit|fixe|cale|valide|se dit|part là)\b)"),
+    re.compile(r"(?i:\b(?:ça marche|va pour|allez pour|banco|d'accord pour|ok pour)\b)"),
+    re.compile(r"(?i:\b(?:un|le) (?:lundi|mardi|mercredi|jeudi|vendredi|samedi)\b)"),
+    re.compile(r"(?i:\b(?:avant|après|pendant) les vacances\b)"),
+    re.compile(r"(?i:\bqui (?:s'en occupe|s'en charge|fait ça|prend ça|le fait)\b)"),
+]
+
 FRENCH = LanguageProfile(
     code="fr",
     name="Français",
@@ -112,5 +126,9 @@ FRENCH = LanguageProfile(
         suffix_length=8,
     ),
     splitting=Splitting(words_split_by_spaces=True),
-    wording=Wording(boilerplate=BOILERPLATE, decision_patterns=tuple(_DECISIONS)),
+    wording=Wording(
+        boilerplate=BOILERPLATE,
+        decision_patterns=tuple(_DECISIONS),
+        settling_patterns=tuple(_SETTLING),
+    ),
 )

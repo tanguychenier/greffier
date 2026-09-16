@@ -69,12 +69,23 @@ def replay(thread: Path, period: float, rest: float, model: str) -> list[dict[st
         context=lambda: rendered(turns, now["at"]),
     )
     brain.warm_up()
+    from greffier.domain.instructions import worth_a_look
+    from greffier.domain.profiles.french import FRENCH
+
     interventions: list[dict[str, Any]] = []
     asked = 0
+    passed_over = 0
     started = time.monotonic()
     at = period
     while at <= end + period:
         now["at"] = at
+        # The watch looks only after a decision or a question left in the
+        # air, since a look is a call to the model: the same rule here.
+        fresh = [t["texte"] for t in turns if at - period < float(t["fin"]) <= at]
+        if not worth_a_look(fresh, FRENCH):
+            passed_over += 1
+            at += period
+            continue
         before = time.monotonic()
         opening = her.contribution(at)
         asked += 1
@@ -90,7 +101,8 @@ def replay(thread: Path, period: float, rest: float, model: str) -> list[dict[st
         at += period
     brain.close()
     print(f"\n{len(interventions)} intervention(s) over {end / 60:.0f} min, "
-          f"{asked} looks, {time.monotonic() - started:.0f} s of model time", flush=True)
+          f"{asked} looks and {passed_over} slices passed over, "
+          f"{time.monotonic() - started:.0f} s of model time", flush=True)
     return interventions
 
 

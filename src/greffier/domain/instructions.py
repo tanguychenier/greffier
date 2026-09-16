@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -58,6 +59,25 @@ def instruction_after(text: str, keyword: str) -> str | None:
 def decisions_in(text: str, profile: LanguageProfile) -> bool:
     """Does the passage announce a decision or a follow-up?"""
     return any(motif.search(text) for motif in profile.wording.decision_patterns)
+
+
+def worth_a_look(texts: Iterable[str], profile: LanguageProfile) -> bool:
+    """Whether what was just said gives the assistant a reason to look for
+    something to add, of her own accord.
+
+    Looking costs a call to the model, and measured on two real meetings
+    the look ran every ten seconds for one intervention in forty minutes.
+    A decision or a follow-up announced, or a question left in the air,
+    is where she had something to say; the rest of the talk is not.
+    """
+    patterns = profile.wording.settling_patterns or profile.wording.decision_patterns
+    for text in texts:
+        stripped = text.strip()
+        if not stripped:
+            continue
+        if stripped.endswith("?") or any(motif.search(stripped) for motif in patterns):
+            return True
+    return False
 
 @dataclass
 class WatchRules:
