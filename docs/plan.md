@@ -122,8 +122,13 @@ nine.
       French sentences on a fresh home.
 - [ ] The 22 skips of the integration suite: the table meeting with three
       timbres, and "Lucie" heard as "UCI".
-- [ ] An up-to-date survey of speaker separation; any candidate has to beat
-      +0.099 of margin at 14.6 ms.
+- [x] An up-to-date survey of speaker separation; any candidate has to beat
+      +0.099 of margin at 14.6 ms. Done on 16/09, section 4 of
+      `speaker-separation.md`: within the tool's constraints (ONNX, no
+      PyTorch, a licence a company can ship) nothing has changed; the one
+      candidate worth exporting and measuring is ReDimNet (MIT); pyannote
+      community-1 would need PyTorch, DiariZen is non-commercial, Sortformer
+      stops at four speakers.
 - [x] The older documents of `docs/` put into English, like the code, and
       renamed: `what-is-left`, `scenarios`, `calibration`,
       `speaker-separation`, `graphics-card`, `retrospective-2026-09-10`
