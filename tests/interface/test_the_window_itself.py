@@ -734,3 +734,68 @@ class TestTheWindowSaysItDoubtsAtTheMoment:
         window._add_to_live([self._turn(window, 1, "bonjour à tous", None)])
         window.root.update()
         assert doubt.MARK not in window.thread_widget.get("1.0", "end")
+
+
+class TestTheFirstLaunchTakesYouByTheHand:
+    """Somebody who has just double-clicked the tool used to see six tabs and
+    a question about a gigabyte and a half."""
+
+    def _machine(self, monkeypatch, window, models=False, account=False, mic=False):
+        from greffier.adapters import model_files
+        from greffier.adapters import system_diagnostic as diagnostic
+
+        class Missing:
+            required = True
+            role = "transcription"
+
+        monkeypatch.setattr(model_files, "missing",
+                            lambda folder, engine: [] if models else [Missing()])
+        monkeypatch.setattr(diagnostic, "claude_installed", lambda: account)
+        monkeypatch.setattr(diagnostic, "claude_account", lambda: object() if account else None)
+        monkeypatch.setattr(window, "_settable_mics",
+                            lambda: (("", "Automatique"),) + ((("usb", "Jabra"),) if mic else ()))
+
+    def _shown(self, window) -> str:
+        return window.thread.get("1.0", "end")
+
+    def test_with_nothing_done_the_three_steps_are_listed_in_order(self, window, monkeypatch):
+        self._machine(monkeypatch, window)
+        window._take_by_the_hand()
+        shown = self._shown(window)
+        assert window.says("premier_lancement.titre") in shown
+        for key in ("modeles_a_faire", "compte_a_faire", "micro_a_faire"):
+            assert window.says(f"premier_lancement.{key}") in shown
+        assert shown.index("modeles" if "modeles" in shown else "models") < shown.index(
+            window.says("premier_lancement.compte_a_faire")
+        )
+
+    def test_what_is_done_is_ticked(self, window, monkeypatch):
+        self._machine(monkeypatch, window, models=True, mic=True)
+        window._take_by_the_hand()
+        shown = self._shown(window)
+        assert window.says("premier_lancement.modeles_fait") in shown
+        assert window.says("premier_lancement.compte_a_faire") in shown
+        assert window.says("premier_lancement.micro_fait") in shown
+
+    def test_the_same_state_is_said_once(self, window, monkeypatch):
+        self._machine(monkeypatch, window)
+        window._take_by_the_hand()
+        window._take_by_the_hand()
+        assert self._shown(window).count(window.says("premier_lancement.titre")) == 1
+
+    def test_once_everything_is_done_it_says_so_and_goes_quiet(self, window, monkeypatch):
+        self._machine(monkeypatch, window)
+        window._take_by_the_hand()
+        self._machine(monkeypatch, window, models=True, account=True, mic=True)
+        window._take_by_the_hand()
+        shown = self._shown(window)
+        assert window.says("premier_lancement.tout_en_place") in shown
+        window._take_by_the_hand()
+        assert self._shown(window).count(window.says("premier_lancement.tout_en_place")) == 1
+
+    def test_a_machine_with_everything_from_the_start_hears_nothing(self, window, monkeypatch):
+        self._machine(monkeypatch, window, models=True, account=True, mic=True)
+        window._take_by_the_hand()
+        shown = self._shown(window)
+        assert window.says("premier_lancement.titre") not in shown
+        assert window.says("premier_lancement.tout_en_place") not in shown

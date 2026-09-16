@@ -149,9 +149,10 @@ that holds it, or says what is missing.
 
 ## What the tool should have
 
-- **Say it doubts, at the moment it doubts.** It knows how to be corrected,
-  it never asks.
-- **A first launch** that takes you by the hand when nothing is configured.
+Both lines that stood here were done on 16/09: the live thread marks the
+doubtful sentence « (?) » as it appears (`test_the_window_itself`), and a
+first launch lists the three things to do in the Conversation tab and ticks
+them as they get done (`test_the_window_itself`, `test_first_launch`).
 
 ## What has just arrived
 

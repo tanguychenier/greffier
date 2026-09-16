@@ -105,6 +105,8 @@ class Window:
     #: The registered outside sources, read for the Conversation tab once it
     #: asks, and again only when their reading has gone stale.
     _sources: Any | None = None
+    #: What the first-launch guide last said, so that it says each state once.
+    _guide_state: tuple[bool, ...] | None = None
 
     def __init__(self, config: Config) -> None:
         from greffier.wiring import recording, store, troubles
@@ -1325,6 +1327,9 @@ class Window:
         if self.tabs.current == "Réglages":
             with contextlib.suppress(Exception):
                 self._say_the_count()
+                # The account is settled in a terminal, outside this window:
+                # coming back is when the guide learns it.
+                self._take_by_the_hand()
 
     def _say_the_version(self) -> None:
         """Shows the installed version, asking the network nothing."""
@@ -1823,6 +1828,7 @@ class Window:
         self.settings_word.configure(text=word)
         if fresh_part.appearance.theme != theme_before:
             self.root.after(0, lambda: self._apply_the_theme(fresh_part.appearance.theme, word))
+        self._take_by_the_hand()
 
     def _load_mics(self) -> None:
         """Offers the mics actually plugged in, the configured one first."""
@@ -2808,6 +2814,7 @@ class Window:
                 self.says("modeles.pretes")
             ))
             self.status_line.configure(text=self.says("modeles.telecharges"))
+            self._take_by_the_hand()
 
         self._run_job(Job(caption="modèles", do_it=do_it, done=finished))
 
@@ -3625,7 +3632,54 @@ class Window:
         self.root.after(300, self._load_the_preparation)
         self.root.after(600, self._report_missing_minutes)
         self.root.after(900, self._remind_of_the_disclosure)
+        self.root.after(1200, self._take_by_the_hand)
         self.root.mainloop()
+
+    def _first_launch_steps(self) -> list[Any]:
+        """The three things a fresh machine still has to do, as they stand."""
+        from greffier.adapters import model_files
+        from greffier.adapters import system_diagnostic as diagnostic
+        from greffier.domain.first_launch import steps
+
+        models_present = not [
+            m for m in model_files.missing(
+                self.config.paths.models, self.config.transcription.engine
+            ) if m.required
+        ]
+        signed_in = diagnostic.claude_installed() and diagnostic.claude_account() is not None
+        microphone = bool(self.config.audio.mic) or any(
+            key for key, _ in self._settable_mics() if key
+        )
+        return steps(models_present, signed_in, microphone)
+
+    def _take_by_the_hand(self) -> None:
+        """Says what is left to do before the first meeting, once per change.
+
+        Somebody who has just double-clicked the tool used to see six tabs
+        and a question about a gigabyte and a half. The list is painted in
+        the Conversation tab, ticked as things get done, and goes quiet with
+        one last line once everything is in place.
+        """
+        from greffier.domain.first_launch import is_a_first_launch
+
+        try:
+            the_steps = self._first_launch_steps()
+        except Exception:  # noqa: BLE001 -- a guide must never break the window
+            return
+        state = tuple(step.done for step in the_steps)
+        if state == self._guide_state:
+            return
+        if not is_a_first_launch(the_steps):
+            if self._guide_state is not None:
+                self._paint_the_turn("greffier", self.says("premier_lancement.tout_en_place"))
+            self._guide_state = state
+            return
+        lines = [self.says("premier_lancement.titre")]
+        for step in the_steps:
+            suffix = "fait" if step.done else "a_faire"
+            lines.append(self.says(f"premier_lancement.{step.key}_{suffix}"))
+        self._paint_the_turn("greffier", "\n".join(lines))
+        self._guide_state = state
 
     def _remind_of_the_disclosure(self) -> None:
         """Reminds once per session that the attendees must be able to know."""

@@ -102,7 +102,11 @@ nine.
       figure travels with each live turn, log and replay included, and the
       window marks the doubtful sentence « (?) » as it appears, the way the
       transcript did the next day.
-- [ ] A first launch that takes you by the hand when nothing is configured.
+- [x] A first launch that takes you by the hand when nothing is configured.
+      Done on 16/09: the Conversation tab lists the three things to do, in
+      order, the models, the account, a microphone, ticks them as they get
+      done, and says once that everything is in place. Five tests on the
+      real window; `docs/scenarios.md` had it under « What the tool should have ».
 - [x] Group the stray voices under "Les autres". Done on 16/09: an unnamed
       voice under a twentieth of the speaking time, once three voices carry
       the meeting, is « Les autres » in the transcript and not counted as

@@ -121,6 +121,16 @@ source_jeton_absent = "{source} : aucun jeton. Collez-le ci-dessous, il reste su
 deposer_jeton = "Déposer le jeton"
 jeton_depose = "Jeton déposé pour « {source} ». L'assistante y a accès dès sa prochaine question."
 
+[premier_lancement]
+titre = "Premier lancement. Trois choses avant la première réunion, dans cet ordre :"
+modeles_fait = "✓ Les modèles sont en place."
+modeles_a_faire = "→ Télécharger les modèles : onglet Réglages, « Télécharger les modèles manquants ». Une fois, 1,5 Go."
+compte_fait = "✓ Le compte Claude est connecté."
+compte_a_faire = "→ Connecter le compte Claude : onglet Réglages, « Se connecter ». Sans lui, tout marche sauf le compte rendu."
+micro_fait = "✓ Un micro est entendu."
+micro_a_faire = "→ Brancher un micro, ou en choisir un : onglet Réglages, « Micro »."
+tout_en_place = "Tout est en place. « Démarrer la réunion », et Greffier écoute."
+
 [modeles]
 tous_en_place = "Tous les modèles sont en place."
 manquants = "Greffier a besoin de {weight} de modèles qui ne sont pas encore sur cet ordinateur.\n\nSans eux, il ne peut ni séparer les voix, ni reconnaître qui parle, ni vous répondre à voix haute.\n\nAcceptez-vous de les télécharger maintenant ?"

@@ -117,6 +117,16 @@ source_jeton_absent = "{source}: no token. Paste it below, it stays on this comp
 deposer_jeton = "Store the token"
 jeton_depose = "Token stored for “{source}”. The assistant has access from its next question."
 
+[premier_lancement]
+titre = "First launch. Three things before the first meeting, in this order:"
+modeles_fait = "✓ The models are in place."
+modeles_a_faire = "→ Download the models: Settings tab, “Download the missing models”. Once, 1.5 GB."
+compte_fait = "✓ The Claude account is connected."
+compte_a_faire = "→ Connect the Claude account: Settings tab, “Sign in”. Without it everything works except the minutes."
+micro_fait = "✓ A microphone is heard."
+micro_a_faire = "→ Plug a microphone in, or choose one: Settings tab, “Microphone”."
+tout_en_place = "Everything is in place. “Start the meeting”, and Greffier listens."
+
 [modeles]
 tous_en_place = "Every model is in place."
 manquants = "The tool needs {weight} of models that are not on this computer yet.\n\nWithout them it can neither tell the voices apart, nor recognise who is speaking, nor answer you out loud.\n\nMay it download them now?"
