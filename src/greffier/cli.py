@@ -101,6 +101,19 @@ def _live_material(
 
     return material
 
+def _warm_up_aside(*engines: Any) -> None:
+    """Opens the models that answer out loud before anyone has spoken.
+
+    The voice takes five to six seconds to open and the live model about
+    ten: paid on the first question of the meeting, they were the whole
+    wait. Paid here, in threads, they cost the meeting nothing.
+    """
+    import threading
+
+    for engine in engines:
+        if engine is not None and hasattr(engine, "warm"):
+            threading.Thread(target=engine.warm, daemon=True).start()
+
 def _namer(
     the_follower: Any, config: Config, identifier: str
 ) -> Callable[[str, str], bool]:
@@ -922,6 +935,7 @@ def assist(
         # Now, not at the first question: the first answer of a cold process
         # was measured at five seconds, the next ones at two.
         cerveau.warm_up()
+    _warm_up_aside(lui.voice if lui is not None else None, transcriber)
     watcher = Watcher(
         watch_rules=WatchRules(keyword=keyword),
         log=log,
