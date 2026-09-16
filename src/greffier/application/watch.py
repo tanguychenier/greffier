@@ -39,11 +39,19 @@ CLIPBOARD_PERIOD = 2.0
 SLICE_PERIOD = 30.0
 OVERLAP = 5.0
 SLICE_MAXIMUM = 90.0
-CONTEXT_S = 50.0
+#: Audio handed to the model before the slice, for the spelling to hold.
+#: Measured on 2026-09-16 on SUMM-RE 032a (`docs/corpus.md`): none, twenty
+#: and fifty seconds read alike with the large model (29.6 to 32.5 % of
+#: errors, the rare terms unchanged), fifty seconds cost 17 s of card per
+#: slice against 9 with twenty, and threw the turbo model, the one the live
+#: thread runs, to 43 % of errors. Twenty keeps what a real meeting showed
+#: the context does for a proper name ("sur Oasis" against "sur Asis"), at
+#: half the price.
+CONTEXT_S = 20.0
 
 #: How often the watch listens for its own name between two full slices, and how
-#: much audio it reads for it. Measured on a real machine: a full slice carries
-#: fifty seconds of context so the spelling holds and costs 2 s, and one is taken
+#: much audio it reads for it. Measured on a real machine: a full slice carried
+#: fifty seconds of context so the spelling holds and cost 2 s, and one is taken
 #: every ten seconds, so being called cost up to fifteen seconds before a word
 #: came back. Eight seconds with no context cost 0.8 s.
 LISTENING_PERIOD = 3.0

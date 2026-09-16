@@ -4,6 +4,8 @@ import json
 import pathlib
 from pathlib import Path
 
+import pytest
+
 from greffier.application import watch
 from greffier.application.follow import Follower, Position
 from greffier.application.watch import Watcher
@@ -81,6 +83,7 @@ class TestTheSuggestionsLog:
 class TestTranscribingAsItGoes:
     def test_the_instants_are_put_back_on_the_meeting_clock(self, tmp_path, monkeypatch):
         """An utterance dated inside its slice would point at the wrong moment."""
+        monkeypatch.setattr(watch, "CONTEXT_S", 50.0)
         monkeypatch.setattr(watch, "extract_slice",
                             lambda audio, start, end, dest: dest)
         # The transcribed window starts CONTEXT_S before the slice: an
@@ -390,8 +393,14 @@ class TestTheWindowOfContext:
 
     Measured on 2026-09-09 on a real meeting: the same passage gives "sur la ZIS"
     with a 15 s window, "sur Asis" with 30 s, "sur Oasis" with 60 s. The context
-    makes the right word, but it must repeat nothing.
+    makes the right word, but it must repeat nothing. The tests below set
+    the window themselves: what they hold is the mechanism, not the figure,
+    which `docs/corpus.md` settles.
     """
+
+    @pytest.fixture(autouse=True)
+    def _a_wide_window(self, monkeypatch):
+        monkeypatch.setattr(watch, "CONTEXT_S", 50.0)
 
     def test_the_model_gets_more_audio_than_the_slice(self, tmp_path, monkeypatch):
         requested_ones = []

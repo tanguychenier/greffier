@@ -268,20 +268,79 @@ the synthesised voices, small 4 out of 8, large-v3-turbo 8 out of 8. The
 pass keeps the turbo model.
 
 End to end, on this machine (CUDA, 6 GB, live thread on), the same file
-before and after:
+before and after, two runs each:
 
 | | Question 1 | Question 2 | Question 3 |
 |---|---|---|---|
 | Before, spotted / answered / ready | 5.0 / 8.6 / **8.9** s and 3.9 / 11.5 / **11.8** s | 3.5 / 8.8 / **9.3** s and 3.8 / 7.7 / **8.0** s | 6.2 / 9.8 / **10.0** s and 4.4 / 8.5 / **8.9** s |
-| After | 4.4 / 5.9 / **6.5** s and 3.7 / 5.4 / **6.4** s | 4.0 / 5.3 / **5.5** s and 4.5 / 6.1 / **6.4** s | 2.2 / 4.1 / **4.6** s and 2.3 / 4.7 / **4.9** s |
+| After | 0.0 / 1.4 / **3.0** s and 0.0 / 2.6 / **2.8** s | 1.7 / 3.3 / **3.5** s and 1.9 / 5.8 / **6.5** s | 2.9 / 5.1 / **5.6** s and 3.6 / 10.7 / **11.0** s |
 
-From 9.5 s on average to 5.7 s. What is left is *spotted*: 2 to 4.5 s on
-this card, of which half a second is the quiet the room has to keep, the
-rest the pass itself, 1.3 s alone and up to 4 s when the live thread's
-slice runs on the same card at the same time, plus the pass in flight when
-the question ends. On the MacBook the tool runs on, the same pass costs
-0.8 s and a slice 2 s (whisper.cpp, Metal), so the figure to expect there is
-the model's 1.5 to 2 s and the voice's 0.3 on top of two to three: four to
-five seconds, and the *answered* column is now the largest piece. Below
-that would take the answer streamed to the voice sentence by sentence, or a
-model reached without Claude Code in front of it.
+From 9.5 s on average to 5.4 s, and to **3 s on the first question** of each
+run: the room's half second of quiet, the pass, the model, the voice. The
+second run's third question is the model taking seven seconds to answer
+where it takes two elsewhere, which the bench shows as it is: the wire is
+the account's, and its speed is not the tool's to promise. The question
+timeline ends where the synthesised file ends, half a second after the
+voice stops, which is why a name can be *spotted* at 0.0 s.
+
+What is left, in order of size: the model's share (1.4 to 2.6 s when it
+answers at its usual pace), then the pass (1.3 s on this card for eight
+seconds of audio, 0.8 s on the MacBook the tool runs on), then the half
+second the room has to keep quiet before anyone can tell the question is
+over. Below that would take the answer streamed to the voice sentence by
+sentence, or a model reached without Claude Code in front of it.
+
+A caveat on the day's benches, and the reason there are two "after"
+rows in `assistant.json`: the first "after" was measured with the large
+model still on the live thread, `downloaded` having looked for the turbo
+model under the wrong repository name and said no. The figures above are
+the ones with the turbo model really on.
+
+## The live words against the reference (2026-09-16)
+
+`tools/measure_live.py` replays SUMM-RE 032a slice by slice through
+`Watcher.transcription_turn` and the real live thread, driving the clock
+itself, and holds the words the thread shows against the reference. The
+final transcription of the same file reads at **24.5 %** of errors and
+220 rare terms out of 254 (large-v3, the full recording at once). The
+live thread can only do worse; the question was by how much, and what
+moves the figure. Seconds per slice are wall time on this card, live
+thread included (voiceprints, levelling).
+
+| Live model | Period | Context before the slice | Levelled | Word error rate | Rare terms | Seconds per slice |
+|---|---|---|---|---|---|---|
+| large-v3 | 10 s | 50 s | yes | 31.2 % | 205 | 17.0 |
+| large-v3 | 10 s | 20 s | yes | **29.6 %** | 203 | 9.4 |
+| large-v3 | 10 s | none | yes | 32.5 % | 203 | 4.1 |
+| large-v3-turbo | 10 s | 50 s | yes | **43.3 %** | 161 | 10.9 |
+| large-v3-turbo | 10 s | 20 s | yes | 32.0 % | 205 | 6.6 |
+| large-v3-turbo | 10 s | none | yes | 31.5 % | 205 | **3.0** |
+| large-v3-turbo | 10 s | 20 s | no | 32.7 % | 202 | 3.9 |
+| large-v3-turbo | **5 s** | 20 s | yes | **56.5 %** | 126 | 4.7 |
+
+What it says, the same file giving figures two or three points apart from
+one run to the next (the temperature ladder samples where the model is
+unsure):
+
+- **The context before the slice buys nothing** on the words: 29.6 to 32.5
+  for large-v3 across none, twenty and fifty seconds, 31.5 to 32.0 for the
+  turbo model across none and twenty, the rare terms unchanged. It costs
+  everything on the card: a slice of ten seconds with fifty of context is
+  a minute of audio, 17 s on this card with the large model. **Fifty
+  seconds hurt the turbo model outright**: 43.3 %, a third of the rare
+  terms gone, the model losing its footing on a long window.
+- **The period must not go under ten seconds**: at five, every sentence is
+  cut in half at a boundary, heard in two pieces that do not add up, and
+  half the rare terms are lost.
+- **The turbo model reads two to three points worse than large-v3** on the
+  same slices, at less than half the cost; the levelling costs a third of
+  the slice time for a point that is inside the noise on a studio
+  recording, and stays for the rooms it was measured on.
+
+What follows: `CONTEXT_S` goes from 50 to 20, not to none. The words read
+alike either way; twenty keeps what a real meeting showed on 2026-09-09
+for a proper name ("sur la ZIS" with fifteen seconds of window, "sur Asis"
+with thirty, "sur Oasis" with sixty), which this corpus, a studio
+conversation with few names of its own, cannot measure. The card spends
+half of what it spent, and every second the card is not on a slice is a
+second the assistant's name is heard sooner.

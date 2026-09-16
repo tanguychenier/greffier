@@ -169,10 +169,17 @@ meeting is never needed to see what a meeting does.
       and the final processing are the product's own, untouched.
       `tests/integration/test_replay_e2e.py` replays the synthetic meeting and
       checks the recording's length, the live thread's words and the minutes.
-- [ ] Live words measured: the live transcript against the reference, next
+- [x] Live words measured: the live transcript against the reference, next
       to the post-meeting one, per slice length, cut on silence or on the
       clock, with and without the previous slice as context.
       *Proof: the table in `corpus.md`, and only what moves the figure kept.*
+      Done on 16/09: eight settings on 032a (`tools/measure_live.py`, through
+      the real thread). The live thread reads at 30 to 32 % where the final
+      transcription reads at 24.5 %; the context before the slice moves
+      nothing but the cost (and throws the turbo model at fifty seconds), a
+      period of five seconds loses half the rare terms, the turbo model
+      reads two points worse than large-v3 at less than half the cost.
+      `CONTEXT_S` goes from 50 to 20. The cut on silence is measured below.
 - [ ] The same person across two meetings: named on one SUMM-RE meeting,
       recognised on the next of the same series; and one person whose tone
       changes inside a meeting, held as one voice.
