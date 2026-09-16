@@ -280,9 +280,12 @@ not from a journal. Nothing here is started.
 - [ ] Her name misheard. On the synthesised voices « Lucie » comes back
       « Ici » or « Si » once in ten, and that question is heard by nobody,
       the pass and the slice alike. The lever is a measure on real voices
-      first (the Mac's meeting), then the seed or the tolerance on the name;
-      a tolerance widened blind answered to « lui » 113 times on 3 809
-      turns.
+      first, then the seed or the tolerance on the name; a tolerance
+      widened blind answered to « lui » 113 times on 3 809 turns. The
+      measure needs no meeting since 16/09, `tools/measure_the_name.py
+      --record 10` asks ten questions into the microphone and says how
+      many times she was heard, with the seed and without; it waits for a
+      real voice to say it into it.
 - [x] A voice named on six seconds and renamed once there was more. On
       032b the voice that ends as Alice was « Diane ? » from 56 s to
       161 s. Measured the same day. Read at the moment each sentence was
