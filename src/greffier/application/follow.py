@@ -108,6 +108,25 @@ def _turn_line(turn: LiveTurn, voice: LiveVoice) -> dict[str, Any]:
         line["matiere"] = round(voice.seconds, 1)
     return line
 
+#: A speaker turn of the slice counts over a sentence from this share of it.
+OVER_THE_SENTENCE = 0.2
+
+
+def voices_over(span: Span, turns: list[SpeakerTurn]) -> int:
+    """How many speakers the segmenter heard over this sentence.
+
+    Written with the line so that the measures can split the sentences
+    the tool got wrong by what the tool itself could see at the time: two
+    people over a sentence is where the wrong names are.
+    """
+    if span.duration <= 0:
+        return 0
+    return sum(
+        1 for turn in turns
+        if span.overlap(turn.span) >= OVER_THE_SENTENCE * span.duration
+    )
+
+
 def _correction_line(correction: Correction) -> dict[str, Any]:
     return {
         "genre": KIND_CORRECTION,
@@ -346,7 +365,10 @@ class Follower:
             voice = self.thread.attach(voiceprint, block.local)
             for turn in self.thread.record_turn(block, voice):
                 new_ones.append(turn)
-                lines.append(_turn_line(turn, self.thread.voice[voice]))
+                line = _turn_line(turn, self.thread.voice[voice])
+                if turns:
+                    line["voix_dessus"] = voices_over(turn.span, turns)
+                lines.append(line)
         for source, target in self.thread.stitch():
             lines.append(_meeting_line(source, target))
         add(self.log, lines)

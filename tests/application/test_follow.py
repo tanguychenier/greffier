@@ -314,6 +314,28 @@ class TestASliceCutAtTheChangesOfSpeaker:
         instance.take_in(tmp_path / "tranche.wav", [utterance(1.9, 10)], offset=0.0)
         assert extractor.together == [[Span(2, 10)]]
 
+    def test_the_line_says_how_many_voices_the_segmenter_heard_over_it(
+        self, tmp_path: Path
+    ) -> None:
+        # Two people over a sentence is where the wrong names are: the
+        # measures split by what the tool itself could see at the time.
+        extractor = TogetherExtractor([voiceprint(1, 0), voiceprint(0, 1)])
+        instance = follower(
+            tmp_path,
+            extractor=extractor,
+            segmenter=StatedSegmenter([
+                SpeakerTurn(Span(0, 6), "0:0"), SpeakerTurn(Span(4, 10), "0:1"),
+            ]),
+        )
+        instance.take_in(tmp_path / "tranche.wav", [utterance(0, 3), utterance(5, 10)], offset=0.0)
+        lines = lines_of(instance.log)
+        assert [line["voix_dessus"] for line in lines] == [1, 2]
+
+    def test_without_a_segmenter_the_line_does_not_count_voices(self, tmp_path: Path) -> None:
+        instance = follower(tmp_path)
+        instance.take_in(tmp_path / "tranche.wav", [utterance(0, 3)], offset=0.0)
+        assert "voix_dessus" not in lines_of(instance.log)[0]
+
     def test_a_segmenter_that_falls_over_leaves_the_slice_whole(self, tmp_path: Path) -> None:
         class Broken:
             def turns(self, audio: Path) -> list[SpeakerTurn]:

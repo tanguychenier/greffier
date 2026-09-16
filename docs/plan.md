@@ -296,16 +296,19 @@ not from a journal. Nothing here is started.
       can be read. A first reading had put 75 sentences under a wrong
       name, the names read by position in a sorted list rather than by
       number; corrected the same day.
-- [ ] The sentences still wrong live, 9 % on a four-person meeting, are
+- [x] The sentences still wrong live, 9 % on a four-person meeting, are
       short interjections in the passages where everybody talks at once;
       the minutes leave 28 % of the sentences to nobody on the same file
       under their stricter rule. Measured the same day on the run of 032b,
       split by whether the reference has two people over the sentence.
       Alone, 253 sentences, 87 % right and 4 % wrong; overlapped, 193
-      sentences, 74 % right and 14 % wrong. Sending every overlapped
-      sentence to « Les autres » would spare 27 wrong ones and lose 142
-      right ones, so no rule on overlap alone; a finer one would need the
-      segmenter's own overlaps in the log, which is the next step.
+      sentences, 74 % right and 14 % wrong. Then by what the tool itself
+      sees, the segmenter's voices over the sentence, now written with
+      every line of the live log. One voice over it, 311 sentences, 82 %
+      right and 6 % wrong; two or more, 128 sentences, 70 % right and
+      13 % wrong. Sending those to « Les autres » would spare 16 wrong
+      ones and lose 89 right ones. No rule on overlap pays; closed with
+      the figures.
 - [x] The same question, word for word, asked again minutes later is never
       answered a second time (the subject of a call has no expiry, only the
       words heard in other words expire, at thirty seconds).
