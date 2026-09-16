@@ -158,6 +158,11 @@ class AssistantSettings:
     its_own_turns: list[tuple[float, float]] = field(default_factory=list)
     keep_its_turn: Callable[[float, float], None] | None = None
     its_own_words: list[tuple[float, frozenset[str]]] = field(default_factory=list)
+    #: The meeting's clock, read at the moment she starts to speak. Without
+    #: it her turn is filed at the moment she was called, which is three to
+    #: six seconds before a word comes out: the chain that runs afterwards
+    #: looked for her voice where there was only the room still talking.
+    clock: Callable[[], float] | None = None
     stopped: bool = False
     _job: threading.Thread | None = None
     _search: threading.Thread | None = None
@@ -339,21 +344,31 @@ class AssistantSettings:
         remark = without_own_name(self._phrase_it(opening), self.name)
         if not remark or self.stopped:
             return Remark(remark="", because=opening.because, a=now)
+        spoke_at = self._the_time(now)
         # Kept before speaking: a slice can come back while `say` still holds.
-        self.its_own_words.append((now, own_words(remark)))
+        self.its_own_words.append((spoke_at, own_words(remark)))
         pronounced = bool(self.voice and self.voice.say(remark))
         if pronounced:
-            end = now + 1.0 + len(remark) / 15.0
-            self.its_own_turns.append((now, end))
+            end = spoke_at + 1.0 + len(remark) / 15.0
+            self.its_own_turns.append((spoke_at, end))
             if self.keep_its_turn is not None:
                 with contextlib.suppress(Exception):
-                    self.keep_its_turn(now, end)
-        self.manners.has_spoken(opening, now)
+                    self.keep_its_turn(spoke_at, end)
+        self.manners.has_spoken(opening, spoke_at)
         if self.tracer is not None:
             with contextlib.suppress(OSError):
                 self.tracer(self.name.lower(), remark)
-        return Remark(remark=remark, because=opening.because, a=now,
+        return Remark(remark=remark, because=opening.because, a=spoke_at,
                             pronounced=pronounced)
+
+    def _the_time(self, fallback: float) -> float:
+        """The meeting's clock now, or the moment handed over when there is none."""
+        if self.clock is None:
+            return fallback
+        try:
+            return max(fallback, float(self.clock()))
+        except Exception:  # noqa: BLE001 -- a clock that fails is no reason not to speak
+            return fallback
 
     def answer_aside(self, opening: Opening, now: float) -> None:
         """Answers in a separate thread, so as not to hold up transcription."""

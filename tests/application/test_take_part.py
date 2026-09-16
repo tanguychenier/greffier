@@ -729,3 +729,46 @@ class TestSpeakingOfHerOwnAccord:
         her.look_for_a_contribution_aside(now=100.0)
         assert her._search is None
         assert brain.requests == []
+
+
+class TestHerTurnIsFiledWhenSheSpeaks:
+    """Her turn used to be filed at the moment she was called, three to six
+    seconds before a word came out: the chain that runs afterwards looked for
+    her voice where there was only the room still talking."""
+
+    def _her(self, clock=None):
+        kept = []
+        her = AssistantSettings(
+            name="Lucie", brain=FakeBrain("Jeudi."), voice=FakeVoiceAdapter(),
+            manners=Manners(active=True, creux_minimal=0.0),
+            keep_its_turn=lambda start, end: kept.append((start, end)),
+            clock=clock,
+        )
+        return her, kept
+
+    def test_the_turn_starts_at_the_clock_s_time_not_the_call_s(self):
+        her, kept = self._her(clock=lambda: 105.5)
+        said = her.answer(Opening(because=Because.CALLED, remark="quand ?", born_at=99.0), 100.0)
+        assert said.a == 105.5
+        assert kept[0][0] == 105.5
+        assert her.its_own_turns[0][0] == 105.5
+        assert her.manners.spoke_at == 105.5
+
+    def test_without_a_clock_the_call_s_moment_serves(self):
+        her, kept = self._her(clock=None)
+        her.answer(Opening(because=Because.CALLED, remark="quand ?", born_at=99.0), 100.0)
+        assert kept[0][0] == 100.0
+
+    def test_a_clock_behind_the_call_does_not_move_the_turn_back(self):
+        her, kept = self._her(clock=lambda: 90.0)
+        her.answer(Opening(because=Because.CALLED, remark="quand ?", born_at=99.0), 100.0)
+        assert kept[0][0] == 100.0
+
+    def test_a_clock_that_fails_costs_no_answer(self):
+        def broken():
+            raise OSError("no state file")
+
+        her, kept = self._her(clock=broken)
+        said = her.answer(Opening(because=Because.CALLED, remark="quand ?", born_at=99.0), 100.0)
+        assert said.remark == "Jeudi."
+        assert kept[0][0] == 100.0

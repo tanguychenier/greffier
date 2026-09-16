@@ -135,6 +135,7 @@ def replay(audio: Path, config: Any, model: str, brain: Any | None = None) -> Cl
     time.sleep(WARM_UP_S)
     # The clock starts with the meeting, once the room has settled.
     clock = Clock()
+    her.clock = clock.now
     _instrumented(her, clock)
     watcher = Watcher(
         watch_rules=WatchRules(keyword="greffier"),

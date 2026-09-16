@@ -934,6 +934,8 @@ def assist(
     if her is not None and the_follower is not None:
         her.name_voice = _namer(the_follower, config, state.identifier)
         her.context = _live_material(config, state.identifier, the_follower)
+    if her is not None:
+        her.clock = lambda: recorder.read().seconds
     brain = her.brain if her is not None else None
     if brain is not None and hasattr(brain, "warm_up"):
         # Now, not at the first question: the first answer of a cold process
