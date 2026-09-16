@@ -21,6 +21,10 @@ class FasterWhisperTranscriber:
         self.size = size
         self.device = device
         self._model = None
+        #: Why the card was given up on, once it has been: the processor is
+        #: ten times slower, and a meeting that takes an hour to transcribe
+        #: instead of six minutes deserves a word rather than a silence.
+        self.fell_back_because: str | None = None
 
     def _load(self) -> object:
         """The model, opened once per size and device for the whole process.
@@ -58,12 +62,13 @@ class FasterWhisperTranscriber:
     def transcribe(self, audio: Path, language: str, prompt_seed: str) -> list[Utterance]:
         try:
             return self._utterances(audio, language, prompt_seed)
-        except RuntimeError:
+        except RuntimeError as refused:
             if self.device == "cpu":
                 raise
             _OPENED.pop((self.size, self.device), None)
             self.device = "cpu"
             self._model = None
+            self.fell_back_because = str(refused).strip().splitlines()[0][:160] or "erreur CUDA"
             return self._utterances(audio, language, prompt_seed)
 
     def _utterances(self, audio: Path, language: str, prompt_seed: str) -> list[Utterance]:

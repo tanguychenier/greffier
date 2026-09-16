@@ -1276,3 +1276,15 @@ class TestTheInstructionsReachTheWriter:
         writer = FakeWriter()
         chain(writer=writer).run_chain(AUDIO)
         assert "Consignes données" not in writer.received
+
+
+class TestTheCardGivenUpOnIsSaid:
+    def test_the_fallback_to_the_processor_is_a_warning_of_the_outcome(self):
+        transcriber = FakeTranscriber(CHATTER)
+        transcriber.fell_back_because = "CUDA out of memory"
+        outcome = chain(transcriber=transcriber).run_chain(AUDIO)
+        assert any("processeur" in w and "CUDA out of memory" in w for w in outcome.warnings)
+
+    def test_a_transcriber_on_the_card_says_nothing(self):
+        outcome = chain(transcriber=FakeTranscriber(CHATTER)).run_chain(AUDIO)
+        assert not any("processeur" in w for w in outcome.warnings)

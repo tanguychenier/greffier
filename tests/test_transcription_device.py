@@ -68,6 +68,14 @@ class TestFallingBackToTheProcessor:
 
         assert transcriber.device == "cpu"
 
+    def test_why_the_card_was_given_up_on_is_kept(self, monkeypatch):
+        """The processor is ten times slower: a meeting transcribed in an hour
+        instead of six minutes deserves a word, and the chain says it."""
+        transcriber, _ = self._transcriber(monkeypatch, refuse={"auto"})
+        assert transcriber.fell_back_because is None
+        transcriber.transcribe(Path("reunion.wav"), "fr", "")
+        assert transcriber.fell_back_because == "Library libcublas.so.12 is not found"
+
     def test_a_failure_of_the_processor_is_not_hidden(self, monkeypatch):
         """Otherwise the fallback would go round in circles and hide the real cause."""
         transcriber, requests = self._transcriber(monkeypatch, refuse={"auto", "cpu"})

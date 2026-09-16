@@ -503,6 +503,13 @@ class Chain:
             brutes = self.transcriber.transcribe(
                 prepare, self.language, self.prompt_seed
             )
+        fell_back = getattr(self.transcriber, "fell_back_because", None)
+        if fell_back:
+            outcome.warnings.append(
+                f"La carte graphique a refusé ({fell_back}) : la transcription a été "
+                "faite sur le processeur, dix fois plus lentement. « greffier "
+                "verifier » dit ce que la carte a."
+            )
         profile = profiles.pour(self.language)
         outcome.profile = profile
         outcome.utterances = collapse_loops([
