@@ -342,6 +342,39 @@ first and leaves the second unnamed rather than misnamed; live, naming
 both by hand still joins them, left as is until a live bench says what a
 print guard would cost the one-person-cut-in-two case it was written for.
 
+## Phase 9. What he asked for on the afternoon of 16/09
+
+- [x] A tutorial that starts the first time, the elements lit one at a
+      time with what they do, and that renders right, which such tours
+      seldom do (the light beside its text, a bubble cut by the edge, no
+      way out).
+      *Proof, every stop photographed on the real window at two widths and in both languages, and looked at.*
+      Done on 16/09. Nine stops from the state to the settings
+      (`interface/tour.py`), the light placed again on every resize, the
+      bubble to the right or below or above wherever there is room and
+      never past an edge, an element scrolled out of view lit nowhere
+      rather than off the window, Suivant, Précédent, Quitter and Escape.
+      It opens once, a marker in the data folder says so, and Réglages ▸
+      Prise en main starts it again. `tools/window_proof.py --tour`
+      photographs the eighteen images; eleven tests on the real window
+      hold what the images showed. Found on the way, the first version
+      answered every Configure event with a new light, which raised the
+      next one, without end; only the window's own resize counts now.
+      Seen on the English images, the Meetings tab's buttons and columns
+      are still French in an English window; noted below.
+- [ ] The buttons and the columns of the Meetings tab, in the catalogue.
+      Seen on the tour's English images, « Traiter », « Rédiger »,
+      « Envoyer par courriel » and the column heads stay French when the
+      window speaks English.
+- [ ] Connected accounts. A view where the person sees the services
+      (Outlook and its calendar, Google's, Trello, GitLab, Jira), clicks
+      « Connecter », reads what Claude will be allowed to do and ticks what
+      she accepts; behind it Claude, reached through tool servers, and a
+      journal in the window of everything he did with the accounts. The
+      token stays in a file of hers. The click-and-connect for Google and
+      Microsoft wants an application declared by Tansoftware with each,
+      which is his; Trello, GitLab and Jira work by token from the start.
+
 ## Decisions that are his, not tasks
 
 - macOS notarisation: a paid Apple account, otherwise Gatekeeper refuses the

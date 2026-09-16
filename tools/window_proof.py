@@ -123,6 +123,13 @@ def _capture_by_identifier(window: object, target: Path) -> bool:
     return converted.returncode == 0 and target.exists()
 
 
+def _stop_on_a_callback_exception(kind: object, value: object, trace: object) -> None:
+    import traceback
+
+    print("".join(traceback.format_exception(kind, value, trace)), flush=True)  # type: ignore[arg-type]
+    os._exit(1)
+
+
 def main() -> int:
     import tkinter as tk
 
@@ -132,6 +139,10 @@ def main() -> int:
     print("tkinter", tk.TkVersion, "- Tcl", tk.TclVersion)
 
     window = Window(Config())
+    # A Tk callback that raises is printed by Tk and forgotten, and the proof
+    # went on photographing a window that was broken: here it stops, with
+    # the traceback where the log is read.
+    window.root.report_callback_exception = _stop_on_a_callback_exception
     # One pass of the event loop: without it nothing is painted yet and a
     # painting exception would go unnoticed.
     window.root.update()
@@ -203,6 +214,35 @@ def main() -> int:
                 else:
                     print("  capture unavailable on this system")
                     break
+
+    # The guided tour, stop by stop, at both widths: the light and its
+    # bubble are looked at on the image, since a light drawn beside its
+    # text is exactly what such tours get wrong.
+    if "--tour" in sys.argv:
+        folder = Path(
+            sys.argv[sys.argv.index("--tour") + 1]
+            if len(sys.argv) > sys.argv.index("--tour") + 1
+            else "/tmp/greffier-captures"
+        )
+        for width, name in ((880, "narrow"), (1280, "wide")):
+            window.root.geometry(f"{width}x760")
+            window.tabs.reveal(captions[0])
+            window.root.update()
+            tour = window.the_tour()
+            tour.start()
+            for rank in range(len(tour.stops)):
+                window.root.update()
+                target = folder / f"tour-{name}-{rank + 1:02d}-{tour.stops[rank].key}.png"
+                if capture(window, target):
+                    print(f"  capture {target}")
+                else:
+                    print("  capture unavailable on this system")
+                    break
+                tour.next()
+            if tour.running:
+                print("  ✗ the tour did not end on its last stop")
+                window.root.destroy()
+                return 1
 
     window.root.destroy()
     print(f"{len(captions)} tabs painted without an exception")

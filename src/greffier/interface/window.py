@@ -11,6 +11,7 @@ from __future__ import annotations
 import contextlib
 import functools
 import math
+import os
 import platform
 import queue
 import subprocess
@@ -60,6 +61,10 @@ from greffier.interface.style import blend, font, palette, title_font
 from greffier.locations import locate_tcl
 
 PERIOD_MS = 250
+
+#: The file that says the tour was seen; in the data folder, next to the meetings.
+TOUR_TAKEN = "visite-faite"
+TEST_SCREEN = asking.TEST_SCREEN
 
 MICROPHONES_PERIOD_MS = 1000
 
@@ -318,8 +323,9 @@ class Window:
         self.sets: dict[Phase, tk.Frame] = {}
 
         rest = tk.Frame(self.commands, bg=c.board)
-        Button(rest, self.says("fenetre.demarrer"), self._start_recording, c,
-               principal=True, width=192, height=38).pack(side="left")
+        self.start_button = Button(rest, self.says("fenetre.demarrer"), self._start_recording, c,
+                                   principal=True, width=192, height=38)
+        self.start_button.pack(side="left")
         self._text(rest, self.says("fenetre.micro"), size=11, pale=True).pack(
             side="left", padx=(20, 8)
         )
@@ -1220,6 +1226,15 @@ class Window:
 
         rank = self._block(inside, rank, "Apparence", "")
         self.theme_setting = self._dropdown(inside, rank, "Thème")
+        rank += 1
+
+        rank = self._block(inside, rank, self.says("visite.prise_en_main"),
+                          self.says("visite.prise_en_main_detail"))
+        self.tour_button = Button(
+            inside, self.says("visite.revoir"), self.start_the_tour, self.colours,
+            width=210, height=32,
+        )
+        self.tour_button.grid(row=rank, column=0, columnspan=2, sticky="w", pady=(0, 2))
         rank += 1
 
         rank = self._block(inside, rank, "Version",
@@ -3633,6 +3648,7 @@ class Window:
         self.root.after(600, self._report_missing_minutes)
         self.root.after(900, self._remind_of_the_disclosure)
         self.root.after(1200, self._take_by_the_hand)
+        self.root.after(1500, self._offer_the_tour)
         self.root.mainloop()
 
     def _first_launch_steps(self) -> list[Any]:
@@ -3651,6 +3667,53 @@ class Window:
             key for key, _ in self._settable_mics() if key
         )
         return steps(models_present, signed_in, microphone)
+
+    def the_tour(self) -> Any:
+        """The guided tour of this window, its stops in the order of a meeting."""
+        from greffier.interface.tour import Stop, Tour
+
+        segments = self.tabs._segments
+        stops = [
+            Stop("etat", lambda: self.title, side="right"),
+            Stop("demarrer", lambda: self.start_button, side="right"),
+            Stop("micro", lambda: self.mic),
+            Stop("onglets", lambda: self.tabs.bar),
+            Stop("direct", lambda: segments.get("En direct"), tab="En direct"),
+            Stop("reunions", lambda: self.meeting_buttons[0] if self.meeting_buttons else None,
+                 tab="Réunions"),
+            Stop("voix", lambda: segments.get("Voix"), tab="Voix"),
+            Stop("conversation", lambda: segments.get("Conversation"), tab="Conversation"),
+            Stop("reglages", lambda: segments.get("Réglages"), tab="Réglages"),
+        ]
+        return Tour(self.root, self.colours, self.says, stops, self.tabs.reveal,
+                    on_end=self._tour_taken)
+
+    def start_the_tour(self) -> None:
+        """Starts the tour, unless one is running already."""
+        running = getattr(self, "_tour", None)
+        if running is not None and running.running:
+            return
+        self._tour = self.the_tour()
+        self._tour.start()
+
+    def _tour_taken(self) -> None:
+        """Remembers that the tour was seen, so that it opens itself only once."""
+        with contextlib.suppress(OSError):
+            self.config.paths.data.mkdir(parents=True, exist_ok=True)
+            (self.config.paths.data / TOUR_TAKEN).touch()
+
+    def _offer_the_tour(self) -> None:
+        """The first time the window opens, the tour opens with it.
+
+        Not on a test screen, where the proofs and the tests drive the window
+        themselves, and not twice: the marker is written when the tour ends,
+        whether it was walked to the end or left at the first stop.
+        """
+        if os.environ.get(TEST_SCREEN):
+            return
+        if (self.config.paths.data / TOUR_TAKEN).exists():
+            return
+        self.start_the_tour()
 
     def _take_by_the_hand(self) -> None:
         """Says what is left to do before the first meeting, once per change.
