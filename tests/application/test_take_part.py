@@ -39,11 +39,11 @@ class FakeBrain:
         self.requests = []
         #: The guidance in force at each call, and not at the end: it is put
         #: back afterwards, so reading it later says nothing.
-        self.consignes_vues = []
+        self.guidance_seen = []
 
     def write_up(self, text):
         self.requests.append(text)
-        self.consignes_vues.append(self.own_guidance)
+        self.guidance_seen.append(self.own_guidance)
         return self.response
 
 
@@ -280,7 +280,7 @@ class TestTheExchangeGoesOn:
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte la migration ?", born_at=100.0)
         assistant.turn([said("Hubert", 104.0, 106.0)], now=109.0)
-        assert any("Qui porte la migration ?" in c for c in cerveau.consignes_vues)
+        assert any("Qui porte la migration ?" in c for c in cerveau.guidance_seen)
 
     def test_a_nothing_makes_it_go_quiet(self):
         """Two more remarks would make it one participant too many."""
@@ -664,3 +664,68 @@ class TestNothingToAnswerIsSilence:
         she = self._elle(NOTHING)
         she.answer(self._appel(), now=2.0)
         assert she.manners.spoke_at is None
+
+
+class TestSpeakingOfHerOwnAccord:
+    """With the initiative on, she looks between two slices for something
+    worth adding, aside, and the result serves the following slice."""
+
+    def _her(self, response, spoke_at=None, rest=180.0):
+        brain = FakeBrain(response)
+        lui = AssistantSettings(
+            name="Lucie", cerveau=brain, voice=FakeVoiceAdapter(),
+            manners=Manners(active=True, creux_minimal=0.0, rest=rest, spoke_at=spoke_at),
+            context=lambda: "Jacques : on n'a pas fixé qui relance le partenaire.",
+        )
+        return lui, brain
+
+    def test_a_contribution_comes_with_its_own_guidance(self):
+        lui, brain = self._her("Personne n'a été désigné pour relancer le partenaire.")
+        opening = lui.contribution(now=100.0)
+        assert opening is not None and opening.because is Because.CONTRIBUTION
+        assert "Personne n'a été désigné" in opening.remark
+        assert "sans y avoir été invitée à parler" in brain.guidance_seen[0]
+        assert brain.own_guidance == "", "the guidance is put back after the call"
+
+    def test_nothing_to_add_is_nothing(self):
+        lui, _ = self._her(NOTHING)
+        assert lui.contribution(now=100.0) is None
+
+    def test_she_rests_after_having_spoken(self):
+        lui, brain = self._her("Encore une idée.", spoke_at=50.0, rest=180.0)
+        assert lui.contribution(now=100.0) is None
+        assert brain.requests == [], "the model is not even asked"
+
+    def test_without_material_the_model_is_not_asked(self):
+        lui, brain = self._her("Une idée.")
+        lui.context = lambda: "   "
+        assert lui.contribution(now=100.0) is None
+        assert brain.requests == []
+
+    def test_a_model_that_fails_costs_nothing(self):
+        class Broken:
+            own_guidance = ""
+
+            def write_up(self, text):
+                raise RuntimeError("quota")
+
+        lui, _ = self._her("x")
+        lui.cerveau = Broken()
+        assert lui.contribution(now=100.0) is None
+
+    def test_looked_for_aside_the_result_serves_the_next_slice(self):
+        lui, _ = self._her("Personne n'a été désigné pour relancer le partenaire.")
+        lui.look_for_a_contribution_aside(now=100.0)
+        assert lui._search is not None
+        lui._search.join(timeout=5)
+        assert lui.in_reserve is not None
+        retained = lui.turn([said("on passe au point suivant")], now=110.0)
+        assert retained is not None and retained.because is Because.CONTRIBUTION
+        assert lui.in_reserve is None, "handed over once"
+
+    def test_one_search_at_a_time_and_none_while_something_waits(self):
+        lui, brain = self._her("Une idée.")
+        lui.in_reserve = Opening(because=Because.CONTRIBUTION, remark="déjà là", born_at=1.0)
+        lui.look_for_a_contribution_aside(now=100.0)
+        assert lui._search is None
+        assert brain.requests == []
