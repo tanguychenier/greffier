@@ -207,6 +207,30 @@ read as a stream (`--include-partial-messages`) and a voice that queues
 sentences rather than refusing while it speaks; not done while the pass that
 spots her name costs more than the model.
 
+## Test coverage, measured per layer (2026-09-16)
+
+`pytest --cov=greffier` on the unit suite (integration and slow tests
+deselected, the way the continuous integration runs it), before and after
+the tests written on 16/09:
+
+| Layer | Before | After | What was added |
+|---|---|---|---|
+| `domain` | 96.6 % | 96.7 % | the end of a speech, the verdict of the bank measure |
+| `application` | 85.3 % | 90.3 % | the company sources, the voice review, the passages worth hearing again, her own contributions, the sound out of a video |
+| `adapters` | 82.3 % | 84.8 % | the kept Claude session through real pipes, the recorder's ffmpeg gestures on real files, the system voice in motion, the tokens file |
+| `interface` (window, API) | 52.5 % | 60.7 % | the Meetings tab and the settings on the real window, documents and questions from the window, the token pasted |
+| `cli.py`, `wiring.py` | 40.2 % | 53.6 % | the commands after the meeting driven as a person would, the writer and the sender doubled |
+| **all** | **74.4 %** | **79.3 %** | 2 343 to 2 532 tests |
+
+What stays thin, and why: `cli.py` (46 %) and `window.py` (55 %) hold the
+gestures that need a microphone, a running meeting or a person answering a
+box; the e2e suite around the bench (`test_replay_e2e`, `test_assistant_latency`,
+`test_context_scenarios`) covers those where the models are, and skips
+cleanly where they are not. The adapters under 70 % are the ones that wrap a
+model (`voiceprints_titanet`, `diarisation_sherpa`, `transcription_whisper_cpp`)
+or a service (`board_miro`): what they wrap is covered by the integration
+tests, what they add is small.
+
 ## What is not to be done
 
 - **The `wip` commit will not be rewritten.** Contrary to what the previous

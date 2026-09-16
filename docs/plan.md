@@ -186,10 +186,13 @@ meeting is never needed to see what a meeting does.
       Done on 16/09: the window notes which questions were on screen while the
       tab was open, and the badge counts the others. Four tests on the real
       window; the one with « one more after a look » fails on the previous code.
-- [ ] Test coverage measured per layer and raised where it is thin; the e2e
+- [x] Test coverage measured per layer and raised where it is thin; the e2e
       suite around the bench runs where the models are and skips cleanly
       where they are not.
       *Proof: the coverage figure before and after in `what-is-left.md`.*
+      Done on 16/09: from 74.4 % to 79.3 % overall, the command line from
+      30 % to 46 %, the window from 44 % to 55 %; the table per layer and
+      what stays thin, and why, in `what-is-left.md`.
 
 ## Decisions that are his, not tasks
 
