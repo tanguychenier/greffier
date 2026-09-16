@@ -63,13 +63,20 @@ through a sitting.
 
 - [ ] Fetch the meeting of 2026-09-10 (six people, 3 878 s) from the Mac:
       audio, json and jsonl. It is not on this PC.
-- [ ] Extend `tools/replay_live.py` to feed `watch.py` with the thread of
+- [x] Extend `tools/replay_live.py` to feed `watch.py` with the thread of
       sentences, `initiative` on, and log every time she would have spoken
       and what she would have said.
       *Proof: the log of the interventions on the real meeting.*
-- [ ] Judge each intervention: right moment, useful, intrusive. Decide the
+      Done on 16/09 as `tools/replay_initiative.py`, on the corpus for want
+      of the Mac's audio: the live thread of 032a and the reference of 032b,
+      through the real model.
+- [x] Judge each intervention: right moment, useful, intrusive. Decide the
       default value on those figures.
       *Proof: the table in `what-is-left.md`, and the default setting that follows from it.*
+      Done on 16/09: one intervention in forty minutes, on the one decision
+      left without a date, judged right; the default stays off for the price
+      of looking (a model call every ten seconds), said in `what-is-left.md`
+      with what would let it change.
 
 ## Phase 4. Two short product tasks
 

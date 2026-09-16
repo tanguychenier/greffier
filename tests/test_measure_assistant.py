@@ -50,3 +50,29 @@ class TestReadingTheDelays:
         rows = delays(TIMELINE, clock, "Lucie")
         assert rows[0]["spotted"] is None
         assert rows[1]["spotted"] == -1.0 and rows[1]["answered"] == 1.0
+
+
+class TestReplayingHerInitiative:
+    """The thread as she reads it, up to a moment, from the live log."""
+
+    def test_the_thread_is_rendered_up_to_the_moment_with_names(self, tmp_path):
+        import json
+
+        import replay_initiative
+
+        thread = tmp_path / "t.jsonl"
+        thread.write_text("".join(json.dumps(line, ensure_ascii=False) + "\n" for line in [
+            {"genre": "tour", "numero": 1, "debut": 0.0, "fin": 4.0, "texte": "on décale",
+             "voix": "v1", "nom": "Jacques", "rang": 1},
+            {"genre": "tour", "numero": 2, "debut": 4.0, "fin": 8.0, "texte": "à jeudi",
+             "voix": "v1", "nom": "Jacques", "rang": 1},
+            {"genre": "tour", "numero": 3, "debut": 8.0, "fin": 12.0, "texte": "d'accord",
+             "voix": "v2", "nom": None, "rang": 2},
+            {"genre": "annonce", "texte": "Transcription en direct active."},
+        ]), encoding="utf-8")
+        turns = replay_initiative.turns_of(thread)
+        assert len(turns) == 3, "the announcements are not turns"
+        assert replay_initiative.rendered(turns, up_to=8.0) == (
+            "[Jacques]\n00:00  on décale\n00:04  à jeudi"
+        )
+        assert replay_initiative.rendered(turns, up_to=12.0).endswith("[Voix 2]\n00:08  d'accord")

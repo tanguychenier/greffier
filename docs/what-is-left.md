@@ -207,6 +207,31 @@ read as a stream (`--include-partial-messages`) and a voice that queues
 sentences rather than refusing while it speaks; not done while the pass that
 spots her name costs more than the model.
 
+## Her initiative, replayed on two real meetings (2026-09-16)
+
+The meeting of 2026-09-10 is on the Mac; the corpus stood in.
+`tools/replay_initiative.py` feeds the assistant the live thread slice by
+slice, `initiative` on, through the real model (sonnet, kept warm), and logs
+what she would have said and when. Two SUMM-RE meetings of the same four
+people: 032a, a reporting meeting, through the live thread the tool itself
+wrote (its words, its errors); 032b, a decision meeting, through the
+reference transcript.
+
+| Meeting | Length | Looks | Interventions | What she said | Judged |
+|---|---|---|---|---|---|
+| 032a, reporting, live thread | 20 min | 118 | **0** | | nothing to say, and she said nothing |
+| 032b, decision, reference | 20 min | 123 | **1**, at 15:20 | "Le premier jeudi de janvier ou un autre, quelqu'un le note quelque part ?", right after the four agreed on "un jeudi juste après les vacances de Noël" | right moment, useful, one sentence; not intrusive |
+
+One remark in forty minutes, on the one decision left without a date, and
+silence on everything else: the guidance holds. What keeps the default at
+**off** is not the behaviour, it is the price of looking: a call to the
+model every ten seconds for the whole meeting, 118 and 123 here, 1.6 s of
+model time each, on the account that writes the minutes. The button in the
+**En direct** tab turns it on for a meeting; turning it on by default would
+want the looks made cheaper first, the model asked only after a sentence
+the domain already reads as a decision or a question left open
+(`instructions.decisions_in`), which nobody has measured.
+
 ## Test coverage, measured per layer (2026-09-16)
 
 `pytest --cov=greffier` on the unit suite (integration and slow tests
