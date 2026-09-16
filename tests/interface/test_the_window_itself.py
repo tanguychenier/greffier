@@ -17,7 +17,7 @@ import pytest
 
 from greffier.interface import asking
 
-TABS = ("Préparation", "Réunions", "En direct", "Voix", "Conversation", "Réglages")
+TABS = ("Préparation", "Réunions", "En direct", "Voix", "Conversation", "Comptes", "Réglages")
 
 
 class TestOpeningBeforeAsking:
@@ -122,7 +122,7 @@ class TestOpeningBeforeAsking:
 
 
 class TestEveryTabPaints:
-    def test_the_six_tabs_are_there(self, window) -> None:
+    def test_the_seven_tabs_are_there(self, window) -> None:
         assert tuple(window.tabs._pages) == TABS
 
     @pytest.mark.parametrize("caption", TABS)

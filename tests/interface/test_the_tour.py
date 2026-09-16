@@ -31,7 +31,7 @@ def _placed(window) -> list[tk.Misc]:
 class TestTheTourWalksTheWindow:
     def test_every_stop_has_its_words_in_the_catalogue(self, window) -> None:
         tour = window.the_tour()
-        assert len(tour.stops) == 9
+        assert len(tour.stops) == 10
         for stop in tour.stops:
             assert window.says(f"visite.{stop.key}") != f"visite.{stop.key}"
 
