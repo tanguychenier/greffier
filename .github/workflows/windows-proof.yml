@@ -32,7 +32,7 @@ jobs:
           pyinstaller --noconfirm --name Greffier --windowed `
             --collect-all sherpa_onnx --collect-all soundfile `
             --collect-submodules greffier --collect-data greffier `
-            tools/windows_launcher.py
+            tools/launcher.py
       - name: Open it, and photograph the screen three times
         # A `--windowed` executable detaches at once: the process is kept, the
         # screen is photographed at twenty, sixty and a hundred seconds, so

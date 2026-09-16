@@ -78,7 +78,7 @@ def _meeting(folder: Path) -> tuple[Path, list[dict[str, Any]]]:
 
 def _instrumented(her: Any, clock: Clock) -> None:
     """Hooks on the three steps, the loudspeaker replaced by the clock."""
-    brain = her.the_brain
+    brain = her.brain
     write_up = brain.write_up
 
     def timed_write_up(text: str) -> str:
@@ -123,12 +123,12 @@ def replay(audio: Path, config: Any, model: str, brain: Any | None = None) -> Cl
     if her is None:
         raise RuntimeError("no assistant: check « assistant.actif »")
     if brain is not None:
-        her.the_brain = brain
-    if her.the_brain is None:
+        her.brain = brain
+    if her.brain is None:
         raise RuntimeError("no brain: check « compte_rendu.moteur »")
     her.context = _live_material(config, identifier, the_follower)
-    if hasattr(her.the_brain, "warm_up"):
-        her.the_brain.warm_up()
+    if hasattr(her.brain, "warm_up"):
+        her.brain.warm_up()
     transcriber = light_transcriber(config)
     # As the meeting does: the models open while the room settles.
     _warm_up_aside(her.voice, transcriber)
@@ -153,8 +153,8 @@ def replay(audio: Path, config: Any, model: str, brain: Any | None = None) -> Cl
             since=clock.now,
             job=Path(job),
         )
-    if hasattr(her.the_brain, "close"):
-        her.the_brain.close()
+    if hasattr(her.brain, "close"):
+        her.brain.close()
     return clock
 
 

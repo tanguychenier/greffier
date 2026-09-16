@@ -563,6 +563,13 @@ pipx install dist/greffier-*.whl     # or pip install, in a dedicated environmen
 The wheel holds the code only: the models are fetched on the first run of
 `tools/install.py`.
 
+Each tag also publishes three things to double-click, built by
+`.github/workflows/release.yml`: the macOS bundle, the Windows executable,
+and a Linux AppImage (`python3 tools/build_appimage.py --check` builds and
+runs it here: one file of 380 MB, marked executable, that opens the window
+on a machine with nothing else installed but ffmpeg; the models are fetched
+on first launch, which is what the first-launch guide says to do).
+
 ## Development
 
 The installer already does everything needed. To recalibrate the voice

@@ -988,7 +988,7 @@ measured threshold.
   it too, and is ruled out: it would lose the stars.
 - **Windows has still not been run on a real machine.** Sixteen tests cover the
   system-specific paths: cursor, PowerShell literal, executable path, voice
-  player, and `tools/windows_launcher.py` answers `--version`. Nobody has
+  player, and `tools/launcher.py` answers `--version`. Nobody has
   double-clicked it.
 - **No AppImage for Linux**, only the source tree and its installer.
 - **The assistant does not read the connected sources** (GitLab, Jira, Trello)

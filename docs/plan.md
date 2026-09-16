@@ -115,7 +115,11 @@ nine.
       a real configuration). Done on 16/09 for GitLab and Jira, read for
       her the way the documents are, the token pasted in the window; Trello
       is not a registered kind.
-- [ ] An AppImage for Linux.
+- [x] An AppImage for Linux. Done on 16/09: `tools/build_appimage.py`
+      (PyInstaller, the same command as the Windows executable, then
+      appimagetool), a job in `release.yml` that runs it on `--version`;
+      built here and opened on a virtual screen, 382 MB, the window with its
+      French sentences on a fresh home.
 - [ ] The 22 skips of the integration suite: the table meeting with three
       timbres, and "Lucie" heard as "UCI".
 - [ ] An up-to-date survey of speaker separation; any candidate has to beat
