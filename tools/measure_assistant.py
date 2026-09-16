@@ -159,13 +159,17 @@ def replay(audio: Path, config: Any, model: str, brain: Any | None = None) -> Cl
 
 
 def delays(timeline: list[dict[str, Any]], clock: Clock, name: str) -> list[dict[str, Any]]:
-    """For each question to her, the three delays, in seconds after its end."""
+    """For each question to her, the three delays, in seconds after its end.
+
+    An event belongs to the last question begun before it: a negative delay
+    is her name spotted before the question was over, half a question read.
+    """
     rows = []
     questions = [line for line in timeline if str(line["text"]).startswith(name)]
     for question, following in zip(questions, questions[1:] + [None], strict=True):
-        end = float(question["end"])
+        begun, end = float(question["start"]), float(question["end"])
         limit = float(following["start"]) if following else float("inf")
-        window = [(what, at, detail) for what, at, detail in clock.events if end <= at < limit]
+        window = [(what, at, detail) for what, at, detail in clock.events if begun <= at < limit]
         first = {what: at for what, at, _ in reversed(window)}
         answer = next((d for w, _, d in window if w == "answered"), "")
         rows.append({
