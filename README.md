@@ -380,6 +380,8 @@ one line per gesture, and she says it aloud too. The secrets stay in
 Node.js for Trello, GitLab and Microsoft and on `uvx` for Jira, and start
 only for the accounts with a consent.
 
+![The Comptes tab, Trello and GitLab cards with their powers to tick](assets/accounts.png)
+
 ## Does it actually work?
 
 These are not claims: every line below has been run.
