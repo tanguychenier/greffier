@@ -8,6 +8,7 @@ search really starts -- one that sounded on every question would say nothing.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -140,3 +141,26 @@ class TestTheSoundItself:
             "greffier.adapters.voice_neural.player", lambda: ["/bin/true"]
         )
         cue_sound.cue(tmp_path / "parti.wav")()  # must raise nothing
+
+
+class TestTheAccountsToolsAreWrittenDown:
+    """A connected account's tool, used by the writer, reaches whoever keeps the journal."""
+
+    def test_every_tool_used_is_reported_by_name(self, monkeypatch):
+        used: list[str] = []
+        monkeypatch.setattr("shutil.which", lambda _: "/usr/bin/claude")
+        seen: dict[str, list[str]] = {}
+
+        def popen(command, **_options):
+            seen["command"] = list(command)
+            return FakeProcess(_stream(_search("mcp__trello__get_lists"),
+                                       _search("mcp__trello__add_card_to_list"),
+                                       _answer("Carte créée.")))
+
+        monkeypatch.setattr("subprocess.Popen", popen)
+        writer = ClaudeWriter(servers=Path("/tmp/outils.json"), on_tool=used.append)
+        assert writer.write_up("...") == "Carte créée."
+        assert used == ["mcp__trello__get_lists", "mcp__trello__add_card_to_list"]
+        command = seen["command"]
+        assert command[command.index("--mcp-config") + 1] == "/tmp/outils.json"
+        assert "stream-json" in command, "watching the tools needs the stream"

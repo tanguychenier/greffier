@@ -195,6 +195,21 @@ def _event(line: str) -> dict[str, object] | None:
     return read if isinstance(read, dict) else None
 
 
+def _tools_used(event: dict[str, object]) -> list[str]:
+    """The tools an assistant event reaches for, by name, in order."""
+    message = event.get("message")
+    if not isinstance(message, dict):
+        return []
+    content = message.get("content")
+    if not isinstance(content, list):
+        return []
+    return [
+        str(block.get("name"))
+        for block in content
+        if isinstance(block, dict) and block.get("type") == "tool_use" and block.get("name")
+    ]
+
+
 def _is_a_search(event: dict[str, object], tools: tuple[str, ...]) -> bool:
     """Whether this event is the assistant reaching for the web."""
     message = event.get("message")
@@ -219,7 +234,9 @@ class ClaudeWriter:
     def __init__(self, model: str = "", command: str = "claude",
                  timeout: int = 900, language: str = "",
                  tools: tuple[str, ...] = (), own_guidance: str = "",
-                 on_search: Callable[[], None] | None = None) -> None:
+                 on_search: Callable[[], None] | None = None,
+                 servers: Path | None = None,
+                 on_tool: Callable[[str], None] | None = None) -> None:
         self.model = model
         self.command = command
         self.timeout = timeout
@@ -230,6 +247,10 @@ class ClaudeWriter:
         #: might. Without it the call keeps its plain text output, which is
         #: cheaper to read and is all the minutes need.
         self.on_search = on_search
+        #: The connected accounts' tool servers, a file for the command line,
+        #: and whoever keeps the journal of what was done with them.
+        self.servers = servers
+        self.on_tool = on_tool
 
     def write_up(self, transcription: str) -> str:
         if shutil.which(self.command) is None:
@@ -240,14 +261,17 @@ class ClaudeWriter:
         # `--strict-mcp-config` keeps the machine's own MCP servers out of the
         # call: this assistant has no business loading them, and measured over
         # seven runs it also takes 0.3 s off a round trip that costs 3.
-        output_format = ["stream-json", "--verbose"] if self.on_search else ["text"]
+        watching = self.on_search is not None or self.on_tool is not None
+        output_format = ["stream-json", "--verbose"] if watching else ["text"]
         command = [self.command, "-p", "--output-format", *output_format,
                     "--strict-mcp-config",
                     "--allowed-tools", ",".join(self.tools)]
+        if self.servers is not None:
+            command += ["--mcp-config", str(self.servers)]
         if self.model:
             command += ["--model", self.model]
         header = self.own_guidance or guidance(self.language)
-        if self.on_search is not None:
+        if watching:
             return self._answer_watching_the_stream(command, header + transcription)
         outcome = subprocess.run(
             command,
@@ -296,6 +320,9 @@ class ClaudeWriter:
                         already_searching = True
                         if self.on_search is not None:
                             self.on_search()
+                    if self.on_tool is not None:
+                        for name in _tools_used(the_event):
+                            self.on_tool(name)
                     if the_event.get("type") == "result":
                         text = str(the_event.get("result") or "").strip()
                 try:
