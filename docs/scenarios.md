@@ -52,7 +52,7 @@ changed, **measured** without being held by a test, and **open**.
 | A person from the bank absent from the meeting | covered | the expected people bound the bank |
 | The bank recognises a voice from one meeting to the next | covered | `test_bank_across_meetings`, `tools/measure_bank.py` on SUMM-RE 032a → 032b |
 | **Two people inside one live slice**, ten seconds | covered | the slice is cut at the changes of speaker: `test_live`, `test_follow`, `measure_bank.py --replay` |
-| **Two people with the same first name** in the same meeting | open | |
+| **Two people with the same first name** in the same meeting | partly | after the meeting the second one stays unnamed rather than misnamed, `test_hard_cases` « deux-jacques »; live, naming both by hand still joins them |
 | A name **corrected during** the meeting | partly | `test_live_with_assistant` |
 | A **wrong voiceprint enters the bank**, and one has to recover | partly | `intruding_voiceprints` exists, the journey does not |
 | A bank of **hundreds** of people | open | |
