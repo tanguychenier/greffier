@@ -29,6 +29,7 @@ from greffier.adapters.store_files import FileStore
 from greffier.adapters.voice_bank_files import FileVoiceBank
 from greffier.adapters.voiceprints_titanet import TitaNetExtractor
 from greffier.adapters.writer_ollama import OllamaWriter
+from greffier.application.company_sources import Reading, Sources, read_all
 from greffier.application.follow import Follower, Position, files, known_people
 from greffier.application.name_voice import Naming
 from greffier.application.process import Chain
@@ -131,6 +132,22 @@ def dictation_transcriber(config: Config) -> outbound.Transcriber | None:
         size=DICTATION_MODEL, device=config.hardware.device
     )
 
+
+def company_sources(config: Config) -> Sources:
+    """The registered outside sources, read for the assistant when a token is there."""
+    from greffier.adapters import sources_file
+    from greffier.adapters.gitlab_api import tickets
+    from greffier.adapters.jira_api import requests
+
+    def read() -> list[Reading]:
+        return read_all(
+            sources_file.read(config.paths.sources),
+            sources_file.token_for,
+            lambda source, token: [ticket.say() for ticket in tickets(source, token)],
+            lambda source, token: [request.say() for request in requests(source, token)],
+        )
+
+    return Sources(read)
 
 def somebody_speaking(ou: Position) -> bool | None:
     """Whether the file being written carries speech at this position.

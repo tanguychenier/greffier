@@ -85,8 +85,11 @@ def _reread_the_buttons() -> tuple[bool, bool]:
 def _live_material(
     config: Config, identifier: str, the_follower: Any
 ) -> Callable[[], str]:
-    """What the assistant has in front of it: the thread, and the documents."""
+    """What the assistant has in front of it: the thread, the documents, the sources."""
     from greffier.adapters import attachments_file
+    from greffier.wiring import company_sources
+
+    sources = company_sources(config)
 
     def material() -> str:
         thread = str(the_follower.thread.rendered())
@@ -94,10 +97,11 @@ def _live_material(
             documents = attachments_file.material(config.paths.pieces, identifier)
         except OSError:
             documents = ""
-        if not documents:
-            return thread
-        return (f"{thread}\n\n--- Documents fournis pour cette réunion ---\n"
-                f"{documents}")
+        if documents:
+            thread = (f"{thread}\n\n--- Documents fournis pour cette réunion ---\n"
+                      f"{documents}")
+        outside = sources.material()
+        return f"{thread}\n\n{outside}" if outside else thread
 
     return material
 

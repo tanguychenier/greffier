@@ -101,6 +101,9 @@ class Window:
     #: The microphone while somebody is dictating, and nothing the rest of the
     #: time: its absence is what says that nobody is speaking.
     _dictee: Any | None = None
+    #: The registered outside sources, read for the Conversation tab once it
+    #: asks, and again only when their reading has gone stale.
+    _sources: Any | None = None
 
     def __init__(self, config: Config) -> None:
         from greffier.wiring import recording, store, troubles
@@ -3143,15 +3146,19 @@ class Window:
         return True
 
     def _with_the_documents(self, material: str, identifier: str) -> str:
-        """Adds to the material the text of the documents supplied."""
+        """Adds to the material the documents supplied, and the sources registered."""
         from greffier.adapters import attachments_file
+        from greffier.wiring import company_sources
 
         documents = attachments_file.material(self.config.paths.pieces, identifier)
-        if not documents:
-            return material
-        return (
-            f"{material}\n\n--- Documents fournis pour cette réunion ---\n{documents}"
-        )
+        if documents:
+            material = (
+                f"{material}\n\n--- Documents fournis pour cette réunion ---\n{documents}"
+            )
+        if self._sources is None:
+            self._sources = company_sources(self.config)
+        outside = self._sources.material()
+        return f"{material}\n\n{outside}" if outside else material
 
     def _supply_a_document(self) -> None:
         """Hands the tool a document during the meeting, in one gesture."""

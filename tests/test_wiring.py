@@ -349,3 +349,41 @@ class TestQuiEcouteUneQuestionDictee:
     def test_it_can_be_opened_before_anybody_speaks(self, config):
         config.transcription.engine = "faster-whisper"
         assert callable(wiring.dictation_transcriber(config).warm)
+
+
+class TestTheCompanySourcesReachTheAssistant:
+    """Registered in `sources.toml`, read where a token is there, named where not."""
+
+    def _registry(self, config, token="GREFFIER_GITLAB_JETON_D_ESSAI"):
+        config.paths.sources.parent.mkdir(parents=True, exist_ok=True)
+        config.paths.sources.write_text(
+            '[[sources]]\nnom = "recherche"\ngenre = "gitlab"\n'
+            'adresse = "https://gitlab.example.fr"\nprojet = "equipe/outil"\n'
+            f'jeton = "{token}"\n',
+            encoding="utf-8",
+        )
+
+    def test_without_a_token_the_assistant_is_told_it_has_no_access(
+        self, config, monkeypatch
+    ):
+        monkeypatch.delenv("GREFFIER_GITLAB_JETON_D_ESSAI", raising=False)
+        self._registry(config)
+        text = wiring.company_sources(config).material()
+        assert "Source « recherche » (gitlab, projet equipe/outil)" in text
+        assert "aucun jeton disponible" in text
+
+    def test_with_a_token_the_tickets_are_read(self, config, monkeypatch):
+        from greffier.adapters import gitlab_api
+
+        monkeypatch.setenv("GREFFIER_GITLAB_JETON_D_ESSAI", "secret")
+        monkeypatch.setattr(
+            gitlab_api, "tickets",
+            lambda source, token: [gitlab_api.Ticket(12, "Facturation en double", "opened",
+                                                     "https://gitlab.example.fr/i/12", "Maud")],
+        )
+        self._registry(config)
+        text = wiring.company_sources(config).material()
+        assert "- #12 Facturation en double, Maud (opened)" in text
+
+    def test_with_no_registry_nothing_is_handed_over(self, config):
+        assert wiring.company_sources(config).material() == ""
