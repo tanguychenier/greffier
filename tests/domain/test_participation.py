@@ -77,6 +77,20 @@ class TestNeverRepeatingItself:
         the_call = opening(because=Because.CALLED, subject="qui-parle-voix-3", born_at=50.0)
         assert manners.refusal(the_call, now=50.0, lull=9.0) == "déjà dit"
 
+    def test_the_same_call_heard_again_by_the_next_slice_is_not_answered_twice(self):
+        manners = Manners()
+        manners.has_spoken(opening(because=Because.CALLED, subject="appel:abc"), now=100.0)
+        again = opening(because=Because.CALLED, subject="appel:abc", born_at=112.0)
+        assert manners.refusal(again, now=112.0, lull=9.0) == "déjà dit"
+
+    def test_the_same_question_asked_again_minutes_later_is_answered(self):
+        # Word for word, by somebody who wants it answered again: the
+        # subject of a call is the overlap's guard, not the meeting's memory.
+        manners = Manners()
+        manners.has_spoken(opening(because=Because.CALLED, subject="appel:abc"), now=100.0)
+        again = opening(because=Because.CALLED, subject="appel:abc", born_at=300.0)
+        assert manners.refusal(again, now=300.0, lull=9.0) is None
+
 
 class TestNeverServingSomethingCold:
     def test_a_stale_opening_is_dropped(self):

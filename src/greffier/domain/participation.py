@@ -73,7 +73,11 @@ class Manners:
     maximum_density: float = MAXIMUM_DENSITY
     active: bool = True
     spoke_at: float | None = None
-    said_ones: set[str] = field(default_factory=set)
+    said_at: dict[str, float] = field(default_factory=dict)
+
+    @property
+    def said_ones(self) -> set[str]:
+        return set(self.said_at)
 
     def refusal(
         self,
@@ -85,7 +89,7 @@ class Manners:
         """What stops this opening being said, or nothing if it may be."""
         if not self.active:
             return "il ne participe pas"
-        if opening.subject and opening.subject in self.said_ones:
+        if opening.subject and self._already_said(opening, now):
             return "déjà dit"
         if opening.urgent:
             return None
@@ -120,7 +124,22 @@ class Manners:
         """To be called once the remark has actually been spoken."""
         self.spoke_at = now
         if opening.subject:
-            self.said_ones.add(opening.subject)
+            self.said_at[opening.subject] = now
+
+    def _already_said(self, opening: Opening, now: float) -> bool:
+        """A subject stays said for the meeting; a call, for thirty seconds.
+
+        The subject of a call is there so that the question the overlap
+        brings back in the next slice is not answered twice. Kept for the
+        whole meeting, it silenced the same question asked again minutes
+        later, word for word, by somebody who wanted it answered again.
+        """
+        said = self.said_at.get(opening.subject)
+        if said is None:
+            return False
+        if opening.subject.startswith(CALL_SUBJECT):
+            return now - said <= MEMORY_OF_A_CALL
+        return True
 
 def speech_density(turns: list[tuple[float, float]], now: float,
                       window: float = 60.0) -> float:
@@ -269,6 +288,11 @@ def own_words(remark: str) -> frozenset[str]:
         for word in re.findall(r"\w{4,}", remark.replace("-", ""), flags=re.UNICODE)
     )
 
+
+#: What the subject of a call begins with; the application builds it from
+#: the words of the question, so that the overlap bringing the question
+#: back in the next slice is refused as already answered.
+CALL_SUBJECT = "appel:"
 
 MEMORY_OF_A_CALL = 30.0
 """Seconds during which the same question, heard again, is the same question.
