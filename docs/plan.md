@@ -159,10 +159,13 @@ meeting is never needed to see what a meeting does.
       (questions, decisions, actions, look-ups), after (minutes, tickets,
       follow-up), each scenario in `scenarios.md` with its state.
       *Proof: `scenarios.md` extended, every open line either covered or measured.*
-- [ ] The badge on the Conversation tab counts what has not been seen, not
+- [x] The badge on the Conversation tab counts what has not been seen, not
       everything Lucie ever said: read her message, switch tab, one more
       message arrives, the badge said three where one was new.
       *Proof: a test on the count after a tab is opened, and the badge looked at.*
+      Done on 16/09: the window notes which questions were on screen while the
+      tab was open, and the badge counts the others. Four tests on the real
+      window; the one with « one more after a look » fails on the previous code.
 - [ ] Test coverage measured per layer and raised where it is thin; the e2e
       suite around the bench runs where the models are and skips cleanly
       where they are not.
