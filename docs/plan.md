@@ -366,14 +366,26 @@ print guard would cost the one-person-cut-in-two case it was written for.
       Seen on the tour's English images, « Traiter », « Rédiger »,
       « Envoyer par courriel » and the column heads stay French when the
       window speaks English.
-- [ ] Connected accounts. A view where the person sees the services
+- [x] Connected accounts. A view where the person sees the services
       (Outlook and its calendar, Google's, Trello, GitLab, Jira), clicks
       « Connecter », reads what Claude will be allowed to do and ticks what
       she accepts; behind it Claude, reached through tool servers, and a
       journal in the window of everything he did with the accounts. The
-      token stays in a file of hers. The click-and-connect for Google and
-      Microsoft wants an application declared by Tansoftware with each,
-      which is his; Trello, GitLab and Jira work by token from the start.
+      token stays in a file of hers.
+      *Proof, the tab photographed and looked at, the model's command line carrying exactly the ticked tools, the journal read back.*
+      Done on 16/09. The **Comptes** tab (`interface/accounts_tab.py`),
+      the catalogue with every tool name read from the servers themselves
+      (`domain/accounts_catalogue.py`, nothing that deletes, archives or
+      sends), the consents in `comptes.json`, the secrets in `jetons.toml`,
+      the servers file written for the model on every start and the
+      journal `comptes-journal.jsonl`, both sessions (spoken and written)
+      told what they may do and reporting every tool they use. Microsoft
+      365 signs in by code on Microsoft's page through the server's own
+      application, nothing to declare; Google waits for an application
+      declared by Tansoftware, the card says so and cannot be ticked.
+      Not yet played against the real model with a real account, none
+      being configured here. The Meetings tab's French buttons in English
+      stay on the list.
 
 ## Decisions that are his, not tasks
 
