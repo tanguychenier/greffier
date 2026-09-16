@@ -134,6 +134,7 @@ jobs:
         uses: ./.github/actions/attach-to-release
         with:
           file: Greffier-linux.tar.gz
+          token: ${{ github.token }}
 
   appimage:
     name: Linux AppImage
