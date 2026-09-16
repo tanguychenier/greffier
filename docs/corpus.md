@@ -241,3 +241,47 @@ sentence-level figures move by a few points from one run to the next. The
 comparison that settles a threshold is the turn-level one of
 `measure_stitching.py`, computed once from a cached segmentation, where
 036c goes from 72.2 % to 93.5 % right with nothing else changed.
+
+## The assistant's speed, from the end of the question to her first word (2026-09-16)
+
+Asked from use: she took seconds to answer, and it felt long. Measured on a
+synthesised meeting that asks her three questions and leaves her twelve
+seconds after each (`tools/measure_assistant.py`), through the chain a
+meeting runs: the pass that spots her name, the model that phrases the
+answer, the voice that renders it, the loudspeaker replaced by a clock. Three
+figures per question, all counted from the end of the question: *spotted*
+(her name heard), *answered* (the model's text back), *ready* (the first
+sentence rendered, the moment the room would hear her). Two runs each.
+
+Where the seconds went, measured one piece at a time:
+
+| Piece | Before | After | What changed |
+|---|---|---|---|
+| The model, one question | `claude -p` cold: 4.6 s haiku, 5.0 sonnet, 6.2 opus | 1.4 to 2.4 s | One process kept open for the meeting (`brain_claude`), fed one message after another; the guidance as its system prompt (first token 0.7 s instead of 2.7); sonnet rather than opus for what is spoken |
+| The listening pass | in the loop, after the slice: every 4 s at best, never while a slice was transcribed | its own thread, run the moment the room goes quiet | `SpeechEnd` on the levels of the file being written; the clock as fallback, and no pass while nobody has spoken |
+| The live model, on this card | large-v3: 12.1 s per minute, 1.95 s per pass | large-v3-turbo: 3.7 s per minute, 1.3 s per pass | Turbo where the card takes the large model; the installer fetches it |
+| The voice, first answer | 5 to 6 s to open | opened before the first word | Warmed up at the start of the meeting, with the live model |
+| A question cut in half | answered as heard | held for the next pass | A call with no full stop waits once; the same words again go through |
+
+Which small model would hear her name: base heard it 4 times out of 8 on
+the synthesised voices, small 4 out of 8, large-v3-turbo 8 out of 8. The
+pass keeps the turbo model.
+
+End to end, on this machine (CUDA, 6 GB, live thread on), the same file
+before and after:
+
+| | Question 1 | Question 2 | Question 3 |
+|---|---|---|---|
+| Before, spotted / answered / ready | 5.0 / 8.6 / **8.9** s and 3.9 / 11.5 / **11.8** s | 3.5 / 8.8 / **9.3** s and 3.8 / 7.7 / **8.0** s | 6.2 / 9.8 / **10.0** s and 4.4 / 8.5 / **8.9** s |
+| After | 4.4 / 5.9 / **6.5** s and 3.7 / 5.4 / **6.4** s | 4.0 / 5.3 / **5.5** s and 4.5 / 6.1 / **6.4** s | 2.2 / 4.1 / **4.6** s and 2.3 / 4.7 / **4.9** s |
+
+From 9.5 s on average to 5.7 s. What is left is *spotted*: 2 to 4.5 s on
+this card, of which half a second is the quiet the room has to keep, the
+rest the pass itself, 1.3 s alone and up to 4 s when the live thread's
+slice runs on the same card at the same time, plus the pass in flight when
+the question ends. On the MacBook the tool runs on, the same pass costs
+0.8 s and a slice 2 s (whisper.cpp, Metal), so the figure to expect there is
+the model's 1.5 to 2 s and the voice's 0.3 on top of two to three: four to
+five seconds, and the *answered* column is now the largest piece. Below
+that would take the answer streamed to the voice sentence by sentence, or a
+model reached without Claude Code in front of it.

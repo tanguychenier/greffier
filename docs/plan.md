@@ -143,11 +143,19 @@ meeting is never needed to see what a meeting does.
       recognised on the next of the same series; and one person whose tone
       changes inside a meeting, held as one voice.
       *Proof: the recognition rate across 032a → 032b, the coherence figure per person.*
-- [ ] Lucie's speed, measured end to end on the bench with synthesised
+- [x] Lucie's speed, measured end to end on the bench with synthesised
       questions, then cut: the slice ends when the speaker stops rather than
       on the clock, the answer streams to the voice as it comes, a faster
       model for what is spoken, the process kept warm.
       *Proof: the time from the end of the question to the first spoken word, before and after, in `corpus.md`.*
+      Done on 16/09: `tools/measure_assistant.py` times the three steps on a
+      replayed meeting. One Claude process kept warm for the meeting with the
+      guidance as its system prompt (the model's share from 3.6 to 7.7 s down
+      to 1.4 to 2.4), the listening pass on its own thread and run the moment
+      the room goes quiet, the turbo model for the live thread where the card
+      takes the large one, the voice and the live model opened before the
+      first word. From 9.5 s to 5.7 s on this card; the streamed answer was
+      not needed to get there and stays on the list below.
 - [ ] Context, as scenarios on the bench: a document handed over is used in
       an answer; a web search is made and its source named; a company source
       (GitLab, Jira, Trello) is read when its token is there; when it is not,

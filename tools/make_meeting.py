@@ -17,10 +17,12 @@ two-voice dialogue and not for the meeting round a table, which stays on
 """
 
 import argparse
+import json
 import shutil
 import subprocess
 import sys
 import tempfile
+import wave
 from pathlib import Path
 
 # The dialogue is written to exercise the three ways of naming somebody, and so
@@ -124,6 +126,10 @@ FUITE_DB = -40.0
 VOICE = {"A": "Thomas", "B": "Amélie"}
 SILENCE = 0.4  # seconds between two lines, as in a real discussion
 
+#: In a dialogue, a line whose speaker is this is a pause: its text is the
+#: number of seconds nobody talks, the time a room leaves the assistant to answer.
+PAUSE = None
+
 
 #: The speaker ids of the French VITS voice, for machines without « say ».
 #: Two timbres and not three: the network carries two (`num_speakers = 2`),
@@ -226,20 +232,20 @@ def make(destination: Path, voice: dict | None = None, dialogue=None) -> Path:
             )
     with tempfile.TemporaryDirectory() as folder:
         job = Path(folder)
-        chunks = []
+        chunks: list[Path] = []
         for index, (speaker_index, text) in enumerate(lignes):
-            chunks.append(_speak(engine, voice[speaker_index], text, job, index))
+            if speaker_index is PAUSE:
+                chunks.append(_silence(job, float(text), f"{index:02d}-pause"))
+            else:
+                chunks.append(_speak(engine, voice[speaker_index], text, job, index))
 
-        silence = job / "silence.wav"
-        subprocess.run(
-            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
-             "-i", f"anullsrc=r=16000:cl=mono:d={SILENCE}", str(silence)],
-            check=True,
-        )
+        silence = _silence(job, SILENCE, "silence")
 
         listing = job / "liste.txt"
         entrees = []
-        for chunk in chunks:
+        timeline: list[dict[str, object]] = []
+        cursor = 0.0
+        for (speaker_index, text), chunk in zip(lignes, chunks, strict=True):
             converti = chunk.with_name(chunk.stem.removesuffix("-brut") + "-16k.wav")
             subprocess.run(
                 ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(chunk),
@@ -247,6 +253,11 @@ def make(destination: Path, voice: dict | None = None, dialogue=None) -> Path:
                 check=True,
             )
             entrees += [converti, silence]
+            length = _length(converti)
+            if speaker_index is not PAUSE:
+                timeline.append({"speaker": speaker_index, "text": text,
+                                 "start": round(cursor, 2), "end": round(cursor + length, 2)})
+            cursor += length + SILENCE
         listing.write_text(
             "\n".join(f"file '{path}'" for path in entrees) + "\n", encoding="utf-8"
         )
@@ -258,7 +269,27 @@ def make(destination: Path, voice: dict | None = None, dialogue=None) -> Path:
              "-c:a", "pcm_s16le", str(destination)],
             check=True,
         )
+        # Where each line falls, for whoever measures a delay against the file.
+        destination.with_suffix(".timeline.json").write_text(
+            json.dumps(timeline, ensure_ascii=False, indent=1), encoding="utf-8"
+        )
     return destination
+
+
+def _silence(job: Path, seconds: float, name: str) -> Path:
+    file = job / f"{name}.wav"
+    subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
+         "-i", f"anullsrc=r=16000:cl=mono:d={seconds}", str(file)],
+        check=True,
+    )
+    return file
+
+
+def _length(wav: Path) -> float:
+    """Seconds of a 16 kHz mono wav, read from its header."""
+    with wave.open(str(wav), "rb") as read:
+        return read.getnframes() / read.getframerate()
 
 
 def make_in_the_room(destination: Path) -> Path:
