@@ -7,8 +7,10 @@ from greffier.domain.participation import (
     Opening,
     called_by_name,
     is_own,
+    is_the_same_call,
     own_words,
     speech_density,
+    split_at_the_name,
     without_own_name,
 )
 
@@ -360,3 +362,59 @@ class TestItOnlyAnswersToItsOwnName:
         what made it call itself, and taking out a word that was not its name
         costs nothing."""
         assert "uc" not in without_own_name("Lucy, je regarde.", "Lucie").lower()
+
+
+class TestTheQuestionIsWhatFollowsTheName:
+    """With the slice ending at a quiet moment, « …en fin de journée. Lucie, à
+    quel jour est décalée la recette ? » came as one sentence, and the
+    question, already asked by the pass that heard it alone, was asked a
+    second time under another fingerprint."""
+
+    def test_what_precedes_the_name_is_context_not_question(self):
+        before, asked = split_at_the_name(
+            "en fin de journée. Lucie, à quel jour est décalée la recette ?", "Lucie"
+        )
+        assert before == "en fin de journée."
+        assert asked == "à quel jour est décalée la recette ?"
+
+    def test_a_call_that_opens_the_sentence_has_nothing_before(self):
+        assert split_at_the_name("Lucie, à quel jour ?", "Lucie") == ("", "à quel jour ?")
+
+    def test_the_last_name_said_is_the_one_that_counts(self):
+        before, asked = split_at_the_name("Lucie ? Lucie, tu m'entends ?", "Lucie")
+        assert asked == "tu m'entends ?" and before == "Lucie ?"
+
+    def test_a_mangled_name_is_still_the_cut(self):
+        assert split_at_the_name("Lucy, on décale ?", "Lucie") == ("", "on décale ?")
+
+    def test_without_the_name_the_whole_sentence_is_the_question(self):
+        assert split_at_the_name("on décale ?", "Lucie") == ("", "on décale ?")
+
+
+class TestTheSameQuestionHeardTwice:
+    """The pass hears « c'est quoi une pré-production en une phrase ? », the
+    slice hears « c'est quoi une pré-production ? » a few seconds later, or
+    « préproduction » in one word: one question, one answer."""
+
+    RECENT = [(10.0, own_words("c'est quoi une pré-production en une phrase ?"))]
+
+    def test_the_same_question_short_of_a_word_is_the_same(self):
+        assert is_the_same_call("c'est quoi une pré-production ?", self.RECENT, now=15.0)
+
+    def test_a_word_spelt_otherwise_is_the_same(self):
+        assert is_the_same_call("c'est quoi une préproduction en une phrase ?", self.RECENT, 15.0)
+
+    def test_a_hyphen_closed_up_and_a_word_short_are_still_the_same(self):
+        # Both at once, as the bench heard it: « préproduction ? » after
+        # « pré-production en une phrase ? ».
+        assert is_the_same_call("c'est quoi une préproduction ?", self.RECENT, 15.0)
+        assert own_words("pré-production") == own_words("préproduction")
+
+    def test_another_question_is_another_question(self):
+        assert not is_the_same_call("à quel jour est décalée la recette ?", self.RECENT, 15.0)
+
+    def test_thirty_seconds_later_it_is_somebody_asking_again(self):
+        assert not is_the_same_call("c'est quoi une pré-production ?", self.RECENT, now=50.0)
+
+    def test_a_question_with_no_word_to_judge_is_never_the_same(self):
+        assert not is_the_same_call("et ?", self.RECENT, 15.0)

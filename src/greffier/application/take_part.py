@@ -22,9 +22,11 @@ from greffier.domain.participation import (
     Opening,
     called_by_name,
     is_own,
+    is_the_same_call,
     own_words,
     question_asked,
     speech_density,
+    split_at_the_name,
     without_own_name,
 )
 
@@ -176,7 +178,7 @@ class _AsItComes:
         if not self.started:
             self.started = True
             self.spoke_at = assistant._the_time(self._now)
-            self._mouth = assistant.voice.begin() if assistant.voice is not None else None
+            self._mouth = self._open_the_mouth(assistant.voice)
         assistant.its_own_words.append((self.spoke_at, own_words(words)))
         if self._mouth is not None:
             self._mouth.add(words)
@@ -188,6 +190,37 @@ class _AsItComes:
             return False
         mouth.close()
         return True
+
+    @staticmethod
+    def _open_the_mouth(voice: Speaker | None) -> Mouth | None:
+        """A voice that takes the sentences as they come, or nothing.
+
+        A voice with `say` alone gets the whole remark at the end, as before:
+        the sentences are gathered here and said together.
+        """
+        if voice is None:
+            return None
+        begin = getattr(voice, "begin", None)
+        if begin is None:
+            return _WholeRemark(voice)
+        mouth: Mouth | None = begin()
+        return mouth
+
+
+class _WholeRemark:
+    """The mouth of a voice that only takes a whole text."""
+
+    def __init__(self, voice: Speaker) -> None:
+        self._voice = voice
+        self._parts: list[str] = []
+
+    def add(self, text: str) -> None:
+        self._parts.append(text.strip())
+
+    def close(self) -> None:
+        remark = " ".join(part for part in self._parts if part)
+        if remark:
+            self._voice.say(remark)
 
 
 @dataclass(frozen=True, slots=True)
@@ -216,6 +249,9 @@ class AssistantSettings:
     its_own_turns: list[tuple[float, float]] = field(default_factory=list)
     keep_its_turn: Callable[[float, float], None] | None = None
     its_own_words: list[tuple[float, frozenset[str]]] = field(default_factory=list)
+    #: The questions answered lately, by their words: the slice hears the
+    #: question the pass already answered, never spelt quite the same.
+    recent_calls: list[tuple[float, frozenset[str]]] = field(default_factory=list)
     #: The meeting's clock, read at the moment she starts to speak. Without
     #: it her turn is filed at the moment she was called, which is three to
     #: six seconds before a word comes out: the chain that runs afterwards
@@ -261,7 +297,11 @@ class AssistantSettings:
                 if accuse is not None:
                     return accuse
             if called_by_name(text, self.name):
-                request = question_asked(text, self.name) or text
+                before, request = split_at_the_name(text, self.name)
+                request = request or question_asked(text, self.name) or text
+                if is_the_same_call(request, self.recent_calls, now):
+                    heard_before.append(text)
+                    continue
                 offered_ones.append(Opening(
                     because=Because.CALLED,
                     remark=request,
@@ -269,7 +309,7 @@ class AssistantSettings:
                     # A subject, so a question the overlap brings back in the
                     # next slice is not answered a second time.
                     subject=f"appel:{_fingerprint_of_the_words(request)}",
-                    just_before=" ".join(heard_before),
+                    just_before=" ".join([*heard_before, before]).strip(),
                 ))
             heard_before.append(text)
         if self.in_reserve is not None:
@@ -419,6 +459,8 @@ class AssistantSettings:
             # Kept before speaking: a slice can come back while `say` still holds.
             self.its_own_words.append((spoke_at, own_words(remark)))
             pronounced = bool(self.voice and self.voice.say(remark))
+        if opening.because is Because.CALLED:
+            self.recent_calls.append((spoke_at, own_words(opening.remark)))
         if pronounced:
             end = spoke_at + 1.0 + len(remark) / 15.0
             self.its_own_turns.append((spoke_at, end))
