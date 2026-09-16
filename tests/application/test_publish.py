@@ -1,9 +1,14 @@
-"""Exécuter un dépôt : extraire le son, tirer du contexte d'un document."""
+"""Running a drop: pulling the sound out, drawing context from a document."""
 
+import shutil
+import subprocess
+
+import pytest
 
 from greffier.application.publish import (
     CONSIGNES_DOCUMENT,
     READ_AT_MOST,
+    extract_sound,
     learn_from_document,
     read_the_text,
     run_chain,
@@ -123,3 +128,85 @@ class TestTheToolsOfThisMachine:
         found = tools_present()
         assert isinstance(found, frozenset)
         assert found <= {"ffmpeg", "pdftotext", "textutil"}
+
+
+class TestPullingTheSoundOutOfAVideo:
+    """A two-hour video is a meeting once its sound is out; ffmpeg does it."""
+
+    @pytest.fixture
+    def video(self, tmp_path):
+        if shutil.which("ffmpeg") is None:
+            pytest.skip("ffmpeg absent")
+        target = tmp_path / "reunion.mp4"
+        done = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+             "-f", "lavfi", "-i", "testsrc=size=64x64:rate=5:duration=1",
+             "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
+             "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", str(target)],
+            capture_output=True, text=True, check=False,
+        )
+        if done.returncode != 0:
+            pytest.skip(f"ffmpeg cannot make a video here: {done.stderr[-120:]}")
+        return target
+
+    def test_the_sound_track_comes_out_as_the_chain_wants_it(self, video, tmp_path):
+        import soundfile as sf
+
+        sound = extract_sound(video, tmp_path / "enregistrements" / "reunion.wav")
+        info = sf.info(str(sound))
+        assert info.channels == 1 and info.samplerate == 16000
+        assert 0.8 < info.duration < 1.3
+
+    def test_a_video_run_through_the_chain_becomes_a_recording(self, video, tmp_path):
+        done = run_chain(Suggestion(video, Destination.VIDEO, "vidéo"),
+                         tmp_path / "enregistrements")
+        assert done.trouble == ""
+        assert done.produit == tmp_path / "enregistrements" / "reunion.wav"
+
+    def test_something_that_is_not_a_video_says_so(self, tmp_path):
+        if shutil.which("ffmpeg") is None:
+            pytest.skip("ffmpeg absent")
+        fake = tmp_path / "x.mp4"
+        fake.write_bytes(b"not a video")
+        with pytest.raises(RuntimeError, match="extraction du son impossible"):
+            extract_sound(fake, tmp_path / "x.wav")
+
+
+class TestReadingThroughATool:
+    def test_a_pdf_is_read_through_pdftotext_when_it_is_there(self, tmp_path, monkeypatch):
+        from greffier.application import publish
+
+        monkeypatch.setattr(publish.shutil, "which", lambda name: "/usr/bin/pdftotext")
+
+        class Done:
+            returncode = 0
+            stdout = "Budget du lot 2 : 42 000 euros."
+
+        monkeypatch.setattr(publish.subprocess, "run", lambda *a, **k: Done())
+        assert read_the_text(tmp_path / "budget.pdf") == "Budget du lot 2 : 42 000 euros."
+
+    def test_a_pdf_without_pdftotext_reads_empty(self, tmp_path, monkeypatch):
+        from greffier.application import publish
+
+        monkeypatch.setattr(publish.shutil, "which", lambda name: None)
+        assert read_the_text(tmp_path / "budget.pdf") == ""
+
+    def test_a_tool_that_fails_reads_empty(self, tmp_path, monkeypatch):
+        from greffier.application import publish
+
+        monkeypatch.setattr(publish.shutil, "which", lambda name: "/usr/bin/pdftotext")
+
+        class Failed:
+            returncode = 1
+            stdout = "garbage"
+
+        monkeypatch.setattr(publish.subprocess, "run", lambda *a, **k: Failed())
+        assert read_the_text(tmp_path / "budget.pdf") == ""
+
+    def test_a_document_read_through_the_chain_teaches_the_context(self, tmp_path):
+        file = tmp_path / "glossaire.md"
+        file.write_text("CASA : comité d'architecture.", encoding="utf-8")
+        writer = FakeWriter('[{"ecriture": "CASA", "sens": "comité", "genre": "terme"}]')
+        done = run_chain(Suggestion(file, Destination.CONTEXT, "texte"),
+                         tmp_path / "enregistrements", writer=writer)
+        assert done.appris == (("CASA", "comité", "terme"),)

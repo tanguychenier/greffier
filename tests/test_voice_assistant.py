@@ -319,3 +319,58 @@ class TestLaVoixOuverteUneFois:
 
         monkeypatch.setattr(voice_neural.NeuralVoice, "_open", qui_refuse)
         voice_neural.NeuralVoice(folder, device="cpu").warm()
+
+
+class TestSpeakingThroughTheSystemAndBeingQuiet:
+    """The synthesiser stands in for a process that sleeps: what is covered is
+    the voice's own handling of it, starting, refusing to cut itself, cutting."""
+
+    def _voice(self, monkeypatch, seconds="2"):
+        import sys
+
+        monkeypatch.setattr(voice_system, "SYSTEM", "Linux")
+        monkeypatch.setattr(voice_system.shutil, "which",
+                            lambda n: "/usr/bin/spd-say" if n == "spd-say" else None)
+        voice = voice_system.SystemVoice(voice=None)
+        monkeypatch.setattr(
+            voice, "_command",
+            lambda text: [sys.executable, "-c", f"import time; time.sleep({seconds})"],
+        )
+        return voice
+
+    def test_it_speaks_and_hands_back_at_once(self, monkeypatch):
+        voice = self._voice(monkeypatch)
+        try:
+            assert voice.say("Bonjour à tous.") is True
+            assert voice.is_speaking() is True
+        finally:
+            voice.go_quiet()
+        assert voice.is_speaking() is False
+
+    def test_it_refuses_to_cut_itself_for_a_second_remark(self, monkeypatch):
+        voice = self._voice(monkeypatch)
+        try:
+            assert voice.say("Première phrase.") is True
+            assert voice.say("Deuxième phrase.") is False
+        finally:
+            voice.go_quiet()
+
+    def test_an_empty_remark_is_not_spoken(self, monkeypatch):
+        assert self._voice(monkeypatch).say("   ") is False
+
+    def test_waiting_ends_with_the_sentence(self, monkeypatch):
+        voice = self._voice(monkeypatch, seconds="0.2")
+        voice.say("Courte.")
+        voice.attendre(timeout=5)
+        assert voice.is_speaking() is False
+
+    def test_waiting_too_long_cuts_the_sentence(self, monkeypatch):
+        voice = self._voice(monkeypatch, seconds="5")
+        voice.say("Longue.")
+        voice.attendre(timeout=0.2)
+        assert voice.is_speaking() is False
+
+    def test_a_synthesiser_that_cannot_start_says_no(self, monkeypatch):
+        voice = self._voice(monkeypatch)
+        monkeypatch.setattr(voice, "_command", lambda text: ["/nowhere/to/be/found", text])
+        assert voice.say("Bonjour.") is False
