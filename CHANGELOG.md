@@ -6,6 +6,16 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## New
 
+- **window**: the Comptes tab, one card per service, the powers ticked one by one (`6b0e60f`)
+- **assistant**: the connected accounts reach both sessions, and every tool used is written down (`42fa3da`)
+- **adapters**: the connected accounts on disk, and the sign-in by code (`43f386d`)
+- **domain**: the accounts a person connects, and what Claude may do with them (`67746d3`)
+- **window**: a guided tour, one element lit at a time, the first time (`f5fc1e4`)
+- **tools**: measure whether she hears her name in a real voice, no meeting needed (`2cb4d50`)
+- **follow**: the voices the segmenter heard over a sentence go with the line (`64b0278`)
+- **tools**: the bank measure judges the names as they were shown (`82e6e87`)
+- **follow**: the likeness behind a name from the bank travels with the line (`57bec72`)
+- **watch**: look for something to add only when the room settled something (`455ec88`)
 - **watch**: a slice past its period waits for the room to go quiet (`fb7b498`)
 - **assistant**: speak each sentence as the model finishes it (`ffeb7a3`)
 - **live**: cut each slice at the changes of speaker before taking a print (`5e2305a`)
@@ -108,6 +118,9 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **window**: the Meetings tab's buttons and columns speak the window's language (`c28fcb7`)
+- **tools**: the names as they were shown are read by the turn's number (`29878a0`)
+- **assistant**: the same question, word for word, is answered again minutes later (`aa18e9f`)
 - **assistant**: a question heard twice, in other words, is answered once (`7e9277d`)
 - **assistant**: the words heard just before the call go to the model with it (`3d42f6a`)
 - **watch**: a breath in the middle of a question is not its end (`f15fff4`)
@@ -224,6 +237,11 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Documentation
 
+- **readme**: the Comptes tab, photographed (`341f96a`)
+- the connected accounts, in the README, the plan and the scenarios (`2c59a94`)
+- **readme**: the tour, photographed on the Meetings tab (`f3e44b7`)
+- the cheaper look measured, the names as shown, two boxes ticked (`f329533`)
+- **plan**: what is left after 0.3.24, with its figure and its lever (`0ace8b8`)
 - the cut on silence, the answer spoken as it comes, and the bench again (`49d275f`)
 - the live thread run in full with the slice cut, and the coverage table (`4f3eea7`)
 - the bank across two meetings, and the slice cut at the changes of speaker (`b277c67`)
