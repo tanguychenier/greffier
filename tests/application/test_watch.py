@@ -674,7 +674,7 @@ class TestSheAnswersWithoutWaitingForTheSlice:
             def write_up(self, text):
                 return "Je regarde."
 
-        return AssistantSettings(name="Lucie", the_brain=Brain(),
+        return AssistantSettings(name="Lucie", brain=Brain(),
                                  manners=Manners(active=True, creux_minimal=0.0))
 
     def _watcher(self, tmp_path, monkeypatch, her, listening):
@@ -820,7 +820,7 @@ class TestTheListeningPassHasItsOwnThread:
             def write_up(self, text):
                 return "Je regarde."
 
-        return AssistantSettings(name="Lucie", the_brain=Brain(),
+        return AssistantSettings(name="Lucie", brain=Brain(),
                                  manners=Manners(active=True, creux_minimal=0.0))
 
     def test_a_call_is_heard_while_a_slow_slice_is_transcribed(
@@ -935,7 +935,7 @@ class TestItListensTheMomentSomebodyStops:
             def write_up(self, text):
                 return "Je regarde."
 
-        return AssistantSettings(name="Lucie", the_brain=Brain(),
+        return AssistantSettings(name="Lucie", brain=Brain(),
                                  manners=Manners(active=True, creux_minimal=0.0))
 
     def _watcher(self, tmp_path, monkeypatch, listening, speaking, clock):
@@ -1022,7 +1022,7 @@ class TestHalfAQuestionIsNotAnswered:
             def write_up(self, text):
                 return "Je regarde."
 
-        return AssistantSettings(name="Lucie", the_brain=Brain(),
+        return AssistantSettings(name="Lucie", brain=Brain(),
                                  manners=Manners(active=True, creux_minimal=0.0))
 
     def _spotted(self, tmp_path, monkeypatch, end):
@@ -1064,7 +1064,7 @@ class TestAPromptedPassTrustsTheRoom:
             def write_up(self, text):
                 return "Je regarde."
 
-        return AssistantSettings(name="Lucie", the_brain=Brain(),
+        return AssistantSettings(name="Lucie", brain=Brain(),
                                  manners=Manners(active=True, creux_minimal=0.0))
 
     def _spotted(self, tmp_path, monkeypatch, prompted):
@@ -1088,3 +1088,65 @@ class TestAPromptedPassTrustsTheRoom:
 
     def test_on_the_clock_it_waits_for_the_next_pass(self, tmp_path, monkeypatch):
         assert self._spotted(tmp_path, monkeypatch, prompted=False) == []
+
+
+class TestHerNameIsInTheSeed:
+    """Measured on the synthesised voices: « Lucie, où en est la recette ? »
+    came back « Ici, où en est la recette » two times in ten; a sentence
+    calling her by name in the seed brought the ten back whole."""
+
+    def _lui(self):
+        from greffier.application.take_part import AssistantSettings
+        from greffier.domain.participation import Manners
+
+        class Brain:
+            def write_up(self, text):
+                return "Je regarde."
+
+        return AssistantSettings(name="Lucie", brain=Brain(),
+                                 manners=Manners(active=True, creux_minimal=0.0))
+
+    def test_the_transcriber_is_told_she_is_in_the_room(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(watch, "extract_slice", lambda audio, start, end, dest: dest)
+        seeds = []
+
+        class Ecoute:
+            def transcribe(self, audio, language, prompt_seed):
+                seeds.append(prompt_seed)
+                return []
+
+        instance = watcher(tmp_path, transcriber=Ecoute(), assistant_of=self._lui(),
+                           prompt_seed="Réunion de travail. Vocabulaire : Jira.")
+        instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
+        assert seeds == [
+            "Réunion de travail. Vocabulaire : Jira. Lucie, l'assistante, participe à la réunion."
+        ]
+
+    def test_the_slice_carries_it_too_and_her_name_comes_last(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(watch, "extract_slice", lambda audio, start, end, dest: dest)
+        seeds = []
+
+        class Ecoute:
+            def transcribe(self, audio, language, prompt_seed):
+                seeds.append(prompt_seed)
+                return []
+
+        instance = watcher(tmp_path, transcriber=Ecoute(), assistant_of=self._lui(),
+                           prompt_seed="Réunion de travail.",
+                           reread_the_seed=lambda: "Réunion de travail. Vocabulaire : CASA.")
+        instance.transcription_turn(where_in(tmp_path, written=30.0), tmp_path)
+        assert seeds[0].endswith("Lucie, l'assistante, participe à la réunion.")
+        assert seeds[0].startswith("Réunion de travail. Vocabulaire : CASA.")
+
+    def test_without_an_assistant_the_seed_is_the_context_s_alone(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(watch, "extract_slice", lambda audio, start, end, dest: dest)
+        seeds = []
+
+        class Ecoute:
+            def transcribe(self, audio, language, prompt_seed):
+                seeds.append(prompt_seed)
+                return []
+
+        instance = watcher(tmp_path, transcriber=Ecoute(), prompt_seed="Réunion de travail.")
+        instance.transcription_turn(where_in(tmp_path, written=30.0), tmp_path)
+        assert seeds == ["Réunion de travail."]

@@ -60,6 +60,11 @@ LISTENING_GAP = 1.0
 #: said: half a question answered is worse than a question answered late.
 STILL_TALKING_S = 0.4
 
+#: What the transcriber is told was said before each slice, so that it hears
+#: her name: a call, in the shape a call takes. Put last, since a seed too
+#: long for the model is cut from the front.
+HER_NAME_SEED = "{name}, l'assistante, participe à la réunion."
+
 def _within_the_slice(utterances: list[Utterance], boundary: float) -> list[Utterance]:
     """Keeps only what spills into the slice, rebased on it."""
     if boundary <= 0:
@@ -150,16 +155,28 @@ class Watcher:
     _held_call: str | None = None
 
     def _current_prompt_seed(self) -> str:
-        """The seed for this slice, context re-read if it changed."""
-        if self.reread_the_seed is None:
-            return self.prompt_seed
-        try:
-            fresh_one = self.reread_the_seed()
-        except OSError:
-            return self.prompt_seed
-        if fresh_one and fresh_one != self.prompt_seed:
-            self.prompt_seed = fresh_one
-        return self.prompt_seed
+        """The seed for this slice, context re-read if it changed, her name in it.
+
+        Her name is what the whole listening pass looks for, and a first name
+        at the start of a sentence is what a model hears worst: measured on
+        the synthesised voices, « Lucie, où en est la recette ? » came back
+        « Ici, où en est la recette » two times in ten. The seed is what the
+        model believes was said just before; a sentence that calls her by
+        name, in it, brought the ten back whole, and « Vocabulaire : Lucie »
+        alone did not.
+        """
+        seed = self.prompt_seed
+        if self.reread_the_seed is not None:
+            try:
+                fresh_one = self.reread_the_seed()
+            except OSError:
+                fresh_one = ""
+            if fresh_one and fresh_one != self.prompt_seed:
+                self.prompt_seed = fresh_one
+            seed = self.prompt_seed
+        if self.assistant_of is not None and self.assistant_of.name:
+            return f"{seed} {HER_NAME_SEED.format(name=self.assistant_of.name)}".strip()
+        return seed
 
     def publish(self, fresh: list[Suggestion]) -> None:
         """Appends to the log, one suggestion per line."""
@@ -258,7 +275,7 @@ class Watcher:
         for the gap rather than the period. True when something was listened to.
         """
         her = self.assistant_of
-        if (her is None or her.the_brain is None or self.transcriber is None
+        if (her is None or her.brain is None or self.transcriber is None
                 or her.busy or not her.manners.active):
             return False
         if where_.overall - self._last_listened < (LISTENING_GAP if prompted else LISTENING_PERIOD):

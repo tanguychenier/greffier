@@ -40,21 +40,13 @@ def the_called_name_is_out_of_reach() -> str | None:
 
     The assistant only speaks when it hears its own name, so these tests measure
     the round trip before they measure anything else. « say » carries it. The
-    French VITS does not, reliably: measured four times on « Lucie, où en est la
-    recette ? », it came back « UCI » once -- once is enough to make a test that
-    passes three times out of four, which is worse than a test that says why it
-    is not running.
+    French VITS did not, reliably: measured on ten sentences, « Lucie, où en est
+    la recette ? » came back « Ici, où en est la recette » two times in ten.
+    Since 16/09 the watch tells the transcriber, in its seed, that she is in
+    the room, and the same ten came back whole: these tests run on the VITS
+    voices too, through the watch that carries the seed.
     """
-    out_of_reach = voices_are_out_of_reach(2)
-    if out_of_reach:
-        return out_of_reach
-    from make_meeting import synthesis_engine
-
-    if synthesis_engine() != "say":
-        return ("le prénom qui ouvre une phrase n'est pas rendu de façon sûre par la "
-                "voix installée : cette famille-là demande « say »")
-    return None
-
+    return voices_are_out_of_reach(2)
 
 def transcription_is_out_of_reach(config) -> str | None:
     """The reason to skip, or None when this machine can put the chain through."""
