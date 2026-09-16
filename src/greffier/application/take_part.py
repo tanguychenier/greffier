@@ -251,6 +251,7 @@ class AssistantSettings:
     ) -> Opening | None:
         """What the assistant takes from this slice, or nothing."""
         offered_ones = list(occasions or [])
+        heard_before: list[str] = []
         for utterance in utterances:
             text = utterance.text.strip()
             if not text or self._is_his_own(utterance, now):
@@ -268,7 +269,9 @@ class AssistantSettings:
                     # A subject, so a question the overlap brings back in the
                     # next slice is not answered a second time.
                     subject=f"appel:{_fingerprint_of_the_words(request)}",
+                    just_before=" ".join(heard_before),
                 ))
+            heard_before.append(text)
         if self.in_reserve is not None:
             offered_ones.append(self.in_reserve)
         lull = self._lull(utterances, now)
@@ -463,9 +466,18 @@ class AssistantSettings:
         if self.context is not None:
             with contextlib.suppress(OSError):
                 material = str(self.context())[-CONTEXT_MAXIMUM:]
+        # The words heard just before the call, from the pass that heard
+        # it: the thread runs a slice behind, and the bench had her answer
+        # « ce point n'a pas été mentionné » to a question about the
+        # sentence said right before it.
+        just_before = (
+            f"Ce qui vient d'être dit, juste avant qu'on t'appelle : "
+            f"« {opening.just_before} »\n\n"
+            if opening.just_before else ""
+        )
         request = (
             f"Voici ce qui s'est dit jusqu'ici dans la réunion :\n\n{material}\n\n"
-            f"On vient de te dire : « {opening.remark} »\n\nRéponds."
+            f"{just_before}On vient de te dire : « {opening.remark} »\n\nRéponds."
         )
         as_it_comes = getattr(self.brain, "write_up_as_it_comes", None)
         try:

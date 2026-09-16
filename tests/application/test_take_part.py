@@ -877,3 +877,44 @@ class TestTheAnswerIsSpokenAsItComes:
         rendered = she.answer(self._called(), now=13.0)
         assert rendered.a == 20.0
         assert she.its_own_turns[0][0] == 20.0
+
+
+class TestTheWordsJustBeforeTheCall:
+    """The thread she answers from runs a slice behind: on the bench she
+    answered « ce point n'a pas été mentionné » to a question about the
+    sentence said right before it. The pass that hears the call heard those
+    words too, and they travel with the question."""
+
+    def test_what_was_heard_before_the_call_travels_with_it(self):
+        she = AssistantSettings(name="Lucie")
+        retained = she.turn([
+            said("On décale donc la recette à jeudi prochain.", 10.0, 13.0),
+            said("Lucie, à quel jour est décalée la recette ?", 13.5, 16.0),
+        ], now=17.0)
+        assert retained is not None
+        assert retained.just_before == "On décale donc la recette à jeudi prochain."
+
+    def test_the_words_reach_the_model_with_the_question(self):
+        brain = FakeBrain()
+        she = AssistantSettings(name="Lucie", brain=brain, context=lambda: "Bonjour.")
+        opening = Opening(because=Because.CALLED, remark="à quel jour ?", born_at=1.0,
+                          just_before="On décale la recette à jeudi.")
+        she.answer(opening, now=2.0)
+        assert "On décale la recette à jeudi." in brain.requests[0]
+        assert brain.requests[0].index("Bonjour.") < brain.requests[0].index("On décale")
+        assert brain.requests[0].index("On décale") < brain.requests[0].index("à quel jour ?")
+
+    def test_a_call_with_nothing_before_it_adds_nothing(self):
+        brain = FakeBrain()
+        she = AssistantSettings(name="Lucie", brain=brain, context=lambda: "Bonjour.")
+        she.answer(Opening(because=Because.CALLED, remark="?", born_at=1.0), now=2.0)
+        assert "juste avant" not in brain.requests[0]
+
+    def test_her_own_words_are_not_what_was_said_before(self):
+        she = AssistantSettings(name="Lucie")
+        she.its_own_words.append((9.0, own_words("La recette est décalée à jeudi prochain.")))
+        retained = she.turn([
+            said("La recette est décalée à jeudi prochain.", 10.0, 13.0),
+            said("Lucie, tu confirmes ?", 13.5, 16.0),
+        ], now=17.0)
+        assert retained is not None and retained.just_before == ""

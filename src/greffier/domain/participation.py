@@ -49,6 +49,10 @@ class Opening:
     born_at: float = 0.0
     subject: str = ""
     as_is: bool = False
+    #: What was said in the seconds before the call, by the same ears that
+    #: heard it. The thread the assistant answers from runs a slice behind,
+    #: and the sentence a question is about is often the one just before it.
+    just_before: str = ""
 
     @property
     def weight(self) -> int:
