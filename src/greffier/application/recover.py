@@ -42,6 +42,7 @@ def from_the_thread(
             text=turn.text.strip(),
             voice=turn.voice,
             source=Source.UNKNOWN,
+            confidence=turn.confidence,
         ))
         turns.append(SpeakerTurn(turn.span, turn.voice, Source.UNKNOWN))
 

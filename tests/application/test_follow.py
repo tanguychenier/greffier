@@ -625,3 +625,33 @@ class TestARebuiltThreadShowsWhatTheListenerShows:
             (1, "v1", "Bastien", 1), (2, "v2", "Lise", 2),
         ))
         assert len([v for v in thread.voice.values() if v.name]) == 3
+
+
+class TestTheDoubtTravelsWithTheTurn:
+    """Said the next day in the transcript, the doubt came too late: the
+    live thread now carries the engine's figure, log and replay included."""
+
+    def test_the_figure_is_logged_and_read_back(self, tmp_path: Path) -> None:
+        instance = follower(tmp_path, extractor=SequenceExtractor([voiceprint(1, 0)]))
+        heard = Utterance(span=Span(0, 8), text="on cale la recette jeudi", confidence=0.4)
+        instance.take_in(tmp_path / "t.wav", [heard], offset=0.0)
+        assert instance.thread.turns[0].confidence == 0.4
+        assert lines_of(instance.log)[-1]["confiance"] == 0.4
+        replayed = replay(lines_of(instance.log))
+        assert replayed.turns[0].confidence == 0.4
+
+    def test_a_turn_the_engine_did_not_judge_stays_unjudged(self, tmp_path: Path) -> None:
+        instance = follower(tmp_path, extractor=SequenceExtractor([voiceprint(1, 0)]))
+        instance.take_in(tmp_path / "t.wav", [utterance(0, 8)], offset=0.0)
+        assert lines_of(instance.log)[-1]["confiance"] is None
+        assert replay(lines_of(instance.log)).turns[0].confidence is None
+
+    def test_a_meeting_rebuilt_from_the_thread_keeps_the_doubt(self, tmp_path: Path) -> None:
+        from greffier.application.recover import from_the_thread
+        from greffier.domain import doubt
+
+        instance = follower(tmp_path, extractor=SequenceExtractor([voiceprint(1, 0)]))
+        heard = Utterance(span=Span(0, 8), text="on cale la recette jeudi", confidence=0.4)
+        instance.take_in(tmp_path / "t.wav", [heard], offset=0.0)
+        rebuilt = from_the_thread("2026-09-12_10h00_perdue", lines_of(instance.log))
+        assert doubt.is_unsure(rebuilt.utterances[0])

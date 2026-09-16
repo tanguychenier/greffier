@@ -98,7 +98,10 @@ nine.
 
 ## Phase 6. The rest, afterwards
 
-- [ ] Say it doubts at the moment it doubts.
+- [x] Say it doubts at the moment it doubts. Done on 16/09: the engine's
+      figure travels with each live turn, log and replay included, and the
+      window marks the doubtful sentence « (?) » as it appears, the way the
+      transcript did the next day.
 - [ ] A first launch that takes you by the hand when nothing is configured.
 - [x] Group the stray voices under "Les autres". Done on 16/09: an unnamed
       voice under a twentieth of the speaking time, once three voices carry

@@ -701,3 +701,36 @@ class TestAskingTheWindowAQuestion:
         window.question.delete(0, "end")
         window._ask()
         assert asked == []
+
+
+class TestTheWindowSaysItDoubtsAtTheMoment:
+    """The transcript marked the doubtful passages the next day; the live
+    thread now marks them as they appear, while they can be heard again."""
+
+    def _turn(self, window, number, text, confidence):
+        from greffier.domain.live import LiveTurn, LiveVoice
+        from greffier.domain.models import Span
+
+        window._thread.voice.setdefault("v1", LiveVoice(identifier="v1"))
+        turn = LiveTurn(number=number, span=Span(number * 4.0, number * 4.0 + 3.0),
+                        text=text, voice="v1", confidence=confidence)
+        window._thread.turns.append(turn)
+        return turn
+
+    def test_a_doubtful_sentence_carries_the_mark_and_a_sure_one_does_not(self, window):
+        from greffier.domain import doubt
+
+        first = self._turn(window, 1, "on cale la recette jeudi", 0.95)
+        second = self._turn(window, 2, "le lot deux part en prod", 0.4)
+        window._add_to_live([first, second])
+        window.root.update()
+        shown = window.thread_widget.get("1.0", "end")
+        assert f"{doubt.MARK} le lot deux part en prod" in shown
+        assert f"{doubt.MARK} on cale" not in shown
+
+    def test_an_unjudged_sentence_is_not_marked(self, window):
+        from greffier.domain import doubt
+
+        window._add_to_live([self._turn(window, 1, "bonjour à tous", None)])
+        window.root.update()
+        assert doubt.MARK not in window.thread_widget.get("1.0", "end")

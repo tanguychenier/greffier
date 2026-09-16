@@ -91,6 +91,7 @@ def _turn_line(turn: LiveTurn, voice: LiveVoice) -> dict[str, Any]:
         "fin": round(turn.span.end, 2),
         "texte": turn.text,
         "voix": turn.voice,
+        "confiance": turn.confidence,
         "nom": voice.name,
         "certitude": voice.certainty.value,
         "rang": voice.rank,
@@ -249,11 +250,13 @@ def _replay_turn(thread: LiveThread, line: dict[str, Any]) -> None:
     if any(t.number == number for t in thread.turns):
         return
     start, end = float(line.get("debut", 0.0)), float(line.get("fin", 0.0))
+    confidence = line.get("confiance")
     thread.turns.append(LiveTurn(
         number=number,
         span=Span(start, max(start, end)),
         text=str(line.get("texte", "")),
         voice=identifier,
+        confidence=float(confidence) if confidence is not None else None,
     ))
     thread.up_to = max(thread.up_to, end)
 
@@ -315,7 +318,7 @@ class Follower:
                 span=Span(
                     r.span.start + offset, r.span.end + offset
                 ),
-                text=r.text, voice=r.voice, source=r.source,
+                text=r.text, voice=r.voice, source=r.source, confidence=r.confidence,
             )
             for r in utterances
         ]

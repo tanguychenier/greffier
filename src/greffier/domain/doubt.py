@@ -87,7 +87,12 @@ def is_unsure(utterance: Utterance, below: float = UNSURE_BELOW) -> bool:
     A turn the engine did not judge is not doubtful: no figure is not a low
     figure, and marking it would teach people to ignore the mark.
     """
-    return utterance.confidence is not None and utterance.confidence < below
+    return is_a_low_figure(utterance.confidence, below)
+
+
+def is_a_low_figure(confidence: float | None, below: float = UNSURE_BELOW) -> bool:
+    """The same judgement on the bare figure, for a turn shown live."""
+    return confidence is not None and confidence < below
 
 
 def count(utterances: Iterable[Utterance], below: float = UNSURE_BELOW) -> Doubts:

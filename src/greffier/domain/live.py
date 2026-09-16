@@ -247,12 +247,18 @@ class LiveVoice:
 
 @dataclass(slots=True)
 class LiveTurn:
-    """A displayed sentence, and who the thread attributes it to."""
+    """A displayed sentence, and who the thread attributes it to.
+
+    The engine's own certainty about the words comes with it, so that the
+    window can say it doubts at the moment it doubts, not in the transcript
+    read the next day.
+    """
 
     number: int
     span: Span
     text: str
     voice: str
+    confidence: float | None = None
 
 @dataclass(frozen=True, slots=True)
 class Correction:
@@ -543,6 +549,7 @@ class LiveThread:
                 span=utterance.span,
                 text=utterance.text.strip(),
                 voice=voice,
+                confidence=utterance.confidence,
             )
             self.turns.append(turn)
             new_ones.append(turn)

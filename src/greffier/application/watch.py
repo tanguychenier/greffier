@@ -79,6 +79,7 @@ def _within_the_slice(utterances: list[Utterance], boundary: float) -> list[Utte
                 utterance.span.end - boundary,
             ),
             text=utterance.text, voice=utterance.voice, source=utterance.source,
+            confidence=utterance.confidence,
         ))
     return kept
 
@@ -246,7 +247,7 @@ class Watcher:
                 span=Span(
                     r.span.start + offset, r.span.end + offset
                 ),
-                text=r.text, voice=r.voice, source=r.source,
+                text=r.text, voice=r.voice, source=r.source, confidence=r.confidence,
             )
             for r in utterances
         ]
@@ -303,7 +304,7 @@ class Watcher:
         rebased = [
             Utterance(
                 span=Span(r.span.start + offset, r.span.end + offset),
-                text=r.text, voice=r.voice, source=r.source,
+                text=r.text, voice=r.voice, source=r.source, confidence=r.confidence,
             )
             for r in heard
             if r.span.end <= still_talking

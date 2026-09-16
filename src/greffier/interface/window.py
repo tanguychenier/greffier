@@ -37,6 +37,7 @@ from greffier.application.follow import (
     replay,
     request_a_split,
 )
+from greffier.domain import doubt
 from greffier.domain.channels import WhoSpeaks
 from greffier.domain.emptiness import Missing
 from greffier.domain.live import LiveThread, LiveTurn
@@ -723,7 +724,14 @@ class Window:
         self.thread_widget.insert(
             "end", self._thread.label(turn.voice), ("sur" if firm else "doute", landmark)
         )
-        self.thread_widget.insert("end", f"   {turn.text}\n", "dit")
+        # The words the engine was unsure of carry the transcript's own mark,
+        # here, while the sentence can still be heard again: said the next
+        # day in the transcript, the doubt came too late to be of any use.
+        if doubt.is_a_low_figure(turn.confidence):
+            self.thread_widget.insert("end", f"   {doubt.MARK}", "doute")
+            self.thread_widget.insert("end", f" {turn.text}\n", "dit")
+        else:
+            self.thread_widget.insert("end", f"   {turn.text}\n", "dit")
         self.thread_widget.tag_bind(
             landmark, "<Button-1>",
             functools.partial(self._speaker_menu, number=turn.number),
