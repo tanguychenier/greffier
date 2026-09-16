@@ -39,6 +39,15 @@ CLIPBOARD_PERIOD = 2.0
 SLICE_PERIOD = 30.0
 OVERLAP = 5.0
 SLICE_MAXIMUM = 90.0
+#: How long past its period a slice may wait for the room to go quiet, and
+#: how often it looks meanwhile. A sentence cut in half at the boundary is
+#: heard in two pieces, and the pieces do not always add up to the
+#: sentence. Measured on SUMM-RE 032a with the turbo model, twenty seconds
+#: of context (`docs/corpus.md`): 32.0 % of errors and 205 rare terms cut
+#: on the clock, 28.8 % and 221 cut on silence, for 104 slices instead of
+#: 119.
+SLICE_SLACK_S = 3.0
+SLICE_POLL = 0.25
 #: Audio handed to the model before the slice, for the spelling to hold.
 #: Measured on 2026-09-16 on SUMM-RE 032a (`docs/corpus.md`): none, twenty
 #: and fifty seconds read alike with the large model (29.6 to 32.5 % of
@@ -161,6 +170,8 @@ class Watcher:
     slice_period: float = SLICE_PERIOD
     processed: float = 0.0
     vu: float | None = None
+    #: True while a slice past its period waits for the room to go quiet.
+    holding_the_slice: bool = False
     _last_listened: float = 0.0
     _held_call: str | None = None
 
@@ -423,13 +434,19 @@ class Watcher:
         stop = threading.Event()
         listener = threading.Thread(target=self._listen, args=(job, stop), daemon=True)
         listener.start()
+        clipboard_read_at = float("-inf")
         try:
             while still_running():
-                self.clipboard_turn(since())
+                now = since()
+                if now - clipboard_read_at >= CLIPBOARD_PERIOD:
+                    clipboard_read_at = now
+                    self.clipboard_turn(now)
                 where_ = self.locate() if self.locate is not None else None
                 if where_ is not None and self._is_time(where_):
                     self.transcription_turn(where_, job)
-                pause(CLIPBOARD_PERIOD)
+                # A slice waiting for a quiet moment looks four times a second:
+                # the moment is worth a quarter of a second, not two.
+                pause(SLICE_POLL if self.holding_the_slice else CLIPBOARD_PERIOD)
         finally:
             stop.set()
             listener.join(timeout=LISTENING_S * 4)
@@ -507,10 +524,26 @@ class Watcher:
         return self.transcription_turn(where_, job, let_speak=False)
 
     def _is_time(self, where_: Position) -> bool:
-        """Is it time to transcribe?"""
+        """Is it time to transcribe?
+
+        Past the period, yes, unless somebody is talking and the slack is
+        not spent: the slice then waits for the next quiet moment, so that
+        the sentence under way is heard whole rather than in two pieces.
+        """
         advance = where_.overall - self.processed
         stalls = self.vu is not None and abs(where_.written - self.vu) < 0.05
         self.vu = where_.written
         if advance >= self.slice_period:
-            return True
+            self.holding_the_slice = self._still_talking(where_, advance)
+            return not self.holding_the_slice
+        self.holding_the_slice = False
         return stalls and advance >= SLICE_MINIMUM_S
+
+    def _still_talking(self, where_: Position, advance: float) -> bool:
+        """Whether the room talks at this moment, with slack left to wait for it."""
+        if self.speaking is None or advance >= self.slice_period + SLICE_SLACK_S:
+            return False
+        try:
+            return bool(self.speaking(where_))
+        except Exception:  # noqa: BLE001 -- a level that cannot be read is no reason to wait
+            return False

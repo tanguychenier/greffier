@@ -286,6 +286,78 @@ class TestTheWholeLoop:
                                 job=tmp_path, pause=lambda _: None) == []
 
 
+class TestTheSliceWaitsForAQuietMoment:
+    """Measured on SUMM-RE 032a with the turbo model: 32.0 % of errors cut on
+    the clock, 28.8 % cut on silence, and sixteen rare terms back. A slice
+    past its period waits for the room to go quiet, up to three seconds.
+    """
+
+    def _run(self, tmp_path, monkeypatch, speaking, rounds=60):
+        monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
+        monkeypatch.setattr(watch, "extract_slice", lambda audio, start, end, dest: dest)
+        transcriber = SliceTranscriber([[] for _ in range(20)])
+        written = {"s": 0.0}
+        cuts: list[float] = []
+        pauses: list[float] = []
+        instance = watcher(
+            tmp_path, transcriber=transcriber, slice_period=10.0,
+            locate=lambda: where_in(tmp_path, written=written["s"]),
+            speaking=lambda where_: speaking(where_.written),
+        )
+        original = instance.transcription_turn
+
+        def noted(where_, job, let_speak=True):
+            cuts.append(where_.written)
+            return original(where_, job, let_speak)
+
+        instance.transcription_turn = noted
+        turns = {"n": 0}
+
+        def still_running():
+            turns["n"] += 1
+            return turns["n"] <= rounds
+
+        def pause(seconds):
+            pauses.append(seconds)
+            written["s"] += seconds
+
+        instance.loop(still_running=still_running, since=lambda: written["s"],
+                      job=tmp_path, pause=pause)
+        return cuts, pauses
+
+    def test_a_slice_is_cut_when_the_room_goes_quiet(self, tmp_path, monkeypatch):
+        # Somebody talks from 9 to 11.4 s: the first slice waits for them.
+        cuts, pauses = self._run(tmp_path, monkeypatch,
+                                 speaking=lambda at: 9.0 <= at < 11.4, rounds=12)
+        assert cuts[0] == 11.5
+        # While it waits, it looks four times a second, not every two.
+        assert watch.SLICE_POLL in pauses
+
+    def test_a_room_that_never_goes_quiet_is_cut_at_the_slack(self, tmp_path, monkeypatch):
+        cuts, _ = self._run(tmp_path, monkeypatch, speaking=lambda at: True, rounds=30)
+        assert cuts[0] == 10.0 + watch.SLICE_SLACK_S
+
+    def test_a_quiet_room_is_cut_on_the_clock(self, tmp_path, monkeypatch):
+        cuts, pauses = self._run(tmp_path, monkeypatch, speaking=lambda at: False, rounds=6)
+        assert cuts[0] == 10.0
+        assert set(pauses) == {watch.CLIPBOARD_PERIOD}
+
+    def test_with_no_level_to_read_the_clock_rules(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
+        monkeypatch.setattr(watch, "extract_slice", lambda audio, start, end, dest: dest)
+        instance = watcher(tmp_path, transcriber=SliceTranscriber([[]]), slice_period=10.0)
+        assert instance._is_time(where_in(tmp_path, written=10.0))
+        assert not instance.holding_the_slice
+
+    def test_a_level_that_fails_does_not_hold_the_slice(self, tmp_path, monkeypatch):
+        def broken(where_):
+            raise OSError("no file")
+
+        instance = watcher(tmp_path, transcriber=SliceTranscriber([[]]), slice_period=10.0,
+                           speaking=broken)
+        assert instance._is_time(where_in(tmp_path, written=10.0))
+
+
 class TestAJoinPublishedToTheWindow:
     """A join between voices travels through the log, like the turns.
 
