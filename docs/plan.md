@@ -252,6 +252,66 @@ meeting is never needed to see what a meeting does.
       30 % to 46 %, the window from 44 % to 55 %; the table per layer and
       what stays thin, and why, in `what-is-left.md`.
 
+## Phase 8. What is left after 0.3.24, checked on 2026-09-16
+
+Everything above is ticked but two boxes, and both wait for a machine of
+his. This phase lists what the day's measures left on the table, each
+with its figure and its lever, so that the next run starts from here and
+not from a journal. Nothing here is started.
+
+### Waiting for him
+
+- [ ] The real double click on Windows, on a machine of his own. The
+      runner proof saw the window open and refused it by mnemonic; a real
+      machine has never seen it.
+      *Proof, a line "launched on Windows on …" in the README, with what was seen.*
+- [ ] The meeting of 2026-09-10 from the Mac (six people, 3 878 s), audio,
+      json and jsonl. It unlocks the bank measure and her initiative on a
+      real meeting rather than on the corpus.
+- [ ] Notarising the macOS bundle. A paid Apple account, otherwise
+      Gatekeeper refuses it on another Mac. A decision, not a task.
+- [ ] A model reached without Claude Code in front of it, for the spoken
+      answer. Her first word comes 4 to 6 s after the question and the
+      process in front of the model costs 0.7 s of it; an API key and a
+      cost, so his call.
+
+### Measured today and left as is, one lever each
+
+- [ ] Her name misheard. On the synthesised voices « Lucie » comes back
+      « Ici » or « Si » once in ten, and that question is heard by nobody,
+      the pass and the slice alike. The lever is a measure on real voices
+      first (the Mac's meeting), then the seed or the tolerance on the name;
+      a tolerance widened blind answered to « lui » 113 times on 3 809
+      turns.
+- [ ] A voice named on six seconds and renamed once there was more. On
+      032b the voice that ends as Alice was « Diane ? » from 56 s to
+      161 s. The lever is the material the bank waits for before naming
+      (`MATERIAL_TO_RECOGNISE`, 6 s) or a margin at the first naming;
+      `tools/measure_bank.py --replay` answers in four minutes.
+- [ ] The sentences still wrong live, 9 % on a four-person meeting, are
+      short interjections in the passages where everybody talks at once;
+      the minutes leave 28 % of the sentences to nobody on the same file
+      under their stricter rule. Neither figure moves without a rule on
+      overlapping speech, which nothing measures yet.
+- [ ] The same question, word for word, asked again minutes later is never
+      answered a second time (the subject of a call has no expiry, only the
+      words heard in other words expire, at thirty seconds).
+- [ ] `initiative` stays off by default. Measured on two real meetings, one
+      intervention in forty minutes, judged right; the price of looking is
+      a model call every ten seconds. It changes with a cheaper look, the
+      model asked only after a sentence the domain already reads as a
+      decision or a question left open.
+
+### Scenarios still open, none started
+
+From `scenarios.md`, the rows marked open. Somebody arriving or leaving
+during the meeting, long overlapping speech, a hybrid meeting, a phone on
+its loudspeaker, two people with the same first name, a bank of hundreds
+of people, Trello, Outlook and a shared drive as sources, the agenda read
+from the calendar, a comment left on an existing ticket, the machine going
+to sleep, the models deleted between two meetings, the clock change. Each
+is a bench to build before anything is written.
+
 ## Decisions that are his, not tasks
 
 - macOS notarisation: a paid Apple account, otherwise Gatekeeper refuses the
