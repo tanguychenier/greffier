@@ -35,10 +35,30 @@ from measure_corpus import normalise, rare_terms, terms_found, word_error_rate  
 
 from greffier.locations import data_folder  # noqa: E402
 
+#: How far past the period a slice may wait for the room to go quiet, when
+#: cutting on silence: a sentence cut in half at the boundary is heard in two
+#: pieces, and the pieces do not always add up to the sentence.
+SLACK_S = 3.0
+STEP_S = 0.25
+
+
+def quiet_moment(audio: Path, from_s: float, until_s: float) -> float:
+    """The first moment nobody talks between the two, or the last one."""
+    from greffier.adapters.live_levels import read_level
+    from greffier.domain.channels import WhoSpeaks
+
+    at = from_s
+    while at < until_s:
+        reading = read_level(audio, up_to=at)
+        if reading is not None and reading.who is WhoSpeaks.NOBODY:
+            return at
+        at += STEP_S
+    return until_s
+
 
 def live_words(
     audio: Path, period: float, context_s: float, overlap_s: float, levelled: bool,
-    model: str = "",
+    model: str = "", on_silence: bool = False,
 ) -> tuple[list[str], int, float]:
     """The words the live thread would have shown, the slices, the model seconds.
 
@@ -80,12 +100,15 @@ def live_words(
     with tempfile.TemporaryDirectory() as job:
         written = period
         while written <= duration + period:
-            where = Position(chunk=audio, written=min(written, duration), offset=0.0)
+            cut = min(written, duration)
+            if on_silence and cut < duration:
+                cut = min(duration, quiet_moment(audio, cut, cut + SLACK_S))
+            where = Position(chunk=audio, written=cut, offset=0.0)
             started = time.monotonic()
             watcher.transcription_turn(where, Path(job), let_speak=False)
             spent += time.monotonic() - started
             slices += 1
-            written += period
+            written = cut + period
     words = [word for turn in the_follower.thread.turns for word in normalise(turn.text)]
     return words, slices, spent / max(1, slices)
 
@@ -101,6 +124,8 @@ def main() -> int:
     parser.add_argument("--overlap", type=float, default=5.0)
     parser.add_argument("--raw", action="store_true", help="skip the level normalisation")
     parser.add_argument("--model", default="", help="the live model, default from the settings")
+    parser.add_argument("--on-silence", action="store_true",
+                        help="cut each slice when the room goes quiet, up to three seconds late")
     options = parser.parse_args()
 
     recordings = sorted(
@@ -121,12 +146,13 @@ def main() -> int:
         reference_words = [w for t in in_order for w in normalise(str(t["text"]))]
         words, slices, per_slice = live_words(
             audio, options.period, options.context, options.overlap, not options.raw,
-            options.model,
+            options.model, options.on_silence,
         )
         found, wanted = terms_found(rare_terms(reference_words), words)
         row = {
             "recording": audio.stem,
             "model": options.model or "settings",
+            "cut": "silence" if options.on_silence else "clock",
             "period": options.period,
             "context": options.context,
             "overlap": options.overlap,
@@ -141,6 +167,7 @@ def main() -> int:
         label = (
             f"{options.model or 'settings'} period {options.period:.0f} s, "
             f"context {options.context:.0f} s, overlap {options.overlap:.0f} s"
+            + (", cut on silence" if options.on_silence else "")
         )
         print(
             f"{audio.stem:<18} {label:<44} error {100 * row['word_error_rate']:5.1f} %  "
