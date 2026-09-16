@@ -25,6 +25,7 @@ import json
 import sys
 import tempfile
 import time
+from collections.abc import Iterator
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -54,6 +55,24 @@ def quiet_moment(audio: Path, from_s: float, until_s: float) -> float:
             return at
         at += STEP_S
     return until_s
+
+
+def cuts(duration: float, period: float, on_silence: Path | None = None) -> Iterator[float]:
+    """Where each slice ends: every period, or at the next quiet moment past it.
+
+    The last slice ends where the recording does, once. Written as a loop
+    on the clock, the cut on silence stayed on the last slice for ever: the
+    end of the file is a quiet moment, and the clock never moved past it.
+    """
+    written = period
+    while True:
+        cut = min(written, duration)
+        if on_silence is not None and cut < duration:
+            cut = min(duration, quiet_moment(on_silence, cut, cut + SLACK_S))
+        yield cut
+        if cut >= duration:
+            return
+        written = cut + period
 
 
 def live_words(
@@ -99,17 +118,12 @@ def live_words(
             language="fr",
             slice_period=period,
         )
-        written = period
-        while written <= duration + period:
-            cut = min(written, duration)
-            if on_silence and cut < duration:
-                cut = min(duration, quiet_moment(audio, cut, cut + SLACK_S))
+        for cut in cuts(duration, period, audio if on_silence else None):
             where = Position(chunk=audio, written=cut, offset=0.0)
             started = time.monotonic()
             watcher.transcription_turn(where, Path(job), let_speak=False)
             spent += time.monotonic() - started
             slices += 1
-            written = cut + period
         words = [word for turn in the_follower.thread.turns for word in normalise(turn.text)]
     return words, slices, spent / max(1, slices)
 
