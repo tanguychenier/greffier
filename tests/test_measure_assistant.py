@@ -52,6 +52,45 @@ class TestReadingTheDelays:
         assert rows[1]["spotted"] == -1.0 and rows[1]["answered"] == 1.0
 
 
+class TestTheHooks:
+    """The clock sits on the calls the assistant really makes."""
+
+    def test_a_session_that_streams_is_timed_on_its_streaming_call(self):
+        from types import SimpleNamespace
+
+        from measure_assistant import _instrumented
+
+        class Session:
+            def write_up_as_it_comes(self, text, on_sentence):
+                if on_sentence is not None:
+                    on_sentence("Deux.")
+                return "Deux."
+
+            def write_up(self, text):
+                return self.write_up_as_it_comes(text, None)
+
+        clock = Clock()
+        her = SimpleNamespace(brain=Session(), answer_aside=lambda o, n: None, voice=None)
+        _instrumented(her, clock)
+        heard = []
+        assert her.brain.write_up_as_it_comes("Lucie ?", heard.append) == "Deux."
+        assert her.brain.write_up("Lucie ?") == "Deux."
+        assert heard == ["Deux."]
+        assert [what for what, _, _ in clock.events] == ["asked", "answered"] * 2
+
+    def test_a_brain_without_streaming_is_timed_on_write_up(self):
+        from types import SimpleNamespace
+
+        from measure_assistant import _instrumented
+
+        clock = Clock()
+        her = SimpleNamespace(brain=SimpleNamespace(write_up=lambda text: "Deux."),
+                              answer_aside=lambda o, n: None, voice=None)
+        _instrumented(her, clock)
+        assert her.brain.write_up("Lucie ?") == "Deux."
+        assert [what for what, _, _ in clock.events] == ["asked", "answered"]
+
+
 class TestReplayingHerInitiative:
     """The thread as she reads it, up to a moment, from the live log."""
 

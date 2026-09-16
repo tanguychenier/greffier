@@ -772,3 +772,108 @@ class TestHerTurnIsFiledWhenSheSpeaks:
         said = her.answer(Opening(because=Because.CALLED, remark="quand ?", born_at=99.0), 100.0)
         assert said.remark == "Jeudi."
         assert kept[0][0] == 100.0
+
+
+class StreamingBrain(FakeBrain):
+    """Hands its sentences over one by one before the whole answer, like the session."""
+
+    def __init__(self, response="Oui, je vous entends. La recette est jeudi. Voilà."):
+        super().__init__(response)
+        self.streamed = []
+
+    def write_up_as_it_comes(self, text, on_sentence):
+        self.requests.append(text)
+        for sentence in self.response.split(". "):
+            sentence = sentence if sentence.endswith((".", "!", "?")) else sentence + "."
+            self.streamed.append(sentence)
+            on_sentence(sentence)
+        return self.response
+
+
+class MouthOfTheFake:
+    def __init__(self, voice):
+        self.voice = voice
+        self.closed = False
+
+    def add(self, text):
+        self.voice.pieces.append(text)
+
+    def close(self):
+        self.closed = True
+        self.voice.closed += 1
+
+
+class VoiceThatTakesPieces(FakeVoiceAdapter):
+    def __init__(self, works=True, busy=False):
+        super().__init__(works)
+        self.pieces = []
+        self.closed = 0
+        self.busy = busy
+
+    def begin(self):
+        if self.busy:
+            return None
+        return MouthOfTheFake(self)
+
+
+class TestTheAnswerIsSpokenAsItComes:
+    """The first sentence reaches the voice while the model writes the rest."""
+
+    def _her(self, **overrides):
+        settings = dict(name="Lucie", voice=VoiceThatTakesPieces(), brain=StreamingBrain())
+        settings.update(overrides)
+        return AssistantSettings(**settings)
+
+    def _called(self):
+        return Opening(because=Because.CALLED, remark="tu nous entends ?", born_at=10.0)
+
+    def test_each_sentence_goes_to_the_voice_and_the_mouth_is_closed(self):
+        she = self._her()
+        rendered = she.answer(self._called(), now=13.0)
+        assert she.voice.pieces == ["Oui, je vous entends.", "La recette est jeudi.", "Voilà."]
+        assert she.voice.closed == 1
+        assert she.voice.remark == [], "the whole remark is not said a second time"
+        assert rendered.pronounced and rendered.remark == she.brain.response
+
+    def test_its_own_words_are_kept_before_they_are_spoken(self):
+        she = self._her()
+        she.answer(self._called(), now=13.0)
+        kept = [words for _, words in she.its_own_words]
+        assert own_words("La recette est jeudi.") in kept
+
+    def test_its_own_name_never_reaches_the_voice(self):
+        she = self._her(brain=StreamingBrain("Lucie a bien entendu. Lucie répond."))
+        she.answer(self._called(), now=13.0)
+        assert she.voice.pieces and all("Lucie" not in piece for piece in she.voice.pieces)
+
+    def test_a_nothing_opens_no_mouth(self):
+        she = self._her(brain=StreamingBrain(f"{NOTHING}. Rien à dire."))
+        rendered = she.answer(self._called(), now=13.0)
+        assert she.voice.pieces == [] and she.voice.closed == 0
+        assert not rendered.pronounced and rendered.remark == ""
+
+    def test_a_busy_voice_keeps_the_remark_for_the_trace(self):
+        traces = []
+        she = self._her(voice=VoiceThatTakesPieces(busy=True),
+                        tracer=lambda who, what: traces.append(what))
+        rendered = she.answer(self._called(), now=13.0)
+        assert not rendered.pronounced
+        assert traces == [she.brain.response]
+
+    def test_a_brain_that_cannot_stream_is_answered_as_before(self):
+        she = self._her(brain=FakeBrain())
+        rendered = she.answer(self._called(), now=13.0)
+        assert she.voice.remark == ["Oui, je vous entends très bien."]
+        assert she.voice.pieces == [] and rendered.pronounced
+
+    def test_a_remark_written_beforehand_does_not_stream(self):
+        she = self._her()
+        she.answer(Opening(because=Because.CALLED, remark="Merci.", born_at=1.0, as_is=True), 2.0)
+        assert she.voice.remark == ["Merci."] and she.voice.pieces == []
+
+    def test_the_moment_it_spoke_is_the_first_sentence_s(self):
+        clock = iter([20.0, 25.0, 30.0])
+        she = self._her(clock=lambda: next(clock))
+        rendered = she.answer(self._called(), now=13.0)
+        assert rendered.a == 20.0
+        assert she.its_own_turns[0][0] == 20.0

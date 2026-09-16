@@ -79,15 +79,27 @@ def _meeting(folder: Path) -> tuple[Path, list[dict[str, Any]]]:
 def _instrumented(her: Any, clock: Clock) -> None:
     """Hooks on the three steps, the loudspeaker replaced by the clock."""
     brain = her.brain
-    write_up = brain.write_up
+    as_it_comes = getattr(brain, "write_up_as_it_comes", None)
+    if as_it_comes is not None:
+        # The session hands its sentences over as it writes them: the hook
+        # sits on that call, which `write_up` goes through too.
+        def timed_as_it_comes(text: str, on_sentence: Any) -> str:
+            clock.mark("asked")
+            answer = as_it_comes(text, on_sentence)
+            clock.mark("answered", answer)
+            return answer
 
-    def timed_write_up(text: str) -> str:
-        clock.mark("asked")
-        answer = write_up(text)
-        clock.mark("answered", answer)
-        return answer
+        brain.write_up_as_it_comes = timed_as_it_comes
+    else:
+        write_up = brain.write_up
 
-    brain.write_up = timed_write_up
+        def timed_write_up(text: str) -> str:
+            clock.mark("asked")
+            answer = write_up(text)
+            clock.mark("answered", answer)
+            return answer
+
+        brain.write_up = timed_write_up
     answer_aside = her.answer_aside
 
     def timed_answer_aside(opening: Any, now: float) -> None:

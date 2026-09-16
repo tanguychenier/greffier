@@ -59,6 +59,22 @@ def better_voice_available() -> bool:
         f"({quality})" in name for name, _ in _say_voice() for quality in QUALITIES
     )
 
+class WholeRemark:
+    """Gathers the sentences of a remark, and says them together when it is complete."""
+
+    def __init__(self, voice: SystemVoice) -> None:
+        self._voice = voice
+        self._parts: list[str] = []
+
+    def add(self, text: str) -> None:
+        self._parts.append(text.strip())
+
+    def close(self) -> None:
+        remark = " ".join(part for part in self._parts if part)
+        if remark:
+            self._voice.say(remark)
+
+
 class SystemVoice:
     """Pronounces a text through the system synthesiser."""
 
@@ -116,6 +132,12 @@ class SystemVoice:
             except OSError:
                 return False
         return True
+
+    def begin(self) -> WholeRemark | None:
+        """The system voice takes one text at a time: the remark is said at the end."""
+        if self.is_speaking() or not self.available:
+            return None
+        return WholeRemark(self)
 
     def is_speaking(self) -> bool:
         with self._lock:

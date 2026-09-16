@@ -31,6 +31,12 @@ for line in sys.stdin:
         print(json.dumps({{"type": "assistant", "message": {{"content": [
             {{"type": "tool_use", "name": "WebSearch", "input": {{}}}}]}}}}), flush=True)
     time.sleep(float(os.environ.get("FAKE_CLAUDE_SLEEP", "0")))
+    for piece in os.environ.get("FAKE_CLAUDE_PIECES", "").split("|"):
+        if piece:
+            print(json.dumps({{"type": "stream_event", "event": {{
+                "type": "content_block_delta",
+                "delta": {{"type": "text_delta", "text": piece}}}}}}), flush=True)
+            time.sleep(0.01)
     if os.environ.get("FAKE_CLAUDE_FAIL"):
         print(json.dumps({{"type": "result", "is_error": True,
                            "result": "quota exceeded"}}), flush=True)
@@ -49,7 +55,7 @@ def fake_claude(tmp_path: Path, monkeypatch) -> Path:
     script.write_text(FAKE.format(python=sys.executable), encoding="utf-8")
     script.chmod(script.stat().st_mode | stat.S_IXUSR)
     for knob in ("FAKE_CLAUDE_SEARCH", "FAKE_CLAUDE_SLEEP", "FAKE_CLAUDE_FAIL",
-                 "FAKE_CLAUDE_DIE_AFTER", "FAKE_CLAUDE_ARGV"):
+                 "FAKE_CLAUDE_DIE_AFTER", "FAKE_CLAUDE_ARGV", "FAKE_CLAUDE_PIECES"):
         monkeypatch.delenv(knob, raising=False)
     return script
 
@@ -267,5 +273,78 @@ class TestWhatTheProcessIsToldOnTheWire:
             session.write_up("un")
             assert session._process is not None
             assert session._process.stderr is None, "sent to the void, not inherited"
+        finally:
+            session.close()
+
+
+class TestTheSentencesComeAsTheModelWritesThem:
+    """Measured with sonnet, three sentences: the first was whole at 2.6 s where
+    the answer came back at 3.7. The session hands each finished sentence
+    over, and the whole answer at the end as before."""
+
+    PIECES = "Oui, je vous en|tends. La recette est| jeudi. Voi|là."
+
+    def test_each_finished_sentence_is_handed_over_before_the_answer(
+        self, fake_claude, monkeypatch
+    ):
+        monkeypatch.setenv("FAKE_CLAUDE_PIECES", self.PIECES)
+        heard: list[tuple[str, bool]] = []
+        done = {"answer": False}
+        session = ClaudeSession(command=str(fake_claude), own_guidance="G. ")
+        try:
+            answer = session.write_up_as_it_comes(
+                "Lucie ?", lambda sentence: heard.append((sentence, done["answer"]))
+            )
+            done["answer"] = True
+        finally:
+            session.close()
+        assert [sentence for sentence, _ in heard] == [
+            "Oui, je vous entends.", "La recette est jeudi.", "Voilà."
+        ]
+        assert all(not after for _, after in heard)
+        assert "turn 1" in answer
+
+    def test_the_partial_messages_are_asked_for(self, fake_claude, tmp_path, monkeypatch):
+        argv = tmp_path / "argv"
+        monkeypatch.setenv("FAKE_CLAUDE_ARGV", str(argv))
+        session = ClaudeSession(command=str(fake_claude), own_guidance="G. ")
+        try:
+            session.write_up("Lucie ?")
+        finally:
+            session.close()
+        assert "--include-partial-messages" in _argv(argv)[0]
+
+    def test_a_session_with_tools_keeps_the_answer_for_the_end(
+        self, fake_claude, monkeypatch
+    ):
+        # The words before a search are not the answer.
+        monkeypatch.setenv("FAKE_CLAUDE_PIECES", self.PIECES)
+        heard: list[str] = []
+        session = ClaudeSession(
+            command=str(fake_claude), own_guidance="G. ", tools=("WebSearch",)
+        )
+        try:
+            answer = session.write_up_as_it_comes("Lucie ?", heard.append)
+        finally:
+            session.close()
+        assert heard == [] and "turn 1" in answer
+
+    def test_nothing_is_handed_over_on_a_failed_turn(self, fake_claude, monkeypatch):
+        monkeypatch.setenv("FAKE_CLAUDE_PIECES", "Un début")
+        monkeypatch.setenv("FAKE_CLAUDE_FAIL", "1")
+        heard: list[str] = []
+        session = ClaudeSession(command=str(fake_claude), own_guidance="G. ")
+        try:
+            with pytest.raises(RuntimeError):
+                session.write_up_as_it_comes("Lucie ?", heard.append)
+        finally:
+            session.close()
+        assert heard == []
+
+    def test_write_up_alone_streams_nothing_and_still_answers(self, fake_claude, monkeypatch):
+        monkeypatch.setenv("FAKE_CLAUDE_PIECES", self.PIECES)
+        session = ClaudeSession(command=str(fake_claude), own_guidance="G. ")
+        try:
+            assert "turn 1" in session.write_up("Lucie ?")
         finally:
             session.close()

@@ -374,3 +374,97 @@ class TestSpeakingThroughTheSystemAndBeingQuiet:
         voice = self._voice(monkeypatch)
         monkeypatch.setattr(voice, "_command", lambda text: ["/nowhere/to/be/found", text])
         assert voice.say("Bonjour.") is False
+
+
+class TestARemarkSaidAsItComes:
+    """The mouth: sentences in as the model finishes them, played in order.
+
+    No model and no player here: the network is a double that returns a
+    sample per sentence, the player a double that notes what it was given.
+    """
+
+    def _voice(self, tmp_path, monkeypatch):
+        import numpy as np
+
+        from greffier.adapters import voice_neural
+        from greffier.adapters.voice_neural import NeuralVoice
+
+        voice = NeuralVoice(tmp_path)
+        played: list[str] = []
+        monkeypatch.setattr(type(voice), "available", property(lambda _self: True))
+        monkeypatch.setattr(voice, "_load", lambda: SimpleNamespace(
+            generate=lambda text, sid, speed: SimpleNamespace(
+                samples=np.zeros(160, dtype="float32"), sample_rate=16000)))
+        monkeypatch.setattr(voice, "_play", lambda file: played.append(file.name) or True)
+        monkeypatch.setattr(voice_neural, "WAIT_FOR_WORDS_S", 0.01)
+        return voice, played
+
+    def _until(self, condition, seconds=3.0):
+        import time
+
+        deadline = time.monotonic() + seconds
+        while not condition() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert condition()
+
+    def test_the_sentences_are_played_in_order_and_the_voice_is_busy_meanwhile(
+        self, tmp_path, monkeypatch
+    ):
+        voice, played = self._voice(tmp_path, monkeypatch)
+        mouth = voice.begin()
+        assert mouth is not None
+        mouth.add("Oui, je vous entends.")
+        self._until(lambda: len(played) == 1)
+        # Between two sentences, the model still writing: busy all the same.
+        assert voice.is_speaking()
+        mouth.add("La recette est jeudi. Voilà.")
+        mouth.close()
+        self._until(lambda: not voice.is_speaking())
+        assert played == ["0.wav", "1.wav", "2.wav"]
+
+    def test_a_second_remark_is_refused_while_the_first_is_under_way(
+        self, tmp_path, monkeypatch
+    ):
+        voice, _ = self._voice(tmp_path, monkeypatch)
+        mouth = voice.begin()
+        assert voice.begin() is None
+        assert not voice.say("Une autre.")
+        mouth.close()
+        self._until(lambda: not voice.is_speaking())
+        assert voice.begin() is not None
+
+    def test_say_goes_through_the_same_mouth(self, tmp_path, monkeypatch):
+        voice, played = self._voice(tmp_path, monkeypatch)
+        assert voice.say("Une phrase. Une autre.")
+        self._until(lambda: not voice.is_speaking())
+        assert played == ["0.wav", "1.wav"]
+
+    def test_going_quiet_ends_a_remark_still_waiting_for_words(self, tmp_path, monkeypatch):
+        voice, _ = self._voice(tmp_path, monkeypatch)
+        mouth = voice.begin()
+        assert mouth is not None
+        voice.go_quiet()
+        self._until(lambda: not voice.is_speaking())
+
+    def test_a_remark_nobody_finishes_does_not_gag_the_voice_for_ever(
+        self, tmp_path, monkeypatch
+    ):
+        from greffier.adapters import voice_neural
+
+        monkeypatch.setattr(voice_neural, "PATIENCE_S", 0.05)
+        voice, _ = self._voice(tmp_path, monkeypatch)
+        assert voice.begin() is not None
+        self._until(lambda: not voice.is_speaking())
+
+    def test_the_system_voice_says_the_whole_remark_at_the_end(self, monkeypatch):
+        said: list[str] = []
+        voice = voice_system.SystemVoice(voice="Thomas")
+        monkeypatch.setattr(type(voice), "available", property(lambda _self: True))
+        monkeypatch.setattr(voice, "say", lambda text: said.append(text) or True)
+        mouth = voice.begin()
+        assert mouth is not None
+        mouth.add("Une phrase.")
+        assert said == []
+        mouth.add("Une autre.")
+        mouth.close()
+        assert said == ["Une phrase. Une autre."]

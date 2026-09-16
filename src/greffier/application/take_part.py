@@ -120,10 +120,24 @@ fais pas la leçon. N'emploie ni tiret cadratin ni demi-cadratin.
 Ce qui vient de se dire :
 """
 
+class Mouth(Protocol):
+    """One remark under way: its sentences go in as the model finishes them."""
+
+    def add(self, text: str) -> None:
+        ...
+
+    def close(self) -> None:
+        ...
+
+
 class Speaker(Protocol):
     """Whatever pronounces. NeuralVoice and SystemVoice both fit."""
 
     def say(self, text: str) -> bool:
+        ...
+
+    def begin(self) -> Mouth | None:
+        """A remark said as it comes, or None when the voice is busy or absent."""
         ...
 
     def go_quiet(self) -> None:
@@ -131,6 +145,50 @@ class Speaker(Protocol):
 
     def is_speaking(self) -> bool:
         ...
+
+class _AsItComes:
+    """The sentences of one answer, handed to the voice as the model ends them.
+
+    The first sentence decides everything: « RIEN » means the model has
+    nothing to say and none of it is spoken; anything else opens the mouth,
+    and each sentence goes in with its own name taken out and its words
+    kept, so that the capture loop does not hear the assistant call itself.
+    """
+
+    def __init__(self, assistant: AssistantSettings, opening: Opening, now: float) -> None:
+        self._assistant = assistant
+        self._now = now
+        self._mouth: Mouth | None = None
+        self._nothing = False
+        self.started = False
+        self.spoke_at = now
+
+    def take(self, sentence: str) -> None:
+        assistant = self._assistant
+        if self._nothing or assistant.stopped:
+            return
+        if not self.started and sentence.strip().upper().startswith(NOTHING):
+            self._nothing = True
+            return
+        words = without_own_name(sentence, assistant.name).strip()
+        if not words:
+            return
+        if not self.started:
+            self.started = True
+            self.spoke_at = assistant._the_time(self._now)
+            self._mouth = assistant.voice.begin() if assistant.voice is not None else None
+        assistant.its_own_words.append((self.spoke_at, own_words(words)))
+        if self._mouth is not None:
+            self._mouth.add(words)
+
+    def finish(self) -> bool:
+        """Closes the mouth; whether anything was pronounced."""
+        mouth, self._mouth = self._mouth, None
+        if mouth is None:
+            return False
+        mouth.close()
+        return True
+
 
 @dataclass(frozen=True, slots=True)
 class Remark:
@@ -338,16 +396,26 @@ class AssistantSettings:
         Its own name is taken out of whatever it is about to say, and that is a
         hard guarantee: what it says comes back through the capture loop, and a
         remark carrying its own name calls it again.
+
+        With a brain that hands its sentences over as it finishes them and a
+        voice that takes them, the first sentence is spoken while the model
+        writes the second: measured on 2026-09-16, the first of three
+        sentences was whole a second before the answer was.
         """
         if self.stopped:
             return Remark(remark="", because=opening.because, a=now)
-        remark = without_own_name(self._phrase_it(opening), self.name)
+        spoken = _AsItComes(self, opening, now)
+        remark = without_own_name(self._phrase_it(opening, spoken), self.name)
         if not remark or self.stopped:
+            spoken.finish()
             return Remark(remark="", because=opening.because, a=now)
-        spoke_at = self._the_time(now)
-        # Kept before speaking: a slice can come back while `say` still holds.
-        self.its_own_words.append((spoke_at, own_words(remark)))
-        pronounced = bool(self.voice and self.voice.say(remark))
+        if spoken.started:
+            spoke_at, pronounced = spoken.spoke_at, spoken.finish()
+        else:
+            spoke_at = self._the_time(now)
+            # Kept before speaking: a slice can come back while `say` still holds.
+            self.its_own_words.append((spoke_at, own_words(remark)))
+            pronounced = bool(self.voice and self.voice.say(remark))
         if pronounced:
             end = spoke_at + 1.0 + len(remark) / 15.0
             self.its_own_turns.append((spoke_at, end))
@@ -378,7 +446,7 @@ class AssistantSettings:
             target=self.answer, args=(opening, now), daemon=True)
         self._job.start()
 
-    def _phrase_it(self, opening: Opening) -> str:
+    def _phrase_it(self, opening: Opening, spoken: _AsItComes | None = None) -> str:
         """The exact remark to pronounce.
 
         Called by name with no brain to answer with, it says **nothing**. It
@@ -399,8 +467,12 @@ class AssistantSettings:
             f"Voici ce qui s'est dit jusqu'ici dans la réunion :\n\n{material}\n\n"
             f"On vient de te dire : « {opening.remark} »\n\nRéponds."
         )
+        as_it_comes = getattr(self.brain, "write_up_as_it_comes", None)
         try:
-            remark = str(self.brain.write_up(request)).strip()
+            if spoken is not None and as_it_comes is not None:
+                remark = str(as_it_comes(request, spoken.take)).strip()
+            else:
+                remark = str(self.brain.write_up(request)).strip()
         except (RuntimeError, OSError):
             return ""
         # Nothing to answer is an answer, and it is silence. Read back from a

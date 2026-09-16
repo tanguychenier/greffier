@@ -9,6 +9,7 @@ from __future__ import annotations
 import contextlib
 import os
 import platform
+import queue
 import re
 import shutil
 import subprocess
@@ -58,6 +59,31 @@ def sentences(text: str, maximum: int = 240) -> list[str]:
         if current:
             chunks.append(current)
     return chunks
+
+#: How long the voice waits for the next sentence before checking it was not
+#: cut in the meantime.
+WAIT_FOR_WORDS_S = 0.2
+
+#: A remark whose next sentence does not come within this is over: the model
+#: gave up long before (`brain_claude.TURN_TIMEOUT`), and a voice waiting
+#: for ever would refuse every remark after it.
+PATIENCE_S = 90.0
+
+
+class Mouth:
+    """Where the sentences of one remark go, in the order they are spoken."""
+
+    def __init__(self, pending: queue.Queue[str | None]) -> None:
+        self._pending = pending
+
+    def add(self, text: str) -> None:
+        for chunk in sentences(text):
+            self._pending.put(chunk)
+
+    def close(self) -> None:
+        """The remark is complete: the voice stops once the queue is empty."""
+        self._pending.put(None)
+
 
 def player() -> list[str] | None:
     """The command that plays a wav file, according to the system."""
@@ -109,6 +135,7 @@ class NeuralVoice:
         self._lock = threading.Lock()
         self._reading: subprocess.Popen[bytes] | None = None
         self._interrupted = threading.Event()
+        self._busy = threading.Event()
 
     @property
     def installed(self) -> bool:
@@ -215,33 +242,61 @@ class NeuralVoice:
         is never what was wanted; the room already got an answer.
         """
         chunks = sentences(text)
-        if not chunks or not self.available:
+        if not chunks:
             return False
-        if self.is_speaking():
+        mouth = self.begin()
+        if mouth is None:
             return False
-        self._interrupted.clear()
-        threading.Thread(target=self._pronounce, args=(chunks,), daemon=True).start()
+        for chunk in chunks:
+            mouth.add(chunk)
+        mouth.close()
         return True
 
-    def _pronounce(self, chunks: list[str]) -> None:
+    def begin(self) -> Mouth | None:
+        """A remark said as its sentences come, the model still writing.
+
+        Nothing when the voice is not there or already speaking: the caller
+        then keeps the remark, as `say` would have refused it.
+        """
+        if not self.available or self.is_speaking():
+            return None
+        self._interrupted.clear()
+        self._busy.set()
+        pending: queue.Queue[str | None] = queue.Queue()
+        threading.Thread(target=self._pronounce, args=(pending,), daemon=True).start()
+        return Mouth(pending)
+
+    def _pronounce(self, pending: queue.Queue[str | None]) -> None:
         import soundfile
 
-        with tempfile.TemporaryDirectory() as folder:
-            for rank, chunk in enumerate(chunks):
-                if self._interrupted.is_set():
-                    return
-                try:
-                    with _without_chatter():
-                        rendered = self._load().generate(
-                            chunk, sid=self.voice, speed=self.rate)
-                except (RuntimeError, OSError):
-                    return
-                if len(rendered.samples) == 0:
-                    continue
-                file = Path(folder) / f"{rank}.wav"
-                soundfile.write(str(file), rendered.samples, rendered.sample_rate)
-                if not self._play(file):
-                    return
+        try:
+            with tempfile.TemporaryDirectory() as folder:
+                rank = 0
+                waited = 0.0
+                while not self._interrupted.is_set() and waited < PATIENCE_S:
+                    try:
+                        chunk = pending.get(timeout=WAIT_FOR_WORDS_S)
+                    except queue.Empty:
+                        waited += WAIT_FOR_WORDS_S
+                        continue
+                    waited = 0.0
+                    if chunk is None:
+                        return
+                    try:
+                        with _without_chatter():
+                            rendered = self._load().generate(
+                                chunk, sid=self.voice, speed=self.rate)
+                    except (RuntimeError, OSError):
+                        return
+                    if len(rendered.samples) == 0:
+                        continue
+                    file = Path(folder) / f"{rank}.wav"
+                    rank += 1
+                    soundfile.write(str(file), rendered.samples, rendered.sample_rate)
+                    if not self._play(file):
+                        return
+        finally:
+            self._busy.clear()
 
     def _play(self, file: Path) -> bool:
         """Plays a file and waits for it. False when it was cut."""
@@ -282,6 +337,14 @@ class NeuralVoice:
                 self.gag.write_text(str(pid), encoding="utf-8")
 
     def is_speaking(self) -> bool:
+        """True from the first sentence handed over to the last one played.
+
+        The gaps count: between two sentences the voice is rendering the
+        next one, or waiting for the model to finish it, and a remark that
+        started then would cut this one short.
+        """
+        if self._busy.is_set():
+            return True
         with self._lock:
             return self._reading is not None and self._reading.poll() is None
 

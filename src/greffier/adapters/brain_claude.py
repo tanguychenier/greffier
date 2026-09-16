@@ -28,6 +28,7 @@ from collections.abc import Callable
 from typing import IO, Any
 
 from greffier.adapters.writer_claude import _event, _is_a_search, guidance
+from greffier.domain.as_it_comes import SentencesAsTheyCome
 
 #: A turn that takes longer than this is abandoned, and the session with it:
 #: the next question starts a fresh one rather than wait on a stuck process.
@@ -91,10 +92,25 @@ class ClaudeSession:
                     self._drop(self._process)
 
     def write_up(self, transcription: str) -> str:
+        return self.write_up_as_it_comes(transcription, None)
+
+    def write_up_as_it_comes(
+        self, transcription: str, on_sentence: Callable[[str], None] | None
+    ) -> str:
+        """The answer, and each of its sentences the moment it is finished.
+
+        Measured on 2026-09-16 with sonnet, three sentences: the first one
+        was whole at 2.6 s where the answer came back at 3.7. The voice
+        starts on it while the model writes the rest. Only a session with
+        no tools streams: with a search in the turn, the words before the
+        search are not the answer, and the answer is what comes back at the
+        end, as before.
+        """
+        streamed = on_sentence if not self.tools else None
         with self._lock:
             process = self._running()
             try:
-                answer = self._one_turn(process, self._prompt(transcription))
+                answer = self._one_turn(process, self._prompt(transcription), streamed)
             except TimeoutError:
                 # Not retried: a question that took a minute would take two.
                 self._drop(process)
@@ -104,7 +120,7 @@ class ClaudeSession:
                 self._drop(process)
                 process = self._running()
                 try:
-                    answer = self._one_turn(process, self._prompt(transcription))
+                    answer = self._one_turn(process, self._prompt(transcription), streamed)
                 except (OSError, ValueError, TimeoutError):
                     self._drop(process)
                     raise
@@ -141,6 +157,7 @@ class ClaudeSession:
             self.command, "-p",
             "--input-format", "stream-json",
             "--output-format", "stream-json", "--verbose",
+            "--include-partial-messages",
             "--strict-mcp-config",
             "--no-session-persistence",
             "--system-prompt", self._system_prompt,
@@ -156,7 +173,12 @@ class ClaudeSession:
         )
         return self._process
 
-    def _one_turn(self, process: subprocess.Popen[str], prompt: str) -> str:
+    def _one_turn(
+        self,
+        process: subprocess.Popen[str],
+        prompt: str,
+        on_sentence: Callable[[str], None] | None = None,
+    ) -> str:
         stdin: IO[str] | None = process.stdin
         stdout: IO[str] | None = process.stdout
         if stdin is None or stdout is None:
@@ -169,7 +191,8 @@ class ClaudeSession:
         self._sent += len(prompt)
         answer: dict[str, Any] = {}
         reader = threading.Thread(
-            target=self._read_until_the_result, args=(stdout, answer), daemon=True
+            target=self._read_until_the_result, args=(stdout, answer, on_sentence),
+            daemon=True,
         )
         reader.start()
         reader.join(self.timeout)
@@ -184,8 +207,14 @@ class ClaudeSession:
             raise RuntimeError("Claude Code n'a rien produit.")
         return text
 
-    def _read_until_the_result(self, stdout: IO[str], answer: dict[str, Any]) -> None:
+    def _read_until_the_result(
+        self,
+        stdout: IO[str],
+        answer: dict[str, Any],
+        on_sentence: Callable[[str], None] | None = None,
+    ) -> None:
         already_searching = False
+        cutter = SentencesAsTheyCome()
         for line in stdout:
             event = _event(line)
             if event is None:
@@ -194,7 +223,13 @@ class ClaudeSession:
                 already_searching = True
                 if self.on_search is not None:
                     self.on_search()
+            if on_sentence is not None:
+                for sentence in cutter.take(_words_of(event)):
+                    on_sentence(sentence)
             if event.get("type") == "result":
+                if on_sentence is not None and not event.get("is_error"):
+                    for sentence in cutter.finish():
+                        on_sentence(sentence)
                 answer["result"] = event.get("result")
                 answer["failed"] = bool(event.get("is_error"))
                 return
@@ -212,3 +247,16 @@ class ClaudeSession:
         if self._process is process:
             self._process = None
             self._sent = 0
+
+
+def _words_of(event: dict[str, Any]) -> str:
+    """The text a partial-message event carries, empty for every other one."""
+    if event.get("type") != "stream_event":
+        return ""
+    inner = event.get("event") or {}
+    if inner.get("type") != "content_block_delta":
+        return ""
+    delta = inner.get("delta") or {}
+    if delta.get("type") != "text_delta":
+        return ""
+    return str(delta.get("text") or "")
