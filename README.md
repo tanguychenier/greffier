@@ -328,7 +328,16 @@ voix = "kokoro"       # kokoro (le modèle installé) | systeme | aucun
 locuteur = 0          # quand le modèle porte plusieurs voix
 repos = 180.0         # seconds between two unprompted remarks
 creux_minimal = 2.0   # silence required before speaking at all
+modele = "sonnet"     # what answers out loud; the minutes keep their own
 ```
+
+What it answers with is not what writes the minutes. Spoken, an answer has
+to come quickly; written, it has to be right. With Claude Code the process is
+started once for the meeting and kept warm, and fed one question after
+another: measured on a real transcript, the first answer of a cold process
+came in 5 s, the next ones in 2 s, and sonnet was the fastest of the three
+models at it (haiku, through this wire, was the slowest). See
+`docs/corpus.md` for the figures.
 
 Give it a first name rather than leaving "Greffier": a transcription model
 renders a first name reliably, whereas "greffier" sits two edits away from

@@ -323,6 +323,15 @@ class AssistantSettings(BaseModel):
         default=False,
         validation_alias=AliasChoices("initiative", "initiative"),
     )
+    #: The model that answers out loud, apart from the one writing the minutes:
+    #: what is spoken has to come quickly, what is written has to be right.
+    #: Measured on 2026-09-16 through a kept session, on a real transcript:
+    #: sonnet answers in 1.8 to 2.2 s, opus in 2.2 to 3.2 s, haiku in 3.4 to
+    #: 4.8 s, so the smallest model is not the fastest one here.
+    model: str = Field(
+        default="sonnet",
+        validation_alias=AliasChoices("model", "modele"),
+    )
 
 class Interface(BaseModel):
     """What the tool says, and in which language it says it."""

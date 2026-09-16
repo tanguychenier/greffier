@@ -491,29 +491,52 @@ def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
         tracer=tracer,
         setting=lambda: context(config).header() + what_earlier_meetings_left(config),
     )
-    cerveau = assistant(config)
-    if cerveau is not None and hasattr(cerveau, "own_guidance"):
-        cerveau.own_guidance = lui.guidance()
-        # The same setting as the conversation tab, and for the same reason:
-        # its guidance tells it that it may look something up and name the
-        # source aloud. Handed no tools, it answered "yes I can search" and
-        # "no I have no access" in turn, four times in one meeting.
-        from greffier.adapters.writer_claude import ClaudeWriter
-
-        cerveau.tools = (  # type: ignore[attr-defined]
-            ClaudeWriter.SEARCH_TOOLS if config.conversation.recherche_web else ()
-        )
-        if config.conversation.recherche_web:
-            # A short sound, the moment a search actually starts. Called by its
-            # name the assistant takes a few seconds to answer, and nothing said
-            # whether it was thinking or looking something up: waiting without
-            # knowing what for is what makes a wait feel long.
-            from greffier.adapters.cue_sound import cue
-
-            cerveau.on_search = cue()  # type: ignore[attr-defined]
+    cerveau = spoken_brain(config, lui.guidance())
     lui.keep_its_turn = _keep_her_turn(config, identifier)
     lui.cerveau = cerveau
     return lui
+
+def spoken_brain(config: Config, own_guidance: str) -> Any | None:
+    """What the assistant thinks with when it answers out loud.
+
+    Not the writer of the minutes: that one starts a process per call, which
+    costs five seconds before the first word, and a voice called by its name
+    in a room cannot wait that long. With Claude Code the process is started
+    once for the meeting and kept warm (see `brain_claude`); with Ollama the
+    model is already resident and the writer is fast enough as it is.
+    """
+    engine = config.minutes.engine
+    if engine == "ollama":
+        cerveau: Any = OllamaWriter(config.minutes.effective_model,
+                                    language=config.minutes.language,
+                                    own_guidance=own_guidance)
+        return cerveau
+    if engine != "claude":
+        return None
+    from greffier.adapters.brain_claude import ClaudeSession
+
+    on_search = None
+    if config.conversation.recherche_web:
+        # A short sound, the moment a search actually starts. Called by its
+        # name the assistant takes a few seconds to answer, and nothing said
+        # whether it was thinking or looking something up: waiting without
+        # knowing what for is what makes a wait feel long.
+        from greffier.adapters.cue_sound import cue
+
+        on_search = cue()
+    # The same tools as the conversation tab, and for the same reason: its
+    # guidance tells it that it may look something up and name the source
+    # aloud. Handed no tools, it answered "yes I can search" and "no I have
+    # no access" in turn, four times in one meeting.
+    # Built here, warmed up and closed by whoever runs the meeting: a factory
+    # that starts a process is a factory no test can call.
+    return ClaudeSession(
+        model=config.assistant.model,
+        language=config.minutes.language,
+        tools=(ClaudeSession.SEARCH_TOOLS if config.conversation.recherche_web else ()),
+        own_guidance=own_guidance,
+        on_search=on_search,
+    )
 
 
 def _keep_her_turn(config: Config, identifier: str) -> Callable[[float, float], None]:

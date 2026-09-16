@@ -4,15 +4,21 @@ The distinction is the guarantee of the minutes: a document made of what was
 said must not be able to complete a decision with what a search engine returned.
 """
 
-from greffier.adapters.configuration import Config
+from greffier.adapters.brain_claude import ClaudeSession
+from greffier.adapters.configuration import Config, Minutes
 from greffier.adapters.writer_claude import ClaudeWriter
+from greffier.adapters.writer_ollama import OllamaWriter
 from greffier.wiring import assistant, writer
 
 
-def config(**conversation) -> Config:
+def config(assistant=None, compte_rendu=None, **conversation) -> Config:
     settings = Config()
     for key, value in conversation.items():
         setattr(settings.conversation, key, value)
+    for key, value in (assistant or {}).items():
+        setattr(settings.assistant, "model" if key == "modele" else key, value)
+    for key, value in (compte_rendu or {}).items():
+        setattr(settings.minutes, "engine" if key == "moteur" else key, value)
     return settings
 
 
@@ -93,17 +99,17 @@ class TestTheAssistantOfAMeetingKeepsThem:
 
     def test_the_meeting_assistant_can_search(self):
         lui = self._lui(recherche_web=True)
-        assert lui is not None and isinstance(lui.cerveau, ClaudeWriter)
-        assert lui.cerveau.tools == ClaudeWriter.SEARCH_TOOLS
+        assert lui is not None and isinstance(lui.cerveau, ClaudeSession)
+        assert lui.cerveau.tools == ClaudeSession.SEARCH_TOOLS
 
     def test_the_setting_still_switches_it_off(self):
         lui = self._lui(recherche_web=False)
-        assert lui is not None and isinstance(lui.cerveau, ClaudeWriter)
+        assert lui is not None and isinstance(lui.cerveau, ClaudeSession)
         assert lui.cerveau.tools == ()
 
     def test_its_own_guidance_survives_the_change(self):
         lui = self._lui(recherche_web=True)
-        assert lui is not None and isinstance(lui.cerveau, ClaudeWriter)
+        assert lui is not None and isinstance(lui.cerveau, ClaudeSession)
         assert "Lucie" in lui.cerveau.own_guidance or lui.name in (
             lui.cerveau.own_guidance
         )
@@ -111,6 +117,45 @@ class TestTheAssistantOfAMeetingKeepsThem:
     def test_what_it_may_do_matches_what_it_is_told(self):
         """The guidance says it can search; the tools must say the same."""
         lui = self._lui(recherche_web=True)
-        assert lui is not None and isinstance(lui.cerveau, ClaudeWriter)
+        assert lui is not None and isinstance(lui.cerveau, ClaudeSession)
         assert "chercher en ligne" in lui.guidance()
         assert lui.cerveau.tools, "dire qu'elle peut chercher sans pouvoir le faire"
+
+    def test_the_search_cue_comes_with_the_tools(self):
+        lui = self._lui(recherche_web=True)
+        assert lui is not None and isinstance(lui.cerveau, ClaudeSession)
+        assert lui.cerveau.on_search is not None
+        assert self._lui(recherche_web=False).cerveau.on_search is None
+
+
+class TestTheMeetingAssistantThinksWithAKeptSession:
+    """Called by its name it answered in four seconds, and most of it was a
+    process starting. The meeting assistant keeps one open (see `brain_claude`);
+    nothing here starts it, that is the meeting's business.
+    """
+
+    def _lui(self, **settings):
+        from greffier.wiring import assistant_of
+
+        return assistant_of(config(**settings), "essai")
+
+    def test_it_is_a_kept_session_and_not_the_writer(self):
+        lui = self._lui()
+        assert lui is not None and isinstance(lui.cerveau, ClaudeSession)
+        assert lui.cerveau._process is None, "built, not started"
+
+    def test_it_answers_with_the_spoken_model_not_the_writer_s(self):
+        lui = self._lui()
+        assert lui is not None and isinstance(lui.cerveau, ClaudeSession)
+        assert lui.cerveau.model == "sonnet"
+        assert lui.cerveau.model != Minutes.CLAUDE_DEFAULT
+
+    def test_the_spoken_model_can_be_chosen(self):
+        lui = self._lui(assistant={"modele": "opus"})
+        assert lui is not None and isinstance(lui.cerveau, ClaudeSession)
+        assert lui.cerveau.model == "opus"
+
+    def test_with_ollama_the_writer_serves_with_the_spoken_guidance(self):
+        lui = self._lui(compte_rendu={"moteur": "ollama"})
+        assert lui is not None and isinstance(lui.cerveau, OllamaWriter)
+        assert "prononcé tel" in lui.cerveau.own_guidance

@@ -62,15 +62,19 @@ def available_models() -> list[str]:
 
 class OllamaWriter:
     def __init__(self, model: str, hote: str = "http://127.0.0.1:11434",
-                 language: str = "") -> None:
+                 language: str = "", own_guidance: str = "") -> None:
         self.model = model
         self.hote = hote.rstrip("/")
         self.language = language
+        #: Given, the writer's own instructions give way: the assistant
+        #: answering out loud is not writing minutes.
+        self.own_guidance = own_guidance
 
     def write_up(self, transcription: str) -> str:
+        header = self.own_guidance or guidance(self.language)
         corps = json.dumps({
             "model": self.model,
-            "prompt": guidance(self.language) + transcription,
+            "prompt": header + transcription,
             "stream": False,
             "options": {"temperature": 0.2},
         }).encode("utf-8")
