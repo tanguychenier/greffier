@@ -154,6 +154,22 @@ CASES: dict[str, tuple[dict, list[tuple[str, str]]]] = {
                   "décisions à l'ensemble des participants dès cet après-midi."),
         ],
     ),
+    # Two people in the room with the same first name, both introducing
+    # themselves. Measured on 2026-09-16: the chain names the first and
+    # leaves the second unnamed rather than misnamed, and never joins them.
+    "deux-jacques": (
+        TWO_VOICES,
+        [
+            ("A", "Bonjour à tous, moi c'est Jacques, je m'occupe de la recette et je "
+                  "vais suivre le calendrier avec vous jusqu'à la mise en production."),
+            ("B", "Bonjour, moi aussi je m'appelle Jacques, je suis côté infrastructure, "
+                  "et je préviendrai les utilisateurs mercredi en fin de journée."),
+            ("A", "Très bien. La préproduction est en place depuis vendredi et les "
+                  "traitements de nuit n'ont montré aucun incident depuis lundi."),
+            ("B", "De mon côté la reprise des données est terminée, il reste à valider "
+                  "les écarts de facturation demain matin avec l'équipe fonctionnelle."),
+        ],
+    ),
 }
 
 

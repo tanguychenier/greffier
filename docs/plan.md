@@ -299,8 +299,13 @@ not from a journal. Nothing here is started.
 - [ ] The sentences still wrong live, 9 % on a four-person meeting, are
       short interjections in the passages where everybody talks at once;
       the minutes leave 28 % of the sentences to nobody on the same file
-      under their stricter rule. Neither figure moves without a rule on
-      overlapping speech, which nothing measures yet.
+      under their stricter rule. Measured the same day on the run of 032b,
+      split by whether the reference has two people over the sentence.
+      Alone, 253 sentences, 87 % right and 4 % wrong; overlapped, 193
+      sentences, 74 % right and 14 % wrong. Sending every overlapped
+      sentence to « Les autres » would spare 27 wrong ones and lose 142
+      right ones, so no rule on overlap alone; a finer one would need the
+      segmenter's own overlaps in the log, which is the next step.
 - [x] The same question, word for word, asked again minutes later is never
       answered a second time (the subject of a call has no expiry, only the
       words heard in other words expire, at thirty seconds).
@@ -321,11 +326,15 @@ not from a journal. Nothing here is started.
 
 From `scenarios.md`, the rows marked open. Somebody arriving or leaving
 during the meeting, long overlapping speech, a hybrid meeting, a phone on
-its loudspeaker, two people with the same first name, a bank of hundreds
-of people, Trello, Outlook and a shared drive as sources, the agenda read
-from the calendar, a comment left on an existing ticket, the machine going
-to sleep, the models deleted between two meetings, the clock change. Each
-is a bench to build before anything is written.
+its loudspeaker, a bank of hundreds of people, Trello, Outlook and a
+shared drive as sources, the agenda read from the calendar, a comment left
+on an existing ticket, the machine going to sleep, the models deleted
+between two meetings, the clock change. Each is a bench to build before
+anything is written. Two people with the same first name was benched on
+2026-09-16 (« deux-jacques » in the hard cases), the chain names the
+first and leaves the second unnamed rather than misnamed; live, naming
+both by hand still joins them, left as is until a live bench says what a
+print guard would cost the one-person-cut-in-two case it was written for.
 
 ## Decisions that are his, not tasks
 

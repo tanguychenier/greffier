@@ -136,3 +136,20 @@ class TestABriefProposal:
         )
         input = next(v for v in voices_to_name(meeting) if v.voice == brief_voice)
         assert input.proposition is not None
+
+
+@pytest.fixture(scope="session")
+def two_jacques_result(config: Config, tmp_path_factory):
+    """Two people in the room with the same first name, both introducing themselves."""
+    audio = _make_cases("deux-jacques", tmp_path_factory)
+    return _process(config, audio)
+
+
+class TestTwoPeopleWithTheSameFirstName:
+    def test_the_two_voices_are_told_apart(self, two_jacques_result):
+        assert len(two_jacques_result.speaking_time()) == 2
+
+    def test_the_name_is_given_once_and_the_other_voice_stays_unnamed(self, two_jacques_result):
+        """The second Jacques is left to name by hand rather than folded
+        into the first: a name given twice used to say one person."""
+        assert list(two_jacques_result.names.values()) == ["Jacques"]
