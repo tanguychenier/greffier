@@ -60,6 +60,42 @@ class TestWhoTranscribes:
         assert wiring.light_transcriber(config) is None
 
 
+class TestTheLiveModelKeepsUp:
+    """Measured: large-v3 reads a minute of meeting in 12 s on this card, more
+    than the ten-second slice it has to keep up with, and the assistant's name
+    waited behind it. The turbo model does it in under four.
+    """
+
+    def _advised(self, monkeypatch, model):
+        from greffier.adapters import system_diagnostic
+        from greffier.domain.recorder import Recorder
+
+        recorder = Recorder(system="Linux", memory_gb=16.0, disque_libre_go=100.0)
+        monkeypatch.setattr(Recorder, "advised_model", property(lambda self: model))
+        monkeypatch.setattr(system_diagnostic, "recorder", lambda folder: recorder)
+
+    def test_where_the_card_takes_the_large_model_the_live_one_is_turbo(
+        self, config, monkeypatch
+    ):
+        self._advised(monkeypatch, "large-v3")
+        monkeypatch.setattr("greffier.adapters.model_files.downloaded", lambda m: True)
+        config.transcription.engine = "faster-whisper"
+        assert wiring.light_transcriber(config).size == "large-v3-turbo"
+
+    def test_a_turbo_not_yet_fetched_is_not_fetched_by_a_meeting(
+        self, config, monkeypatch
+    ):
+        self._advised(monkeypatch, "large-v3")
+        monkeypatch.setattr("greffier.adapters.model_files.downloaded", lambda m: False)
+        config.transcription.engine = "faster-whisper"
+        assert wiring.light_transcriber(config).size == "large-v3"
+
+    def test_a_smaller_machine_keeps_its_smaller_model(self, config, monkeypatch):
+        self._advised(monkeypatch, "medium")
+        config.transcription.engine = "faster-whisper"
+        assert wiring.light_transcriber(config).size == "medium"
+
+
 class TestWhoWritesTheMinutes:
     def test_ollama_keeps_everything_on_the_machine(self, config):
         config.minutes.engine = "ollama"

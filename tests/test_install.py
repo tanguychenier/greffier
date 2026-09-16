@@ -786,3 +786,54 @@ class _Demande:
 
     def ask(self, _question):
         return self.answer
+
+
+class TestTheTranscriptionModelsArePreparedByTheInstaller:
+    """The live thread runs the turbo model where the card takes the large
+    one, and never fetches it itself: a download of one and a half gigabytes
+    is not something a meeting starts. So the installer prepares both.
+    """
+
+    class Context:
+        check_only = False
+
+    def _prepared(self, module, monkeypatch, tmp_path):
+        prepared = []
+
+        def run(command, **kwargs):
+            prepared.append(command[-1])
+
+            class Done:
+                returncode = 0
+                stderr = ""
+
+            return Done()
+
+        monkeypatch.setattr(module.subprocess, "run", run)
+        python = tmp_path / "python"
+        python.touch()
+        module.whisper_model_step(self.Context(), "faster-whisper", python)
+        return prepared
+
+    def test_both_the_large_and_the_turbo_model_are_prepared(
+        self, under, monkeypatch, tmp_path
+    ):
+        module = under("Linux")
+        prepared = self._prepared(module, monkeypatch, tmp_path)
+        assert len(prepared) == 2
+        assert "WhisperModel('large-v3'" in prepared[0]
+        assert "WhisperModel('large-v3-turbo'" in prepared[1]
+
+    def test_the_same_model_asked_twice_is_prepared_once(
+        self, under, monkeypatch, tmp_path
+    ):
+        module = under("Linux")
+        monkeypatch.setattr(module, "WHISPER_MODEL", "large-v3-turbo")
+        assert len(self._prepared(module, monkeypatch, tmp_path)) == 1
+
+    def test_with_whisper_cpp_nothing_is_prepared(self, under, monkeypatch, tmp_path):
+        module = under("Darwin")
+        called = []
+        monkeypatch.setattr(module.subprocess, "run", lambda *a, **k: called.append(a))
+        module.whisper_model_step(self.Context(), "whisper.cpp", tmp_path / "python")
+        assert called == []

@@ -74,11 +74,25 @@ def _transcriber(config: Config) -> outbound.Transcriber:
         size=config.transcription.model, device=config.hardware.device
     )
 
+#: The live thread's model where the card takes the large one. Measured on
+#: 2026-09-16 (CUDA, int8): large-v3 reads a minute of meeting in 12.1 s and
+#: the eight-second listening pass in 1.95 s, more than the ten-second slice
+#: it has to keep up with, and every call to the assistant waited behind it.
+#: large-v3-turbo does the same in 3.7 s and 1.3 s, and heard the assistant's
+#: name eight times out of eight where base and small heard it four.
+LIVE_MODEL = "large-v3-turbo"
+
 def _live_model(config: Config) -> str:
     """The model this machine can run in the noise of a recording."""
     from greffier.adapters import system_diagnostic as diagnostic
+    from greffier.adapters.model_files import downloaded
 
-    return diagnostic.recorder(config.paths.data).advised_model
+    advised = diagnostic.recorder(config.paths.data).advised_model
+    if advised != "large-v3":
+        return advised
+    # Not fetched here: a download of one and a half gigabytes is the
+    # installer's business, never a meeting's.
+    return LIVE_MODEL if downloaded(LIVE_MODEL) else advised
 
 def light_transcriber(config: Config) -> outbound.Transcriber | None:
     """The live transcription model: fast rather than precise."""

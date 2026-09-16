@@ -801,31 +801,36 @@ def writer_step(ctx):
 
 
 WHISPER_MODEL = os.environ.get("GREFFIER_MODELE_WHISPER", "large-v3")
+#: The live thread's model on a card that takes the large one: the large one
+#: reads a minute of meeting in 12 s, this one in under four (see
+#: `wiring.LIVE_MODEL`). The meeting never fetches it, so the installer must.
+LIVE_WHISPER_MODEL = "large-v3-turbo"
 
 
 def whisper_model_step(ctx, engine, python):
-    """Fetches the faster-whisper model, where whisper.cpp does not exist.
+    """Fetches the faster-whisper models, where whisper.cpp does not exist.
 
     Without this step everything looks installed and the 1.5 GB download
     starts when the first meeting is launched, that is at the worst moment.
     """
     if engine != "faster-whisper" or ctx.check_only or not python.exists():
         return
-    title("5 bis. Modèle de transcription (faster-whisper)")
-    info(f"préparation de « {WHISPER_MODEL} »…")
-    outcome = subprocess.run(
-        [str(python), "-c",
-         "from faster_whisper import WhisperModel;"
-         f"WhisperModel('{WHISPER_MODEL}', device='cpu', compute_type='int8')"],
-        capture_output=True, text=True, cwd=ROOT, check=False,
-    )
-    if outcome.returncode == 0:
-        ok(f"modèle {WHISPER_MODEL} prêt")
-    else:
-        warn(f"modèle {WHISPER_MODEL} non préparé : il sera récupéré au premier usage")
-        latest = outcome.stderr.strip().splitlines()
-        if latest:
-            info(latest[-1][:160])
+    title("5 bis. Modèles de transcription (faster-whisper)")
+    for model in dict.fromkeys((WHISPER_MODEL, LIVE_WHISPER_MODEL)):
+        info(f"préparation de « {model} »…")
+        outcome = subprocess.run(
+            [str(python), "-c",
+             "from faster_whisper import WhisperModel;"
+             f"WhisperModel('{model}', device='cpu', compute_type='int8')"],
+            capture_output=True, text=True, cwd=ROOT, check=False,
+        )
+        if outcome.returncode == 0:
+            ok(f"modèle {model} prêt")
+        else:
+            warn(f"modèle {model} non préparé : il sera récupéré au premier usage")
+            latest = outcome.stderr.strip().splitlines()
+            if latest:
+                info(latest[-1][:160])
 
 
 # --------------------------------------------------------- 5. environnement
