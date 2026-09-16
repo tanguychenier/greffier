@@ -116,6 +116,10 @@ class Window:
         self._thread = LiveThread()
         self._questions_seen: set[int] = set()
         self._pending_questions: list[Any] = []
+        #: The questions that were on screen while the Conversation tab was
+        #: open: the badge counts what has not been looked at, never everything
+        #: that is still waiting for an answer.
+        self._questions_looked_at: set[int] = set()
         self._learning_pending: Any = None
         self._shown_conversation = ""
         self._apprentissage: Any = None
@@ -222,6 +226,7 @@ class Window:
 
         self._build_state(corps)
         self.tabs = Tabs(corps, c)
+        self.tabs.on_reveal = self._looked_at
         self.tabs_shown = {
             "Préparation": self.says("onglets.preparation"),
             "Réunions": self.says("onglets.reunions"),
@@ -626,7 +631,24 @@ class Window:
             self._say("note", note(waiting.question.text))
             self._say("note", self.says("direct.repondre_a_la_question"))
         self._pending_questions = awaiting
-        self.tabs.mark("Conversation", len(awaiting))
+        self._flag_the_unseen_questions()
+
+    def _looked_at(self, caption: str) -> None:
+        """What was on the tab just opened has now been seen."""
+        if caption == "Conversation":
+            self._questions_looked_at |= {q.number for q in self._pending_questions}
+
+    def _flag_the_unseen_questions(self) -> None:
+        """Puts on the Conversation tab the questions nobody has looked at yet.
+
+        Reported in use: read a question, switch tab, one more arrives, and the
+        badge said three where one was new. A badge that counts everything
+        pending tells nothing about what changed.
+        """
+        if self.tabs.current == "Conversation":
+            self._questions_looked_at |= {q.number for q in self._pending_questions}
+        unseen = [q for q in self._pending_questions if q.number not in self._questions_looked_at]
+        self.tabs.mark("Conversation", len(unseen))
 
     def _questions_already_noted(self, identifier: str) -> set[int]:
         """The questions this meeting's conversation already carries."""
@@ -654,6 +676,7 @@ class Window:
         self._thread_announcement = ""
         self._questions_seen = self._questions_already_noted(identifier)
         self._pending_questions = []
+        self._questions_looked_at = set()
         self.tabs.mark("Conversation", 0)
         self._shown_conversation = ""
         self._load_the_conversation()
@@ -3068,7 +3091,7 @@ class Window:
         else:
             self._say("note", self.says("conversation.note_sans_suite"))
         self._pending_questions = self._pending_questions[1:]
-        self.tabs.mark("Conversation", len(self._pending_questions))
+        self._flag_the_unseen_questions()
         return True
 
     def _hear_an_intent(self, sentence: str) -> bool:

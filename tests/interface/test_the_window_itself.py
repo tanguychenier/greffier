@@ -260,3 +260,59 @@ class TestWhatAProcessedMeetingTellsOnScreen:
         window._processing_done(outcome.audio, outcome, None)
         window.root.update()
         assert "1 voix ne portent pas encore de nom" in window.thread.get("1.0", "end")
+
+
+class TestTheBadgeOnTheConversationTab:
+    """The badge counts what has not been looked at, not everything pending.
+
+    Reported in use: read a question, switch tab, one more arrives, and the
+    badge said three where one was new.
+    """
+
+    @staticmethod
+    def _ask(window, numbers: list[int]) -> None:
+        from greffier.adapters import questions_file
+        from greffier.domain.questions import Question, Reason
+
+        window._thread_meeting = "2026-09-16_10h00_reunion"
+        file = questions_file.questions_file(
+            window.config.paths.questions, window._thread_meeting
+        )
+        for number in numbers:
+            questions_file.publish(
+                file, Question(number=number, text=f"question {number}", motif=Reason.NEAR_TERM)
+            )
+        window._follow_the_questions()
+        window.root.update()
+
+    @staticmethod
+    def _badge(window) -> int:
+        return window.tabs._segments["Conversation"]._count
+
+    def test_questions_arriving_while_another_tab_is_open_are_counted(self, window) -> None:
+        window.tabs.reveal("Préparation")
+        self._ask(window, [1, 2])
+        assert self._badge(window) == 2
+
+    def test_opening_the_tab_clears_the_badge(self, window) -> None:
+        window.tabs.reveal("Préparation")
+        self._ask(window, [1, 2])
+        window.tabs.reveal("Conversation")
+        window.root.update()
+        assert self._badge(window) == 0
+
+    def test_one_more_question_after_a_look_counts_one_not_three(self, window) -> None:
+        window.tabs.reveal("Préparation")
+        self._ask(window, [1, 2])
+        window.tabs.reveal("Conversation")
+        window.root.update()
+        window.tabs.reveal("Préparation")
+        self._ask(window, [3])
+        assert self._badge(window) == 1
+
+    def test_a_question_arriving_on_the_open_tab_is_already_seen(self, window) -> None:
+        window.tabs.reveal("Conversation")
+        self._ask(window, [1])
+        window.tabs.reveal("Préparation")
+        window.root.update()
+        assert self._badge(window) == 0

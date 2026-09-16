@@ -519,6 +519,9 @@ class Tabs(tk.Frame):
         self._pages: dict[str, tk.Frame] = {}
         self._segments: dict[str, _Segment] = {}
         self._current: str | None = None
+        #: Told which tab was just opened, so that whoever counts what a tab
+        #: flags can note what has now been looked at.
+        self.on_reveal: Callable[[str], None] | None = None
 
     def add(self, caption: str, shown: str = "") -> tk.Frame:
         """A tab, keyed by `caption` and labelled by `shown` where they differ.
@@ -552,6 +555,8 @@ class Tabs(tk.Frame):
         segment_courant = self._segments.get(caption)
         if segment_courant is not None:
             segment_courant.mark(0)
+        if self.on_reveal is not None:
+            self.on_reveal(caption)
 
     @property
     def current(self) -> str | None:
