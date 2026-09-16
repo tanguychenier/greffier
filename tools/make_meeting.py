@@ -30,9 +30,9 @@ from pathlib import Path
 # Every line runs past three seconds, below which a voiceprint does not carry
 # enough voice to be worth anything.
 _DIALOGUE = [
-    ("A", "Bonjour à tous, moi c'est {premier}, je vous propose de commencer par le "
+    ("A", "Bonjour à tous, moi c'est {first}, je vous propose de commencer par le "
           "point sur la recette, qui nous occupe depuis le début de la semaine."),
-    ("B", "Merci {premier}. De mon côté, le déploiement en préproduction est terminé "
+    ("B", "Merci {first}. De mon côté, le déploiement en préproduction est terminé "
           "depuis vendredi dernier, et tout s'est déroulé sans incident notable."),
     ("A", "{second}, tu peux nous dire où en sont les anomalies bloquantes sur le "
           "module de facturation, celles que nous avions relevées la semaine dernière ?"),

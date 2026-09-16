@@ -1287,9 +1287,9 @@ class Window:
             f"{self.NOTHING_IS_LOST}",
         ):
             return
-        launched, ou = install()
+        launched, where = install()
         if not launched:
-            asking.complain("Greffier", f"Mise à jour impossible : {ou}")
+            asking.complain("Greffier", f"Mise à jour impossible : {where}")
             return
         self._close_for_the_update()
 
@@ -1327,14 +1327,14 @@ class Window:
             if trouble is not None:
                 asking.complain("Greffier", f"Mise à jour impossible : {trouble}")
                 return
-            launched, ou = outcome
+            launched, where = outcome
             if not launched:
-                asking.complain("Greffier", f"Mise à jour impossible : {ou}")
+                asking.complain("Greffier", f"Mise à jour impossible : {where}")
                 return
             if not sur_mac:
                 self._paint_the_turn("greffier", (
                     f"La version {verdict.available} est téléchargée dans "
-                    f"{ou}. Ferme Greffier, remplace le dossier de "
+                    f"{where}. Ferme Greffier, remplace le dossier de "
                     f"l'application par celui-là, et relance. {self.NOTHING_IS_LOST}"
                 ))
                 return
@@ -2495,8 +2495,8 @@ class Window:
         if identifier is None:
             self.status_line.configure(text=self.says("reunions.choisis_une_reunion"))
             return
-        ou = self._locations()
-        pieces = tidy.pieces_de(ou, identifier)
+        where = self._locations()
+        pieces = tidy.pieces_de(where, identifier)
         if not pieces:
             asking.tell("Greffier", self.says("reunions.rien_a_effacer"))
             self._load_meetings()
@@ -2512,7 +2512,7 @@ class Window:
             default="no",
         ):
             return
-        effacees = tidy.forget(ou, identifier)
+        effacees = tidy.forget(where, identifier)
         self._load_meetings()
         self._load_voices()
         self.status_line.configure(
@@ -2884,11 +2884,11 @@ class Window:
             asking.tell("Greffier", "Tapez le prénom à effacer, ou choisissez "
                                      "une voix déjà nommée.")
             return
-        ou = self._everywhere()
+        where = self._everywhere()
         bank = FileVoiceBank(self.config.paths.voice_bank)
         person = bank.find(name)
         voiceprints = len(person.voiceprints) if person else 0
-        traces = erase_person.inventory(ou, name, voiceprints=voiceprints)
+        traces = erase_person.inventory(where, name, voiceprints=voiceprints)
         if not traces:
             asking.tell("Greffier", f"« {name} » n'est écrit nulle part.")
             return
@@ -2909,7 +2909,7 @@ class Window:
         ):
             return
         done = erase_person.erase(
-            ou, name,
+            where, name,
             forget_the_voiceprints=lambda who: self._forget_the_voiceprints(bank, who),
             forget_in_the_index=lambda who: (
                 graph_sqlite.forget_person(self.config.paths.graph, who)

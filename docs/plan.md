@@ -125,10 +125,16 @@ meeting is never needed to see what a meeting does.
       (`AVERTISSEMENT_SANS_BOUCLE`, `SEUIL_MUET_DB`, `_preciser_les_canaux`
       and some sixty others), renamed with the tests as the net.
       *Proof: no French identifier left by the scan, suite green.*
-- [ ] A replay bench: a recording fed through the live chain as the
+- [x] A replay bench: a recording fed through the live chain as the
       microphone would feed it, in real time or faster, window and assistant
       included, so that what happens in a meeting happens on the bench.
       *Proof: `tools/replay_meeting.py` on the synthetic meeting and on the corpus, and an e2e test that replays one and gets minutes out.*
+      Done on 16/09 as a product command rather than a tool: `greffier rejouer
+      <recording>` hands the file to the encoder in place of the microphone
+      (`ffmpeg -re`), so the chunks, the watch, the live thread, the assistant
+      and the final processing are the product's own, untouched.
+      `tests/integration/test_replay_e2e.py` replays the synthetic meeting and
+      checks the recording's length, the live thread's words and the minutes.
 - [ ] Live words measured: the live transcript against the reference, next
       to the post-meeting one, per slice length, cut on silence or on the
       clock, with and without the previous slice as context.
