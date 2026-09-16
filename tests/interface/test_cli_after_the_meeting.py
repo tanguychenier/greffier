@@ -603,3 +603,138 @@ class TestCreatingTheTicketsOffered:
                             lambda *a, **k: pytest.fail("created without being asked"))
         answered = _run(settings, "tickets", name)
         assert answered.exit_code == 0
+
+
+class TestTheVoiceBankFromTheCommandLine:
+    """A named voiceprint is biometric data: erasing it must be as simple as adding it."""
+
+    def _bank_with(self, data, *names):
+        from greffier.adapters.voice_bank_files import FileVoiceBank
+        from greffier.domain.models import Voiceprint
+
+        bank = FileVoiceBank(data / "banque-de-voix")
+        for name in names:
+            bank.record(name, Voiceprint(vector=(1.0, 0.0, 0.0), source_duration=20.0,
+                                         origin="2026-09-12_10h00_recette"))
+        return bank
+
+    def test_the_known_people_are_listed_with_when_they_were_heard(self, machine):
+        settings, data = machine
+        self._bank_with(data, "Jacques", "Maud")
+        answered = _run(settings, "connus")
+        assert answered.exit_code == 0, _out(answered)
+        assert "Jacques" in answered.stdout and "Maud" in answered.stdout
+
+    def test_somebody_can_be_forgotten_by_name(self, machine):
+        settings, data = machine
+        bank = self._bank_with(data, "Jacques", "Maud")
+        answered = _run(settings, "connus", "--oublier", "Jacques")
+        assert answered.exit_code == 0, _out(answered)
+        assert [p.name for p in bank.people()] == ["Maud"]
+
+    def test_forgetting_somebody_unknown_says_so(self, machine):
+        settings, data = machine
+        self._bank_with(data, "Maud")
+        answered = _run(settings, "connus", "--oublier", "Jacques")
+        assert answered.exit_code == 1
+        assert "n'est pas dans la banque" in _out(answered)
+
+    def test_somebody_can_be_renamed(self, machine):
+        settings, data = machine
+        bank = self._bank_with(data, "Jacque")
+        answered = _run(settings, "connus", "--renommer", "Jacque", "--en", "Jacques")
+        assert answered.exit_code == 0, _out(answered)
+        assert [p.name for p in bank.people()] == ["Jacques"]
+
+    def test_the_voiceprints_of_one_meeting_can_be_taken_back(self, machine):
+        settings, data = machine
+        bank = self._bank_with(data, "Jacques")
+        answered = _run(settings, "connus", "--oublier-reunion", "2026-09-12_10h00_recette")
+        assert answered.exit_code == 0, _out(answered)
+        assert "1 empreinte(s) retirée(s) de Jacques" in answered.stdout
+        assert all(not p.voiceprints for p in bank.people())
+
+
+class TestReadingTheMinutesAloud:
+    def test_without_minutes_there_is_nothing_to_read(self, machine):
+        settings, data = machine
+        name = a_meeting(data)
+        answered = _run(settings, "lire", name)
+        assert answered.exit_code == 1
+
+    def test_the_reading_is_written_where_the_synthesiser_puts_it(self, machine, monkeypatch):
+        settings, data = machine
+        name = a_meeting(data)
+        minutes_for(data, name)
+        monkeypatch.setattr("greffier.application.render.speak_aloud",
+                            lambda text, destination: destination.with_suffix(".wav"))
+        answered = _run(settings, "lire", name)
+        assert answered.exit_code == 0, _out(answered)
+        assert f"lectures/{name}.wav" in answered.stdout
+
+    def test_a_synthesiser_that_is_missing_is_said(self, machine, monkeypatch):
+        settings, data = machine
+        name = a_meeting(data)
+        minutes_for(data, name)
+
+        def none(text, destination):
+            raise RuntimeError("Aucune synthèse vocale disponible.")
+
+        monkeypatch.setattr("greffier.application.render.speak_aloud", none)
+        answered = _run(settings, "lire", name)
+        assert answered.exit_code == 1
+        assert "Aucune synthèse vocale" in _out(answered)
+
+
+class TestArchivingTheRecordings:
+    def test_a_processed_recording_is_compressed_and_the_gain_said(self, machine, monkeypatch):
+        settings, data = machine
+        name = a_meeting(data, with_audio=True)
+        audio = data / "enregistrements" / f"{name}.wav"
+
+        def compress(path, keep_original=False):
+            product = path.with_suffix(".opus")
+            product.write_bytes(b"o" * 100)
+            path.unlink()
+            return product
+
+        monkeypatch.setattr("greffier.application.render.archive", compress)
+        answered = _run(settings, "archiver")
+        assert answered.exit_code == 0, _out(answered)
+        assert f"{name} → {name}.opus" in answered.stdout
+        assert not audio.exists()
+
+    def test_with_nothing_to_compress_it_says_so(self, machine):
+        settings, data = machine
+        a_meeting(data)
+        answered = _run(settings, "archiver", "--tout")
+        assert "Rien à compresser" in answered.stdout
+
+
+class TestBackingUpAndRestoring:
+    def test_a_backup_is_written_listed_and_restored(self, machine, tmp_path):
+        settings, data = machine
+        name = a_meeting(data)
+        minutes_for(data, name)
+        answered = _run(settings, "sauvegarder")
+        assert answered.exit_code == 0, _out(answered)
+        assert "contenu" in answered.stdout
+        listed = _run(settings, "sauvegarder", "--lister")
+        assert listed.exit_code == 0, _out(listed)
+        assert "1 sauvegarde(s)" in listed.stdout
+        archive = next((data / "sauvegardes").glob("*.tar.gz"))
+        (data / "reunions" / f"{name}.json").unlink()
+        restored = _run(settings, "sauvegarder", "--restaurer", str(archive), "--ecraser")
+        assert restored.exit_code == 0, _out(restored)
+        assert (data / "reunions" / f"{name}.json").exists()
+
+    def test_listing_with_nothing_kept_says_so(self, machine):
+        settings, _ = machine
+        answered = _run(settings, "sauvegarder", "--lister")
+        assert answered.exit_code == 1
+        assert "Aucune sauvegarde" in _out(answered)
+
+    def test_restoring_from_an_archive_that_is_not_there_is_refused(self, machine, tmp_path):
+        settings, _ = machine
+        answered = _run(settings, "sauvegarder", "--restaurer", str(tmp_path / "absente.tar.gz"))
+        assert answered.exit_code == 1
