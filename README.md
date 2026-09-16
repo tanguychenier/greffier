@@ -486,6 +486,8 @@ systems**: Tkinter comes with Python, there is nothing to install.
   at a time and a bubble saying what it is for, nine stops from the start
   button to the settings, with Suivant, Précédent, Quitter and Escape at
   every one. It comes once; Réglages ▸ Prise en main starts it again.
+
+  ![The tour on the Meetings tab, the Traiter button lit and its bubble below](assets/tour.png)
 - **Start, pause, finish.** The pause earns its keep: an interruption must not
   force the session closed, or the processing starts and a second meeting has to
   be held, with two sets of minutes at the end.
