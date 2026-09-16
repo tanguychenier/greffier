@@ -489,6 +489,16 @@ What it says:
   one another, where the reference itself gives one sentence to one
   person.
 
+Where the wrong ones sit, measured on the same run. By the reference,
+253 sentences have one person over them, 87 % right and 4 % wrong; 193
+have two, 74 % right and 14 % wrong. By what the tool sees itself, the
+segmenter's voices over the sentence (written with every line of the
+live log since), 311 sentences carry one voice, 82 % right and 6 %
+wrong, and 128 carry two or more, 70 % right and 13 % wrong. Sending the
+latter to « Les autres » would spare 16 wrong names and lose 89 right
+ones: no rule on overlap pays, and the 9 % stay what they are, the
+price of short interjections in a lively room.
+
 The replay is `tools/measure_bank.py --replay`, through
 `tools/replay_follower.py`: the live thread is fed the very words it
 showed last time, slice by slice, without the transcriber, so a change to
