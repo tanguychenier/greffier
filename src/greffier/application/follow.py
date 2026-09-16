@@ -83,8 +83,14 @@ def files(folder: Path, identifier: str) -> tuple[Path, Path]:
     )
 
 def _turn_line(turn: LiveTurn, voice: LiveVoice) -> dict[str, Any]:
-    """What a sentence publishes about itself."""
-    return {
+    """What a sentence publishes about itself.
+
+    The likeness and the gap behind a name from the bank travel with the
+    line: a voice called « Diane ? » for a hundred seconds before being
+    Alice could not be explained afterwards, the figures having stayed in
+    the process. The window ignores them; the measures read them.
+    """
+    line = {
         "genre": KIND_TURN,
         "numero": turn.number,
         "debut": round(turn.span.start, 2),
@@ -96,6 +102,11 @@ def _turn_line(turn: LiveTurn, voice: LiveVoice) -> dict[str, Any]:
         "certitude": voice.certainty.value,
         "rang": voice.rank,
     }
+    if voice.name is not None and voice.likeness:
+        line["ressemblance"] = round(voice.likeness, 3)
+        line["ecart"] = round(voice.gap, 3)
+        line["matiere"] = round(voice.seconds, 1)
+    return line
 
 def _correction_line(correction: Correction) -> dict[str, Any]:
     return {
