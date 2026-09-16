@@ -860,6 +860,13 @@ class TestTheAnswerIsSpokenAsItComes:
         assert not rendered.pronounced
         assert traces == [she.brain.response]
 
+    def test_a_voice_that_only_takes_a_whole_text_gets_it_at_the_end(self):
+        # A speaker with `say` alone: the sentences are gathered for it.
+        she = self._her(voice=FakeVoiceAdapter())
+        rendered = she.answer(self._called(), now=13.0)
+        assert she.voice.remark == [she.brain.response]
+        assert rendered.pronounced
+
     def test_a_brain_that_cannot_stream_is_answered_as_before(self):
         she = self._her(brain=FakeBrain())
         rendered = she.answer(self._called(), now=13.0)
@@ -909,6 +916,31 @@ class TestTheWordsJustBeforeTheCall:
         she = AssistantSettings(name="Lucie", brain=brain, context=lambda: "Bonjour.")
         she.answer(Opening(because=Because.CALLED, remark="?", born_at=1.0), now=2.0)
         assert "juste avant" not in brain.requests[0]
+
+    def test_the_words_before_the_name_in_the_same_sentence_are_context(self):
+        # The same question, whole, heard by the pass then glued by the slice
+        # to the sentence before it: one fingerprint, one answer.
+        she = AssistantSettings(name="Lucie")
+        first = she.turn([said("Lucie, à quel jour est décalée la recette ?")], now=13.0)
+        she.manners.has_spoken(first, 13.5)
+        second = she.turn([said(
+            "en fin de journée. Lucie, à quel jour est décalée la recette ?", 20.0, 26.0
+        )], now=27.0)
+        assert second is None, "already answered"
+
+    def test_the_slice_hearing_the_question_in_other_words_does_not_ask_again(self):
+        she = AssistantSettings(name="Lucie", brain=FakeBrain())
+        first = she.turn([said("Lucie, c'est quoi une pré-production en une phrase ?")], 13.0)
+        she.answer(first, now=14.0)
+        assert she.turn([said("Lucie, c'est quoi une pré-production ?", 20.0, 23.0)], 24.0) is None
+        assert len(she.brain.requests) == 1
+
+    def test_the_same_question_in_other_words_much_later_is_asked_again(self):
+        she = AssistantSettings(name="Lucie", brain=FakeBrain())
+        first = she.turn([said("Lucie, c'est quoi une pré-production en une phrase ?")], 13.0)
+        she.answer(first, now=14.0)
+        again = she.turn([said("Lucie, c'est quoi une pré-production ?", 60.0, 63.0)], 64.0)
+        assert again is not None
 
     def test_her_own_words_are_not_what_was_said_before(self):
         she = AssistantSettings(name="Lucie")

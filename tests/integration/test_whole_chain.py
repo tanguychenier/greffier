@@ -108,9 +108,13 @@ class TestTheRealChain:
 
         The "no system sound captured" warning only means something on a two-channel
         recording, where one of the two really is empty. Raising it on mono would be
-        crying wolf on every recording made with a plain mic.
+        crying wolf on every recording made with a plain mic. What a mono file
+        with two voices does say is that one take served the whole room, and
+        that the names come from the voices alone.
         """
-        assert outcome.warnings == []
+        from greffier.application.process import SINGLE_TAKE_NOTE
+
+        assert outcome.warnings == [SINGLE_TAKE_NOTE]
 
     def test_the_rendered_transcription_is_attributed_and_timestamped(self, outcome):
         from greffier.application.render import render_transcript

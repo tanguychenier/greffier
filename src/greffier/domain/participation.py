@@ -195,6 +195,31 @@ def called_by_name(text: str, name: str) -> bool:
             return True
     return False
 
+def split_at_the_name(text: str, name: str) -> tuple[str, str]:
+    """What was said before the name, and what is asked after it.
+
+    The transcriber cuts where it likes: with the slice ending at a quiet
+    moment, « …en fin de journée. Lucie, à quel jour est décalée la
+    recette ? » came as one sentence, and the question, asked once by the
+    pass that heard « Lucie, à quel jour… » alone, was asked a second time
+    under another fingerprint. The question is what follows the name; what
+    precedes it is context.
+    """
+    searched = _strip_accents(name.strip())
+    pieces = re.split(r"(\W+)", text, flags=re.UNICODE)
+    found = [i for i, piece in enumerate(pieces) if _is_the_name(piece, searched)]
+    if not found:
+        return "", _tidied(text)
+    last = found[-1]
+    return _tidied("".join(pieces[:last])), _tidied("".join(pieces[last + 1:]))
+
+
+def _tidied(text: str) -> str:
+    remaining = re.sub(r"\s+", " ", text)
+    remaining = re.sub(r"\s+([,.])", r"\1", remaining)
+    return re.sub(r"^[\s,.:;!?]+", "", remaining).strip()
+
+
 def question_asked(text: str, name: str) -> str:
     """What is being asked of the assistant, with its name removed."""
     searched = _strip_accents(name.strip())
@@ -234,13 +259,45 @@ starts again; there is no cost to remembering.
 def own_words(remark: str) -> frozenset[str]:
     """The significant words of a remark, for recognising it when it returns.
 
-    Accents and case removed, short words dropped: what comes back through the
-    loudspeakers and the capture loop is never spelt the same way.
+    Accents and case removed, short words dropped, hyphens closed up: what
+    comes back through the loudspeakers and the capture loop is never spelt
+    the same way, and the transcriber writes « pré-production » and
+    « préproduction » from one slice to the next.
     """
     return frozenset(
         _strip_accents(word)
-        for word in re.findall(r"\w{4,}", remark, flags=re.UNICODE)
+        for word in re.findall(r"\w{4,}", remark.replace("-", ""), flags=re.UNICODE)
     )
+
+
+MEMORY_OF_A_CALL = 30.0
+"""Seconds during which the same question, heard again, is the same question.
+
+The pass that listens for the name hears it first, the slice hears it
+again a few seconds later, and the transcriber does not write it the same
+way twice: « c'est quoi une pré-production en une phrase ? » came back
+« c'est quoi une pré-production ? », and « préproduction » in one word.
+Judged by an exact fingerprint of the words, the question was answered
+twice. Past thirty seconds, the same words are somebody asking again.
+"""
+
+
+def is_the_same_call(request: str, recent: list[tuple[float, frozenset[str]]], now: float) -> bool:
+    """Whether this question was already asked, in other words, moments ago.
+
+    The words shared with a recent call are counted against the shorter of
+    the two: a question the slice heard whole, or one it heard short of a
+    word, is the question the pass heard.
+    """
+    words = own_words(request)
+    if not words:
+        return False
+    for asked_at, asked in recent:
+        if not asked or now - asked_at > MEMORY_OF_A_CALL:
+            continue
+        if len(words & asked) >= SHARE_OF_WORDS * min(len(words), len(asked)):
+            return True
+    return False
 
 
 def is_own(text: str, remarks: list[frozenset[str]]) -> bool:

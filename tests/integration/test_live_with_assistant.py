@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from greffier.adapters.configuration import Config
-from greffier.application.follow import Position
+from greffier.application.follow import SLICE_MINIMUM_S, Position
 from greffier.application.take_part import AssistantSettings
 from greffier.application.watch import Watcher
 from greffier.domain.instructions import WatchRules
@@ -64,6 +64,25 @@ def meeting(tmp_path):
     audio = speak(SENTENCE, "Thomas", tmp_path / "reunion.wav")
     if audio is None:
         pytest.skip("synthèse impossible")
+    return with_room_after(audio)
+
+
+def with_room_after(audio, at_least: float = SLICE_MINIMUM_S + 1.0):
+    """The sentence, then silence: a slice under three seconds is not read.
+
+    The synthesised sentence lasts 2.8 to 3.1 s from one run to the next,
+    the voice's duration being drawn at random, and the test passed two
+    times in five. The room after the question is the meeting's, not the
+    voice's.
+    """
+    import numpy as np
+    import soundfile
+
+    samples, frequency = soundfile.read(str(audio), dtype="float32")
+    missing = int(at_least * frequency) - len(samples)
+    if missing > 0:
+        soundfile.write(str(audio), np.concatenate([samples, np.zeros(missing, "float32")]),
+                        frequency)
     return audio
 
 
