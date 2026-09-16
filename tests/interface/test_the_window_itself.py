@@ -396,3 +396,152 @@ class TestATokenPastedIntoTheWindow:
             assert opened._sources is None
         finally:
             opened.root.destroy()
+
+
+def _a_kept_meeting(window, name="2026-09-12_10h00_recette"):
+    """Written by the store the window reads, the shape the tool writes."""
+    from datetime import UTC, datetime
+
+    from greffier.domain.meeting import StoredMeeting
+    from greffier.domain.models import Source, Span, SpeakerTurn, Utterance
+
+    window.store.record(StoredMeeting(
+        identifier=name,
+        audio=window.config.paths.recordings / f"{name}.wav",
+        processed_at=datetime.now(UTC),
+        duration=42.0,
+        utterances=[Utterance(span=Span(0.0, 4.0), text="On décale la recette à jeudi.",
+                              voice="1"),
+                    Utterance(span=Span(4.0, 8.0), text="Maud relance le partenaire lundi.",
+                              voice="2")],
+        turns=[SpeakerTurn(voice="1", span=Span(0.0, 4.0), source=Source.MIC),
+               SpeakerTurn(voice="2", span=Span(4.0, 8.0), source=Source.MIC)],
+        names={"1": "Jacques"},
+        propositions={},
+        warnings=[],
+    ))
+    window._load_meetings()
+    window._choose(name)
+    window.root.update()
+    return name
+
+
+def _jobs_run_inline(window):
+    """A job runs on the spot: Tk refuses `after` from a thread while the main
+    loop is not running, which is the case of a window driven by a test."""
+
+    def run(job):
+        outcome, trouble = None, None
+        try:
+            outcome = job.do_it(job.messages.put)
+        except Exception as caught:  # noqa: BLE001 - reported as the window would
+            trouble = caught
+        window._finish(job, outcome, trouble)
+
+    window._run_job = run
+
+
+class TestTheMeetingsTabOnAKeptMeeting:
+    def test_the_meeting_is_listed_with_its_words_and_its_voices(self, window):
+        name = _a_kept_meeting(window)
+        values = window.listing.item(name)["values"]
+        assert values[1] == 1, "one voice still to name"
+        assert values[2] == 11, "the words of the two sentences"
+        assert values[3] == "non", "no minutes yet"
+
+    def test_renaming_gives_a_subject_and_keeps_the_identifier(self, window, monkeypatch):
+        name = _a_kept_meeting(window)
+        monkeypatch.setattr("tkinter.simpledialog.askstring", lambda *a, **k: "point recette")
+        window._rename_selection()
+        window.root.update()
+        assert window.store.read(name).subject == "point recette"
+        assert window.listing.exists(name)
+        assert "Renommée" in window.status_line.cget("text")
+
+    def test_a_rename_given_up_changes_nothing(self, window, monkeypatch):
+        name = _a_kept_meeting(window)
+        monkeypatch.setattr("tkinter.simpledialog.askstring", lambda *a, **k: None)
+        window._rename_selection()
+        assert window.store.read(name).subject == ""
+
+    def test_forgetting_erases_the_pieces_once_confirmed(self, window, monkeypatch):
+        from greffier.interface import asking
+
+        name = _a_kept_meeting(window)
+        monkeypatch.setattr(asking, "ask_yes_no", lambda *a, **k: True)
+        window._forget_selection()
+        window.root.update()
+        assert name not in window.store.list_()
+        assert "effacé" in window.status_line.cget("text")
+
+    def test_forgetting_refused_keeps_everything(self, window, monkeypatch):
+        from greffier.interface import asking
+
+        name = _a_kept_meeting(window)
+        monkeypatch.setattr(asking, "ask_yes_no", lambda *a, **k: False)
+        window._forget_selection()
+        assert name in window.store.list_()
+
+    def test_exporting_writes_the_shape_the_extension_says(self, window, monkeypatch, tmp_path):
+        from greffier.interface import asking
+
+        name = _a_kept_meeting(window)
+        target = tmp_path / f"{name}.csv"
+        monkeypatch.setattr(asking, "where_to_save", lambda *a, **k: str(target))
+        window._export_selection()
+        written = target.read_text(encoding="utf-8-sig")
+        assert "Jacques" in written and "recette" in written
+        assert "2 tour(s) de parole" in window.status_line.cget("text")
+
+    def test_an_unknown_extension_is_refused_by_name(self, window, monkeypatch, tmp_path):
+        from greffier.interface import asking
+
+        _a_kept_meeting(window)
+        complaints = []
+        monkeypatch.setattr(asking, "where_to_save", lambda *a, **k: str(tmp_path / "x.doc"))
+        monkeypatch.setattr(asking, "complain", lambda title, text: complaints.append(text))
+        window._export_selection()
+        assert complaints and "« .doc » n'est pas un format connu" in complaints[0]
+
+    def test_writing_the_minutes_again_uses_the_writer_and_lists_them(self, window, monkeypatch):
+        name = _a_kept_meeting(window)
+
+        class Writer:
+            def write_up(self, text):
+                return "# Compte rendu : recette\n\n## Décisions\n\n- Jeudi.\n"
+
+        monkeypatch.setattr("greffier.wiring.writer", lambda config: Writer())
+        _jobs_run_inline(window)
+        window._write_up_only(name)
+        window.root.update()
+        assert (window.config.paths.minutes_folder / f"{name}.md").exists()
+        assert window.listing.item(name)["values"][3] == "oui"
+        assert window.status_line.cget("text") == window.says("reunions.compte_rendu_pret")
+
+    def test_without_a_writer_the_minutes_are_not_attempted(self, window, monkeypatch):
+        from greffier.interface import asking
+
+        name = _a_kept_meeting(window)
+        told = []
+        monkeypatch.setattr("greffier.wiring.writer", lambda config: None)
+        monkeypatch.setattr(asking, "tell", lambda title, text: told.append(text))
+        window._write_up_only(name)
+        assert told == [window.says("reunions.aucun_redacteur")]
+        assert not window.jobs
+
+
+class TestTheSettingsAreSavedFromTheWindow:
+    def test_a_recipient_typed_lands_in_the_settings_file(self, window):
+        window.recipient_setting.delete(0, "end")
+        window.recipient_setting.insert(0, "maud@example.fr")
+        window._save_settings()
+        from greffier.adapters.configuration import Config
+
+        assert Config.load(None).minutes.recipient == "maud@example.fr"
+
+    def test_the_live_thread_can_be_switched_off(self, window):
+        window.live_active.set(False)
+        window._save_settings()
+        from greffier.adapters.configuration import Config
+
+        assert Config.load(None).live.active is False
