@@ -285,22 +285,34 @@ not from a journal. Nothing here is started.
       turns.
 - [ ] A voice named on six seconds and renamed once there was more. On
       032b the voice that ends as Alice was « Diane ? » from 56 s to
-      161 s. The lever is the material the bank waits for before naming
-      (`MATERIAL_TO_RECOGNISE`, 6 s) or a margin at the first naming;
-      `tools/measure_bank.py --replay` answers in four minutes.
+      161 s, and read at the moment it was shown, the full run had 17 %
+      of the sentences under a wrong name where the names the voices end
+      up with give 9 %. Measured the same day on the replay, waiting for
+      10, 15 or 20 seconds before naming loses right names at the moment
+      (350 to 328 of 447) and brings the wrong ones from 35 to 31 only,
+      and the replay does not reproduce the renaming, so the six seconds
+      stay. The likeness, the gap and the material now travel with every
+      named line of the live log, so the next renaming can be read.
 - [ ] The sentences still wrong live, 9 % on a four-person meeting, are
       short interjections in the passages where everybody talks at once;
       the minutes leave 28 % of the sentences to nobody on the same file
       under their stricter rule. Neither figure moves without a rule on
       overlapping speech, which nothing measures yet.
-- [ ] The same question, word for word, asked again minutes later is never
+- [x] The same question, word for word, asked again minutes later is never
       answered a second time (the subject of a call has no expiry, only the
       words heard in other words expire, at thirty seconds).
-- [ ] `initiative` stays off by default. Measured on two real meetings, one
+      Done the same day. The subject of a call is the overlap's guard and
+      expires after thirty seconds; the other subjects stay said.
+- [x] `initiative` stays off by default. Measured on two real meetings, one
       intervention in forty minutes, judged right; the price of looking is
       a model call every ten seconds. It changes with a cheaper look, the
       model asked only after a sentence the domain already reads as a
       decision or a question left open.
+      Done the same day, the look gated on the room settling something or
+      leaving a question in the air. 118 and 123 looks became 22 and 26 on
+      the same meetings, one intervention where there was one. The default
+      stays off, his call now that the price is four to five times lower
+      (`what-is-left.md`).
 
 ### Scenarios still open, none started
 
