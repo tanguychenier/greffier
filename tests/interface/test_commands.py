@@ -34,10 +34,10 @@ class TestWhatTheToolLaunchesItself:
     @staticmethod
     def launched() -> list[str]:
         verbes: list[str] = []
-        for fichier in sorted(PAQUET.rglob("*.py")):
+        for file in sorted(PAQUET.rglob("*.py")):
             verbes += re.findall(
                 r'\[sys\.executable,\s*"-m",\s*"greffier",\s*"([a-z-]+)"\]',
-                fichier.read_text(encoding="utf-8"),
+                file.read_text(encoding="utf-8"),
             )
         return verbes
 
@@ -55,21 +55,21 @@ class TestANameIsNeverInherited:
 
     def test_every_command_is_named_in_its_decorator(self):
         arbre = ast.parse(SOURCE.read_text(encoding="utf-8"))
-        sans_nom = []
+        unnamed = []
         for noeud in ast.walk(arbre):
             if not isinstance(noeud, ast.FunctionDef):
                 continue
             for decorateur in noeud.decorator_list:
                 if not isinstance(decorateur, ast.Call):
                     continue
-                cible = decorateur.func
-                if not (isinstance(cible, ast.Attribute) and cible.attr == "command"):
+                target = decorateur.func
+                if not (isinstance(target, ast.Attribute) and target.attr == "command"):
                     continue
-                nomme = bool(decorateur.args) or any(
-                    mot.arg == "name" for mot in decorateur.keywords)
-                if not nomme:
-                    sans_nom.append(noeud.name)
-        assert sans_nom == []
+                named = bool(decorateur.args) or any(
+                    word.arg == "name" for word in decorateur.keywords)
+                if not named:
+                    unnamed.append(noeud.name)
+        assert unnamed == []
 
 
 class TestTheNamesStayFrench:

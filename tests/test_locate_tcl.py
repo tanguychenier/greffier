@@ -65,10 +65,10 @@ class TestWhereADistributionKeepsTcl:
     for the antialiasing.
     """
 
-    def _tcl_in(self, root, chemin):
-        dossier = root / chemin
-        dossier.mkdir(parents=True)
-        (dossier / "init.tcl").write_text("", encoding="utf-8")
+    def _tcl_in(self, root, path):
+        folder = root / path
+        folder.mkdir(parents=True)
+        (folder / "init.tcl").write_text("", encoding="utf-8")
 
     def test_the_debian_layout_is_found(self, tmp_path, monkeypatch):
         from greffier.interface import startup

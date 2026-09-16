@@ -22,7 +22,7 @@ class TestGarder:
     def test_the_original_name_survives_the_flattening(self, base):
         """« cahier des charges V3.pdf » is what has to be shown on screen."""
         attachments_file.write(base, "r", "Cahier des charges V3.pdf", "du texte")
-        assert attachments_file.lister(base, "r")[0].name == "Cahier des charges V3.pdf"
+        assert attachments_file.list_(base, "r")[0].name == "Cahier des charges V3.pdf"
 
     def test_an_accented_name_gives_a_safe_file(self, base):
         piece = attachments_file.write(base, "r", "Réunion été 2026.docx", "du texte")
@@ -40,7 +40,7 @@ class TestGarder:
         """On redépose un document parce qu'il a changé."""
         attachments_file.write(base, "r", "note.txt", "version une")
         attachments_file.write(base, "r", "note.txt", "version deux")
-        pieces = attachments_file.lister(base, "r")
+        pieces = attachments_file.list_(base, "r")
         assert len(pieces) == 1
         assert "version deux" in pieces[0].file.read_text(encoding="utf-8")
         assert "version une" not in pieces[0].file.read_text(encoding="utf-8")
@@ -48,15 +48,15 @@ class TestGarder:
 
 class TestLister:
     def test_a_meeting_with_no_document_returns_nothing(self, base):
-        assert attachments_file.lister(base, "r") == []
+        assert attachments_file.list_(base, "r") == []
 
     def test_the_weight_is_told_without_computing_it_on_screen(self, base):
         attachments_file.write(base, "r", "gros.txt", "x" * 4200)
-        assert "4 k" in attachments_file.lister(base, "r")[0].say()
+        assert "4 k" in attachments_file.list_(base, "r")[0].say()
 
     def test_a_short_document_is_not_announced_as_zero(self, base):
         attachments_file.write(base, "r", "court.txt", "deux mots")
-        assert "1 k" in attachments_file.lister(base, "r")[0].say()
+        assert "1 k" in attachments_file.list_(base, "r")[0].say()
 
 
 class TestMatiere:

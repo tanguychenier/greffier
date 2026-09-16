@@ -47,7 +47,7 @@ class TestTheRoundTrip:
     def test_everything_written_reads_back_identical(self, filled_in):
         relu = Config.model_validate(tomllib.loads(settings.render(filled_in)))
         for section in settings.SECTIONS:
-            attribut = settings.SOUS_MODELE.get(section, section)
+            attribut = settings.SUB_MODEL.get(section, section)
             expected = getattr(filled_in, attribut).model_dump()
             assert getattr(relu, attribut).model_dump() == expected, section
 

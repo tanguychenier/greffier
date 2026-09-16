@@ -16,23 +16,23 @@ class TestOnDisk:
 
     def test_the_file_is_readable_by_a_person(self, tmp_path):
         preparation = fichiers.open_one(tmp_path, "point de recette")
-        texte = fichiers.file_for(tmp_path, preparation.identifier).read_text("utf-8")
-        assert "point de recette" in texte and "\n" in texte, "indenté, pas compacté"
+        text = fichiers.file_for(tmp_path, preparation.identifier).read_text("utf-8")
+        assert "point de recette" in text and "\n" in text, "indenté, pas compacté"
 
     def test_a_file_a_person_broke_is_passed_over(self, tmp_path):
         fichiers.file_for(tmp_path, "cassee").write_text("{pas du json", encoding="utf-8")
         assert fichiers.read(tmp_path, "cassee") is None
-        assert fichiers.lister(tmp_path) == []
+        assert fichiers.list_(tmp_path) == []
 
     def test_nothing_at_all_is_not_an_error(self, tmp_path):
-        assert fichiers.lister(tmp_path / "rien") == []
+        assert fichiers.list_(tmp_path / "rien") == []
         assert fichiers.waiting(tmp_path / "rien") is None
 
 
 class TestWhichOneAMeetingTakes:
     def test_the_most_recent_that_nobody_has_taken(self, tmp_path):
-        ancienne = fichiers.open_one(tmp_path, "ancienne").raising("a")
-        fichiers.write(tmp_path, ancienne)
+        old_one = fichiers.open_one(tmp_path, "ancienne").raising("a")
+        fichiers.write(tmp_path, old_one)
         recente = fichiers.open_one(tmp_path, "récente").raising("b")
         # Two preparations in the same minute carry the same name: forced here
         # is what the clock would do on its own a minute later.

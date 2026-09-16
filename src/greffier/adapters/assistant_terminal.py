@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from greffier.adapters import system_diagnostic as diagnostic
-from greffier.adapters.configuration import MODELES_CLAUDE, Config, save_settings
+from greffier.adapters.configuration import CLAUDE_MODELS, Config, save_settings
 from greffier.adapters.writer_ollama import available_models
 from greffier.domain.languages import LANGUAGES, eprouvee, label_text, name_of
 from greffier.domain.recorder import Diagnostic
@@ -35,9 +35,9 @@ class Answers:
     def place(self, key: str, value: str) -> None:
         self.values[key] = value
 
-    def set_up(self, section: str, champ: str, value: str) -> None:
+    def set_up(self, section: str, field: str, value: str) -> None:
         """A setting the window must be able to change afterwards."""
-        self.settings.setdefault(section, {})[champ] = value
+        self.settings.setdefault(section, {})[field] = value
 
     def render_env(self) -> str:
         lines = [
@@ -62,10 +62,10 @@ def language_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
     """Which language meetings are held in, the system's guess first."""
     title = "\nDans quelle langue ?"
     dialogue.show(title)
-    defaut = _system_language()
-    choix = [(code, label_text(code)) for code, _ in LANGUAGES]
-    rank = next((i for i, (code, _) in enumerate(choix) if code == defaut), 0)
-    language = dialogue.choose("Langue des réunions", choix, rank)
+    defect = _system_language()
+    choice = [(code, label_text(code)) for code, _ in LANGUAGES]
+    rank = next((i for i, (code, _) in enumerate(choice) if code == defect), 0)
+    language = dialogue.choose("Langue des réunions", choice, rank)
     answers.set_up("transcription", "langue", language)
 
     if language and not eprouvee(language):
@@ -102,8 +102,8 @@ def hardware_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
         f"{recorder.memory_gb:.0f} Go de mémoire, calcul « {recorder.speedup} »."
     )
     for constat in state.constats:
-        marque = "✓" if constat.present else ("✗" if constat.bloquant else "⚠")
-        dialogue.show(f"  {marque} {constat.name}, {constat.detail}")
+        mark = "✓" if constat.present else ("✗" if constat.bloquant else "⚠")
+        dialogue.show(f"  {mark} {constat.name}, {constat.detail}")
 
     if state.blocking:
         dialogue.show("\nÀ régler avant de continuer :")
@@ -126,7 +126,7 @@ def writer_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None
             "Claude Code n'est pas installé. C'est lui qui rédige : distinguer une\n"
             "décision d'une hypothèse dépasse ce qu'un modèle de portable sait faire."
         )
-        command = diagnostic.COMMANDE_INSTALLER_CLAUDE.get(SYSTEM, "")
+        command = diagnostic.CLAUDE_INSTALL_COMMAND.get(SYSTEM, "")
         if command and dialogue.confirm(f"L'installer maintenant ? ({command})", True):
             dialogue.show(f"$ {command}")
             subprocess.run(command, shell=True, check=False)
@@ -142,13 +142,13 @@ def writer_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None
         )
         answers.to_do.append("claude   # puis se connecter à l'abonnement")
 
-    choix = [
+    choice = [
         ("claude", "Claude Code : meilleure synthèse, la transcription part vers l'API"),
         ("ollama", "Ollama : tout reste sur ce poste, synthèse plus grossière"),
         ("aucun", "Aucun : s'arrêter à la transcription attribuée"),
     ]
-    defaut = 0 if diagnostic.claude_installed() else (1 if _ollama_usable() else 2)
-    engine = dialogue.choose("Rédacteur du compte rendu", choix, defaut)
+    defect = 0 if diagnostic.claude_installed() else (1 if _ollama_usable() else 2)
+    engine = dialogue.choose("Rédacteur du compte rendu", choice, defect)
     answers.place("GREFFIER_MINUTES__ENGINE", engine)
 
     if engine == "ollama":
@@ -164,7 +164,7 @@ def _claude_model(dialogue: Dialogue) -> str:
         "personnel de Claude Code : le compte rendu ne doit pas changer de\n"
         "rédacteur sans que personne ne l'ait décidé."
     )
-    return dialogue.choose("Modèle qui rédige", MODELES_CLAUDE, 0)
+    return dialogue.choose("Modèle qui rédige", CLAUDE_MODELS, 0)
 
 def _ollama_usable() -> bool:
     import shutil
@@ -184,8 +184,8 @@ def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
     dialogue.show("\nOù arrive le compte rendu")
 
     if not dialogue.confirm("Le recevoir par courriel ?", True):
-        defaut = str(data_folder() / "comptes-rendus")
-        folder = dialogue.ask("Dans quel dossier l'enregistrer", defaut)
+        defect = str(data_folder() / "comptes-rendus")
+        folder = dialogue.ask("Dans quel dossier l'enregistrer", defect)
         answers.place("GREFFIER_PATHS__DATA", str(Path(folder).expanduser().parent))
         answers.place("GREFFIER_MINUTES__RECIPIENT", "")
         return
@@ -269,7 +269,7 @@ def apply_settings(answers: Answers) -> None:
         objet = getattr(config, section, None)
         if objet is None:
             continue
-        for champ, value in champs.items():
-            if hasattr(objet, champ):
-                setattr(objet, champ, value)
+        for attribute, value in champs.items():
+            if hasattr(objet, attribute):
+                setattr(objet, attribute, value)
     save_settings(config)

@@ -38,7 +38,7 @@ préambule, pas de « bien sûr », pas de formule d'attente.
 
 Tu parles à des gens qui sont en train de travailler. Si on ne te posait pas
 vraiment de question, ton nom est passé dans une phrase qui ne t'était pas
-adressée, ou l'échange se poursuit entre eux, réponds le mot {rien}, seul, et
+adressée, ou l'échange se poursuit entre eux, réponds le mot {nothing}, seul, et
 rien d'autre. Tu te tairas. Dire « ce n'était pas une question pour moi » est
 une intervention de plus : on l'entend, elle coupe la réunion, et elle apprend
 à la salle que tu écoutes pour juger.
@@ -57,7 +57,7 @@ phrase plutôt que de meubler.
 N'emploie ni tiret cadratin ni demi-cadratin.
 """
 
-CONTEXTE_MAXIMAL = 6000
+CONTEXT_MAXIMUM = 6000
 
 NOTHING = "RIEN"
 
@@ -72,7 +72,7 @@ que tu as compris, et elle laisse une trace juste dans le compte rendu.
 Si la réponse ne règle rien et qu'une précision changerait le compte rendu,
 demande-la, toujours en une phrase.
 
-Sinon, réponds le mot {rien}, seul. C'est le cas si on t'a répondu à côté, si
+Sinon, réponds le mot {nothing}, seul. C'est le cas si on t'a répondu à côté, si
 la conversation est déjà repartie ailleurs, ou si tu n'aurais rien à ajouter
 qu'une politesse : deux répliques de plus feraient de toi un participant de
 trop.
@@ -87,7 +87,7 @@ Ce qu'on vient de te répondre :
 CONSIGNES_APPORT = """Tu t'appelles {name} et tu assistes à une réunion de travail
 sans y avoir été invitée à parler. On te donne ce qui vient de se dire.
 
-Ta réponse par défaut est le mot {rien}, seul, sans rien d'autre. C'est la
+Ta réponse par défaut est le mot {nothing}, seul, sans rien d'autre. C'est la
 réponse juste dans la très grande majorité des cas : une réunion se tient très
 bien sans commentaire, et une remarque de trop coûte plus cher que dix
 remarques manquées.
@@ -190,23 +190,23 @@ class AssistantSettings:
                 if accuse is not None:
                     return accuse
             if called_by_name(text, self.name):
-                demande = question_asked(text, self.name) or text
+                request = question_asked(text, self.name) or text
                 proposees.append(Opening(
                     because=Because.APPELE,
-                    remark=demande,
+                    remark=request,
                     born_at=utterance.span.end,
                     # A subject, so a question the overlap brings back in the
                     # next slice is not answered a second time.
-                    subject=f"appel:{_empreinte_du_propos(demande)}",
+                    subject=f"appel:{_fingerprint_of_the_words(request)}",
                 ))
         if self.in_reserve is not None:
             proposees.append(self.in_reserve)
         lull = self._lull(utterances, now)
         density = speech_density(turns or [], now) if turns else 0.0
-        retenue = self.manners.choose(proposees, now, lull, density)
-        if retenue is not None and retenue is self.in_reserve:
+        retained = self.manners.choose(proposees, now, lull, density)
+        if retained is not None and retained is self.in_reserve:
             self.in_reserve = None
-        return retenue
+        return retained
 
     def look_for_a_contribution_aside(self, now: float) -> None:
         """Looks, in a separate thread, for whether there is anything to say.
@@ -238,7 +238,7 @@ class AssistantSettings:
         The time window is kept as a second net, for a remark whose
         transcription came back too mangled to recognise.
         """
-        self._oublier_ses_vieux_mots(now or utterance.span.end)
+        self._forget_its_old_words(now or utterance.span.end)
         if is_own(utterance.text, [words for _when, words in self.its_own_words]):
             return True
         if len(own_words(utterance.text)) >= WORDS_TO_JUDGE:
@@ -250,11 +250,11 @@ class AssistantSettings:
         if end <= start:
             return False
         return any(
-            min(end, sa_fin) - max(start, son_debut) > 0.5 * (end - start)
-            for son_debut, sa_fin in self.its_own_turns
+            min(end, its_end) - max(start, its_start) > 0.5 * (end - start)
+            for its_start, its_end in self.its_own_turns
         )
 
-    def _oublier_ses_vieux_mots(self, now: float) -> None:
+    def _forget_its_old_words(self, now: float) -> None:
         """Drops what it said long enough ago to belong to the room again."""
         self.its_own_words = [
             (when, words) for when, words in self.its_own_words
@@ -302,7 +302,7 @@ class AssistantSettings:
         if self.cerveau is None:
             return None
         guidance = CONSIGNES_SUITE.format(
-            name=self.name, rien=NOTHING, question=attendue.remark, exemple="Hubert")
+            name=self.name, nothing=NOTHING, question=attendue.remark, exemple="Hubert")
         try:
             remark = self._interrogate(guidance, text)
         except (RuntimeError, OSError):
@@ -313,7 +313,7 @@ class AssistantSettings:
             because=Because.APPELE,
             remark=remark,
             born_at=a,
-            subject=f"suite:{attendue.subject or _empreinte_du_propos(attendue.remark)}",
+            subject=f"suite:{attendue.subject or _fingerprint_of_the_words(attendue.remark)}",
             as_is=True,
         )
         if remark.rstrip().endswith("?"):
@@ -336,11 +336,11 @@ class AssistantSettings:
         self.its_own_words.append((now, own_words(remark)))
         prononce = bool(self.voice and self.voice.say(remark))
         if prononce:
-            fin = now + 1.0 + len(remark) / 15.0
-            self.its_own_turns.append((now, fin))
+            end = now + 1.0 + len(remark) / 15.0
+            self.its_own_turns.append((now, end))
             if self.keep_its_turn is not None:
                 with contextlib.suppress(Exception):
-                    self.keep_its_turn(now, fin)
+                    self.keep_its_turn(now, end)
         self.manners.has_spoken(opening, now)
         if self.tracer is not None:
             with contextlib.suppress(OSError):
@@ -372,13 +372,13 @@ class AssistantSettings:
         material = ""
         if self.context is not None:
             with contextlib.suppress(OSError):
-                material = str(self.context())[-CONTEXTE_MAXIMAL:]
-        demande = (
+                material = str(self.context())[-CONTEXT_MAXIMUM:]
+        request = (
             f"Voici ce qui s'est dit jusqu'ici dans la réunion :\n\n{material}\n\n"
             f"On vient de te dire : « {opening.remark} »\n\nRéponds."
         )
         try:
-            remark = str(self.cerveau.write_up(demande)).strip()
+            remark = str(self.cerveau.write_up(request)).strip()
         except (RuntimeError, OSError):
             return ""
         # Nothing to answer is an answer, and it is silence. Read back from a
@@ -396,12 +396,12 @@ class AssistantSettings:
                 now - self.manners.spoke_at < self.manners.rest):
             return None
         try:
-            material = str(self.context())[-CONTEXTE_MAXIMAL:]
+            material = str(self.context())[-CONTEXT_MAXIMUM:]
         except OSError:
             return None
         if not material.strip():
             return None
-        guidance = CONSIGNES_APPORT.format(name=self.name, rien=NOTHING)
+        guidance = CONSIGNES_APPORT.format(name=self.name, nothing=NOTHING)
         try:
             remark = self._interrogate(guidance, material)
         except (RuntimeError, OSError):
@@ -412,7 +412,7 @@ class AssistantSettings:
             because=Because.CONTRIBUTION,
             remark=remark,
             born_at=now,
-            subject=f"apport:{_empreinte_du_propos(remark)}",
+            subject=f"apport:{_fingerprint_of_the_words(remark)}",
         )
 
     def _interrogate(self, guidance: str, material: str) -> str:
@@ -420,15 +420,15 @@ class AssistantSettings:
         cerveau = self.cerveau
         if cerveau is None:
             return ""
-        avant = getattr(cerveau, "consignes_propres", None)
+        avant = getattr(cerveau, "own_guidance", None)
         try:
             if avant is not None:
-                cerveau.consignes_propres = guidance
+                cerveau.own_guidance = guidance
                 return str(cerveau.write_up(material)).strip()
             return str(cerveau.write_up(guidance + material)).strip()
         finally:
             if avant is not None:
-                cerveau.consignes_propres = avant
+                cerveau.own_guidance = avant
 
     def ask_who_is_speaking(self, voice: str, now: float) -> Opening:
         """The question that settles the tool's most expensive problem.
@@ -452,11 +452,11 @@ class AssistantSettings:
         people in it. Without them it answers on the words it hears, and this
         room says "CASA" and "visa" for things no general model knows.
         """
-        consignes = CONSIGNES_ORALES.format(name=self.name, rien=NOTHING)
-        milieu = self._le_milieu()
+        consignes = CONSIGNES_ORALES.format(name=self.name, nothing=NOTHING)
+        milieu = self._the_setting()
         return f"{milieu}{consignes}" if milieu else consignes
 
-    def _le_milieu(self) -> str:
+    def _the_setting(self) -> str:
         """The glossary of the setting, or nothing when there is none."""
         if self.setting is None:
             return ""
@@ -464,7 +464,7 @@ class AssistantSettings:
             return str(self.setting())
         return ""
 
-def _empreinte_du_propos(remark: str) -> str:
+def _fingerprint_of_the_words(remark: str) -> str:
     """What identifies an already made remark, words aside."""
     import hashlib
     import re

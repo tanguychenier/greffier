@@ -14,7 +14,7 @@ import numpy as np
 from greffier.adapters.channels_file import (
     FileChannelReader,
     levels_per_frame,
-    separer_canaux,
+    split_channels,
 )
 
 
@@ -27,7 +27,7 @@ class TestVisioOuPresentiel:
         # The others come through the loudspeakers and cover the mic: that is
         # what marks a video call, not the mere presence of a signal.
         fort, faible = [0.2] * 16000, [0.001] * 16000
-        channels = separer_canaux(signal([faible, fort, fort]))
+        channels = split_channels(signal([faible, fort, fort]))
         assert channels.distante
         assert channels.mic is not None
 
@@ -35,24 +35,24 @@ class TestVisioOuPresentiel:
         # The case that had failed: a loopback at -53 dB, sound having leaked
         # into it, but never covering the mic. Concluding "video call"
         # attributed thirty minutes of meeting to the one person recording.
-        channels = separer_canaux(signal([[0.2] * 16000, [0.002] * 16000, [0.002] * 16000]))
+        channels = split_channels(signal([[0.2] * 16000, [0.002] * 16000, [0.002] * 16000]))
         assert not channels.distante
         # And the mic is what has to be segmented, where everybody speaks.
         assert float(abs(channels.system).max()) > 0.1
 
     def test_une_boucle_muette_signifie_presentiel(self) -> None:
         # Le portable posé au milieu d'une table.
-        channels = separer_canaux(signal([[0.1] * 16000, [0.0] * 16000, [0.0] * 16000]))
+        channels = split_channels(signal([[0.1] * 16000, [0.0] * 16000, [0.0] * 16000]))
         assert not channels.distante
         assert float(abs(channels.system).max()) > 0
 
     def test_a_silent_channel_does_not_divide_the_others_amplitude(self) -> None:
-        channels = separer_canaux(signal([[0.001] * 16000, [0.0] * 16000, [0.2] * 16000]))
+        channels = split_channels(signal([[0.001] * 16000, [0.0] * 16000, [0.2] * 16000]))
         assert channels.distante
         assert float(abs(channels.system).max()) > 0.15
 
     def test_a_mono_file_allows_no_separation(self) -> None:
-        channels = separer_canaux(signal([[0.1] * 100]))
+        channels = split_channels(signal([[0.1] * 100]))
         assert channels.mic is None and not channels.distante
 
 
@@ -65,14 +65,14 @@ class TestAVideoCallStaysAVideoCall:
     """
 
     def test_the_forced_mode_wins_over_what_the_slice_says(self) -> None:
-        seule_ma_voix = signal([[0.2] * 16000, [0.0] * 16000, [0.0] * 16000])
-        assert not separer_canaux(seule_ma_voix).distante
-        assert separer_canaux(seule_ma_voix, distante=True).distante
+        only_my_voice = signal([[0.2] * 16000, [0.0] * 16000, [0.0] * 16000])
+        assert not split_channels(only_my_voice).distante
+        assert split_channels(only_my_voice, distante=True).distante
 
     def test_a_silent_loopback_forced_to_a_call_leaves_the_floor_to_the_mic(self) -> None:
         # This is what keeps "Toi" on screen when nobody else speaks for a
         # whole slice.
-        channels = separer_canaux(
+        channels = split_channels(
             signal([[0.2] * 16000, [0.0] * 16000, [0.0] * 16000]), distante=True
         )
         assert channels.mic is not None

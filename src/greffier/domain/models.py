@@ -29,7 +29,7 @@ class Phase(StrEnum):
     TRANSCRIPTION = "transcription"
     LOCUTEURS = "locuteurs"
     REDACTION = "redaction"
-    ENVOI = "envoi"
+    SENDING = "envoi"
     TERMINE = "termine"
     INTERROMPU = "interrompu"
     ECHEC = "echec"
@@ -38,7 +38,7 @@ class Phase(StrEnum):
     def in_progress(self) -> bool:
         return self in {
             Phase.RECORDING, Phase.FINALISATION, Phase.TRANSCRIPTION,
-            Phase.LOCUTEURS, Phase.REDACTION, Phase.ENVOI,
+            Phase.LOCUTEURS, Phase.REDACTION, Phase.SENDING,
         }
 
 class Source(StrEnum):
@@ -132,14 +132,14 @@ class Meeting:
     @property
     def speaking_time(self) -> dict[str, float]:
         """Seconds spoken per voice, silences excluded."""
-        cumul: dict[str, float] = {}
+        cumulated: dict[str, float] = {}
         for turn in self.turns:
-            cumul[turn.voice] = cumul.get(turn.voice, 0.0) + turn.span.duration
-        return cumul
+            cumulated[turn.voice] = cumulated.get(turn.voice, 0.0) + turn.span.duration
+        return cumulated
 
     def coverage(self) -> float:
         """Share of the audio actually covered by transcribed text."""
         if self.duration <= 0:
             return 0.0
-        parlee = sum(r.span.duration for r in self.utterances)
-        return min(1.0, parlee / self.duration)
+        spoken = sum(r.span.duration for r in self.utterances)
+        return min(1.0, spoken / self.duration)

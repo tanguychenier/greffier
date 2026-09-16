@@ -57,8 +57,8 @@ def first_names() -> tuple[str, str]:
 
 def two_voice_dialogue() -> list[tuple[str, str]]:
     """The two-voice dialogue, carrying the first names of this machine."""
-    premier, second = first_names()
-    return [(who, line.format(premier=premier, second=second)) for who, line in _DIALOGUE]
+    first, second = first_names()
+    return [(who, line.format(first=first, second=second)) for who, line in _DIALOGUE]
 
 # A second meeting, the same voices but **no first name spoken**. It is what
 # proves the voice bank: if names come out anyway, they can only come from
@@ -108,7 +108,7 @@ DIALOGUE_PRESENTIEL = [
 #:
 #: « Thomas » and « Amélie » are concatenative voices: audibly synthetic, but a
 #: transcription model understands them, which is all that is asked of them.
-VOIX_PRESENTIEL = {"A": "Thomas", "B": "Amélie", "C": "Rocko"}
+IN_ROOM_VOICE = {"A": "Thomas", "B": "Amélie", "C": "Rocko"}
 
 #: Leak measured in the system loopback of a meeting held round a table: -53 dB
 #: instead of the expected silence, sound having leaked into it at some point.
@@ -239,10 +239,10 @@ def make(destination: Path, voice: dict | None = None, dialogue=None) -> Path:
 
         listing = job / "liste.txt"
         entrees = []
-        for morceau in chunks:
-            converti = morceau.with_name(morceau.stem.removesuffix("-brut") + "-16k.wav")
+        for chunk in chunks:
+            converti = chunk.with_name(chunk.stem.removesuffix("-brut") + "-16k.wav")
             subprocess.run(
-                ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(morceau),
+                ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(chunk),
                  "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", str(converti)],
                 check=True,
             )
@@ -275,7 +275,7 @@ def make_in_the_room(destination: Path) -> Path:
     """
     with tempfile.TemporaryDirectory() as folder:
         melange = Path(folder) / "micro.wav"
-        make(melange, voice=VOIX_PRESENTIEL, dialogue=DIALOGUE_PRESENTIEL)
+        make(melange, voice=IN_ROOM_VOICE, dialogue=DIALOGUE_PRESENTIEL)
         destination.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(melange),

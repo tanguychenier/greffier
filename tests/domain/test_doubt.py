@@ -39,16 +39,16 @@ class TestWhatCountsAsDoubt:
 
 class TestCountingThem:
     def test_it_counts_the_doubtful_out_of_the_judged(self) -> None:
-        compte = count([
+        account = count([
             said(0, "un", 0.95), said(3, "deux", 0.61),
             said(6, "trois", None), said(9, "quatre", 0.70),
         ])
-        assert compte == Doubts(turns=4, unsure=2, judged=3)
-        assert compte.share == 2 / 3
+        assert account == Doubts(turns=4, unsure=2, judged=3)
+        assert account.share == 2 / 3
 
     def test_a_meeting_nobody_judged_has_no_share_rather_than_a_crash(self) -> None:
-        compte = count([said(0, "un", None)])
-        assert (compte.judged, compte.share) == (0, 0.0)
+        account = count([said(0, "un", None)])
+        assert (account.judged, account.share) == (0, 0.0)
 
     def test_the_doubtful_turns_come_back_earliest_first(self) -> None:
         turns = worth_listening_again([
@@ -59,16 +59,16 @@ class TestCountingThem:
 
 class TestWhenItIsWorthSaying:
     def test_one_turn_in_a_hundred_is_noise(self) -> None:
-        compte = count([said(i, "oui", 0.95) for i in range(99)]
+        account = count([said(i, "oui", 0.95) for i in range(99)]
                         + [said(300, "peut-être", 0.4)])
-        assert not compte.worth_saying
-        assert said_in_french(compte) == ""
+        assert not account.worth_saying
+        assert said_in_french(account) == ""
 
     def test_a_tenth_of_them_is_worth_a_line(self) -> None:
-        compte = count([said(i, "oui", 0.95) for i in range(9)]
+        account = count([said(i, "oui", 0.95) for i in range(9)]
                         + [said(30, "peut-être", 0.4)])
-        assert compte.worth_saying
-        assert MARK in said_in_french(compte)
+        assert account.worth_saying
+        assert MARK in said_in_french(account)
 
     def test_a_meeting_it_is_sure_of_says_nothing(self) -> None:
         assert said_in_french(count([said(0, "oui", 0.95)])) == ""

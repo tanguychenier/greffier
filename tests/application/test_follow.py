@@ -11,9 +11,9 @@ import json
 from pathlib import Path
 
 from greffier.application.follow import (
-    GENRE_CORRECTION,
-    GENRE_SEPARATION,
-    GENRE_TOUR,
+    KIND_CORRECTION,
+    KIND_SPLIT,
+    KIND_TURN,
     Follower,
     add,
     ask,
@@ -78,11 +78,11 @@ class InMemoryBank:
 
 def follower(tmp_path: Path, **overrides: object) -> Follower:
     log, requests = files(tmp_path, "2026-08-27_10h00_reunion")
-    defauts: dict[str, object] = dict(
+    defects: dict[str, object] = dict(
         thread=LiveThread(), log=log, requests=requests, channels=StatedChannels()
     )
-    defauts.update(overrides)
-    return Follower(**defauts)  # type: ignore[arg-type]
+    defects.update(overrides)
+    return Follower(**defects)  # type: ignore[arg-type]
 
 
 def lines_of(log: Path) -> list[dict[str, object]]:
@@ -95,7 +95,7 @@ class TestWhereWeAreInTheAudio:
         chunks = [tmp_path / "a.wav", tmp_path / "b.wav"]
         where_in = position(chunks, lambda m: 600.0 if m.name == "a.wav" else 30.0)
         assert where_in is not None
-        assert where_in.morceau.name == "b.wav"
+        assert where_in.chunk.name == "b.wav"
         assert where_in.written == 30.0
 
     def test_the_earlier_pieces_give_the_time_in_the_meeting(
@@ -112,7 +112,7 @@ class TestWhereWeAreInTheAudio:
     def test_a_piece_not_yet_written_is_ignored(self, tmp_path: Path) -> None:
         chunks = [tmp_path / "a.wav", tmp_path / "b.wav"]
         where_in = position(chunks, lambda m: 12.0 if m.name == "a.wav" else None)
-        assert where_in is not None and where_in.morceau.name == "a.wav"
+        assert where_in is not None and where_in.chunk.name == "a.wav"
 
     def test_with_no_audio_there_is_no_position(self, tmp_path: Path) -> None:
         assert position([tmp_path / "a.wav"], lambda _m: None) is None
@@ -124,10 +124,10 @@ class TestReadingOnlyWhatIsNew:
         # The window rereads four times a second: rereading an hour of meeting
         # every turn would cost for nothing.
         log = tmp_path / "fil.jsonl"
-        add(log, [{"genre": GENRE_TOUR, "numero": 1}])
+        add(log, [{"genre": KIND_TURN, "numero": 1}])
         premieres, where_in = read_from(log)
         assert len(premieres) == 1
-        add(log, [{"genre": GENRE_TOUR, "numero": 2}])
+        add(log, [{"genre": KIND_TURN, "numero": 2}])
         suivantes, _ = read_from(log, where_in)
         assert [x["numero"] for x in suivantes] == [2]
 
@@ -152,7 +152,7 @@ class TestPublishingWhatWasSaid:
             tmp_path / "tranche.wav", [utterance(0, 4), utterance(4, 8)], offset=0.0
         )
         lines = lines_of(instance.log)
-        assert [x["genre"] for x in lines] == [GENRE_TOUR, GENRE_TOUR]
+        assert [x["genre"] for x in lines] == [KIND_TURN, KIND_TURN]
         assert [x["numero"] for x in lines] == [1, 2]
 
     def test_the_mic_shows_you_without_asking_a_model(self, tmp_path: Path) -> None:
@@ -249,7 +249,7 @@ class TestCorrectionsComingIn:
         ask(instance.requests, number=1, name="Marc")
         instance.apply_requests()
         confirmations = [
-            x for x in lines_of(instance.log) if x["genre"] == GENRE_CORRECTION
+            x for x in lines_of(instance.log) if x["genre"] == KIND_CORRECTION
         ]
         assert confirmations[0]["nom"] == "Marc"
         assert confirmations[0]["numeros"] == [1]
@@ -385,7 +385,7 @@ class TestReplayingInOrderToShow:
         log = tmp_path / "fil.jsonl"
         log.write_text(
             "ceci n'est pas du json\n"
-            + json.dumps({"genre": GENRE_TOUR, "numero": 1, "debut": 0, "fin": 2,
+            + json.dumps({"genre": KIND_TURN, "numero": 1, "debut": 0, "fin": 2,
                           "texte": "bonjour", "voix": "v1", "nom": None,
                           "certitude": "inconnue", "rang": 1})
             + "\n",
@@ -434,8 +434,8 @@ class TestSplittingAcrossTheTwoProcesses:
 
     def test_a_split_dropped_in_is_applied(self, tmp_path: Path) -> None:
         instance = self._two_joined_voices(tmp_path)
-        gardee = instance.thread.turns[0].voice
-        request_a_split(instance.requests, gardee)
+        kept_one = instance.thread.turns[0].voice
+        request_a_split(instance.requests, kept_one)
         instance.apply_requests()
         assert len({t.voice for t in instance.thread.turns}) == 2
 
@@ -443,21 +443,21 @@ class TestSplittingAcrossTheTwoProcesses:
         # This is how any other open window, and a thread picked up after a
         # crash, learn that these two voices are not the same.
         instance = self._two_joined_voices(tmp_path)
-        gardee = instance.thread.turns[0].voice
-        request_a_split(instance.requests, gardee)
+        kept_one = instance.thread.turns[0].voice
+        request_a_split(instance.requests, kept_one)
         instance.apply_requests()
         dites = [
-            x for x in lines_of(instance.log) if x["genre"] == GENRE_SEPARATION
+            x for x in lines_of(instance.log) if x["genre"] == KIND_SPLIT
         ]
         assert len(dites) == 1
-        assert dites[0]["de"] == gardee
+        assert dites[0]["de"] == kept_one
         assert dites[0]["numeros"] == [2]
 
     def test_a_replayed_thread_keeps_the_voices_apart(self, tmp_path: Path) -> None:
         """The point of it all: picking a thread up again does not remake the join."""
         instance = self._two_joined_voices(tmp_path)
-        gardee = instance.thread.turns[0].voice
-        request_a_split(instance.requests, gardee)
+        kept_one = instance.thread.turns[0].voice
+        request_a_split(instance.requests, kept_one)
         instance.apply_requests()
         repris = replay(lines_of(instance.log))
         assert len({t.voice for t in repris.turns}) == 2
@@ -465,22 +465,22 @@ class TestSplittingAcrossTheTwoProcesses:
 
     def test_every_voiceprint_goes_back_to_its_voice(self, tmp_path: Path) -> None:
         instance = self._two_joined_voices(tmp_path)
-        gardee = instance.thread.turns[0].voice
-        request_a_split(instance.requests, gardee)
+        kept_one = instance.thread.turns[0].voice
+        request_a_split(instance.requests, kept_one)
         instance.apply_requests()
-        comptes = {
+        accounts = {
             i: len(v.voiceprints)
             for i, v in instance.thread.voice.items()
             if v.voiceprints
         }
-        assert sorted(comptes.values()) == [1, 1], comptes
+        assert sorted(accounts.values()) == [1, 1], accounts
 
     def test_splitting_what_absorbed_nothing_says_nothing(self, tmp_path: Path) -> None:
         instance = self._two_joined_voices(tmp_path)
         request_a_split(instance.requests, "voix-jamais-vue")
         instance.apply_requests()
         assert not [
-            x for x in lines_of(instance.log) if x["genre"] == GENRE_SEPARATION
+            x for x in lines_of(instance.log) if x["genre"] == KIND_SPLIT
         ]
 
 
@@ -497,16 +497,16 @@ class TestHowFarAReplayedCorrectionReaches:
     def _log(self, tmp_path: Path, whole_voice: bool | None = None) -> Path:
         log, _ = files(tmp_path, "2026-09-10_10h10_reunion")
         correction: dict[str, object] = {
-            "genre": GENRE_CORRECTION, "nom": "Marc", "voix": "v1", "numeros": [1],
+            "genre": KIND_CORRECTION, "nom": "Marc", "voix": "v1", "numeros": [1],
         }
         if whole_voice is not None:
             correction["toute_la_voix"] = whole_voice
         add(log, [
-            {"genre": GENRE_TOUR, "numero": 1, "debut": 0.0, "fin": 8.0,
+            {"genre": KIND_TURN, "numero": 1, "debut": 0.0, "fin": 8.0,
              "texte": "on cale la recette jeudi", "voix": "v1",
              "nom": None, "certitude": Certainty.UNKNOWN.value, "rang": 1},
             correction,
-            {"genre": GENRE_TOUR, "numero": 2, "debut": 9.0, "fin": 17.0,
+            {"genre": KIND_TURN, "numero": 2, "debut": 9.0, "fin": 17.0,
              "texte": "le devis part demain matin", "voix": "v1",
              "nom": None, "certitude": Certainty.UNKNOWN.value, "rang": 1},
         ])
@@ -547,7 +547,7 @@ class TestIdentifiersAreNeverReused:
     def _log_of_two_voices(self, tmp_path: Path) -> Path:
         log, _ = files(tmp_path, "2026-09-10_10h10_reunion")
         add(log, [
-            {"genre": GENRE_TOUR, "numero": number, "debut": float(number * 10),
+            {"genre": KIND_TURN, "numero": number, "debut": float(number * 10),
              "fin": float(number * 10 + 8), "texte": f"phrase {number}",
              "voix": f"v{number}", "nom": None,
              "certitude": Certainty.UNKNOWN.value, "rang": number}
@@ -586,12 +586,12 @@ class TestARebuiltThreadShowsWhatTheListenerShows:
     Replaying without joining namesakes showed both.
     """
 
-    def _lignes(self, *voix: tuple[int, str, str, int]):
+    def _lignes(self, *voice: tuple[int, str, str, int]):
         return [
             {"genre": "tour", "numero": n, "debut": float(n), "fin": float(n) + 2.0,
-             "texte": "on cale la recette", "voix": v, "nom": nom,
-             "certitude": "humaine" if nom else "inconnue", "rang": rang}
-            for n, v, nom, rang in voix
+             "texte": "on cale la recette", "voix": v, "nom": name,
+             "certitude": "humaine" if name else "inconnue", "rang": rang}
+            for n, v, name, rang in voice
         ]
 
     def test_two_voices_of_one_name_become_one(self):

@@ -13,9 +13,9 @@ from greffier.domain.models import Span
 
 TRAME_S = 0.025
 
-_PLANCHER_RMS = 1e-5
+_RMS_FLOOR = 1e-5
 
-_PLANCHER_LOG = 1e-12
+_LOG_FLOOR = 1e-12
 
 @dataclass(frozen=True)
 class Channels:
@@ -28,31 +28,31 @@ class Channels:
 def levels_per_frame(signal: np.ndarray, frequency: int) -> list[float]:
     """The level of each frame, in decibels."""
     step = int(frequency * TRAME_S) or 1
-    utiles = len(signal) // step
-    if utiles == 0:
+    useful_ones = len(signal) // step
+    if useful_ones == 0:
         return []
-    trames = signal[: utiles * step].reshape(utiles, step)
+    trames = signal[: useful_ones * step].reshape(useful_ones, step)
     rms = np.sqrt(np.mean(trames.astype(np.float64) ** 2, axis=1))
-    return [float(x) for x in 20 * np.log10(np.maximum(rms, _PLANCHER_LOG))]
+    return [float(x) for x in 20 * np.log10(np.maximum(rms, _LOG_FLOOR))]
 
-def separer_canaux(
+def split_channels(
     data: np.ndarray, frequency: int = 16000, distante: bool | None = None
 ) -> Channels:
     """Separates the mic from the loopback, and says whether it was remote."""
     if data.ndim < 2 or data.shape[1] < 2:
         mono = data if data.ndim == 1 else data[:, 0]
         return Channels(mic=None, system=mono, distante=False)
-    boucle = data[:, 1:]
-    actifs = [
-        i for i in range(boucle.shape[1])
-        if float(np.sqrt(np.mean(boucle[:, i] ** 2))) > _PLANCHER_RMS
+    loop = data[:, 1:]
+    active_ones = [
+        i for i in range(loop.shape[1])
+        if float(np.sqrt(np.mean(loop[:, i] ** 2))) > _RMS_FLOOR
     ]
     mic = data[:, 0]
-    if not actifs:
+    if not active_ones:
         if distante:
-            return Channels(mic=mic, system=boucle.mean(axis=1), distante=True)
+            return Channels(mic=mic, system=loop.mean(axis=1), distante=True)
         return Channels(mic=mic, system=mic, distante=False)
-    system = boucle[:, actifs].mean(axis=1)
+    system = loop[:, active_ones].mean(axis=1)
     if distante:
         return Channels(mic=mic, system=system, distante=True)
     if not over_video(
@@ -73,7 +73,7 @@ class FileChannelReader:
             data, frequency = sf.read(audio, dtype="float32", always_2d=True)
         except (OSError, RuntimeError):
             return []
-        channels = separer_canaux(data, frequency, distante=self.distante or None)
+        channels = split_channels(data, frequency, distante=self.distante or None)
         self.distante = self.distante or channels.distante
         if not channels.distante or channels.mic is None:
             return []

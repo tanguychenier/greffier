@@ -37,7 +37,7 @@ class TestTheOrderOfTheMeetings:
         for identifier in ("2026-09-02_17h37_reunion", "2026-09-09_10h05_reunion",
                             "2026-09-09_08h30_reunion"):
             store.record(meeting(identifier))
-        assert store.lister() == [
+        assert store.list_() == [
             "2026-09-09_10h05_reunion",
             "2026-09-09_08h30_reunion",
             "2026-09-02_17h37_reunion",
@@ -47,8 +47,8 @@ class TestTheOrderOfTheMeetings:
         store = FileStore(tmp_path)
         store.record(meeting("2026-09-09_10h05_reunion"))
         store.record(meeting("fausse-reunion"))
-        assert store.lister()[0] == "2026-09-09_10h05_reunion"
-        assert "fausse-reunion" in store.lister()
+        assert store.list_()[0] == "2026-09-09_10h05_reunion"
+        assert "fausse-reunion" in store.list_()
 
     def test_the_latest_is_the_most_recently_held(self, tmp_path):
         store = FileStore(tmp_path)
@@ -59,7 +59,7 @@ class TestTheOrderOfTheMeetings:
         assert latest.identifier == "2026-09-09_10h05_reunion"
 
     def test_with_no_folder_the_list_is_empty(self, tmp_path):
-        assert FileStore(tmp_path / "rien").lister() == []
+        assert FileStore(tmp_path / "rien").list_() == []
 
 
 class TestTheTimestampInsideTheIdentifier:
@@ -82,16 +82,16 @@ class TestASubjectChosenByHand:
 
     def test_the_subject_survives_being_written(self, tmp_path):
         store = FileStore(tmp_path)
-        gardee = meeting("2026-09-09_10h05_reunion")
-        gardee.subject = "Point Oasis"
-        store.record(gardee)
+        kept_one = meeting("2026-09-09_10h05_reunion")
+        kept_one.subject = "Point Oasis"
+        store.record(kept_one)
         assert store.read("2026-09-09_10h05_reunion").subject == "Point Oasis"
 
     def test_a_single_take_survives_being_written(self, tmp_path):
         store = FileStore(tmp_path)
-        gardee = meeting("2026-09-09_10h05_reunion")
-        gardee.one_take = True
-        store.record(gardee)
+        kept_one = meeting("2026-09-09_10h05_reunion")
+        kept_one.one_take = True
+        store.record(kept_one)
         assert store.read("2026-09-09_10h05_reunion").one_take
 
     def test_a_master_file_from_before_is_not_a_single_take(self, tmp_path):
@@ -103,9 +103,9 @@ class TestASubjectChosenByHand:
         assert meeting("2026-09-09_10h05_reunion").caption == "2026-09-09_10h05_reunion"
 
     def test_with_a_subject_it_is_the_one_that_names(self):
-        gardee = meeting("2026-09-09_10h05_reunion")
-        gardee.subject = "Point Oasis"
-        assert gardee.caption == "Point Oasis"
+        kept_one = meeting("2026-09-09_10h05_reunion")
+        kept_one.subject = "Point Oasis"
+        assert kept_one.caption == "Point Oasis"
 
 
 class TestDeletingAMeeting:
@@ -113,7 +113,7 @@ class TestDeletingAMeeting:
         store = FileStore(tmp_path)
         store.record(meeting("2026-09-09_10h05_reunion"))
         assert store.delete("2026-09-09_10h05_reunion") is True
-        assert store.lister() == []
+        assert store.list_() == []
 
     def test_deleting_what_does_not_exist_says_so(self, tmp_path):
         assert FileStore(tmp_path).delete("jamais-vue") is False
@@ -165,8 +165,8 @@ class TestSplittingTwoVoicesAfterTheMeeting:
     def test_it_takes_its_utterances_back(self):
         detail = joined_meeting()
         detail.split("v1")
-        par_voix = {u.voice for u in detail.utterances}
-        assert par_voix == {"v1", "v2"}
+        per_voice = {u.voice for u in detail.utterances}
+        assert per_voice == {"v1", "v2"}
 
     def test_it_takes_its_name_back(self):
         detail = joined_meeting()

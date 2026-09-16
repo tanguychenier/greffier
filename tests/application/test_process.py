@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from greffier.application.process import (
-    MOTS_MINIMUM,
+    MINIMUM_WORDS,
     Chain,
     ChainStopped,
 )
@@ -96,7 +96,7 @@ def turn(start, end, voice):
     return SpeakerTurn(span=Span(start, end), voice=voice)
 
 
-BAVARDAGE = [
+CHATTER = [
     utterance(0, 5, "Bonjour à tous, moi c'est Tanguy, on commence par le point recette."),
     utterance(6, 12, "La recette est décalée à jeudi, il reste deux anomalies bloquantes."),
     utterance(13, 20, "Merci Tanguy. De mon côté le déploiement est prêt depuis lundi."),
@@ -107,14 +107,14 @@ TWO_LONG_VOICES = [turn(0, 40, "1"), turn(40, 90, "2")]
 
 
 def chain(**overrides):
-    defauts = dict(
+    defects = dict(
         audio_recorder=FakeRecorder(),
-        transcriber=FakeTranscriber(BAVARDAGE),
+        transcriber=FakeTranscriber(CHATTER),
         diariser=FakeDiariser(TURNS),
         writer=FakeWriter(),
     )
-    defauts.update(overrides)
-    return Chain(**defauts)
+    defects.update(overrides)
+    return Chain(**defects)
 
 
 class TestTheGuardRails:
@@ -185,7 +185,7 @@ class TestTheGuardRails:
         assert any("3 participants sont annoncés" in a for a in outcome.warnings)
 
     def test_the_word_threshold_stays_low_but_not_zero(self):
-        assert 0 < MOTS_MINIMUM <= 50
+        assert 0 < MINIMUM_WORDS <= 50
 
     def test_a_silent_mic_warns_without_blocking(self):
         processing = chain(audio_recorder=FakeRecorder(levels=(-120.0, -30.0)))
@@ -208,7 +208,7 @@ class TestTheChainOfPhases:
         assert log.phases[-1] == Phase.TERMINE.value
 
     def test_the_vocabulary_reaches_the_transcriber(self):
-        transcriber = FakeTranscriber(BAVARDAGE)
+        transcriber = FakeTranscriber(CHATTER)
         processing = chain(transcriber=transcriber)
         processing.prompt_seed = "Vocabulaire : Copernic."
         processing.run_chain(AUDIO)
@@ -299,10 +299,10 @@ class TestTheNamesGivenDuringTheMeeting:
         assert any("Kilian" in a and "Tanguy" in a for a in outcome.warnings)
 
     def test_nothing_given_changes_nothing(self):
-        sans = chain().run_chain(AUDIO)
+        without = chain().run_chain(AUDIO)
         processing = chain()
         processing.named_live = lambda _: []
-        assert processing.run_chain(AUDIO).names == sans.names
+        assert processing.run_chain(AUDIO).names == without.names
 
     def test_a_reader_that_fails_never_costs_the_minutes(self):
         def casse(_):
@@ -423,27 +423,27 @@ class TestHerOwnVoiceIsNotAParticipant:
     somebody in the room and asked to be named.
     """
 
-    def _chaine(self, intervalles):
+    def _chain(self, intervalles):
         processing = chain()
         processing.her_name = "Lucie"
         processing.her_turns_of = lambda _identifier: intervalles
         return processing
 
     def test_her_voice_carries_her_name(self):
-        outcome = self._chaine(((13.0, 20.0),)).run_chain(AUDIO)
+        outcome = self._chain(((13.0, 20.0),)).run_chain(AUDIO)
         assert outcome.names.get("2") == "Lucie"
 
     def test_she_is_never_offered_for_naming(self):
         """A machine's synthesis is not a person to identify."""
-        outcome = self._chaine(((13.0, 20.0),)).run_chain(AUDIO)
+        outcome = self._chain(((13.0, 20.0),)).run_chain(AUDIO)
         assert "2" not in outcome.propositions
 
     def test_the_room_keeps_its_voices(self):
-        outcome = self._chaine(((13.0, 20.0),)).run_chain(AUDIO)
+        outcome = self._chain(((13.0, 20.0),)).run_chain(AUDIO)
         assert outcome.names.get("1") == "Tanguy"
 
     def test_a_meeting_where_she_never_spoke_is_untouched(self):
-        outcome = self._chaine(()).run_chain(AUDIO)
+        outcome = self._chain(()).run_chain(AUDIO)
         assert "Lucie" not in outcome.names.values()
 
     def test_without_her_name_nothing_is_attributed_to_her(self):
@@ -455,20 +455,20 @@ class TestHerOwnVoiceIsNotAParticipant:
 class TestThePreparationIsConsumed:
     def test_the_meeting_takes_it_once_it_is_on_disk(self, tmp_path):
         """Not before: a processing that fails halfway would burn it for nothing."""
-        prises: list[str] = []
+        takes: list[str] = []
         processing = chain()
-        processing.preparation_taken = prises.append
-        processing.dossier_transcriptions = tmp_path
+        processing.preparation_taken = takes.append
+        processing.transcripts_folder = tmp_path
         processing.run_chain(AUDIO)
-        assert prises == [AUDIO.stem]
+        assert takes == [AUDIO.stem]
 
     def test_a_meeting_that_fails_takes_nothing(self, tmp_path):
-        prises: list[str] = []
+        takes: list[str] = []
         processing = chain(transcriber=FakeTranscriber([]))
-        processing.preparation_taken = prises.append
+        processing.preparation_taken = takes.append
         with contextlib.suppress(Exception):
             processing.run_chain(AUDIO)
-        assert prises == []
+        assert takes == []
 
 
 class TestReadingTheOutcome:
@@ -753,17 +753,17 @@ class TestTheChainKeepsTheMeeting:
 
         outcome = chain(store=SpyStore()).run_chain(AUDIO)
         assert deposees, "la chaîne doit déposer la réunion"
-        assert outcome.fichier_maitre == tmp_path / "reunions/essai.json"
+        assert outcome.master_file == tmp_path / "reunions/essai.json"
 
     def test_the_transcription_and_the_minutes_are_written(self, tmp_path):
         outcome = chain(
-            dossier_transcriptions=tmp_path / "transcriptions",
-            dossier_comptes_rendus=tmp_path / "comptes-rendus",
+            transcripts_folder=tmp_path / "transcriptions",
+            minutes_folder=tmp_path / "comptes-rendus",
         ).run_chain(AUDIO)
         assert outcome.transcript_written is not None
         assert outcome.transcript_written.exists()
-        assert outcome.compte_rendu_ecrit is not None
-        assert outcome.compte_rendu_ecrit.read_text(encoding="utf-8")
+        assert outcome.minutes_written is not None
+        assert outcome.minutes_written.read_text(encoding="utf-8")
 
     def test_it_is_kept_before_sending(self, tmp_path):
         """An email server that is down must lose nothing.
@@ -778,8 +778,8 @@ class TestTheChainKeepsTheMeeting:
                 raise RuntimeError("serveur injoignable")
 
         processing = chain(
-            dossier_transcriptions=tmp_path / "transcriptions",
-            dossier_comptes_rendus=tmp_path / "comptes-rendus",
+            transcripts_folder=tmp_path / "transcriptions",
+            minutes_folder=tmp_path / "comptes-rendus",
             sender=FallingSender(),
             recipient="moi@exemple.fr",
         )
@@ -811,8 +811,8 @@ class TestTheChainKeepsTheMeeting:
         processing = chain(
             writer=TimingOutWriter(),
             store=SpyStore(),
-            dossier_transcriptions=tmp_path / "transcriptions",
-            dossier_comptes_rendus=tmp_path / "comptes-rendus",
+            transcripts_folder=tmp_path / "transcriptions",
+            minutes_folder=tmp_path / "comptes-rendus",
         )
         with pytest.raises(subprocess.TimeoutExpired):
             processing.run_chain(AUDIO)
@@ -879,7 +879,7 @@ class TestTheChainKeepsTheMeeting:
         """The integration tests use it in memory, writing nothing."""
         outcome = chain().run_chain(AUDIO)
         assert outcome.transcript_written is None
-        assert outcome.compte_rendu_ecrit is None
+        assert outcome.minutes_written is None
 
     def test_with_no_writer_the_meeting_is_kept(self, tmp_path):
         """The case of someone who wants nothing to leave the machine.
@@ -900,7 +900,7 @@ class TestTheChainKeepsTheMeeting:
         outcome = chain(
             writer=None,
             store=SpyStore(),
-            dossier_transcriptions=tmp_path / "transcriptions",
+            transcripts_folder=tmp_path / "transcriptions",
         ).run_chain(AUDIO)
 
         assert deposees, "la réunion doit être déposée même sans compte rendu"
@@ -911,13 +911,13 @@ class TestTheChainKeepsTheMeeting:
         """Keeping the meeting must not manufacture empty minutes."""
         outcome = chain(
             writer=None,
-            dossier_transcriptions=tmp_path / "transcriptions",
-            dossier_comptes_rendus=tmp_path / "comptes-rendus",
+            transcripts_folder=tmp_path / "transcriptions",
+            minutes_folder=tmp_path / "comptes-rendus",
         ).run_chain(AUDIO)
 
-        assert outcome.compte_rendu_ecrit is None
+        assert outcome.minutes_written is None
         assert not (tmp_path / "comptes-rendus").exists()
-        assert outcome.fichier_maitre is None
+        assert outcome.master_file is None
 
 
 class TestTheChannelsInARoom:
@@ -930,18 +930,18 @@ class TestTheChannelsInARoom:
         any more: no channel says who is speaking, the names come from the voices.
         """
         from greffier.application.process import (
-            AVERTISSEMENT_SANS_BOUCLE,
+            SILENT_LOOP_MARK,
             SINGLE_TAKE_NOTE,
             Outcome,
         )
 
         outcome = Outcome(audio=AUDIO)
-        outcome.warnings.append(AVERTISSEMENT_SANS_BOUCLE)
+        outcome.warnings.append(SILENT_LOOP_MARK)
         outcome.turns = [
             SpeakerTurn(Span(0, 40), "0"),
             SpeakerTurn(Span(40, 90), "1"),
         ]
-        chain()._preciser_les_canaux(outcome)
+        chain()._say_what_the_channels_meant(outcome)
         assert outcome.warnings == [SINGLE_TAKE_NOTE]
         assert outcome.one_take
         assert not any("visio" in a for a in outcome.warnings)
@@ -989,34 +989,34 @@ class TestTheChannelsInARoom:
 
     def test_one_voice_with_no_loopback_is_flagged(self):
         """There, a badly wired video call may really have lost everybody."""
-        from greffier.application.process import AVERTISSEMENT_SANS_BOUCLE, Outcome
+        from greffier.application.process import SILENT_LOOP_MARK, Outcome
 
         outcome = Outcome(audio=AUDIO)
-        outcome.warnings.append(AVERTISSEMENT_SANS_BOUCLE)
+        outcome.warnings.append(SILENT_LOOP_MARK)
         outcome.turns = [SpeakerTurn(Span(0, 90), "0")]
-        chain()._preciser_les_canaux(outcome)
+        chain()._say_what_the_channels_meant(outcome)
         assert len(outcome.warnings) == 1
         assert "visio" in outcome.warnings[0]
 
     def test_the_provisional_message_never_survives(self):
         """It is not meant to be read: it is a mark, not a sentence."""
-        from greffier.application.process import AVERTISSEMENT_SANS_BOUCLE, Outcome
+        from greffier.application.process import SILENT_LOOP_MARK, Outcome
 
         for turns in ([SpeakerTurn(Span(0, 90), "0")],
                       [SpeakerTurn(Span(0, 40), "0"),
                        SpeakerTurn(Span(40, 90), "1")]):
             outcome = Outcome(audio=AUDIO)
-            outcome.warnings.append(AVERTISSEMENT_SANS_BOUCLE)
+            outcome.warnings.append(SILENT_LOOP_MARK)
             outcome.turns = turns
-            chain()._preciser_les_canaux(outcome)
-            assert AVERTISSEMENT_SANS_BOUCLE not in outcome.warnings
+            chain()._say_what_the_channels_meant(outcome)
+            assert SILENT_LOOP_MARK not in outcome.warnings
 
     def test_with_no_mark_nothing_is_added(self):
         from greffier.application.process import Outcome
 
         outcome = Outcome(audio=AUDIO)
         outcome.turns = [SpeakerTurn(Span(0, 90), "0")]
-        chain()._preciser_les_canaux(outcome)
+        chain()._say_what_the_channels_meant(outcome)
         assert outcome.warnings == []
 
 
@@ -1054,15 +1054,15 @@ class TestNamesakesAfterTheMeeting:
     def test_the_best_fed_voice_keeps_the_turns(self):
         """Nineteen seconds against seven: it is the better extract of the two."""
         outcome = self._outcome()
-        gardee = next(iter(outcome.names))
-        assert {t.voice for t in outcome.turns} == {gardee}
+        kept_one = next(iter(outcome.names))
+        assert {t.voice for t in outcome.turns} == {kept_one}
 
     def test_the_utterances_follow(self):
         """Otherwise the minutes still attribute to a voice that no longer exists."""
         outcome = self._outcome()
-        gardee = next(iter(outcome.names))
+        kept_one = next(iter(outcome.names))
         portees = {r.voice for r in outcome.utterances if r.voice is not None}
-        assert portees == {gardee}, portees
+        assert portees == {kept_one}, portees
 
     def test_two_distinct_people_stay_two(self):
         """The guard rail: the rule must not fold everything onto one voice."""
@@ -1111,8 +1111,8 @@ class TestWhenTheSendingFails:
         """It was the one that lied: "Envoi du compte rendu…", for ever."""
         log = FakeStateLog()
         self._outcome(log)
-        assert Phase.ENVOI.value in log.phases
-        assert log.phases[-1] != Phase.ENVOI.value
+        assert Phase.SENDING.value in log.phases
+        assert log.phases[-1] != Phase.SENDING.value
 
     def test_the_reason_is_said(self):
         outcome = self._outcome(FakeStateLog())
@@ -1185,12 +1185,12 @@ class TestTheFloorBeforeNamingAVoice:
     did not.
     """
 
-    def _outcome_of(self, seconde_duree: float):
+    def _outcome_of(self, second_duration: float):
         from greffier.domain.voiceprints import normalise
 
         vecteurs = {(0.0, 12.0): [1.0, 0.0, 0.0], (21.0, 28.0): [1.0, 0.0, 0.0],
-                    (13.0, 13.0 + seconde_duree): [0.02, 1.0, 0.0]}
-        turns = [turn(0, 12, "1"), turn(13, 13 + seconde_duree, "2"),
+                    (13.0, 13.0 + second_duration): [0.02, 1.0, 0.0]}
+        turns = [turn(0, 12, "1"), turn(13, 13 + second_duration, "2"),
                  turn(21, 28, "1")]
         bank = FakeBank([Person("Josiane", [normalise([0.02, 1.0, 0.0])])])
         return chain(

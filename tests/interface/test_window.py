@@ -216,13 +216,13 @@ class TestAFailurePublishedToTheState:
 
     def _publish(
         self, tmp_path: Path, identifier: str, trouble: Exception,
-        dans_l_etat: str | None = None,
+        in_the_state: str | None = None,
     ) -> dict:
         import json
 
         from greffier.interface.window import Window
 
-        state = self._a_state_under_way(tmp_path, dans_l_etat or identifier)
+        state = self._a_state_under_way(tmp_path, in_the_state or identifier)
         # Without Tk: the method only reads `self.config`, and that is precisely
         # what makes it testable without a screen.
         without_a_screen = type("SansEcran", (), {"config": self._config_in(tmp_path)})()
@@ -244,7 +244,7 @@ class TestAFailurePublishedToTheState:
         """The rule of the log: it writes only when the state carries this meeting."""
         state = self._publish(
             tmp_path, "2026-09-10_11h00_autre", RuntimeError("boum"),
-            dans_l_etat="2026-09-10_10h10_reunion",
+            in_the_state="2026-09-10_10h10_reunion",
         )
         assert state["phase"] == "envoi"
 
@@ -267,7 +267,7 @@ class TestPreparingAMeetingFromTheWindow:
     lost, and the meeting then started from nothing.
     """
 
-    def _fenetre(self, tmp_path, preparation=None, langue="fr"):
+    def _fenetre(self, tmp_path, preparation=None, language="fr"):
         """The window without a screen: these methods only read `self`.
 
         The language is said rather than inherited: the sentences these methods
@@ -278,76 +278,76 @@ class TestPreparingAMeetingFromTheWindow:
         from greffier.adapters.configuration import Config
 
         config = Config()
-        config.interface.language = langue
+        config.interface.language = language
         config.paths.data = tmp_path
         from greffier.interface.window import Window
 
-        sans_ecran = type("SansEcran", (), {
+        without_screen = type("SansEcran", (), {
             "config": config,
             "_preparation": preparation,
             "dits": [],
             "demandes": [],
             # The same wording the window uses: these methods say things, and a
             # test that stubbed the sentences would check nothing about them.
-            "dit": Window.dit,
+            "says": Window.says,
         })()
-        return sans_ecran
+        return without_screen
 
     def test_a_spoken_question_goes_to_the_preparation_when_there_is_one(
             self, tmp_path):
         from greffier.domain.preparation import Preparation
         from greffier.interface.window import Window
 
-        fenetre = self._fenetre(tmp_path, Preparation(identifier="p", subject="recette"))
-        fenetre._answer_while_preparing = lambda q: fenetre.demandes.append(q)
-        Window._ask_this(fenetre, "rappelle-moi la dernière")
-        assert fenetre.demandes == ["rappelle-moi la dernière"]
+        window = self._fenetre(tmp_path, Preparation(identifier="p", subject="recette"))
+        window._answer_while_preparing = lambda q: window.demandes.append(q)
+        Window._ask_this(window, "rappelle-moi la dernière")
+        assert window.demandes == ["rappelle-moi la dernière"]
 
     def test_without_a_preparation_it_goes_where_it_always_went(self, tmp_path):
         """Preparing must not change what the tab already did."""
         from greffier.interface.window import Window
 
-        fenetre = self._fenetre(tmp_path)
+        window = self._fenetre(tmp_path)
         pose = []
 
         class Champ:
             def delete(self, *a):
                 pass
 
-            def insert(self, _i, texte):
-                pose.append(texte)
+            def insert(self, _i, text):
+                pose.append(text)
 
-        fenetre.question = Champ()
-        fenetre._ask = lambda: pose.append("posée")
-        Window._ask_this(fenetre, "et le compte rendu ?")
+        window.question = Champ()
+        window._ask = lambda: pose.append("posée")
+        Window._ask_this(window, "et le compte rendu ?")
         assert pose == ["et le compte rendu ?", "posée"]
 
     def test_a_button_merely_tapped_says_so_rather_than_transcribing_nothing(
             self, tmp_path):
         from greffier.interface.window import Window
 
-        fenetre = self._fenetre(tmp_path, langue="fr")
-        fenetre._dictee = type("Rien", (), {"stop": lambda self: None})()
-        fenetre.bouton_parler = type("Bouton", (), {"set_caption": lambda self, t: None})()
-        fenetre._say_while_preparing = lambda genre, texte: fenetre.dits.append(texte)
-        Window._stop_dictating(fenetre)
-        assert any("Maintenez le bouton" in dit for dit in fenetre.dits)
+        window = self._fenetre(tmp_path, language="fr")
+        window._dictee = type("Rien", (), {"stop": lambda self: None})()
+        window.speak_button = type("Bouton", (), {"set_caption": lambda self, t: None})()
+        window._say_while_preparing = lambda kind, text: window.dits.append(text)
+        Window._stop_dictating(window)
+        assert any("Maintenez le bouton" in said for said in window.dits)
 
     def test_it_says_it_in_the_language_of_the_machine(self, tmp_path):
         """The same refusal, in English, on a machine that reads English."""
         from greffier.interface.window import Window
 
-        fenetre = self._fenetre(tmp_path, langue="en")
-        fenetre._dictee = type("Rien", (), {"stop": lambda self: None})()
-        fenetre.bouton_parler = type("Bouton", (), {"set_caption": lambda self, t: None})()
-        fenetre._say_while_preparing = lambda genre, texte: fenetre.dits.append(texte)
-        Window._stop_dictating(fenetre)
-        assert any("Hold the button" in dit for dit in fenetre.dits)
+        window = self._fenetre(tmp_path, language="en")
+        window._dictee = type("Rien", (), {"stop": lambda self: None})()
+        window.speak_button = type("Bouton", (), {"set_caption": lambda self, t: None})()
+        window._say_while_preparing = lambda kind, text: window.dits.append(text)
+        Window._stop_dictating(window)
+        assert any("Hold the button" in said for said in window.dits)
 
     def test_releasing_without_having_pressed_costs_nothing(self, tmp_path):
         from greffier.interface.window import Window
 
-        fenetre = self._fenetre(tmp_path)
-        fenetre._dictee = None
-        fenetre.bouton_parler = type("Bouton", (), {"set_caption": lambda self, t: None})()
-        Window._stop_dictating(fenetre)
+        window = self._fenetre(tmp_path)
+        window._dictee = None
+        window.speak_button = type("Bouton", (), {"set_caption": lambda self, t: None})()
+        Window._stop_dictating(window)

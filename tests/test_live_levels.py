@@ -30,11 +30,11 @@ def wav(
             entrelace += struct.pack("<h", value)
 
     nb = len(channels)
-    taille_fmt = 40 if fmt_etendu else 16
+    size_fmt = 40 if fmt_etendu else 16
     fmt = struct.pack("<HHIIHH", 1, nb, frequency, frequency * nb * 2, nb * 2, 16)
     if fmt_etendu:
-        fmt += b"\x00" * (taille_fmt - 16)
-    chunks = b"fmt " + struct.pack("<I", taille_fmt) + fmt
+        fmt += b"\x00" * (size_fmt - 16)
+    chunks = b"fmt " + struct.pack("<I", size_fmt) + fmt
     if avec_liste:
         info = b"INFOISFT" + struct.pack("<I", 14) + b"Lavf62.0.100\x00\x00"
         chunks += b"LIST" + struct.pack("<I", len(info)) + info
@@ -45,27 +45,27 @@ def wav(
 
 
 FORT = [12000] * 8000
-MUET = [0] * 8000
+SILENT = [0] * 8000
 
 
 class TestLectureDeLEntete:
     def test_a_canonical_header_is_read(self, tmp_path: Path) -> None:
-        forme = lire_forme(wav(tmp_path / "a.wav", [FORT, MUET, MUET]))
+        forme = lire_forme(wav(tmp_path / "a.wav", [FORT, SILENT, SILENT]))
         assert forme is not None
-        assert forme.channels == 3 and forme.debut_donnees == 44
+        assert forme.channels == 3 and forme.data_start == 44
 
     def test_l_entete_reel_de_ffmpeg_est_lu(self, tmp_path: Path) -> None:
         # Extended "fmt" plus "LIST": 102 bytes, the shape seen in use.
         forme = lire_forme(
-            wav(tmp_path / "b.wav", [FORT, MUET, MUET], avec_liste=True, fmt_etendu=True)
+            wav(tmp_path / "b.wav", [FORT, SILENT, SILENT], avec_liste=True, fmt_etendu=True)
         )
         assert forme is not None
-        assert forme.debut_donnees == 102
+        assert forme.data_start == 102
 
     def test_a_file_that_is_not_wav_is_refused(self, tmp_path: Path) -> None:
-        faux = tmp_path / "c.wav"
-        faux.write_bytes(b"pas du tout un wav" * 4)
-        assert lire_forme(faux) is None
+        wrong = tmp_path / "c.wav"
+        wrong.write_bytes(b"pas du tout un wav" * 4)
+        assert lire_forme(wrong) is None
 
     def test_a_truncated_header_is_refused(self, tmp_path: Path) -> None:
         court = tmp_path / "d.wav"
@@ -75,7 +75,7 @@ class TestLectureDeLEntete:
 
 class TestWhoIsSpeaking:
     def test_the_mic_alone_gives_you(self, tmp_path: Path) -> None:
-        releve = read_level(wav(tmp_path / "a.wav", [FORT, MUET, MUET]))
+        releve = read_level(wav(tmp_path / "a.wav", [FORT, SILENT, SILENT]))
         assert releve is not None
         assert releve.who is WhoSpeaks.YOU
 
@@ -85,7 +85,7 @@ class TestWhoIsSpeaking:
         # The defect seen: with these chunks, the reading was offset
         # et l'interface annonçait « les autres parlent ».
         releve = read_level(
-            wav(tmp_path / "b.wav", [FORT, MUET, MUET], avec_liste=True, fmt_etendu=True)
+            wav(tmp_path / "b.wav", [FORT, SILENT, SILENT], avec_liste=True, fmt_etendu=True)
         )
         assert releve is not None
         assert releve.who is WhoSpeaks.YOU
@@ -93,7 +93,7 @@ class TestWhoIsSpeaking:
 
     def test_the_loopback_alone_gives_the_others(self, tmp_path: Path) -> None:
         releve = read_level(
-            wav(tmp_path / "c.wav", [MUET, FORT, FORT], avec_liste=True, fmt_etendu=True)
+            wav(tmp_path / "c.wav", [SILENT, FORT, FORT], avec_liste=True, fmt_etendu=True)
         )
         assert releve is not None
         assert releve.who is WhoSpeaks.THE_OTHERS
@@ -115,7 +115,7 @@ class TestTheLengthWrittenSoFar:
     def test_the_length_is_counted_in_bytes_not_in_the_header(self, tmp_path: Path) -> None:
         # The header announces 0xFFFFFFFF as long as the file is open: trusting it
         # donnerait une durée absurde.
-        file = wav(tmp_path / "en-cours.wav", [FORT, MUET], avec_liste=True,
+        file = wav(tmp_path / "en-cours.wav", [FORT, SILENT], avec_liste=True,
                       fmt_etendu=True)
         assert written_duration(file) == 8000 / 16000
 

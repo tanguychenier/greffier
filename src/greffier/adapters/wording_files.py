@@ -32,11 +32,11 @@ def translated() -> tuple[str, ...]:
 def _flat(read: dict[str, object], prefix: str = "") -> dict[str, str]:
     plat: dict[str, str] = {}
     for key, value in read.items():
-        chemin = f"{prefix}{key}"
+        path = f"{prefix}{key}"
         if isinstance(value, dict):
-            plat |= _flat(value, f"{chemin}.")
+            plat |= _flat(value, f"{path}.")
         elif isinstance(value, str):
-            plat[chemin] = value
+            plat[path] = value
     return plat
 
 

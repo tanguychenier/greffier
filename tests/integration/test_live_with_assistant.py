@@ -24,7 +24,7 @@ from tests.integration.prerequisites import (
 
 pytestmark = pytest.mark.integration
 
-PHRASE = "Lucie, est-ce que tu peux nous rappeler ce qui reste à faire ?"
+SENTENCE = "Lucie, est-ce que tu peux nous rappeler ce qui reste à faire ?"
 
 
 class FakeVoiceAdapter:
@@ -46,7 +46,7 @@ class FakeBrain:
     """The brain is doubled: what is covered is the assembly, not the remote model."""
 
     def __init__(self):
-        self.consignes_propres = ""
+        self.own_guidance = ""
         self.vu = []
 
     def write_up(self, text):
@@ -61,7 +61,7 @@ def meeting(tmp_path):
         pytest.skip(hors_de_portee)
     from make_meeting import speak
 
-    audio = speak(PHRASE, "Thomas", tmp_path / "reunion.wav")
+    audio = speak(SENTENCE, "Thomas", tmp_path / "reunion.wav")
     if audio is None:
         pytest.skip("synthèse impossible")
     return audio
@@ -96,7 +96,7 @@ def test_called_during_the_meeting_it_answers(called_by_its_name, meeting, tmp_p
         watch_rules=WatchRules(keyword="greffier"),
         log=tmp_path / "propositions.jsonl",
         transcriber=transcriber,
-        situer=lambda: Position(morceau=meeting, written=duration, offset=0.0),
+        situer=lambda: Position(chunk=meeting, written=duration, offset=0.0),
         assistant_of=assistant,
     )
     watcher.transcription_turn(watcher.situer(), tmp_path)
@@ -142,7 +142,7 @@ def test_the_transcription_does_not_wait_for_the_answer(meeting, tmp_path):
         watch_rules=WatchRules(keyword="greffier"),
         log=tmp_path / "propositions.jsonl",
         transcriber=transcriber,
-        situer=lambda: Position(morceau=meeting, written=duration, offset=0.0),
+        situer=lambda: Position(chunk=meeting, written=duration, offset=0.0),
         assistant_of=assistant,
     )
     # The model loads at the first transcription -- sixteen seconds on a
@@ -182,7 +182,7 @@ def test_an_ordinary_sentence_does_not_make_it_speak(tmp_path):
         watch_rules=WatchRules(keyword="greffier"),
         log=tmp_path / "propositions.jsonl",
         transcriber=transcriber,
-        situer=lambda: Position(morceau=audio, written=soundfile.info(str(audio)).duration,
+        situer=lambda: Position(chunk=audio, written=soundfile.info(str(audio)).duration,
                                 offset=0.0),
         assistant_of=assistant,
     )
@@ -201,7 +201,7 @@ def test_no_assistant_changes_nothing(meeting, tmp_path):
         watch_rules=WatchRules(keyword="greffier"),
         log=tmp_path / "propositions.jsonl",
         transcriber=transcriber,
-        situer=lambda: Position(morceau=meeting,
+        situer=lambda: Position(chunk=meeting,
                                 written=soundfile.info(str(meeting)).duration,
                                 offset=0.0),
     )
@@ -215,9 +215,9 @@ def test_the_reason_for_speaking_is_the_call(called_by_its_name, meeting, tmp_pa
         pytest.skip("aucun modèle de transcription installé")
     utterances = transcriber.transcribe(meeting, "fr", "Lucie.")
     assistant = AssistantSettings(name="Lucie", manners=Manners(creux_minimal=0.0))
-    retenue = assistant.turn(utterances, now=max(
+    retained = assistant.turn(utterances, now=max(
         r.span.end for r in utterances) + 1.0)
-    assert retenue is not None and retenue.because is Because.APPELE
+    assert retained is not None and retained.because is Because.APPELE
 
 
 @pytest.mark.integration
@@ -241,9 +241,9 @@ class TestTheLoopOnARealThread:
         from greffier.domain.models import Span, Utterance
 
         dites = []
-        for texte, depart, how_many in self.OBSERVE:
+        for text, depart, how_many in self.OBSERVE:
             dites += [
-                Utterance(span=Span(depart + i, depart + i + 1), text=texte)
+                Utterance(span=Span(depart + i, depart + i + 1), text=text)
                 for i in range(how_many)
             ]
         return sorted(dites, key=lambda u: u.span.start)
@@ -259,9 +259,9 @@ class TestTheLoopOnARealThread:
     def test_every_kept_sentence_covers_its_run(self):
         from greffier.domain.boilerplate import collapse_loops
 
-        for gardee in collapse_loops(self._fil()):
-            expected = next(c for t, _d, c in self.OBSERVE if t == gardee.text)
-            assert gardee.span.end - gardee.span.start == expected
+        for kept_one in collapse_loops(self._fil()):
+            expected = next(c for t, _d, c in self.OBSERVE if t == kept_one.text)
+            assert kept_one.span.end - kept_one.span.start == expected
 
     def test_the_published_thread_no_longer_carries_the_repetition(self):
         """What the window shows: one line per sentence said."""
@@ -285,7 +285,7 @@ class TestAnOldSettingNoLongerSilencesIt:
     This test reads a real file, in the state machines carry one.
     """
 
-    ANCIEN = """
+    OLD = """
 [assistant]
 actif = false
 nom = "Lucie"
@@ -296,9 +296,9 @@ initiative = false
     def _boutons(self, tmp_path, monkeypatch, contenu: str):
         from greffier.cli import _reread_the_buttons
 
-        dossier = tmp_path / "greffier"
-        dossier.mkdir(parents=True, exist_ok=True)
-        (dossier / "config.toml").write_text(contenu, encoding="utf-8")
+        folder = tmp_path / "greffier"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "config.toml").write_text(contenu, encoding="utf-8")
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
         monkeypatch.setenv("APPDATA", str(tmp_path))
         for clef in ("GREFFIER_ASSISTANT__ACTIVE", "GREFFIER_ASSISTANT__VOICE",
@@ -309,16 +309,16 @@ initiative = false
     def test_a_file_saying_active_false_no_longer_cuts_the_voice(
         self, tmp_path, monkeypatch
     ):
-        a_voix_haute, _de_lui_meme = self._boutons(tmp_path, monkeypatch, self.ANCIEN)
-        assert a_voix_haute, "la voix est réglée sur kokoro : elle doit parler"
+        out_loud, _de_lui_meme = self._boutons(tmp_path, monkeypatch, self.OLD)
+        assert out_loud, "la voix est réglée sur kokoro : elle doit parler"
 
     def test_cutting_the_voice_is_still_possible(self, tmp_path, monkeypatch):
         """The only setting that still decides, and it has to decide."""
-        a_voix_haute, _ = self._boutons(
+        out_loud, _ = self._boutons(
             tmp_path, monkeypatch,
             '[assistant]\nactif = true\nnom = "Lucie"\nvoix = "aucun"\n',
         )
-        assert not a_voix_haute
+        assert not out_loud
 
     def test_the_initiative_is_read_from_the_file(self, tmp_path, monkeypatch):
         _, de_lui_meme = self._boutons(
@@ -346,7 +346,7 @@ initiative = false
             log=tmp_path / "propositions.jsonl",
             transcriber=transcriber,
             situer=lambda: Position(
-                morceau=meeting,
+                chunk=meeting,
                 written=soundfile.info(str(meeting)).duration,
                 offset=0.0,
             ),

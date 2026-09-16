@@ -19,11 +19,11 @@ def data(tmp_path):
     return tmp_path
 
 
-def poser(data, model, taille=None):
+def poser(data, model, size=None):
     """Writes a model file heavy enough to count as present."""
-    chemin = data / "modeles" / model.folder / model.name
-    chemin.parent.mkdir(parents=True, exist_ok=True)
-    chemin.write_bytes(b"0" * (taille if taille is not None else model.minimum))
+    path = data / "modeles" / model.folder / model.name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"0" * (size if size is not None else model.minimum))
 
 
 class TestTheModelsAreLookedAt:

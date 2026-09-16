@@ -40,14 +40,14 @@ class TestBornes:
         assert MAXIMUM_LENGTH >= MINIMUM_LENGTH
 
     def test_un_extrait_court_passe_entier(self) -> None:
-        garde = Recorded()
-        garde.borner(np.zeros(16000 * 10, dtype="float32"), 16000)
-        assert garde.recus == [16000 * 10]
+        kept = Recorded()
+        kept.borner(np.zeros(16000 * 10, dtype="float32"), 16000)
+        assert kept.recus == [16000 * 10]
 
     def test_too_long_an_extract_is_brought_back_to_the_bound(self) -> None:
-        garde = Recorded()
-        garde.borner(np.zeros(16000 * 600, dtype="float32"), 16000)
-        assert garde.recus == [int(16000 * MAXIMUM_LENGTH)]
+        kept = Recorded()
+        kept.borner(np.zeros(16000 * 600, dtype="float32"), 16000)
+        assert kept.recus == [int(16000 * MAXIMUM_LENGTH)]
 
     def test_it_is_the_middle_of_the_passage_that_is_kept(self) -> None:
         # The start of a long turn of speech often carries a hesitation or an

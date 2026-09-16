@@ -13,7 +13,7 @@ from greffier.domain.sources import Kind, Right, Source
 SECRET = "moi@exemple.fr:jeton-atlassian"
 
 
-def source(droit: Right = Right.LECTURE) -> Source:
+def source(droit: Right = Right.READING) -> Source:
     return Source(
         name="suivi", kind=Kind.JIRA, adresse="https://exemple.atlassian.net",
         project="PROJ", droit=droit, token="trousseau:greffier-jira",
@@ -44,9 +44,9 @@ class FakeJira:
 
 @pytest.fixture
 def jira(monkeypatch) -> FakeJira:
-    faux = FakeJira()
-    monkeypatch.setattr(jira_api.urllib.request, "urlopen", faux)
-    return faux
+    wrong = FakeJira()
+    monkeypatch.setattr(jira_api.urllib.request, "urlopen", wrong)
+    return wrong
 
 
 @pytest.fixture
@@ -57,7 +57,7 @@ def silent_server(monkeypatch):
     monkeypatch.setattr(jira_api.urllib.request, "urlopen", jamais)
 
 
-UNE_DEMANDE = {
+A_REQUEST = {
     "key": "PROJ-12",
     "fields": {
         "summary": "Reprendre la recette",
@@ -85,24 +85,24 @@ class TestTheCredentials:
 
 class TestReadingFromJira:
     def test_the_requests_come_back_usable(self, jira):
-        jira.charge = {"issues": [UNE_DEMANDE]}
+        jira.charge = {"issues": [A_REQUEST]}
         found = jira_api.requests(source(), SECRET)
         assert found[0].key == "PROJ-12"
         assert found[0].state == "En cours"
         assert found[0].assigne == "Sophie"
 
     def test_the_web_address_follows_from_the_key(self, jira):
-        jira.charge = {"issues": [UNE_DEMANDE]}
+        jira.charge = {"issues": [A_REQUEST]}
         adresse = jira_api.requests(source(), SECRET)[0].adresse
         assert adresse == "https://exemple.atlassian.net/browse/PROJ-12"
 
     def test_a_request_with_nobody_assigned_breaks_nothing(self, jira):
-        jira.charge = {"issues": [{**UNE_DEMANDE, "fields": {"summary": "x"}}]}
+        jira.charge = {"issues": [{**A_REQUEST, "fields": {"summary": "x"}}]}
         rendue = jira_api.requests(source(), SECRET)[0]
         assert rendue.assigne == "" and rendue.state == ""
 
     def test_the_line_shows_the_request_at_a_glance(self, jira):
-        jira.charge = {"issues": [UNE_DEMANDE]}
+        jira.charge = {"issues": [A_REQUEST]}
         said = jira_api.requests(source(), SECRET)[0].say()
         assert "PROJ-12" in said and "Sophie" in said and "En cours" in said
 

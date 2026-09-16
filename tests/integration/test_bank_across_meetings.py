@@ -43,9 +43,9 @@ def atelier(tmp_path_factory):
 
     from make_meeting import DIALOGUE_WITHOUT_NAMES, make
 
-    premiere = make(root / "reunion-1.wav")
+    first_one = make(root / "reunion-1.wav")
     seconde = make(root / "reunion-2.wav", dialogue=DIALOGUE_WITHOUT_NAMES)
-    return config, premiere, seconde
+    return config, first_one, seconde
 
 
 def process(config, audio):
@@ -65,12 +65,12 @@ class TestReconnaissanceEntreReunions:
         """First meeting → naming → second meeting recognised on its own."""
         from make_meeting import first_names
 
-        config, premiere, seconde = atelier
+        config, first_one, seconde = atelier
         bank = FileVoiceBank(config.paths.voice_bank)
         store = FileStore(config.paths.data / "reunions")
 
         # 1. The first meeting: the first names come from what is said.
-        outcome = process(config, premiere)
+        outcome = process(config, first_one)
         assert set(outcome.names.values()) == set(first_names())
 
         # 2. The person confirms: they decide, and nothing enters the bank
@@ -85,16 +85,16 @@ class TestReconnaissanceEntreReunions:
             ),
         )
         for voice, name in outcome.names.items():
-            namer.name_voice(premiere.stem, voice, name)
+            namer.name_voice(first_one.stem, voice, name)
         assert {p.name for p in bank.people()} == set(first_names())
 
         # 3. The second meeting says no first name at all.
-        second_resultat = process(config, seconde)
-        transcription = " ".join(r.text for r in second_resultat.utterances)
+        second_result = process(config, seconde)
+        transcription = " ".join(r.text for r in second_result.utterances)
         assert not any(prenom in transcription for prenom in first_names())
 
         # 4. And yet both are named: that can only come from the voice.
-        assert set(second_resultat.names.values()) == set(first_names())
+        assert set(second_result.names.values()) == set(first_names())
 
     def test_the_bank_does_not_name_just_anyone(self, atelier, tmp_path):
         """A bank holding a stranger's voice must recognise nothing."""
@@ -113,11 +113,11 @@ class TestReconnaissanceEntreReunions:
 
     def test_the_voices_to_name_come_with_an_extract(self, atelier):
         """Le parcours réel : écouter dix secondes, taper un nom."""
-        config, premiere, _ = atelier
-        meeting = FileStore(config.paths.data / "reunions").read(premiere.stem)
+        config, first_one, _ = atelier
+        meeting = FileStore(config.paths.data / "reunions").read(first_one.stem)
         candidates = voices_to_name(meeting)
         assert len(candidates) == 2
-        assert all(c.extrait is not None and c.extrait.duration >= 3 for c in candidates)
+        assert all(c.excerpt is not None and c.excerpt.duration >= 3 for c in candidates)
         # From the most talkative down: the ones that matter most come first.
         assert candidates[0].duration >= candidates[1].duration
 

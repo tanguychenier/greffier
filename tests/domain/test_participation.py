@@ -64,8 +64,8 @@ class TestNeverComingBackTooOften:
 class TestNeverRepeatingItself:
     def test_a_subject_already_dealt_with_does_not_come_back(self):
         manners = Manners()
-        premiere = opening(subject="qui-parle-voix-3", born_at=10.0)
-        manners.has_spoken(premiere, now=10.0)
+        first_one = opening(subject="qui-parle-voix-3", born_at=10.0)
+        manners.has_spoken(first_one, now=10.0)
         seconde = opening(subject="qui-parle-voix-3", born_at=400.0)
         assert manners.refusal(seconde, now=400.0, lull=5.0) == "déjà dit"
 
@@ -80,8 +80,8 @@ class TestNeverServingSomethingCold:
     def test_a_stale_opening_is_dropped(self):
         """Coming back to a subject already left looks like an absent-minded participant."""
         manners = Manners(staleness=90.0)
-        vieille = opening(born_at=10.0)
-        refusal = manners.refusal(vieille, now=200.0, lull=5.0)
+        old_one = opening(born_at=10.0)
+        refusal = manners.refusal(old_one, now=200.0, lull=5.0)
         assert refusal == "la conversation est passée à autre chose"
 
     def test_a_call_by_name_does_not_go_stale_for_all_that(self):
@@ -94,7 +94,7 @@ class TestChoosingWhatToSay:
     def test_at_most_one_opening_and_the_strongest(self):
         """The others are dropped, not held in reserve."""
         manners = Manners()
-        retenue = manners.choose(
+        retained = manners.choose(
             [
                 opening(because=Because.CONTRIBUTION, remark="une idée", born_at=10.0),
                 opening(because=Because.INDISTINCT_VOICE, remark="qui parle ?", born_at=10.0),
@@ -103,15 +103,15 @@ class TestChoosingWhatToSay:
             ],
             now=12.0, lull=5.0,
         )
-        assert retenue is not None and retenue.remark == "qui parle ?"
+        assert retained is not None and retained.remark == "qui parle ?"
 
     def test_on_equal_strength_the_most_recent_one_passes(self):
         manners = Manners()
-        retenue = manners.choose(
+        retained = manners.choose(
             [opening(remark="vieille", born_at=10.0), opening(remark="fraîche", born_at=50.0)],
             now=60.0, lull=5.0,
         )
-        assert retenue is not None and retenue.remark == "fraîche"
+        assert retained is not None and retained.remark == "fraîche"
 
     def test_nothing_to_say_is_an_answer(self):
         manners = Manners()
@@ -119,14 +119,14 @@ class TestChoosingWhatToSay:
 
     def test_being_called_comes_before_everything(self):
         manners = Manners()
-        retenue = manners.choose(
+        retained = manners.choose(
             [
                 opening(because=Because.INDISTINCT_VOICE, remark="qui parle ?", born_at=10.0),
                 opening(because=Because.APPELE, remark="oui ?", born_at=11.0),
             ],
             now=12.0, lull=0.0, density=1.0,
         )
-        assert retenue is not None and retenue.remark == "oui ?"
+        assert retained is not None and retained.remark == "oui ?"
 
 
 class TestTheButton:
@@ -204,29 +204,29 @@ class TestItMustNotHearItself:
     answers late, in a separate thread, so no window of time is reliable.
     """
 
-    DIT = "Qui prend en charge la migration en Symfony 7 ?"
+    SAID = "Qui prend en charge la migration en Symfony 7 ?"
 
     def _its_own_words(self, *remarks: str) -> list[frozenset[str]]:
         return [own_words(r) for r in remarks]
 
     def test_its_exact_words_come_back(self):
-        assert is_own(self.DIT, self._its_own_words(self.DIT))
+        assert is_own(self.SAID, self._its_own_words(self.SAID))
 
     def test_its_words_mangled_by_the_loudspeaker(self):
         """What comes back is never spelled the same way."""
         assert is_own(
             "qui prend en charge la migration en Symfony sept",
-            self._its_own_words(self.DIT),
+            self._its_own_words(self.SAID),
         )
 
     def test_half_of_its_sentence_is_enough(self):
         """The room and the capture loop cost words on the way."""
-        assert is_own("qui prend en charge la migration", self._its_own_words(self.DIT))
+        assert is_own("qui prend en charge la migration", self._its_own_words(self.SAID))
 
     def test_the_room_is_not_taken_for_it(self):
         assert not is_own(
             "Lucie, est-ce que tu peux faire des recherches sur Internet ?",
-            self._its_own_words(self.DIT),
+            self._its_own_words(self.SAID),
         )
 
     def test_an_interjection_is_never_its_own(self):
@@ -235,12 +235,12 @@ class TestItMustNotHearItself:
             assert not is_own(court, self._its_own_words("oui d'accord bon ok"))
 
     def test_having_said_nothing_it_hears_nobody(self):
-        assert not is_own(self.DIT, [])
+        assert not is_own(self.SAID, [])
 
     def test_several_of_its_remarks_are_kept(self):
         """Elle parle plusieurs fois : chacun doit rester reconnaissable."""
         mes = self._its_own_words(
-            self.DIT,
+            self.SAID,
             "Il reste la signature, et la recette à caler.",
         )
         assert is_own("il reste la signature et la recette", mes)

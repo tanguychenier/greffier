@@ -36,11 +36,11 @@ class Preparing:
 
     def transcribed(self, said: str) -> str:
         """Acknowledges a sentence taken in, and hands it back cleaned."""
-        propre = " ".join(said.split())
-        if propre and self.heard is not None:
+        clean = " ".join(said.split())
+        if clean and self.heard is not None:
             with contextlib.suppress(Exception):
                 self.heard()
-        return propre
+        return clean
 
     def answer(
         self, preparation: Preparation, question: str
@@ -51,16 +51,16 @@ class Preparing:
         who asked a question and got an error must find the question again, not
         discover that it was swallowed.
         """
-        demande = " ".join(question.split())
-        if not demande:
+        request = " ".join(question.split())
+        if not request:
             return preparation, ""
         try:
             answered = str(self.brain.write_up(
-                question_prompt(preparation, self.setting + self.known, demande)
+                question_prompt(preparation, self.setting + self.known, request)
             )).strip()
         except Exception as trouble:  # noqa: BLE001 - handed back to whoever asked
-            return preparation.asked(demande), f"✗ {trouble}"
+            return preparation.asked(request), f"✗ {trouble}"
         if answered and self.speak is not None:
             with contextlib.suppress(Exception):
                 self.speak(answered)
-        return preparation.asked(demande, answered), answered
+        return preparation.asked(request, answered), answered

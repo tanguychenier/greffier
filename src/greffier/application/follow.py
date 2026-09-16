@@ -34,13 +34,13 @@ from greffier.domain.models import Person, Span, Utterance, Voiceprint
 from greffier.domain.voiceprints import aggregate
 from greffier.ports import outbound
 
-TRANCHE_MINIMALE_S = 3.0
+SLICE_MINIMUM_S = 3.0
 
-GENRE_TOUR = "tour"
-GENRE_CORRECTION = "correction"
-GENRE_ETAT = "etat"
-GENRE_REUNION = "reunion"
-GENRE_SEPARATION = "separation"
+KIND_TURN = "tour"
+KIND_CORRECTION = "correction"
+KIND_STATE = "etat"
+KIND_MEETING = "reunion"
+KIND_SPLIT = "separation"
 
 @dataclass(frozen=True, slots=True)
 class Position:
@@ -50,7 +50,7 @@ class Position:
     only what was captured.
     """
 
-    morceau: Path
+    chunk: Path
     written: float
     offset: float
 
@@ -66,10 +66,10 @@ def position(
     if not present_line:
         return None
     offset = 0.0
-    for morceau in present_line[:-1]:
-        offset += duration(morceau) or 0.0
-    dernier = present_line[-1]
-    return Position(morceau=dernier, written=duration(dernier) or 0.0, offset=offset)
+    for chunk in present_line[:-1]:
+        offset += duration(chunk) or 0.0
+    last = present_line[-1]
+    return Position(chunk=last, written=duration(last) or 0.0, offset=offset)
 
 def files(folder: Path, identifier: str) -> tuple[Path, Path]:
     """The live log and the corrections drop, for one meeting.
@@ -82,10 +82,10 @@ def files(folder: Path, identifier: str) -> tuple[Path, Path]:
         folder / f"{identifier}.corrections.jsonl",
     )
 
-def _ligne_tour(turn: LiveTurn, voice: LiveVoice) -> dict[str, Any]:
+def _turn_line(turn: LiveTurn, voice: LiveVoice) -> dict[str, Any]:
     """What a sentence publishes about itself."""
     return {
-        "genre": GENRE_TOUR,
+        "genre": KIND_TURN,
         "numero": turn.number,
         "debut": round(turn.span.start, 2),
         "fin": round(turn.span.end, 2),
@@ -96,22 +96,22 @@ def _ligne_tour(turn: LiveTurn, voice: LiveVoice) -> dict[str, Any]:
         "rang": voice.rank,
     }
 
-def _ligne_correction(correction: Correction) -> dict[str, Any]:
+def _correction_line(correction: Correction) -> dict[str, Any]:
     return {
-        "genre": GENRE_CORRECTION,
+        "genre": KIND_CORRECTION,
         "nom": correction.name,
         "voix": correction.voice,
         "numeros": list(correction.numbers),
         "toute_la_voix": correction.whole_voice,
     }
 
-def _ligne_reunion(source: str, target: str) -> dict[str, Any]:
-    return {"genre": GENRE_REUNION, "voix": source, "vers": target}
+def _meeting_line(source: str, target: str) -> dict[str, Any]:
+    return {"genre": KIND_MEETING, "voix": source, "vers": target}
 
-def _ligne_separation(fusion: Join) -> dict[str, Any]:
+def _split_line(fusion: Join) -> dict[str, Any]:
     """What it takes to hand a split back to the window, and to a resumed thread."""
     return {
-        "genre": GENRE_SEPARATION,
+        "genre": KIND_SPLIT,
         "voix": fusion.source,
         "de": fusion.target,
         "numeros": list(fusion.numbers),
@@ -143,11 +143,11 @@ def read_from(log: Path, position_octets: int = 0) -> tuple[list[dict[str, Any]]
         return [], position_octets
     if not brut:
         return [], position_octets
-    complet = brut.rfind(b"\n")
-    if complet < 0:
+    complete = brut.rfind(b"\n")
+    if complete < 0:
         return [], position_octets
     lines: list[dict[str, Any]] = []
-    for text in brut[: complet + 1].decode("utf-8", errors="replace").splitlines():
+    for text in brut[: complete + 1].decode("utf-8", errors="replace").splitlines():
         if not text.strip():
             continue
         try:
@@ -156,7 +156,7 @@ def read_from(log: Path, position_octets: int = 0) -> tuple[list[dict[str, Any]]
             continue
         if isinstance(line, dict):
             lines.append(line)
-    return lines, position_octets + complet + 1
+    return lines, position_octets + complete + 1
 
 def replay(lines: list[dict[str, Any]], thread: LiveThread | None = None) -> LiveThread:
     """Rebuilds the thread from the log, to display it.
@@ -167,13 +167,13 @@ def replay(lines: list[dict[str, Any]], thread: LiveThread | None = None) -> Liv
     thread = thread if thread is not None else LiveThread()
     for line in lines:
         kind = line.get("genre")
-        if kind == GENRE_TOUR:
+        if kind == KIND_TURN:
             _replay_turn(thread, line)
-        elif kind == GENRE_CORRECTION:
+        elif kind == KIND_CORRECTION:
             _replay_correction(thread, line)
-        elif kind == GENRE_REUNION:
+        elif kind == KIND_MEETING:
             _replay_join(thread, line)
-        elif kind == GENRE_SEPARATION:
+        elif kind == KIND_SPLIT:
             _replay_split(thread, line)
     # A correction made in the window names a voice like another one, and the
     # join that follows belongs to the listening process. Replaying without it
@@ -188,8 +188,8 @@ def _replay_split(thread: LiveThread, line: dict[str, Any]) -> None:
     if not rendue or not target or rendue == target:
         return
     thread.split_apart.add(frozenset({rendue, target}))
-    gardee = thread.voice.get(target)
-    if rendue in thread.voice or gardee is None:
+    kept_one = thread.voice.get(target)
+    if rendue in thread.voice or kept_one is None:
         return
     numbers = {int(n) for n in line.get("numeros", [])}
     thread.reserve_identifier(rendue)
@@ -200,9 +200,9 @@ def _replay_split(thread: LiveThread, line: dict[str, Any]) -> None:
         certainty=_certitude(line.get("certitude")),
         rank=int(line.get("rang", 0)),
     )
-    if gardee.certainty is not Certainty.HUMAINE:
-        gardee.name = line.get("nom_cible")
-        gardee.certainty = _certitude(line.get("certitude_cible"))
+    if kept_one.certainty is not Certainty.HUMAINE:
+        kept_one.name = line.get("nom_cible")
+        kept_one.certainty = _certitude(line.get("certitude_cible"))
     for turn in thread.turns:
         if turn.voice == target and turn.number in numbers:
             turn.voice = rendue
@@ -219,18 +219,18 @@ def _replay_join(thread: LiveThread, line: dict[str, Any]) -> None:
     source, target = str(line.get("voix", "")), str(line.get("vers", ""))
     if not source or not target or source == target:
         return
-    avalee, gardee = thread.voice.get(source), thread.voice.get(target)
-    if avalee is None or gardee is None:
+    avalee, kept_one = thread.voice.get(source), thread.voice.get(target)
+    if avalee is None or kept_one is None:
         for turn in thread.turns:
             if turn.voice == source:
                 turn.voice = target
         thread.voice.pop(source, None)
         return
-    ferme_avant = avalee.certainty.firm
-    nom_avant, certitude_avant = avalee.name, avalee.certainty
+    closed_before = avalee.certainty.firm
+    name_before, certitude_avant = avalee.name, avalee.certainty
     thread.join_into(source, target)
-    if not gardee.certainty.firm and ferme_avant:
-        gardee.name, gardee.certainty = nom_avant, certitude_avant
+    if not kept_one.certainty.firm and closed_before:
+        kept_one.name, kept_one.certainty = name_before, certitude_avant
 
 def _replay_turn(thread: LiveThread, line: dict[str, Any]) -> None:
     identifier = str(line.get("voix", ""))
@@ -323,19 +323,19 @@ class Follower:
         if not kept:
             return []
 
-        nouveaux: list[LiveTurn] = []
+        new_ones: list[LiveTurn] = []
         lines: list[dict[str, Any]] = []
         for block in blocks(kept, globaux):
             voiceprint = self._voiceprint(slice_, block, local_spans, offset)
             voice = self.thread.attach(voiceprint, block.local)
             for turn in self.thread.record_turn(block, voice):
-                nouveaux.append(turn)
-                lines.append(_ligne_tour(turn, self.thread.voice[voice]))
+                new_ones.append(turn)
+                lines.append(_turn_line(turn, self.thread.voice[voice]))
         for source, target in self.thread.stitch():
-            lines.append(_ligne_reunion(source, target))
+            lines.append(_meeting_line(source, target))
         add(self.log, lines)
         self.learn_named_voices()
-        return nouveaux
+        return new_ones
 
     def _voiceprint(
         self, slice_: Path, block: Block, local_spans: list[Span], offset: float
@@ -371,15 +371,15 @@ class Follower:
             if "separer" in line:
                 defaite = self.thread.split(str(line["separer"]))
                 if defaite is not None:
-                    confirmations.append(_ligne_separation(defaite))
+                    confirmations.append(_split_line(defaite))
                 continue
             correction = self._appliquer(line)
             if correction is None:
                 continue
             faites.append(correction)
-            confirmations.append(_ligne_correction(correction))
+            confirmations.append(_correction_line(correction))
         for source, target in self.thread.join_namesakes():
-            confirmations.append(_ligne_reunion(source, target))
+            confirmations.append(_meeting_line(source, target))
         add(self.log, confirmations)
         self.learn_named_voices()
         return faites
@@ -416,7 +416,7 @@ class Follower:
 
     def annoncer(self, message: str, active: bool = True) -> None:
         """Tells the window what the live thread can do, or why it cannot."""
-        add(self.log, [{"genre": GENRE_ETAT, "message": message, "actif": active}])
+        add(self.log, [{"genre": KIND_STATE, "message": message, "actif": active}])
 
 def known_people(bank: outbound.VoiceBank | None) -> list[Person]:
     """The voice bank, or nothing when it cannot be read."""

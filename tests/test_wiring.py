@@ -44,19 +44,19 @@ class TestWhoTranscribes:
     def test_elsewhere_faster_whisper_carries_the_model_name(self, config):
         config.transcription.engine = "faster-whisper"
         config.transcription.model = "large-v3"
-        assert wiring._transcriber(config).taille == "large-v3"
+        assert wiring._transcriber(config).size == "large-v3"
 
     def test_the_live_one_follows_the_setting_when_there_is_one(self, config):
         """The live thread wants fast rather than precise: it is a choice."""
         config.transcription.engine = "faster-whisper"
         config.live.model = "small"
-        assert wiring.light_transcriber(config).taille == "small"
+        assert wiring.light_transcriber(config).size == "small"
 
     def test_with_no_whisper_cpp_model_the_live_one_gives_up(self, config):
         """Nothing to transcribe with, and saying so beats guessing."""
         config.transcription.engine = "whisper.cpp"
-        for modele in config.paths.models.glob("ggml-*.bin"):
-            modele.unlink()
+        for model in config.paths.models.glob("ggml-*.bin"):
+            model.unlink()
         assert wiring.light_transcriber(config) is None
 
 
@@ -69,8 +69,8 @@ class TestWhoWritesTheMinutes:
         config.minutes.engine = "claude"
         config.minutes.timeout = 600
         config.minutes.language = "fr"
-        redacteur = wiring.writer(config)
-        assert redacteur.timeout == 600 and redacteur.language == "fr"
+        writer = wiring.writer(config)
+        assert writer.timeout == 600 and writer.language == "fr"
 
     def test_no_writer_at_all_is_a_setting(self, config):
         """« aucun »: transcribe, name the voices, and stop there."""
@@ -82,8 +82,8 @@ class TestWhoAnswersInTheMeeting:
     def test_the_assistant_is_not_the_writer(self, config):
         """Its instructions are its own: it answers, it does not write minutes."""
         config.minutes.engine = "claude"
-        assert wiring.assistant(config).consignes_propres
-        assert not (wiring.writer(config).consignes_propres)
+        assert wiring.assistant(config).own_guidance
+        assert not (wiring.writer(config).own_guidance)
 
     def test_the_web_tools_follow_the_setting(self, config):
         config.minutes.engine = "claude"
@@ -112,7 +112,7 @@ class TestWhatEarlierMeetingsLeft:
 
 
 @pytest.fixture
-def sans_charger_les_modeles(monkeypatch):
+def without_loading_the_models(monkeypatch):
     """The extractor really loads its network; wiring is not the place to.
 
     An empty file is enough to prove a path is passed along, and onnxruntime
@@ -127,17 +127,17 @@ def sans_charger_les_modeles(monkeypatch):
     monkeypatch.setattr(wiring, "TitaNetExtractor", Doublure)
 
 
-@pytest.mark.usefixtures("sans_charger_les_modeles")
+@pytest.mark.usefixtures("without_loading_the_models")
 class TestTheWholeChain:
     def test_it_stands_up_from_the_settings_alone(self, config):
         """The chain is built before a meeting, not during it."""
         config.minutes.engine = "aucun"
         config.transcription.engine = "faster-whisper"
-        chaine = wiring.wire_up(config)
-        assert chaine.transcriber is not None
-        assert chaine.diariser is not None
-        assert chaine.writer is None
-        assert chaine.memory is not None
+        chain = wiring.wire_up(config)
+        assert chain.transcriber is not None
+        assert chain.diariser is not None
+        assert chain.writer is None
+        assert chain.memory is not None
 
     def test_the_context_reaches_it(self, config):
         """The glossary is dictated to the writer, and it is wired here."""
@@ -163,9 +163,9 @@ class TestHowTheMinutesLeave:
         config.minutes.recipient = "equipe@exemple.fr"
         config.email.server = "smtp.exemple.fr"
         config.email.port = 587
-        envoi = wiring._sender(config)
-        assert type(envoi).__name__ == "SmtpSender"
-        assert envoi.port == 587
+        sending = wiring._sender(config)
+        assert type(sending).__name__ == "SmtpSender"
+        assert sending.port == 587
 
     def test_with_no_server_the_minutes_land_in_a_folder(self, config, monkeypatch):
         """Linux and Windows: a folder is an honest way of not sending."""
@@ -184,26 +184,26 @@ class TestHowTheMinutesLeave:
         """Rewriting minutes is not sending them."""
         config.minutes.recipient = ""
         config.email.server = "smtp.exemple.fr"
-        assert wiring._sender(config, exiger_destinataire=False) is not None
+        assert wiring._sender(config, require_recipient=False) is not None
 
 
 class TestTheRecording:
     def test_it_knows_where_the_audio_and_the_state_go(self, config):
-        enregistrement = wiring.recording(config)
-        assert enregistrement.dossier_audio == config.paths.recordings
-        assert enregistrement.fichier_etat.name == "etat.json"
+        recording = wiring.recording(config)
+        assert recording.audio_folder == config.paths.recordings
+        assert recording.state_file.name == "etat.json"
 
     def test_the_microphone_and_the_ceiling_come_from_the_settings(self, config):
         """Four hours by default: a meeting that never stopped filled a disk."""
         config.audio.input = "Jabra"
         config.audio.maximum_length = 7200
         capture = wiring._audio_recorder(config)
-        assert capture.peripherique == "Jabra" and capture.maximum_length == 7200
+        assert capture.device == "Jabra" and capture.maximum_length == 7200
 
 
 class TestAMeetingPreparedBeforehand:
     def test_the_chain_opens_on_what_was_gathered(self, config,
-                                                  sans_charger_les_modeles):
+                                                  without_loading_the_models):
         from greffier.adapters import preparations_file
 
         config.minutes.engine = "aucun"
@@ -212,16 +212,16 @@ class TestAMeetingPreparedBeforehand:
             config.paths.preparations,
             preparation.raising("valider les anomalies").expecting("Jacques"),
         )
-        chaine = wiring.wire_up(config)
-        assert "valider les anomalies" in chaine.context_header
-        assert chaine.expected_people == ("Jacques",)
+        chain = wiring.wire_up(config)
+        assert "valider les anomalies" in chain.context_header
+        assert chain.expected_people == ("Jacques",)
 
     def test_a_meeting_prepared_by_nobody_opens_on_nothing(
-            self, config, sans_charger_les_modeles):
+            self, config, without_loading_the_models):
         config.minutes.engine = "aucun"
-        chaine = wiring.wire_up(config)
-        assert "Préparation" not in chaine.context_header
-        assert chaine.expected_people == ()
+        chain = wiring.wire_up(config)
+        assert "Préparation" not in chain.context_header
+        assert chain.expected_people == ()
 
     def test_taking_it_leaves_none_for_the_next_meeting(self, config):
         """Consumed once: two meetings would each believe it was theirs."""
@@ -296,19 +296,19 @@ class TestQuiEcouteUneQuestionDictee:
     def test_it_is_the_small_one(self, config):
         config.transcription.engine = "faster-whisper"
         config.transcription.model = "large-v3"
-        assert wiring.dictation_transcriber(config).taille == wiring.DICTATION_MODEL
+        assert wiring.dictation_transcriber(config).size == wiring.DICTATION_MODEL
 
     def test_it_does_not_follow_the_meeting_model(self, config):
         config.transcription.engine = "faster-whisper"
         config.transcription.model = "large-v3"
-        ecoute = wiring.dictation_transcriber(config)
-        assert ecoute.taille != wiring._transcriber(config).taille
+        listening = wiring.dictation_transcriber(config)
+        assert listening.size != wiring._transcriber(config).size
 
     def test_whisper_cpp_keeps_the_models_it_has(self, config):
         """macOS does not download one more model to dictate a sentence."""
         config.transcription.engine = "whisper.cpp"
-        ecoute = wiring.dictation_transcriber(config)
-        assert ecoute is None or ecoute.model.name.startswith("ggml-")
+        listening = wiring.dictation_transcriber(config)
+        assert listening is None or listening.model.name.startswith("ggml-")
 
     def test_it_can_be_opened_before_anybody_speaks(self, config):
         config.transcription.engine = "faster-whisper"

@@ -10,9 +10,9 @@ from greffier.domain.graph import Edge, Kind, Link, Node
 
 @pytest.fixture
 def file(tmp_path):
-    fichier = tmp_path / "graphe.sqlite3"
+    file = tmp_path / "graphe.sqlite3"
     graphe.write(
-        fichier,
+        file,
         [Node(Kind.MEETING, "2026-09-12_recette"), Node(Kind.MEETING, "2026-09-05_recette"),
          Node(Kind.SUBJECT, "recette"), Node(Kind.PERSON, "Jacques"),
          Node(Kind.PERSON, "Sophie"), Node(Kind.DOCUMENT, "cahier.pdf")],
@@ -25,7 +25,7 @@ def file(tmp_path):
          Edge(Link.SUPPLIED, (Kind.DOCUMENT, "cahier.pdf"),
               (Kind.MEETING, "2026-09-12_recette"))],
     )
-    return fichier
+    return file
 
 
 class TestWhatIsKnownAboutASubject:

@@ -53,9 +53,9 @@ class TestTheVerdict:
         assert "ne se refait pas" in said_in_french(nothing_left)
 
     def test_the_line_shown_during_a_meeting_is_shorter(self) -> None:
-        dit = said_during_the_meeting(room_for(20))
-        assert dit.startswith("Plus que")
-        assert len(dit) < len(said_in_french(room_for(20)))
+        said = said_during_the_meeting(room_for(20))
+        assert said.startswith("Plus que")
+        assert len(said) < len(said_in_french(room_for(20)))
 
 
 class TestSayingItInHoursAndMinutes:

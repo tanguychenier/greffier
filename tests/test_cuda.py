@@ -19,12 +19,12 @@ import pytest
 
 from greffier.adapters import cuda as adaptateur
 
-SOUS_LINUX = ("cublas/lib/libcublas.so.12", "cublas/lib/libcublasLt.so.12",
+ON_LINUX = ("cublas/lib/libcublas.so.12", "cublas/lib/libcublasLt.so.12",
               "cudnn/lib/libcudnn.so.9", "cudnn/lib/libcudnn_graph.so.9",
               "cuda_nvrtc/lib/libnvrtc.so.12", "cuda_runtime/lib/libcudart.so.12",
               "cufft/lib/libcufft.so.11", "curand/lib/libcurand.so.10")
 
-SOUS_WINDOWS = ("cublas/bin/cublas64_12.dll", "cublas/bin/cublasLt64_12.dll",
+ON_WINDOWS = ("cublas/bin/cublas64_12.dll", "cublas/bin/cublasLt64_12.dll",
                 "cudnn/bin/cudnn64_9.dll", "cudnn/bin/cudnn_graph64_9.dll",
                 "cuda_nvrtc/bin/nvrtc64_120_0.dll", "cuda_runtime/bin/cudart64_12.dll",
                 "cufft/bin/cufft64_11.dll", "curand/bin/curand64_10.dll")
@@ -46,13 +46,13 @@ def _poser(monkeypatch, tmp_path, fichiers):
 @pytest.fixture
 def wheels_in(monkeypatch, tmp_path):
     monkeypatch.setattr(adaptateur, "SYSTEM", "Linux")
-    return _poser(monkeypatch, tmp_path, SOUS_LINUX)
+    return _poser(monkeypatch, tmp_path, ON_LINUX)
 
 
 @pytest.fixture
 def wheels_under_windows(monkeypatch, tmp_path):
     monkeypatch.setattr(adaptateur, "SYSTEM", "Windows")
-    return _poser(monkeypatch, tmp_path, SOUS_WINDOWS)
+    return _poser(monkeypatch, tmp_path, ON_WINDOWS)
 
 
 class TestBibliothequesTrouvees:
@@ -138,11 +138,11 @@ class TestUneCarteRepond:
     def test_the_driver_is_asked_only_once(self, monkeypatch):
         appels = []
 
-        def compte(*_a, **_k):
+        def account(*_a, **_k):
             appels.append(1)
             return _Pilote(1)
 
-        monkeypatch.setattr(adaptateur.ctypes, "CDLL", compte)
+        monkeypatch.setattr(adaptateur.ctypes, "CDLL", account)
         adaptateur.a_card_answers()
         adaptateur.a_card_answers()
         assert len(appels) == 1
@@ -216,7 +216,7 @@ class TestGarderLaPlace:
         monkeypatch.setattr(adaptateur, "_place_kept", False)
 
     @pytest.fixture
-    def sherpa_muet(self, monkeypatch):
+    def silent_sherpa(self, monkeypatch):
         """The model weighs a hundred megabytes: here the openings are counted."""
         ouvertures = []
         monkeypatch.setitem(
@@ -229,32 +229,32 @@ class TestGarderLaPlace:
         monkeypatch.setattr(adaptateur, "show_to_the_loader", lambda: None)
         return ouvertures
 
-    def test_the_place_is_kept_once(self, monkeypatch, tmp_path, sherpa_muet):
+    def test_the_place_is_kept_once(self, monkeypatch, tmp_path, silent_sherpa):
         monkeypatch.setattr(adaptateur, "a_card_answers", lambda: True)
         monkeypatch.delitem(sys.modules, "onnxruntime", raising=False)
-        modele = tmp_path / "empreintes.onnx"
-        modele.touch()
-        adaptateur.keep_the_place(modele)
-        adaptateur.keep_the_place(modele)
-        assert len(sherpa_muet) == 1, "ouvrir deux fois coûterait une seconde pour rien"
-        assert sherpa_muet[0]["provider"] == "cuda"
+        model = tmp_path / "empreintes.onnx"
+        model.touch()
+        adaptateur.keep_the_place(model)
+        adaptateur.keep_the_place(model)
+        assert len(silent_sherpa) == 1, "ouvrir deux fois coûterait une seconde pour rien"
+        assert silent_sherpa[0]["provider"] == "cuda"
 
-    def test_a_machine_without_a_card_keeps_nothing(self, monkeypatch, tmp_path, sherpa_muet):
+    def test_a_machine_without_a_card_keeps_nothing(self, monkeypatch, tmp_path, silent_sherpa):
         monkeypatch.setattr(adaptateur, "a_card_answers", lambda: False)
-        modele = tmp_path / "empreintes.onnx"
-        modele.touch()
-        adaptateur.keep_the_place(modele)
-        assert sherpa_muet == []
+        model = tmp_path / "empreintes.onnx"
+        model.touch()
+        adaptateur.keep_the_place(model)
+        assert silent_sherpa == []
 
-    def test_a_missing_model_keeps_nothing(self, monkeypatch, tmp_path, sherpa_muet):
+    def test_a_missing_model_keeps_nothing(self, monkeypatch, tmp_path, silent_sherpa):
         """Before the first installation of the models, there is nothing to open."""
         monkeypatch.setattr(adaptateur, "a_card_answers", lambda: True)
         monkeypatch.delitem(sys.modules, "onnxruntime", raising=False)
         adaptateur.keep_the_place(tmp_path / "absent.onnx")
-        assert sherpa_muet == []
+        assert silent_sherpa == []
 
     def test_a_model_that_refuses_does_not_stop_the_meeting(
-        self, monkeypatch, tmp_path, sherpa_muet
+        self, monkeypatch, tmp_path, silent_sherpa
     ):
         monkeypatch.setattr(adaptateur, "a_card_answers", lambda: True)
         monkeypatch.delitem(sys.modules, "onnxruntime", raising=False)
@@ -265,9 +265,9 @@ class TestGarderLaPlace:
                 SpeakerEmbeddingExtractor=_qui_refuse,
             ),
         )
-        modele = tmp_path / "empreintes.onnx"
-        modele.touch()
-        adaptateur.keep_the_place(modele)
+        model = tmp_path / "empreintes.onnx"
+        model.touch()
+        adaptateur.keep_the_place(model)
 
 
 def _qui_refuse(_config):
@@ -283,13 +283,13 @@ class TestLesTroisSystemes:
     """
 
     def test_windows_looks_for_its_dll(self, wheels_under_windows):
-        noms = [chemin.name for chemin in adaptateur.libraries("Windows")]
+        noms = [path.name for path in adaptateur.libraries("Windows")]
         assert set(noms) == {"cublas64_12.dll", "cublasLt64_12.dll", "cudnn64_9.dll",
                              "cudnn_graph64_9.dll", "nvrtc64_120_0.dll",
                              "cudart64_12.dll", "cufft64_11.dll", "curand64_10.dll"}
 
     def test_windows_loads_cublaslt_before_cublas(self, wheels_under_windows):
-        noms = [chemin.name for chemin in adaptateur.libraries("Windows")]
+        noms = [path.name for path in adaptateur.libraries("Windows")]
         assert noms.index("cublasLt64_12.dll") < noms.index("cublas64_12.dll")
 
     def test_macos_has_nothing_to_load(self, wheels_in):
@@ -314,7 +314,7 @@ class TestLesTroisSystemes:
         monkeypatch.setattr(adaptateur, "SYSTEM", system)
         monkeypatch.setattr(
             adaptateur.ctypes, "CDLL",
-            lambda nom, **_k: (demandes.append(nom), _Pilote(1))[1],
+            lambda name, **_k: (demandes.append(name), _Pilote(1))[1],
         )
         adaptateur.a_card_answers.cache_clear()
         assert adaptateur.a_card_answers() is True

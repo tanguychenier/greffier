@@ -47,28 +47,28 @@ def read(folder: Path, identifier: str) -> Preparation | None:
     if not file.exists():
         return None
     try:
-        lu = json.loads(file.read_text(encoding="utf-8"))
+        read_ = json.loads(file.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return None
-    if not isinstance(lu, dict) or not lu.get("identifier"):
+    if not isinstance(read_, dict) or not read_.get("identifier"):
         return None
     return Preparation(
-        identifier=str(lu["identifier"]),
-        subject=str(lu.get("subject", "")),
-        opened_on=str(lu.get("opened_on", "")),
+        identifier=str(read_["identifier"]),
+        subject=str(read_.get("subject", "")),
+        opened_on=str(read_.get("opened_on", "")),
         exchanges=tuple(
             Exchange(asked=str(e.get("asked", "")), answered=str(e.get("answered", "")))
-            for e in lu.get("exchanges") or []
+            for e in read_.get("exchanges") or []
             if isinstance(e, dict)
         ),
-        documents=tuple(lu.get("documents") or ()),
-        to_raise=tuple(lu.get("to_raise") or ()),
-        expected=tuple(lu.get("expected") or ()),
-        taken_by=str(lu.get("taken_by", "")),
+        documents=tuple(read_.get("documents") or ()),
+        to_raise=tuple(read_.get("to_raise") or ()),
+        expected=tuple(read_.get("expected") or ()),
+        taken_by=str(read_.get("taken_by", "")),
     )
 
 
-def lister(folder: Path) -> list[Preparation]:
+def list_(folder: Path) -> list[Preparation]:
     """The preparations, most recent first."""
     if not folder.is_dir():
         return []
@@ -82,4 +82,4 @@ def waiting(folder: Path) -> Preparation | None:
     The most recent that no meeting has taken. Consumed once: two meetings
     opening on the same material would each believe it was theirs.
     """
-    return next((p for p in lister(folder) if p.available), None)
+    return next((p for p in list_(folder) if p.available), None)

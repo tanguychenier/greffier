@@ -192,7 +192,7 @@ def strategies(
         kept.append(
             (
                 f"pairs + adoption + consolidation {threshold:.2f}",
-                domain.stitch(voiceprints, seuil_consolidation=threshold),
+                domain.stitch(voiceprints, consolidation_threshold=threshold),
             )
         )
     kept.append(("product (0.75 / 0.45 / 0.70)", domain.stitch(voiceprints)))

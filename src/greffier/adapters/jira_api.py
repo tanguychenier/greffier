@@ -47,13 +47,13 @@ def _appeler(
     corps: dict[str, Any] | None = None,
 ) -> object:
     adresse, secret = _identifiers(token)
-    autorisation = base64.b64encode(f"{adresse}:{secret}".encode()).decode()
+    authorisation = base64.b64encode(f"{adresse}:{secret}".encode()).decode()
     requete = urllib.request.Request(
         f"{source.adresse}/rest/api/3{path}",
         method=methode,
         data=json.dumps(corps).encode("utf-8") if corps is not None else None,
         headers={
-            "Authorization": f"Basic {autorisation}",
+            "Authorization": f"Basic {authorisation}",
             "Accept": "application/json",
             "Content-Type": "application/json",
         },

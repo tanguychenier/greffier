@@ -10,7 +10,7 @@ from greffier.adapters import gitlab_api
 from greffier.domain.sources import Kind, Right, Source
 
 
-def source(droit: Right = Right.LECTURE) -> Source:
+def source(droit: Right = Right.READING) -> Source:
     return Source(
         name="recherche", kind=Kind.GITLAB,
         adresse="https://gitlab.example.fr", project="equipe/outil",
@@ -44,9 +44,9 @@ class FakeGitLab:
 
 @pytest.fixture
 def gitlab(monkeypatch) -> FakeGitLab:
-    faux = FakeGitLab()
-    monkeypatch.setattr(gitlab_api.urllib.request, "urlopen", faux)
-    return faux
+    wrong = FakeGitLab()
+    monkeypatch.setattr(gitlab_api.urllib.request, "urlopen", wrong)
+    return wrong
 
 
 @pytest.fixture
@@ -111,7 +111,7 @@ class TestReadingFromGitLab:
         assert "search=envoi" in gitlab.first_call.full_url
 
     def test_reading_asks_for_no_write_right(self, gitlab):
-        assert gitlab_api.tickets(source(Right.LECTURE), "glpat-x") == []
+        assert gitlab_api.tickets(source(Right.READING), "glpat-x") == []
 
     def test_the_merge_requests_read_too(self, gitlab):
         gitlab.charge = [UN_TICKET]

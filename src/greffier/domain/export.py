@@ -104,11 +104,11 @@ def blocks_of(
     precedent: str | None = None
     for utterance in sorted(utterances, key=lambda u: u.span.start):
         who = named.get(utterance.voice or "", "")
-        texte = utterance.text.strip()
+        text = utterance.text.strip()
         if name_in_text and who and who != precedent:
-            texte = f"{who} : {texte}"
+            text = f"{who} : {text}"
         precedent = who
-        lines = wrap(texte, width)
+        lines = wrap(text, width)
         if not lines:
             continue
         paquets = [
@@ -143,22 +143,22 @@ def _clock(seconds: float, comma: bool) -> str:
     milli = round((seconds - entier) * 1000)
     if milli == 1000:                       # 1.9996 s rounds to 2 s, not to 1,1000
         entier, milli = entier + 1, 0
-    hours, reste = divmod(entier, 3600)
-    minutes, secondes = divmod(reste, 60)
+    hours, rest = divmod(entier, 3600)
+    minutes, secondes = divmod(rest, 60)
     mark = "," if comma else "."
     return f"{hours:02d}:{minutes:02d}:{secondes:02d}{mark}{milli:03d}"
 
 
 def srt(utterances: Sequence[Utterance], names: dict[str, str] | None = None) -> str:
     """Subtitles as every player reads them, the speaker in front of the line."""
-    morceaux = []
-    blocs = blocks_of(utterances, names, name_in_text=True)
-    for rank, block in enumerate(blocs, start=1):
-        morceaux.append(
+    chunks = []
+    blocks = blocks_of(utterances, names, name_in_text=True)
+    for rank, block in enumerate(blocks, start=1):
+        chunks.append(
             f"{rank}\n{_clock(block.start, True)} --> {_clock(block.end, True)}\n"
             f"{block.text}\n"
         )
-    return "\n".join(morceaux)
+    return "\n".join(chunks)
 
 
 def vtt(utterances: Sequence[Utterance], names: dict[str, str] | None = None) -> str:
@@ -167,13 +167,13 @@ def vtt(utterances: Sequence[Utterance], names: dict[str, str] | None = None) ->
     `<v Sophie>` is what lets a page style or filter by speaker; written into
     the line as « Sophie : », the name is just more characters to read.
     """
-    morceaux = ["WEBVTT\n"]
+    chunks = ["WEBVTT\n"]
     for block in blocks_of(utterances, names):
         text = f"<v {block.who}>{block.text}" if block.who else block.text
-        morceaux.append(
+        chunks.append(
             f"{_clock(block.start, False)} --> {_clock(block.end, False)}\n{text}\n"
         )
-    return "\n".join(morceaux)
+    return "\n".join(chunks)
 
 
 def sheet(utterances: Sequence[Utterance], names: dict[str, str] | None = None) -> str:

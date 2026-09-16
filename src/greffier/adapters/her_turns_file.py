@@ -24,8 +24,8 @@ def keep(file: Path, start: float, end: float) -> None:
         return
     try:
         file.parent.mkdir(parents=True, exist_ok=True)
-        with file.open("a", encoding="utf-8") as sortie:
-            sortie.write(json.dumps({"de": round(start, 2), "a": round(end, 2)}) + "\n")
+        with file.open("a", encoding="utf-8") as output_:
+            output_.write(json.dumps({"de": round(start, 2), "a": round(end, 2)}) + "\n")
     except OSError:
         pass
 
@@ -34,13 +34,13 @@ def read(file: Path) -> list[tuple[float, float]]:
     if not file.exists():
         return []
     intervalles: list[tuple[float, float]] = []
-    for ligne in file.read_text(encoding="utf-8").splitlines():
-        ligne = ligne.strip()
-        if not ligne:
+    for line in file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
             continue
         try:
-            lu = json.loads(ligne)
-            intervalles.append((float(lu["de"]), float(lu["a"])))
+            read_ = json.loads(line)
+            intervalles.append((float(read_["de"]), float(read_["a"])))
         except (json.JSONDecodeError, KeyError, TypeError, ValueError):
             continue
     return intervalles

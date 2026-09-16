@@ -25,7 +25,7 @@ class TestFile:
         file = questions_file(tmp_path, "2026-09-09_10h05_reunion")
         publish(file, question())
         awaiting, answers = read(file)
-        assert [en_attente.question.expected for en_attente in awaiting] == ["backlog"]
+        assert [waiting.question.expected for waiting in awaiting] == ["backlog"]
         assert answers == {}
 
     def test_une_question_repondue_quitte_l_attente(self, tmp_path):
@@ -60,7 +60,7 @@ class TestFile:
         publish(file, question(number=2, heard="mrege", expected="merge"))
         publish(file, question(number=1))
         awaiting, _ = read(file)
-        assert [en_attente.number for en_attente in awaiting] == [1, 2]
+        assert [waiting.number for waiting in awaiting] == [1, 2]
 
 
 class TestMemoireApresRedemarrage:
@@ -103,13 +103,13 @@ class TestTheQueueSurvivesARestart:
         awaiting, _ = questions_file.read(queue)
 
         conversation = conversations_file.file_for(tmp_path / "conv", "reunion")
-        for en_attente in awaiting:
+        for waiting in awaiting:
             conversations_file.add(conversation, "note",
-                                   note(en_attente.question.text))
+                                   note(waiting.question.text))
 
         relu = conversations_file.read(conversation, derniers=0)
         assert already_noted(
-            [en_attente.question for en_attente in awaiting],
+            [waiting.question for waiting in awaiting],
             [turn.text for turn in relu],
         ) == {1, 2}
 
@@ -118,12 +118,12 @@ class TestTheQueueSurvivesARestart:
         from greffier.domain.questions import Question, Reason, already_noted, note
 
         queue = tmp_path / "questions" / "reunion.jsonl"
-        premiere = Question(number=1, text="J'ai entendu « Spring ».",
+        first_one = Question(number=1, text="J'ai entendu « Spring ».",
                             motif=Reason.NEAR_TERM, heard="Spring",
                             expected="sprint")
-        questions_file.publish(queue, premiere)
+        questions_file.publish(queue, first_one)
         conversation = conversations_file.file_for(tmp_path / "conv", "reunion")
-        conversations_file.add(conversation, "note", note(premiere.text))
+        conversations_file.add(conversation, "note", note(first_one.text))
 
         questions_file.publish(queue, Question(
             number=2, text="J'ai entendu « merde ».", motif=Reason.NEAR_TERM,
@@ -131,6 +131,6 @@ class TestTheQueueSurvivesARestart:
         awaiting, _ = questions_file.read(queue)
         relu = conversations_file.read(conversation, derniers=0)
         assert already_noted(
-            [en_attente.question for en_attente in awaiting],
+            [waiting.question for waiting in awaiting],
             [turn.text for turn in relu],
         ) == {1}

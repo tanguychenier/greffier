@@ -28,9 +28,9 @@ def remember(file: Path, trace: Trace) -> None:
     if trace.empty:
         return
     file.parent.mkdir(parents=True, exist_ok=True)
-    ligne = json.dumps(asdict(trace), ensure_ascii=False)
-    with file.open("a", encoding="utf-8") as sortie:
-        sortie.write(ligne + "\n")
+    line = json.dumps(asdict(trace), ensure_ascii=False)
+    with file.open("a", encoding="utf-8") as output_:
+        output_.write(line + "\n")
 
 
 def recall(file: Path, limit: int = DERNIERES) -> list[Trace]:
@@ -42,24 +42,24 @@ def recall(file: Path, limit: int = DERNIERES) -> list[Trace]:
     if not file.exists():
         return []
     traces: list[Trace] = []
-    for ligne in file.read_text(encoding="utf-8").splitlines():
-        ligne = ligne.strip()
-        if not ligne:
+    for line in file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
             continue
         try:
-            lu = json.loads(ligne)
+            read_ = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if not isinstance(lu, dict) or "identifier" not in lu:
+        if not isinstance(read_, dict) or "identifier" not in read_:
             continue
         traces.append(Trace(
-            identifier=str(lu.get("identifier", "")),
-            title=str(lu.get("title", "")),
-            held_on=str(lu.get("held_on", "")),
-            people=tuple(lu.get("people") or ()),
-            decisions=tuple(lu.get("decisions") or ()),
-            open_points=tuple(lu.get("open_points") or ()),
-            documents=tuple(lu.get("documents") or ()),
+            identifier=str(read_.get("identifier", "")),
+            title=str(read_.get("title", "")),
+            held_on=str(read_.get("held_on", "")),
+            people=tuple(read_.get("people") or ()),
+            decisions=tuple(read_.get("decisions") or ()),
+            open_points=tuple(read_.get("open_points") or ()),
+            documents=tuple(read_.get("documents") or ()),
         ))
     derniers = traces[-limit:]
     derniers.reverse()

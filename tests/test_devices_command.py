@@ -53,17 +53,17 @@ class TestWhichMicrophoneIsUsed:
 
     def test_failing_that_the_one_in_the_settings(self, sur_macos, swift, tmp_path):
         """A microphone chosen once in the window is a microphone chosen."""
-        reglages = tmp_path / "config.toml"
-        reglages.write_text('[audio]\nmicro = "Rode NT-USB"\n', encoding="utf-8")
-        runner.invoke(application, ["peripheriques", "--config", str(reglages)])
+        settings = tmp_path / "config.toml"
+        settings.write_text('[audio]\nmicro = "Rode NT-USB"\n', encoding="utf-8")
+        runner.invoke(application, ["peripheriques", "--config", str(settings)])
         assert swift[0][swift[0].index("--mic") + 1] == "Rode NT-USB"
 
     def test_with_neither_it_refuses_rather_than_guesses(
             self, sur_macos, swift, tmp_path):
-        reglages = tmp_path / "config.toml"
-        reglages.write_text("[audio]\n", encoding="utf-8")
+        settings = tmp_path / "config.toml"
+        settings.write_text("[audio]\n", encoding="utf-8")
         answered = runner.invoke(
-            application, ["peripheriques", "--config", str(reglages)])
+            application, ["peripheriques", "--config", str(settings)])
         assert answered.exit_code == 1
         # On the error output: it is one, and a script calling the
         # command has to be able to tell the message from the rest.
@@ -72,10 +72,10 @@ class TestWhichMicrophoneIsUsed:
 
     def test_listing_needs_no_microphone(self, sur_macos, swift, tmp_path):
         """Asking what exists is precisely what one does when one does not know."""
-        reglages = tmp_path / "config.toml"
-        reglages.write_text("[audio]\n", encoding="utf-8")
+        settings = tmp_path / "config.toml"
+        settings.write_text("[audio]\n", encoding="utf-8")
         answered = runner.invoke(
-            application, ["peripheriques", "--lister", "--config", str(reglages)])
+            application, ["peripheriques", "--lister", "--config", str(settings)])
         assert answered.exit_code == 0
         assert "--list" in swift[0]
 
@@ -86,6 +86,6 @@ class TestTheSwiftScriptCarriesNoHardware:
         from pathlib import Path
 
         source = Path(__file__).resolve().parent.parent / "macos/creer-peripheriques.swift"
-        texte = source.read_text(encoding="utf-8")
-        assert 'option("--mic", "")' in texte
-        assert "Jabra" not in texte
+        text = source.read_text(encoding="utf-8")
+        assert 'option("--mic", "")' in text
+        assert "Jabra" not in text

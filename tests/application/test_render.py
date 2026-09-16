@@ -10,7 +10,7 @@ from greffier.domain.models import Span, SpeakerTurn, Utterance
 
 
 def a_meeting(**overrides) -> StoredMeeting:
-    defauts = dict(
+    defects = dict(
         identifier="2026-08-24_reunion",
         audio=Path("/tmp/r.wav"),
         processed_at=datetime.now(UTC),
@@ -23,8 +23,8 @@ def a_meeting(**overrides) -> StoredMeeting:
         warnings=[],
         hardware_events=[],
     )
-    defauts.update(overrides)
-    return StoredMeeting(**defauts)
+    defects.update(overrides)
+    return StoredMeeting(**defects)
 
 
 class FakeWriter:
@@ -95,18 +95,18 @@ class TestTheInstructionsGivenDuringTheMeeting:
     """
 
     def test_every_instruction_is_dictated(self):
-        entete = render.instructions_header([
+        header = render.instructions_header([
             "Il n'y a pas de sophie dans la réunion",
             "Pascal n'a pas dit booting, mais blue team",
         ])
-        assert "Il n'y a pas de sophie" in entete
-        assert "blue team" in entete
+        assert "Il n'y a pas de sophie" in header
+        assert "blue team" in header
 
     def test_the_header_says_they_win(self):
         """Sans cela le rédacteur arbitre entre la consigne et la transcription."""
-        entete = render.instructions_header(["Il n'y a pas de sophie"])
-        assert "l'emportent" in entete
-        assert "Applique-les" in entete
+        header = render.instructions_header(["Il n'y a pas de sophie"])
+        assert "l'emportent" in header
+        assert "Applique-les" in header
 
     def test_with_no_instruction_there_is_no_header(self):
         assert render.instructions_header([]) == ""

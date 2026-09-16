@@ -10,9 +10,9 @@ import numpy as np
 
 from greffier.domain.channels import WhoSpeaks, who_speaks
 
-_ENTETE_MINIMAL = 44
+_MINIMAL_HEADER = 44
 
-FENETRE_S = 0.25
+WINDOW_S = 0.25
 
 @dataclass(frozen=True)
 class Shape:
@@ -21,7 +21,7 @@ class Shape:
     channels: int
     frequency: int
     bytes_per_sample: int
-    debut_donnees: int
+    data_start: int
 
     @property
     def bytes_per_frame(self) -> int:
@@ -55,14 +55,14 @@ def lire_forme(audio: Path) -> Shape | None:
             header = file.read(1024)
     except OSError:
         return None
-    if len(header) < _ENTETE_MINIMAL or header[:4] != b"RIFF" or header[8:12] != b"WAVE":
+    if len(header) < _MINIMAL_HEADER or header[:4] != b"RIFF" or header[8:12] != b"WAVE":
         return None
 
     channels = frequency = bits = 0
     position = 12
     while position + 8 <= len(header):
         name = header[position:position + 4]
-        taille = struct.unpack_from("<I", header, position + 4)[0]
+        size = struct.unpack_from("<I", header, position + 4)[0]
         corps = position + 8
         if name == b"fmt " and corps + 16 <= len(header):
             channels, frequency = struct.unpack_from("<HI", header, corps + 2)
@@ -72,24 +72,24 @@ def lire_forme(audio: Path) -> Shape | None:
                 return None
             return Shape(
                 channels=channels, frequency=frequency,
-                bytes_per_sample=bits // 8, debut_donnees=corps,
+                bytes_per_sample=bits // 8, data_start=corps,
             )
-        position = corps + taille + (taille % 2)
+        position = corps + size + (size % 2)
     return None
 
-def read_level(audio: Path, fenetre_s: float = FENETRE_S) -> LevelReading | None:
+def read_level(audio: Path, window_s: float = WINDOW_S) -> LevelReading | None:
     """The levels of the last fractions of a second written."""
     forme = lire_forme(audio)
     if forme is None or forme.bytes_per_sample != 2:
         return None
-    voulu = int(forme.frequency * fenetre_s) * forme.bytes_per_frame
+    voulu = int(forme.frequency * window_s) * forme.bytes_per_frame
     try:
-        taille = audio.stat().st_size
-        if taille <= forme.debut_donnees:
+        size = audio.stat().st_size
+        if size <= forme.data_start:
             return None
         with audio.open("rb") as file:
-            depart = max(forme.debut_donnees, taille - voulu)
-            depart -= (depart - forme.debut_donnees) % forme.bytes_per_frame
+            depart = max(forme.data_start, size - voulu)
+            depart -= (depart - forme.data_start) % forme.bytes_per_frame
             file.seek(depart)
             brut = file.read(voulu)
     except OSError:
@@ -121,8 +121,8 @@ def written_duration(audio: Path) -> float | None:
     if forme is None:
         return None
     try:
-        taille = audio.stat().st_size
+        size = audio.stat().st_size
     except OSError:
         return None
-    utiles = max(0, taille - forme.debut_donnees)
-    return utiles / (forme.frequency * forme.bytes_per_frame)
+    useful_ones = max(0, size - forme.data_start)
+    return useful_ones / (forme.frequency * forme.bytes_per_frame)

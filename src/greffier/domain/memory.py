@@ -45,8 +45,8 @@ class Trace:
 
     def rendered(self) -> str:
         """The trace as the writer reads it, one meeting in a few lines."""
-        quand = f" ({self.held_on})" if self.held_on else ""
-        lignes = [f"- {short_title(self.title) or self.identifier}{quand}"]
+        when = f" ({self.held_on})" if self.held_on else ""
+        lignes = [f"- {short_title(self.title) or self.identifier}{when}"]
         if self.people:
             lignes.append(f"  Présents : {', '.join(self.people)}")
         for intitule, points in (("Décidé", self.decisions),
@@ -82,13 +82,13 @@ def what_the_minutes_left(minutes: str) -> tuple[tuple[str, ...], tuple[str, ...
 def _bullets_under(minutes: str, which: str) -> tuple[str, ...]:
     sections = re.split(r"^##\s+", minutes, flags=re.M)[1:]
     for section in sections:
-        titre, _, corps = section.partition("\n")
-        if titre.strip().lower().rstrip(" :") not in _TITRES[which]:
+        title, _, corps = section.partition("\n")
+        if title.strip().lower().rstrip(" :") not in _TITRES[which]:
             continue
         points = [
-            re.sub(r"\s+", " ", ligne.lstrip("-*").strip())
-            for ligne in corps.splitlines()
-            if ligne.lstrip().startswith(("-", "*"))
+            re.sub(r"\s+", " ", line.lstrip("-*").strip())
+            for line in corps.splitlines()
+            if line.lstrip().startswith(("-", "*"))
         ]
         return tuple(p for p in points if p)
     return ()
@@ -100,23 +100,23 @@ def recalled(traces: list[Trace], place: int = RAPPEL_MAXIMUM) -> str:
     Cut by meeting and never mid-meeting: half a decision recalled is worse than
     a decision not recalled, because nothing says it was cut.
     """
-    retenues: list[str] = []
+    retained_ones: list[str] = []
     longueur = 0
     for trace in traces:
         if trace.empty:
             continue
-        rendu = trace.rendered()
-        if longueur + len(rendu) + 1 > place:
+        rendered = trace.rendered()
+        if longueur + len(rendered) + 1 > place:
             break
-        retenues.append(rendu)
-        longueur += len(rendu) + 1
-    if not retenues:
+        retained_ones.append(rendered)
+        longueur += len(rendered) + 1
+    if not retained_ones:
         return ""
     return (
         "[Ce que les réunions précédentes ont laissé]\n"
         "De la plus récente à la plus ancienne. N'y fais référence que si la "
         "réunion en cours y touche, et ne présente jamais un point ancien comme "
         "s'il venait d'être dit :\n"
-        + "\n".join(retenues)
+        + "\n".join(retained_ones)
         + "\n\n"
     )

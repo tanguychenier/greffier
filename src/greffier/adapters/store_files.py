@@ -122,7 +122,7 @@ class FileStore:
             ],
         )
 
-    def lister(self) -> list[str]:
+    def list_(self) -> list[str]:
         """The meetings, most recently **held** first."""
         if not self.folder.exists():
             return []
@@ -145,5 +145,5 @@ class FileStore:
         return True
 
     def latest(self) -> StoredMeeting | None:
-        identifiers = self.lister()
+        identifiers = self.list_()
         return self.read(identifiers[0]) if identifiers else None

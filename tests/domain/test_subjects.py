@@ -26,8 +26,8 @@ class TestCountingTheMentions:
     def test_all_the_names_count_together(self):
         """That is the whole point of the registry."""
         registre = Registry([Subject("Oasis", ("esup-oasis",))])
-        comptes = registre.count_them("On parle d'Oasis, puis d'esup-oasis, puis d'Oasis.")
-        assert comptes == {"Oasis": 3}
+        accounts = registre.count_them("On parle d'Oasis, puis d'esup-oasis, puis d'Oasis.")
+        assert accounts == {"Oasis": 3}
 
     def test_the_count_ignores_case_and_accents(self):
         registre = Registry([Subject("recette")])

@@ -36,8 +36,8 @@ class Transcribed(Protocol):
 
 SYSTEM = platform.system()
 
-TROU_SIGNIFICATIF = 8.0
-COUVERTURE_SUSPECTE = 0.60
+SIGNIFICANT_GAP = 8.0
+SUSPECT_COVERAGE = 0.60
 
 #: The line the minutes carry when one take served the whole room.
 ATTRIBUTION_BY_VOICE_LINE = (
@@ -86,10 +86,10 @@ def _context_line(
         annee, mois, jour, heure, minute = found.groups()
         chunks.append(f"{int(jour)} {_MOIS[int(mois) - 1]} {annee}")
     if started_at is not None and ended_at is not None:
-        locale_debut, locale_fin = started_at.astimezone(), ended_at.astimezone()
+        local_start, local_end = started_at.astimezone(), ended_at.astimezone()
         chunks.append(
-            f"de {locale_debut.hour} h {locale_debut.minute:02d} "
-            f"à {locale_fin.hour} h {locale_fin.minute:02d}"
+            f"de {local_start.hour} h {local_start.minute:02d} "
+            f"à {local_end.hour} h {local_end.minute:02d}"
         )
         ecoule = (ended_at - started_at).total_seconds()
         if ecoule > 0:
@@ -203,26 +203,26 @@ def hardware_header(events: list[str]) -> str:
 
 def reliability_header(meeting: Transcribed) -> str:
     """What the transcription lost, told to the writer before it writes."""
-    gaps = [t for t in meeting.gaps(TROU_SIGNIFICATIF) if t.duration >= TROU_SIGNIFICATIF]
-    if not gaps and meeting.coverage >= COUVERTURE_SUSPECTE:
+    gaps = [t for t in meeting.gaps(SIGNIFICANT_GAP) if t.duration >= SIGNIFICANT_GAP]
+    if not gaps and meeting.coverage >= SUSPECT_COVERAGE:
         return ""
 
     lines = ["[Fiabilité de la transcription]"]
     lines.append(
         f"Couverture : {meeting.coverage * 100:.0f} % de l'audio porte du texte."
     )
-    if meeting.coverage < COUVERTURE_SUSPECTE:
+    if meeting.coverage < SUSPECT_COVERAGE:
         lines.append(
             "Ce taux est bas : le modèle a probablement décroché sur une partie "
             "de la réunion. Signale-le explicitement dans le compte rendu."
         )
     if gaps:
         lines.append(f"{len(gaps)} passage(s) sans aucun texte :")
-        for trou in gaps[:10]:
+        for gap in gaps[:10]:
             lines.append(
-                f"  {int(trou.start) // 60:02d}:{int(trou.start) % 60:02d}"
-                f" → {int(trou.end) // 60:02d}:{int(trou.end) % 60:02d}"
-                f" ({trou.duration:.0f} s)"
+                f"  {int(gap.start) // 60:02d}:{int(gap.start) % 60:02d}"
+                f" → {int(gap.end) // 60:02d}:{int(gap.end) % 60:02d}"
+                f" ({gap.duration:.0f} s)"
             )
         if len(gaps) > 10:
             lines.append(f"  … et {len(gaps) - 10} autres")
@@ -254,7 +254,7 @@ def render_transcript(meeting: Transcribed, header: str = "") -> str:
 def to_resume(store: Any, minutes_folder: Path, how_many: int = 20) -> list[str]:
     """The transcribed meetings whose minutes are still missing."""
     missing = []
-    for identifier in store.lister()[:how_many]:
+    for identifier in store.list_()[:how_many]:
         if not re.match(r"^\d{4}-\d{2}-\d{2}_", identifier):
             continue
         if not (minutes_folder / f"{identifier}.md").exists():
@@ -302,15 +302,15 @@ def notable_passages(
             (t.span for t in meeting.turns if t.voice == voice),
             key=lambda i: -i.duration,
         )
-        cumul = 0.0
+        cumulated = 0.0
         for span in candidats:
-            if cumul >= quota:
+            if cumulated >= quota:
                 break
             if span.duration < minimum_length:
                 continue
-            end = min(span.end, span.start + max(minimum_length, quota - cumul))
+            end = min(span.end, span.start + max(minimum_length, quota - cumulated))
             retenus.append(Span(span.start, end))
-            cumul += end - span.start
+            cumulated += end - span.start
 
     return sorted(retenus, key=lambda i: i.start)
 
@@ -323,14 +323,14 @@ def assemble(audio: Path, passages: list[Span], destination: Path) -> Path:
         folder = Path(job)
         chunks = []
         for number, passage in enumerate(passages):
-            morceau = folder / f"{number:03d}.wav"
+            chunk = folder / f"{number:03d}.wav"
             subprocess.run(
                 ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
                  "-ss", f"{passage.start:.3f}", "-t", f"{passage.duration:.3f}",
-                 "-i", str(audio), "-c:a", "pcm_s16le", str(morceau)],
+                 "-i", str(audio), "-c:a", "pcm_s16le", str(chunk)],
                 check=True,
             )
-            chunks.append(morceau)
+            chunks.append(chunk)
         listing = folder / "liste.txt"
         listing.write_text(
             "\n".join(f"file '{m}'" for m in chunks) + "\n", encoding="utf-8"
@@ -378,7 +378,7 @@ def _without_markup(text: str) -> str:
     clean = re.sub(r"\n{3,}", "\n\n", clean)
     return clean.strip()
 
-def archiver(audio: Path, garder_original: bool = False) -> Path:
+def archive(audio: Path, keep_original: bool = False) -> Path:
     """Compresses a processed recording."""
     if audio.suffix == ".opus":
         return audio
@@ -388,7 +388,7 @@ def archiver(audio: Path, garder_original: bool = False) -> Path:
          "-c:a", "libopus", "-b:a", "24k", "-application", "voip", str(destination)],
         check=True,
     )
-    if not garder_original:
+    if not keep_original:
         audio.unlink()
     return destination
 
@@ -427,8 +427,8 @@ def _gathered(
     ensemble = getattr(extractor, "extract_together", None)
     if not callable(ensemble):
         return groupees
-    for voice, deja in groupees.items():
-        if deja or not per_voice.get(voice):
+    for voice, already in groupees.items():
+        if already or not per_voice.get(voice):
             continue
         seule = ensemble(audio, per_voice[voice])
         if seule is not None:
@@ -484,13 +484,13 @@ def _join_namesakes(meeting: Any) -> None:
             (v for v, porte in meeting.names.items() if porte.casefold() == name),
             key=lambda v: -temps.get(v, 0.0),
         )
-        gardee = portantes[0]
-        for absorbee in portantes[1:]:
-            meeting.join_into(absorbee, gardee)
+        kept_one = portantes[0]
+        for absorbed_one in portantes[1:]:
+            meeting.join_into(absorbed_one, kept_one)
         if portantes[1:]:
-            meeting.names[gardee] = next(
+            meeting.names[kept_one] = next(
                 n for n in meeting.names.values() if n.casefold() == name
-            ) if gardee in meeting.names else meeting.names.get(gardee, "")
+            ) if kept_one in meeting.names else meeting.names.get(kept_one, "")
 
 def _reconnaitre_a_nouveau(
     meeting: Any,

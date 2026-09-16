@@ -155,7 +155,7 @@ class TestTheWholeDocument:
 class TestTheTableOfContents:
     """A table of contents, to know what the document holds without scrolling it."""
 
-    COMPLET = (
+    COMPLETE = (
         "# Compte rendu : Point Casa\n\n"
         "25 août 2026, environ 1 heure. Participants : Sophie, Katell.\n\n"
         "## Décisions\n\n- Une décision\n\n"
@@ -165,18 +165,18 @@ class TestTheTableOfContents:
     )
 
     def test_it_lists_the_sections_in_order(self) -> None:
-        html = email(self.COMPLET)
+        html = email(self.COMPLETE)
         assert "Sommaire" in html
         position = [html.index(t) for t in ("Décisions", "Actions", "Points ouverts")]
         assert position == sorted(position)
 
     def test_the_sections_are_numbered(self) -> None:
-        html = email(self.COMPLET)
+        html = email(self.COMPLETE)
         for number in ("1.", "2.", "3.", "4."):
             assert number in html
 
     def test_every_entry_leads_to_its_anchor(self) -> None:
-        html = email(self.COMPLET)
+        html = email(self.COMPLETE)
         assert 'href="#s-decisions"' in html
         assert 'id="s-decisions"' in html
 
@@ -187,7 +187,7 @@ class TestTheTableOfContents:
     def test_the_sections_are_exposed_for_the_command_line(self) -> None:
         from greffier.adapters.email_template import sections
 
-        assert sections(self.COMPLET) == [
+        assert sections(self.COMPLETE) == [
             "Décisions", "Actions", "Points ouverts", "Détail par sujet",
         ]
 

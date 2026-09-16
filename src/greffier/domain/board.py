@@ -30,7 +30,7 @@ class Kind(StrEnum):
 def content_words(text: str) -> list[str]:
     """The words that carry meaning, **in order**, without accents."""
     nu = unicodedata.normalize("NFKD", text.casefold())
-    nu = "".join(lettre for lettre in nu if not unicodedata.combining(lettre))
+    nu = "".join(letter for letter in nu if not unicodedata.combining(letter))
     all_of_them = [word for word in re.split(r"[^a-z0-9]+", nu) if word]
     carriers = [word for word in all_of_them if word not in _EMPTY]
     return carriers or all_of_them

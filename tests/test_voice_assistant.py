@@ -286,36 +286,36 @@ class TestLaVoixOuverteUneFois:
     def test_two_questions_open_it_once(self, ouvertures):
         from greffier.adapters.voice_neural import NeuralVoice
 
-        faites, dossier = ouvertures
-        premiere = NeuralVoice(dossier, device="cpu")
-        seconde = NeuralVoice(dossier, device="cpu")
-        assert premiere._load() is seconde._load()
+        faites, folder = ouvertures
+        first_one = NeuralVoice(folder, device="cpu")
+        seconde = NeuralVoice(folder, device="cpu")
+        assert first_one._load() is seconde._load()
         assert faites == ["cpu"]
 
     def test_another_language_opens_its_own(self, ouvertures):
         """An English voice is not the French voice."""
         from greffier.adapters.voice_neural import NeuralVoice
 
-        faites, dossier = ouvertures
-        NeuralVoice(dossier, language="fr", device="cpu")._load()
-        NeuralVoice(dossier, language="en", device="cpu")._load()
+        faites, folder = ouvertures
+        NeuralVoice(folder, language="fr", device="cpu")._load()
+        NeuralVoice(folder, language="en", device="cpu")._load()
         assert len(faites) == 2
 
     def test_warming_opens_it_without_saying_anything(self, ouvertures):
         from greffier.adapters.voice_neural import NeuralVoice
 
-        faites, dossier = ouvertures
-        NeuralVoice(dossier, device="cpu").warm()
+        faites, folder = ouvertures
+        NeuralVoice(folder, device="cpu").warm()
         assert faites == ["cpu"]
 
     def test_warming_never_raises(self, monkeypatch, ouvertures):
         """Called from a thread while somebody speaks: a failure here costs nothing."""
         from greffier.adapters import voice_neural
 
-        _, dossier = ouvertures
+        _, folder = ouvertures
 
         def qui_refuse(_self, _where):
             raise RuntimeError("modèle illisible")
 
         monkeypatch.setattr(voice_neural.NeuralVoice, "_open", qui_refuse)
-        voice_neural.NeuralVoice(dossier, device="cpu").warm()
+        voice_neural.NeuralVoice(folder, device="cpu").warm()

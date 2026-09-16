@@ -55,9 +55,9 @@ def window(test_screen):
     from greffier.interface.window import Window
 
     try:
-        ouverte = Window(Config())
+        opened_one = Window(Config())
     except tk.TclError as pourquoi:
         pytest.skip(f"pas d'écran pour Tk : {pourquoi}")
-    ouverte.root.update()
-    yield ouverte
-    ouverte.root.destroy()
+    opened_one.root.update()
+    yield opened_one
+    opened_one.root.destroy()

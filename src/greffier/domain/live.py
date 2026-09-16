@@ -411,12 +411,12 @@ class LiveThread:
         # No number at birth: it is earned by holding a share of the meeting,
         # in `_earn_a_number`. A number handed out on the first two seconds of
         # audio fills the screen with people who never speak again.
-        nouvelle = LiveVoice(
+        new_one = LiveVoice(
             identifier=self._identifier(), voiceprints=[voiceprint]
         )
-        self.voice[nouvelle.identifier] = nouvelle
-        self._try_the_name_again(nouvelle)
-        return nouvelle.identifier
+        self.voice[new_one.identifier] = new_one
+        self._try_the_name_again(new_one)
+        return new_one.identifier
 
     def _nameable_ones(self) -> list[LiveVoice]:
         """The voices that name a person: neither "you" nor the catch-all."""
@@ -536,7 +536,7 @@ class LiveThread:
 
     def record_turn(self, block: Block, voice: str) -> list[LiveTurn]:
         """Adds a block's sentences to the thread, attributed to a voice."""
-        nouveaux: list[LiveTurn] = []
+        new_ones: list[LiveTurn] = []
         for utterance in block.utterances:
             turn = LiveTurn(
                 number=len(self.turns) + 1,
@@ -545,12 +545,12 @@ class LiveThread:
                 voice=voice,
             )
             self.turns.append(turn)
-            nouveaux.append(turn)
+            new_ones.append(turn)
             self.up_to = max(self.up_to, utterance.span.end)
             if turn.text:
                 self.last_text = turn.text
         self._earn_a_number(voice)
-        return nouveaux
+        return new_ones
 
     def correct(self, number: int, name: str, whole_voice: bool = True) -> Correction:
         """Imposes a name, against what the voiceprint believed.
@@ -562,9 +562,9 @@ class LiveThread:
         if not name:
             raise ValueError("un nom vide ne corrige rien")
         turn = self._turn(number)
-        ancienne = self.voice[turn.voice]
-        if whole_voice and ancienne.nameable:
-            return self._correct_the_voice(ancienne, name)
+        old_one = self.voice[turn.voice]
+        if whole_voice and old_one.nameable:
+            return self._correct_the_voice(old_one, name)
         return self._correct_the_sentence(turn, name)
 
     def _correct_the_voice(self, voice: LiveVoice, name: str) -> Correction:
@@ -589,16 +589,16 @@ class LiveThread:
         Records on the way what is needed to undo it.
         """
         avalee = self.voice[source]
-        gardee = self.voice[target]
+        kept_one = self.voice[target]
         deplaces = tuple(t.number for t in self.turns if t.voice == source)
         self.joins.append(Join(
             source=source, target=target,
             voiceprints=tuple(avalee.voiceprints), numbers=deplaces,
             name=avalee.name, certainty=avalee.certainty, rank=avalee.rank,
             likeness=avalee.likeness, gap=avalee.gap,
-            target_name=gardee.name, target_certainty=gardee.certainty,
+            target_name=kept_one.name, target_certainty=kept_one.certainty,
         ))
-        gardee.absorb(avalee)
+        kept_one.absorb(avalee)
         for turn in self.turns:
             if turn.voice == source:
                 turn.voice = target
@@ -628,8 +628,8 @@ class LiveThread:
         )
         if fusion is None or fusion.source in self.voice:
             return None
-        gardee = self.voice.get(target)
-        if gardee is None:
+        kept_one = self.voice.get(target)
+        if kept_one is None:
             return None
         rendue = LiveVoice(
             identifier=fusion.source, name=fusion.name,
@@ -638,10 +638,10 @@ class LiveThread:
             likeness=fusion.likeness, gap=fusion.gap,
         )
         to_render = {id(e) for e in fusion.voiceprints}
-        gardee.voiceprints = [e for e in gardee.voiceprints if id(e) not in to_render]
-        gardee.forget_aggregate()
-        if gardee.certainty is not Certainty.HUMAINE:
-            gardee.name, gardee.certainty = fusion.target_name, fusion.target_certainty
+        kept_one.voiceprints = [e for e in kept_one.voiceprints if id(e) not in to_render]
+        kept_one.forget_aggregate()
+        if kept_one.certainty is not Certainty.HUMAINE:
+            kept_one.name, kept_one.certainty = fusion.target_name, fusion.target_certainty
         for turn in self.turns:
             if turn.voice == target and turn.number in set(fusion.numbers):
                 turn.voice = fusion.source
@@ -697,20 +697,20 @@ class LiveThread:
             if len(portantes) < 2:
                 continue
             portantes.sort(key=lambda v: -v.seconds)
-            gardee = portantes[0]
-            for absorbee in portantes[1:]:
-                if self._held_apart(absorbee.identifier, gardee.identifier):
+            kept_one = portantes[0]
+            for absorbed_one in portantes[1:]:
+                if self._held_apart(absorbed_one.identifier, kept_one.identifier):
                     continue
-                self._absorb(absorbee.identifier, gardee.identifier)
-                faits.append((absorbee.identifier, gardee.identifier))
+                self._absorb(absorbed_one.identifier, kept_one.identifier)
+                faits.append((absorbed_one.identifier, kept_one.identifier))
         return faits
 
     def _different_human_names(self, one: str, other: str) -> bool:
-        premier, second = self.voice[one], self.voice[other]
+        first, second = self.voice[one], self.voice[other]
         return (
-            premier.certainty is Certainty.HUMAINE
+            first.certainty is Certainty.HUMAINE
             and second.certainty is Certainty.HUMAINE
-            and premier.name != second.name
+            and first.name != second.name
         )
 
     def _correct_the_sentence(self, turn: LiveTurn, name: str) -> Correction:

@@ -18,14 +18,14 @@ class Verdict(StrEnum):
     BON = "bon"
     FAIBLE = "faible"
     INSUFFISANT = "insuffisant"
-    MUET = "muet"
+    SILENT = "muet"
 
-MUET_DB = -70.0
+SILENT_DB = -70.0
 
 def judge(db: float) -> Verdict:
     """What this speech level is worth."""
-    if db < MUET_DB:
-        return Verdict.MUET
+    if db < SILENT_DB:
+        return Verdict.SILENT
     if db < INSUFFISANT_DB:
         return Verdict.INSUFFISANT
     if db < BON_DB:
@@ -35,7 +35,7 @@ def judge(db: float) -> Verdict:
 def say(db: float) -> str:
     """A sentence for the screen, giving the level **and** what to do about it."""
     verdict = judge(db)
-    if verdict is Verdict.MUET:
+    if verdict is Verdict.SILENT:
         return (
             f"Rien n'est capté ({db:.0f} dB). Vérifie le bouton de sourdine du "
             "casque, le micro choisi, puis l'autorisation micro dans les "

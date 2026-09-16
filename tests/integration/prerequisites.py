@@ -59,12 +59,12 @@ def the_called_name_is_out_of_reach() -> str | None:
 def transcription_is_out_of_reach(config) -> str | None:
     """The reason to skip, or None when this machine can put the chain through."""
     diarisation = config.paths.models / "diarisation"
-    absents = [name for name, path in (
+    absentees = [name for name, path in (
         ("empreintes vocales", diarisation / "nemo_en_titanet_large.onnx"),
         ("segmentation", diarisation / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx"),
     ) if not path.exists()]
-    if absents:
-        return f"modèles absents ({', '.join(absents)}) : lance tools/install.py"
+    if absentees:
+        return f"modèles absents ({', '.join(absentees)}) : lance tools/install.py"
     if config.transcription.engine == "whisper.cpp":
         if not (config.paths.models / "ggml-large-v3-turbo.bin").exists():
             return "modèle whisper.cpp absent, lance tools/install.py"

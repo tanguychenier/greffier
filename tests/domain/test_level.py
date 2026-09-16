@@ -3,7 +3,7 @@
 from greffier.domain.level import (
     BON_DB,
     INSUFFISANT_DB,
-    MUET_DB,
+    SILENT_DB,
     Verdict,
     judge,
     say,
@@ -19,12 +19,12 @@ class TestTheThresholds:
 
     def test_the_silent_threshold_is_the_one_of_the_chain(self):
         """Two thresholds for the same question would end up contradicting each other."""
-        from greffier.application.process import SEUIL_MUET_DB
+        from greffier.application.process import SILENT_THRESHOLD_DB
 
-        assert MUET_DB == SEUIL_MUET_DB
+        assert SILENT_DB == SILENT_THRESHOLD_DB
 
     def test_the_thresholds_are_in_order(self):
-        assert MUET_DB < INSUFFISANT_DB < BON_DB < 0
+        assert SILENT_DB < INSUFFISANT_DB < BON_DB < 0
 
 
 class TestJudgingALevel:
@@ -38,7 +38,7 @@ class TestJudgingALevel:
         assert judge(-50.0) is Verdict.INSUFFISANT
 
     def test_real_silence_is_silent(self):
-        assert judge(-90.0) is Verdict.MUET
+        assert judge(-90.0) is Verdict.SILENT
 
     def test_the_bounds_belong_to_the_better_verdict(self):
         assert judge(BON_DB) is Verdict.BON

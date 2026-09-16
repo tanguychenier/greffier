@@ -82,8 +82,8 @@ class TestChaineReelle:
         assert len(outcome.significant_voices()) == 2
 
     def test_fragments_do_not_count_as_participants(self, outcome):
-        significatives = outcome.significant_voices()
-        assert all(duration >= 10 for duration in significatives.values())
+        significant = outcome.significant_voices()
+        assert all(duration >= 10 for duration in significant.values())
 
     def test_both_first_names_are_found(self, outcome):
         """The heart of the need: "Jacques" and "Sandy", not "Personne 1".
@@ -100,8 +100,8 @@ class TestChaineReelle:
 
     def test_introducing_oneself_wins_over_the_rest(self, outcome):
         """Whoever says "moi c'est Jacques" is Jacques, whatever else happens."""
-        premiere = outcome.utterances[0]
-        assert outcome.name_of(premiere.voice) == "Jacques"
+        first_one = outcome.utterances[0]
+        assert outcome.name_of(first_one.voice) == "Jacques"
 
     def test_a_mono_recording_raises_no_false_alarm(self, outcome):
         """A single-channel file has no missing second channel.
@@ -140,22 +140,22 @@ class TestFromTheConversationToTheMinutes:
 
         identifier = "2026-09-10_10h10_reunion"
         config = Config(paths={"donnees": tmp_path})
-        fichier = conversations_file.file_for(config.paths.conversations, identifier)
+        file = conversations_file.file_for(config.paths.conversations, identifier)
 
         # As the window writes it: a note from the tool, a question from the
         # assistant, then the instruction from the person.
-        conversations_file.add(fichier, "note", "❓ J'ai entendu « ailleurs ».")
-        conversations_file.add(fichier, "lucie", "Qui prend la migration ?")
-        conversations_file.add(fichier, "moi", "Il n'y a pas de sophie dans la réunion")
-        conversations_file.add(fichier, "greffier", "Le compte rendu est prêt.")
+        conversations_file.add(file, "note", "❓ J'ai entendu « ailleurs ».")
+        conversations_file.add(file, "lucie", "Qui prend la migration ?")
+        conversations_file.add(file, "moi", "Il n'y a pas de sophie dans la réunion")
+        conversations_file.add(file, "greffier", "Le compte rendu est prêt.")
 
         consignes = _instructions_of(config)(identifier)
         assert consignes == ["Il n'y a pas de sophie dans la réunion"], consignes
 
-        entete = instructions_header(consignes)
-        assert "Il n'y a pas de sophie" in entete
-        assert "ailleurs" not in entete, "une note n'est pas une consigne"
-        assert "migration" not in entete, "une question de l'assistant non plus"
+        header = instructions_header(consignes)
+        assert "Il n'y a pas de sophie" in header
+        assert "ailleurs" not in header, "une note n'est pas une consigne"
+        assert "migration" not in header, "une question de l'assistant non plus"
 
     def test_the_order_of_the_instructions_is_the_meeting_s(self, tmp_path):
         """Une consigne plus tardive corrige une plus ancienne."""
@@ -165,9 +165,9 @@ class TestFromTheConversationToTheMinutes:
 
         identifier = "2026-09-10_13h08_reunion"
         config = Config(paths={"donnees": tmp_path})
-        fichier = conversations_file.file_for(config.paths.conversations, identifier)
-        for texte in ("c'est Florent qui a dit ça", "non, c'était Pascal"):
-            conversations_file.add(fichier, "moi", texte)
+        file = conversations_file.file_for(config.paths.conversations, identifier)
+        for text in ("c'est Florent qui a dit ça", "non, c'était Pascal"):
+            conversations_file.add(file, "moi", text)
         assert _instructions_of(config)(identifier) == [
             "c'est Florent qui a dit ça", "non, c'était Pascal",
         ]

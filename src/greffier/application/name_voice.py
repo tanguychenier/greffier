@@ -25,7 +25,7 @@ class VoiceToName:
     part: float
     name: str | None = None          # déjà nommée
     proposition: str | None = None  # name guessed, to be confirmed
-    extrait: Span | None = None
+    excerpt: Span | None = None
 
     @property
     def to_name(self) -> bool:
@@ -45,18 +45,18 @@ def voices_to_name(meeting: StoredMeeting, minimum: float = 10.0) -> list[VoiceT
             part=duration / total,
             name=meeting.names.get(voice),
             proposition=meeting.propositions.get(voice),
-            extrait=best_excerpt(meeting.spans_of(voice)),
+            excerpt=best_excerpt(meeting.spans_of(voice)),
         ))
     return outcome
 
 def best_excerpt(intervalles: list[Span]) -> Span | None:
     """The most representative passage to play back."""
-    utiles = [i for i in intervalles if i.duration >= USEFUL_LENGTH]
-    if not utiles:
-        utiles = intervalles
-    if not utiles:
+    useful_ones = [i for i in intervalles if i.duration >= USEFUL_LENGTH]
+    if not useful_ones:
+        useful_ones = intervalles
+    if not useful_ones:
         return None
-    longer = max(utiles, key=lambda i: i.duration)
+    longer = max(useful_ones, key=lambda i: i.duration)
     if longer.duration <= EXTRACT_LENGTH:
         return longer
     start = longer.start + min(1.0, (longer.duration - EXTRACT_LENGTH) / 2)
@@ -111,13 +111,13 @@ class Naming:
         temps = meeting.speaking_time()
         homonymes = [v for v in meeting.voice_named(name) if v != voice]
         for other in homonymes:
-            gardee, absorbee = (
+            kept_one, absorbed_one = (
                 (voice, other) if temps.get(voice, 0.0) >= temps.get(other, 0.0)
                 else (other, voice)
             )
-            meeting.join_into(absorbee, gardee)
-            meeting.names[gardee] = name
-            voice = gardee
+            meeting.join_into(absorbed_one, kept_one)
+            meeting.names[kept_one] = name
+            voice = kept_one
         self.store.record(meeting)
         return meeting
 
@@ -155,7 +155,7 @@ class Naming:
         self.store.record(meeting)
         return meeting
 
-    def accepter_propositions(self, identifier: str) -> dict[str, str]:
+    def accept_proposals(self, identifier: str) -> dict[str, str]:
         """Approves in one go every name guessed during the meeting."""
         meeting = self.store.read(identifier)
         acceptes = dict(meeting.propositions)

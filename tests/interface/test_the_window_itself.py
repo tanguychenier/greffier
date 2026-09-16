@@ -52,9 +52,9 @@ class TestOpeningBeforeAsking:
             # Compared against the catalogue and not against French words: the
             # window speaks the language of the machine, and the continuous
             # integration runner speaks English.
-            gabarit = built.dit("modeles.manquants", poids="0 Mo")
-            debut = gabarit.split("0 Mo")[0][:40]
-            assert any(question.startswith(debut) for question in asked)
+            gabarit = built.says("modeles.manquants", weight="0 Mo")
+            start = gabarit.split("0 Mo")[0][:40]
+            assert any(question.startswith(start) for question in asked)
         finally:
             built.root.destroy()
 
@@ -116,7 +116,7 @@ class TestOpeningBeforeAsking:
         built = Window(Config())
         try:
             built.root.update()
-            assert built.travaux == []
+            assert built.jobs == []
         finally:
             built.root.destroy()
 
@@ -146,7 +146,7 @@ class TestEveryTabPaints:
 class TestWhatTheWindowShowsWithNothingYet:
     def test_it_says_it_is_ready_rather_than_nothing(self, window) -> None:
         window.root.update()
-        assert window.title.cget("text") == window.dit("fenetre.pret")
+        assert window.title.cget("text") == window.says("fenetre.pret")
 
     def test_the_status_line_starts_empty(self, window) -> None:
         assert window.status_line.cget("text") == ""
@@ -195,10 +195,10 @@ class TestForgettingSomebodyIsReachable:
     def test_the_voices_tab_offers_it(self, window) -> None:
         window.tabs.reveal("Voix")
         window.root.update()
-        assert window.bouton_oublier.winfo_ismapped()
+        assert window.forget_button.winfo_ismapped()
 
     def test_it_aims_at_the_first_name_that_was_typed(self, window) -> None:
-        window.champ_nom.insert(0, "  Élodie  ")
+        window.name_field.insert(0, "  Élodie  ")
         assert window._person_aimed_at() == "Élodie"
 
     def test_with_nothing_typed_and_nothing_chosen_it_aims_at_nobody(
@@ -211,7 +211,7 @@ class TestForgettingSomebodyIsReachable:
 
         asking.forget_what_was_asked()
         window._forget_a_person()
-        assert any("prénom" in dit for dit in asking.unanswered())
+        assert any("prénom" in said for said in asking.unanswered())
 
 
 class TestExportingFromTheWindow:
@@ -219,8 +219,8 @@ class TestExportingFromTheWindow:
         window.tabs.reveal("Réunions")
         window.root.update()
         intitules = [
-            bouton.itemcget(bouton._text, "text")
-            for bouton in window.meeting_buttons
+            button.itemcget(button._text, "text")
+            for button in window.meeting_buttons
         ]
         assert "Exporter…" in intitules
 
@@ -228,7 +228,7 @@ class TestExportingFromTheWindow:
         self, window
     ) -> None:
         window._export_selection()
-        assert window.status_line.cget("text") == window.dit(
+        assert window.status_line.cget("text") == window.says(
             "reunions.choisis_une_reunion"
         )
 

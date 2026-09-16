@@ -83,19 +83,19 @@ class TestVerdictDeCanal:
         data, frequency = sf.read(table, dtype="float32", always_2d=True)
         assert data.shape[1] == 2, "le fichier d'essai doit être stéréo"
         mic = levels_per_frame(data[:, 0], frequency)
-        boucle = levels_per_frame(data[:, 1], frequency)
-        assert max(boucle) < -45.0, "la fuite doit rester sous le plancher de bruit"
-        assert not over_video(mic, boucle)
+        loop = levels_per_frame(data[:, 1], frequency)
+        assert max(loop) < -45.0, "la fuite doit rester sous le plancher de bruit"
+        assert not over_video(mic, loop)
 
     def test_the_mic_is_the_reference_for_both_channels(self, table: Path):
         """In a room the loopback has nothing to add: it is no longer used."""
         import numpy as np
         import soundfile as sf
 
-        from greffier.adapters.channels_file import separer_canaux
+        from greffier.adapters.channels_file import split_channels
 
         data, frequency = sf.read(table, dtype="float32", always_2d=True)
-        channels = separer_canaux(data, frequency)
+        channels = split_channels(data, frequency)
         assert channels.distante is False
         assert np.array_equal(channels.system, channels.mic)
 
@@ -126,8 +126,8 @@ class TestChaineEnPresentiel:
         resemble each other enough to be stitched, so what is checked is that there is
         neither one single voice nor one participant per utterance.
         """
-        significatives = outcome.significant_voices()
-        assert 2 <= len(significatives) <= len(outcome.utterances)
+        significant = outcome.significant_voices()
+        assert 2 <= len(significant) <= len(outcome.utterances)
 
     def test_fragments_do_not_count_as_participants(self, outcome):
         assert all(duration >= 10 for duration in outcome.significant_voices().values())

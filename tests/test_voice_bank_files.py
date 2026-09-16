@@ -89,7 +89,7 @@ class TestTheVoiceBank:
 
 
 def a_meeting(**overrides):
-    defauts = dict(
+    defects = dict(
         identifier="2026-08-24_reunion",
         audio=__import__("pathlib").Path("/tmp/r.wav"),
         processed_at=datetime.now(UTC),
@@ -101,8 +101,8 @@ def a_meeting(**overrides):
         propositions={"2": "Marc"},
         warnings=[],
     )
-    defauts.update(overrides)
-    return StoredMeeting(**defauts)
+    defects.update(overrides)
+    return StoredMeeting(**defects)
 
 
 class TestTheMasterFile:
@@ -176,7 +176,7 @@ class TestTheMasterFile:
         magasin = FileStore(tmp_path)
         for identifier in ("2026-08-01_a", "2026-08-24_b", "2026-08-12_c"):
             magasin.record(a_meeting(identifier=identifier))
-        assert magasin.lister()[0] == "2026-08-24_b"
+        assert magasin.list_()[0] == "2026-08-24_b"
 
     def test_the_hardware_events_survive(self, tmp_path):
         """Needed to write the minutes again later without losing what the hardware

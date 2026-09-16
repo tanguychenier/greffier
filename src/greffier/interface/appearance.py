@@ -174,7 +174,7 @@ class Listing(tk.Canvas):
         self.width = width
         self.height = height
         self.on_choice = on_choice
-        self._choix: list[tuple[str, str]] = []
+        self._choice: list[tuple[str, str]] = []
         self._key = ""
         self._active = True
         self._forme = rounded_rectangle(
@@ -199,10 +199,10 @@ class Listing(tk.Canvas):
         self.bind_all("<Button-4>", self._ranger, add="+")
         self.bind_all("<Button-5>", self._ranger, add="+")
 
-    def fill_menu(self, choix: list[tuple[str, str]], key: str = "") -> None:
+    def fill_menu(self, choice: list[tuple[str, str]], key: str = "") -> None:
         """Places the possible choices, and selects one."""
-        self._choix = list(choix)
-        known = [c for c, _ in self._choix]
+        self._choice = list(choice)
+        known = [c for c, _ in self._choice]
         self._key = key if key in known else (known[0] if known else "")
         self._show()
 
@@ -210,7 +210,7 @@ class Listing(tk.Canvas):
         return self._key
 
     def choose(self, key: str) -> None:
-        if key != self._key and key in [c for c, _ in self._choix]:
+        if key != self._key and key in [c for c, _ in self._choice]:
             self._key = key
             self._show()
 
@@ -222,7 +222,7 @@ class Listing(tk.Canvas):
                            fill=self.colours.ink_pale if yes else self.colours.calm)
 
     def _label_text(self) -> str:
-        for key, label_text in self._choix:
+        for key, label_text in self._choice:
             if key == self._key:
                 return label_text
         return ""
@@ -251,16 +251,16 @@ class Listing(tk.Canvas):
         self.configure(cursor=MAIN if hover else "")
 
     def _deployer(self, _event: tk.Event | None = None) -> None:
-        if not self._active or not self._choix:
+        if not self._active or not self._choice:
             return
         c = self.colours
         self._ranger()
         menu = tk.Menu(self, tearoff=0, font=font(12), bg=c.board, fg=c.ink,
                        activebackground=c.hover, activeforeground=c.ink,
                        borderwidth=0, relief="flat", activeborderwidth=0)
-        for key, label_text in self._choix:
-            marque = "✓ " if key == self._key else "   "
-            menu.add_command(label=f"{marque}{label_text}",
+        for key, label_text in self._choice:
+            mark = "✓ " if key == self._key else "   "
+            menu.add_command(label=f"{mark}{label_text}",
                              command=functools.partial(self._retenir, key))
         self._menu: tk.Menu | None = menu
         # `tk_popup` rather than `post`: the first one grabs, so a click
@@ -301,8 +301,8 @@ class Scroller(tk.Canvas):
         self.colours = colours
         self.command = command
         self.width = width
-        self._premier = 0.0
-        self._dernier = 1.0
+        self._first = 0.0
+        self._last = 1.0
         self._pouce = rounded_rectangle(self, 1, 0, width - 1, 0, width / 2)
         self.bind("<Configure>", lambda _e: self._draw())
         self.bind("<Button-1>", self._move)
@@ -311,9 +311,9 @@ class Scroller(tk.Canvas):
         self.bind("<Leave>", lambda _e: self._tint(hover=False))
         self._tint(hover=False)
 
-    def set(self, premier: str | float, dernier: str | float) -> None:
+    def set(self, first: str | float, last: str | float) -> None:
         """Called by the followed widget through yscrollcommand."""
-        self._premier, self._dernier = float(premier), float(dernier)
+        self._first, self._last = float(first), float(last)
         self._draw()
 
     def _tint(self, hover: bool) -> None:
@@ -323,20 +323,20 @@ class Scroller(tk.Canvas):
 
     def _draw(self) -> None:
         height = self.winfo_height()
-        if height <= 1 or self._dernier - self._premier >= 0.999:
+        if height <= 1 or self._last - self._first >= 0.999:
             self.itemconfigure(self._pouce, state="hidden")
             return
         self.itemconfigure(self._pouce, state="normal")
         minimum = min(24, height)
-        haut = self._premier * height
-        bas = max(self._dernier * height, haut + minimum)
+        haut = self._first * height
+        bas = max(self._last * height, haut + minimum)
         self.coords(
             self._pouce, *_rounded_points(1, haut, self.width - 1, bas, self.width / 2)
         )
 
     def _move(self, event: tk.Event) -> None:
         height = self.winfo_height() or 1
-        portee = self._dernier - self._premier
+        portee = self._last - self._first
         target = event.y / height - portee / 2
         self.command("moveto", max(0.0, min(1.0 - portee, target)))
 
@@ -405,7 +405,7 @@ def _rounded_points(
 class _Segment(tk.Canvas):
     """A drawn tab, which knows how to paint itself selected."""
 
-    PLACE_PASTILLE = 26
+    BADGE_PLACE = 26
 
     def __init__(self, parent: tk.Misc, caption: str, colours: Palette,
                  action: Callable[[str], None]) -> None:
@@ -415,7 +415,7 @@ class _Segment(tk.Canvas):
         self.caption = caption
         self.colours = colours
         self._count = 0
-        self._choisi = False
+        self._chosen = False
         self.forme = -1
         self.text = -1
         self._draw()
@@ -430,34 +430,34 @@ class _Segment(tk.Canvas):
         whose width cannot change without remaking them.
         """
         self.delete("all")
-        width = self.largeur_nue + (self.PLACE_PASTILLE if self._count else 0)
+        width = self.largeur_nue + (self.BADGE_PLACE if self._count else 0)
         self.configure(width=width)
         self.forme = rounded_rectangle(
             self, 1, 1, width - 1, 31, 8,
-            fill=self.colours.board if self._choisi else self.colours.ground,
+            fill=self.colours.board if self._chosen else self.colours.ground,
         )
         self.text = self.create_text(
             self.largeur_nue / 2, 16, text=self.caption,
-            fill=self.colours.accent if self._choisi else self.colours.ink_pale,
+            fill=self.colours.accent if self._chosen else self.colours.ink_pale,
             font=font(12),
         )
         if not self._count:
             return
-        marque = dot_marker(self._count)
-        centre = self.largeur_nue + self.PLACE_PASTILLE / 2 - 5
+        mark = dot_marker(self._count)
+        centre = self.largeur_nue + self.BADGE_PLACE / 2 - 5
         self.create_oval(centre - 9, 7, centre + 9, 25,
                          fill=self.colours.accent, outline="")
-        self.create_text(centre, 16, text=marque, fill=self.colours.board,
+        self.create_text(centre, 16, text=mark, fill=self.colours.board,
                          font=font(9, gras=True))
 
-    def paint(self, choisi: bool) -> None:
-        self._choisi = choisi
+    def paint(self, chosen: bool) -> None:
+        self._chosen = chosen
         self.itemconfigure(
-            self.forme, fill=self.colours.board if choisi else self.colours.ground
+            self.forme, fill=self.colours.board if chosen else self.colours.ground
         )
         self.itemconfigure(
             self.text,
-            fill=self.colours.accent if choisi else self.colours.ink_pale,
+            fill=self.colours.accent if chosen else self.colours.ink_pale,
         )
 
     def mark(self, count: int) -> None:
@@ -494,7 +494,7 @@ class ButtonBar(tk.Frame):
         if (by_rank, colonne) == self._grille:
             return
         self._grille = (by_rank, colonne)
-        dernier_rang = (len(self._buttons) - 1) // by_rank
+        last_rank = (len(self._buttons) - 1) // by_rank
         for index, (button, _) in enumerate(self._buttons):
             rank = index // by_rank
             button.redimensionner(colonne)
@@ -503,7 +503,7 @@ class ButtonBar(tk.Frame):
                 column=index % by_rank,
                 sticky="ew",
                 padx=(0, self.GAP) if index % by_rank < by_rank - 1 else 0,
-                pady=(0, self.GAP) if rank < dernier_rang else 0,
+                pady=(0, self.GAP) if rank < last_rank else 0,
             )
 
 class Tabs(tk.Frame):

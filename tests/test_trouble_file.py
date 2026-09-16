@@ -7,20 +7,20 @@ from greffier.adapters.trouble_file import KEPT, TroubleFile
 
 class TestIlEcrit:
     def test_an_incident_reaches_the_file(self, tmp_path):
-        journal = TroubleFile(tmp_path / "incidents.log", "0.3.22")
-        journal.note("transcription", "le modèle a refusé")
+        log = TroubleFile(tmp_path / "incidents.log", "0.3.22")
+        log.note("transcription", "le modèle a refusé")
         assert "le modèle a refusé" in (tmp_path / "incidents.log").read_text()
 
     def test_the_folder_is_made_if_it_is_missing(self, tmp_path):
-        journal = TroubleFile(tmp_path / "pas" / "encore" / "incidents.log")
-        journal.note("chaîne", "quelque chose")
-        assert journal.file.exists()
+        log = TroubleFile(tmp_path / "pas" / "encore" / "incidents.log")
+        log.note("chaîne", "quelque chose")
+        assert log.file.exists()
 
     def test_the_newest_is_last(self, tmp_path):
-        journal = TroubleFile(tmp_path / "incidents.log")
-        journal.note("un", "premier")
-        journal.note("deux", "second")
-        assert "second" in journal.read()[-1]
+        log = TroubleFile(tmp_path / "incidents.log")
+        log.note("un", "premier")
+        log.note("deux", "second")
+        assert "second" in log.read()[-1]
 
 
 class TestIlNeTombeJamais:
@@ -41,9 +41,9 @@ class TestIlNeTombeJamais:
 
 class TestIlNeGrossitPas:
     def test_the_file_is_brought_back_to_what_is_kept(self, tmp_path):
-        journal = TroubleFile(tmp_path / "incidents.log")
+        log = TroubleFile(tmp_path / "incidents.log")
         for n in range(KEPT * 2 + 5):
-            journal.note("chaîne", f"incident {n}")
+            log.note("chaîne", f"incident {n}")
         lignes = (tmp_path / "incidents.log").read_text().splitlines()
         assert len(lignes) <= KEPT + 5
         assert f"incident {KEPT * 2 + 4}" in lignes[-1]

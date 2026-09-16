@@ -94,8 +94,8 @@ class TestLeModeleOuvertUneFois:
         monkeypatch.setattr(adaptateur, "_OPENED", {})
 
         class FauxModule:
-            def WhisperModel(self, taille, device, compute_type):  # noqa: N802
-                faites.append((taille, device))
+            def WhisperModel(self, size, device, compute_type):  # noqa: N802
+                faites.append((size, device))
                 return object()
 
         monkeypatch.setitem(__import__("sys").modules, "faster_whisper", FauxModule())
@@ -103,19 +103,19 @@ class TestLeModeleOuvertUneFois:
         return faites
 
     def test_two_transcribers_share_one_model(self, ouvertures):
-        premier = FasterWhisperTranscriber(taille="large-v3", device="cuda")
-        second = FasterWhisperTranscriber(taille="large-v3", device="cuda")
-        assert premier._load() is second._load()
+        first = FasterWhisperTranscriber(size="large-v3", device="cuda")
+        second = FasterWhisperTranscriber(size="large-v3", device="cuda")
+        assert first._load() is second._load()
         assert ouvertures == [("large-v3", "cuda")]
 
     def test_another_size_opens_its_own(self, ouvertures):
         """Live takes a lighter model: it is not the same one."""
-        FasterWhisperTranscriber(taille="large-v3", device="cuda")._load()
-        FasterWhisperTranscriber(taille="small", device="cuda")._load()
+        FasterWhisperTranscriber(size="large-v3", device="cuda")._load()
+        FasterWhisperTranscriber(size="small", device="cuda")._load()
         assert ouvertures == [("large-v3", "cuda"), ("small", "cuda")]
 
     def test_warming_opens_it_without_transcribing(self, ouvertures):
-        FasterWhisperTranscriber(taille="large-v3", device="cuda").warm()
+        FasterWhisperTranscriber(size="large-v3", device="cuda").warm()
         assert ouvertures == [("large-v3", "cuda")]
 
     def test_warming_never_raises(self, monkeypatch, ouvertures):
@@ -129,13 +129,13 @@ class TestLeModeleOuvertUneFois:
 
         monkeypatch.setitem(__import__("sys").modules, "faster_whisper", QuiRefuse())
         monkeypatch.setattr(adaptateur, "_OPENED", {})
-        FasterWhisperTranscriber(taille="large-v3", device="cuda").warm()
+        FasterWhisperTranscriber(size="large-v3", device="cuda").warm()
 
     def test_a_model_that_failed_is_not_handed_out_again(self, monkeypatch, ouvertures):
         """Celui qui a cassé portait la carte : le rendre rejouerait la panne."""
         from greffier.adapters import transcription_faster_whisper as adaptateur
 
-        transcriber = FasterWhisperTranscriber(taille="large-v3", device="cuda")
+        transcriber = FasterWhisperTranscriber(size="large-v3", device="cuda")
         transcriber._load()
         assert ("large-v3", "cuda") in adaptateur._OPENED
 

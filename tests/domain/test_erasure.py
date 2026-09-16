@@ -9,28 +9,28 @@ from greffier.domain.erasure import UNNAMED, count, redact, same_person, without
 
 class TestFindingTheNameAndNothingElse:
     def test_the_name_alone_is_replaced(self) -> None:
-        texte, how_many = redact("Sophie prend la recette.", "Sophie")
-        assert texte == f"{UNNAMED} prend la recette."
+        text, how_many = redact("Sophie prend la recette.", "Sophie")
+        assert text == f"{UNNAMED} prend la recette."
         assert how_many == 1
 
     def test_a_longer_word_starting_the_same_is_left_alone(self) -> None:
         # « Luc » must not eat « Lucie », nor the « luc » in « caduc ».
-        texte, how_many = redact("Lucie trouve l'argument caduc.", "Luc")
-        assert texte == "Lucie trouve l'argument caduc."
+        text, how_many = redact("Lucie trouve l'argument caduc.", "Luc")
+        assert text == "Lucie trouve l'argument caduc."
         assert how_many == 0
 
     def test_punctuation_is_a_boundary(self) -> None:
-        texte, _ = redact("D'accord, Julie. Julie ?", "Julie")
-        assert texte == f"D'accord, {UNNAMED}. {UNNAMED} ?"
+        text, _ = redact("D'accord, Julie. Julie ?", "Julie")
+        assert text == f"D'accord, {UNNAMED}. {UNNAMED} ?"
 
     def test_the_case_does_not_matter(self) -> None:
         # Somebody typing in a hurry writes « sophie » in the bank.
         assert count("SOPHIE, sophie, Sophie", "Sophie") == 3
 
     def test_a_first_name_in_two_words_is_found(self) -> None:
-        texte, how_many = redact("Marie  Dupont arrive.", "Marie Dupont")
+        text, how_many = redact("Marie  Dupont arrive.", "Marie Dupont")
         assert how_many == 1
-        assert texte == f"{UNNAMED} arrive."
+        assert text == f"{UNNAMED} arrive."
 
 
 class TestWhateverAccentsItIsWrittenWith:
@@ -50,8 +50,8 @@ class TestWhateverAccentsItIsWrittenWith:
 
     def test_marks_are_dropped_for_comparing_and_not_for_keeping(self) -> None:
         assert without_marks("Élodie") == "Elodie"
-        texte, _ = redact("Écoute, Élodie.", "Élodie")
-        assert texte.startswith("Écoute")
+        text, _ = redact("Écoute, Élodie.", "Élodie")
+        assert text.startswith("Écoute")
 
 
 class TestLeavingATextAlone:
@@ -59,17 +59,17 @@ class TestLeavingATextAlone:
         # The comparison normalises; rewriting a file that has nothing to do
         # with the person would change its bytes for nothing.
         original = unicodedata.normalize("NFD", "Réunion du café, rien à voir.")
-        texte, how_many = redact(original, "Sophie")
+        text, how_many = redact(original, "Sophie")
         assert how_many == 0
-        assert texte == original
+        assert text == original
 
     def test_an_empty_name_erases_nothing(self) -> None:
         assert redact("Tout le monde est là.", "   ") == ("Tout le monde est là.", 0)
         assert count("Tout le monde est là.", "") == 0
 
     def test_a_replacement_of_one_s_own(self) -> None:
-        texte, _ = redact("Sophie parle.", "Sophie", replacement="[effacé]")
-        assert texte == "[effacé] parle."
+        text, _ = redact("Sophie parle.", "Sophie", replacement="[effacé]")
+        assert text == "[effacé] parle."
 
 
 class TestTwoSpellingsOfTheSamePerson:

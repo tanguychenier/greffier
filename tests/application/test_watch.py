@@ -15,13 +15,13 @@ from greffier.domain.models import Span, Utterance
 class SliceTranscriber:
     """Returns, for each slice, the utterances it was given in advance."""
 
-    def __init__(self, tranches):
-        self.tranches = list(tranches)
+    def __init__(self, slices):
+        self.slices = list(slices)
         self.appels = 0
 
     def transcribe(self, audio, language, prompt_seed):
         self.appels += 1
-        return self.tranches.pop(0) if self.tranches else []
+        return self.slices.pop(0) if self.slices else []
 
 
 def utterance(start, text):
@@ -29,14 +29,14 @@ def utterance(start, text):
 
 
 def watcher(tmp_path, **overrides):
-    defauts = dict(watch_rules=WatchRules(), log=tmp_path / "propositions.jsonl")
-    defauts.update(overrides)
-    return Watcher(**defauts)
+    defects = dict(watch_rules=WatchRules(), log=tmp_path / "propositions.jsonl")
+    defects.update(overrides)
+    return Watcher(**defects)
 
 
 def where_in(tmp_path, written, offset=0.0):
     """The position in the audio actually written, as the live thread reads it."""
-    return Position(morceau=tmp_path / "r-01.wav", written=written, offset=offset)
+    return Position(chunk=tmp_path / "r-01.wav", written=written, offset=offset)
 
 
 class TestTheClipboard:
@@ -83,10 +83,10 @@ class TestTranscribingAsItGoes:
         """An utterance dated inside its slice would point at the wrong moment."""
         monkeypatch.setattr(watch, "extract_slice",
                             lambda audio, start, end, dest: dest)
-        # The transcribed window starts CONTEXTE_S before the slice: an
+        # The transcribed window starts CONTEXT_S before the slice: an
         # utterance said 3 s into the slice is dated that much later in it.
         transcriber = SliceTranscriber(
-            [[utterance(watch.CONTEXTE_S + 3, "Greffier, ouvre le tableau")]]
+            [[utterance(watch.CONTEXT_S + 3, "Greffier, ouvre le tableau")]]
         )
         instance = watcher(tmp_path, transcriber=transcriber, traite=120.0)
         fresh = instance.transcription_turn(where_in(tmp_path, written=150.0), tmp_path)
@@ -156,7 +156,7 @@ class TestTranscribingAsItGoes:
         instance = watcher(tmp_path, transcriber=SliceTranscriber([]))
         instance.transcription_turn(where_in(tmp_path, written=600.0), tmp_path)
         start, end = demandees[0]
-        assert end - start == watch.TRANCHE_MAXIMALE
+        assert end - start == watch.SLICE_MAXIMUM
 
     def test_an_unreadable_slice_does_not_stop_the_watch(self, tmp_path, monkeypatch):
         monkeypatch.setattr(watch, "extract_slice", lambda *args: None)
@@ -164,8 +164,8 @@ class TestTranscribingAsItGoes:
         assert instance.transcription_turn(where_in(tmp_path, written=30.0), tmp_path) == []
 
     def test_with_no_transcriber_only_the_clipboard_watch_runs(self, tmp_path):
-        veille = watcher(tmp_path)
-        assert veille.transcription_turn(where_in(tmp_path, written=30.0), tmp_path) == []
+        watch = watcher(tmp_path)
+        assert watch.transcription_turn(where_in(tmp_path, written=30.0), tmp_path) == []
 
 
 class TestTheEndOfTheMeeting:
@@ -291,37 +291,37 @@ class TestAJoinPublishedToTheWindow:
     """
 
     def test_a_join_replays_from_the_log(self):
-        from greffier.application.follow import GENRE_REUNION, GENRE_TOUR, replay
+        from greffier.application.follow import KIND_MEETING, KIND_TURN, replay
 
         lines = [
-            {"genre": GENRE_TOUR, "numero": 1, "debut": 0.0, "fin": 2.0,
+            {"genre": KIND_TURN, "numero": 1, "debut": 0.0, "fin": 2.0,
              "texte": "bonjour", "voix": "v1", "nom": None,
              "certitude": "inconnue", "rang": 1},
-            {"genre": GENRE_TOUR, "numero": 2, "debut": 2.0, "fin": 4.0,
+            {"genre": KIND_TURN, "numero": 2, "debut": 2.0, "fin": 4.0,
              "texte": "salut", "voix": "v2", "nom": None,
              "certitude": "inconnue", "rang": 2},
-            {"genre": GENRE_REUNION, "voix": "v2", "vers": "v1"},
+            {"genre": KIND_MEETING, "voix": "v2", "vers": "v1"},
         ]
         thread = replay(lines)
         assert {t.voice for t in thread.turns} == {"v1"}
         assert "v2" not in thread.voice
 
     def test_a_name_given_by_hand_survives_the_replayed_join(self):
-        from greffier.application.follow import GENRE_CORRECTION, GENRE_REUNION, GENRE_TOUR, replay
+        from greffier.application.follow import KIND_CORRECTION, KIND_MEETING, KIND_TURN, replay
 
         lines = [
-            {"genre": GENRE_TOUR, "numero": 1, "debut": 0.0, "fin": 2.0,
+            {"genre": KIND_TURN, "numero": 1, "debut": 0.0, "fin": 2.0,
              "texte": "bonjour", "voix": "v1", "nom": None,
              "certitude": "inconnue", "rang": 1},
-            {"genre": GENRE_TOUR, "numero": 2, "debut": 2.0, "fin": 4.0,
+            {"genre": KIND_TURN, "numero": 2, "debut": 2.0, "fin": 4.0,
              "texte": "salut", "voix": "v2", "nom": None,
              "certitude": "inconnue", "rang": 2},
             # "toute_la_voix" spelled out, as the log now writes it: deducing
             # it from the number of turns replayed a correction covering a
             # one-turn voice as "only this sentence".
-            {"genre": GENRE_CORRECTION, "nom": "Sophie", "voix": "v2",
+            {"genre": KIND_CORRECTION, "nom": "Sophie", "voix": "v2",
              "numeros": [2], "toute_la_voix": True},
-            {"genre": GENRE_REUNION, "voix": "v2", "vers": "v1"},
+            {"genre": KIND_MEETING, "voix": "v2", "vers": "v1"},
         ]
         thread = replay(lines)
         assert {t.voice for t in thread.turns} == {"v1"}
@@ -329,15 +329,15 @@ class TestAJoinPublishedToTheWindow:
 
     def test_an_incomplete_join_line_is_ignored(self):
         """A truncated log must not bring the window down."""
-        from greffier.application.follow import GENRE_REUNION, GENRE_TOUR, replay
+        from greffier.application.follow import KIND_MEETING, KIND_TURN, replay
 
         lines = [
-            {"genre": GENRE_TOUR, "numero": 1, "debut": 0.0, "fin": 2.0,
+            {"genre": KIND_TURN, "numero": 1, "debut": 0.0, "fin": 2.0,
              "texte": "bonjour", "voix": "v1", "nom": None,
              "certitude": "inconnue", "rang": 1},
-            {"genre": GENRE_REUNION, "voix": "v1"},
-            {"genre": GENRE_REUNION, "vers": "v1"},
-            {"genre": GENRE_REUNION, "voix": "v1", "vers": "v1"},
+            {"genre": KIND_MEETING, "voix": "v1"},
+            {"genre": KIND_MEETING, "vers": "v1"},
+            {"genre": KIND_MEETING, "voix": "v1", "vers": "v1"},
         ]
         thread = replay(lines)
         assert {t.voice for t in thread.turns} == {"v1"}
@@ -358,7 +358,7 @@ class TestThePromptSeedRereadMidMeeting:
             transcriber=None,
             situer=lambda: None,
             prompt_seed=prompt_seed,
-            relire_l_amorce=relire,
+            reread_the_seed=relire,
         )
 
     def test_without_rereading_the_seed_does_not_change(self):
@@ -406,7 +406,7 @@ class TestTheWindowOfContext:
         instance.transcription_turn(where_in(tmp_path, written=150.0), tmp_path)
         slice_, window = demandees
         assert slice_ == (115.0, 150.0)
-        assert window == (115.0 - watch.CONTEXTE_S, 150.0)
+        assert window == (115.0 - watch.CONTEXT_S, 150.0)
 
     def test_what_is_in_the_context_is_not_shown_again(self, tmp_path, monkeypatch):
         """Sinon chaque phrase s'afficherait six fois."""
@@ -414,12 +414,12 @@ class TestTheWindowOfContext:
                             lambda audio, start, end, dest: dest)
         transcriber = SliceTranscriber([[
             utterance(2, "phrase déjà affichée, dans le contexte"),
-            utterance(watch.CONTEXTE_S + 1, "phrase neuve, dans la tranche"),
+            utterance(watch.CONTEXT_S + 1, "phrase neuve, dans la tranche"),
         ]])
         instance = watcher(tmp_path, transcriber=transcriber, traite=120.0)
         fresh = instance.transcription_turn(where_in(tmp_path, written=150.0), tmp_path)
-        instance_veille = [p.text for p in fresh]
-        assert not any("déjà affichée" in t for t in instance_veille)
+        watch_instance = [p.text for p in fresh]
+        assert not any("déjà affichée" in t for t in watch_instance)
 
     def test_at_the_start_the_window_does_not_reach_before_zero(
         self, tmp_path, monkeypatch
@@ -468,7 +468,7 @@ class TestTheTwoButtonsDuringAMeeting:
     nothing to say so.
     """
 
-    def _watcher(self, assistant_of, buttons, voix_neuve=None):
+    def _watcher(self, assistant_of, buttons, new_voice=None):
         from greffier.application.watch import Watcher
         from greffier.domain.instructions import WatchRules
 
@@ -477,10 +477,10 @@ class TestTheTwoButtonsDuringAMeeting:
             log=Path("/tmp/inutilise.jsonl"),
             assistant_of=assistant_of,
             reread_participation=lambda: buttons,
-            give_voice_back=(lambda: voix_neuve) if voix_neuve else None,
+            give_voice_back=(lambda: new_voice) if new_voice else None,
         )
 
-    def _assistant_of(self, avec_voix=True):
+    def _assistant_of(self, with_voice=True):
         from greffier.application.take_part import AssistantSettings
         from greffier.domain.participation import Manners
 
@@ -497,7 +497,7 @@ class TestTheTwoButtonsDuringAMeeting:
             def is_speaking(self):
                 return False
 
-        return AssistantSettings(name="Lucie", voice=FakeVoice() if avec_voix else None,
+        return AssistantSettings(name="Lucie", voice=FakeVoice() if with_voice else None,
                            manners=Manners(active=True))
 
     def test_cutting_the_voice_stops_it_at_once(self):
@@ -515,15 +515,15 @@ class TestTheTwoButtonsDuringAMeeting:
 
     def test_giving_the_voice_back_loads_it_once(self):
         """Loading a model costs: it is done only when asked for."""
-        lui = self._assistant_of(avec_voix=False)
+        lui = self._assistant_of(with_voice=False)
         neuve = object()
-        watcher = self._watcher(lui, (True, False), voix_neuve=neuve)
+        watcher = self._watcher(lui, (True, False), new_voice=neuve)
         watcher._apply_the_buttons(True, False)
         assert lui.voice is neuve
 
     def test_with_no_way_to_give_it_back_it_stays_silent(self):
         """No model installed: it takes part in writing, without complaining."""
-        lui = self._assistant_of(avec_voix=False)
+        lui = self._assistant_of(with_voice=False)
         self._watcher(lui, (True, False))._apply_the_buttons(True, False)
         assert lui.voice is None and lui.manners.active
 
@@ -658,13 +658,13 @@ class TestSheAnswersWithoutWaitingForTheSlice:
     class Ecoute:
         """A transcriber that returns what was said, and counts its calls."""
 
-        def __init__(self, texte="Lucie, tu en penses quoi ?"):
-            self.texte = texte
+        def __init__(self, text="Lucie, tu en penses quoi ?"):
+            self.text = text
             self.appels = 0
 
         def transcribe(self, audio, language, prompt_seed):
             self.appels += 1
-            return [Utterance(span=Span(0.0, 3.0), text=self.texte)]
+            return [Utterance(span=Span(0.0, 3.0), text=self.text)]
 
     def _lui(self):
         from greffier.application.take_part import AssistantSettings
@@ -677,38 +677,38 @@ class TestSheAnswersWithoutWaitingForTheSlice:
         return AssistantSettings(name="Lucie", cerveau=Brain(),
                                  manners=Manners(active=True, creux_minimal=0.0))
 
-    def _watcher(self, tmp_path, monkeypatch, lui, ecoute):
+    def _watcher(self, tmp_path, monkeypatch, lui, listening):
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         monkeypatch.setattr(watch, "extract_slice",
                             lambda audio, start, end, dest: dest)
-        return watcher(tmp_path, transcriber=ecoute, assistant_of=lui,
+        return watcher(tmp_path, transcriber=listening, assistant_of=lui,
                        situer=lambda: where_in(tmp_path, written=8.0))
 
     def test_a_call_is_answered_before_the_slice(self, tmp_path, monkeypatch):
-        lui, ecoute = self._lui(), self.Ecoute()
+        lui, listening = self._lui(), self.Ecoute()
         dits = []
         lui.answer_aside = lambda opening, now: dits.append(opening)
-        instance = self._watcher(tmp_path, monkeypatch, lui, ecoute)
+        instance = self._watcher(tmp_path, monkeypatch, lui, listening)
         instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
         assert len(dits) == 1
-        assert ecoute.appels == 1
+        assert listening.appels == 1
 
     def test_an_ordinary_sentence_costs_nothing_but_the_listening(
         self, tmp_path, monkeypatch
     ):
         """The model is not called for a sentence that does not name it."""
         lui = self._lui()
-        ecoute = self.Ecoute("on se cale jeudi pour la recette")
+        listening = self.Ecoute("on se cale jeudi pour la recette")
         dits = []
         lui.answer_aside = lambda opening, now: dits.append(opening)
-        instance = self._watcher(tmp_path, monkeypatch, lui, ecoute)
+        instance = self._watcher(tmp_path, monkeypatch, lui, listening)
         instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
         assert dits == []
 
     def test_the_same_call_is_not_answered_twice(self, tmp_path, monkeypatch):
         """The listening pass answers; the full slice must then keep quiet."""
-        lui, ecoute = self._lui(), self.Ecoute()
-        instance = self._watcher(tmp_path, monkeypatch, lui, ecoute)
+        lui, listening = self._lui(), self.Ecoute()
+        instance = self._watcher(tmp_path, monkeypatch, lui, listening)
         instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
         if lui._job is not None:
             lui._job.join(timeout=5)
@@ -720,8 +720,8 @@ class TestSheAnswersWithoutWaitingForTheSlice:
         assert dits == [], "la tranche complète ne doit pas répéter la réponse"
 
     def test_it_does_not_listen_while_it_is_speaking(self, tmp_path, monkeypatch):
-        lui, ecoute = self._lui(), self.Ecoute()
-        instance = self._watcher(tmp_path, monkeypatch, lui, ecoute)
+        lui, listening = self._lui(), self.Ecoute()
+        instance = self._watcher(tmp_path, monkeypatch, lui, listening)
 
         class Occupe:
             def is_alive(self):
@@ -729,12 +729,12 @@ class TestSheAnswersWithoutWaitingForTheSlice:
 
         lui._job = Occupe()
         instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
-        assert ecoute.appels == 0
+        assert listening.appels == 0
 
     def test_it_listens_at_its_own_pace(self, tmp_path, monkeypatch):
         """Every clipboard turn would cost 0.8 s of transcription every 2 s."""
-        lui, ecoute = self._lui(), self.Ecoute()
-        instance = self._watcher(tmp_path, monkeypatch, lui, ecoute)
+        lui, listening = self._lui(), self.Ecoute()
+        instance = self._watcher(tmp_path, monkeypatch, lui, listening)
         instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
         # The answer to the first call runs in a thread, and nothing is listened
         # for while it speaks. Left to chance, this test measured the machine's
@@ -744,39 +744,39 @@ class TestSheAnswersWithoutWaitingForTheSlice:
         if lui._job is not None:
             lui._job.join(timeout=5)
         instance.listening_turn(where_in(tmp_path, written=9.0), tmp_path)
-        assert ecoute.appels == 1, "une seconde plus tard, on n'écoute pas encore"
+        assert listening.appels == 1, "une seconde plus tard, on n'écoute pas encore"
         instance.listening_turn(where_in(tmp_path, written=12.0), tmp_path)
-        assert ecoute.appels == 2
+        assert listening.appels == 2
 
     def test_with_no_assistant_nothing_is_transcribed(self, tmp_path, monkeypatch):
-        ecoute = self.Ecoute()
-        instance = self._watcher(tmp_path, monkeypatch, None, ecoute)
+        listening = self.Ecoute()
+        instance = self._watcher(tmp_path, monkeypatch, None, listening)
         instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
-        assert ecoute.appels == 0
+        assert listening.appels == 0
 
     def test_an_assistant_switched_off_is_not_listened_for(
         self, tmp_path, monkeypatch
     ):
         from greffier.domain.participation import Manners
 
-        lui, ecoute = self._lui(), self.Ecoute()
+        lui, listening = self._lui(), self.Ecoute()
         lui.manners = Manners(active=False)
-        instance = self._watcher(tmp_path, monkeypatch, lui, ecoute)
+        instance = self._watcher(tmp_path, monkeypatch, lui, listening)
         instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
-        assert ecoute.appels == 0
+        assert listening.appels == 0
 
     def test_too_little_audio_is_not_read(self, tmp_path, monkeypatch):
-        lui, ecoute = self._lui(), self.Ecoute()
-        instance = self._watcher(tmp_path, monkeypatch, lui, ecoute)
+        lui, listening = self._lui(), self.Ecoute()
+        instance = self._watcher(tmp_path, monkeypatch, lui, listening)
         instance.listening_turn(where_in(tmp_path, written=1.0), tmp_path)
-        assert ecoute.appels == 0
+        assert listening.appels == 0
 
     def test_the_loop_listens_between_two_slices(self, tmp_path, monkeypatch):
         """The whole point: it happens on the clipboard rhythm, not the slice."""
-        lui, ecoute = self._lui(), self.Ecoute()
+        lui, listening = self._lui(), self.Ecoute()
         dits = []
         lui.answer_aside = lambda opening, now: dits.append(opening)
-        instance = self._watcher(tmp_path, monkeypatch, lui, ecoute)
+        instance = self._watcher(tmp_path, monkeypatch, lui, listening)
         instance.slice_period = 30.0
         turns = {"n": 0}
 

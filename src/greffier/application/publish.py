@@ -33,7 +33,7 @@ Règles :
 Document :
 """
 
-LU_AU_PLUS = 40_000
+READ_AT_MOST = 40_000
 
 @dataclass(frozen=True, slots=True)
 class Done:
@@ -68,7 +68,7 @@ def extract_sound(video: Path, destination: Path) -> Path:
         )
     return destination
 
-def lire_le_texte(document: Path) -> str:
+def read_the_text(document: Path) -> str:
     """The text of a document, whatever its format. Empty when unreadable."""
     from greffier.domain.store import TEXTS, TOOLED_TEXTS
 
@@ -93,7 +93,7 @@ def learn_from_document(
     document: Path, writer: object, maximum: int = 20
 ) -> tuple[tuple[str, str, str], ...]:
     """The context entries this document suggests."""
-    return learn_from_text(lire_le_texte(document), writer, maximum)
+    return learn_from_text(read_the_text(document), writer, maximum)
 
 def learn_from_text(
     text: str, writer: object, maximum: int = 20
@@ -105,7 +105,7 @@ def learn_from_text(
     if not text.strip():
         return ()
     rendered = writer.write_up(  # type: ignore[attr-defined]
-        CONSIGNES_DOCUMENT + text[:LU_AU_PLUS]
+        CONSIGNES_DOCUMENT + text[:READ_AT_MOST]
     )
     block = re.search(r"```(?:json)?\s*(.*?)```", rendered, re.DOTALL)
     brut = block.group(1) if block else rendered

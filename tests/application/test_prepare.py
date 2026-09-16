@@ -12,8 +12,8 @@ from greffier.domain.preparation import Preparation, question_prompt
 
 
 class Cerveau:
-    def __init__(self, reponse="Elle a été décalée à jeudi.", casse=False):
-        self.reponse = reponse
+    def __init__(self, answer="Elle a été décalée à jeudi.", casse=False):
+        self.answer = answer
         self.casse = casse
         self.recu: list[str] = []
 
@@ -21,7 +21,7 @@ class Cerveau:
         self.recu.append(text)
         if self.casse:
             raise RuntimeError("le rédacteur n'a rien produit")
-        return self.reponse
+        return self.answer
 
 
 def _une() -> Preparation:
@@ -71,9 +71,9 @@ class TestTakingInASpokenSentence:
     def test_the_cue_says_it_was_heard(self):
         """Hearing nothing at all is indistinguishable from a microphone off."""
         sonneries: list[int] = []
-        dit = Preparing(Cerveau(), heard=lambda: sonneries.append(1)).transcribed(
+        said = Preparing(Cerveau(), heard=lambda: sonneries.append(1)).transcribed(
             "  rappelle-moi   la dernière  ")
-        assert dit == "rappelle-moi la dernière"
+        assert said == "rappelle-moi la dernière"
         assert sonneries == [1]
 
     def test_nothing_said_sounds_nothing(self):
@@ -82,24 +82,24 @@ class TestTakingInASpokenSentence:
         assert sonneries == []
 
     def test_a_cue_that_cannot_play_costs_no_sentence(self):
-        def muet():
+        def silent():
             raise OSError("aucun lecteur")
 
-        assert Preparing(Cerveau(), heard=muet).transcribed("bonjour") == "bonjour"
+        assert Preparing(Cerveau(), heard=silent).transcribed("bonjour") == "bonjour"
 
 
 class TestWhatTheModelIsTold:
     def test_the_question_comes_before_the_material(self):
         """Given four thousand characters first, a model answers the material."""
-        amorce = question_prompt(_une().raising("un point"), "[Contexte]", "et alors ?")
-        assert amorce.index("et alors ?") < amorce.index("un point")
+        seed = question_prompt(_une().raising("un point"), "[Contexte]", "et alors ?")
+        assert seed.index("et alors ?") < seed.index("un point")
 
     def test_it_says_the_meeting_has_not_happened(self):
         """Otherwise the model reports what was decided in a meeting nobody held."""
-        amorce = question_prompt(_une(), "", "et alors ?")
-        assert "n'a pas encore eu lieu" in amorce
-        assert "N'invente aucun propos" in amorce
+        seed = question_prompt(_une(), "", "et alors ?")
+        assert "n'a pas encore eu lieu" in seed
+        assert "N'invente aucun propos" in seed
 
     def test_the_setting_is_carried(self):
-        amorce = question_prompt(_une(), "[Contexte] FAST = formulaire", "et alors ?")
-        assert "FAST = formulaire" in amorce
+        seed = question_prompt(_une(), "[Contexte] FAST = formulaire", "et alors ?")
+        assert "FAST = formulaire" in seed

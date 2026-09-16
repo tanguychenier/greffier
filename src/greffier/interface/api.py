@@ -21,14 +21,14 @@ import contextlib
 import secrets
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 # Imported here and not inside the builder: FastAPI resolves the annotations of
 # a handler at runtime, and a name that only exists inside a function cannot be
 # resolved -- `request: Request` was then read as a query parameter, and every
 # guarded route answered 422 rather than 401. The module is only imported by the
 # command that opens the door, which says what to install when it is missing.
-from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import PlainTextResponse
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
@@ -37,7 +37,7 @@ if TYPE_CHECKING:  # pragma: no cover - imported for typing only
 #: The phases a meeting handed over through the door goes through, kept in
 #: memory: the state file belongs to the meeting being recorded, and two
 #: processings answering into the same file would each erase the other.
-_TRAVAUX: dict[str, dict[str, str]] = {}
+_JOBS: dict[str, dict[str, str]] = {}
 
 
 def _unauthorized() -> HTTPException:
@@ -60,36 +60,36 @@ def build(config: Config) -> Any:
         if not secrets.compare_digest(given, f"Bearer {expected}"):
             raise _unauthorized()
 
-    gardee = [Depends(authorised)]
+    kept_one = [Depends(authorised)]
 
     @api.get("/sante")
     def sante() -> dict[str, object]:
         """Open without a token: enough to know the door answers, and no more."""
         return {"outil": "greffier", "version": _version(), "pret": True}
 
-    @api.get("/reunions", dependencies=gardee)
-    def reunions() -> list[dict[str, object]]:
+    @api.get("/reunions", dependencies=kept_one)
+    def meetings_route() -> list[dict[str, object]]:
         store = _store(config)
-        return [_resume(store, identifier) for identifier in store.lister()]
+        return [_resume(store, identifier) for identifier in store.list_()]
 
-    @api.get("/reunions/{identifiant}", dependencies=gardee)
-    def reunion(identifiant: str) -> dict[str, object]:
+    @api.get("/reunions/{identifier}", dependencies=kept_one)
+    def meeting_route(identifier: str) -> dict[str, object]:
         store = _store(config)
-        if identifiant not in store.lister():
+        if identifier not in store.list_():
             raise HTTPException(status_code=404, detail="réunion inconnue")
-        return _resume(store, identifiant)
+        return _resume(store, identifier)
 
-    @api.get("/reunions/{identifiant}/compte-rendu", dependencies=gardee,
+    @api.get("/reunions/{identifier}/compte-rendu", dependencies=kept_one,
              response_class=PlainTextResponse)
-    def compte_rendu(identifiant: str) -> str:
-        return _read(config.paths.minutes_folder / f"{identifiant}.md", "compte rendu")
+    def minutes_route(identifier: str) -> str:
+        return _read(config.paths.minutes_folder / f"{identifier}.md", "compte rendu")
 
-    @api.get("/reunions/{identifiant}/transcription", dependencies=gardee,
+    @api.get("/reunions/{identifier}/transcription", dependencies=kept_one,
              response_class=PlainTextResponse)
-    def transcription(identifiant: str) -> str:
-        return _read(config.paths.transcripts / f"{identifiant}.txt", "transcription")
+    def transcription(identifier: str) -> str:
+        return _read(config.paths.transcripts / f"{identifier}.txt", "transcription")
 
-    @api.get("/memoire", dependencies=gardee)
+    @api.get("/memoire", dependencies=kept_one)
     def memoire() -> list[dict[str, object]]:
         """What earlier meetings left: decisions, open points, documents."""
         from dataclasses import asdict
@@ -98,47 +98,49 @@ def build(config: Config) -> Any:
 
         return [asdict(trace) for trace in memory(config).recall()]
 
-    @api.post("/reunions", dependencies=gardee, status_code=202)
-    async def deposer(enregistrement: UploadFile) -> dict[str, str]:
+    @api.post("/reunions", dependencies=kept_one, status_code=202)
+    async def deposer(
+        recording: Annotated[UploadFile, File(alias="enregistrement")],
+    ) -> dict[str, str]:
         """Takes a recording in and answers at once: an hour is not a request.
 
         202 and an identifier. The phases are read back from /travaux, the same
         ones the window paints.
         """
-        nom = Path(enregistrement.filename or "reunion.wav").name
-        cible = config.paths.recordings / nom
-        cible.parent.mkdir(parents=True, exist_ok=True)
-        cible.write_bytes(await enregistrement.read())
-        identifiant = cible.stem
-        _TRAVAUX[identifiant] = {"phase": "attente", "message": "En file."}
+        name = Path(recording.filename or "reunion.wav").name
+        target = config.paths.recordings / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(await recording.read())
+        identifier = target.stem
+        _JOBS[identifier] = {"phase": "attente", "message": "En file."}
         threading.Thread(
-            target=_process, args=(config, cible, identifiant), daemon=True
+            target=_process, args=(config, target, identifier), daemon=True
         ).start()
-        return {"identifiant": identifiant}
+        return {"identifiant": identifier}
 
-    @api.get("/travaux/{identifiant}", dependencies=gardee)
-    def travail(identifiant: str) -> dict[str, str]:
-        if identifiant not in _TRAVAUX:
+    @api.get("/travaux/{identifier}", dependencies=kept_one)
+    def travail(identifier: str) -> dict[str, str]:
+        if identifier not in _JOBS:
             raise HTTPException(status_code=404, detail="aucun traitement pour ce nom")
-        return _TRAVAUX[identifiant]
+        return _JOBS[identifier]
 
     return api
 
 
-def _process(config: Config, audio: Path, identifiant: str) -> None:
+def _process(config: Config, audio: Path, identifier: str) -> None:
     """Runs the chain and publishes its phases, without ever raising."""
     from greffier.wiring import wire_up
 
-    def dire(phase: str, message: str = "") -> None:
-        _TRAVAUX[identifiant] = {"phase": phase, "message": message}
+    def say(phase: str, message: str = "") -> None:
+        _JOBS[identifier] = {"phase": phase, "message": message}
 
     try:
-        chaine = wire_up(config)
-        chaine.log = type("Journal", (), {"publish": staticmethod(dire)})()
-        chaine.run_chain(audio, send=False)
-        dire("termine", "Compte rendu prêt.")
+        chain = wire_up(config)
+        chain.log = type("Journal", (), {"publish": staticmethod(say)})()
+        chain.run_chain(audio, send=False)
+        say("termine", "Compte rendu prêt.")
     except Exception as trouble:  # noqa: BLE001 - handed to the client, never swallowed
-        dire("echec", str(trouble))
+        say("echec", str(trouble))
 
 
 def _version() -> str:
@@ -156,22 +158,22 @@ def _store(config: Config) -> Any:
     return FileStore(config.paths.data / "reunions")
 
 
-def _resume(store: Any, identifiant: str) -> dict[str, object]:
+def _resume(store: Any, identifier: str) -> dict[str, object]:
     """A meeting as a list shows it: who, how long, how much was said."""
-    reunion = store.read(identifiant)
+    meeting = store.read(identifier)
     return {
-        "identifiant": identifiant,
-        "titre": reunion.subject or identifiant,
-        "tenue_le": reunion.started_at.isoformat() if reunion.started_at else "",
-        "duree_s": round(reunion.duration, 1),
-        "personnes": sorted({nom for nom in reunion.names.values() if nom}),
-        "mots": sum(len(u.text.split()) for u in reunion.utterances),
+        "identifiant": identifier,
+        "titre": meeting.subject or identifier,
+        "tenue_le": meeting.started_at.isoformat() if meeting.started_at else "",
+        "duree_s": round(meeting.duration, 1),
+        "personnes": sorted({name for name in meeting.names.values() if name}),
+        "mots": sum(len(u.text.split()) for u in meeting.utterances),
     }
 
 
-def _read(file: Path, quoi: str) -> str:
+def _read(file: Path, what: str) -> str:
     if not file.exists():
-        raise HTTPException(status_code=404, detail=f"{quoi} introuvable")
+        raise HTTPException(status_code=404, detail=f"{what} introuvable")
     return file.read_text(encoding="utf-8")
 
 

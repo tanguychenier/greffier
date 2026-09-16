@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from greffier.domain.memory import RAPPEL_MAXIMUM, Trace, recalled, what_the_minutes_left
 
-COMPTE_RENDU = """# Compte rendu : point sur la recette
+MINUTES = """# Compte rendu : point sur la recette
 
 durée 39 s. Participants : Jacques, Sophie.
 
@@ -38,21 +38,21 @@ Rien à signaler.
 
 class TestReadingWhatTheMinutesLeft:
     def test_the_decisions_are_read_from_the_minutes(self):
-        decisions, _ = what_the_minutes_left(COMPTE_RENDU)
+        decisions, _ = what_the_minutes_left(MINUTES)
         assert decisions == (
             "La recette est décalée à jeudi prochain.",
             "Les utilisateurs seront prévenus mercredi.",
         )
 
     def test_the_open_points_too(self):
-        _, ouverts = what_the_minutes_left(COMPTE_RENDU)
+        _, ouverts = what_the_minutes_left(MINUTES)
         assert ouverts == (
             "Validation fonctionnelle des deux anomalies : aucune date donnée.",
         )
 
     def test_a_table_is_not_a_list_of_decisions(self):
         """The actions are a table, and a row is not a bullet."""
-        decisions, _ = what_the_minutes_left(COMPTE_RENDU)
+        decisions, _ = what_the_minutes_left(MINUTES)
         assert not any("|" in point for point in decisions)
 
     def test_minutes_without_those_headings_leave_nothing(self):
@@ -93,26 +93,26 @@ class TestWhatIsRecalled:
         )
 
     def test_a_meeting_that_left_nothing_is_not_recalled(self):
-        rien = Trace(identifier="2026-09-01_reunion", title="rien")
-        assert rien.empty
-        assert recalled([rien]) == ""
+        nothing = Trace(identifier="2026-09-01_reunion", title="rien")
+        assert nothing.empty
+        assert recalled([nothing]) == ""
 
     def test_the_recalled_section_names_the_meeting_and_the_day(self):
-        rendu = recalled([self._trace(12)])
-        assert "réunion 12" in rendu and "2026-09-12" in rendu
+        rendered = recalled([self._trace(12)])
+        assert "réunion 12" in rendered and "2026-09-12" in rendered
 
     def test_it_tells_the_writer_not_to_pass_an_old_point_off_as_new(self):
         """The whole risk of recalling: minutes that report what nobody said."""
-        rendu = recalled([self._trace(12)])
-        assert "jamais un point ancien" in rendu
+        rendered = recalled([self._trace(12)])
+        assert "jamais un point ancien" in rendered
 
     def test_it_stops_at_a_meeting_boundary(self):
         """Half a decision recalled is worse than none: nothing says it was cut."""
         longues = [self._trace(j, "d" * 400) for j in range(1, 13)]
-        rendu = recalled(longues, place=1000)
-        assert len(rendu) < 1000 + 400
-        assert not rendu.rstrip().endswith("d" * 10 + "…")
-        assert rendu.count("Décidé") < len(longues)
+        rendered = recalled(longues, place=1000)
+        assert len(rendered) < 1000 + 400
+        assert not rendered.rstrip().endswith("d" * 10 + "…")
+        assert rendered.count("Décidé") < len(longues)
 
     def test_nothing_at_all_gives_no_section(self):
         assert recalled([]) == ""

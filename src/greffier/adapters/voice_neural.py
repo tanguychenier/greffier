@@ -23,13 +23,13 @@ from greffier.domain.arithmetic import AUTO, CARD, chosen_device
 
 SYSTEM = platform.system()
 
-VOIX_FRANCAISE = 0
+FRENCH_VOICE = 0
 
-LANGUE_ESPEAK = {"fr": "fr", "en": "en-us", "es": "es", "it": "it", "pt": "pt"}
+ESPEAK_LANGUAGE = {"fr": "fr", "en": "en-us", "es": "es", "it": "it", "pt": "pt"}
 
 RATE = 0.95
 
-FINS_DE_PHRASE = re.compile(r"(?<=[.!?…])\s+")
+SENTENCE_ENDS = re.compile(r"(?<=[.!?…])\s+")
 
 TIRETS = re.compile(r"\s*[—–-]\s*")
 
@@ -41,7 +41,7 @@ def clean(text: str) -> str:
 def sentences(text: str, maximum: int = 240) -> list[str]:
     """Cuts into pronounceable pieces, earliest first."""
     chunks: list[str] = []
-    for sentence in FINS_DE_PHRASE.split(clean(text)):
+    for sentence in SENTENCE_ENDS.split(clean(text)):
         sentence = sentence.strip()
         if not sentence:
             continue
@@ -90,12 +90,12 @@ def _without_chatter() -> Iterator[None]:
 
 _OPENED: dict[tuple[str, str, str, int], Any] = {}
 
-_TOUR = threading.Lock()
+_TURN = threading.Lock()
 
 class NeuralVoice:
     """Pronounces a text with a neural voice, locally."""
 
-    def __init__(self, folder: Path, language: str = "fr", voice: int = VOIX_FRANCAISE,
+    def __init__(self, folder: Path, language: str = "fr", voice: int = FRENCH_VOICE,
                  rate: float = RATE, fils: int = 4,
                  gag: Path | None = None, device: str = AUTO) -> None:
         self.gag = Path(gag) if gag else None
@@ -107,7 +107,7 @@ class NeuralVoice:
         self.device = device
         self._engine = None
         self._verrou = threading.Lock()
-        self._lecture: subprocess.Popen[bytes] | None = None
+        self._reading: subprocess.Popen[bytes] | None = None
         self._interrompu = threading.Event()
 
     @property
@@ -132,7 +132,7 @@ class NeuralVoice:
             return self._engine
         where = chosen_device(self.device, cuda.a_card_is_usable())
         clef = (str(self.folder), self.language, where, self.fils)
-        with _TOUR:
+        with _TURN:
             ready = _OPENED.get(clef)
             if ready is None:
                 ready = self._open(where)
@@ -162,7 +162,7 @@ class NeuralVoice:
             model = sherpa_onnx.OfflineTtsModelConfig(
                 kokoro=sherpa_onnx.OfflineTtsKokoroModelConfig(
                     model=str(self._network), voices=str(self._voice_table),
-                    lang=LANGUE_ESPEAK.get(self.language, self.language), **commun,
+                    lang=ESPEAK_LANGUAGE.get(self.language, self.language), **commun,
                 ),
                 num_threads=self.fils,
                 provider=where,
@@ -227,13 +227,13 @@ class NeuralVoice:
         import soundfile
 
         with tempfile.TemporaryDirectory() as folder:
-            for rank, morceau in enumerate(chunks):
+            for rank, chunk in enumerate(chunks):
                 if self._interrompu.is_set():
                     return
                 try:
                     with _without_chatter():
                         rendered = self._load().generate(
-                            morceau, sid=self.voice, speed=self.rate)
+                            chunk, sid=self.voice, speed=self.rate)
                 except (RuntimeError, OSError):
                     return
                 if len(rendered.samples) == 0:
@@ -256,11 +256,11 @@ class NeuralVoice:
             with self._verrou:
                 if self._interrompu.is_set():
                     return False
-                self._lecture = subprocess.Popen(
+                self._reading = subprocess.Popen(
                     command, stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                self._publish_the_gag(self._lecture.pid)
-            code = self._lecture.wait()
+                self._publish_the_gag(self._reading.pid)
+            code = self._reading.wait()
         except OSError:
             return False
         finally:
@@ -283,7 +283,7 @@ class NeuralVoice:
 
     def is_speaking(self) -> bool:
         with self._verrou:
-            return self._lecture is not None and self._lecture.poll() is None
+            return self._reading is not None and self._reading.poll() is None
 
     def go_quiet(self) -> None:
         """Cuts the current remark, sentences still to come included.
@@ -293,13 +293,13 @@ class NeuralVoice:
         """
         self._interrompu.set()
         with self._verrou:
-            lecture, self._lecture = self._lecture, None
-        if lecture is not None and lecture.poll() is None:
-            lecture.terminate()
+            reading, self._reading = self._reading, None
+        if reading is not None and reading.poll() is None:
+            reading.terminate()
             try:
-                lecture.wait(timeout=2)
+                reading.wait(timeout=2)
             except subprocess.TimeoutExpired:
-                lecture.kill()
+                reading.kill()
 
 def silence(gag: Path) -> bool:
     """Cuts the sound under way, from any process."""

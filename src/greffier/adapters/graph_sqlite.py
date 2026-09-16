@@ -90,47 +90,47 @@ def known_about(file: Path, subject: str, meetings_at_most: int = 5) -> Known:
     if not file.exists() or not subject.strip():
         return Known(subject=subject)
     with closing(open_it(file)) as lien:
-        reunions = [
-            ligne[0] for ligne in lien.execute(
+        meetings = [
+            line[0] for line in lien.execute(
                 "SELECT cle_debut FROM arete WHERE lien = ? AND genre_fin = ? "
                 "AND cle_fin = ? ORDER BY cle_debut DESC LIMIT ?",
                 (Link.ABOUT.value, Kind.SUBJECT.value, subject, meetings_at_most),
             )
         ]
-        if not reunions:
+        if not meetings:
             return Known(subject=subject)
-        trous = ",".join("?" * len(reunions))
-        personnes = [
-            ligne[0] for ligne in lien.execute(
+        gaps = ",".join("?" * len(meetings))
+        people = [
+            line[0] for line in lien.execute(
                 f"SELECT DISTINCT cle_debut FROM arete WHERE lien = ? "  # noqa: S608
-                f"AND cle_fin IN ({trous}) ORDER BY cle_debut",
-                (Link.ATTENDED.value, *reunions),
+                f"AND cle_fin IN ({gaps}) ORDER BY cle_debut",
+                (Link.ATTENDED.value, *meetings),
             )
         ]
         ouverts = [
-            ligne[0] for ligne in lien.execute(
+            line[0] for line in lien.execute(
                 f"SELECT cle_fin FROM arete WHERE lien = ? "  # noqa: S608
-                f"AND cle_debut IN ({trous})",
-                (Link.LEFT_OPEN.value, *reunions),
+                f"AND cle_debut IN ({gaps})",
+                (Link.LEFT_OPEN.value, *meetings),
             )
         ]
         documents = [
-            ligne[0] for ligne in lien.execute(
+            line[0] for line in lien.execute(
                 f"SELECT DISTINCT cle_debut FROM arete WHERE lien = ? "  # noqa: S608
-                f"AND cle_fin IN ({trous})",
-                (Link.SUPPLIED.value, *reunions),
+                f"AND cle_fin IN ({gaps})",
+                (Link.SUPPLIED.value, *meetings),
             )
         ]
         sources = [
-            ligne[0] for ligne in lien.execute(
+            line[0] for line in lien.execute(
                 "SELECT cle_debut FROM arete WHERE lien = ? AND cle_fin = ?",
                 (Link.TRACKED_IN.value, subject),
             )
         ]
     return Known(
         subject=subject,
-        people=tuple(personnes),
-        meetings=tuple(reunions),
+        people=tuple(people),
+        meetings=tuple(meetings),
         open_points=tuple(ouverts),
         documents=tuple(documents),
         sources=tuple(sources),

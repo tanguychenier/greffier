@@ -37,7 +37,7 @@ class Ticket:
     description: str = ""
     assigne: str = ""
     echeance: str = ""
-    extrait: str = ""
+    excerpt: str = ""
 
     def as_markdown(self) -> str:
         lines = [f"### {self.title}", ""]
@@ -50,8 +50,8 @@ class Ticket:
             details.append(f"**Échéance** {self.echeance}")
         if details:
             lines += [" · ".join(details), ""]
-        if self.extrait:
-            lines += [f"> {self.extrait}", ""]
+        if self.excerpt:
+            lines += [f"> {self.excerpt}", ""]
         return "\n".join(lines)
 
 
@@ -91,7 +91,7 @@ def extract_json(response: str) -> list[object]:
     return charge if isinstance(charge, list) else []
 
 
-def depuis_reponse(response: str) -> Suggestion:
+def from_answer(response: str) -> Suggestion:
     """Builds the tickets from what the writer answered."""
     tickets = []
     for item in extract_json(response):
@@ -105,11 +105,11 @@ def depuis_reponse(response: str) -> Suggestion:
             description=str(item.get("description", "")).strip(),
             assigne=str(item.get("assigne", "")).strip(),
             echeance=str(item.get("echeance", "")).strip(),
-            extrait=str(item.get("extrait", "")).strip(),
+            excerpt=str(item.get("extrait", "")).strip(),
         ))
     return Suggestion(tickets=tickets, brut=response)
 
 
 def offer(minutes: str, writer: Writer) -> Suggestion:
     """Asks the same writer that wrote the minutes for the tickets."""
-    return depuis_reponse(writer.write_up(GUIDANCE + minutes))
+    return from_answer(writer.write_up(GUIDANCE + minutes))

@@ -154,7 +154,7 @@ def _strip_accents(word: str) -> str:
         if unicodedata.category(c) != "Mn"
     )
 
-def _est_le_nom(word: str, cherche: str) -> bool:
+def _is_the_name(word: str, cherche: str) -> bool:
     """True when this word is the name, near enough to be taken out of a sentence.
 
     Wider than what makes it answer, and deliberately so: taking its name out of
@@ -196,7 +196,7 @@ def question_asked(text: str, name: str) -> str:
     cherche = _strip_accents(name.strip())
     gardes = [
         word for word in re.split(r"(\W+)", text, flags=re.UNICODE)
-        if not _est_le_nom(word, cherche)
+        if not _is_the_name(word, cherche)
     ]
     remaining = re.sub(r"\s+", " ", "".join(gardes))
     remaining = re.sub(r"\s+([,.])", r"\1", remaining)
@@ -276,7 +276,7 @@ def without_own_name(remark: str, name: str) -> str:
         return remark
     gardes = [
         word for word in re.split(r"(\W+)", remark, flags=re.UNICODE)
-        if not _est_le_nom(word, cherche)
+        if not _is_the_name(word, cherche)
     ]
     remaining = "".join(gardes)
     if remaining == remark:

@@ -190,9 +190,9 @@ class TestABundleNewerThanTheProcess:
     def test_a_bundle_laid_down_after_startup_is_flagged(self, tmp_path):
         from greffier.adapters import updates
 
-        faux = tmp_path / "Greffier.app" / "Contents" / "MacOS"
-        faux.mkdir(parents=True)
-        executable = faux / "Greffier"
+        wrong = tmp_path / "Greffier.app" / "Contents" / "MacOS"
+        wrong.mkdir(parents=True)
+        executable = wrong / "Greffier"
         executable.write_text("")
         # The module was loaded before this file existed: it is exactly
         # the situation of a package rebuilt under a running application.
@@ -204,9 +204,9 @@ class TestABundleNewerThanTheProcess:
 
         from greffier.adapters import updates
 
-        faux = tmp_path / "Greffier.app" / "Contents" / "MacOS"
-        faux.mkdir(parents=True)
-        executable = faux / "Greffier"
+        wrong = tmp_path / "Greffier.app" / "Contents" / "MacOS"
+        wrong.mkdir(parents=True)
+        executable = wrong / "Greffier"
         executable.write_text("")
         former = time.time() - 3600
         os.utime(executable, (former, former))
@@ -250,7 +250,7 @@ class TestTheArtefactForThisSystem:
         monkeypatch.setattr(updates.platform, "system", lambda: system)
         answer(monkeypatch, self.PUBLICATION)
         verdict = updates.check()
-        assert verdict.artefact_nom == expected
+        assert verdict.artefact_name == expected
         assert verdict.artefact.endswith(expected)
         assert verdict.downloadable
 
@@ -313,8 +313,8 @@ class TestDownloadingAndUnpacking:
         archive = tmp_path / "Greffier-macos.zip"
         with zipfile.ZipFile(archive, "w") as z:
             z.writestr("Greffier.app/Contents/Info.plist", "<plist/>")
-        ouvert, where_in = updates.unpack(archive, tmp_path / "dedans")
-        assert ouvert, where_in
+        opened, where_in = updates.unpack(archive, tmp_path / "dedans")
+        assert opened, where_in
         assert (tmp_path / "dedans" / "Greffier.app" / "Contents").is_dir()
 
     def test_a_tar_gz_opens(self, tmp_path):
@@ -326,15 +326,15 @@ class TestDownloadingAndUnpacking:
         archive = tmp_path / "Greffier-linux.tar.gz"
         with tarfile.open(archive, "w:gz") as a:
             a.add(source, arcname="greffier")
-        ouvert, where_in = updates.unpack(archive, tmp_path / "dedans")
-        assert ouvert, where_in
+        opened, where_in = updates.unpack(archive, tmp_path / "dedans")
+        assert opened, where_in
         assert (tmp_path / "dedans" / "greffier" / "LISEZMOI.md").exists()
 
     def test_an_unknown_format_is_refused(self, tmp_path):
         archive = tmp_path / "Greffier.rar"
         archive.write_bytes(b"nope")
-        ouvert, trouble = updates.unpack(archive, tmp_path / "dedans")
-        assert not ouvert and "format inconnu" in trouble
+        opened, trouble = updates.unpack(archive, tmp_path / "dedans")
+        assert not opened and "format inconnu" in trouble
 
 
 class TestAnUpdateLosesNothing:

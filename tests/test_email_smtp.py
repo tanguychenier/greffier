@@ -56,11 +56,11 @@ class TestMessage:
 
     def test_the_french_text_is_in_utf8(self, message: Message):
         """The defect as it was: every French set of minutes arrived as "r√©union"."""
-        for partie in message.walk():
-            if partie.get_content_type() == "text/plain" and not partie.get_filename():
-                charset = partie.get_content_charset()
+        for part in message.walk():
+            if part.get_content_type() == "text/plain" and not part.get_filename():
+                charset = part.get_content_charset()
                 assert charset == "utf-8"
-                text = partie.get_payload(decode=True).decode(charset)
+                text = part.get_payload(decode=True).decode(charset)
                 assert "décalée" in text
                 return
         pytest.fail("aucune partie texte trouvée")

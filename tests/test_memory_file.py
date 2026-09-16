@@ -46,8 +46,8 @@ class TestOneLinePerMeeting:
         """The file is meant to be opened and corrected by hand."""
         file = memory_file.file_in(tmp_path)
         memory_file.remember(file, _trace(11))
-        with file.open("a", encoding="utf-8") as sortie:
-            sortie.write("{ceci n'est pas du json\n\n")
+        with file.open("a", encoding="utf-8") as output_:
+            output_.write("{ceci n'est pas du json\n\n")
         memory_file.remember(file, _trace(12))
         assert [t.title for t in memory_file.recall(file)] == ["réunion 12", "réunion 11"]
 

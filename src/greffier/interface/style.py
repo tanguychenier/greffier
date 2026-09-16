@@ -66,12 +66,12 @@ def system_is_dark() -> bool:
     if system == "Darwin":
         return _output(["defaults", "read", "-g", "AppleInterfaceStyle"]) == "Dark"
     if system == "Windows":
-        lu = _output([
+        read_ = _output([
             "reg", "query",
             r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
             "/v", "AppsUseLightTheme",
         ])
-        return "0x0" in lu
+        return "0x0" in read_
     portail = _output([
         "gdbus", "call", "--session", "--dest", "org.freedesktop.portal.Desktop",
         "--object-path", "/org/freedesktop/portal/desktop",
@@ -80,10 +80,10 @@ def system_is_dark() -> bool:
     ])
     if portail:
         return "uint32 1" in portail
-    reglage = _output(["gsettings", "get", "org.gnome.desktop.interface",
+    setting = _output(["gsettings", "get", "org.gnome.desktop.interface",
                        "color-scheme"])
-    if reglage:
-        return "dark" in reglage.lower()
+    if setting:
+        return "dark" in setting.lower()
     theme = _output(["gsettings", "get", "org.gnome.desktop.interface", "gtk-theme"])
     return "dark" in theme.lower()
 
@@ -104,14 +104,14 @@ def palette(theme: str = "systeme") -> Palette:
         return SOMBRE
     return SOMBRE if system_is_dark() else CLAIR
 
-def font(taille: int, gras: bool = False) -> tuple[str, int, str]:
+def font(size: int, gras: bool = False) -> tuple[str, int, str]:
     """The system interface font, with a fallback."""
     familles = {
         "Darwin": "SF Pro Text",
         "Windows": "Segoe UI",
     }
     famille = familles.get(platform.system(), "Helvetica")
-    return (famille, -taille, "bold" if gras else "normal")
+    return (famille, -size, "bold" if gras else "normal")
 
 def blend(since: str, into: str, part: float) -> str:
     """A colour between two others, in hexadecimal."""
@@ -119,7 +119,7 @@ def blend(since: str, into: str, part: float) -> str:
     b = tuple(int(into[i : i + 2], 16) for i in (1, 3, 5))
     return "#" + "".join(f"{round(x + (y - x) * part):02x}" for x, y in zip(a, b, strict=True))
 
-def title_font(taille: int) -> tuple[str, int, str]:
+def title_font(size: int) -> tuple[str, int, str]:
     """A more editorial face for the meeting's name."""
     famille = {"Darwin": "Georgia", "Windows": "Georgia"}.get(platform.system(), "Times")
-    return (famille, -taille, "bold")
+    return (famille, -size, "bold")

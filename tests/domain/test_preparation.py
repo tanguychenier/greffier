@@ -50,14 +50,14 @@ class TestBeingTakenByAMeeting:
 class TestWhatTheMeetingOpensOn:
     def test_the_points_to_raise_come_first(self):
         """What somebody thought to ask beforehand is what they want out of it."""
-        entete = _une(subject="recette").raising("valider les anomalies").header()
-        assert entete.index("Points à soulever") < entete.index("recette") + 200
-        assert "valider les anomalies" in entete
+        header = _une(subject="recette").raising("valider les anomalies").header()
+        assert header.index("Points à soulever") < header.index("recette") + 200
+        assert "valider les anomalies" in header
 
     def test_the_people_expected_come_with_their_warning(self):
-        entete = _une().expecting("Jacques").header()
-        assert "Jacques" in entete
-        assert "montre la présence" in entete, (
+        header = _une().expecting("Jacques").header()
+        assert "Jacques" in header
+        assert "montre la présence" in header, (
             "annoncer qui est attendu ne doit pas devenir une autorisation "
             "d'attribuer des propos"
         )
@@ -70,13 +70,13 @@ class TestWhatTheMeetingOpensOn:
         longue = _une()
         for numero in range(40):
             longue = longue.asked(f"question {numero}", "r" * 300)
-        entete = longue.header()
-        assert len(entete) <= PREPARATION_MAXIMUM + 400
-        assert "répondu : " + "r" * 300 in entete, "une réponse entière, ou aucune"
+        header = longue.header()
+        assert len(header) <= PREPARATION_MAXIMUM + 400
+        assert "répondu : " + "r" * 300 in header, "une réponse entière, ou aucune"
 
     def test_the_most_recent_exchanges_are_the_ones_kept(self):
         longue = _une()
         for numero in range(40):
             longue = longue.asked(f"question {numero}", "r" * 300)
-        entete = longue.header()
-        assert "question 39" in entete and "question 0" not in entete
+        header = longue.header()
+        assert "question 39" in header and "question 0" not in header

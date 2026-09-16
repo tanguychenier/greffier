@@ -34,7 +34,7 @@ je_ecoute = "… je vous écoute"
 preparer = "Préparer la prochaine réunion"
 changer_de_sujet = "Changer de sujet"
 sujet_demande = "Sujet de la réunion à préparer :"
-en_preparation = "En préparation : « {sujet} »"
+en_preparation = "En préparation : « {subject} »"
 rien_entendu = "Rien entendu. Maintenez le bouton enfoncé pendant que vous parlez."
 rien_compris = "Je n'ai pas compris. Reprenez plus près du micro."
 mode_emploi = "Posez une question sur la réunion en cours, ou sur celle choisie dans l'onglet Réunions. Pendant une réunion, la réponse vient de ce qui vient d'être dit ; en dehors, je peux chercher en ligne."
@@ -79,8 +79,8 @@ aucun_redacteur_configure = "Aucun rédacteur n'est configuré. Lancez « greffi
 [preparation]
 attendus = "Qui sera présent"
 a_soulever = "Points à aborder"
-attendu_note = "« {qui} » est attendu. Sa voix pourra être reconnue pendant la réunion ; une voix qui ressemble à quelqu'un d'absent ne le sera pas."
-point_note = "C'est noté : {quoi}"
+attendu_note = "« {who} » est attendu. Sa voix pourra être reconnue pendant la réunion ; une voix qui ressemble à quelqu'un d'absent ne le sera pas."
+point_note = "C'est noté : {what}"
 mode_emploi = "Préparez votre réunion : posez vos questions, donnez les documents utiles, dites qui sera présent et ce que vous voulez aborder. Tout cela sera repris au démarrage de la réunion."
 ouverte = "Je prépare cette réunion. Ce qui se dira ici l'ouvrira."
 
@@ -112,11 +112,11 @@ claude_absent = "Claude Code n'est pas installé : aucun compte rendu ne pourra 
 ouvrir_claude = "Lancez « claude » dans un terminal, puis revenez ici."
 terminal_ouvert = "Un terminal vient de s'ouvrir. Revenez ici ensuite : l'état se met à jour tout seul."
 version_plus_recente = "Une version plus récente est installée, mais cette fenêtre tourne encore sur la précédente. Fermez l'application et relancez-la pour en profiter."
-incidents = "Si quelque chose ne marche pas, les incidents sont consignés dans {ou}. Ce fichier ne contient ni vos propos, ni les noms de vos réunions : il peut être joint tel quel à un signalement."
+incidents = "Si quelque chose ne marche pas, les incidents sont consignés dans {where}. Ce fichier ne contient ni vos propos, ni les noms de vos réunions : il peut être joint tel quel à un signalement."
 
 [modeles]
 tous_en_place = "Tous les modèles sont en place."
-manquants = "Greffier a besoin de {poids} de modèles qui ne sont pas encore sur cet ordinateur.\n\nSans eux, il ne peut ni séparer les voix, ni reconnaître qui parle, ni vous répondre à voix haute.\n\nAcceptez-vous de les télécharger maintenant ?"
+manquants = "Greffier a besoin de {weight} de modèles qui ne sont pas encore sur cet ordinateur.\n\nSans eux, il ne peut ni séparer les voix, ni reconnaître qui parle, ni vous répondre à voix haute.\n\nAcceptez-vous de les télécharger maintenant ?"
 refuses = "Les modèles n'ont pas été téléchargés. Greffier ne pourra pas séparer les voix tant qu'ils manquent. Vous pourrez les installer à tout moment : Réglages, « Télécharger les modèles manquants »."
 echec_liste = "Ces modèles n'ont pas pu être téléchargés :\n- "
 reessaie = "\nRéessayez depuis les Réglages quand la connexion sera meilleure."

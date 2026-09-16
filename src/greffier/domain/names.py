@@ -21,7 +21,7 @@ POIDS: dict[MentionKind, int] = {
     MentionKind.RENVOI: 1,
 }
 
-FENETRE_SUIVANT = 30.0
+FOLLOWING_WINDOW = 30.0
 PREVIOUS_WINDOW = 60.0
 
 def _without_accents(word: str) -> str:
@@ -35,7 +35,7 @@ class Mention:
     name: str
     span: Span
     type: MentionKind
-    extrait: str
+    excerpt: str
 
     @property
     def at_instant(self) -> float:
@@ -130,10 +130,10 @@ def _passe(
                     name=name,
                     span=utterance.span,
                     type=type_mention,
-                    extrait=utterance.text.strip(),
+                    excerpt=utterance.text.strip(),
                 )
-                ancienne = seen.get(key)
-                if ancienne is None or POIDS[type_mention] > POIDS[ancienne.type]:
+                old_one = seen.get(key)
+                if old_one is None or POIDS[type_mention] > POIDS[old_one.type]:
                     seen[key] = candidate
         mentions.extend(seen.values())
     return mentions
@@ -164,7 +164,7 @@ def _voice_during(span: Span, turns: list[SpeakerTurn]) -> str | None:
 def _next_voice(at_instant: float, courante: str | None, turns: list[SpeakerTurn]) -> str | None:
     for turn in turns:
         if turn.span.start > at_instant and turn.voice != courante:
-            return turn.voice if turn.span.start - at_instant <= FENETRE_SUIVANT else None
+            return turn.voice if turn.span.start - at_instant <= FOLLOWING_WINDOW else None
     return None
 
 def _previous_voice(
@@ -245,9 +245,9 @@ def join_namesakes(
     for group in portantes.values():
         if len(group) < 2:
             continue
-        gardee = max(group, key=lambda v: (poids.get(v, 0.0), v))
+        kept_one = max(group, key=lambda v: (poids.get(v, 0.0), v))
         for voice in group:
-            membership[voice] = gardee
+            membership[voice] = kept_one
     return membership
 
 
@@ -306,9 +306,9 @@ def from_live(named: list[NamedSpan], turns: list[SpeakerTurn]) -> dict[str, str
         total = held.get(voice, 0.0)
         if total <= 0:
             continue
-        classement = sorted(shares.items(), key=lambda x: (-x[1], x[0]))
-        name, best = classement[0]
-        second = classement[1][1] if len(classement) > 1 else 0.0
+        sorting = sorted(shares.items(), key=lambda x: (-x[1], x[0]))
+        name, best = sorting[0]
+        second = sorting[1][1] if len(sorting) > 1 else 0.0
         if best / total < SHARE_TO_CARRY:
             continue
         if second > 0 and best < TWICE_THE_NEXT * second:

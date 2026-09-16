@@ -37,7 +37,7 @@ def _find(motif: str, prefixes: list[Path]) -> Path | None:
                     return folder
     return None
 
-def preparer() -> dict[str, str]:
+def prepare() -> dict[str, str]:
     """Fills in the missing Tcl/Tk paths."""
     prefixes = [Path(sys.base_prefix), Path(sys.prefix)]
     pose: dict[str, str] = {}
@@ -58,7 +58,7 @@ def available() -> tuple[bool, str]:
     segmentation fault on macOS with Tk 9. So this only checks that the module
     loads and that the Tcl files were found.
     """
-    pose = preparer()
+    pose = prepare()
     try:
         import tkinter
     except ImportError:

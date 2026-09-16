@@ -12,7 +12,7 @@ JABRA = Device("Jabra EVOLVE 30 II", "jabra:1", entrees=1)
 INTEGRE = Device("Micro MacBook Pro", "BuiltInMicrophoneDevice", entrees=1)
 BLACKHOLE = Device("BlackHole 2ch", "BlackHole2ch_UID", entrees=2, sorties=2)
 
-SANS = Hardware((BLACKHOLE, INTEGRE))
+WITHOUT = Hardware((BLACKHOLE, INTEGRE))
 AVEC = Hardware((BLACKHOLE, INTEGRE, JABRA))
 
 
@@ -29,16 +29,16 @@ class FakeLister:
 
 
 class FakeRecordingState:
-    def __init__(self, phase: Phase = Phase.RECORDING, tours_avant_arret: int = 99) -> None:
+    def __init__(self, phase: Phase = Phase.RECORDING, turns_before_stop: int = 99) -> None:
         self.phase = phase
         self.reprises: list[str] = []
         self.signalements: list[str] = []
         self.lectures = 0
-        self.tours_avant_arret = tours_avant_arret
+        self.turns_before_stop = turns_before_stop
 
     def read(self):
         self.lectures += 1
-        if self.lectures > self.tours_avant_arret:
+        if self.lectures > self.turns_before_stop:
             self.phase = Phase.FINALISATION
         return type("Etat", (), {"phase": self.phase})()
 
@@ -59,7 +59,7 @@ def hardware_watch(materiels, *, reconstruction=True, recorder=None):
 
     v = HardwareWatch(
         recorder=recorder or FakeRecordingState(),
-        lister=FakeLister(materiels),
+        list_=FakeLister(materiels),
         watch_rules=WatchRules(wanted_mic="Jabra EVOLVE 30 II"),
         reconstruire=reconstruire,
         notify_user=dits.append,
@@ -85,7 +85,7 @@ class TestTheFirstTurn:
 class TestPluggingInMidMeeting:
     def test_a_headset_plugged_in_rebuilds_then_resumes(self) -> None:
         recorder = FakeRecordingState()
-        v, dits, reconstruits = hardware_watch([SANS, AVEC], recorder=recorder)
+        v, dits, reconstruits = hardware_watch([WITHOUT, AVEC], recorder=recorder)
         v.turn()
         v.turn()
         assert reconstruits == ["Jabra EVOLVE 30 II"]
@@ -93,7 +93,7 @@ class TestPluggingInMidMeeting:
         assert "vient d'être branché" in recorder.reprises[0]
 
     def test_the_person_is_told(self) -> None:
-        v, dits, _ = hardware_watch([SANS, AVEC])
+        v, dits, _ = hardware_watch([WITHOUT, AVEC])
         v.turn()
         v.turn()
         assert len(dits) == 1 and "branché" in dits[0]
@@ -110,7 +110,7 @@ class TestPluggingInMidMeeting:
 
         v = HardwareWatch(
             recorder=recorder,
-            lister=FakeLister([SANS, AVEC]),
+            list_=FakeLister([WITHOUT, AVEC]),
             watch_rules=WatchRules(wanted_mic="Jabra EVOLVE 30 II"),
             reconstruire=reconstruire,
         )
@@ -122,14 +122,14 @@ class TestPluggingInMidMeeting:
 class TestWhenTheRebuildFails:
     def test_the_capture_is_not_cut(self) -> None:
         recorder = FakeRecordingState()
-        v, dits, _ = hardware_watch([SANS, AVEC], reconstruction=False, recorder=recorder)
+        v, dits, _ = hardware_watch([WITHOUT, AVEC], reconstruction=False, recorder=recorder)
         v.turn()
         v.turn()
         assert recorder.reprises == []
 
     def test_the_failure_is_said_rather_than_hidden(self) -> None:
         recorder = FakeRecordingState()
-        v, dits, _ = hardware_watch([SANS, AVEC], reconstruction=False, recorder=recorder)
+        v, dits, _ = hardware_watch([WITHOUT, AVEC], reconstruction=False, recorder=recorder)
         v.turn()
         v.turn()
         assert len(recorder.signalements) == 1
@@ -163,7 +163,7 @@ class TestACaptureThatStops:
         from greffier.domain.capture import TURNS_BEFORE_ALERT
 
         recorder = FakeRecordingState()
-        v, dits, _ = hardware_watch([SANS], recorder=recorder)
+        v, dits, _ = hardware_watch([WITHOUT], recorder=recorder)
         v.captured_size = lambda: 4096
         for _ in range(TURNS_BEFORE_ALERT + 1):
             v.turn()
@@ -172,7 +172,7 @@ class TestACaptureThatStops:
 
     def test_a_capture_that_advances_flags_nothing(self):
         recorder = FakeRecordingState()
-        v, dits, _ = hardware_watch([SANS], recorder=recorder)
+        v, dits, _ = hardware_watch([WITHOUT], recorder=recorder)
         bytes_read = iter(range(1000, 100000, 1000))
         v.captured_size = lambda: next(bytes_read)
         for _ in range(8):
@@ -183,7 +183,7 @@ class TestACaptureThatStops:
     def test_with_no_way_to_measure_the_watch_keeps_its_old_job(self):
         """An unreadable size must not make it cry wolf."""
         recorder = FakeRecordingState()
-        v, dits, _ = hardware_watch([SANS], recorder=recorder)
+        v, dits, _ = hardware_watch([WITHOUT], recorder=recorder)
         v.captured_size = lambda: None
         for _ in range(8):
             v.turn()
@@ -197,7 +197,7 @@ class TestSoundTooQuiet:
         from greffier.domain.level import RELEVES_AVANT_ALERTE
 
         recorder = FakeRecordingState()
-        v, dits, _ = hardware_watch([SANS], recorder=recorder)
+        v, dits, _ = hardware_watch([WITHOUT], recorder=recorder)
         v.captured_level = lambda: -55.0
         for _ in range(RELEVES_AVANT_ALERTE + 1):
             v.turn()
@@ -208,7 +208,7 @@ class TestSoundTooQuiet:
         from greffier.domain.level import RELEVES_AVANT_ALERTE
 
         recorder = FakeRecordingState()
-        v, _, _ = hardware_watch([SANS], recorder=recorder)
+        v, _, _ = hardware_watch([WITHOUT], recorder=recorder)
         v.captured_level = lambda: -20.0
         for _ in range(RELEVES_AVANT_ALERTE + 2):
             v.turn()
@@ -216,7 +216,7 @@ class TestSoundTooQuiet:
 
     def test_with_no_way_to_measure_nothing_is_said(self):
         recorder = FakeRecordingState()
-        v, _, _ = hardware_watch([SANS], recorder=recorder)
+        v, _, _ = hardware_watch([WITHOUT], recorder=recorder)
         v.captured_level = lambda: None
         for _ in range(12):
             v.turn()
@@ -225,7 +225,7 @@ class TestSoundTooQuiet:
 
 class TestTheWholeLoop:
     def test_the_watch_stops_with_the_recording(self) -> None:
-        recorder = FakeRecordingState(tours_avant_arret=3)
+        recorder = FakeRecordingState(turns_before_stop=3)
         v, _, _ = hardware_watch([AVEC], recorder=recorder)
         turns = v.loop(dormir=lambda _: None)
         assert turns == 3
@@ -245,7 +245,7 @@ class TestTheWholeLoop:
 
     def test_it_sleeps_between_two_turns(self) -> None:
         sommeils: list[float] = []
-        recorder = FakeRecordingState(tours_avant_arret=2)
+        recorder = FakeRecordingState(turns_before_stop=2)
         v, _, _ = hardware_watch([AVEC], recorder=recorder)
         v.loop(dormir=sommeils.append)
         assert sommeils == [pytest.approx(4.0), pytest.approx(4.0)]
@@ -281,7 +281,7 @@ class TestTheDiskFillingUp:
         recorder = Recorder()
         watch = HardwareWatch(
             recorder=recorder,
-            lister=Lister(),
+            list_=Lister(),
             watch_rules=WatchRules(wanted_mic="", agrege=""),
             reconstruire=lambda _mic: True,
             notify_user=said.append,

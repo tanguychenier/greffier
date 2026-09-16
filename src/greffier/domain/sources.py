@@ -15,7 +15,7 @@ class Kind(StrEnum):
     JIRA = "jira"
 
 class Right(StrEnum):
-    LECTURE = "lecture"
+    READING = "lecture"
     ECRITURE = "écriture"
 
 @dataclass(frozen=True, slots=True)
@@ -26,15 +26,15 @@ class Source:
     kind: Kind
     adresse: str
     project: str
-    droit: Right = Right.LECTURE
+    droit: Right = Right.READING
     token: str = ""
 
     def __post_init__(self) -> None:
-        for champ, value in (
+        for field, value in (
             ("nom", self.name), ("adresse", self.adresse), ("projet", self.project)
         ):
             if not value.strip():
-                raise ValueError(f"une source sans {champ} ne sert à rien")
+                raise ValueError(f"une source sans {field} ne sert à rien")
         if not self.adresse.startswith(("http://", "https://")):
             raise ValueError(
                 f"« {self.adresse} » n'est pas une adresse : il faut http(s)://"

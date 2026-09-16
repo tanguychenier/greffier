@@ -13,7 +13,7 @@ import sherpa_onnx
 import soundfile as sf
 
 from greffier.adapters import cuda
-from greffier.adapters.channels_file import TRAME_S, levels_per_frame, separer_canaux
+from greffier.adapters.channels_file import TRAME_S, levels_per_frame, split_channels
 from greffier.domain.arithmetic import AUTO, CARD, chosen_device, compute_threads
 from greffier.domain.channels import LOCAL_VOICE, local_turns, remove
 from greffier.domain.models import Source, Span, SpeakerTurn
@@ -76,7 +76,7 @@ class SherpaDiariser:
                 f"{audio} est en {frequency} Hz, les modèles attendent {engine.sample_rate} Hz."
             )
 
-        channels = separer_canaux(data, frequency)
+        channels = split_channels(data, frequency)
         mic, system, distante = channels.mic, channels.system, channels.distante
         local_spans = (
             local_turns(

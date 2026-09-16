@@ -27,7 +27,7 @@ MAXIMUM_LENGTH = 60.0
 
 _OPENED: dict[tuple[str, str], Any] = {}
 
-_TOUR = threading.Lock()
+_TURN = threading.Lock()
 
 class TitaNetExtractor:
     """Turns an excerpt of speech into a voiceprint."""
@@ -47,7 +47,7 @@ class TitaNetExtractor:
         click pays nothing.
         """
         clef = (str(self.model), self.device)
-        with _TOUR:
+        with _TURN:
             ready = _OPENED.get(clef)
             if ready is None:
                 if self.device == CARD:
@@ -71,9 +71,9 @@ class TitaNetExtractor:
         if len(echantillons) > borne:
             milieu = len(echantillons) // 2
             echantillons = echantillons[milieu - borne // 2 : milieu + borne // 2]
-        au_niveau = np.asarray(at_a_common_level(echantillons.tolist()), dtype="float32")
+        at_level = np.asarray(at_a_common_level(echantillons.tolist()), dtype="float32")
         stream = self._extractor.create_stream()
-        stream.accept_waveform(sample_rate=frequency, waveform=au_niveau)
+        stream.accept_waveform(sample_rate=frequency, waveform=at_level)
         stream.input_finished()
         vector = self._extractor.compute(stream)
         return normalise(vector, source_duration=len(echantillons) / frequency)
@@ -93,15 +93,15 @@ class TitaNetExtractor:
         """
         data, frequency = sf.read(audio, dtype="float32", always_2d=True)
         signal = data.mean(axis=1)
-        morceaux = []
+        chunks = []
         for span in sorted(intervalles, key=lambda s: s.start):
             start = max(0, int(span.start * frequency))
             end = min(int(span.end * frequency), len(signal))
             if end > start:
-                morceaux.append(signal[start:end])
-        if not morceaux:
+                chunks.append(signal[start:end])
+        if not chunks:
             return None
-        ensemble = np.concatenate(morceaux)
+        ensemble = np.concatenate(chunks)
         if len(ensemble) < MINIMUM_LENGTH * frequency:
             return None
         return self.extract(ensemble, frequency)

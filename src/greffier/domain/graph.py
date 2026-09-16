@@ -94,44 +94,44 @@ class Known:
 def people_of(edges: Iterable[Edge], meetings: Iterable[str]) -> tuple[str, ...]:
     """Who attended these meetings, most recent first, each once."""
     voulues = list(meetings)
-    rang = {nom: numero for numero, nom in enumerate(voulues)}
+    rang = {name: numero for numero, name in enumerate(voulues)}
     trouves: dict[str, int] = {}
     for edge in edges:
         if edge.link is not Link.ATTENDED:
             continue
-        personne, reunion = edge.start[1], edge.end[1]
-        if reunion in rang:
-            trouves[personne] = min(trouves.get(personne, len(voulues)), rang[reunion])
-    return tuple(sorted(trouves, key=lambda nom: trouves[nom]))
+        person, meeting = edge.start[1], edge.end[1]
+        if meeting in rang:
+            trouves[person] = min(trouves.get(person, len(voulues)), rang[meeting])
+    return tuple(sorted(trouves, key=lambda name: trouves[name]))
 
 
 def from_trace(trace: object, subject: str = "") -> tuple[list[Node], list[Edge]]:
     """What one meeting adds to the index, from the trace it already leaves."""
-    reunion = str(getattr(trace, "identifier", ""))
-    if not reunion:
+    meeting = str(getattr(trace, "identifier", ""))
+    if not meeting:
         return [], []
-    quand = str(getattr(trace, "held_on", ""))
-    sujet = subject.strip() or str(getattr(trace, "title", "")).strip()
-    nodes = [Node(Kind.MEETING, reunion, str(getattr(trace, "title", "")))]
+    when = str(getattr(trace, "held_on", ""))
+    subject = subject.strip() or str(getattr(trace, "title", "")).strip()
+    nodes = [Node(Kind.MEETING, meeting, str(getattr(trace, "title", "")))]
     edges: list[Edge] = []
-    if sujet:
-        nodes.append(Node(Kind.SUBJECT, sujet))
-        edges.append(Edge(Link.ABOUT, (Kind.MEETING, reunion),
-                          (Kind.SUBJECT, sujet), quand))
+    if subject:
+        nodes.append(Node(Kind.SUBJECT, subject))
+        edges.append(Edge(Link.ABOUT, (Kind.MEETING, meeting),
+                          (Kind.SUBJECT, subject), when))
     for who in getattr(trace, "people", ()):
         nodes.append(Node(Kind.PERSON, who))
         edges.append(Edge(Link.ATTENDED, (Kind.PERSON, who),
-                          (Kind.MEETING, reunion), quand))
+                          (Kind.MEETING, meeting), when))
     for decision in getattr(trace, "decisions", ()):
         nodes.append(Node(Kind.DECISION, decision))
-        edges.append(Edge(Link.DECIDED, (Kind.MEETING, reunion),
-                          (Kind.DECISION, decision), quand))
+        edges.append(Edge(Link.DECIDED, (Kind.MEETING, meeting),
+                          (Kind.DECISION, decision), when))
     for point in getattr(trace, "open_points", ()):
         nodes.append(Node(Kind.OPEN_POINT, point))
-        edges.append(Edge(Link.LEFT_OPEN, (Kind.MEETING, reunion),
-                          (Kind.OPEN_POINT, point), quand))
+        edges.append(Edge(Link.LEFT_OPEN, (Kind.MEETING, meeting),
+                          (Kind.OPEN_POINT, point), when))
     for document in getattr(trace, "documents", ()):
         nodes.append(Node(Kind.DOCUMENT, document))
         edges.append(Edge(Link.SUPPLIED, (Kind.DOCUMENT, document),
-                          (Kind.MEETING, reunion), quand))
+                          (Kind.MEETING, meeting), when))
     return nodes, edges

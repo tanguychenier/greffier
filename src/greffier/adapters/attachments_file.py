@@ -30,24 +30,24 @@ def attachments_folder(base: Path, identifier: str) -> Path:
 def _aplatir(name: str) -> str:
     """A safe file name, without accents or spaces."""
     without_accents = "".join(
-        lettre for lettre in unicodedata.normalize("NFD", name)
-        if unicodedata.category(lettre) != "Mn"
+        letter for letter in unicodedata.normalize("NFD", name)
+        if unicodedata.category(letter) != "Mn"
     )
     nu = re.sub(r"[^A-Za-z0-9]+", "-", without_accents).strip("-").casefold()
     return nu[:60] or "document"
 
 def write(base: Path, identifier: str, name: str, text: str) -> Attachment | None:
     """Keeps this document's text under the meeting."""
-    utile = text.strip()
-    if not utile or not identifier.strip():
+    useful = text.strip()
+    if not useful or not identifier.strip():
         return None
     folder = attachments_folder(base, identifier)
     folder.mkdir(parents=True, exist_ok=True)
     file = folder / f"{_aplatir(name)}.txt"
-    file.write_text(f"{HEADER}{name}\n{utile}", encoding="utf-8")
-    return Attachment(name=name, file=file, caracteres=len(utile))
+    file.write_text(f"{HEADER}{name}\n{useful}", encoding="utf-8")
+    return Attachment(name=name, file=file, caracteres=len(useful))
 
-def lister(base: Path, identifier: str) -> list[Attachment]:
+def list_(base: Path, identifier: str) -> list[Attachment]:
     """The documents supplied for this meeting, newest first."""
     folder = attachments_folder(base, identifier)
     if not identifier.strip() or not folder.is_dir():
@@ -67,7 +67,7 @@ def material(base: Path, identifier: str, at_most: int = AT_MOST) -> str:
     """The text of the documents, ready to hand to the assistant."""
     chunks: list[str] = []
     remaining = at_most
-    for piece in lister(base, identifier):
+    for piece in list_(base, identifier):
         if remaining <= 0:
             break
         try:
@@ -75,11 +75,11 @@ def material(base: Path, identifier: str, at_most: int = AT_MOST) -> str:
         except OSError:
             continue
         _, _, corps = content.partition("\n")
-        garde = min(PER_ITEM, remaining)
-        coupe = corps[:garde].strip()
+        kept = min(PER_ITEM, remaining)
+        coupe = corps[:kept].strip()
         if not coupe:
             continue
-        suite = "\n[…] document tronqué" if len(corps) > garde else ""
+        suite = "\n[…] document tronqué" if len(corps) > kept else ""
         chunks.append(f"Document « {piece.name} » :\n{coupe}{suite}")
         remaining -= len(coupe)
     return "\n\n".join(chunks)

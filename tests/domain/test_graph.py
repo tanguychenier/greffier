@@ -68,5 +68,5 @@ class TestWhoUsuallyAttends:
 class TestWhatAPreparationOpensOn:
     def test_it_says_what_is_known_and_nothing_when_nothing_is(self):
         assert Known("recette").header() == ""
-        entete = Known("recette", people=("Jacques",), meetings=("r1",)).header()
-        assert "Jacques" in entete and "recette" in entete
+        header = Known("recette", people=("Jacques",), meetings=("r1",)).header()
+        assert "Jacques" in header and "recette" in header

@@ -46,9 +46,9 @@ def modules_of(couche: str) -> list[Path]:
     longer existed, so they passed on nothing for as long as the rename lasted.
     A check that cannot find what it guards has to say so.
     """
-    dossier = PAQUET / couche
-    assert dossier.is_dir(), f"la couche « {couche} » n'existe pas : {dossier}"
-    fichiers = sorted(dossier.rglob("*.py"))
+    folder = PAQUET / couche
+    assert folder.is_dir(), f"la couche « {couche} » n'existe pas : {folder}"
+    fichiers = sorted(folder.rglob("*.py"))
     assert fichiers, f"la couche « {couche} » est vide : rien à vérifier"
     return fichiers
 
@@ -143,7 +143,7 @@ class TestThePrimaryAdaptersDoNotLeanOnEachOther:
     #: What is left of that coupling, named rather than tolerated silently: the
     #: macOS capture setup, some eighty lines that also carry their own output
     #: through typer. Moving it needs a machine this one is not.
-    RESTE_CONNU = frozenset({"_prepare_capture", "_restore_the_output"})
+    STAYS_KNOWN = frozenset({"_prepare_capture", "_restore_the_output"})
 
     def _imports_of_the_cli(self) -> set[str]:
         import ast
@@ -158,7 +158,7 @@ class TestThePrimaryAdaptersDoNotLeanOnEachOther:
 
     def test_the_window_borrows_nothing_new_from_the_command_line(self):
         emprunts = self._imports_of_the_cli()
-        assert emprunts <= self.RESTE_CONNU, (
+        assert emprunts <= self.STAYS_KNOWN, (
             f"la fenêtre emprunte à la ligne de commande : "
-            f"{sorted(emprunts - self.RESTE_CONNU)}"
+            f"{sorted(emprunts - self.STAYS_KNOWN)}"
         )

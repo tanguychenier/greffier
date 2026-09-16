@@ -64,7 +64,7 @@ def _process(config: Config, audio: Path):
 
 
 @pytest.fixture(scope="session")
-def resultat_trois_voix(config: Config, tmp_path_factory):
+def three_voices_result(config: Config, tmp_path_factory):
     """Three speakers, two of them close in timbre.
 
     The segmentation must neither join two of them by accident nor over-cut one
@@ -75,26 +75,26 @@ def resultat_trois_voix(config: Config, tmp_path_factory):
 
 
 class TestTroisVoix:
-    def test_the_three_voices_are_told_apart(self, resultat_trois_voix):
+    def test_the_three_voices_are_told_apart(self, three_voices_result):
         """Three distinct voices, each with several seconds of material: not two, which
         would be a wrong join, and not more, which would be over-cutting left over.
         """
-        temps = resultat_trois_voix.speaking_time()
+        temps = three_voices_result.speaking_time()
         assert len(temps) == 3
         assert all(duration >= 5.0 for duration in temps.values())
 
-    def test_both_self_introductions_are_found(self, resultat_trois_voix):
+    def test_both_self_introductions_are_found(self, three_voices_result):
         """Jacques and Amélie introduce themselves; the third voice stays unnamed rather
         than inheriting somebody else's. A "merci Amélie" said just after the third
         person's turn is a deliberate trap in the fixture
         (`tools/make_hard_cases.py`), never to be asserted without more material.
         """
-        assert set(resultat_trois_voix.names.values()) == {"Jacques", "Amélie"}
-        assert len(resultat_trois_voix.names) == 2
+        assert set(three_voices_result.names.values()) == {"Jacques", "Amélie"}
+        assert len(three_voices_result.names) == 2
 
 
 @pytest.fixture(scope="session")
-def resultat_proposition_breve(config: Config, tmp_path_factory):
+def brief_proposal_result(config: Config, tmp_path_factory):
     """C speaks once, briefly, and is never named by themselves: only a reference back
     just after their turn points at them, a clue too weak to be asserted, but one
     that must not be lost for all that.
@@ -104,24 +104,24 @@ def resultat_proposition_breve(config: Config, tmp_path_factory):
 
 
 class TestPropositionBreve:
-    def test_the_guess_is_there_in_the_outcome(self, resultat_proposition_breve):
+    def test_the_guess_is_there_in_the_outcome(self, brief_proposal_result):
         """The information is never lost: the reference back does produce a guess, never
         a certainty, since one clue is not enough.
         """
-        temps = resultat_proposition_breve.speaking_time()
-        voix_breve = min(temps, key=lambda v: temps[v])
-        assert temps[voix_breve] < 10.0
-        assert resultat_proposition_breve.propositions.get(voix_breve) is not None
-        assert voix_breve not in resultat_proposition_breve.names
+        temps = brief_proposal_result.speaking_time()
+        brief_voice = min(temps, key=lambda v: temps[v])
+        assert temps[brief_voice] < 10.0
+        assert brief_proposal_result.propositions.get(brief_voice) is not None
+        assert brief_voice not in brief_proposal_result.names
 
-    def test_the_guess_survives_to_the_naming_screen(self, resultat_proposition_breve):
+    def test_the_guess_survives_to_the_naming_screen(self, brief_proposal_result):
         """The defect fixed: the voices offered for naming must no longer silence a short
         voice that carries a guess.
         """
-        meeting = depuis_resultat(resultat_proposition_breve, duration=60.0)
-        voix_breve = min(
-            resultat_proposition_breve.speaking_time(),
-            key=lambda v: resultat_proposition_breve.speaking_time()[v],
+        meeting = depuis_resultat(brief_proposal_result, duration=60.0)
+        brief_voice = min(
+            brief_proposal_result.speaking_time(),
+            key=lambda v: brief_proposal_result.speaking_time()[v],
         )
-        input = next(v for v in voices_to_name(meeting) if v.voice == voix_breve)
+        input = next(v for v in voices_to_name(meeting) if v.voice == brief_voice)
         assert input.proposition is not None
