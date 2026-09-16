@@ -207,3 +207,34 @@ class TestOneCatalogueOnly:
     def test_the_installer_reads_this_catalogue(self):
         source = Path("tools/install.py").read_text(encoding="utf-8")
         assert "adapters/model_files.py" in source
+
+
+class TestWhereFasterWhisperKeepsItsModels:
+    """`downloaded` looks in the cache under the repository name. With a name
+    faster-whisper does not use, it looked in the wrong place, said no, and
+    the live thread silently stayed on the large model."""
+
+    def test_the_table_agrees_with_faster_whisper_s_own(self):
+        utils = pytest.importorskip("faster_whisper.utils")
+        theirs = utils._MODELS
+        for name, repository in model_files.DEPOTS.items():
+            if name in theirs:
+                assert repository == theirs[name], name
+
+    def test_a_model_in_the_cache_is_seen(self, monkeypatch, tmp_path):
+        hub = pytest.importorskip("huggingface_hub")
+        asked = []
+
+        def in_cache(repository, filename):
+            asked.append(repository)
+            return "/cache/model.bin"
+
+        monkeypatch.setattr(hub, "try_to_load_from_cache", in_cache)
+        assert model_files.downloaded("large-v3-turbo") is True
+        assert asked == ["mobiuslabsgmbh/faster-whisper-large-v3-turbo"]
+
+    def test_a_folder_given_as_a_model_is_had_by_definition(self, tmp_path):
+        assert model_files.downloaded(str(tmp_path)) is True
+
+    def test_nothing_named_is_nothing_had(self):
+        assert model_files.downloaded("") is False

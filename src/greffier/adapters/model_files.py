@@ -225,7 +225,10 @@ def _erase(path: Path) -> None:
 #: drop-down list is not the moment for that.
 DEPOTS = {
     "large-v3": "Systran/faster-whisper-large-v3",
-    "large-v3-turbo": "deepdml/faster-whisper-large-v3-turbo-ct2",
+    # The repository faster-whisper itself resolves the name to: with another
+    # one here, `downloaded` looked in the wrong place, said no, and the live
+    # thread silently stayed on the large model.
+    "large-v3-turbo": "mobiuslabsgmbh/faster-whisper-large-v3-turbo",
     "large-v2": "Systran/faster-whisper-large-v2",
     "medium": "Systran/faster-whisper-medium",
     "small": "Systran/faster-whisper-small",
