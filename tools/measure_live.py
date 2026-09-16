@@ -37,7 +37,8 @@ from greffier.locations import data_folder  # noqa: E402
 
 
 def live_words(
-    audio: Path, period: float, context_s: float, overlap_s: float, levelled: bool
+    audio: Path, period: float, context_s: float, overlap_s: float, levelled: bool,
+    model: str = "",
 ) -> tuple[list[str], int, float]:
     """The words the live thread would have shown, the slices, the model seconds.
 
@@ -59,6 +60,8 @@ def live_words(
     # Its own data folder: the thread's log and the voices it founds belong
     # to the measurement, not to the machine's meetings.
     config.paths.data = Path(tempfile.mkdtemp(prefix="measure-live-"))
+    if model:
+        config.live.model = model
     duration = sf.info(str(audio)).duration
     the_follower = follower(config, audio.stem)
     watch.CONTEXT_S = context_s
@@ -97,6 +100,7 @@ def main() -> int:
     parser.add_argument("--context", type=float, default=50.0)
     parser.add_argument("--overlap", type=float, default=5.0)
     parser.add_argument("--raw", action="store_true", help="skip the level normalisation")
+    parser.add_argument("--model", default="", help="the live model, default from the settings")
     options = parser.parse_args()
 
     recordings = sorted(
@@ -116,11 +120,13 @@ def main() -> int:
         in_order = sorted(turns, key=lambda t: float(t["start"]))
         reference_words = [w for t in in_order for w in normalise(str(t["text"]))]
         words, slices, per_slice = live_words(
-            audio, options.period, options.context, options.overlap, not options.raw
+            audio, options.period, options.context, options.overlap, not options.raw,
+            options.model,
         )
         found, wanted = terms_found(rare_terms(reference_words), words)
         row = {
             "recording": audio.stem,
+            "model": options.model or "settings",
             "period": options.period,
             "context": options.context,
             "overlap": options.overlap,
@@ -133,8 +139,8 @@ def main() -> int:
             "seconds_per_slice": round(per_slice, 2),
         }
         label = (
-            f"period {options.period:.0f} s, context {options.context:.0f} s, "
-            f"overlap {options.overlap:.0f} s"
+            f"{options.model or 'settings'} period {options.period:.0f} s, "
+            f"context {options.context:.0f} s, overlap {options.overlap:.0f} s"
         )
         print(
             f"{audio.stem:<18} {label:<44} error {100 * row['word_error_rate']:5.1f} %  "
