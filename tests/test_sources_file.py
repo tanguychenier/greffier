@@ -177,3 +177,58 @@ class TestWhereTheTokenComesFrom:
         source = Source(name="x", kind=Kind.GITLAB, adresse="https://x.fr",
                         project="a/b", token="trousseau:x")
         assert sources_file.token_for(source) == ""
+
+
+class TestTheTokensTheWindowStores:
+    """A token pasted into the window goes to a file of the user's own, next
+    to the registry, under the name the registry gives it."""
+
+    def _source(self, token="GREFFIER_ESSAI_JETON"):
+        return Source(name="x", kind=Kind.GITLAB, adresse="https://x.fr",
+                      project="a/b", token=token)
+
+    def test_a_stored_token_is_found_when_the_environment_has_none(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.delenv("GREFFIER_ESSAI_JETON", raising=False)
+        file = tmp_path / "jetons.toml"
+        sources_file.store_token(file, "GREFFIER_ESSAI_JETON", "glpat-fenetre")
+        assert sources_file.token_for(self._source(), file) == "glpat-fenetre"
+
+    def test_the_environment_wins_over_the_file(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("GREFFIER_ESSAI_JETON", "glpat-terminal")
+        file = tmp_path / "jetons.toml"
+        sources_file.store_token(file, "GREFFIER_ESSAI_JETON", "glpat-fenetre")
+        assert sources_file.token_for(self._source(), file) == "glpat-terminal"
+
+    def test_the_file_belongs_to_the_user_alone(self, tmp_path):
+        import os
+        import stat
+
+        if os.name != "posix":
+            pytest.skip("file modes are a posix thing")
+        file = tmp_path / "jetons.toml"
+        sources_file.store_token(file, "A", "secret")
+        assert stat.S_IMODE(file.stat().st_mode) == 0o600
+
+    def test_several_tokens_live_side_by_side(self, tmp_path):
+        file = tmp_path / "jetons.toml"
+        sources_file.store_token(file, "A", "un")
+        sources_file.store_token(file, "B", 'deux "avec" guillemets')
+        assert sources_file.stored_tokens(file) == {"A": "un", "B": 'deux "avec" guillemets'}
+
+    def test_an_empty_secret_removes_the_token(self, tmp_path):
+        file = tmp_path / "jetons.toml"
+        sources_file.store_token(file, "A", "un")
+        sources_file.store_token(file, "A", "")
+        assert sources_file.stored_tokens(file) == {}
+
+    def test_a_damaged_file_gives_nothing_rather_than_an_error(self, tmp_path):
+        file = tmp_path / "jetons.toml"
+        file.write_text("[jetons\nA = ", encoding="utf-8")
+        assert sources_file.stored_tokens(file) == {}
+
+    def test_the_file_sits_next_to_the_registry(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        monkeypatch.setattr("platform.system", lambda: "Linux")
+        assert sources_file.tokens_file() == tmp_path / "greffier" / "jetons.toml"

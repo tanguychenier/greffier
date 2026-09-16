@@ -113,6 +113,13 @@ ouvrir_claude = "Lancez « claude » dans un terminal, puis revenez ici."
 terminal_ouvert = "Un terminal vient de s'ouvrir. Revenez ici ensuite : l'état se met à jour tout seul."
 version_plus_recente = "Une version plus récente est installée, mais cette fenêtre tourne encore sur la précédente. Fermez l'application et relancez-la pour en profiter."
 incidents = "Si quelque chose ne marche pas, les incidents sont consignés dans {where}. Ce fichier ne contient ni vos propos, ni les noms de vos réunions : il peut être joint tel quel à un signalement."
+sources_titre = "Sources d'entreprise"
+sources_sous_titre = "Ce que l'assistante peut lire pendant la réunion : les tickets des projets inscrits dans {where}."
+sources_aucune = "Aucune source inscrite. Le fichier dit comment en ajouter une."
+source_jeton_present = "{source} : jeton en place."
+source_jeton_absent = "{source} : aucun jeton. Collez-le ci-dessous, il reste sur cet ordinateur."
+deposer_jeton = "Déposer le jeton"
+jeton_depose = "Jeton déposé pour « {source} ». L'assistante y a accès dès sa prochaine question."
 
 [modeles]
 tous_en_place = "Tous les modèles sont en place."

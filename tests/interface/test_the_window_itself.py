@@ -316,3 +316,83 @@ class TestTheBadgeOnTheConversationTab:
         window.tabs.reveal("Préparation")
         window.root.update()
         assert self._badge(window) == 0
+
+
+class TestATokenPastedIntoTheWindow:
+    """The assistant says it has no access to a source without a token and
+    asks for it. This is where it goes, without a terminal."""
+
+    @staticmethod
+    def _registry(config) -> None:
+        config.paths.sources.parent.mkdir(parents=True, exist_ok=True)
+        config.paths.sources.write_text(
+            '[[sources]]\nnom = "recherche"\ngenre = "gitlab"\n'
+            'adresse = "https://gitlab.example.fr"\nprojet = "equipe/outil"\n'
+            'jeton = "GREFFIER_JETON_DE_LA_FENETRE"\n',
+            encoding="utf-8",
+        )
+
+    def test_with_no_registry_the_block_says_so(self, window):
+        assert window.sources_word.cget("text") == window.says("reglages.sources_aucune")
+
+    def test_a_source_without_a_token_is_named_as_such(self, test_screen, monkeypatch):
+        from greffier.adapters.configuration import Config
+        from greffier.interface.window import Window
+
+        monkeypatch.delenv("GREFFIER_JETON_DE_LA_FENETRE", raising=False)
+        config = Config()
+        self._registry(config)
+        opened = Window(config)
+        try:
+            assert opened.sources_word.cget("text") == opened.says(
+                "reglages.source_jeton_absent",
+                source="recherche, gitlab equipe/outil sur https://gitlab.example.fr (lecture)",
+            )
+            assert opened.source_setting.value() == "recherche"
+        finally:
+            opened.root.destroy()
+
+    def test_the_token_pasted_is_stored_and_the_line_changes(self, test_screen, monkeypatch):
+        from greffier.adapters import sources_file
+        from greffier.adapters.configuration import Config
+        from greffier.interface.window import Window
+
+        monkeypatch.delenv("GREFFIER_JETON_DE_LA_FENETRE", raising=False)
+        config = Config()
+        self._registry(config)
+        opened = Window(config)
+        try:
+            opened.token_field.insert(0, "glpat-colle-dans-la-fenetre")
+            opened._store_the_token()
+            assert sources_file.stored_tokens(sources_file.tokens_file()) == {
+                "GREFFIER_JETON_DE_LA_FENETRE": "glpat-colle-dans-la-fenetre"
+            }
+            assert opened.sources_word.cget("text") == opened.says(
+                "reglages.source_jeton_present",
+                source="recherche, gitlab equipe/outil sur https://gitlab.example.fr (lecture)",
+            )
+            assert opened.token_field.get() == "", "the secret does not stay on screen"
+            assert opened.settings_word.cget("text") == opened.says(
+                "reglages.jeton_depose", source="recherche"
+            )
+        finally:
+            opened.root.destroy()
+
+    def test_the_assistant_reads_the_source_from_the_next_question(
+        self, test_screen, monkeypatch
+    ):
+        """The Conversation tab keeps a reading of the sources: it is dropped."""
+        from greffier.adapters.configuration import Config
+        from greffier.interface.window import Window
+
+        monkeypatch.delenv("GREFFIER_JETON_DE_LA_FENETRE", raising=False)
+        config = Config()
+        self._registry(config)
+        opened = Window(config)
+        try:
+            assert "aucun jeton disponible" in opened._with_the_documents("", "x")
+            opened.token_field.insert(0, "glpat-colle")
+            opened._store_the_token()
+            assert opened._sources is None
+        finally:
+            opened.root.destroy()

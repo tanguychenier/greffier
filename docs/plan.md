@@ -156,12 +156,18 @@ meeting is never needed to see what a meeting does.
       takes the large one, the voice and the live model opened before the
       first word. From 9.5 s to 5.7 s on this card; the streamed answer was
       not needed to get there and stays on the list below.
-- [ ] Context, as scenarios on the bench: a document handed over is used in
+- [x] Context, as scenarios on the bench: a document handed over is used in
       an answer; a web search is made and its source named; a company source
       (GitLab, Jira, Trello) is read when its token is there; when it is not,
       Lucie asks for the access, gets it from the window, and says what she
       did with it.
       *Proof: one e2e test per scenario.*
+      Done on 16/09: the registered sources (GitLab, Jira) are read for her
+      the way the documents are (`company_sources`), a source without a
+      token is named to her as such and she asks for it, the token goes in
+      Réglages ▸ Sources d'entreprise. Four scenarios played against the
+      real model in `test_context_scenarios`; what she said is in
+      `scenarios.md`. Trello is not a registered kind and stays open.
 - [ ] The project manager's day, listed and covered: before the meeting
       (documents, agenda, who will be there, what to look up), during
       (questions, decisions, actions, look-ups), after (minutes, tickets,

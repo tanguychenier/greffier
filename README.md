@@ -350,6 +350,19 @@ time, four seconds of speech computed in eight hundredths, 80 MB. The installer
 fetches it. Without it the assistant falls back on the system voice, which every
 machine ships and which everyone can hear is a machine.
 
+**What it answers from.** What was said, first. Then the documents handed
+over for the meeting (the **Conversation** tab, "Fournir un document"), and
+the company's sources registered in `sources.toml` next to the configuration
+file: the open tickets of a GitLab project, the open requests of a Jira
+project, read only, and only what is registered. It names what it uses: "d'après
+le document budget", "d'après GitLab". A source whose token is not there is
+not read: it says it has no access and asks for the token, which goes in
+**Réglages ▸ Sources d'entreprise**, pasted once, kept in a file of yours
+alone (`jetons.toml`, mode 600) and never in the registry. With the web
+search on (`conversation.recherche_web`), a fact outside the meeting is looked
+up and its source named aloud. Each of the four is played end to end against
+the real model in `tests/integration/test_context_scenarios.py`.
+
 ## Does it actually work?
 
 These are not claims: every line below has been run.

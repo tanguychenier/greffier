@@ -109,6 +109,13 @@ ouvrir_claude = "Run “claude” in a terminal, then come back here."
 terminal_ouvert = "A terminal has just opened. Come back here afterwards: the state updates on its own."
 version_plus_recente = "A newer version is installed, but this window is still running the previous one. Close the application and start it again to use it."
 incidents = "If something goes wrong, the incidents are written down in {where}. That file holds neither what was said nor the names of your meetings: it can be attached to a report as it is."
+sources_titre = "Company sources"
+sources_sous_titre = "What the assistant may read during the meeting: the tickets of the projects registered in {where}."
+sources_aucune = "No source registered. The file says how to add one."
+source_jeton_present = "{source}: token in place."
+source_jeton_absent = "{source}: no token. Paste it below, it stays on this computer."
+deposer_jeton = "Store the token"
+jeton_depose = "Token stored for “{source}”. The assistant has access from its next question."
 
 [modeles]
 tous_en_place = "Every model is in place."

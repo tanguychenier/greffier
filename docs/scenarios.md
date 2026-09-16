@@ -57,6 +57,23 @@ changed, **measured** without being held by a test, and **open**.
 | A bank of **hundreds** of people | open | |
 | Two voices joined by hand, to be **split again** | covered | `greffier voix --separer`, button in the Voices tab |
 
+## What the assistant answers from
+
+Played end to end against the real model behind Claude Code
+(`test_context_scenarios`, skipped where `claude` is not signed in), through
+the product's own path: the material the meeting hands her, her spoken
+guidance, her answer.
+
+| Situation | State | Where |
+|---|---|---|
+| A document handed over is used, and named | covered | "D'après le document budget, le lot 2 est fixé à quarante-deux mille euros hors taxes" |
+| A registered source without a token: she says she has no access and asks for it | covered | "Je n'ai pas accès à la source GitLab, il manque le jeton pour le projet équipe outil. Il faut le déposer là où le fichier des sources l'indique" |
+| The token pasted into the window, the source read and named | covered | `test_the_window_itself`, then "D'après GitLab, deux tickets sont ouverts sur le projet équipe outil : le numéro 12, facturation en double sur l'avoir" |
+| A fact outside the meeting looked up on the web, the source named | covered | "D'après le site officiel de Python, la dernière version stable est actuellement la 3.14.7" |
+| A Jira project read the same way | partly | the adapter and the material are covered by unit tests, the scenario is not played |
+| Trello, Outlook, a shared drive | open | not registered kinds |
+| She installs an access herself, with consent | open | she asks for the token; the gesture stays a person's |
+
 ## What breaks
 
 | Situation | State | Where |

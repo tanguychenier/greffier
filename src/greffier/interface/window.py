@@ -1206,6 +1206,8 @@ class Window:
             inside, rank, "Voix", width=392)
         rank += 1
 
+        rank = self._sources_block(inside, rank)
+
         rank = self._block(inside, rank, "Apparence", "")
         self.theme_setting = self._dropdown(inside, rank, "Thème")
         rank += 1
@@ -1241,6 +1243,74 @@ class Window:
         self._fill_the_settings()
         self._say_the_count()
         self._say_the_version()
+
+    def _sources_block(self, inside: tk.Frame, rank: int) -> int:
+        """The registered outside sources, and a place to paste a token.
+
+        The assistant says it has no access to a source without a token and
+        asks for it; this is where the token goes, without a terminal. What
+        is registered stays in the file: the window adds no source of its
+        own, the registry being what bounds the risk.
+        """
+        from greffier.adapters import sources_file
+
+        rank = self._block(
+            inside, rank, self.says("reglages.sources_titre"),
+            self.says("reglages.sources_sous_titre", where=str(self.config.paths.sources)),
+        )
+        self.sources_word = self._text(inside, "", size=11, wraplength=700, justify="left")
+        self.sources_word.grid(row=rank, column=0, columnspan=2, sticky="w", pady=(0, 4))
+        rank += 1
+        row = tk.Frame(inside, bg=self.colours.board)
+        row.grid(row=rank, column=0, columnspan=2, sticky="w", pady=(0, 2))
+        self.source_setting = Listing(row, self.colours, width=232)
+        self.source_setting.pack(side="left", padx=(0, 9))
+        self.token_field = self._field(row, 30)
+        self.token_field.configure(show="•")
+        self.token_field.pack(side="left", ipady=4, ipadx=4, padx=(0, 9))
+        self.token_button = Button(row, self.says("reglages.deposer_jeton"),
+                                   self._store_the_token, self.colours, width=190, height=32)
+        self.token_button.pack(side="left")
+        rank += 1
+        self._registered_sources = sources_file.read(self.config.paths.sources).sources
+        self._say_the_sources()
+        return rank
+
+    def _say_the_sources(self) -> None:
+        """Which sources are registered, and which have their token."""
+        from greffier.adapters import sources_file
+
+        if not self._registered_sources:
+            self.sources_word.configure(text=self.says("reglages.sources_aucune"))
+            self.source_setting.fill_menu([])
+            return
+        lines = []
+        for source in self._registered_sources:
+            present = bool(sources_file.token_for(source))
+            key = "source_jeton_present" if present else "source_jeton_absent"
+            lines.append(self.says(f"reglages.{key}", source=source.say()))
+        self.sources_word.configure(text="\n".join(lines))
+        without = next((s for s in self._registered_sources if not sources_file.token_for(s)),
+                       self._registered_sources[0])
+        self.source_setting.fill_menu(
+            [(s.name, s.name) for s in self._registered_sources], key=without.name
+        )
+
+    def _store_the_token(self) -> None:
+        """Keeps the pasted token under the registry's name, then tells the assistant."""
+        from greffier.adapters import sources_file
+
+        name = self.source_setting.value()
+        source = next((s for s in self._registered_sources if s.name == name), None)
+        secret = self.token_field.get().strip()
+        if source is None or not secret:
+            return
+        sources_file.store_token(sources_file.tokens_file(), source.token, secret)
+        self.token_field.delete(0, "end")
+        # Read again at the next question, rather than at the next stale reading.
+        self._sources = None
+        self._say_the_sources()
+        self.settings_word.configure(text=self.says("reglages.jeton_depose", source=source.name))
 
     def _on_return(self, _event: object = None) -> None:
         """Re-reads what may have changed while we were elsewhere."""
