@@ -438,9 +438,10 @@ What it says:
   is the sentence under the name. One thing to know: in the full run, the
   voice that ends up as Alice was called « Diane ? » from 56 s to 161 s,
   named on six seconds of material and renamed once there was more; the
-  question mark next to a name from a print is there for that. Judged at
+  question mark next to a name from a print is there for that, and it
+  cost one sentence, the voice having said one thing meanwhile. Judged at
   the moment each sentence was shown rather than by the name the voice
-  ends up with, that run reads 322 right, 75 wrong and 49 to nobody,
+  ends up with, that run reads 363 right, 37 wrong and 46 to nobody,
   which is what the eye saw; `tools/measure_bank.py` now prints both.
   Waiting longer before naming was measured on the replay (10, 15, 20
   seconds instead of 6) and loses more right names at the moment than it
