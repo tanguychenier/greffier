@@ -465,6 +465,7 @@ greffier exporter --format csv         # one line per turn, for a spreadsheet
 greffier montage                       # the notable passages, real voices
 greffier lire                          # the minutes read aloud
 greffier tickets                       # the decided actions, ready to open
+greffier tickets --creer recherche     # ... and opened on that source, one yes each
 greffier archiver                      # compresses processed recordings
 ```
 

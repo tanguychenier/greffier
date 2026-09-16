@@ -74,6 +74,54 @@ guidance, her answer.
 | Trello, Outlook, a shared drive | open | not registered kinds |
 | She installs an access herself, with consent | open | she asks for the token; the gesture stays a person's |
 
+## The project manager's day
+
+The tool seen from the seat of somebody who runs the meeting rather than
+records it, before, during and after. Every line either points at the test
+that holds it, or says what is missing.
+
+### Before
+
+| Situation | State | Where |
+|---|---|---|
+| Say out loud what the meeting is about, and get the setting ready | covered | `test_prepare`, `test_preparation`, the Préparation tab |
+| Hand over the documents (agenda, budget, last minutes) | covered | `test_the_window_itself` (a document kept for the meeting), `test_attachments_file` |
+| Say who will be there, so that the bank looks only for them | covered | the expected people bound the bank, `test_process` |
+| Teach the tool the acronyms and the names of the house | covered | `test_context_file`, `greffier contexte`, what a document teaches offered to the context |
+| Read the agenda from the calendar | open | no calendar is read |
+| Look something up before the meeting | covered | the Conversation tab with the web search, `test_context_scenarios` |
+
+### During
+
+| Situation | State | Where |
+|---|---|---|
+| Ask her a question by her name and get the answer out loud | covered and measured | `test_assistant_latency`, `measure_assistant.py`, 4.6 to 6.5 s on a small card |
+| The question is asked while somebody was still talking | covered | half a question is held, `test_watch` |
+| She answers from the documents, the company's tickets, the web, and names what she used | covered | `test_context_scenarios` |
+| She says she has no access, and gets it without a terminal | covered | Réglages ▸ Sources d'entreprise, `test_the_window_itself` |
+| She spots a decision, an action, a question left open | covered | `test_instructions`, `test_questions`, the Conversation badge |
+| Somebody is named on the fly, and the live thread follows | covered | `test_live_with_assistant`, `test_follow` |
+| The consent line is reminded once per session | covered | `test_consent` |
+| She takes the floor of her own accord | partly | `initiative` exists, `test_take_part`; not measured on a real meeting |
+| She is told to be quiet, and is, at once | covered | the two buttons, `test_watch` |
+
+### After
+
+| Situation | State | Where |
+|---|---|---|
+| The minutes, with who said what | covered | the whole chain, `test_whole_chain` |
+| Name the voices, once, and be recognised next time | covered and measured | `test_bank_across_meetings`, `measure_bank.py` on SUMM-RE 032a → 032b |
+| The tickets offered from the minutes | covered | `test_tickets`, `greffier tickets` |
+| The tickets created on GitLab or Jira, one yes each | covered | `greffier tickets --creer`, `test_cli_after_the_meeting` |
+| The minutes sent, after reading who gets them | covered | `greffier envoyer`, `test_email_smtp`, `test_email_outlook` |
+| The board of subjects published to Miro | covered | `test_board_miro`, `greffier carte` |
+| The transcript exported for a player or a spreadsheet | covered | `test_export`, the Meetings tab |
+| A follow-up question on the minutes, days later | covered | the Conversation tab on a chosen meeting, `test_the_window_itself` |
+| A meeting that was never processed, rebuilt from its thread | covered | `greffier recuperer`, `test_recover` |
+| The recordings tidied by the retention rule | covered | `greffier ranger`, `test_tidy` |
+| A comment left on an existing ticket after the meeting | open | `gitlab_api.comment` exists, no gesture calls it |
+| A meeting held in Outlook or Teams, joined by the tool | open | the loopback carries the sound; nothing reads the invitation |
+
 ## What breaks
 
 | Situation | State | Where |

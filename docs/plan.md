@@ -168,11 +168,17 @@ meeting is never needed to see what a meeting does.
       Réglages ▸ Sources d'entreprise. Four scenarios played against the
       real model in `test_context_scenarios`; what she said is in
       `scenarios.md`. Trello is not a registered kind and stays open.
-- [ ] The project manager's day, listed and covered: before the meeting
+- [x] The project manager's day, listed and covered: before the meeting
       (documents, agenda, who will be there, what to look up), during
       (questions, decisions, actions, look-ups), after (minutes, tickets,
       follow-up), each scenario in `scenarios.md` with its state.
       *Proof: `scenarios.md` extended, every open line either covered or measured.*
+      Done on 16/09: twenty-seven lines in three tables, before, during,
+      after; what was missing on the way was built (`greffier tickets
+      --creer` creates the offered tickets on a source registered in
+      writing, one yes each: the adapters existed and nothing called them).
+      Four lines stay open and say so: the calendar, a comment on a ticket,
+      a meeting joined from its invitation, her initiative on a real meeting.
 - [x] The badge on the Conversation tab counts what has not been seen, not
       everything Lucie ever said: read her message, switch tab, one more
       message arrives, the badge said three where one was new.

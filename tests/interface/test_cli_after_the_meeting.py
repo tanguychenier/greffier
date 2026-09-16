@@ -498,3 +498,106 @@ class TestWhatTheToolKnowsOfTheSetting:
         assert "CASA" in answered.stdout
         assert "Maud Riel" in answered.stdout
         assert "2 terme(s), 1 personne(s)" in answered.stdout, "the template's own term counts"
+
+
+class TestCreatingTheTicketsOffered:
+    """The adapters existed and nothing called them: the tickets were offered
+    in a file and typed again by hand. Only a source in writing, only with
+    its token, never without a yes for each one."""
+
+    def _registry(self, settings, droit="écriture"):
+        from greffier.adapters.configuration import Config
+
+        config = Config.load(settings)
+        config.paths.sources.parent.mkdir(parents=True, exist_ok=True)
+        config.paths.sources.write_text(
+            '[[sources]]\nnom = "recherche"\ngenre = "gitlab"\n'
+            'adresse = "https://gitlab.example.fr"\nprojet = "equipe/outil"\n'
+            f'droit = "{droit}"\njeton = "GREFFIER_JETON_D_ESSAI"\n',
+            encoding="utf-8",
+        )
+
+    def _offered(self, data, monkeypatch):
+        name = a_meeting(data)
+        minutes_for(data, name)
+        writer = FakeWriter(json.dumps([
+            {"titre": "Relancer le partenaire", "assigne": "Maud", "extrait": "on relance lundi"},
+            {"titre": "Décaler la recette", "description": "à jeudi"},
+        ]))
+        monkeypatch.setattr(cli, "writer", lambda config: writer)
+        return name
+
+    def test_a_source_nobody_registered_is_refused_by_name(self, poste, monkeypatch):
+        settings, data = poste
+        name = self._offered(data, monkeypatch)
+        answered = _run(settings, "tickets", name, "--creer", "suivi")
+        assert answered.exit_code == 1
+        assert "aucune source inscrite sous « suivi »" in _out(answered)
+
+    def test_a_source_in_reading_only_creates_nothing(self, poste, monkeypatch):
+        settings, data = poste
+        name = self._offered(data, monkeypatch)
+        self._registry(settings, droit="lecture")
+        answered = _run(settings, "tickets", name, "--creer", "recherche")
+        assert answered.exit_code == 1
+        assert "lecture seule" in _out(answered)
+
+    def test_without_a_token_it_says_where_the_token_goes(self, poste, monkeypatch):
+        settings, data = poste
+        name = self._offered(data, monkeypatch)
+        self._registry(settings)
+        monkeypatch.delenv("GREFFIER_JETON_D_ESSAI", raising=False)
+        answered = _run(settings, "tickets", name, "--creer", "recherche")
+        assert answered.exit_code == 1
+        assert "aucun jeton" in _out(answered) and "Sources d'entreprise" in _out(answered)
+
+    def test_each_ticket_needs_its_own_yes(self, poste, monkeypatch):
+        from greffier.adapters import gitlab_api
+
+        settings, data = poste
+        name = self._offered(data, monkeypatch)
+        self._registry(settings)
+        monkeypatch.setenv("GREFFIER_JETON_D_ESSAI", "secret")
+        created = []
+
+        def create(source, token, title, description=""):
+            created.append((title, description))
+            return gitlab_api.Ticket(len(created), title, "opened",
+                                     f"https://gitlab.example.fr/i/{len(created)}")
+
+        monkeypatch.setattr(gitlab_api, "create_a_ticket", create)
+        answered = _run(settings, "tickets", name, "--creer", "recherche", input="y\nn\n")
+        assert answered.exit_code == 0, _out(answered)
+        assert [title for title, _ in created] == ["Relancer le partenaire"]
+        assert "Extrait du compte rendu" in created[0][1]
+        assert "✓ créé : https://gitlab.example.fr/i/1" in answered.stdout
+        assert "1 ticket(s) créé(s), 1 laissé(s)" in answered.stdout
+
+    def test_a_refusal_from_the_source_is_said_and_the_rest_goes_on(self, poste, monkeypatch):
+        from greffier.adapters import gitlab_api
+
+        settings, data = poste
+        name = self._offered(data, monkeypatch)
+        self._registry(settings)
+        monkeypatch.setenv("GREFFIER_JETON_D_ESSAI", "secret")
+
+        def refuses(source, token, title, description=""):
+            raise gitlab_api.GitLabRefused("jeton refusé sur « recherche » (403)")
+
+        monkeypatch.setattr(gitlab_api, "create_a_ticket", refuses)
+        answered = _run(settings, "tickets", name, "--creer", "recherche", input="y\ny\n")
+        assert answered.exit_code == 0
+        assert _out(answered).count("jeton refusé") == 2
+        assert "0 ticket(s) créé(s), 2 laissé(s)" in answered.stdout
+
+    def test_without_the_option_nothing_is_created(self, poste, monkeypatch):
+        from greffier.adapters import gitlab_api
+
+        settings, data = poste
+        name = self._offered(data, monkeypatch)
+        self._registry(settings)
+        monkeypatch.setenv("GREFFIER_JETON_D_ESSAI", "secret")
+        monkeypatch.setattr(gitlab_api, "create_a_ticket",
+                            lambda *a, **k: pytest.fail("created without being asked"))
+        answered = _run(settings, "tickets", name)
+        assert answered.exit_code == 0

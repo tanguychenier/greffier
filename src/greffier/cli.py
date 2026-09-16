@@ -2310,12 +2310,18 @@ def read_minutes(
 @application.command("tickets")
 def tickets(
     meeting: str = typer.Argument(None, help="Réunion (défaut : la dernière)"),
+    create_on: str = typer.Option(
+        None, "--creer", metavar="SOURCE",
+        help="Créer les tickets sur cette source inscrite en écriture, un oui par ticket",
+    ),
     config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
 ) -> None:
     """Propose les tickets à créer à partir du compte rendu.
 
     Proposés, **pas créés** : un ticket ouvert à tort dans un outil partagé coûte
-    plus cher à retirer qu'à ne pas créer. La relecture est le garde-fou.
+    plus cher à retirer qu'à ne pas créer. La relecture est le garde-fou. Avec
+    « --creer », chaque ticket est montré puis créé sur la source nommée, un
+    oui à la fois, et rien ne part sans lui.
     """
     from greffier.application.tickets import offer
 
@@ -2344,6 +2350,67 @@ def tickets(
     if not proposition.tickets:
         typer.echo("Aucune action décidée dans ce compte rendu.")
     typer.echo(f"\n{output}")
+    if create_on and proposition.tickets:
+        _create_the_tickets(config, create_on, proposition.tickets, identifier)
+
+def _create_the_tickets(config: Config, name: str, offered: list[Any], identifier: str) -> None:
+    """Creates the offered tickets on a registered source, one yes at a time.
+
+    The adapters existed and nothing called them: the tickets were offered in
+    a file and the project manager typed them again by hand. Only a source
+    registered in writing, only with its token, and never without a yes for
+    each one: a ticket opened by mistake in a shared tool costs more to remove
+    than it would have cost to type.
+    """
+    from greffier.adapters import sources_file
+    from greffier.domain.sources import Kind
+
+    registry = sources_file.read(config.paths.sources)
+    source = registry.by_name(name)
+    if source is None:
+        typer.secho(f"✗ aucune source inscrite sous « {name} » : « greffier sources ».",
+                    fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+    if not source.can_write:
+        typer.secho(f"✗ « {source.name} » est inscrite en lecture seule : mettre "
+                    "« droit = \"écriture\" » dans le fichier des sources pour y créer.",
+                    fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+    token = sources_file.token_for(source)
+    if not token:
+        typer.secho(f"✗ aucun jeton pour « {source.name} » : Réglages ▸ Sources "
+                    "d'entreprise, ou « greffier sources ».", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    typer.echo(f"\nCréation sur {source.say()}")
+    created = 0
+    for ticket in offered:
+        description = ticket.description or ""
+        if ticket.excerpt:
+            description += f"\n\nExtrait du compte rendu de {identifier} : « {ticket.excerpt} »"
+        typer.echo(f"\n  {ticket.title}")
+        if description.strip():
+            typer.echo("  " + description.strip().replace("\n", "\n  "))
+        if not typer.confirm("  Créer ce ticket ?", default=False):
+            typer.echo("  Non créé.")
+            continue
+        try:
+            if source.kind is Kind.GITLAB:
+                from greffier.adapters.gitlab_api import create_a_ticket
+
+                made = create_a_ticket(source, token, ticket.title, description.strip())
+                adresse = made.adresse
+            else:
+                from greffier.adapters.jira_api import create_a_request
+
+                asked = create_a_request(source, token, ticket.title, description.strip())
+                adresse = asked.adresse
+        except RuntimeError as refused:
+            typer.secho(f"  ✗ {refused}", fg=typer.colors.RED, err=True)
+            continue
+        created += 1
+        typer.secho(f"  ✓ créé : {adresse}", fg=typer.colors.GREEN)
+    typer.echo(f"\n{created} ticket(s) créé(s), {len(offered) - created} laissé(s).")
 
 @application.command("archiver")
 def archive(
