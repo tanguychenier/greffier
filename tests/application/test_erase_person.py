@@ -108,13 +108,13 @@ class TestSayingWhereSomebodyIsBeforeErasingThem:
 
     def test_the_voiceprints_are_said_to_be_biometric(self, data: Everywhere) -> None:
         traces = inventory(data, "Sophie", voiceprints=3)
-        biometrique = [trace for trace in traces if trace.biometric]
-        assert [trace.occurrences for trace in biometrique] == [3]
+        biometric_one = [trace for trace in traces if trace.biometric]
+        assert [trace.occurrences for trace in biometric_one] == [3]
 
     def test_looking_changes_nothing(self, data: Everywhere) -> None:
-        avant = (data.minutes_folder / "2026-09-10_reunion.md").read_text()
+        earlier = (data.minutes_folder / "2026-09-10_reunion.md").read_text()
         inventory(data, "Sophie")
-        assert (data.minutes_folder / "2026-09-10_reunion.md").read_text() == avant
+        assert (data.minutes_folder / "2026-09-10_reunion.md").read_text() == earlier
 
 
 class TestErasingThem:
@@ -231,12 +231,12 @@ class TestTheBankAndTheIndex:
 
 class TestAMachineWithNothingOnIt:
     def test_folders_that_do_not_exist_are_not_a_failure(self, tmp_path: Path) -> None:
-        nulle_part = Everywhere(
+        nowhere = Everywhere(
             meetings=tmp_path / "reunions",
             minutes_folder=tmp_path / "comptes-rendus",
             transcripts=tmp_path / "transcriptions",
             live=tmp_path / "direct",
             propositions=tmp_path / "propositions",
         )
-        assert inventory(nulle_part, "Sophie") == []
-        assert erase(nulle_part, "Sophie").traces == []
+        assert inventory(nowhere, "Sophie") == []
+        assert erase(nowhere, "Sophie").traces == []

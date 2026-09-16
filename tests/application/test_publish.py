@@ -6,7 +6,7 @@ import subprocess
 import pytest
 
 from greffier.application.publish import (
-    CONSIGNES_DOCUMENT,
+    DOCUMENT_GUIDANCE,
     READ_AT_MOST,
     extract_sound,
     learn_from_document,
@@ -20,10 +20,10 @@ from greffier.domain.store import Destination, Suggestion
 class FakeWriter:
     def __init__(self, rendered: str) -> None:
         self.rendered = rendered
-        self.recu = ""
+        self.received = ""
 
     def write_up(self, text: str) -> str:
-        self.recu = text
+        self.received = text
         return self.rendered
 
 
@@ -56,16 +56,16 @@ class TestLearningFromADocument:
             '[{"ecriture": "FAST", "sens": "un circuit", "genre": "terme"},'
             ' {"ecriture": "Maud", "sens": "pilote", "genre": "personne"}]'
         )
-        appris = learn_from_document(file, writer)
-        assert ("FAST", "un circuit", "terme") in appris
-        assert ("Maud", "pilote", "personne") in appris
+        learned = learn_from_document(file, writer)
+        assert ("FAST", "un circuit", "terme") in learned
+        assert ("Maud", "pilote", "personne") in learned
 
     def test_an_empty_document_does_not_call_the_writer(self, tmp_path):
         file = tmp_path / "vide.md"
         file.write_text("   ", encoding="utf-8")
         writer = FakeWriter("[]")
         assert learn_from_document(file, writer) == ()
-        assert writer.recu == ""
+        assert writer.received == ""
 
     def test_an_unreadable_answer_returns_nothing(self, tmp_path):
         file = tmp_path / "specs.md"
@@ -75,10 +75,10 @@ class TestLearningFromADocument:
     def test_a_code_fence_is_accepted(self, tmp_path):
         file = tmp_path / "specs.md"
         file.write_text("du texte", encoding="utf-8")
-        appris = learn_from_document(
+        learned = learn_from_document(
             file, FakeWriter('```json\\n[{"ecriture": "FAST"}]\\n```')
         )
-        assert appris == (("FAST", "", "terme"),)
+        assert learned == (("FAST", "", "terme"),)
 
     def test_only_the_start_of_the_document_is_read(self, tmp_path):
         """A hundred pages are not read to draw twenty words from them."""
@@ -86,12 +86,12 @@ class TestLearningFromADocument:
         file.write_text("x" * (READ_AT_MOST * 2), encoding="utf-8")
         writer = FakeWriter("[]")
         learn_from_document(file, writer)
-        assert len(writer.recu) <= len(CONSIGNES_DOCUMENT) + READ_AT_MOST
+        assert len(writer.received) <= len(DOCUMENT_GUIDANCE) + READ_AT_MOST
 
     def test_the_guidance_rules_out_everyday_words(self):
-        aplati = " ".join(CONSIGNES_DOCUMENT.split())
-        assert "Pas les mots courants" in aplati
-        assert "n'invente pas" in aplati
+        flattened = " ".join(DOCUMENT_GUIDANCE.split())
+        assert "Pas les mots courants" in flattened
+        assert "n'invente pas" in flattened
 
 
 class TestFilingTheFiles:
@@ -102,7 +102,7 @@ class TestFilingTheFiles:
         source.write_bytes(b"x" * 300_000)
         proposition = Suggestion(source, Destination.MEETING, "enregistrement sonore")
         done = run_chain(proposition, tmp_path / "enregistrements")
-        assert done.produit is not None and done.produit.exists()
+        assert done.product is not None and done.product.exists()
         assert done.trouble == ""
 
     def test_a_blocked_file_is_reported_not_attempted(self, tmp_path):
@@ -161,7 +161,7 @@ class TestPullingTheSoundOutOfAVideo:
         done = run_chain(Suggestion(video, Destination.VIDEO, "vidéo"),
                          tmp_path / "enregistrements")
         assert done.trouble == ""
-        assert done.produit == tmp_path / "enregistrements" / "reunion.wav"
+        assert done.product == tmp_path / "enregistrements" / "reunion.wav"
 
     def test_something_that_is_not_a_video_says_so(self, tmp_path):
         if shutil.which("ffmpeg") is None:
@@ -209,4 +209,4 @@ class TestReadingThroughATool:
         writer = FakeWriter('[{"ecriture": "CASA", "sens": "comité", "genre": "terme"}]')
         done = run_chain(Suggestion(file, Destination.CONTEXT, "texte"),
                          tmp_path / "enregistrements", writer=writer)
-        assert done.appris == (("CASA", "comité", "terme"),)
+        assert done.learned == (("CASA", "comité", "terme"),)

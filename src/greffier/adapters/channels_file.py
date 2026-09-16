@@ -11,7 +11,7 @@ import soundfile as sf
 from greffier.domain.channels import local_turns, over_video
 from greffier.domain.models import Span
 
-TRAME_S = 0.025
+FRAME_S = 0.025
 
 _RMS_FLOOR = 1e-5
 
@@ -23,25 +23,25 @@ class Channels:
 
     mic: np.ndarray | None
     system: np.ndarray
-    distante: bool
+    remote: bool
 
 def levels_per_frame(signal: np.ndarray, frequency: int) -> list[float]:
     """The level of each frame, in decibels."""
-    step = int(frequency * TRAME_S) or 1
+    step = int(frequency * FRAME_S) or 1
     useful_ones = len(signal) // step
     if useful_ones == 0:
         return []
-    trames = signal[: useful_ones * step].reshape(useful_ones, step)
-    rms = np.sqrt(np.mean(trames.astype(np.float64) ** 2, axis=1))
+    frame_count = signal[: useful_ones * step].reshape(useful_ones, step)
+    rms = np.sqrt(np.mean(frame_count.astype(np.float64) ** 2, axis=1))
     return [float(x) for x in 20 * np.log10(np.maximum(rms, _LOG_FLOOR))]
 
 def split_channels(
-    data: np.ndarray, frequency: int = 16000, distante: bool | None = None
+    data: np.ndarray, frequency: int = 16000, remote: bool | None = None
 ) -> Channels:
     """Separates the mic from the loopback, and says whether it was remote."""
     if data.ndim < 2 or data.shape[1] < 2:
         mono = data if data.ndim == 1 else data[:, 0]
-        return Channels(mic=None, system=mono, distante=False)
+        return Channels(mic=None, system=mono, remote=False)
     loop = data[:, 1:]
     active_ones = [
         i for i in range(loop.shape[1])
@@ -49,23 +49,23 @@ def split_channels(
     ]
     mic = data[:, 0]
     if not active_ones:
-        if distante:
-            return Channels(mic=mic, system=loop.mean(axis=1), distante=True)
-        return Channels(mic=mic, system=mic, distante=False)
+        if remote:
+            return Channels(mic=mic, system=loop.mean(axis=1), remote=True)
+        return Channels(mic=mic, system=mic, remote=False)
     system = loop[:, active_ones].mean(axis=1)
-    if distante:
-        return Channels(mic=mic, system=system, distante=True)
+    if remote:
+        return Channels(mic=mic, system=system, remote=True)
     if not over_video(
         levels_per_frame(mic, frequency), levels_per_frame(system, frequency)
     ):
-        return Channels(mic=mic, system=mic, distante=False)
-    return Channels(mic=mic, system=system, distante=True)
+        return Channels(mic=mic, system=mic, remote=False)
+    return Channels(mic=mic, system=system, remote=True)
 
 class FileChannelReader:
     """Reads a recording and returns the passages from the mic."""
 
     def __init__(self) -> None:
-        self.distante = False
+        self.remote = False
 
     def local_passages(self, audio: Path) -> list[Span]:
         """The moments when the person recording speaks themselves."""
@@ -73,12 +73,12 @@ class FileChannelReader:
             data, frequency = sf.read(audio, dtype="float32", always_2d=True)
         except (OSError, RuntimeError):
             return []
-        channels = split_channels(data, frequency, distante=self.distante or None)
-        self.distante = self.distante or channels.distante
-        if not channels.distante or channels.mic is None:
+        channels = split_channels(data, frequency, remote=self.remote or None)
+        self.remote = self.remote or channels.remote
+        if not channels.remote or channels.mic is None:
             return []
         return local_turns(
             levels_per_frame(channels.mic, frequency),
             levels_per_frame(channels.system, frequency),
-            TRAME_S,
+            FRAME_S,
         )

@@ -17,7 +17,7 @@ from greffier.adapters.configuration import Config
 from greffier.adapters.store_files import FileStore
 from greffier.adapters.voice_bank_files import FileVoiceBank
 from greffier.application.name_voice import Naming, voices_to_name
-from greffier.application.process import _as_stored_meeting as depuis_resultat
+from greffier.application.process import _as_stored_meeting as from_result
 from tests.integration.prerequisites import (
     transcription_is_out_of_reach,
     voices_are_out_of_reach,
@@ -33,9 +33,9 @@ pytestmark = pytest.mark.integration
 def atelier(tmp_path_factory):
     """A clean machine: an empty bank, no meeting known."""
     config = Config()
-    for hors_de_portee in (voices_are_out_of_reach(2), transcription_is_out_of_reach(config)):
-        if hors_de_portee:
-            pytest.skip(hors_de_portee)
+    for out_of_reach in (voices_are_out_of_reach(2), transcription_is_out_of_reach(config)):
+        if out_of_reach:
+            pytest.skip(out_of_reach)
 
     root = tmp_path_factory.mktemp("poste")
     config.paths.data = root
@@ -44,8 +44,8 @@ def atelier(tmp_path_factory):
     from make_meeting import DIALOGUE_WITHOUT_NAMES, make
 
     first_one = make(root / "reunion-1.wav")
-    seconde = make(root / "reunion-2.wav", dialogue=DIALOGUE_WITHOUT_NAMES)
-    return config, first_one, seconde
+    second_one = make(root / "reunion-2.wav", dialogue=DIALOGUE_WITHOUT_NAMES)
+    return config, first_one, second_one
 
 
 def process(config, audio):
@@ -56,16 +56,16 @@ def process(config, audio):
     outcome = chain.run_chain(audio, send=False)
     duration = outcome.turns[-1].span.end if outcome.turns else 0.0
     store = FileStore(config.paths.data / "reunions")
-    store.record(depuis_resultat(outcome, duration))
+    store.record(from_result(outcome, duration))
     return outcome
 
 
-class TestReconnaissanceEntreReunions:
-    def test_le_parcours_complet(self, atelier):
+class TestRecognitionAcrossMeetings:
+    def test_the_whole_journey(self, atelier):
         """First meeting → naming → second meeting recognised on its own."""
         from make_meeting import first_names
 
-        config, first_one, seconde = atelier
+        config, first_one, second_one = atelier
         bank = FileVoiceBank(config.paths.voice_bank)
         store = FileStore(config.paths.data / "reunions")
 
@@ -89,26 +89,26 @@ class TestReconnaissanceEntreReunions:
         assert {p.name for p in bank.people()} == set(first_names())
 
         # 3. The second meeting says no first name at all.
-        second_result = process(config, seconde)
+        second_result = process(config, second_one)
         transcription = " ".join(r.text for r in second_result.utterances)
-        assert not any(prenom in transcription for prenom in first_names())
+        assert not any(first_name in transcription for first_name in first_names())
 
         # 4. And yet both are named: that can only come from the voice.
         assert set(second_result.names.values()) == set(first_names())
 
     def test_the_bank_does_not_name_just_anyone(self, atelier, tmp_path):
         """A bank holding a stranger's voice must recognise nothing."""
-        config, _, seconde = atelier
+        config, _, second_one = atelier
         from greffier.domain.voiceprints import normalise
         from greffier.wiring import wire_up
 
-        etrangere = FileVoiceBank(tmp_path / "banque-etrangere")
-        etrangere.record("Personne d'autre", normalise([1.0] + [0.0] * 191))
+        foreign = FileVoiceBank(tmp_path / "banque-etrangere")
+        foreign.record("Personne d'autre", normalise([1.0] + [0.0] * 191))
 
         chain = wire_up(config)
-        chain.bank = etrangere
+        chain.bank = foreign
         chain.writer = None
-        outcome = chain.run_chain(seconde, send=False)
+        outcome = chain.run_chain(second_one, send=False)
         assert "Personne d'autre" not in outcome.names.values()
 
     def test_the_voices_to_name_come_with_an_extract(self, atelier):
@@ -158,22 +158,22 @@ class TestSplittingAfterTheMeetingEndToEnd:
     def test_le_cycle_complet(self, tmp_path):
         from greffier.adapters.store_files import FileStore
 
-        magasin = FileStore(tmp_path / "reunions")
+        the_store = FileStore(tmp_path / "reunions")
         detail = self._reunion(tmp_path)
         detail.join_into("v2", "v1")
-        magasin.record(detail)
+        the_store.record(detail)
 
         # What the minutes would have announced: one person only.
-        relue = magasin.read("2026-09-10_10h10_reunion")
-        assert list(relue.names.values()) == ["Tanguy"]
-        assert {t.voice for t in relue.turns} == {"v1"}
+        reread = the_store.read("2026-09-10_10h10_reunion")
+        assert list(reread.names.values()) == ["Tanguy"]
+        assert {t.voice for t in reread.turns} == {"v1"}
 
         # The gesture that was missing, and it survives being written.
-        assert relue.can_split("v1")
-        relue.split("v1")
-        magasin.record(relue)
+        assert reread.can_split("v1")
+        reread.split("v1")
+        the_store.record(reread)
 
-        finale = magasin.read("2026-09-10_10h10_reunion")
+        finale = the_store.read("2026-09-10_10h10_reunion")
         assert sorted(finale.names.values()) == ["Pascal", "Tanguy"]
         assert {t.voice for t in finale.turns} == {"v1", "v2"}
         assert {u.voice for u in finale.utterances} == {"v1", "v2"}

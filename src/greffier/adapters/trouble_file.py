@@ -35,15 +35,15 @@ class TroubleFile:
     def read(self, how_many: int = 40) -> list[str]:
         """The last incidents, newest last. Empty when there is no file."""
         with contextlib.suppress(OSError):
-            lignes = self.file.read_text(encoding="utf-8").splitlines()
-            return worth_keeping(lignes, how_many)
+            lines = self.file.read_text(encoding="utf-8").splitlines()
+            return worth_keeping(lines, how_many)
         return []
 
     def _hold_it_down(self) -> None:
         """Keeps the file to its last lines: it is read by a person."""
         with contextlib.suppress(OSError):
-            lignes = self.file.read_text(encoding="utf-8").splitlines()
-            if len(lignes) <= KEPT * 2:
+            lines = self.file.read_text(encoding="utf-8").splitlines()
+            if len(lines) <= KEPT * 2:
                 return
             self.file.write_text(
-                "\n".join(worth_keeping(lignes, KEPT)) + "\n", encoding="utf-8")
+                "\n".join(worth_keeping(lines, KEPT)) + "\n", encoding="utf-8")

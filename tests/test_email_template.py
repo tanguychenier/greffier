@@ -7,7 +7,7 @@ file name.
 
 from __future__ import annotations
 
-from greffier.adapters.email_template import _ancre, as_html, email
+from greffier.adapters.email_template import _anchor, as_html, email
 from greffier.domain.minutes import title as subject
 
 
@@ -22,7 +22,7 @@ class TestHeadings:
         assert "<h3" in as_html("##### Trop profond")
 
     def test_every_heading_carries_its_style_inline(self) -> None:
-        # Les clients de messagerie suppriment volontiers une feuille de style.
+        # Mail clients readily drop a stylesheet.
         assert 'style="' in as_html("## Décisions")
 
 
@@ -111,8 +111,8 @@ class TestWhatMustNotBeExecuted:
 
 class TestTheSubjectLine:
     def test_the_title_of_the_minutes_becomes_the_subject(self) -> None:
-        obtenu = subject("# Compte rendu : Point Casa\n\nLe 25 août.", "défaut")
-        assert obtenu == "Compte rendu : Point Casa"
+        obtained = subject("# Compte rendu : Point Casa\n\nLe 25 août.", "défaut")
+        assert obtained == "Compte rendu : Point Casa"
 
     def test_with_no_title_the_default_is_kept(self) -> None:
         assert subject("Pas de titre ici.", "défaut") == "défaut"
@@ -230,15 +230,15 @@ class TestNonLatinAnchors:
     """
 
     def test_two_non_latin_headings_give_two_anchors(self):
-        assert _ancre("決定事項") != _ancre("Действия")
+        assert _anchor("決定事項") != _anchor("Действия")
 
     def test_an_anchor_stays_a_valid_identifier(self):
-        ancre = _ancre("決定事項")
-        assert ancre.startswith("s-") and len(ancre) > 2
+        anchor = _anchor("決定事項")
+        assert anchor.startswith("s-") and len(anchor) > 2
 
     def test_the_latin_headings_do_not_move(self):
-        assert _ancre("Décisions") == "s-decisions"
+        assert _anchor("Décisions") == "s-decisions"
 
     def test_the_contents_and_the_heading_point_at_one_anchor(self):
         """The function is called from both sides: they have to agree."""
-        assert _ancre("決定事項") == _ancre("決定事項")
+        assert _anchor("決定事項") == _anchor("決定事項")

@@ -29,8 +29,8 @@ class TestRenderingTheThread:
             (1, 0.0, 5.0, "Première phrase.", "v1"),
             (2, 5.0, 9.0, "Seconde phrase.", "v1"),
         ).rendered()
-        etiquettes = [line for line in rendered.splitlines() if line.startswith("[")]
-        assert len(etiquettes) == 1
+        labels = [line for line in rendered.splitlines() if line.startswith("[")]
+        assert len(labels) == 1
 
     def test_a_change_of_voice_opens_a_block(self):
         rendered = thread_with(

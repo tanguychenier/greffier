@@ -71,7 +71,7 @@ def live_words(
         log=config.paths.propositions / f"{audio.stem}.jsonl",
         transcriber=light_transcriber(config),
         follower=the_follower,
-        preparateur=_audio_recorder(config) if levelled else None,
+        preparer=_audio_recorder(config) if levelled else None,
         language="fr",
         slice_period=period,
     )

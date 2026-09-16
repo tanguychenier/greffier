@@ -21,14 +21,14 @@ def anchor_of(title: str) -> str:
     return re.sub(r"\s+", "-", without_punctuation)
 
 
-ANCRES = {anchor_of(t) for t in re.findall(r"^#{1,6}\s+(.+)$", README, re.M)}
+ANCHORS = {anchor_of(t) for t in re.findall(r"^#{1,6}\s+(.+)$", README, re.M)}
 
 
 class TestEveryLinkLeadsSomewhere:
     def test_the_table_of_contents_points_at_real_headings(self):
         into_the_void = sorted(
             target for target in re.findall(r"\]\(#([^)]+)\)", README)
-            if target not in ANCRES
+            if target not in ANCHORS
         )
         assert not into_the_void, f"ancres inexistantes : {into_the_void}"
 
@@ -40,4 +40,4 @@ class TestEveryLinkLeadsSomewhere:
 
     def test_the_sections_the_table_of_contents_announces_are_all_there(self):
         """Six sections at least, or it is not a document one navigates."""
-        assert len({a for a in ANCRES}) >= 6
+        assert len({a for a in ANCHORS}) >= 6

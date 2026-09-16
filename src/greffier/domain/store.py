@@ -43,9 +43,9 @@ def offer(
     tools: frozenset[str] = frozenset(),
 ) -> Suggestion:
     """What is proposed for this file."""
-    suffixe = file.suffix.casefold()
+    the_suffix = file.suffix.casefold()
 
-    if suffixe in SOUNDS:
+    if the_suffix in SOUNDS:
         if size is not None and size < MINIMUM_SOUND_SIZE:
             return Suggestion(
                 file, Destination.UNKNOWN,
@@ -53,27 +53,27 @@ def offer(
             )
         return Suggestion(file, Destination.MEETING, "enregistrement sonore")
 
-    if suffixe in VIDEOS:
+    if the_suffix in VIDEOS:
         return Suggestion(
             file, Destination.VIDEO,
             "vidéo : la piste sonore sera extraite, l'image ne sert à rien ici",
             blocked_by="" if "ffmpeg" in tools else "ffmpeg est introuvable",
         )
 
-    if suffixe in TEXTS:
+    if the_suffix in TEXTS:
         return Suggestion(file, Destination.CONTEXT, "texte lisible tel quel")
 
-    if suffixe in TOOLED_TEXTS:
-        besoin = "pdftotext" if suffixe == ".pdf" else "textutil"
+    if the_suffix in TOOLED_TEXTS:
+        need = "pdftotext" if the_suffix == ".pdf" else "textutil"
         return Suggestion(
             file, Destination.CONTEXT,
-            f"document {suffixe.lstrip('.')} : son texte sera extrait",
-            blocked_by="" if besoin in tools else f"{besoin} est introuvable",
+            f"document {the_suffix.lstrip('.')} : son texte sera extrait",
+            blocked_by="" if need in tools else f"{need} est introuvable",
         )
 
     return Suggestion(
         file, Destination.UNKNOWN,
-        f"« {suffixe or 'sans extension'} » n'est ni un son, ni une vidéo, "
+        f"« {the_suffix or 'sans extension'} » n'est ni un son, ni une vidéo, "
         "ni un document texte",
     )
 
@@ -87,8 +87,8 @@ def summarise(propositions: list[Suggestion]) -> str:
         return "Aucun fichier."
     by_destination: dict[Destination, int] = {}
     for proposition in propositions:
-        ou = proposition.destination
-        by_destination[ou] = by_destination.get(ou, 0) + 1
+        where_ = proposition.destination
+        by_destination[where_] = by_destination.get(where_, 0) + 1
     chunks = [
         f"{how_many} {destination}{_plural(destination, how_many)}"
         for destination, how_many in by_destination.items()

@@ -32,8 +32,8 @@ def refusal(name: str) -> str:
         return "Un prénom fait au moins deux lettres."
     if len(clean) > LENGTH[1]:
         return "C'est trop long pour un prénom."
-    replie = _strip_accents(clean).lower().strip(" .,;:!?")
-    if replie in LABELS:
+    folded = _strip_accents(clean).lower().strip(" .,;:!?")
+    if folded in LABELS:
         return (
             f"« {clean} » est ce que Greffier affiche quand une voix n'a pas "
             "encore de nom, pas un prénom. Une telle entrée en banque serait "
@@ -41,9 +41,9 @@ def refusal(name: str) -> str:
         )
     if not re.search(r"[^\W\d_]", clean, flags=re.UNICODE):
         return "Un prénom porte des lettres."
-    if re.fullmatch(r"[\d\W_]+", replie.replace(" ", "")):
+    if re.fullmatch(r"[\d\W_]+", folded.replace(" ", "")):
         return "Un numéro de voix n'est pas un prénom."
-    if replie.startswith("voix ") or replie.startswith("personne "):
+    if folded.startswith("voix ") or folded.startswith("personne "):
         return f"« {clean} » est une étiquette de Greffier, pas un prénom."
     return ""
 

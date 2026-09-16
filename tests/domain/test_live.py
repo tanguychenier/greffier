@@ -41,7 +41,7 @@ SAME_VOICE = (voiceprint(1, 0, duration=8.0), voiceprint(0.8, 0.6, duration=8.0)
 #: Cosine of zero: two people, with no possible ambiguity.
 OTHER_VOICE = voiceprint(0, 1)
 #: Three vectors orthogonal to one another: three distinct people.
-ECARTEES = (normalise([1.0, 0.0, 0.0], source_duration=4.0),
+SET_ASIDE_ONES = (normalise([1.0, 0.0, 0.0], source_duration=4.0),
             normalise([0.0, 1.0, 0.0], source_duration=4.0),
             normalise([0.0, 0.0, 1.0], source_duration=4.0))
 #: At a negative cosine from all three: a fourth person, never attached.
@@ -64,19 +64,19 @@ class TestWhoIsSpeakingLive:
     def test_two_close_extracts_are_one_voice(self) -> None:
         thread = LiveThread()
         first_one = thread.attach(SAME_VOICE[0], local=False)
-        seconde = thread.attach(SAME_VOICE[1], local=False)
-        assert first_one == seconde
+        second_one = thread.attach(SAME_VOICE[1], local=False)
+        assert first_one == second_one
         thread.record_turn(blocks([utterance(0.0, 20.0)], [])[0], first_one)
         assert thread.label(first_one) == "Voix 1"
 
     def test_two_distant_extracts_are_two_voices(self) -> None:
         thread = LiveThread()
         first_one = thread.attach(SAME_VOICE[0], local=False)
-        seconde = thread.attach(OTHER_VOICE, local=False)
-        assert first_one != seconde
+        second_one = thread.attach(OTHER_VOICE, local=False)
+        assert first_one != second_one
         thread.record_turn(blocks([utterance(0.0, 20.0)], [])[0], first_one)
-        thread.record_turn(blocks([utterance(20.0, 40.0)], [])[0], seconde)
-        assert {thread.label(first_one), thread.label(seconde)} == {"Voix 1", "Voix 2"}
+        thread.record_turn(blocks([utterance(20.0, 40.0)], [])[0], second_one)
+        assert {thread.label(first_one), thread.label(second_one)} == {"Voix 1", "Voix 2"}
 
     def test_too_short_a_scrap_does_not_create_a_participant(self) -> None:
         # "oui", "d'accord": too short for a voiceprint. Counting them as
@@ -101,7 +101,7 @@ class TestRecognisedByTheBank:
         marc = Person(name="Marc", voiceprints=[voiceprint(1, 0, duration=30)])
         thread = LiveThread(known=[marc])
         voice = thread.attach(SAME_VOICE[0], local=False)
-        assert thread.voice[voice].certainty is not Certainty.HUMAINE
+        assert thread.voice[voice].certainty is not Certainty.HUMAN
         assert thread.label(voice) == "Marc ?"
 
     def test_a_voice_the_bank_does_not_know_stays_unnamed(self) -> None:
@@ -261,21 +261,21 @@ class TestCorrectingAName:
     def _thread_with_two_voices(self) -> tuple[LiveThread, str, str]:
         """A meeting where two people spoke, with nobody knowing who."""
         thread = LiveThread()
-        distante = thread.attach(SAME_VOICE[0], local=False)
-        thread.record_turn(blocks([utterance(0, 5)], [])[0], distante)
+        remote = thread.attach(SAME_VOICE[0], local=False)
+        thread.record_turn(blocks([utterance(0, 5)], [])[0], remote)
         thread.record_turn(blocks([utterance(5, 9)], [])[0], LOCAL_VOICE)
         thread.attach(SAME_VOICE[1], local=False)
-        thread.record_turn(blocks([utterance(9, 14)], [])[0], distante)
-        return thread, distante, LOCAL_VOICE
+        thread.record_turn(blocks([utterance(9, 14)], [])[0], remote)
+        return thread, remote, LOCAL_VOICE
 
     def test_correcting_one_sentence_renames_the_whole_voice(self) -> None:
         # The common case: when the tool gets the person wrong, it gets them
         # wrong for every passage of that voice.
-        thread, distante, _ = self._thread_with_two_voices()
+        thread, remote, _ = self._thread_with_two_voices()
         correction = thread.correct(number=1, name="Marc")
         assert correction.numbers == (1, 3)
-        assert thread.label(distante) == "Marc"
-        assert thread.voice[distante].certainty is Certainty.HUMAINE
+        assert thread.label(remote) == "Marc"
+        assert thread.voice[remote].certainty is Certainty.HUMAN
 
     def test_a_correction_pours_the_voiceprint_into_the_bank(self) -> None:
         # This is what makes one correction enough: the next meeting
@@ -307,17 +307,17 @@ class TestCorrectingAName:
     def test_correcting_only_this_sentence_spares_the_rest(self) -> None:
         # Two people talking over each other: one passage fell into the wrong
         # group, but the group itself is right.
-        thread, distante, _ = self._thread_with_two_voices()
+        thread, remote, _ = self._thread_with_two_voices()
         correction = thread.correct(number=3, name="Julie", whole_voice=False)
         assert correction.numbers == (3,)
-        assert thread.turns[0].voice == distante
+        assert thread.turns[0].voice == remote
         assert thread.label(thread.turns[2].voice) == "Julie"
 
     def test_a_moved_sentence_joins_that_person_s_voice(self) -> None:
-        thread, distante, local = self._thread_with_two_voices()
+        thread, remote, local = self._thread_with_two_voices()
         thread.correct(number=1, name="Marc")
         thread.correct(number=2, name="Marc", whole_voice=False)
-        assert thread.turns[1].voice == distante
+        assert thread.turns[1].voice == remote
         assert thread.label(local) == LOCAL_NAME
 
     def test_two_voices_named_alike_are_joined(self) -> None:
@@ -326,8 +326,8 @@ class TestCorrectingAName:
         thread = LiveThread()
         first_one = thread.attach(voiceprint(1, 0), local=False)
         thread.record_turn(blocks([utterance(0, 5)], [])[0], first_one)
-        seconde = thread.attach(OTHER_VOICE, local=False)
-        thread.record_turn(blocks([utterance(5, 10)], [])[0], seconde)
+        second_one = thread.attach(OTHER_VOICE, local=False)
+        thread.record_turn(blocks([utterance(5, 10)], [])[0], second_one)
 
         thread.correct(number=1, name="Marc")
         correction = thread.correct(number=2, name="Marc")
@@ -388,8 +388,8 @@ class TestJoiningVoicesByHand:
         thread = self._thread_of_three_voices()
         thread.correct(1, "Tanguy")
         thread.correct(2, "Tanguy")
-        restantes = {t.voice for t in thread.turns if t.number in (1, 2, 4, 5)}
-        assert len(restantes) == 1, "les tours des deux voix doivent tenir ensemble"
+        left_over = {t.voice for t in thread.turns if t.number in (1, 2, 4, 5)}
+        assert len(left_over) == 1, "les tours des deux voix doivent tenir ensemble"
         named_ones = {v.name for v in thread.voice.values() if v.name and v.name != LOCAL_NAME}
         assert named_ones == {"Tanguy"}
 
@@ -408,15 +408,15 @@ class TestJoiningVoicesByHand:
         thread.voice["v2"].voiceprints.append(voiceprint(0.9, 0.1, duration=6.0))
         thread.correct(1, "Tanguy")
         thread.correct(2, "Tanguy")
-        survivante = next(v for v in thread.voice.values() if v.name == "Tanguy")
-        assert len(survivante.voiceprints) == 2
-        assert survivante.seconds == pytest.approx(14.0)
+        survivor = next(v for v in thread.voice.values() if v.name == "Tanguy")
+        assert len(survivor.voiceprints) == 2
+        assert survivor.seconds == pytest.approx(14.0)
 
     def test_a_correction_made_by_hand_is_not_decided_again(self):
         thread = self._thread_of_three_voices()
         thread.correct(1, "Tanguy")
         voice = next(v for v in thread.voice.values() if v.name == "Tanguy")
-        assert voice.certainty is Certainty.HUMAINE
+        assert voice.certainty is Certainty.HUMAN
         assert voice.certainty.firm
 
 
@@ -446,31 +446,31 @@ class TestStitchingDuringTheMeeting:
 
     def test_two_close_voices_are_joined(self):
         thread = self._thread_of_two_close_voices()
-        faits = thread.stitch()
-        assert faits, "le recollage doit agir"
+        done_ones = thread.stitch()
+        assert done_ones, "le recollage doit agir"
         assert len({t.voice for t in thread.turns if t.number in (1, 2, 4)}) == 1
         assert "v3" in thread.voice, "une voix distincte reste distincte"
 
     def test_the_voiceprints_follow(self):
         thread = self._thread_of_two_close_voices()
-        avant = sum(len(v.voiceprints) for v in thread.voice.values())
+        earlier = sum(len(v.voiceprints) for v in thread.voice.values())
         thread.stitch()
-        assert sum(len(v.voiceprints) for v in thread.voice.values()) == avant
+        assert sum(len(v.voiceprints) for v in thread.voice.values()) == earlier
 
     def test_two_different_names_given_by_hand_never_join(self):
         """A correction made by hand is not undone by a measurement."""
         thread = self._thread_of_two_close_voices()
-        thread.voice["v1"].name, thread.voice["v1"].certainty = "Sophie", Certainty.HUMAINE
-        thread.voice["v2"].name, thread.voice["v2"].certainty = "Katell", Certainty.HUMAINE
+        thread.voice["v1"].name, thread.voice["v1"].certainty = "Sophie", Certainty.HUMAN
+        thread.voice["v2"].name, thread.voice["v2"].certainty = "Katell", Certainty.HUMAN
         assert thread.stitch() == []
         assert {"v1", "v2"} <= set(thread.voice)
 
     def test_a_named_voice_absorbs_an_anonymous_one(self):
         thread = self._thread_of_two_close_voices()
-        thread.voice["v1"].name, thread.voice["v1"].certainty = "Sophie", Certainty.HUMAINE
+        thread.voice["v1"].name, thread.voice["v1"].certainty = "Sophie", Certainty.HUMAN
         thread.stitch()
-        survivantes = {v.name for v in thread.voice.values() if v.name and v.name != LOCAL_NAME}
-        assert survivantes == {"Sophie"}, "le nom humain survit à la réunion"
+        survivors = {v.name for v in thread.voice.values() if v.name and v.name != LOCAL_NAME}
+        assert survivors == {"Sophie"}, "le nom humain survit à la réunion"
 
     def test_nothing_to_stitch_breaks_nothing(self):
         thread = LiveThread()
@@ -514,14 +514,14 @@ class TestTheCeilingOnParticipants:
     def test_with_no_count_given_one_more_voice_is_created(self):
         """The behaviour from before, which must hold when nothing is known."""
         thread = self._thread()
-        etrangere = voiceprint(0.7, 0.7, duration=3.0)
-        assert thread.attach(etrangere, local=False) not in ("v1", "v2")
+        foreign = voiceprint(0.7, 0.7, duration=3.0)
+        assert thread.attach(foreign, local=False) not in ("v1", "v2")
 
     def test_once_full_a_voiceprint_joins_the_nearest(self):
         thread = self._thread(people=2)
         # Closer to v1 than to v2, without reaching the stitching threshold.
-        penchee = voiceprint(0.9, 0.4, duration=3.0)
-        assert thread.attach(penchee, local=False) == "v1"
+        tilted = voiceprint(0.9, 0.4, duration=3.0)
+        assert thread.attach(tilted, local=False) == "v1"
         assert len(thread._nameable_ones()) == 2, "aucune voix de plus"
 
     def test_the_other_side_does_go_to_the_other_voice(self):
@@ -585,8 +585,8 @@ class TestTheFloorOfMaterial:
         that has to be recognised.
         """
         thread = self._thread()
-        etrangere = voiceprint(0.3, 0.95, duration=4.0)
-        assert thread.attach(etrangere, local=False) not in ("v1",)
+        foreign = voiceprint(0.3, 0.95, duration=4.0)
+        assert thread.attach(foreign, local=False) not in ("v1",)
 
     def test_a_scrap_with_no_voice_at_all_goes_to_the_catch_all(self):
         """It waits for a real voice to exist instead of founding one."""
@@ -624,7 +624,7 @@ class TestSayingHowSureItIs:
     def test_a_clear_recognition_is_said_to_be_one(self):
         from greffier.domain.live import Certainty
 
-        sentence = self.named_voice(0.89, 0.40, Certainty.RECONNUE).confidence
+        sentence = self.named_voice(0.89, 0.40, Certainty.RECOGNISED).confidence
         assert "nettement" in sentence
         assert "0.89" in sentence
 
@@ -644,7 +644,7 @@ class TestSayingHowSureItIs:
     def test_a_name_typed_by_hand_says_nothing_of_likeness(self):
         from greffier.domain.live import Certainty
 
-        assert self.named_voice(0.5, 0.1, Certainty.HUMAINE).confidence == (
+        assert self.named_voice(0.5, 0.1, Certainty.HUMAN).confidence == (
             "nommée à la main"
         )
 
@@ -691,16 +691,16 @@ class TestTheCeilingWithNoCountGiven:
         from greffier.domain.live import VOICES_AT_MOST
 
         thread = self._full_thread(VOICES_AT_MOST)
-        etrangere = normalise([0.0] * VOICES_AT_MOST + [1.0], source_duration=4.0)
-        rendered = thread.attach(etrangere, local=False)
+        foreign = normalise([0.0] * VOICES_AT_MOST + [1.0], source_duration=4.0)
+        rendered = thread.attach(foreign, local=False)
         assert rendered in thread.voice, "une voix de plus a été inventée"
         assert len(thread._nameable_ones()) == VOICES_AT_MOST
 
     def test_under_the_ceiling_a_clear_voice_is_still_created(self):
         """The ceiling bounds; it does not stop anyone counting the participants."""
         thread = self._full_thread(3)
-        etrangere = normalise([0.0, 0.0, 0.0, 1.0], source_duration=4.0)
-        assert thread.attach(etrangere, local=False) not in thread.voice or True
+        foreign = normalise([0.0, 0.0, 0.0, 1.0], source_duration=4.0)
+        assert thread.attach(foreign, local=False) not in thread.voice or True
         assert len(thread._nameable_ones()) == 4
 
 
@@ -728,18 +728,18 @@ class TestTheCachedAggregate:
         """Without that, a voice stays recognisable by what it used to be."""
         voice = LiveVoice(identifier="v1", rank=1,
                            voiceprints=[voiceprint(1.0, 0.0, duration=4.0)])
-        avant = voice.aggregate_of
+        earlier = voice.aggregate_of
         voice.add(voiceprint(0.0, 1.0, duration=4.0))
-        assert voice.aggregate_of != avant
+        assert voice.aggregate_of != earlier
 
     def test_absorbing_stales_it_too(self):
         kept_one = LiveVoice(identifier="v1", rank=1,
                              voiceprints=[voiceprint(1.0, 0.0, duration=4.0)])
-        avant = kept_one.aggregate_of
+        earlier = kept_one.aggregate_of
         other = LiveVoice(identifier="v2", rank=2,
                             voiceprints=[voiceprint(0.0, 1.0, duration=4.0)])
         kept_one.absorb(other)
-        assert kept_one.aggregate_of != avant
+        assert kept_one.aggregate_of != earlier
 
     def test_two_reads_return_the_same_object(self):
         """That is the whole point: the computation is not done twice."""
@@ -775,10 +775,10 @@ class TestJoiningNamesakesInTheThread:
         for identifier in ("v1", "v2", "v3"):
             thread.voice[identifier].name = "Tanguy"
             thread.voice[identifier].certainty = Certainty.PROBABLE
-        faits = thread.join_namesakes()
-        assert len(faits) == 2
-        restantes = [v for v in thread.voice.values() if v.name == "Tanguy"]
-        assert len(restantes) == 1
+        done_ones = thread.join_namesakes()
+        assert len(done_ones) == 2
+        left_over = [v for v in thread.voice.values() if v.name == "Tanguy"]
+        assert len(left_over) == 1
 
     def test_the_best_fed_one_keeps_its_identifier(self):
         """It is the one whose extract is the most representative."""
@@ -894,7 +894,7 @@ class TestSplittingTwoJoinedVoices:
         thread = self._thread_of_two_voices()
         for identifier in ("v1", "v2"):
             thread.voice[identifier].name = "Tanguy"
-            thread.voice[identifier].certainty = Certainty.RECONNUE
+            thread.voice[identifier].certainty = Certainty.RECOGNISED
         thread.stitch()
         target = next(iter(v.identifier for v in thread.voice.values()
                           if v.name == "Tanguy"))
@@ -908,8 +908,8 @@ class TestSplittingTwoJoinedVoices:
         """What draws the eye: "Voix 2" gets named, "Tanguy" gets believed."""
         thread, target = self._joined()
         thread.split(target)
-        rendue = next(i for i in ("v1", "v2") if i != target)
-        assert thread.voice[rendue].name is None
+        returned = next(i for i in ("v1", "v2") if i != target)
+        assert thread.voice[returned].name is None
 
     def test_a_person_can_undo_their_own_split(self):
         """The last gesture decides: splitting then renaming joins them again."""
@@ -929,10 +929,10 @@ class TestSplittingTwoJoinedVoices:
         """An anonymous voice that absorbed a named one becomes anonymous again."""
         thread = self._thread_of_two_voices()
         thread.voice["v2"].name = "Tanguy"
-        thread.voice["v2"].certainty = Certainty.RECONNUE
+        thread.voice["v2"].certainty = Certainty.RECOGNISED
         thread._absorb("v1", "v2")
         assert thread.voice["v2"].name == "Tanguy"
-        thread.voice["v2"].name, thread.voice["v2"].certainty = "Marie", Certainty.RECONNUE
+        thread.voice["v2"].name, thread.voice["v2"].certainty = "Marie", Certainty.RECOGNISED
         thread.split("v2")
         assert thread.voice["v2"].name == "Tanguy", "l'état d'avant la fusion"
         assert thread.voice["v1"].name is None
@@ -947,7 +947,7 @@ class TestADisplayNumberIsHandedOutOnce:
     them names the wrong person.
     """
 
-    def _parle(self, thread, voiceprint, start, end):
+    def _speaks(self, thread, voiceprint, start, end):
         """Attaches an extract and records what it said, as the watch does."""
         voice = thread.attach(voiceprint, local=False)
         thread.record_turn(blocks([utterance(start, end)], [])[0], voice)
@@ -955,27 +955,27 @@ class TestADisplayNumberIsHandedOutOnce:
 
     def test_every_voice_carries_its_own_number(self):
         thread = LiveThread()
-        identifiers = [self._parle(thread, e, 20.0 * i, 20.0 * i + 18.0)
-                       for i, e in enumerate(ECARTEES)]
-        rangs = [thread.voice[i].rank for i in identifiers]
-        assert len(set(rangs)) == len(rangs), rangs
-        assert 0 not in rangs, "chacune a parlé assez pour porter un numéro"
+        identifiers = [self._speaks(thread, e, 20.0 * i, 20.0 * i + 18.0)
+                       for i, e in enumerate(SET_ASIDE_ONES)]
+        ranks = [thread.voice[i].rank for i in identifiers]
+        assert len(set(ranks)) == len(ranks), ranks
+        assert 0 not in ranks, "chacune a parlé assez pour porter un numéro"
 
     def test_a_join_does_not_free_a_number(self):
         thread = LiveThread()
-        identifiers = [self._parle(thread, e, 20.0 * i, 20.0 * i + 18.0)
-                       for i, e in enumerate(ECARTEES)]
-        avant = max(thread.voice[i].rank for i in identifiers)
+        identifiers = [self._speaks(thread, e, 20.0 * i, 20.0 * i + 18.0)
+                       for i, e in enumerate(SET_ASIDE_ONES)]
+        earlier = max(thread.voice[i].rank for i in identifiers)
         thread.join_into(identifiers[0], identifiers[1])
-        neuve = self._parle(thread, LOIN, 100.0, 118.0)
-        assert thread.voice[neuve].rank > avant
+        new_one = self._speaks(thread, LOIN, 100.0, 118.0)
+        assert thread.voice[new_one].rank > earlier
 
     def test_the_labels_stay_distinct_after_a_join(self):
         thread = LiveThread()
-        identifiers = [self._parle(thread, e, 20.0 * i, 20.0 * i + 18.0)
-                       for i, e in enumerate(ECARTEES)]
+        identifiers = [self._speaks(thread, e, 20.0 * i, 20.0 * i + 18.0)
+                       for i, e in enumerate(SET_ASIDE_ONES)]
         thread.join_into(identifiers[0], identifiers[1])
-        self._parle(thread, LOIN, 100.0, 118.0)
+        self._speaks(thread, LOIN, 100.0, 118.0)
         labels = [v.label for v in thread.voice.values() if v.name is None
                     and v.rank > 0]
         assert len(set(labels)) == len(labels), labels
@@ -984,15 +984,15 @@ class TestADisplayNumberIsHandedOutOnce:
         """A rebuilt thread must not reuse a number the log already shows."""
         thread = LiveThread()
         thread.reserve_rank(11)
-        neuve = self._parle(thread, LOIN, 0.0, 18.0)
-        assert thread.voice[neuve].rank == 12
+        new_one = self._speaks(thread, LOIN, 0.0, 18.0)
+        assert thread.voice[new_one].rank == 12
 
     def test_reserving_a_smaller_number_changes_nothing(self):
         thread = LiveThread()
         thread.reserve_rank(11)
         thread.reserve_rank(3)
-        neuve = self._parle(thread, LOIN, 0.0, 18.0)
-        assert thread.voice[neuve].rank == 12
+        new_one = self._speaks(thread, LOIN, 0.0, 18.0)
+        assert thread.voice[new_one].rank == 12
 
 
 class TestAVoiceEarnsItsNumber:
@@ -1004,78 +1004,78 @@ class TestAVoiceEarnsItsNumber:
     others until they carry something.
     """
 
-    def _parle(self, thread, voiceprint, start, end):
+    def _speaks(self, thread, voiceprint, start, end):
         voice = thread.attach(voiceprint, local=False)
         thread.record_turn(blocks([utterance(start, end)], [])[0], voice)
         return voice
 
     def test_a_scrap_is_announced_with_the_others(self):
         thread = LiveThread()
-        gros = self._parle(thread, ECARTEES[0], 0.0, 300.0)
-        scrap = self._parle(thread, ECARTEES[1], 300.0, 302.0)
+        big = self._speaks(thread, SET_ASIDE_ONES[0], 0.0, 300.0)
+        scrap = self._speaks(thread, SET_ASIDE_ONES[1], 300.0, 302.0)
         assert thread.label(scrap) == UNDETERMINED_NAME
-        assert thread.label(gros) == "Voix 1"
+        assert thread.label(big) == "Voix 1"
 
     def test_the_first_voice_of_a_meeting_is_a_person_at_once(self):
         """Nobody else has spoken, so showing it costs no row."""
         thread = LiveThread()
-        first_one = self._parle(thread, ECARTEES[0], 0.0, 3.0)
+        first_one = self._speaks(thread, SET_ASIDE_ONES[0], 0.0, 3.0)
         assert thread.label(first_one) == "Voix 1"
 
     def test_the_second_voice_waits_like_everyone(self):
         """What the share of the meeting broke: three seconds into a meeting
         two seconds is a large share, and every fragment took a row."""
         thread = LiveThread()
-        self._parle(thread, ECARTEES[0], 0.0, 3.0)
-        seconde = self._parle(thread, ECARTEES[1], 3.0, 6.0)
-        assert thread.label(seconde) == UNDETERMINED_NAME
+        self._speaks(thread, SET_ASIDE_ONES[0], 0.0, 3.0)
+        second_one = self._speaks(thread, SET_ASIDE_ONES[1], 3.0, 6.0)
+        assert thread.label(second_one) == UNDETERMINED_NAME
 
     def test_a_fragment_late_in_the_meeting_takes_no_row(self):
         """Measured this morning: v11 held 2.6 seconds and showed "Voix 10"."""
         thread = LiveThread()
-        self._parle(thread, ECARTEES[0], 0.0, 1300.0)
-        scrap = self._parle(thread, ECARTEES[1], 1314.0, 1316.6)
+        self._speaks(thread, SET_ASIDE_ONES[0], 0.0, 1300.0)
+        scrap = self._speaks(thread, SET_ASIDE_ONES[1], 1314.0, 1316.6)
         assert thread.label(scrap) == UNDETERMINED_NAME
 
     def test_being_alone_never_hands_out_a_second_number(self):
         """The whole difference with the share it replaces."""
         thread = LiveThread()
-        seule = self._parle(thread, ECARTEES[0], 0.0, 2.0)
-        others = [self._parle(thread, ECARTEES[1], 2.0, 4.0),
-                  self._parle(thread, ECARTEES[2], 4.0, 6.0)]
-        montrees = [v for v in (seule, *others)
+        alone = self._speaks(thread, SET_ASIDE_ONES[0], 0.0, 2.0)
+        others = [self._speaks(thread, SET_ASIDE_ONES[1], 2.0, 4.0),
+                  self._speaks(thread, SET_ASIDE_ONES[2], 4.0, 6.0)]
+        shown = [v for v in (alone, *others)
                     if thread.label(v) != UNDETERMINED_NAME]
-        assert montrees == [seule]
+        assert shown == [alone]
 
     def test_a_latecomer_who_speaks_becomes_a_person(self):
         """Fifteen seconds is enough, whatever the others said before."""
         thread = LiveThread()
-        self._parle(thread, ECARTEES[0], 0.0, 3000.0)
-        tardive = self._parle(thread, ECARTEES[1], 3000.0, 3016.0)
-        assert thread.label(tardive) == "Voix 2"
+        self._speaks(thread, SET_ASIDE_ONES[0], 0.0, 3000.0)
+        late_one = self._speaks(thread, SET_ASIDE_ONES[1], 3000.0, 3016.0)
+        assert thread.label(late_one) == "Voix 2"
 
     def test_a_number_once_earned_is_never_taken_back(self):
         """The others speaking for an hour must not turn a person into a scrap."""
         thread = LiveThread()
-        petite = self._parle(thread, ECARTEES[0], 0.0, 20.0)
+        petite = self._speaks(thread, SET_ASIDE_ONES[0], 0.0, 20.0)
         assert thread.label(petite) == "Voix 1"
-        self._parle(thread, ECARTEES[1], 20.0, 4000.0)
+        self._speaks(thread, SET_ASIDE_ONES[1], 20.0, 4000.0)
         assert thread.label(petite) == "Voix 1"
 
     def test_a_named_scrap_shows_its_name(self):
         """Naming is what the person in the room says, and it wins."""
         thread = LiveThread()
-        self._parle(thread, ECARTEES[0], 0.0, 300.0)
-        scrap = self._parle(thread, ECARTEES[1], 300.0, 302.0)
+        self._speaks(thread, SET_ASIDE_ONES[0], 0.0, 300.0)
+        scrap = self._speaks(thread, SET_ASIDE_ONES[1], 300.0, 302.0)
         thread.voice[scrap].name = "Lise"
-        thread.voice[scrap].certainty = Certainty.HUMAINE
+        thread.voice[scrap].certainty = Certainty.HUMAN
         assert thread.label(scrap) == "Lise"
 
     def test_a_scrap_keeps_everything_it_holds(self):
         """Grouping is what shows, not what is kept: it can still be named."""
         thread = LiveThread()
-        self._parle(thread, ECARTEES[0], 0.0, 300.0)
-        scrap = self._parle(thread, ECARTEES[1], 300.0, 302.0)
+        self._speaks(thread, SET_ASIDE_ONES[0], 0.0, 300.0)
+        scrap = self._speaks(thread, SET_ASIDE_ONES[1], 300.0, 302.0)
         assert thread.voice[scrap].voiceprints, "son empreinte est là"
         assert [t for t in thread.turns if t.voice == scrap], "ses tours sont là"
         assert thread.voice[scrap].nameable
@@ -1092,33 +1092,33 @@ class TestAFullThreadNeverLendsAName:
     people on purpose, and it can never be named as a whole.
     """
 
-    def _plein(self, people=2):
+    def _full(self, people=2):
         """A thread holding as many voices as people were announced."""
         thread = LiveThread(people=people)
-        for i, e in enumerate(ECARTEES[:people]):
+        for i, e in enumerate(SET_ASIDE_ONES[:people]):
             voice = thread.attach(e, local=False)
             thread.record_turn(blocks([utterance(40.0 * i, 40.0 * i + 30.0)], [])[0],
                                voice)
         return thread
 
     def test_a_stranger_is_announced_with_the_others(self):
-        thread = self._plein()
+        thread = self._full()
         assert thread.attach(LOIN, local=False) == UNDETERMINED_VOICE
 
     def test_it_is_not_lent_the_nearest_name(self):
-        thread = self._plein()
-        connues = {v for v in thread.voice if v not in (LOCAL_VOICE, UNDETERMINED_VOICE)}
-        assert thread.attach(LOIN, local=False) not in connues
+        thread = self._full()
+        known_ones = {v for v in thread.voice if v not in (LOCAL_VOICE, UNDETERMINED_VOICE)}
+        assert thread.attach(LOIN, local=False) not in known_ones
 
     def test_someone_who_does_resemble_still_joins(self):
         """The floor must not turn the ceiling into a wall: a voice that really
         is one of those already there is still attached to it."""
-        thread = self._plein()
-        proche = normalise([0.92, 0.39, 0.0], source_duration=8.0)
-        assert thread.attach(proche, local=False) == "v1"
+        thread = self._full()
+        closest = normalise([0.92, 0.39, 0.0], source_duration=8.0)
+        assert thread.attach(closest, local=False) == "v1"
 
     def test_the_catch_all_keeps_the_turns_readable(self):
-        thread = self._plein()
+        thread = self._full()
         voice = thread.attach(LOIN, local=False)
         thread.record_turn(blocks([utterance(200.0, 210.0)], [])[0], voice)
         assert thread.label(voice) == UNDETERMINED_NAME
@@ -1126,14 +1126,14 @@ class TestAFullThreadNeverLendsAName:
 
     def test_the_catch_all_can_never_be_named_as_a_whole(self):
         """It mixes several people: naming it would attribute their words."""
-        thread = self._plein()
+        thread = self._full()
         voice = thread.attach(LOIN, local=False)
         assert not thread.voice[voice].nameable
 
     def test_below_the_ceiling_a_stranger_founds_its_own_voice(self):
         """The counter-proof: with room left, nothing is grouped."""
         thread = LiveThread()
-        thread.attach(ECARTEES[0], local=False)
+        thread.attach(SET_ASIDE_ONES[0], local=False)
         assert thread.attach(LOIN, local=False) != UNDETERMINED_VOICE
 
 

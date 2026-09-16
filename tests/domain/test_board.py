@@ -40,15 +40,15 @@ class TestRecognisingTheSamePoint:
 class TestJoiningAContribution:
     def test_a_new_point_is_added(self):
         board = Board("Oasis")
-        bilan = join(board, [Contribution("Le PDF ne se régénère pas")])
-        assert bilan.ajoutes == ("Le PDF ne se régénère pas",)
+        summary = join(board, [Contribution("Le PDF ne se régénère pas")])
+        assert summary.added == ("Le PDF ne se régénère pas",)
         assert board.count == 2
 
     def test_a_point_already_there_is_not_duplicated(self):
         board = Board("Oasis")
         join(board, [Contribution("Le PDF ne se régénère pas")])
-        bilan = join(board, [Contribution("le pdf ne se regenere pas")])
-        assert bilan.ajoutes == ()
+        summary = join(board, [Contribution("le pdf ne se regenere pas")])
+        assert summary.added == ()
         assert board.count == 2, "la reformulation ne crée pas une seconde branche"
 
     def test_a_lead_hangs_under_its_problem(self):
@@ -57,33 +57,33 @@ class TestJoiningAContribution:
         join(board, [Contribution("Forcer la régénération", kind=Kind.LEAD,
                                  under="Le PDF ne se régénère pas")])
         assert board.root is not None
-        probleme = board.root.enfant("Le PDF ne se régénère pas")
-        assert probleme is not None
-        assert [enfant.text for enfant in probleme.children] == ["Forcer la régénération"]
+        problem = board.root.child("Le PDF ne se régénère pas")
+        assert problem is not None
+        assert [child.text for child in problem.children] == ["Forcer la régénération"]
 
     def test_a_missing_parent_does_not_lose_the_contribution(self):
-        """Mal placé, il reste corrigeable ; perdu, il faut réécouter la réunion."""
+        """Misplaced, it can still be corrected; lost, the meeting has to be heard again."""
         board = Board("Oasis")
         join(board, [Contribution("Une piste", under="un parent qui n'existe pas")])
         assert board.root is not None
-        assert board.root.enfant("Une piste") is not None
+        assert board.root.child("Une piste") is not None
 
     def test_the_meeting_it_came_from_is_noted(self):
         board = Board("Oasis")
         join(board, [Contribution("Un point")], meeting="2026-09-09_10h05_reunion")
         assert board.root is not None
-        noeud = board.root.enfant("Un point")
-        assert noeud is not None
-        assert noeud.meetings == ["2026-09-09_10h05_reunion"]
+        node = board.root.child("Un point")
+        assert node is not None
+        assert node.meetings == ["2026-09-09_10h05_reunion"]
 
     def test_two_meetings_on_one_point_are_both_noted(self):
         board = Board("Oasis")
         join(board, [Contribution("Un point")], meeting="premiere")
         join(board, [Contribution("Un point")], meeting="seconde")
         assert board.root is not None
-        noeud = board.root.enfant("Un point")
-        assert noeud is not None
-        assert noeud.meetings == ["premiere", "seconde"]
+        node = board.root.child("Un point")
+        assert node is not None
+        assert node.meetings == ["premiere", "seconde"]
 
     def test_an_empty_contribution_is_ignored(self):
         board = Board("Oasis")
@@ -97,20 +97,20 @@ class TestStandings:
         board = Board("Oasis")
         join(board, [Contribution("Une idée lancée à l'oral")])
         assert board.root is not None
-        noeud = board.root.enfant("Une idée lancée à l'oral")
-        assert noeud is not None
-        assert noeud.state is Standing.UNDER_DISCUSSION
+        node = board.root.child("Une idée lancée à l'oral")
+        assert node is not None
+        assert node.state is Standing.UNDER_DISCUSSION
 
     def test_a_decision_raises_the_standing(self):
         board = Board("Oasis")
         join(board, [Contribution("Monter la recette en interne", kind=Kind.LEAD)])
-        bilan = join(board, [Contribution("Monter la recette en interne",
+        summary = join(board, [Contribution("Monter la recette en interne",
                                          kind=Kind.LEAD, state=Standing.AGREED)])
-        assert bilan.actes == ("Monter la recette en interne",)
+        assert summary.settled == ("Monter la recette en interne",)
         assert board.root is not None
-        noeud = board.root.enfant("Monter la recette en interne")
-        assert noeud is not None
-        assert noeud.state is Standing.AGREED
+        node = board.root.child("Monter la recette en interne")
+        assert node is not None
+        assert node.state is Standing.AGREED
 
     def test_a_problem_cannot_be_agreed(self):
         """"Acté" would read as "the group decided this problem".
@@ -122,9 +122,9 @@ class TestStandings:
         join(board, [Contribution("Le PDF ne se régénère pas",
                                  kind=Kind.PROBLEM, state=Standing.AGREED)])
         assert board.root is not None
-        noeud = board.root.enfant("Le PDF ne se régénère pas")
-        assert noeud is not None
-        assert noeud.state is Standing.UNDER_DISCUSSION
+        node = board.root.child("Le PDF ne se régénère pas")
+        assert node is not None
+        assert node.state is Standing.UNDER_DISCUSSION
 
     def test_a_lead_and_an_action_can_be_agreed(self):
         board = Board("Oasis")
@@ -133,8 +133,8 @@ class TestStandings:
             Contribution("Chiffrer le coût", kind=Kind.ACTION, state=Standing.AGREED)])
         assert board.root is not None
         for text in ("Monter la recette", "Chiffrer le coût"):
-            noeud = board.root.enfant(text)
-            assert noeud is not None and noeud.state is Standing.AGREED
+            node = board.root.child(text)
+            assert node is not None and node.state is Standing.AGREED
 
     def test_a_problem_can_be_overtaken(self):
         """A problem may have stopped being one."""
@@ -149,9 +149,9 @@ class TestStandings:
         join(board, [Contribution("Monter la recette", kind=Kind.LEAD,
                                  state=Standing.UNDER_DISCUSSION)])
         assert board.root is not None
-        noeud = board.root.enfant("Monter la recette")
-        assert noeud is not None
-        assert noeud.state is Standing.AGREED
+        node = board.root.child("Monter la recette")
+        assert node is not None
+        assert node.state is Standing.AGREED
 
 
 class TestNothingEverDisappears:
@@ -163,9 +163,9 @@ class TestNothingEverDisappears:
         assert mark_overdue(board, "Une piste écartée") is True
         assert board.count == 2, "le nœud reste"
         assert board.root is not None
-        noeud = board.root.enfant("Une piste écartée")
-        assert noeud is not None
-        assert noeud.state is Standing.OVERTAKEN
+        node = board.root.child("Une piste écartée")
+        assert node is not None
+        assert node.state is Standing.OVERTAKEN
 
     def test_the_root_cannot_be_marked(self):
         assert mark_overdue(Board("Oasis"), "Oasis") is False
@@ -176,9 +176,9 @@ class TestNothingEverDisappears:
     def test_a_join_removes_no_existing_node(self):
         board = Board("Oasis")
         join(board, [Contribution("A"), Contribution("B"), Contribution("C")])
-        avant = board.count
+        earlier = board.count
         join(board, [Contribution("D")])
-        assert board.count == avant + 1, "rien n'a été remplacé"
+        assert board.count == earlier + 1, "rien n'a été remplacé"
 
 
 class TestCountingTheNodes:
@@ -243,8 +243,8 @@ class TestTheSamePointSaidTwice:
     def test_joining_no_longer_creates_a_reworded_duplicate(self):
         board = Board("Oasis")
         join(board, [Contribution("Pré-production du client en retard de deux versions")])
-        bilan = join(board, [Contribution("Pré-prod cliente en retard de deux versions")])
-        assert bilan.ajoutes == ()
+        summary = join(board, [Contribution("Pré-prod cliente en retard de deux versions")])
+        assert summary.added == ()
         assert board.count == 2
 
     def test_a_short_word_brings_nothing_closer(self):

@@ -64,8 +64,8 @@ class TestForgettingAMeeting:
     def test_everything_is_deleted(self, tmp_path):
         where_in = locations(tmp_path)
         lay_out_a_meeting(where_in)
-        effacees = forget(where_in, "2026-09-09_10h05_reunion")
-        assert len(effacees) == 6
+        erased = forget(where_in, "2026-09-09_10h05_reunion")
+        assert len(erased) == 6
         assert pieces_de(where_in, "2026-09-09_10h05_reunion") == []
 
     def test_the_other_meetings_are_untouched(self, tmp_path):
@@ -96,7 +96,7 @@ class TestTidyingByTheRetentionRule:
     def the_usual_rule(self):
         from greffier.domain.retention import Rule
 
-        return Rule(compresser_apres=7, effacer_apres=0)
+        return Rule(compress_after=7, erase_after=0)
 
     def test_looking_touches_nothing(self, tmp_path):
         from greffier.application.tidy import tidy
@@ -104,10 +104,10 @@ class TestTidyingByTheRetentionRule:
         where_in = locations(tmp_path)
         lay_out_a_meeting(where_in, "2026-08-01_09h00_vieille")
         audio = where_in.recordings / "2026-08-01_09h00_vieille.wav"
-        faits = tidy(where_in, self.the_usual_rule(),
+        done_ones = tidy(where_in, self.the_usual_rule(),
                        [("2026-08-01_09h00_vieille", 40.0, True)],
-                       compresser=lambda path: path)
-        assert [f.geste for f in faits] == ["compresser"]
+                       compress=lambda path: path)
+        assert [f.the_gesture for f in done_ones] == ["compresser"]
         assert audio.exists(), "rien ne doit bouger sans --faire"
 
     def test_applying_it_compresses(self, tmp_path):
@@ -117,18 +117,18 @@ class TestTidyingByTheRetentionRule:
         lay_out_a_meeting(where_in, "2026-08-01_09h00_vieille")
         compresses = []
 
-        def compresser(path):
+        def compress(path):
             compresses.append(path)
-            produit = path.with_suffix(".opus")
-            produit.write_bytes(b"x" * 100)
+            product = path.with_suffix(".opus")
+            product.write_bytes(b"x" * 100)
             path.unlink()
-            return produit
+            return product
 
-        faits = tidy(where_in, self.the_usual_rule(),
+        done_ones = tidy(where_in, self.the_usual_rule(),
                        [("2026-08-01_09h00_vieille", 40.0, True)],
-                       compresser=compresser, for_real=True)
+                       compress=compress, for_real=True)
         assert compresses, "la compression doit être appelée"
-        assert faits[0].gagne > 0
+        assert done_ones[0].gained > 0
 
     def test_a_recent_meeting_is_left_alone(self, tmp_path):
         from greffier.application.tidy import tidy
@@ -137,7 +137,7 @@ class TestTidyingByTheRetentionRule:
         lay_out_a_meeting(where_in, "2026-09-09_10h05_reunion")
         assert tidy(where_in, self.the_usual_rule(),
                       [("2026-09-09_10h05_reunion", 1.0, True)],
-                      compresser=lambda c: c) == []
+                      compress=lambda c: c) == []
 
     def test_a_meeting_not_yet_transcribed_is_untouchable(self, tmp_path):
         """Its audio is all that exists of it."""
@@ -147,7 +147,7 @@ class TestTidyingByTheRetentionRule:
         lay_out_a_meeting(where_in, "2026-08-01_09h00_jamais-traitee")
         assert tidy(where_in, self.the_usual_rule(),
                       [("2026-08-01_09h00_jamais-traitee", 365.0, False)],
-                      compresser=lambda c: c) == []
+                      compress=lambda c: c) == []
 
     def test_a_compression_that_fails_is_reported(self, tmp_path):
         """A missing ffmpeg must not stop the others being tidied."""
@@ -156,13 +156,13 @@ class TestTidyingByTheRetentionRule:
         where_in = locations(tmp_path)
         lay_out_a_meeting(where_in, "2026-08-01_09h00_vieille")
 
-        def tomber(_path):
+        def fall(_path):
             raise OSError("ffmpeg introuvable")
 
-        faits = tidy(where_in, self.the_usual_rule(),
+        done_ones = tidy(where_in, self.the_usual_rule(),
                        [("2026-08-01_09h00_vieille", 40.0, True)],
-                       compresser=tomber, for_real=True)
-        assert faits[0].trouble
+                       compress=fall, for_real=True)
+        assert done_ones[0].trouble
         assert (where_in.recordings / "2026-08-01_09h00_vieille.wav").exists()
 
     def test_deleting_frees_all_the_audio(self, tmp_path):
@@ -172,10 +172,10 @@ class TestTidyingByTheRetentionRule:
         where_in = locations(tmp_path)
         lay_out_a_meeting(where_in, "2026-01-01_09h00_ancienne")
         audio = where_in.recordings / "2026-01-01_09h00_ancienne.wav"
-        faits = tidy(where_in, Rule(compresser_apres=7, effacer_apres=90),
+        done_ones = tidy(where_in, Rule(compress_after=7, erase_after=90),
                        [("2026-01-01_09h00_ancienne", 200.0, True)],
-                       compresser=lambda c: c, for_real=True)
-        assert faits[0].geste == "effacer"
+                       compress=lambda c: c, for_real=True)
+        assert done_ones[0].the_gesture == "effacer"
         assert not audio.exists()
         assert (where_in.transcripts / "2026-01-01_09h00_ancienne.txt").exists(), (
             "la transcription porte le travail : elle reste"

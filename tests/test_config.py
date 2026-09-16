@@ -276,7 +276,7 @@ class TestTheFirstNamesThatWereTested:
         from greffier.adapters.configuration import FIRST_NAMES
         from greffier.domain.participation import called_by_name
 
-        pieges = [
+        traps = [
             "on passe au point suivant, la recette est terminée",
             "il faut qu'on parle du budget et des livraisons",
             "le sprint avance bien, la merge request est prête",
@@ -284,8 +284,8 @@ class TestTheFirstNamesThatWereTested:
             "on a vu ça lundi avec l'équipe de Bordeaux",
         ]
         for first_name in FIRST_NAMES:
-            for piege in pieges:
-                assert not called_by_name(piege, first_name), f"{first_name} sur « {piege} »"
+            for trap in traps:
+                assert not called_by_name(trap, first_name), f"{first_name} sur « {trap} »"
 
 
 class TestTheKeysOfTheFileNeverMove:
@@ -298,7 +298,7 @@ class TestTheKeysOfTheFileNeverMove:
     """
 
     #: Un fichier tel qu'un poste en porte aujourd'hui.
-    EXISTANT = """
+    EXISTING = """
 [audio]
 micro = "Micro MacBook Pro"
 
@@ -326,7 +326,7 @@ theme = "sombre"
         from greffier.adapters.configuration import Config
 
         file = tmp_path / "config.toml"
-        file.write_text(self.EXISTANT, encoding="utf-8")
+        file.write_text(self.EXISTING, encoding="utf-8")
         return Config.load(file)
 
     def test_every_section_is_read_back(self, tmp_path):
@@ -347,12 +347,12 @@ theme = "sombre"
         from greffier.adapters.configuration import Config, render
 
         rendered = render(self._config_in(tmp_path))
-        deuxieme = tmp_path / "encore.toml"
-        deuxieme.write_text(rendered, encoding="utf-8")
-        relu = Config.load(deuxieme)
-        assert relu.assistant.name == "Lucie"
-        assert relu.minutes.recipient == "moi@exemple.fr"
-        assert relu.appearance.theme == "sombre"
+        second = tmp_path / "encore.toml"
+        second.write_text(rendered, encoding="utf-8")
+        reread_one = Config.load(second)
+        assert reread_one.assistant.name == "Lucie"
+        assert reread_one.minutes.recipient == "moi@exemple.fr"
+        assert reread_one.appearance.theme == "sombre"
 
     def test_an_unknown_key_does_not_bring_it_down(self, tmp_path):
         """A setting removed from one version to the next must break nothing."""

@@ -111,26 +111,26 @@ def blocks_of(
         lines = wrap(text, width)
         if not lines:
             continue
-        paquets = [
+        packages = [
             tuple(lines[rank:rank + LINES_PER_BLOCK])
             for rank in range(0, len(lines), LINES_PER_BLOCK)
         ]
-        out += _shared_out(utterance, paquets, who)
+        out += _shared_out(utterance, packages, who)
     return out
 
 
 def _shared_out(
-    utterance: Utterance, paquets: list[tuple[str, ...]], who: str
+    utterance: Utterance, packages: list[tuple[str, ...]], who: str
 ) -> list[Block]:
     """The turn's seconds shared between its blocks, by what each one carries."""
-    total = sum(len(" ".join(paquet)) for paquet in paquets) or 1
-    length = max(utterance.span.duration, SHORTEST_BLOCK * len(paquets))
+    total = sum(len(" ".join(package)) for package in packages) or 1
+    length = max(utterance.span.duration, SHORTEST_BLOCK * len(packages))
     out: list[Block] = []
     start = utterance.span.start
-    for paquet in paquets:
-        part = len(" ".join(paquet)) / total
+    for package in packages:
+        part = len(" ".join(package)) / total
         end = start + length * part
-        out.append(Block(start=start, end=end, who=who, lines=paquet))
+        out.append(Block(start=start, end=end, who=who, lines=package))
         start = end
     return out
 
@@ -139,14 +139,14 @@ def _clock(seconds: float, comma: bool) -> str:
     """`00:01:02,345`, the only shape both formats agree on but for one mark."""
     if seconds < 0:
         seconds = 0.0
-    entier = int(seconds)
-    milli = round((seconds - entier) * 1000)
+    whole = int(seconds)
+    milli = round((seconds - whole) * 1000)
     if milli == 1000:                       # 1.9996 s rounds to 2 s, not to 1,1000
-        entier, milli = entier + 1, 0
-    hours, rest = divmod(entier, 3600)
-    minutes, secondes = divmod(rest, 60)
+        whole, milli = whole + 1, 0
+    hours, rest = divmod(whole, 3600)
+    minutes, total_seconds = divmod(rest, 60)
     mark = "," if comma else "."
-    return f"{hours:02d}:{minutes:02d}:{secondes:02d}{mark}{milli:03d}"
+    return f"{hours:02d}:{minutes:02d}:{total_seconds:02d}{mark}{milli:03d}"
 
 
 def srt(utterances: Sequence[Utterance], names: dict[str, str] | None = None) -> str:
@@ -185,12 +185,12 @@ def sheet(utterances: Sequence[Utterance], names: dict[str, str] | None = None) 
     """
     named = names or {}
     out = io.StringIO()
-    graveur = csv.writer(out, delimiter=";", lineterminator="\n")
-    graveur.writerow(
+    burner = csv.writer(out, delimiter=";", lineterminator="\n")
+    burner.writerow(
         ["debut", "fin", "duree", "voix", "nom", "confiance", "texte"]
     )
     for utterance in sorted(utterances, key=lambda u: u.span.start):
-        graveur.writerow([
+        burner.writerow([
             f"{utterance.span.start:.2f}",
             f"{utterance.span.end:.2f}",
             f"{utterance.span.duration:.2f}",

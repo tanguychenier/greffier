@@ -11,7 +11,7 @@ from pathlib import Path
 
 from greffier.interface.readable import button_grid as _grille
 from greffier.interface.readable import clock as _clock
-from greffier.interface.readable import dot_marker as _marque
+from greffier.interface.readable import dot_marker as _mark
 from greffier.interface.readable import live_state_line as _live_state_line
 from greffier.interface.readable import readable_subject as _readable_subject
 
@@ -73,21 +73,21 @@ class TestWhatTheLiveTabSays:
     """
 
     def test_outside_a_meeting_it_explains_what_the_tab_is_for(self) -> None:
-        said = _live_state_line(in_a_meeting=False, annonce="", sentences=0)
+        said = _live_state_line(in_a_meeting=False, announcement="", sentences=0)
         assert "Aucune réunion en cours" in said
 
     def test_a_missing_model_is_named_rather_than_shown_as_a_blank(self) -> None:
         said = _live_state_line(
-            in_a_meeting=True, annonce="Aucun modèle de transcription : le fil restera vide.",
+            in_a_meeting=True, announcement="Aucun modèle de transcription : le fil restera vide.",
             sentences=0,
         )
         assert "Aucun modèle" in said
 
     def test_before_the_first_slice_it_says_it_is_waiting(self) -> None:
-        assert "attente" in _live_state_line(in_a_meeting=True, annonce="", sentences=0)
+        assert "attente" in _live_state_line(in_a_meeting=True, announcement="", sentences=0)
 
     def test_as_soon_as_there_is_text_it_says_how_to_correct(self) -> None:
-        said = _live_state_line(in_a_meeting=True, annonce="", sentences=14)
+        said = _live_state_line(in_a_meeting=True, announcement="", sentences=14)
         assert "14 phrase(s)" in said
         assert "corriger" in said
 
@@ -101,17 +101,17 @@ class TestTheBadgeOnATab:
     """
 
     def test_nothing_to_report_draws_nothing(self) -> None:
-        assert _marque(0) == ""
-        assert _marque(-1) == ""
+        assert _mark(0) == ""
+        assert _mark(-1) == ""
 
     def test_the_count_shows_as_it_is(self) -> None:
-        assert _marque(1) == "1"
-        assert _marque(9) == "9"
+        assert _mark(1) == "1"
+        assert _mark(9) == "9"
 
     def test_past_nine_the_exact_number_helps_nobody(self) -> None:
         """Deux chiffres déborderaient du disque, et « beaucoup » suffit."""
-        assert _marque(10) == "9+"
-        assert _marque(42) == "9+"
+        assert _mark(10) == "9+"
+        assert _mark(42) == "9+"
 
 
 class TestTheRowOfButtons:
@@ -148,40 +148,40 @@ class TestTheRowOfButtons:
 
     def test_every_column_has_the_same_width(self) -> None:
         """Edges that do not line up read as sloppy."""
-        _, colonne = _grille(self.MEETINGS, 775)
-        assert colonne >= max(self.MEETINGS), "au moins la largeur du plus large"
+        _, the_column = _grille(self.MEETINGS, 775)
+        assert the_column >= max(self.MEETINGS), "au moins la largeur du plus large"
 
     def test_the_stretching_is_capped(self) -> None:
         """Filling without a limit gave 290 px buttons for an "Ouvrir" that needs 96,
         stretched over nothing. A button out of proportion is as badly laid out as one
         that overflows.
         """
-        from greffier.interface.readable import ETIREMENT_MAXIMUM
+        from greffier.interface.readable import MAXIMUM_STRETCH
 
-        _, colonne = _grille(self.MEETINGS, 2000)
-        assert colonne <= max(self.MEETINGS) * ETIREMENT_MAXIMUM
+        _, the_column = _grille(self.MEETINGS, 2000)
+        assert the_column <= max(self.MEETINGS) * MAXIMUM_STRETCH
 
     def test_the_longest_label_fits_the_minimum_width(self) -> None:
         """This is what keeps "Envoyer par courriel" whole: four columns of 187 px fit
         inside the 775 px available.
         """
-        by_rank, colonne = _grille(self.MEETINGS, 775)
+        by_rank, the_column = _grille(self.MEETINGS, 775)
         assert by_rank == 4
-        assert colonne >= max(self.MEETINGS)
+        assert the_column >= max(self.MEETINGS)
 
     def test_nothing_ever_sticks_out_of_the_width(self) -> None:
-        for offerte in range(200, 1500, 17):
-            by_rank, colonne = _grille(self.MEETINGS, offerte)
-            largeur_totale = by_rank * colonne + (by_rank - 1) * 9
+        for offered in range(200, 1500, 17):
+            by_rank, the_column = _grille(self.MEETINGS, offered)
+            total_width = by_rank * the_column + (by_rank - 1) * 9
             assert by_rank >= 1
             if by_rank > 1:
-                assert largeur_totale <= offerte, offerte
+                assert total_width <= offered, offered
 
     def test_squeezed_down_one_column_is_left(self) -> None:
         """Zéro colonne ferait disparaître la barre entière."""
-        by_rank, colonne = _grille(self.MEETINGS, 10)
+        by_rank, the_column = _grille(self.MEETINGS, 10)
         assert by_rank == 1
-        assert colonne == max(self.MEETINGS), "le bouton garde sa largeur minimale"
+        assert the_column == max(self.MEETINGS), "le bouton garde sa largeur minimale"
 
     def test_with_no_button_the_computation_does_not_raise(self) -> None:
         assert _grille([], 800) == (1, 0)
@@ -225,7 +225,7 @@ class TestAFailurePublishedToTheState:
         state = self._a_state_under_way(tmp_path, in_the_state or identifier)
         # Without Tk: the method only reads `self.config`, and that is precisely
         # what makes it testable without a screen.
-        without_a_screen = type("SansEcran", (), {"config": self._config_in(tmp_path)})()
+        without_a_screen = type("WithoutScreen", (), {"config": self._config_in(tmp_path)})()
         Window._publish_the_failure(without_a_screen, identifier, trouble)
         return json.loads(state.read_text(encoding="utf-8"))
 
@@ -255,7 +255,7 @@ class TestAFailurePublishedToTheState:
         from greffier.interface.window import Window
 
         (tmp_path / "etat.json").write_text("{ ceci n'est pas du json", encoding="utf-8")
-        without_a_screen = type("SansEcran", (), {"config": self._config_in(tmp_path)})()
+        without_a_screen = type("WithoutScreen", (), {"config": self._config_in(tmp_path)})()
         Window._publish_the_failure(without_a_screen, "peu-importe", RuntimeError("boum"))
 
 
@@ -267,7 +267,7 @@ class TestPreparingAMeetingFromTheWindow:
     lost, and the meeting then started from nothing.
     """
 
-    def _fenetre(self, tmp_path, preparation=None, language="fr"):
+    def _window(self, tmp_path, preparation=None, language="fr"):
         """The window without a screen: these methods only read `self`.
 
         The language is said rather than inherited: the sentences these methods
@@ -282,11 +282,11 @@ class TestPreparingAMeetingFromTheWindow:
         config.paths.data = tmp_path
         from greffier.interface.window import Window
 
-        without_screen = type("SansEcran", (), {
+        without_screen = type("WithoutScreen", (), {
             "config": config,
             "_preparation": preparation,
-            "dits": [],
-            "demandes": [],
+            "said_ones": [],
+            "requests": [],
             # The same wording the window uses: these methods say things, and a
             # test that stubbed the sentences would check nothing about them.
             "says": Window.says,
@@ -298,16 +298,16 @@ class TestPreparingAMeetingFromTheWindow:
         from greffier.domain.preparation import Preparation
         from greffier.interface.window import Window
 
-        window = self._fenetre(tmp_path, Preparation(identifier="p", subject="recette"))
-        window._answer_while_preparing = lambda q: window.demandes.append(q)
+        window = self._window(tmp_path, Preparation(identifier="p", subject="recette"))
+        window._answer_while_preparing = lambda q: window.requests.append(q)
         Window._ask_this(window, "rappelle-moi la dernière")
-        assert window.demandes == ["rappelle-moi la dernière"]
+        assert window.requests == ["rappelle-moi la dernière"]
 
     def test_without_a_preparation_it_goes_where_it_always_went(self, tmp_path):
         """Preparing must not change what the tab already did."""
         from greffier.interface.window import Window
 
-        window = self._fenetre(tmp_path)
+        window = self._window(tmp_path)
         pose = []
 
         class Champ:
@@ -326,28 +326,28 @@ class TestPreparingAMeetingFromTheWindow:
             self, tmp_path):
         from greffier.interface.window import Window
 
-        window = self._fenetre(tmp_path, language="fr")
-        window._dictee = type("Rien", (), {"stop": lambda self: None})()
+        window = self._window(tmp_path, language="fr")
+        window._dictation = type("Rien", (), {"stop": lambda self: None})()
         window.speak_button = type("Bouton", (), {"set_caption": lambda self, t: None})()
-        window._say_while_preparing = lambda kind, text: window.dits.append(text)
+        window._say_while_preparing = lambda kind, text: window.said_ones.append(text)
         Window._stop_dictating(window)
-        assert any("Maintenez le bouton" in said for said in window.dits)
+        assert any("Maintenez le bouton" in said for said in window.said_ones)
 
     def test_it_says_it_in_the_language_of_the_machine(self, tmp_path):
         """The same refusal, in English, on a machine that reads English."""
         from greffier.interface.window import Window
 
-        window = self._fenetre(tmp_path, language="en")
-        window._dictee = type("Rien", (), {"stop": lambda self: None})()
+        window = self._window(tmp_path, language="en")
+        window._dictation = type("Rien", (), {"stop": lambda self: None})()
         window.speak_button = type("Bouton", (), {"set_caption": lambda self, t: None})()
-        window._say_while_preparing = lambda kind, text: window.dits.append(text)
+        window._say_while_preparing = lambda kind, text: window.said_ones.append(text)
         Window._stop_dictating(window)
-        assert any("Hold the button" in said for said in window.dits)
+        assert any("Hold the button" in said for said in window.said_ones)
 
     def test_releasing_without_having_pressed_costs_nothing(self, tmp_path):
         from greffier.interface.window import Window
 
-        window = self._fenetre(tmp_path)
-        window._dictee = None
+        window = self._window(tmp_path)
+        window._dictation = None
         window.speak_button = type("Bouton", (), {"set_caption": lambda self, t: None})()
         Window._stop_dictating(window)

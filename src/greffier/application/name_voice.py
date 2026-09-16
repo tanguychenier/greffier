@@ -7,7 +7,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from greffier.domain import first_names
-from greffier.domain import voiceprints as empreintes_domaine
+from greffier.domain import voiceprints as voiceprints_domain
 from greffier.domain.meeting import StoredMeeting
 from greffier.domain.models import Span
 from greffier.domain.voiceprints import aggregate
@@ -49,11 +49,11 @@ def voices_to_name(meeting: StoredMeeting, minimum: float = 10.0) -> list[VoiceT
         ))
     return outcome
 
-def best_excerpt(intervalles: list[Span]) -> Span | None:
+def best_excerpt(the_spans: list[Span]) -> Span | None:
     """The most representative passage to play back."""
-    useful_ones = [i for i in intervalles if i.duration >= USEFUL_LENGTH]
+    useful_ones = [i for i in the_spans if i.duration >= USEFUL_LENGTH]
     if not useful_ones:
-        useful_ones = intervalles
+        useful_ones = the_spans
     if not useful_ones:
         return None
     longer = max(useful_ones, key=lambda i: i.duration)
@@ -80,7 +80,7 @@ class Naming:
     store: outbound.MeetingStore
     bank: outbound.VoiceBank
     extractor: outbound.VoiceprintExtractor
-    doute: str = ""
+    the_doubt: str = ""
 
     def name_voice(self, identifier: str, voice: str, name: str) -> StoredMeeting:
         """Puts a name on a voice, and joins those that carry the same one."""
@@ -89,28 +89,28 @@ class Naming:
             raise ValueError(refuse)
         name = first_names.normalise(name)
         meeting = self.store.read(identifier)
-        intervalles = meeting.spans_of(voice)
-        if not intervalles:
+        the_spans = meeting.spans_of(voice)
+        if not the_spans:
             raise KeyError(
                 f"La voix « {voice} » n'existe pas dans cette réunion. "
                 f"Voix connues : {', '.join(sorted(meeting.speaking_time()))}"
             )
-        voiceprints = self.extractor.extract_spans(meeting.audio, intervalles)
+        voiceprints = self.extractor.extract_spans(meeting.audio, the_spans)
         if not voiceprints:
             raise ValueError(
                 f"La voix « {voice} » n'a aucun passage d'au moins {USEFUL_LENGTH:.0f} s : "
                 "trop peu de matière pour une empreinte fiable."
             )
         aggregate_of = replace(aggregate(voiceprints), origin=identifier)
-        self.doute = empreintes_domaine.doubtful_entry(
+        self.the_doubt = voiceprints_domain.doubtful_entry(
             aggregate_of, name, self.bank.people())
         self.bank.record(name, aggregate_of)
 
         meeting.names[voice] = name
         meeting.propositions.pop(voice, None)
         temps = meeting.speaking_time()
-        homonymes = [v for v in meeting.voice_named(name) if v != voice]
-        for other in homonymes:
+        namesakes = [v for v in meeting.voice_named(name) if v != voice]
+        for other in namesakes:
             kept_one, absorbed_one = (
                 (voice, other) if temps.get(voice, 0.0) >= temps.get(other, 0.0)
                 else (other, voice)
@@ -140,8 +140,8 @@ class Naming:
                 f"La voix « {voice} » n'a absorbé aucune autre voix : "
                 "il n'y a rien à séparer."
             )
-        rendue = meeting.split(voice)
-        assert rendue is not None
+        returned = meeting.split(voice)
+        assert returned is not None
         self.store.record(meeting)
         return meeting
 
@@ -158,7 +158,7 @@ class Naming:
     def accept_proposals(self, identifier: str) -> dict[str, str]:
         """Approves in one go every name guessed during the meeting."""
         meeting = self.store.read(identifier)
-        acceptes = dict(meeting.propositions)
-        for voice, name in acceptes.items():
+        accepted = dict(meeting.propositions)
+        for voice, name in accepted.items():
             self.name_voice(identifier, voice, name)
-        return acceptes
+        return accepted

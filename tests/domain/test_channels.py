@@ -45,8 +45,8 @@ class TestAQuietVoiceThatIsStillYours:
         assert local_turns(mic, system, PAS) == []
         # With a margin of zero the same input is kept: it really is the margin
         # that decides, and not some other effect.
-        souple = ChannelSettings(margin_db=0.0)
-        assert local_turns(mic, system, PAS, souple) != []
+        flexible = ChannelSettings(margin_db=0.0)
+        assert local_turns(mic, system, PAS, flexible) != []
 
 
 class TestBackgroundNoise:
@@ -58,8 +58,8 @@ class TestBackgroundNoise:
 
     def test_the_floor_is_a_setting(self) -> None:
         mic, system = levels([(-52, -75, 400)])
-        bas = ChannelSettings(floor_db=-60.0)
-        assert local_turns(mic, system, PAS, bas) != []
+        bottom = ChannelSettings(floor_db=-60.0)
+        assert local_turns(mic, system, PAS, bottom) != []
 
 
 class TestCuttingIntoTurns:
@@ -116,24 +116,24 @@ class TestDroppingTheDuplicates:
         # The segmentation sees only the system loopback, but a participant
         # speaking at the same time leaves a turn astride. Counting both would
         # make two people where one holds the floor.
-        distants = [Span(10.0, 14.0)]
+        remote_ones = [Span(10.0, 14.0)]
         local_spans = [Span(9.0, 15.0)]
-        assert remove(distants, local_spans) == []
+        assert remove(remote_ones, local_spans) == []
 
     def test_an_independent_remote_turn_is_kept(self) -> None:
-        distants = [Span(30.0, 40.0)]
+        remote_ones = [Span(30.0, 40.0)]
         local_spans = [Span(9.0, 15.0)]
-        assert remove(distants, local_spans) == distants
+        assert remove(remote_ones, local_spans) == remote_ones
 
     def test_a_mere_partial_overlap_removes_nothing(self) -> None:
         # A quarter overlapping: both spoke, both are kept.
-        distants = [Span(10.0, 20.0)]
+        remote_ones = [Span(10.0, 20.0)]
         local_spans = [Span(18.0, 22.0)]
-        assert remove(distants, local_spans) == distants
+        assert remove(remote_ones, local_spans) == remote_ones
 
     def test_with_no_local_turn_nothing_changes(self) -> None:
-        distants = [Span(1.0, 2.0), Span(3.0, 4.0)]
-        assert remove(distants, []) == distants
+        remote_ones = [Span(1.0, 2.0), Span(3.0, 4.0)]
+        assert remove(remote_ones, []) == remote_ones
 
 
 class TestWhoIsSpeaking:

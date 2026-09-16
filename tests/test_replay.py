@@ -53,7 +53,7 @@ class TestTheInputOfTheRecorder:
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg absent")
 class TestReplayingFromTheCommandLine:
     @pytest.fixture
-    def poste(self, tmp_path, monkeypatch):
+    def machine(self, tmp_path, monkeypatch):
         for key in [c for c in __import__("os").environ if c.startswith("GREFFIER_")]:
             monkeypatch.delenv(key)
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
@@ -68,9 +68,9 @@ class TestReplayingFromTheCommandLine:
         return settings, data
 
     def test_the_file_is_played_to_the_end_and_the_state_comes_back_to_rest(
-        self, poste, tmp_path
+        self, machine, tmp_path
     ):
-        settings, data = poste
+        settings, data = machine
         audio = _a_second_of_silence(tmp_path / "reunion.wav")
         answered = runner.invoke(
             application, ["rejouer", str(audio), "--sans-traiter", "--config", str(settings)]
@@ -88,8 +88,8 @@ class TestReplayingFromTheCommandLine:
         state = recording(Config.load(settings)).read()
         assert state.phase.value != "enregistrement"
 
-    def test_a_file_that_does_not_exist_is_refused(self, poste, tmp_path):
-        settings, _ = poste
+    def test_a_file_that_does_not_exist_is_refused(self, machine, tmp_path):
+        settings, _ = machine
         answered = runner.invoke(
             application, ["rejouer", str(tmp_path / "absent.wav"), "--config", str(settings)]
         )

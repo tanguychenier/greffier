@@ -50,12 +50,12 @@ def over_video(
     useful_ones = min(len(mic_db), len(system_db))
     if useful_ones == 0:
         return False
-    domine = sum(
+    dominates = sum(
         1
         for i in range(useful_ones)
         if system_db[i] > mic_db[i] + r.margin_db and system_db[i] > r.floor_db
     )
-    return domine / useful_ones >= VIDEO_SHARE
+    return dominates / useful_ones >= VIDEO_SHARE
 
 def who_speaks(
     mic_db: float,
@@ -94,7 +94,7 @@ def local_turns(
 
 def _regroup(local_ones: list[bool], step_s: float, r: ChannelSettings) -> list[Span]:
     """Assembles frames into spans, closing the short silences."""
-    plages: list[tuple[int, int]] = []
+    ranges: list[tuple[int, int]] = []
     start: int | None = None
     last = 0
     for i, active in enumerate(local_ones):
@@ -103,14 +103,14 @@ def _regroup(local_ones: list[bool], step_s: float, r: ChannelSettings) -> list[
                 start = i
             last = i
         elif start is not None and (i - last) * step_s > r.stitch_s:
-            plages.append((start, last + 1))
+            ranges.append((start, last + 1))
             start = None
     if start is not None:
-        plages.append((start, last + 1))
+        ranges.append((start, last + 1))
 
     return [
         Span(a * step_s, b * step_s)
-        for a, b in plages
+        for a, b in ranges
         if (b - a) * step_s >= r.minimum_length_s
     ]
 
@@ -136,11 +136,11 @@ def remove(turns: list[Span], local_spans: list[Span]) -> list[Span]:
         return turns
     remaining: list[Span] = []
     for turn in turns:
-        couvert = sum(
+        covered = sum(
             max(0.0, min(turn.end, local.end) - max(turn.start, local.start))
             for local in local_spans
         )
-        if turn.duration <= 0 or couvert / turn.duration < 0.5:
+        if turn.duration <= 0 or covered / turn.duration < 0.5:
             remaining.append(turn)
     return remaining
 

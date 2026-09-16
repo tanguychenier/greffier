@@ -60,18 +60,18 @@ LISTENING_GAP = 1.0
 #: said: half a question answered is worse than a question answered late.
 STILL_TALKING_S = 0.4
 
-def _within_the_slice(utterances: list[Utterance], frontiere: float) -> list[Utterance]:
+def _within_the_slice(utterances: list[Utterance], boundary: float) -> list[Utterance]:
     """Keeps only what spills into the slice, rebased on it."""
-    if frontiere <= 0:
+    if boundary <= 0:
         return utterances
     kept = []
     for utterance in utterances:
-        if utterance.span.end <= frontiere:
+        if utterance.span.end <= boundary:
             continue
         kept.append(Utterance(
             span=Span(
-                max(0.0, utterance.span.start - frontiere),
-                utterance.span.end - frontiere,
+                max(0.0, utterance.span.start - boundary),
+                utterance.span.end - boundary,
             ),
             text=utterance.text, voice=utterance.voice, source=utterance.source,
         ))
@@ -128,9 +128,9 @@ class Watcher:
     watch_rules: WatchRules
     log: Path
     transcriber: outbound.Transcriber | None = None
-    situer: Callable[[], Position | None] | None = None
+    locate: Callable[[], Position | None] | None = None
     follower: Follower | None = None
-    preparateur: outbound.AudioRecorder | None = None
+    preparer: outbound.AudioRecorder | None = None
     language: str = "fr"
     interrogate: Callable[[str], None] | None = None
     prompt_seed: str = ""
@@ -144,7 +144,7 @@ class Watcher:
     initiative: bool = False
     material_before_asking: float = 30.0
     slice_period: float = SLICE_PERIOD
-    traite: float = 0.0
+    processed: float = 0.0
     vu: float | None = None
     _last_listened: float = 0.0
     _held_call: str | None = None
@@ -154,11 +154,11 @@ class Watcher:
         if self.reread_the_seed is None:
             return self.prompt_seed
         try:
-            fraiche = self.reread_the_seed()
+            fresh_one = self.reread_the_seed()
         except OSError:
             return self.prompt_seed
-        if fraiche and fraiche != self.prompt_seed:
-            self.prompt_seed = fraiche
+        if fresh_one and fresh_one != self.prompt_seed:
+            self.prompt_seed = fresh_one
         return self.prompt_seed
 
     def publish(self, fresh: list[Suggestion]) -> None:
@@ -183,7 +183,7 @@ class Watcher:
         return fresh
 
     def transcription_turn(
-        self, ou: Position, job: Path, let_speak: bool = True
+        self, where_: Position, job: Path, let_speak: bool = True
     ) -> list[Suggestion]:
         """Transcribes what has been recorded since the last slice.
 
@@ -195,20 +195,20 @@ class Watcher:
         """
         if self.transcriber is None:
             return []
-        start = max(0.0, self.traite - ou.offset - OVERLAP, ou.written - SLICE_MAXIMUM)
-        if ou.written - start < SLICE_MINIMUM_S:
+        start = max(0.0, self.processed - where_.offset - OVERLAP, where_.written - SLICE_MAXIMUM)
+        if where_.written - start < SLICE_MINIMUM_S:
             return []
-        slice_ = extract_slice(ou.chunk, start, ou.written, job / "tranche.wav")
+        slice_ = extract_slice(where_.chunk, start, where_.written, job / "tranche.wav")
         if slice_ is None:
             return []
         depart = max(0.0, start - CONTEXT_S)
         with_context = slice_ if depart >= start else (
-            extract_slice(ou.chunk, depart, ou.written, job / "fenetre.wav")
+            extract_slice(where_.chunk, depart, where_.written, job / "fenetre.wav")
             or slice_
         )
         to_transcribe = with_context
-        if self.preparateur is not None:
-            to_transcribe = self.preparateur.prepare_transcript(
+        if self.preparer is not None:
+            to_transcribe = self.preparer.prepare_transcript(
                 with_context, job / "tranche-niveau.wav"
             )
         try:
@@ -218,13 +218,13 @@ class Watcher:
         except (RuntimeError, OSError):
             return []
         utterances = _within_the_slice(utterances, start - depart)
-        self.traite = ou.offset + ou.written
+        self.processed = where_.offset + where_.written
         if self.interrogate is not None:
             for utterance in utterances:
                 with contextlib.suppress(OSError):
                     self.interrogate(utterance.text)
-        offset = ou.offset + start
-        recalees = [
+        offset = where_.offset + start
+        rebased = [
             Utterance(
                 span=Span(
                     r.span.start + offset, r.span.end + offset
@@ -233,15 +233,15 @@ class Watcher:
             )
             for r in utterances
         ]
-        fresh = self.watch_rules.listen(recalees)
+        fresh = self.watch_rules.listen(rebased)
         self.publish(fresh)
         if self.follower is not None:
             self.follower.take_in(slice_, utterances, offset)
         if let_speak:
-            self.assistant_turn(recalees, self.traite)
+            self.assistant_turn(rebased, self.processed)
         return fresh
 
-    def listening_turn(self, ou: Position, job: Path, prompted: bool = False) -> bool:
+    def listening_turn(self, where_: Position, job: Path, prompted: bool = False) -> bool:
         """Answers a call without waiting for the next slice.
 
         A full slice is built for the thread: fifty seconds of context so the
@@ -257,17 +257,17 @@ class Watcher:
         `prompted` when somebody has just stopped talking: the pass then waits
         for the gap rather than the period. True when something was listened to.
         """
-        lui = self.assistant_of
-        if (lui is None or lui.cerveau is None or self.transcriber is None
-                or lui.busy or not lui.manners.active):
+        her = self.assistant_of
+        if (her is None or her.the_brain is None or self.transcriber is None
+                or her.busy or not her.manners.active):
             return False
-        if ou.overall - self._last_listened < (LISTENING_GAP if prompted else LISTENING_PERIOD):
+        if where_.overall - self._last_listened < (LISTENING_GAP if prompted else LISTENING_PERIOD):
             return False
-        self._last_listened = ou.overall
-        start = max(0.0, ou.written - LISTENING_S)
-        if ou.written - start < SLICE_MINIMUM_S:
+        self._last_listened = where_.overall
+        start = max(0.0, where_.written - LISTENING_S)
+        if where_.written - start < SLICE_MINIMUM_S:
             return False
-        chunk = extract_slice(ou.chunk, start, ou.written, job / "ecoute.wav")
+        chunk = extract_slice(where_.chunk, start, where_.written, job / "ecoute.wav")
         if chunk is None:
             return False
         try:
@@ -276,14 +276,14 @@ class Watcher:
             )
         except (RuntimeError, OSError):
             return True
-        offset = ou.offset + start
+        offset = where_.offset + start
         # A pass on the clock may land in the middle of a sentence, and what
         # runs into the end of the window waits for the next pass to be whole.
         # A prompted pass comes half a second after the room went quiet, and
         # the model's own end stamps overshoot by more than the margin: judged
         # by the clock, it dropped every question it was prompted for.
-        still_talking = float("inf") if prompted else (ou.written - start) - STILL_TALKING_S
-        recalees = [
+        still_talking = float("inf") if prompted else (where_.written - start) - STILL_TALKING_S
+        rebased = [
             Utterance(
                 span=Span(r.span.start + offset, r.span.end + offset),
                 text=r.text, voice=r.voice, source=r.source,
@@ -291,7 +291,7 @@ class Watcher:
             for r in heard
             if r.span.end <= still_talking
         ]
-        self.assistant_turn(self._whole_calls(recalees, lui.name), ou.overall,
+        self.assistant_turn(self._whole_calls(rebased, her.name), where_.overall,
                             only_when_called=True)
         return True
 
@@ -345,7 +345,7 @@ class Watcher:
             self.assistant_of.awaiting = retained
         self.assistant_of.answer_aside(retained, now)
 
-    def _apply_the_buttons(self, out_loud: bool, de_lui_meme: bool) -> None:
+    def _apply_the_buttons(self, out_loud: bool, of_its_own: bool) -> None:
         """Follows the window's two buttons, without restarting anything.
 
         Going quiet is immediate, current sentence included. The initiative is re-read
@@ -354,13 +354,13 @@ class Watcher:
         """
         if self.assistant_of is None:
             return
-        lui = self.assistant_of
-        self.initiative = de_lui_meme
-        if not out_loud and lui.voice is not None:
-            lui.voice.go_quiet()
-            lui.voice = None
-        elif out_loud and lui.voice is None and self.give_voice_back is not None:
-            lui.voice = self.give_voice_back()
+        her = self.assistant_of
+        self.initiative = of_its_own
+        if not out_loud and her.voice is not None:
+            her.voice.go_quiet()
+            her.voice = None
+        elif out_loud and her.voice is None and self.give_voice_back is not None:
+            her.voice = self.give_voice_back()
 
     def _turn_bounds(self) -> list[tuple[float, float]]:
         """The displayed speaker turns, to measure how dense the discussion is."""
@@ -392,9 +392,9 @@ class Watcher:
         try:
             while still_running():
                 self.clipboard_turn(since())
-                ou = self.situer() if self.situer is not None else None
-                if ou is not None and self._is_time(ou):
-                    self.transcription_turn(ou, job)
+                where_ = self.locate() if self.locate is not None else None
+                if where_ is not None and self._is_time(where_):
+                    self.transcription_turn(where_, job)
                 pause(CLIPBOARD_PERIOD)
         finally:
             stop.set()
@@ -418,18 +418,18 @@ class Watcher:
         prompted = False
         pass_: threading.Thread | None = None
         while True:
-            ou = self.situer() if self.situer is not None else None
-            if ou is not None:
+            where_ = self.locate() if self.locate is not None else None
+            if where_ is not None:
                 # Whatever it was: the meeting goes on without this pass.
                 with contextlib.suppress(Exception):
-                    prompted = prompted or self._somebody_just_stopped(ou, end)
+                    prompted = prompted or self._somebody_just_stopped(where_, end)
                     # The pass runs aside, so that the levels are still watched
                     # while it does: blocked behind a pass of three seconds, the
                     # watcher missed the end of every question it was meant to
                     # catch, and the clock had it back.
-                    if (pass_ is None or not pass_.is_alive()) and self._due(ou, prompted, end):
+                    if (pass_ is None or not pass_.is_alive()) and self._due(where_, prompted, end):
                         pass_ = threading.Thread(
-                            target=self._one_listening_pass, args=(ou, job, prompted),
+                            target=self._one_listening_pass, args=(where_, job, prompted),
                             daemon=True,
                         )
                         pass_.start()
@@ -439,7 +439,7 @@ class Watcher:
                     pass_.join(timeout=LISTENING_S * 4)
                 return
 
-    def _due(self, ou: Position, prompted: bool, end: SpeechEnd) -> bool:
+    def _due(self, where_: Position, prompted: bool, end: SpeechEnd) -> bool:
         """Whether the clock, or somebody stopping, calls for a pass now.
 
         Not on the clock while nobody has spoken since the last pass: the
@@ -447,36 +447,36 @@ class Watcher:
         on a small card every pass slows the one that matters.
         """
         if prompted:
-            return ou.overall - self._last_listened >= LISTENING_GAP
+            return where_.overall - self._last_listened >= LISTENING_GAP
         if not end.spoken_since(self._last_listened):
             return False
-        return ou.overall - self._last_listened >= LISTENING_PERIOD
+        return where_.overall - self._last_listened >= LISTENING_PERIOD
 
-    def _one_listening_pass(self, ou: Position, job: Path, prompted: bool) -> None:
+    def _one_listening_pass(self, where_: Position, job: Path, prompted: bool) -> None:
         with contextlib.suppress(Exception):
-            self.listening_turn(ou, job, prompted=prompted)
+            self.listening_turn(where_, job, prompted=prompted)
 
-    def _somebody_just_stopped(self, ou: Position, end: SpeechEnd) -> bool:
+    def _somebody_just_stopped(self, where_: Position, end: SpeechEnd) -> bool:
         """Whether a speech has just ended at this position, from the levels."""
         if self.speaking is None:
             return False
-        talking = self.speaking(ou)
+        talking = self.speaking(where_)
         if talking is None:
             return False
-        return end.note(ou.overall, talking)
+        return end.note(where_.overall, talking)
 
     def last_pass(self, job: Path) -> list[Suggestion]:
         """Transcribes what was left when the meeting stopped."""
-        ou = self.situer() if self.situer is not None else None
-        if ou is None or ou.overall - self.traite < SLICE_MINIMUM_S:
+        where_ = self.locate() if self.locate is not None else None
+        if where_ is None or where_.overall - self.processed < SLICE_MINIMUM_S:
             return []
-        return self.transcription_turn(ou, job, let_speak=False)
+        return self.transcription_turn(where_, job, let_speak=False)
 
-    def _is_time(self, ou: Position) -> bool:
+    def _is_time(self, where_: Position) -> bool:
         """Is it time to transcribe?"""
-        avance = ou.overall - self.traite
-        stagne = self.vu is not None and abs(ou.written - self.vu) < 0.05
-        self.vu = ou.written
-        if avance >= self.slice_period:
+        advance = where_.overall - self.processed
+        stalls = self.vu is not None and abs(where_.written - self.vu) < 0.05
+        self.vu = where_.written
+        if advance >= self.slice_period:
             return True
-        return stagne and avance >= SLICE_MINIMUM_S
+        return stalls and advance >= SLICE_MINIMUM_S

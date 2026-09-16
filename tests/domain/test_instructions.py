@@ -70,42 +70,42 @@ class TestDecisions:
 class TestTheWatchRules:
     def test_an_instruction_is_picked_up_once(self):
         """The running transcription goes over the same passages again."""
-        watch_rules = WatchRules(profil=FRENCH)
+        watch_rules = WatchRules(profile=FRENCH)
         utterances = [utterance(10, "Greffier, ouvre le ticket 1234")]
         assert len(watch_rules.listen(utterances)) == 1
         assert watch_rules.listen(utterances) == []
 
     def test_a_link_pasted_twice_is_offered_once(self):
-        watch_rules = WatchRules(profil=FRENCH)
+        watch_rules = WatchRules(profile=FRENCH)
         assert len(watch_rules.paste("https://miro.com/x", 5)) == 1
         assert watch_rules.paste("https://miro.com/x", 30) == []
 
     def test_where_it_came_from_is_kept(self):
         """The clipboard is exact, speech is transcribed: the reliability is
         not the same and the reader has to be able to judge it."""
-        watch_rules = WatchRules(profil=FRENCH)
+        watch_rules = WatchRules(profile=FRENCH)
         watch_rules.paste("https://a.fr", 1)
         watch_rules.listen([utterance(2, "Greffier, note le sujet")])
-        origines = {p.origin for p in watch_rules.propositions}
-        assert origines == {Origin.CLIPBOARD, Origin.SPEECH}
+        origins = {p.origin for p in watch_rules.propositions}
+        assert origins == {Origin.CLIPBOARD, Origin.SPEECH}
 
     def test_an_instruction_is_not_reclassed_as_a_decision(self):
-        watch_rules = WatchRules(profil=FRENCH)
+        watch_rules = WatchRules(profile=FRENCH)
         watch_rules.listen([utterance(3, "Greffier, note qu'il faut qu'on relance")])
         assert [p.kind for p in watch_rules.propositions] == [Kind.INSTRUCTION]
 
     def test_the_context_of_the_instruction_is_kept(self):
-        watch_rules = WatchRules(profil=FRENCH)
+        watch_rules = WatchRules(profile=FRENCH)
         watch_rules.listen([utterance(3, "Bon, Greffier, ouvre le tableau")])
         assert "Bon," in watch_rules.propositions[0].context
 
     def test_another_keyword_can_be_chosen(self):
-        watch_rules = WatchRules(keyword="assistant", profil=FRENCH)
+        watch_rules = WatchRules(keyword="assistant", profile=FRENCH)
         watch_rules.listen([utterance(1, "Assistant, note ce point")])
         assert watch_rules.propositions[0].text == "note ce point"
 
     def test_sorting_by_kind(self):
-        watch_rules = WatchRules(profil=FRENCH)
+        watch_rules = WatchRules(profile=FRENCH)
         watch_rules.paste("https://a.fr https://b.fr", 1)
         watch_rules.listen([utterance(2, "on décide de reporter la mise en production")])
         assert len(watch_rules.by_gender(Kind.LINK)) == 2

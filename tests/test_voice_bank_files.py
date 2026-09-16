@@ -11,8 +11,8 @@ from greffier.domain.models import Span, SpeakerTurn, Utterance
 from greffier.domain.voiceprints import normalise, recognise
 
 
-def voice(*composantes, duration=10.0):
-    return normalise(composantes, source_duration=duration)
+def voice(*components, duration=10.0):
+    return normalise(components, source_duration=duration)
 
 
 @pytest.fixture
@@ -68,8 +68,8 @@ class TestTheVoiceBank:
     def test_joining_brings_two_entries_together(self, bank):
         bank.record("Josiane", voice(1.0, 0.0))
         bank.record("Josiane B", voice(0.9, 0.1))
-        fusionnee = bank.join("Josiane", "Josiane B")
-        assert len(fusionnee.voiceprints) == 2
+        merged = bank.join("Josiane", "Josiane B")
+        assert len(merged.voiceprints) == 2
         assert bank.find("Josiane B") is None
 
     def test_forgetting_really_deletes(self, bank):
@@ -107,19 +107,19 @@ def a_meeting(**overrides):
 
 class TestTheMasterFile:
     def test_what_is_written_is_read_back_identical(self, tmp_path):
-        magasin = FileStore(tmp_path)
-        magasin.record(a_meeting())
-        relue = magasin.read("2026-08-24_reunion")
-        assert relue.names == {"1": "Josiane"}
-        assert relue.propositions == {"2": "Marc"}
-        assert [r.text for r in relue.utterances] == ["bonjour à tous", "au revoir"]
-        assert relue.utterances[0].span.end == 40
+        the_store = FileStore(tmp_path)
+        the_store.record(a_meeting())
+        reread = the_store.read("2026-08-24_reunion")
+        assert reread.names == {"1": "Josiane"}
+        assert reread.propositions == {"2": "Marc"}
+        assert [r.text for r in reread.utterances] == ["bonjour à tous", "au revoir"]
+        assert reread.utterances[0].span.end == 40
 
     def test_the_timestamps_survive(self, tmp_path):
         """They are what lets a passage be quoted and found again."""
-        magasin = FileStore(tmp_path)
-        magasin.record(a_meeting())
-        assert magasin.read("2026-08-24_reunion").turns[1].span.start == 60
+        the_store = FileStore(tmp_path)
+        the_store.record(a_meeting())
+        assert the_store.read("2026-08-24_reunion").turns[1].span.start == 60
 
     def test_the_coverage_shows_what_is_missing(self):
         """75 s of text over 100 s of audio: a quarter was not transcribed."""
@@ -144,14 +144,14 @@ class TestTheMasterFile:
         test. It replaced nothing any more and checked that a valid file raises, which
         it does not.
         """
-        magasin = FileStore(tmp_path)
-        magasin.record(a_meeting())
+        the_store = FileStore(tmp_path)
+        the_store.record(a_meeting())
         path = tmp_path / "2026-08-24_reunion.json"
         content = json.loads(path.read_text(encoding="utf-8"))
         content["format"] = FORMAT + 1
         path.write_text(json.dumps(content), encoding="utf-8")
         with pytest.raises(ValueError, match="plus récente"):
-            magasin.read("2026-08-24_reunion")
+            the_store.read("2026-08-24_reunion")
 
     def test_a_file_without_the_clock_times_reads_back(self, tmp_path):
         """Format 1 did not carry the clock times: it stays readable.
@@ -159,47 +159,47 @@ class TestTheMasterFile:
         The meetings already on disk do not have to be processed again for the tool to
         still be able to open them.
         """
-        magasin = FileStore(tmp_path)
-        magasin.record(a_meeting())
+        the_store = FileStore(tmp_path)
+        the_store.record(a_meeting())
         path = tmp_path / "2026-08-24_reunion.json"
         content = json.loads(path.read_text(encoding="utf-8"))
         content["format"] = 1
         del content["commencee_le"]
         del content["terminee_le"]
         path.write_text(json.dumps(content), encoding="utf-8")
-        relue = magasin.read("2026-08-24_reunion")
-        assert relue.started_at is None
-        assert relue.ended_at is None
-        assert relue.utterances, "le reste du fichier se lit normalement"
+        reread = the_store.read("2026-08-24_reunion")
+        assert reread.started_at is None
+        assert reread.ended_at is None
+        assert reread.utterances, "le reste du fichier se lit normalement"
 
     def test_the_most_recent_ones_first(self, tmp_path):
-        magasin = FileStore(tmp_path)
+        the_store = FileStore(tmp_path)
         for identifier in ("2026-08-01_a", "2026-08-24_b", "2026-08-12_c"):
-            magasin.record(a_meeting(identifier=identifier))
-        assert magasin.list_()[0] == "2026-08-24_b"
+            the_store.record(a_meeting(identifier=identifier))
+        assert the_store.list_()[0] == "2026-08-24_b"
 
     def test_the_hardware_events_survive(self, tmp_path):
         """Needed to write the minutes again later without losing what the hardware
         watch had seen.
         """
-        magasin = FileStore(tmp_path)
-        magasin.record(a_meeting(
+        the_store = FileStore(tmp_path)
+        the_store.record(a_meeting(
             hardware_events=["casque branché à 12:03"]
         ))
-        relue = magasin.read("2026-08-24_reunion")
-        assert relue.hardware_events == ["casque branché à 12:03"]
+        reread = the_store.read("2026-08-24_reunion")
+        assert reread.hardware_events == ["casque branché à 12:03"]
 
     def test_a_master_file_with_no_hardware_events_reads_back(self, tmp_path):
         """A master file written before this field was added has no such key: it must
         read back empty, not crash.
         """
-        magasin = FileStore(tmp_path)
-        magasin.record(a_meeting())
+        the_store = FileStore(tmp_path)
+        the_store.record(a_meeting())
         path = tmp_path / "2026-08-24_reunion.json"
         content = json.loads(path.read_text())
         del content["evenements_materiel"]
         path.write_text(json.dumps(content))
-        assert magasin.read("2026-08-24_reunion").hardware_events == []
+        assert the_store.read("2026-08-24_reunion").hardware_events == []
 
 
 class TestNonLatinNames:
@@ -284,12 +284,12 @@ class TestForgettingAMeetingEverywhere:
         from dataclasses import replace
 
         bank = FileVoiceBank(tmp_path)
-        bonne = normalise([1.0, 0.0], source_duration=10.0)
-        fautive = replace(normalise([0.0, 1.0], source_duration=900.0),
+        good = normalise([1.0, 0.0], source_duration=10.0)
+        faulty = replace(normalise([0.0, 1.0], source_duration=900.0),
                           origin="2026-09-09_reunion")
-        bank.record("Pascal", bonne)
-        bank.record("Pascal", fautive)
-        bank.record("Kilian", fautive)
+        bank.record("Pascal", good)
+        bank.record("Pascal", faulty)
+        bank.record("Kilian", faulty)
 
         retires = bank.forget_a_meeting("2026-09-09_reunion")
 
@@ -312,6 +312,6 @@ class TestForgettingAMeetingEverywhere:
         bank = FileVoiceBank(tmp_path)
         bank.record("Pascal", replace(
             normalise([1.0, 0.0], source_duration=10.0), origin="2026-09-09_reunion"))
-        relue = FileVoiceBank(tmp_path).find("Pascal")
-        assert relue is not None
-        assert relue.voiceprints[0].origin == "2026-09-09_reunion"
+        reread = FileVoiceBank(tmp_path).find("Pascal")
+        assert reread is not None
+        assert reread.voiceprints[0].origin == "2026-09-09_reunion"

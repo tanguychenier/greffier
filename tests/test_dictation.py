@@ -15,32 +15,32 @@ from greffier.adapters.dictation_ffmpeg import Dictation
 
 
 class FauxProcessus:
-    def __init__(self, vivant=True):
-        self.signaux: list[int] = []
-        self.tue = False
-        self._vivant = vivant
+    def __init__(self, alive=True):
+        self.signals: list[int] = []
+        self.kills = False
+        self._alive = alive
 
     def poll(self):
-        return None if self._vivant else 0
+        return None if self._alive else 0
 
-    def send_signal(self, numero):
-        self.signaux.append(numero)
-        self._vivant = False
+    def send_signal(self, number):
+        self.signals.append(number)
+        self._alive = False
 
     def kill(self):
-        self.tue = True
-        self._vivant = False
+        self.kills = True
+        self._alive = False
 
 
 @pytest.fixture
 def ffmpeg(monkeypatch):
     lances: list[list[str]] = []
-    processus = FauxProcessus()
+    process_id = FauxProcessus()
     monkeypatch.setattr(
         "subprocess.Popen",
-        lambda command, **k: lances.append(command) or processus,
+        lambda command, **k: lances.append(command) or process_id,
     )
-    return lances, processus
+    return lances, process_id
 
 
 class TestFromThePressToTheRelease:
@@ -58,26 +58,26 @@ class TestFromThePressToTheRelease:
 
     def test_a_second_press_opens_nothing_more(self, ffmpeg, tmp_path):
         lances, _ = ffmpeg
-        dictee = Dictation()
-        dictee.start(tmp_path / "une.wav")
-        dictee.start(tmp_path / "deux.wav")
+        dictation = Dictation()
+        dictation.start(tmp_path / "une.wav")
+        dictation.start(tmp_path / "deux.wav")
         assert len(lances) == 1
 
     def test_it_stops_with_an_interrupt_never_a_kill(self, ffmpeg, tmp_path):
         """A wav whose header was never written is a file, not a sentence."""
-        _, processus = ffmpeg
-        dictee = Dictation()
-        dictee.start(tmp_path / "phrase.wav")
+        _, process_id = ffmpeg
+        dictation = Dictation()
+        dictation.start(tmp_path / "phrase.wav")
         (tmp_path / "phrase.wav").write_bytes(b"RIFF" + b"0" * 4000)
-        assert dictee.stop() == tmp_path / "phrase.wav"
-        assert processus.signaux == [signal.SIGINT] and not processus.tue
+        assert dictation.stop() == tmp_path / "phrase.wav"
+        assert process_id.signals == [signal.SIGINT] and not process_id.kills
 
     def test_a_key_merely_tapped_produces_nothing(self, ffmpeg, tmp_path):
         """A few dozen bytes are a header and no sound."""
-        dictee = Dictation()
-        dictee.start(tmp_path / "phrase.wav")
+        dictation = Dictation()
+        dictation.start(tmp_path / "phrase.wav")
         (tmp_path / "phrase.wav").write_bytes(b"RIFF" + b"0" * 20)
-        assert dictee.stop() is None
+        assert dictation.stop() is None
 
     def test_releasing_without_pressing_is_not_an_error(self, tmp_path):
         assert Dictation().stop() is None

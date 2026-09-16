@@ -57,8 +57,8 @@ class TestNeverComingBackTooOften:
         """Someone addressing the tool expects an answer, not restraint."""
         manners = Manners()
         manners.has_spoken(opening(), now=0.0)
-        appel = opening(because=Because.APPELE, born_at=10.0)
-        assert manners.refusal(appel, now=10.0, lull=0.0, density=1.0) is None
+        the_call = opening(because=Because.CALLED, born_at=10.0)
+        assert manners.refusal(the_call, now=10.0, lull=0.0, density=1.0) is None
 
 
 class TestNeverRepeatingItself:
@@ -66,14 +66,14 @@ class TestNeverRepeatingItself:
         manners = Manners()
         first_one = opening(subject="qui-parle-voix-3", born_at=10.0)
         manners.has_spoken(first_one, now=10.0)
-        seconde = opening(subject="qui-parle-voix-3", born_at=400.0)
-        assert manners.refusal(seconde, now=400.0, lull=5.0) == "déjà dit"
+        second_one = opening(subject="qui-parle-voix-3", born_at=400.0)
+        assert manners.refusal(second_one, now=400.0, lull=5.0) == "déjà dit"
 
     def test_even_called_it_does_not_repeat_a_question_asked(self):
         manners = Manners()
         manners.has_spoken(opening(subject="qui-parle-voix-3"), now=0.0)
-        appel = opening(because=Because.APPELE, subject="qui-parle-voix-3", born_at=50.0)
-        assert manners.refusal(appel, now=50.0, lull=9.0) == "déjà dit"
+        the_call = opening(because=Because.CALLED, subject="qui-parle-voix-3", born_at=50.0)
+        assert manners.refusal(the_call, now=50.0, lull=9.0) == "déjà dit"
 
 
 class TestNeverServingSomethingCold:
@@ -86,8 +86,8 @@ class TestNeverServingSomethingCold:
 
     def test_a_call_by_name_does_not_go_stale_for_all_that(self):
         manners = Manners()
-        appel = opening(because=Because.APPELE, born_at=10.0)
-        assert manners.refusal(appel, now=500.0, lull=0.0) is None
+        the_call = opening(because=Because.CALLED, born_at=10.0)
+        assert manners.refusal(the_call, now=500.0, lull=0.0) is None
 
 
 class TestChoosingWhatToSay:
@@ -122,7 +122,7 @@ class TestChoosingWhatToSay:
         retained = manners.choose(
             [
                 opening(because=Because.INDISTINCT_VOICE, remark="qui parle ?", born_at=10.0),
-                opening(because=Because.APPELE, remark="oui ?", born_at=11.0),
+                opening(because=Because.CALLED, remark="oui ?", born_at=11.0),
             ],
             now=12.0, lull=0.0, density=1.0,
         )
@@ -133,8 +133,8 @@ class TestTheButton:
     def test_switched_off_it_says_nothing_at_all(self):
         """The button in the window sets this, and unsets it, as often as wanted."""
         manners = Manners(active=False)
-        appel = opening(because=Because.APPELE, born_at=10.0)
-        assert manners.refusal(appel, now=10.0, lull=9.0) == "il ne participe pas"
+        the_call = opening(because=Because.CALLED, born_at=10.0)
+        assert manners.refusal(the_call, now=10.0, lull=9.0) == "il ne participe pas"
 
     def test_switched_back_on_it_starts_again_without_a_grudge(self):
         manners = Manners(active=False)
@@ -177,13 +177,13 @@ class TestWhatTheSettingGuarantees:
     def test_switched_on_it_speaks_only_on_its_name(self):
         """Without the initiative, no spontaneous opening gets through."""
         manners = Manners(active=True)
-        idee = Opening(because=Because.CONTRIBUTION, remark="une remarque", born_at=100.0)
-        appel = Opening(because=Because.APPELE, remark="oui ?", born_at=100.0)
+        idea = Opening(because=Because.CONTRIBUTION, remark="une remarque", born_at=100.0)
+        the_call = Opening(because=Because.CALLED, remark="oui ?", born_at=100.0)
         # The contribution is not even looked for when initiative is off: the
         # watch takes care of that. Here the check is that the call itself goes
         # through always, whatever the conditions.
-        assert manners.refusal(appel, now=100.0, lull=0.0, density=1.0) is None
-        assert manners.refusal(idee, now=100.0, lull=0.0, density=1.0)
+        assert manners.refusal(the_call, now=100.0, lull=0.0, density=1.0) is None
+        assert manners.refusal(idea, now=100.0, lull=0.0, density=1.0)
 
     def test_switched_off_it_says_nothing_at_all(self):
         manners = Manners(active=False)
@@ -291,13 +291,13 @@ class TestItsOwnNameNeverLeavesItsMouth:
 
     def test_a_remark_without_its_name_is_untouched(self):
         """The common case: it must not see its own sentence reworked."""
-        propos = "Qui prend en charge la migration en Symfony 7 ?"
-        assert without_own_name(propos, "Lucie") == propos
+        the_remarks = "Qui prend en charge la migration en Symfony 7 ?"
+        assert without_own_name(the_remarks, "Lucie") == the_remarks
 
     def test_french_typography_survives(self):
         """French keeps a space before the colon."""
-        propos = "Merci, c'est noté : je mets Hubert sur cette voix."
-        assert without_own_name(propos, "Lucie") == propos
+        the_remarks = "Merci, c'est noté : je mets Hubert sur cette voix."
+        assert without_own_name(the_remarks, "Lucie") == the_remarks
 
     def test_the_name_in_the_middle_of_a_sentence(self):
         assert without_own_name("Oui Lucie a bien compris", "Lucie") == "Oui a bien compris"

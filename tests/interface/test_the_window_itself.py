@@ -52,8 +52,8 @@ class TestOpeningBeforeAsking:
             # Compared against the catalogue and not against French words: the
             # window speaks the language of the machine, and the continuous
             # integration runner speaks English.
-            gabarit = built.says("modeles.manquants", weight="0 Mo")
-            start = gabarit.split("0 Mo")[0][:40]
+            template = built.says("modeles.manquants", weight="0 Mo")
+            start = template.split("0 Mo")[0][:40]
             assert any(question.startswith(start) for question in asked)
         finally:
             built.root.destroy()
@@ -167,20 +167,20 @@ class TestNoButtonIsSqueezedOutOfShape:
     def _squeezed(page) -> list[str]:
         from greffier.interface.appearance import Button
 
-        etroits = []
+        narrow = []
 
         def walk(widget) -> None:
             for child in widget.winfo_children():
                 if (isinstance(child, Button) and child.winfo_ismapped()
                         and child.winfo_width() < child.winfo_reqwidth()):
-                    etroits.append(
+                    narrow.append(
                         f"{child.winfo_width()} px pour "
                         f"{child.winfo_reqwidth()} demandés"
                     )
                 walk(child)
 
         walk(page)
-        return etroits
+        return narrow
 
     @pytest.mark.parametrize("caption", TABS)
     def test_at_its_narrowest_no_button_is_cut(self, window, caption: str) -> None:
@@ -218,11 +218,11 @@ class TestExportingFromTheWindow:
     def test_the_meetings_tab_offers_it(self, window) -> None:
         window.tabs.reveal("Réunions")
         window.root.update()
-        intitules = [
+        headings = [
             button.itemcget(button._text, "text")
             for button in window.meeting_buttons
         ]
-        assert "Exporter…" in intitules
+        assert "Exporter…" in headings
 
     def test_with_no_meeting_chosen_it_says_so_rather_than_writing(
         self, window
@@ -563,7 +563,7 @@ class TestHandingADocumentToTheWindow:
         note = tmp_path / "budget.md"
         note.write_text("Budget du lot 2 : 42 000 euros hors taxes.\n", encoding="utf-8")
         monkeypatch.setattr(asking, "files_to_open", lambda *a, **k: (str(note),))
-        monkeypatch.setattr("greffier.wiring.cartographe", lambda config: None)
+        monkeypatch.setattr("greffier.wiring.mapper", lambda config: None)
         _jobs_run_inline(window)
         window._supply_a_document()
         window.root.update()
@@ -593,7 +593,7 @@ class TestHandingADocumentToTheWindow:
 
         monkeypatch.setattr(asking, "files_to_open", lambda *a, **k: (str(note),))
         monkeypatch.setattr(asking, "ask_yes_no", lambda *a, **k: True)
-        monkeypatch.setattr("greffier.wiring.cartographe", lambda config: Reader())
+        monkeypatch.setattr("greffier.wiring.mapper", lambda config: Reader())
         _jobs_run_inline(window)
         window._supply_a_document()
         window.root.update()
@@ -617,7 +617,7 @@ class TestHandingADocumentToTheWindow:
 
         monkeypatch.setattr(asking, "files_to_open", lambda *a, **k: (str(note),))
         monkeypatch.setattr(asking, "ask_yes_no", lambda *a, **k: False)
-        monkeypatch.setattr("greffier.wiring.cartographe", lambda config: Reader())
+        monkeypatch.setattr("greffier.wiring.mapper", lambda config: Reader())
         _jobs_run_inline(window)
         window._supply_a_document()
         window.root.update()

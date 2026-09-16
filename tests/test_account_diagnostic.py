@@ -32,11 +32,11 @@ class TestReadingTheAccount:
                                          "seatTier": "team_tier_1"}})
         count = diagnostic.claude_account()
         assert count is not None
-        assert count.adresse == "moi@exemple.fr"
+        assert count.address == "moi@exemple.fr"
         assert count.organisation == "Acme"
-        assert count.formule == "team_tier_1"
+        assert count.phrasing == "team_tier_1"
 
-    def test_l_affichage_joint_adresse_et_organisation(self, a_clean_home):
+    def test_the_display_joins_address_and_organisation(self, a_clean_home):
         write(a_clean_home, {"oauthAccount": {"emailAddress": "moi@exemple.fr",
                                          "organizationName": "Acme"}})
         assert str(diagnostic.claude_account()) == "moi@exemple.fr · Acme"
@@ -66,15 +66,15 @@ class TestWhatIsNeverRead:
                                          "accessToken": "secret-à-ne-jamais-lire"}})
         count = diagnostic.claude_account()
         assert count is not None
-        champs = (count.adresse, count.organisation, count.formule)
+        champs = (count.address, count.organisation, count.phrasing)
         assert not any("secret" in value for value in champs)
         assert not hasattr(count, "accessToken")
 
     def test_the_reading_never_goes_through_the_network(self, a_clean_home, monkeypatch):
         """A network call would make the tab wait to open for nothing."""
-        def interdit(*_args, **_options):
+        def forbidden_one(*_args, **_options):
             raise AssertionError("aucun sous-processus ne doit être lancé")
 
-        monkeypatch.setattr(diagnostic.subprocess, "run", interdit)
+        monkeypatch.setattr(diagnostic.subprocess, "run", forbidden_one)
         write(a_clean_home, {"oauthAccount": {"emailAddress": "moi@exemple.fr"}})
         assert diagnostic.claude_account() is not None

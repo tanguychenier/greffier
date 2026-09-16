@@ -4,48 +4,48 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from greffier.adapters import preparations_file as fichiers
+from greffier.adapters import preparations_file as files
 
 
 class TestOnDisk:
     def test_what_is_written_is_read_back(self, tmp_path):
-        preparation = fichiers.open_one(tmp_path, "point recette")
-        fichiers.write(tmp_path, preparation.expecting("Sophie").raising("les anomalies"))
-        relue = fichiers.read(tmp_path, preparation.identifier)
-        assert relue.expected == ("Sophie",) and relue.to_raise == ("les anomalies",)
+        preparation = files.open_one(tmp_path, "point recette")
+        files.write(tmp_path, preparation.expecting("Sophie").raising("les anomalies"))
+        reread = files.read(tmp_path, preparation.identifier)
+        assert reread.expected == ("Sophie",) and reread.to_raise == ("les anomalies",)
 
     def test_the_file_is_readable_by_a_person(self, tmp_path):
-        preparation = fichiers.open_one(tmp_path, "point de recette")
-        text = fichiers.file_for(tmp_path, preparation.identifier).read_text("utf-8")
+        preparation = files.open_one(tmp_path, "point de recette")
+        text = files.file_for(tmp_path, preparation.identifier).read_text("utf-8")
         assert "point de recette" in text and "\n" in text, "indenté, pas compacté"
 
     def test_a_file_a_person_broke_is_passed_over(self, tmp_path):
-        fichiers.file_for(tmp_path, "cassee").write_text("{pas du json", encoding="utf-8")
-        assert fichiers.read(tmp_path, "cassee") is None
-        assert fichiers.list_(tmp_path) == []
+        files.file_for(tmp_path, "cassee").write_text("{pas du json", encoding="utf-8")
+        assert files.read(tmp_path, "cassee") is None
+        assert files.list_(tmp_path) == []
 
     def test_nothing_at_all_is_not_an_error(self, tmp_path):
-        assert fichiers.list_(tmp_path / "rien") == []
-        assert fichiers.waiting(tmp_path / "rien") is None
+        assert files.list_(tmp_path / "rien") == []
+        assert files.waiting(tmp_path / "rien") is None
 
 
 class TestWhichOneAMeetingTakes:
     def test_the_most_recent_that_nobody_has_taken(self, tmp_path):
-        old_one = fichiers.open_one(tmp_path, "ancienne").raising("a")
-        fichiers.write(tmp_path, old_one)
-        recente = fichiers.open_one(tmp_path, "récente").raising("b")
+        old_one = files.open_one(tmp_path, "ancienne").raising("a")
+        files.write(tmp_path, old_one)
+        recent = files.open_one(tmp_path, "récente").raising("b")
         # Two preparations in the same minute carry the same name: forced here
         # is what the clock would do on its own a minute later.
-        recente = replace(recente, identifier="2026-12-31_23h59_preparation")
-        fichiers.write(tmp_path, recente)
-        assert fichiers.waiting(tmp_path).subject == "récente"
+        recent = replace(recent, identifier="2026-12-31_23h59_preparation")
+        files.write(tmp_path, recent)
+        assert files.waiting(tmp_path).subject == "récente"
 
     def test_one_already_taken_is_not_offered_again(self, tmp_path):
-        preparation = fichiers.open_one(tmp_path, "recette").raising("un point")
-        fichiers.write(tmp_path, preparation.taken("2026-09-12_reunion"))
-        assert fichiers.waiting(tmp_path) is None
+        preparation = files.open_one(tmp_path, "recette").raising("un point")
+        files.write(tmp_path, preparation.taken("2026-09-12_reunion"))
+        assert files.waiting(tmp_path) is None
 
     def test_one_that_gathered_nothing_is_not_offered(self, tmp_path):
         """Opening a preparation and saying nothing is not preparing."""
-        fichiers.open_one(tmp_path, "ouverte pour rien")
-        assert fichiers.waiting(tmp_path) is None
+        files.open_one(tmp_path, "ouverte pour rien")
+        assert files.waiting(tmp_path) is None

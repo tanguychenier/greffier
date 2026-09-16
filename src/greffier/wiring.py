@@ -101,8 +101,8 @@ def light_transcriber(config: Config) -> outbound.Transcriber | None:
     size = config.live.model or _live_model(config)
     if config.transcription.engine == "whisper.cpp":
         models = config.paths.models
-        candidats = [models / f"ggml-{size}.bin", models / "ggml-large-v3-turbo.bin"]
-        model = next((m for m in candidats if m.exists()), None)
+        candidates_ = [models / f"ggml-{size}.bin", models / "ggml-large-v3-turbo.bin"]
+        model = next((m for m in candidates_ if m.exists()), None)
         if model is None:
             return None
         from greffier.adapters.transcription_whisper_cpp import WhisperCppTranscriber
@@ -149,7 +149,7 @@ def company_sources(config: Config) -> Sources:
 
     return Sources(read)
 
-def somebody_speaking(ou: Position) -> bool | None:
+def somebody_speaking(where_: Position) -> bool | None:
     """Whether the file being written carries speech at this position.
 
     What the listening thread watches to listen the moment somebody stops,
@@ -158,7 +158,7 @@ def somebody_speaking(ou: Position) -> bool | None:
     from greffier.adapters.live_levels import read_level
     from greffier.domain.channels import WhoSpeaks
 
-    reading = read_level(ou.chunk, up_to=ou.written)
+    reading = read_level(where_.chunk, up_to=where_.written)
     return None if reading is None else reading.who is not WhoSpeaks.NOBODY
 
 def follower(config: Config, identifier: str) -> Follower:
@@ -209,7 +209,7 @@ def assistant(config: Config) -> outbound.Writer | None:
     if engine != "claude":
         return None
     from greffier.adapters.writer_claude import (
-        CONSIGNES_CONVERSATION,
+        CONVERSATION_GUIDANCE,
         ClaudeWriter,
     )
 
@@ -219,10 +219,10 @@ def assistant(config: Config) -> outbound.Writer | None:
         language=config.minutes.language,
         tools=(ClaudeWriter.SEARCH_TOOLS
                 if config.conversation.recherche_web else ()),
-        own_guidance=CONSIGNES_CONVERSATION,
+        own_guidance=CONVERSATION_GUIDANCE,
     )
 
-def cartographe(config: Config) -> outbound.Writer | None:
+def mapper(config: Config) -> outbound.Writer | None:
     """Who extracts a board's points."""
     engine = config.minutes.engine
     if engine == "ollama":
@@ -275,7 +275,7 @@ def _instructions_of(config: Config) -> Callable[[str], list[str]]:
     def lire(identifier: str) -> list[str]:
         turns = conversations_file.read(
             conversations_file.file_for(config.paths.conversations, identifier),
-            derniers=0,
+            last_ones=0,
         )
         return [x.text.strip() for x in turns if x.who == "moi" and x.text.strip()]
 
@@ -301,7 +301,7 @@ def _named_live(config: Config) -> Callable[[str], list[NamedSpan]]:
             voice = thread.voice.get(turn.voice)
             if voice is None or voice.name is None:
                 continue
-            if voice.certainty is not Certainty.HUMAINE:
+            if voice.certainty is not Certainty.HUMAN:
                 continue
             named.append(NamedSpan(name=voice.name, span=turn.span))
         return named
@@ -315,15 +315,15 @@ def memory(config: Config) -> outbound.Memory:
 
     file = config.paths.memory
 
-    class Memoire:
+    class TheMemory:
         def remember(self, trace: Trace) -> None:
             memory_file.remember(file, trace)
             _index(config, trace)
 
-        def recall(self, limit: int = memory_file.DERNIERES) -> list[Trace]:
+        def recall(self, limit: int = memory_file.LAST_ONES) -> list[Trace]:
             return memory_file.recall(file, limit)
 
-    return Memoire()
+    return TheMemory()
 
 
 def _index(config: Config, trace: Trace) -> None:
@@ -422,9 +422,9 @@ def _audio_recorder(config: Config) -> FfmpegRecorder:
 def list_(config: Config) -> CoreAudioLister:
     """Reading the audio hardware, for the watch and the diagnostic."""
     source = Path(__file__).resolve().parent.parent.parent / "macos/creer-peripheriques.swift"
-    prete = Path(sys.executable).resolve().parent.parent / "Resources/lister-peripheriques"
+    ready = Path(sys.executable).resolve().parent.parent / "Resources/lister-peripheriques"
     return CoreAudioLister(
-        source, config.paths.data / "cache", prete if prete.exists() else None
+        source, config.paths.data / "cache", ready if ready.exists() else None
     )
 
 def recording(config: Config) -> Recording:
@@ -490,13 +490,13 @@ def wire_up(config: Config) -> Chain:
 
 def assistant_voice(config: Config) -> Any | None:
     """Whatever pronounces, or nothing when the assistant takes part in writing."""
-    voulu = config.assistant.voice
-    if voulu == "aucun":
+    wanted_one = config.assistant.voice
+    if wanted_one == "aucun":
         return None
-    if voulu == "kokoro":
+    if wanted_one == "kokoro":
         from greffier.adapters.voice_neural import NeuralVoice
 
-        neuronale = NeuralVoice(
+        neural = NeuralVoice(
             config.paths.synthetic_voice,
             language=config.transcription.language or "fr",
             voice=config.assistant.effective_speaker,
@@ -504,8 +504,8 @@ def assistant_voice(config: Config) -> Any | None:
             gag=config.paths.gag,
             device=config.hardware.device,
         )
-        if neuronale.available:
-            return neuronale
+        if neural.available:
+            return neural
     from greffier.adapters.voice_system import SystemVoice
 
     system = SystemVoice()
@@ -523,7 +523,7 @@ def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
     def tracer(who: str, what: str) -> None:
         conversations_file.add(file, who, what)
 
-    lui = AssistantSettings(
+    her = AssistantSettings(
         name=config.assistant.name,
         manners=Manners(
             active=True,
@@ -534,10 +534,10 @@ def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
         tracer=tracer,
         setting=lambda: context(config).header() + what_earlier_meetings_left(config),
     )
-    cerveau = spoken_brain(config, lui.guidance())
-    lui.keep_its_turn = _keep_her_turn(config, identifier)
-    lui.cerveau = cerveau
-    return lui
+    the_brain = spoken_brain(config, her.guidance())
+    her.keep_its_turn = _keep_her_turn(config, identifier)
+    her.the_brain = the_brain
+    return her
 
 def spoken_brain(config: Config, own_guidance: str) -> Any | None:
     """What the assistant thinks with when it answers out loud.
@@ -550,10 +550,10 @@ def spoken_brain(config: Config, own_guidance: str) -> Any | None:
     """
     engine = config.minutes.engine
     if engine == "ollama":
-        cerveau: Any = OllamaWriter(config.minutes.effective_model,
+        the_brain: Any = OllamaWriter(config.minutes.effective_model,
                                     language=config.minutes.language,
                                     own_guidance=own_guidance)
-        return cerveau
+        return the_brain
     if engine != "claude":
         return None
     from greffier.adapters.brain_claude import ClaudeSession

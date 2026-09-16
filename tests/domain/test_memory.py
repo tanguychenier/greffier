@@ -7,7 +7,7 @@ from nothing, and the room said again what it had said the week before.
 
 from __future__ import annotations
 
-from greffier.domain.memory import RAPPEL_MAXIMUM, Trace, recalled, what_the_minutes_left
+from greffier.domain.memory import MAXIMUM_REMINDER, Trace, recalled, what_the_minutes_left
 
 MINUTES = """# Compte rendu : point sur la recette
 
@@ -45,8 +45,8 @@ class TestReadingWhatTheMinutesLeft:
         )
 
     def test_the_open_points_too(self):
-        _, ouverts = what_the_minutes_left(MINUTES)
-        assert ouverts == (
+        _, open_ones = what_the_minutes_left(MINUTES)
+        assert open_ones == (
             "Validation fonctionnelle des deux anomalies : aucune date donnée.",
         )
 
@@ -83,11 +83,11 @@ class TestTheTitleOfARecalledMeeting:
 
 
 class TestWhatIsRecalled:
-    def _trace(self, numero: int, decision: str = "On garde jeudi.") -> Trace:
+    def _trace(self, number: int, decision: str = "On garde jeudi.") -> Trace:
         return Trace(
-            identifier=f"2026-09-{numero:02d}_reunion",
-            title=f"réunion {numero}",
-            held_on=f"2026-09-{numero:02d}",
+            identifier=f"2026-09-{number:02d}_reunion",
+            title=f"réunion {number}",
+            held_on=f"2026-09-{number:02d}",
             people=("Jacques",),
             decisions=(decision,),
         )
@@ -108,14 +108,14 @@ class TestWhatIsRecalled:
 
     def test_it_stops_at_a_meeting_boundary(self):
         """Half a decision recalled is worse than none: nothing says it was cut."""
-        longues = [self._trace(j, "d" * 400) for j in range(1, 13)]
-        rendered = recalled(longues, place=1000)
+        long_ones = [self._trace(j, "d" * 400) for j in range(1, 13)]
+        rendered = recalled(long_ones, place=1000)
         assert len(rendered) < 1000 + 400
         assert not rendered.rstrip().endswith("d" * 10 + "…")
-        assert rendered.count("Décidé") < len(longues)
+        assert rendered.count("Décidé") < len(long_ones)
 
     def test_nothing_at_all_gives_no_section(self):
         assert recalled([]) == ""
 
     def test_the_room_it_takes_is_bounded(self):
-        assert RAPPEL_MAXIMUM <= 2_000
+        assert MAXIMUM_REMINDER <= 2_000

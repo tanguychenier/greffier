@@ -65,9 +65,9 @@ class TestBeingHonestAboutIt:
         assert meeting.warnings == [WARNING]
 
     def test_the_warning_says_what_is_worse_about_it(self):
-        aplati = " ".join(WARNING.split())
-        assert "modèle rapide" in aplati
-        assert "approximative" in aplati
+        flattened = " ".join(WARNING.split())
+        assert "modèle rapide" in flattened
+        assert "approximative" in flattened
 
     def test_it_also_says_what_would_be_better(self):
         assert "Retraiter" in WARNING
@@ -84,9 +84,9 @@ class TestStitchingAfterTheMeeting:
             SpeakerTurn(Span(10, 20), "v1"),
             SpeakerTurn(Span(20, 30), "v2"),
         ]
-        recolles = join_spans(turns)
-        assert len(recolles) == 2
-        assert recolles[0].span.end == 20
+        stitched = join_spans(turns)
+        assert len(stitched) == 2
+        assert stitched[0].span.end == 20
 
     def test_a_change_of_voice_cuts(self):
         from greffier.application.recover import join_spans

@@ -76,7 +76,7 @@ class TestWhenItIsWorthSaying:
     def test_the_sentence_agrees_with_itself(self) -> None:
         un = said_in_french(count([said(0, "peut-être", 0.4)] +
                                    [said(i + 1, "oui", 0.95) for i in range(4)]))
-        plusieurs = said_in_french(count([said(0, "a", 0.4), said(2, "b", 0.4)] +
+        several = said_in_french(count([said(0, "a", 0.4), said(2, "b", 0.4)] +
                                           [said(i + 4, "oui", 0.95) for i in range(8)]))
         assert "1 passage sur 5 mérite une réécoute" in un
-        assert "2 passages sur 10 méritent une réécoute" in plusieurs
+        assert "2 passages sur 10 méritent une réécoute" in several

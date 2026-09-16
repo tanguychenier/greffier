@@ -16,12 +16,12 @@ from greffier.domain.sources import Kind, Registry, Source
 
 
 def gitlab(name: str = "recherche", token: str = "GREFFIER_GITLAB_JETON") -> Source:
-    return Source(name=name, kind=Kind.GITLAB, adresse="https://gitlab.example.fr",
+    return Source(name=name, kind=Kind.GITLAB, address="https://gitlab.example.fr",
                   project="equipe/outil", token=token)
 
 
 def jira(name: str = "suivi") -> Source:
-    return Source(name=name, kind=Kind.JIRA, adresse="https://exemple.atlassian.net",
+    return Source(name=name, kind=Kind.JIRA, address="https://exemple.atlassian.net",
                   project="PROJ", token="GREFFIER_JIRA_JETON")
 
 

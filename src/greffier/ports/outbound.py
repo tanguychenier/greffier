@@ -29,7 +29,7 @@ class AudioRecorder(Protocol):
         """Starts recording in the background, returns the process identifier."""
         ...
 
-    def stop_recording(self, processus: int) -> None:
+    def stop_recording(self, process_id: int) -> None:
         """Stops cleanly, leaving the audio file usable."""
         ...
 
@@ -99,10 +99,10 @@ class ChannelReader(Protocol):
 class VoiceprintExtractor(Protocol):
     """Produces the vocal signature of an excerpt."""
 
-    def extract_spans(self, audio: Path, intervalles: list[Span]) -> list[Voiceprint]:
+    def extract_spans(self, audio: Path, the_spans: list[Span]) -> list[Voiceprint]:
         ...
 
-    def extract_together(self, audio: Path, intervalles: list[Span]) -> Voiceprint | None:
+    def extract_together(self, audio: Path, the_spans: list[Span]) -> Voiceprint | None:
         """One signature for several passages read as one, or None if too short.
 
         A voice made only of short turns has no signature of its own otherwise,

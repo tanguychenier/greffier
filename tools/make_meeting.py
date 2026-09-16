@@ -49,12 +49,12 @@ _DIALOGUE = [
 #: VITS says « Sandy » in a way whisper writes « Samy », then « Sani », which
 #: would have the chain fail on a word nobody pronounced. « Sophie » comes back
 #: intact from both, and so does « Jacques ».
-PRENOMS = {"say": ("Jacques", "Sandy"), "vits": ("Jacques", "Sophie")}
+FIRST_NAMES = {"say": ("Jacques", "Sandy"), "vits": ("Jacques", "Sophie")}
 
 
 def first_names() -> tuple[str, str]:
     """The two first names this machine's synthesiser can be trusted with."""
-    return PRENOMS[synthesis_engine() or "say"]
+    return FIRST_NAMES[synthesis_engine() or "say"]
 
 
 def two_voice_dialogue() -> list[tuple[str, str]]:
@@ -118,7 +118,7 @@ IN_ROOM_VOICE = {"A": "Thomas", "B": "Amélie", "C": "Rocko"}
 #: was not strictly nil was enough to conclude « video call ». Hence a leak in
 #: the test file, rather than a silent second channel that would make the test
 #: too easy.
-FUITE_DB = -40.0
+LEAK_DB = -40.0
 
 
 # Two voices as far apart as possible: the segmentation has to tell them apart,
@@ -183,7 +183,7 @@ def _speak(engine: str, voice: str, text: str, folder: Path, index: int) -> Path
         # reloading it for every line would cost more than the meeting itself.
         _LOADED[sid] = NeuralVoice(_installed_voice(), voice=sid, rate=1.0)
     raw = folder / f"{index:02d}-brut.wav"
-    if _LOADED[sid].fabriquer(text, raw) is None:
+    if _LOADED[sid].build_one(text, raw) is None:
         raise RuntimeError(f"la synthèse n'a rien produit pour « {text[:40]}… »")
     return raw
 
@@ -222,18 +222,18 @@ def make(destination: Path, voice: dict | None = None, dialogue=None) -> Path:
         )
 
     voice = voice or VOICE
-    lignes = dialogue if dialogue is not None else two_voice_dialogue()
+    lines = dialogue if dialogue is not None else two_voice_dialogue()
     if engine == "vits":
-        inconnues = sorted({name for name in voice.values() if name not in SID_VITS})
-        if inconnues:
+        unknown_ones = sorted({name for name in voice.values() if name not in SID_VITS})
+        if unknown_ones:
             raise RuntimeError(
                 f"la voix installée porte {len(SID_VITS)} timbres ; "
-                f"{', '.join(inconnues)} demande « say »"
+                f"{', '.join(unknown_ones)} demande « say »"
             )
     with tempfile.TemporaryDirectory() as folder:
         job = Path(folder)
         chunks: list[Path] = []
-        for index, (speaker_index, text) in enumerate(lignes):
+        for index, (speaker_index, text) in enumerate(lines):
             if speaker_index is PAUSE:
                 chunks.append(_silence(job, float(text), f"{index:02d}-pause"))
             else:
@@ -242,24 +242,24 @@ def make(destination: Path, voice: dict | None = None, dialogue=None) -> Path:
         silence = _silence(job, SILENCE, "silence")
 
         listing = job / "liste.txt"
-        entrees = []
+        entries = []
         timeline: list[dict[str, object]] = []
         cursor = 0.0
-        for (speaker_index, text), chunk in zip(lignes, chunks, strict=True):
-            converti = chunk.with_name(chunk.stem.removesuffix("-brut") + "-16k.wav")
+        for (speaker_index, text), chunk in zip(lines, chunks, strict=True):
+            converted = chunk.with_name(chunk.stem.removesuffix("-brut") + "-16k.wav")
             subprocess.run(
                 ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(chunk),
-                 "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", str(converti)],
+                 "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", str(converted)],
                 check=True,
             )
-            entrees += [converti, silence]
-            length = _length(converti)
+            entries += [converted, silence]
+            length = _length(converted)
             if speaker_index is not PAUSE:
                 timeline.append({"speaker": speaker_index, "text": text,
                                  "start": round(cursor, 2), "end": round(cursor + length, 2)})
             cursor += length + SILENCE
         listing.write_text(
-            "\n".join(f"file '{path}'" for path in entrees) + "\n", encoding="utf-8"
+            "\n".join(f"file '{path}'" for path in entries) + "\n", encoding="utf-8"
         )
 
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -311,7 +311,7 @@ def make_in_the_room(destination: Path) -> Path:
         subprocess.run(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(melange),
              "-filter_complex",
-             f"[0:a]asplit=2[m][f];[f]volume={FUITE_DB}dB[b];[m][b]amerge=inputs=2[s]",
+             f"[0:a]asplit=2[m][f];[f]volume={LEAK_DB}dB[b];[m][b]amerge=inputs=2[s]",
              "-map", "[s]", "-ar", "16000", "-ac", "2", "-c:a", "pcm_s16le",
              str(destination)],
             check=True,
@@ -320,13 +320,13 @@ def make_in_the_room(destination: Path) -> Path:
 
 
 def main() -> int:
-    analyseur = argparse.ArgumentParser(description=__doc__)
-    analyseur.add_argument("output", type=Path)
-    analyseur.add_argument(
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("output", type=Path)
+    parser.add_argument(
         "--in-the-room", action="store_true",
         help="trois voix autour d'une table, en stéréo, au lieu de deux en mono",
     )
-    arguments = analyseur.parse_args()
+    arguments = parser.parse_args()
     path = (
         make_in_the_room(arguments.output)
         if arguments.in_the_room

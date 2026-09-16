@@ -107,7 +107,7 @@ def known_about(file: Path, subject: str, meetings_at_most: int = 5) -> Known:
                 (Link.ATTENDED.value, *meetings),
             )
         ]
-        ouverts = [
+        open_ones = [
             line[0] for line in lien.execute(
                 f"SELECT cle_fin FROM arete WHERE lien = ? "  # noqa: S608
                 f"AND cle_debut IN ({gaps})",
@@ -131,7 +131,7 @@ def known_about(file: Path, subject: str, meetings_at_most: int = 5) -> Known:
         subject=subject,
         people=tuple(people),
         meetings=tuple(meetings),
-        open_points=tuple(ouverts),
+        open_points=tuple(open_ones),
         documents=tuple(documents),
         sources=tuple(sources),
     )

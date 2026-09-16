@@ -16,21 +16,21 @@ from greffier.adapters.audio_ffmpeg import why_unreadable
 def session(monkeypatch, tmp_path):
     """A session without « pactl », whose server socket is opened or not."""
     monkeypatch.setattr(diagnostic, "SYSTEM", "Linux")
-    monkeypatch.setattr(diagnostic.shutil, "which", lambda _outil: None)
+    monkeypatch.setattr(diagnostic.shutil, "which", lambda _tool: None)
     monkeypatch.delenv("PULSE_SERVER", raising=False)
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
     return tmp_path
 
 
-def ouvrir_la_prise(session):
+def open_the_take(session):
     take = session / "pulse"
     take.mkdir()
     (take / "native").touch()
 
 
-class TestServeurDeSon:
+class TestTheSoundServer:
     def test_the_server_socket_is_enough(self, session):
-        ouvrir_la_prise(session)
+        open_the_take(session)
         assert diagnostic.sound_server_present()
 
     def test_with_neither_socket_nor_server_there_is_nothing_to_capture(self, session):
@@ -42,12 +42,12 @@ class TestServeurDeSon:
         assert diagnostic.sound_server_present()
 
 
-class TestConstatDeCapture:
+class TestTheCaptureReading:
     def test_the_capture_is_announced_as_possible(self, session):
-        ouvrir_la_prise(session)
-        constat = diagnostic.system_capture()
-        assert constat.present
-        assert "pactl" not in constat.detail
+        open_the_take(session)
+        the_reading = diagnostic.system_capture()
+        assert the_reading.present
+        assert "pactl" not in the_reading.detail
 
     def test_the_mic_is_still_found_through_the_sound_server(self, session, monkeypatch):
         """A machine without /proc/asound, a container, but with a server."""

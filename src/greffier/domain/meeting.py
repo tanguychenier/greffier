@@ -16,8 +16,8 @@ def held_on(identifier: str) -> tuple[int, int, int, int, int] | None:
     found = HORODATAGE.match(identifier)
     if found is None:
         return None
-    annee, mois, jour, heure, minute = found.groups()
-    return (int(annee), int(mois), int(jour), int(heure or 0), int(minute or 0))
+    year, month, day, the_hour, minute = found.groups()
+    return (int(year), int(month), int(day), int(the_hour or 0), int(minute or 0))
 
 IDENTIFIABLE_SECONDS = 6.0
 
@@ -96,8 +96,8 @@ class StoredMeeting:
 
     def voice_named(self, name: str) -> list[str]:
         """The voices already given that name, in this meeting."""
-        replie = name.casefold()
-        return [v for v, porte in self.names.items() if porte.casefold() == replie]
+        folded = name.casefold()
+        return [v for v, carries in self.names.items() if carries.casefold() == folded]
 
     def join_into(self, absorbed_one: str, kept_one: str) -> int:
         """Pours every turn and utterance of one voice into another.
@@ -107,12 +107,12 @@ class StoredMeeting:
         """
         if absorbed_one == kept_one:
             return 0
-        rangs = tuple(i for i, t in enumerate(self.turns) if t.voice == absorbed_one)
-        dits = tuple(
+        ranks = tuple(i for i, t in enumerate(self.turns) if t.voice == absorbed_one)
+        said_ones = tuple(
             i for i, u in enumerate(self.utterances) if u.voice == absorbed_one
         )
         self.joins.append(Join(
-            absorbed=absorbed_one, kept=kept_one, turns=rangs, utterances=dits,
+            absorbed=absorbed_one, kept=kept_one, turns=ranks, utterances=said_ones,
             name=self.names.get(absorbed_one),
             proposition=self.propositions.get(absorbed_one),
         ))
@@ -125,7 +125,7 @@ class StoredMeeting:
                 utterance.voice = kept_one
         self.names.pop(absorbed_one, None)
         self.propositions.pop(absorbed_one, None)
-        return len(rangs)
+        return len(ranks)
 
     def can_split(self, kept: str) -> bool:
         """True when this voice absorbed another one that can be taken back."""
@@ -137,23 +137,23 @@ class StoredMeeting:
         Gives the absorbed voice back its identifier, its turns, its utterances
         and the name it carried. Returns nothing when there is nothing to undo.
         """
-        rendue = next((f for f in reversed(self.joins) if f.kept == kept), None)
-        if rendue is None:
+        returned = next((f for f in reversed(self.joins) if f.kept == kept), None)
+        if returned is None:
             return None
-        for rang in rendue.turns:
+        for rang in returned.turns:
             if 0 <= rang < len(self.turns):
                 self.turns[rang] = replace(
-                    self.turns[rang], voice=rendue.absorbed
+                    self.turns[rang], voice=returned.absorbed
                 )
-        for rang in rendue.utterances:
+        for rang in returned.utterances:
             if 0 <= rang < len(self.utterances):
-                self.utterances[rang].voice = rendue.absorbed
-        if rendue.name:
-            self.names[rendue.absorbed] = rendue.name
-        if rendue.proposition:
-            self.propositions[rendue.absorbed] = rendue.proposition
-        self.joins.remove(rendue)
-        return rendue
+                self.utterances[rang].voice = returned.absorbed
+        if returned.name:
+            self.names[returned.absorbed] = returned.name
+        if returned.proposition:
+            self.propositions[returned.absorbed] = returned.proposition
+        self.joins.remove(returned)
+        return returned
 
     @property
     def caption(self) -> str:
@@ -171,16 +171,16 @@ class StoredMeeting:
         """Passages of at least `minimum` seconds without a single utterance."""
         if not self.utterances:
             return [Span(0.0, self.duration)] if self.duration > minimum else []
-        manques: list[Span] = []
-        ordonnees = sorted(self.utterances, key=lambda r: r.span.start)
+        missing_ones: list[Span] = []
+        ordered = sorted(self.utterances, key=lambda r: r.span.start)
         previous = 0.0
-        for utterance in ordonnees:
+        for utterance in ordered:
             if utterance.span.start - previous >= minimum:
-                manques.append(Span(previous, utterance.span.start))
+                missing_ones.append(Span(previous, utterance.span.start))
             previous = max(previous, utterance.span.end)
         if self.duration - previous >= minimum:
-            manques.append(Span(previous, self.duration))
-        return manques
+            missing_ones.append(Span(previous, self.duration))
+        return missing_ones
 
     def name_of(self, voice: str | None) -> str:
         return named_or_unknown(voice, self.names, self.speaking_time())

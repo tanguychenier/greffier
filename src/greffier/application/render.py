@@ -46,7 +46,7 @@ ATTRIBUTION_BY_VOICE_LINE = (
 
 _HORODATAGE = HORODATAGE
 
-_MOIS = ("janvier", "février", "mars", "avril", "mai", "juin", "juillet",
+_MONTHS = ("janvier", "février", "mars", "avril", "mai", "juin", "juillet",
          "août", "septembre", "octobre", "novembre", "décembre")
 
 def context_header(
@@ -83,17 +83,17 @@ def _context_line(
 ) -> str:
     chunks: list[str] = []
     if found:
-        annee, mois, jour, heure, minute = found.groups()
-        chunks.append(f"{int(jour)} {_MOIS[int(mois) - 1]} {annee}")
+        year, month, day, the_hour, minute = found.groups()
+        chunks.append(f"{int(day)} {_MONTHS[int(month) - 1]} {year}")
     if started_at is not None and ended_at is not None:
         local_start, local_end = started_at.astimezone(), ended_at.astimezone()
         chunks.append(
             f"de {local_start.hour} h {local_start.minute:02d} "
             f"à {local_end.hour} h {local_end.minute:02d}"
         )
-        ecoule = (ended_at - started_at).total_seconds()
-        if ecoule > 0:
-            chunks.append(f"durée {_readable_duration(ecoule)}")
+        elapsed = (ended_at - started_at).total_seconds()
+        if elapsed > 0:
+            chunks.append(f"durée {_readable_duration(elapsed)}")
     elif found and found.group(4):
         chunks.append(_time_range(int(found.group(4)), int(found.group(5)), duration))
         if duration > 0:
@@ -106,12 +106,12 @@ def _context_line(
     present_line = _present_line(names, voices_heard)
     return f"{line} {present_line}" if present_line else line
 
-def _time_range(heure: int, minute: int, duration: float) -> str:
+def _time_range(the_hour: int, minute: int, duration: float) -> str:
     """"from 16:46 to 17:03", the end time follows from the duration."""
     if duration <= 0:
-        return f"à {heure} h {minute:02d}"
-    end = (heure * 60 + minute + int(duration // 60)) % (24 * 60)
-    return f"de {heure} h {minute:02d} à {end // 60} h {end % 60:02d}"
+        return f"à {the_hour} h {minute:02d}"
+    end = (the_hour * 60 + minute + int(duration // 60)) % (24 * 60)
+    return f"de {the_hour} h {minute:02d} à {end // 60} h {end % 60:02d}"
 
 def _present_line(names: Sequence[str], voices_heard: int) -> str:
     known = [n for n in dict.fromkeys(names) if n]
@@ -119,8 +119,8 @@ def _present_line(names: Sequence[str], voices_heard: int) -> str:
         remaining = voices_heard - len(known)
         listing = ", ".join(known)
         if remaining > 0:
-            pluriel = "s" if remaining > 1 else ""
-            return f"Participants : {listing}, et {remaining} voix non nommée{pluriel}."
+            plural = "s" if remaining > 1 else ""
+            return f"Participants : {listing}, et {remaining} voix non nommée{plural}."
         return f"Participants : {listing}."
     if voices_heard > 0:
         if voices_heard == 1:
@@ -130,13 +130,13 @@ def _present_line(names: Sequence[str], voices_heard: int) -> str:
     return ""
 
 def _readable_duration(seconds: float) -> str:
-    heures, remaining = divmod(int(seconds), 3600)
-    minutes, restantes = divmod(remaining, 60)
-    if heures:
-        return f"{heures} h {minutes:02d}"
+    hours, remaining = divmod(int(seconds), 3600)
+    minutes, left_over = divmod(remaining, 60)
+    if hours:
+        return f"{hours} h {minutes:02d}"
     if minutes:
         return f"{minutes} min"
-    return f"{restantes} s"
+    return f"{left_over} s"
 
 def disclosure_header(disclosure: str) -> str:
     """The recording statement, dictated to the writer word for word."""
@@ -292,27 +292,27 @@ def notable_passages(
     """The passages to splice together to hear the essentials again."""
     temps = meeting.speaking_time()
     total = sum(temps.values()) or 1.0
-    retenus: list[Span] = []
+    retained_ones: list[Span] = []
 
     for voice, is_speaking in temps.items():
         quota = target_length * (is_speaking / total)
         if quota < minimum_length:
             continue
-        candidats = sorted(
+        candidates_ = sorted(
             (t.span for t in meeting.turns if t.voice == voice),
             key=lambda i: -i.duration,
         )
         cumulated = 0.0
-        for span in candidats:
+        for span in candidates_:
             if cumulated >= quota:
                 break
             if span.duration < minimum_length:
                 continue
             end = min(span.end, span.start + max(minimum_length, quota - cumulated))
-            retenus.append(Span(span.start, end))
+            retained_ones.append(Span(span.start, end))
             cumulated += end - span.start
 
-    return sorted(retenus, key=lambda i: i.start)
+    return sorted(retained_ones, key=lambda i: i.start)
 
 def assemble(audio: Path, passages: list[Span], destination: Path) -> Path:
     """Cuts and stitches the passages into a single file."""
@@ -396,25 +396,25 @@ def voiceprints_per_voice(
     extractor: Any, audio: Path, per_voice: dict[str, list[Any]]
 ) -> dict[str, list[Any]]:
     """The voiceprints of each voice, reading the recording only once."""
-    all_of_them = [(voice, i) for voice, intervalles in per_voice.items() for i in intervalles]
+    all_of_them = [(voice, i) for voice, the_spans in per_voice.items() for i in the_spans]
     voiceprints = extractor.extract_spans(audio, [i for _, i in all_of_them])
     if len(voiceprints) != len(all_of_them):
         # The usual case, not the exception: a span shorter than the model
         # accepts is dropped, so the two lists rarely match.
-        groupees: dict[str, list[Any]] = {
-            voice: extractor.extract_spans(audio, intervalles)
-            for voice, intervalles in per_voice.items()
+        grouped: dict[str, list[Any]] = {
+            voice: extractor.extract_spans(audio, the_spans)
+            for voice, the_spans in per_voice.items()
         }
-        return _gathered(extractor, audio, per_voice, groupees)
-    groupees = {voice: [] for voice in per_voice}
+        return _gathered(extractor, audio, per_voice, grouped)
+    grouped = {voice: [] for voice in per_voice}
     for (voice, _), voiceprint in zip(all_of_them, voiceprints, strict=True):
-        groupees[voice].append(voiceprint)
-    return _gathered(extractor, audio, per_voice, groupees)
+        grouped[voice].append(voiceprint)
+    return _gathered(extractor, audio, per_voice, grouped)
 
 
 def _gathered(
     extractor: Any, audio: Path, per_voice: dict[str, list[Any]],
-    groupees: dict[str, list[Any]],
+    grouped: dict[str, list[Any]],
 ) -> dict[str, list[Any]]:
     """Gives a voice made only of short turns the signature it lacked.
 
@@ -426,14 +426,14 @@ def _gathered(
     """
     ensemble = getattr(extractor, "extract_together", None)
     if not callable(ensemble):
-        return groupees
-    for voice, already in groupees.items():
+        return grouped
+    for voice, already in grouped.items():
         if already or not per_voice.get(voice):
             continue
-        seule = ensemble(audio, per_voice[voice])
-        if seule is not None:
-            groupees[voice] = [seule]
-    return groupees
+        alone = ensemble(audio, per_voice[voice])
+        if alone is not None:
+            grouped[voice] = [alone]
+    return grouped
 
 def review_voices(
     meeting: Any,
@@ -441,19 +441,19 @@ def review_voices(
     bank: Any = None,
 ) -> tuple[int, int]:
     """Replays voice stitching on an already processed meeting."""
-    from dataclasses import replace as _remplacer
+    from dataclasses import replace as _replace
 
-    from greffier.domain import voiceprints as voix_domaine
+    from greffier.domain import voiceprints as voice_domain
 
-    avant = {t.voice for t in meeting.turns if t.voice}
+    earlier = {t.voice for t in meeting.turns if t.voice}
     per_voice: dict[str, list[Any]] = {}
     for turn in meeting.turns:
         per_voice.setdefault(turn.voice, []).append(turn.span)
     voiceprints = voiceprints_per_voice(extractor, meeting.audio, per_voice)
-    membership = voix_domaine.stitch(voiceprints)
+    membership = voice_domain.stitch(voiceprints)
 
     meeting.turns = [
-        _remplacer(t, voice=membership.get(t.voice, t.voice)) for t in meeting.turns
+        _replace(t, voice=membership.get(t.voice, t.voice)) for t in meeting.turns
     ]
     for utterance in meeting.utterances:
         if utterance.voice is not None:
@@ -479,34 +479,34 @@ def review_voices(
         if membership.get(v, v) not in names
     }
     if bank is not None:
-        _reconnaitre_a_nouveau(meeting, voiceprints, membership, bank)
+        _recognise_again(meeting, voiceprints, membership, bank)
     _join_namesakes(meeting)
-    return len(avant), len({t.voice for t in meeting.turns if t.voice})
+    return len(earlier), len({t.voice for t in meeting.turns if t.voice})
 
 def _join_namesakes(meeting: Any) -> None:
     """Two voices carrying the same name are one person."""
     temps = meeting.speaking_time()
     for name in {n.casefold() for n in meeting.names.values()}:
-        portantes = sorted(
-            (v for v, porte in meeting.names.items() if porte.casefold() == name),
+        carrying = sorted(
+            (v for v, carries in meeting.names.items() if carries.casefold() == name),
             key=lambda v: -temps.get(v, 0.0),
         )
-        kept_one = portantes[0]
-        for absorbed_one in portantes[1:]:
+        kept_one = carrying[0]
+        for absorbed_one in carrying[1:]:
             meeting.join_into(absorbed_one, kept_one)
-        if portantes[1:]:
+        if carrying[1:]:
             meeting.names[kept_one] = next(
                 n for n in meeting.names.values() if n.casefold() == name
             ) if kept_one in meeting.names else meeting.names.get(kept_one, "")
 
-def _reconnaitre_a_nouveau(
+def _recognise_again(
     meeting: Any,
     voiceprints: dict[str, list[Any]],
     membership: dict[str, str],
     bank: Any,
 ) -> None:
     """Asks the bank again who the voices are, once stitched."""
-    from greffier.domain import voiceprints as voix_domaine
+    from greffier.domain import voiceprints as voice_domain
 
     known = bank.people()
     if not known:
@@ -517,7 +517,7 @@ def _reconnaitre_a_nouveau(
     for voice, listing in groups.items():
         if voice in meeting.names or not listing:
             continue
-        match = voix_domaine.recognise(voix_domaine.aggregate(listing), known)
+        match = voice_domain.recognise(voice_domain.aggregate(listing), known)
         if match and match.sure:
             meeting.names[voice] = match.name
             meeting.propositions.pop(voice, None)

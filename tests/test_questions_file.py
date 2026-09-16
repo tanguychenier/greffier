@@ -28,7 +28,7 @@ class TestFile:
         assert [waiting.question.expected for waiting in awaiting] == ["backlog"]
         assert answers == {}
 
-    def test_une_question_repondue_quitte_l_attente(self, tmp_path):
+    def test_an_answered_question_leaves_the_queue(self, tmp_path):
         file = questions_file(tmp_path, "essai")
         publish(file, question())
         answer(file, 1, "backlog")
@@ -63,7 +63,7 @@ class TestFile:
         assert [waiting.number for waiting in awaiting] == [1, 2]
 
 
-class TestMemoireApresRedemarrage:
+class TestMemoryAfterARestart:
     """The listening process may be restarted during a meeting."""
 
     def test_the_questions_already_asked_are_found(self, tmp_path):
@@ -107,10 +107,10 @@ class TestTheQueueSurvivesARestart:
             conversations_file.add(conversation, "note",
                                    note(waiting.question.text))
 
-        relu = conversations_file.read(conversation, derniers=0)
+        reread_one = conversations_file.read(conversation, last_ones=0)
         assert already_noted(
             [waiting.question for waiting in awaiting],
-            [turn.text for turn in relu],
+            [turn.text for turn in reread_one],
         ) == {1, 2}
 
     def test_a_question_asked_after_the_last_launch_is_still_shown(self, tmp_path):
@@ -129,8 +129,8 @@ class TestTheQueueSurvivesARestart:
             number=2, text="J'ai entendu « merde ».", motif=Reason.NEAR_TERM,
             heard="merde", expected="merge"))
         awaiting, _ = questions_file.read(queue)
-        relu = conversations_file.read(conversation, derniers=0)
+        reread_one = conversations_file.read(conversation, last_ones=0)
         assert already_noted(
             [waiting.question for waiting in awaiting],
-            [turn.text for turn in relu],
+            [turn.text for turn in reread_one],
         ) == {1}

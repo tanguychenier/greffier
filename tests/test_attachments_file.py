@@ -12,7 +12,7 @@ def base(tmp_path: Path) -> Path:
     return tmp_path / "pieces"
 
 
-class TestGarder:
+class TestKeeping:
     def test_the_text_is_kept_under_the_meeting(self, base):
         piece = attachments_file.write(base, "reunion-1", "Ordre du jour.pdf", "Point sur CASA")
         assert piece is not None
@@ -59,7 +59,7 @@ class TestLister:
         assert "1 k" in attachments_file.list_(base, "r")[0].say()
 
 
-class TestMatiere:
+class TestTheMaterial:
     def test_every_document_is_announced_by_its_name(self, base):
         """Without the name, two contradictory documents become a single voice."""
         attachments_file.write(base, "r", "Ordre du jour.pdf", "on parlera de CASA")

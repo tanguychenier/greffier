@@ -28,7 +28,7 @@ from greffier.domain.participation import (
     without_own_name,
 )
 
-CONSIGNES_ORALES = """Tu t'appelles {name} et tu participes à une réunion de
+SPOKEN_GUIDANCE = """Tu t'appelles {name} et tu participes à une réunion de
 travail. On t'entend par un haut-parleur : ce que tu écris sera prononcé tel
 quel, à voix haute, devant les participants.
 
@@ -68,12 +68,12 @@ CONTEXT_MAXIMUM = 6000
 
 NOTHING = "RIEN"
 
-CONSIGNES_SUITE = """Tu t'appelles {name} et tu participes à une réunion. Tu as
+FOLLOW_UP_GUIDANCE = """Tu t'appelles {name} et tu participes à une réunion. Tu as
 posé une question, on vient de te répondre.
 
 Si la réponse règle la question, dis-le en **une phrase courte** qui montre ce
 que tu en as retenu, et rends la parole. Une phrase du genre « très bien, donc
-c'est {exemple} qui s'en occupe » vaut mieux qu'un « merci » seul : elle prouve
+c'est {example} qui s'en occupe » vaut mieux qu'un « merci » seul : elle prouve
 que tu as compris, et elle laisse une trace juste dans le compte rendu.
 
 Si la réponse ne règle rien et qu'une précision changerait le compte rendu,
@@ -91,7 +91,7 @@ Ta question était : « {question} »
 Ce qu'on vient de te répondre :
 """
 
-CONSIGNES_APPORT = """Tu t'appelles {name} et tu assistes à une réunion de travail
+CONTRIBUTION_GUIDANCE = """Tu t'appelles {name} et tu assistes à une réunion de travail
 sans y avoir été invitée à parler. On te donne ce qui vient de se dire.
 
 Ta réponse par défaut est le mot {nothing}, seul, sans rien d'autre. C'est la
@@ -139,7 +139,7 @@ class Remark:
     remark: str
     because: Because
     a: float
-    prononce: bool = False
+    pronounced: bool = False
 
 @dataclass
 class AssistantSettings:
@@ -148,7 +148,7 @@ class AssistantSettings:
     name: str = "Greffier"
     manners: Manners = field(default_factory=Manners)
     voice: Speaker | None = None
-    cerveau: Any | None = None
+    the_brain: Any | None = None
     context: Callable[[], str] | None = None
     setting: Callable[[], str] | None = None
     tracer: Callable[[str, str], None] | None = None
@@ -187,7 +187,7 @@ class AssistantSettings:
         occasions: list[Opening] | None = None,
     ) -> Opening | None:
         """What the assistant takes from this slice, or nothing."""
-        proposees = list(occasions or [])
+        offered_ones = list(occasions or [])
         for utterance in utterances:
             text = utterance.text.strip()
             if not text or self._is_his_own(utterance, now):
@@ -198,8 +198,8 @@ class AssistantSettings:
                     return accuse
             if called_by_name(text, self.name):
                 request = question_asked(text, self.name) or text
-                proposees.append(Opening(
-                    because=Because.APPELE,
+                offered_ones.append(Opening(
+                    because=Because.CALLED,
                     remark=request,
                     born_at=utterance.span.end,
                     # A subject, so a question the overlap brings back in the
@@ -207,10 +207,10 @@ class AssistantSettings:
                     subject=f"appel:{_fingerprint_of_the_words(request)}",
                 ))
         if self.in_reserve is not None:
-            proposees.append(self.in_reserve)
+            offered_ones.append(self.in_reserve)
         lull = self._lull(utterances, now)
         density = speech_density(turns or [], now) if turns else 0.0
-        retained = self.manners.choose(proposees, now, lull, density)
+        retained = self.manners.choose(offered_ones, now, lull, density)
         if retained is not None and retained is self.in_reserve:
             self.in_reserve = None
         return retained
@@ -226,10 +226,10 @@ class AssistantSettings:
         if self._search is not None and self._search.is_alive():
             return
 
-        def chercher() -> None:
+        def search_() -> None:
             self.in_reserve = self.contribution(now)
 
-        self._search = threading.Thread(target=chercher, daemon=True)
+        self._search = threading.Thread(target=search_, daemon=True)
         self._search.start()
 
     def _is_his_own(self, utterance: Utterance, now: float = 0.0) -> bool:
@@ -276,25 +276,25 @@ class AssistantSettings:
 
     def _acknowledge(self, text: str, a: float) -> Opening | None:
         """Handles the sentence that answers the question asked."""
-        attendue, self.awaiting = self.awaiting, None
-        if attendue is None:
+        expected, self.awaiting = self.awaiting, None
+        if expected is None:
             return None
-        if attendue.because is Because.INDISTINCT_VOICE:
-            return self._name_from_answer(attendue, text, a)
-        return self._follow_up_its_question(attendue, text, a)
+        if expected.because is Because.INDISTINCT_VOICE:
+            return self._name_from_answer(expected, text, a)
+        return self._follow_up_its_question(expected, text, a)
 
     def _name_from_answer(
-        self, attendue: Opening, text: str, a: float
+        self, expected: Opening, text: str, a: float
     ) -> Opening | None:
         """"It's Hubert" becomes a name carried into the minutes.
 
         That is what separates an exchange from a question thrown into the air.
         """
         first_name = _first_name_in(text)
-        voice = attendue.subject.removeprefix("voix:")
+        voice = expected.subject.removeprefix("voix:")
         if first_name and self.name_voice is not None and self.name_voice(voice, first_name):
             return Opening(
-                because=Because.APPELE,
+                because=Because.CALLED,
                 remark=f"Merci, c'est noté : je mets {first_name} sur cette voix.",
                 born_at=a,
                 subject=f"merci:{voice}",
@@ -303,13 +303,13 @@ class AssistantSettings:
         return None
 
     def _follow_up_its_question(
-        self, attendue: Opening, text: str, a: float
+        self, expected: Opening, text: str, a: float
     ) -> Opening | None:
         """Reacts to the answer just given, or keeps quiet."""
-        if self.cerveau is None:
+        if self.the_brain is None:
             return None
-        guidance = CONSIGNES_SUITE.format(
-            name=self.name, nothing=NOTHING, question=attendue.remark, exemple="Hubert")
+        guidance = FOLLOW_UP_GUIDANCE.format(
+            name=self.name, nothing=NOTHING, question=expected.remark, example="Hubert")
         try:
             remark = self._interrogate(guidance, text)
         except (RuntimeError, OSError):
@@ -317,10 +317,10 @@ class AssistantSettings:
         if not remark or remark.strip().upper().startswith(NOTHING):
             return None
         suite = Opening(
-            because=Because.APPELE,
+            because=Because.CALLED,
             remark=remark,
             born_at=a,
-            subject=f"suite:{attendue.subject or _fingerprint_of_the_words(attendue.remark)}",
+            subject=f"suite:{expected.subject or _fingerprint_of_the_words(expected.remark)}",
             as_is=True,
         )
         if remark.rstrip().endswith("?"):
@@ -341,8 +341,8 @@ class AssistantSettings:
             return Remark(remark="", because=opening.because, a=now)
         # Kept before speaking: a slice can come back while `say` still holds.
         self.its_own_words.append((now, own_words(remark)))
-        prononce = bool(self.voice and self.voice.say(remark))
-        if prononce:
+        pronounced = bool(self.voice and self.voice.say(remark))
+        if pronounced:
             end = now + 1.0 + len(remark) / 15.0
             self.its_own_turns.append((now, end))
             if self.keep_its_turn is not None:
@@ -353,7 +353,7 @@ class AssistantSettings:
             with contextlib.suppress(OSError):
                 self.tracer(self.name.lower(), remark)
         return Remark(remark=remark, because=opening.because, a=now,
-                            prononce=prononce)
+                            pronounced=pronounced)
 
     def answer_aside(self, opening: Opening, now: float) -> None:
         """Answers in a separate thread, so as not to hold up transcription."""
@@ -372,9 +372,9 @@ class AssistantSettings:
         name included, then heard itself and answered again. Fifteen times in
         fifteen seconds, in a real meeting. Echoing is worse than silence.
         """
-        if opening.as_is or opening.because is not Because.APPELE:
+        if opening.as_is or opening.because is not Because.CALLED:
             return opening.remark
-        if self.cerveau is None:
+        if self.the_brain is None:
             return ""
         material = ""
         if self.context is not None:
@@ -385,7 +385,7 @@ class AssistantSettings:
             f"On vient de te dire : « {opening.remark} »\n\nRéponds."
         )
         try:
-            remark = str(self.cerveau.write_up(request)).strip()
+            remark = str(self.the_brain.write_up(request)).strip()
         except (RuntimeError, OSError):
             return ""
         # Nothing to answer is an answer, and it is silence. Read back from a
@@ -397,7 +397,7 @@ class AssistantSettings:
 
     def contribution(self, now: float) -> Opening | None:
         """What the assistant would have to add of its own, or nothing."""
-        if self.cerveau is None or self.context is None:
+        if self.the_brain is None or self.context is None:
             return None
         if self.manners.spoke_at is not None and (
                 now - self.manners.spoke_at < self.manners.rest):
@@ -408,7 +408,7 @@ class AssistantSettings:
             return None
         if not material.strip():
             return None
-        guidance = CONSIGNES_APPORT.format(name=self.name, nothing=NOTHING)
+        guidance = CONTRIBUTION_GUIDANCE.format(name=self.name, nothing=NOTHING)
         try:
             remark = self._interrogate(guidance, material)
         except (RuntimeError, OSError):
@@ -424,18 +424,18 @@ class AssistantSettings:
 
     def _interrogate(self, guidance: str, material: str) -> str:
         """A call to the brain, with guidance that is not the writer's."""
-        cerveau = self.cerveau
-        if cerveau is None:
+        the_brain = self.the_brain
+        if the_brain is None:
             return ""
-        avant = getattr(cerveau, "own_guidance", None)
+        earlier = getattr(the_brain, "own_guidance", None)
         try:
-            if avant is not None:
-                cerveau.own_guidance = guidance
-                return str(cerveau.write_up(material)).strip()
-            return str(cerveau.write_up(guidance + material)).strip()
+            if earlier is not None:
+                the_brain.own_guidance = guidance
+                return str(the_brain.write_up(material)).strip()
+            return str(the_brain.write_up(guidance + material)).strip()
         finally:
-            if avant is not None:
-                cerveau.own_guidance = avant
+            if earlier is not None:
+                the_brain.own_guidance = earlier
 
     def ask_who_is_speaking(self, voice: str, now: float) -> Opening:
         """The question that settles the tool's most expensive problem.
@@ -459,9 +459,9 @@ class AssistantSettings:
         people in it. Without them it answers on the words it hears, and this
         room says "CASA" and "visa" for things no general model knows.
         """
-        consignes = CONSIGNES_ORALES.format(name=self.name, nothing=NOTHING)
+        guidance_ = SPOKEN_GUIDANCE.format(name=self.name, nothing=NOTHING)
         milieu = self._the_setting()
-        return f"{milieu}{consignes}" if milieu else consignes
+        return f"{milieu}{guidance_}" if milieu else guidance_
 
     def _the_setting(self) -> str:
         """The glossary of the setting, or nothing when there is none."""
@@ -490,7 +490,7 @@ def _first_name_in(text: str) -> str:
         "voix", "personne", "sais", "pas", "alors", "donc", "là", "ici", "là-bas",
     }
     words = [m for m in re.findall(r"[\w'-]+", text, flags=re.UNICODE) if m]
-    candidats = [m for m in words if m.lower().strip("'") not in tools and len(m) > 2]
-    if len(candidats) != 1:
+    candidates_ = [m for m in words if m.lower().strip("'") not in tools and len(m) > 2]
+    if len(candidates_) != 1:
         return ""
-    return str(candidats[0]).strip("'").capitalize()
+    return str(candidates_[0]).strip("'").capitalize()

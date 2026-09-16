@@ -137,7 +137,7 @@ def guidance(language: str = "") -> str:
         f"\n\nRappel : le compte rendu s'écrit en {name}.\n"
     )
 
-CONSIGNES_CONVERSATION = """Tu assistes quelqu'un pendant ou après une réunion de
+CONVERSATION_GUIDANCE = """Tu assistes quelqu'un pendant ou après une réunion de
 travail. On te donne ce qui s'est dit, puis une question.
 
 Réponds brièvement, en français, sans plan ni titres : c'est une conversation,
@@ -289,25 +289,25 @@ class ClaudeWriter:
                     stderr=subprocess.PIPE, text=True,
                 )
                 for line in process.stdout or ():
-                    evenement = _event(line)
-                    if evenement is None:
+                    the_event = _event(line)
+                    if the_event is None:
                         continue
-                    if not already_searching and _is_a_search(evenement, self.SEARCH_TOOLS):
+                    if not already_searching and _is_a_search(the_event, self.SEARCH_TOOLS):
                         already_searching = True
                         if self.on_search is not None:
                             self.on_search()
-                    if evenement.get("type") == "result":
-                        text = str(evenement.get("result") or "").strip()
+                    if the_event.get("type") == "result":
+                        text = str(the_event.get("result") or "").strip()
                 try:
                     process.wait(timeout=self.timeout)
                 except subprocess.TimeoutExpired:
                     process.kill()
                     raise
-                erreurs = (process.stderr.read() if process.stderr else "").strip()
+                errors = (process.stderr.read() if process.stderr else "").strip()
         finally:
             question.unlink(missing_ok=True)
         if process.returncode != 0 or not text:
-            details = erreurs.splitlines()
+            details = errors.splitlines()
             raise RuntimeError(
                 "Claude Code n'a rien produit"
                 + (f" : {details[-1]}" if details else ".")

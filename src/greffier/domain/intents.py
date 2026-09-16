@@ -8,7 +8,7 @@ from enum import StrEnum
 
 
 class What(StrEnum):
-    TERME = "terme"
+    TERM = "terme"
     NOBODY = "personne"
 
 @dataclass(frozen=True, slots=True)
@@ -29,10 +29,10 @@ class Learning:
             who = f"« {self.subject} »"
             role = f", {self.precision}" if self.precision else ""
             return f"J'ajoute {who}{role} aux personnes du contexte. Confirme ?"
-        sens = f" ({self.precision})" if self.precision else ""
-        return f"J'ajoute « {self.subject} »{sens} au contexte. Confirme ?"
+        meaning = f" ({self.precision})" if self.precision else ""
+        return f"J'ajoute « {self.subject} »{meaning} au contexte. Confirme ?"
 
-_AMORCES = r"(?:retiens|note|apprends|souviens[- ]toi|garde)"
+_OPENERS = r"(?:retiens|note|apprends|souviens[- ]toi|garde)"
 
 _LIENS = r"(?:veut dire|signifie|c'est[- ]à[- ]dire|=|:|désigne|correspond à)"
 
@@ -44,7 +44,7 @@ _ROLES = (
 )
 
 _PERSON_PATTERN = re.compile(
-    rf"^\s*{_AMORCES}\b[^:]*?\bque\s+(?P<sujet>[A-ZÉÈÀÂÎÔÛ][\w'’-]{{1,30}}"
+    rf"^\s*{_OPENERS}\b[^:]*?\bque\s+(?P<sujet>[A-ZÉÈÀÂÎÔÛ][\w'’-]{{1,30}}"
     rf"(?:\s+[A-ZÉÈÀÂÎÔÛ][\w'’-]{{1,30}})?)\s+(?:est|était|sera)\s+"
     rf"(?P<precision>.{{1,120}}?)\s*[.!]?\s*$",
     re.IGNORECASE | re.UNICODE,
@@ -52,17 +52,17 @@ _PERSON_PATTERN = re.compile(
 
 _MOTIFS = (
     re.compile(
-        rf"^\s*{_AMORCES}\b[^:]*?\bque\s+(?P<sujet>.{{1,60}}?)\s+{_LIENS}\s+"
+        rf"^\s*{_OPENERS}\b[^:]*?\bque\s+(?P<sujet>.{{1,60}}?)\s+{_LIENS}\s+"
         rf"(?P<precision>.{{1,160}}?)\s*[.!]?\s*$",
         re.IGNORECASE,
     ),
     re.compile(
-        rf"^\s*{_AMORCES}\b\s*[:,]?\s*(?P<sujet>.{{1,60}}?)\s*{_LIENS}\s*"
+        rf"^\s*{_OPENERS}\b\s*[:,]?\s*(?P<sujet>.{{1,60}}?)\s*{_LIENS}\s*"
         rf"(?P<precision>.{{1,160}}?)\s*[.!]?\s*$",
         re.IGNORECASE,
     ),
     re.compile(
-        rf"^\s*{_AMORCES}\b\s*(?:le mot|le terme|le sigle|l'acronyme)\s+"
+        rf"^\s*{_OPENERS}\b\s*(?:le mot|le terme|le sigle|l'acronyme)\s+"
         rf"(?P<sujet>.{{1,60}}?)\s*[.!]?\s*$",
         re.IGNORECASE,
     ),
@@ -106,7 +106,7 @@ def understand(sentence: str) -> Learning | None:
         )
         if not subject or len(subject.split()) > 5:
             continue
-        what = What.NOBODY if _is_a_role(precision) else What.TERME
+        what = What.NOBODY if _is_a_role(precision) else What.TERM
         try:
             return Learning(what, subject, precision)
         except ValueError:

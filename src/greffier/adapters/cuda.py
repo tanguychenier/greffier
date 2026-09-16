@@ -92,11 +92,11 @@ def a_card_answers() -> bool:
     the tool without a usable card, and a container can carry the card without
     the tool.
     """
-    pilote = DRIVERS.get(SYSTEM)
-    if pilote is None:
+    the_driver = DRIVERS.get(SYSTEM)
+    if the_driver is None:
         return False
     try:
-        driver = ctypes.CDLL(pilote)
+        driver = ctypes.CDLL(the_driver)
     except OSError:
         return False
     with contextlib.suppress(AttributeError, OSError):

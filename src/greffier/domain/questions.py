@@ -36,8 +36,8 @@ def canonical_form(word: str) -> str:
     """What is left of a word once what does not change it is removed."""
     import unicodedata
 
-    depouille = unicodedata.normalize("NFD", word.casefold())
-    without_accents = "".join(c for c in depouille if unicodedata.category(c) != "Mn")
+    stripped = unicodedata.normalize("NFD", word.casefold())
+    without_accents = "".join(c for c in stripped if unicodedata.category(c) != "Mn")
     without_elision = re.sub(r"[-'’\s]", "", without_accents)
     return _PLURAL.sub("", without_elision)
 
@@ -53,10 +53,10 @@ def derived_word(word: str, term: str) -> bool:
     court, long = canonical_form(term), canonical_form(word)
     if len(long) <= len(court) or not court:
         return False
-    for prefixe in (canonical_form(p) for p in PREFIXES):
-        if not long.startswith(prefixe):
+    for the_prefix in (canonical_form(p) for p in PREFIXES):
+        if not long.startswith(the_prefix):
             continue
-        remaining = long[len(prefixe):]
+        remaining = long[len(the_prefix):]
         if remaining == court or (court[0] in "aeiouy" and remaining == court[1:]):
             return True
     return False
@@ -136,14 +136,14 @@ class Questioner:
             chunks = _words(term)
             if len(chunks) > 1:
                 split_out.extend(m for m in chunks if len(m) >= MINIMUM_LENGTH)
-        vus: dict[str, str] = {}
+        seen: dict[str, str] = {}
         for term in split_out:
-            vus.setdefault(term.casefold(), term)
-        self.known = tuple(vus.values())
+            seen.setdefault(term.casefold(), term)
+        self.known = tuple(seen.values())
 
     def examine(self, text: str) -> list[Question]:
         """The questions this passage raises. Empty most of the time."""
-        self._retenir(text)
+        self._retain(text)
         if len(self.asked) >= QUESTIONS_MAXIMUM:
             return []
         found: list[Question] = []
@@ -151,20 +151,20 @@ class Questioner:
             if len(word) < MINIMUM_LENGTH:
                 continue
             nu = word.casefold()
-            candidat = self._near_term(nu)
-            if candidat is None:
+            the_candidate = self._near_term(nu)
+            if the_candidate is None:
                 continue
-            if self._established(nu) or self._already_said_right(candidat):
+            if self._established(nu) or self._already_said_right(the_candidate):
                 continue
             question = Question(
                 number=self._number + 1,
                 text=(
                     f"J'ai entendu « {word} ». Fallait-il comprendre "
-                    f"« {candidat} » ?"
+                    f"« {the_candidate} » ?"
                 ),
                 motif=Reason.NEAR_TERM,
                 heard=word,
-                expected=candidat,
+                expected=the_candidate,
             )
             if question.key in self.asked:
                 continue
@@ -175,7 +175,7 @@ class Questioner:
                 break
         return found
 
-    def _retenir(self, text: str) -> None:
+    def _retain(self, text: str) -> None:
         """Counts what was heard, before judging anything."""
         for word in _words(text):
             if len(word) < MINIMUM_LENGTH:
@@ -196,14 +196,14 @@ class Questioner:
         """The known term this word is probably a distortion of."""
         best: tuple[int, str] | None = None
         for term in self.known:
-            terme_nu = term.casefold()
-            if terme_nu == bare_word or same_word(bare_word, terme_nu):
+            bare_term = term.casefold()
+            if bare_term == bare_word or same_word(bare_word, bare_term):
                 return None
-            if derived_word(bare_word, terme_nu):
+            if derived_word(bare_word, bare_term):
                 return None
             if len(term) < MINIMUM_LENGTH:
                 continue
-            gap = distance(bare_word, terme_nu)
+            gap = distance(bare_word, bare_term)
             if gap <= tolerance(term) and (best is None or gap < best[0]):
                 best = (gap, term)
         return best[1] if best else None

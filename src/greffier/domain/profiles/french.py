@@ -22,34 +22,34 @@ _MOTIFS: list[tuple[MentionKind, re.Pattern[str], bool]] = [
     (MentionKind.AUTO_PRESENTATION, re.compile(
         _NAME + r"\s*,?\s*(?i:à l['’]appareil)"
     ), False),
-    (MentionKind.INTERPELLATION, re.compile(
+    (MentionKind.ADDRESSING, re.compile(
         _NAME + r"\s*,\s*(?:(?i:tu|vous)\s+(?!(?i:vois|voyez|sais|savez)\b)"
         r"|(?i:est-ce que\b|peux-tu\b|pouvez-vous\b|qu['’]en penses|qu['’]en pensez))"
     ), False),
-    (MentionKind.INTERPELLATION, re.compile(
+    (MentionKind.ADDRESSING, re.compile(
         r"(?i:\bvas-y|\ballez-y|\bà toi|\bje te laisse|\bje vous laisse"
         r"|\bje passe la parole à|\bla parole (?:est )?à)\s+" + _NAME + r"\b"
     ), False),
-    (MentionKind.RENVOI, re.compile(
+    (MentionKind.REFERRAL, re.compile(
         r"(?i:\bmerci)\s+" + _NAME + r"\b"
     ), False),
-    (MentionKind.RENVOI, re.compile(
+    (MentionKind.REFERRAL, re.compile(
         r"(?i:\bcomme (?:le |l['’])?(?:disait|dit|a dit)|\bd['’]accord avec"
         r"|\bje rejoins|\bje suis d['’]accord avec)\s+" + _NAME + r"\b"
     ), False),
-    (MentionKind.RENVOI, re.compile(
+    (MentionKind.REFERRAL, re.compile(
         _NAME + r"\s+(?i:a raison|vient de (?:le )?dire|l['’]a dit)\b"
     ), False),
-    (MentionKind.INTERPELLATION, re.compile(
+    (MentionKind.ADDRESSING, re.compile(
         r"(?i:\btoi)\s*,\s*" + _NAME + r"\b"
     ), False),
-    (MentionKind.INTERPELLATION, re.compile(
+    (MentionKind.ADDRESSING, re.compile(
         r"(?:^|(?<=[.?!]\s))" + _NAME + r"\s*,\s*(?=[^.?!]{0,60}?\b(?i:tu|vous|on)\b)"
     ), False),
-    (MentionKind.INTERPELLATION, re.compile(
+    (MentionKind.ADDRESSING, re.compile(
         r"^" + _NAME + r"\s*[,.?!]?\s*$"
     ), True),
-    (MentionKind.RENVOI, re.compile(
+    (MentionKind.REFERRAL, re.compile(
         r"(?i:\bqu[e\u2019']\s*(?:présentait|présente|disait|expliquait|proposait"
         r"|évoquait|montrait|a présenté|a dit))\s+" + _NAME + r"\b"
     ), False),

@@ -18,9 +18,9 @@ from dataclasses import dataclass, field
 #: Room given to the recalled section of the header. Measured against the rest:
 #: the glossary takes 850 at most, the documents 24 000, and what is left of a
 #: model's attention after that is not worth spending on older meetings.
-RAPPEL_MAXIMUM = 2_000
+MAXIMUM_REMINDER = 2_000
 
-_TITRES = {
+_TITLES = {
     "decisions": ("décisions", "decisions"),
     "open_points": ("points ouverts", "points en suspens", "open points"),
 }
@@ -46,27 +46,27 @@ class Trace:
     def rendered(self) -> str:
         """The trace as the writer reads it, one meeting in a few lines."""
         when = f" ({self.held_on})" if self.held_on else ""
-        lignes = [f"- {short_title(self.title) or self.identifier}{when}"]
+        lines = [f"- {short_title(self.title) or self.identifier}{when}"]
         if self.people:
-            lignes.append(f"  Présents : {', '.join(self.people)}")
-        for intitule, points in (("Décidé", self.decisions),
+            lines.append(f"  Présents : {', '.join(self.people)}")
+        for heading, points in (("Décidé", self.decisions),
                                  ("Resté ouvert", self.open_points)):
             for point in points:
-                lignes.append(f"  {intitule} : {point}")
+                lines.append(f"  {heading} : {point}")
         if self.documents:
-            lignes.append(f"  Documents fournis : {', '.join(self.documents)}")
-        return "\n".join(lignes)
+            lines.append(f"  Documents fournis : {', '.join(self.documents)}")
+        return "\n".join(lines)
 
 
 #: What the minutes put in front of their own title. Recalled as they come, the
 #: older meetings all start with the same three words, which says nothing and
 #: costs room.
-_EN_TETE = re.compile(r"^\s*compte[- ]rendu(\s+de\s+r[ée]union)?\s*[:—-]\s*", re.I)
+_HEADER = re.compile(r"^\s*compte[- ]rendu(\s+de\s+r[ée]union)?\s*[:—-]\s*", re.I)
 
 
 def short_title(title: str) -> str:
     """The title of a meeting, without the words every set of minutes carries."""
-    return _EN_TETE.sub("", title).strip() or title.strip()
+    return _HEADER.sub("", title).strip() or title.strip()
 
 
 def what_the_minutes_left(minutes: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
@@ -83,7 +83,7 @@ def _bullets_under(minutes: str, which: str) -> tuple[str, ...]:
     sections = re.split(r"^##\s+", minutes, flags=re.M)[1:]
     for section in sections:
         title, _, corps = section.partition("\n")
-        if title.strip().lower().rstrip(" :") not in _TITRES[which]:
+        if title.strip().lower().rstrip(" :") not in _TITLES[which]:
             continue
         points = [
             re.sub(r"\s+", " ", line.lstrip("-*").strip())
@@ -94,22 +94,22 @@ def _bullets_under(minutes: str, which: str) -> tuple[str, ...]:
     return ()
 
 
-def recalled(traces: list[Trace], place: int = RAPPEL_MAXIMUM) -> str:
+def recalled(traces: list[Trace], place: int = MAXIMUM_REMINDER) -> str:
     """The section handed to the writer: the most recent first, within the room.
 
     Cut by meeting and never mid-meeting: half a decision recalled is worse than
     a decision not recalled, because nothing says it was cut.
     """
     retained_ones: list[str] = []
-    longueur = 0
+    length = 0
     for trace in traces:
         if trace.empty:
             continue
         rendered = trace.rendered()
-        if longueur + len(rendered) + 1 > place:
+        if length + len(rendered) + 1 > place:
             break
         retained_ones.append(rendered)
-        longueur += len(rendered) + 1
+        length += len(rendered) + 1
     if not retained_ones:
         return ""
     return (

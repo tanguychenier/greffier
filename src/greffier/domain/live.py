@@ -108,22 +108,22 @@ def _overlap_each_other(left: list[str], right: list[str]) -> bool:
         return False
     if not all(_same_word(a, b) for a, b in zip(left, right, strict=True)):
         return False
-    identiques = sum(1 for a, b in zip(left, right, strict=True) if a == b)
-    return identiques / len(left) >= IDENTICAL_SHARE
+    identical = sum(1 for a, b in zip(left, right, strict=True) if a == b)
+    return identical / len(left) >= IDENTICAL_SHARE
 
 def drop_repetition(previous: str, fresh: str) -> str:
     """Strips from the new text the tail the previous one already showed."""
-    avant = _content_words(previous)
-    apres = _content_words(fresh)
-    if not avant or not apres:
+    earlier = _content_words(previous)
+    later = _content_words(fresh)
+    if not earlier or not later:
         return fresh
-    suffixe = [word for word, _ in avant]
-    prefixe = [word for word, _ in apres]
-    for length in range(min(len(suffixe), len(prefixe)), 0, -1):
-        if not _overlap_each_other(suffixe[-length:], prefixe[:length]):
+    the_suffix = [word for word, _ in earlier]
+    the_prefix = [word for word, _ in later]
+    for length in range(min(len(the_suffix), len(the_prefix)), 0, -1):
+        if not _overlap_each_other(the_suffix[-length:], the_prefix[:length]):
             continue
-        if len(" ".join(prefixe[:length])) >= MINIMUM_OVERLAP_CHARACTERS:
-            return fresh[apres[length - 1][1]:].lstrip(" ,.;:!?-–—")
+        if len(" ".join(the_prefix[:length])) >= MINIMUM_OVERLAP_CHARACTERS:
+            return fresh[later[length - 1][1]:].lstrip(" ,.;:!?-–—")
     return fresh
 
 READABLE_MARGIN = 0.06
@@ -134,21 +134,21 @@ class Certainty(StrEnum):
     The order matters: a source can never be overwritten by a weaker one.
     """
 
-    HUMAINE = "humaine"        # somebody corrected it by hand
+    HUMAN = "humaine"        # somebody corrected it by hand
     CANAL = "canal"            # the microphone says it: it is you
-    RECONNUE = "reconnue"      # la banque de voix reconnaît, marge suffisante
+    RECOGNISED = "reconnue"      # la banque de voix reconnaît, marge suffisante
     PROBABLE = "probable"      # above the threshold, but little material
     UNKNOWN = "inconnue"      # aucune idée, et on le dit
 
     @property
     def firm(self) -> bool:
         """True once the name is no longer a guess."""
-        return self in {Certainty.HUMAINE, Certainty.CANAL}
+        return self in {Certainty.HUMAN, Certainty.CANAL}
 
 _WEIGHT = {
-    Certainty.HUMAINE: 4,
+    Certainty.HUMAN: 4,
     Certainty.CANAL: 3,
-    Certainty.RECONNUE: 2,
+    Certainty.RECOGNISED: 2,
     Certainty.PROBABLE: 1,
     Certainty.UNKNOWN: 0,
 }
@@ -229,16 +229,16 @@ class LiveVoice:
         """What the recognition is worth, in plain words. Empty when it did not play."""
         if self.name is None or not self.likeness:
             return ""
-        if self.certainty is Certainty.HUMAINE:
+        if self.certainty is Certainty.HUMAN:
             return "nommée à la main"
         if self.certainty is Certainty.CANAL:
             return "c'est ton micro"
-        chiffres = f"ressemblance {self.likeness:.2f}, écart {self.gap:.2f}"
-        if self.certainty is Certainty.RECONNUE:
-            return f"reconnue nettement ({chiffres})"
+        digits = f"ressemblance {self.likeness:.2f}, écart {self.gap:.2f}"
+        if self.certainty is Certainty.RECOGNISED:
+            return f"reconnue nettement ({digits})"
         if self.gap < READABLE_MARGIN:
-            return f"proche d'une autre voix, à confirmer ({chiffres})"
-        return f"probable, peu de matière ({chiffres})"
+            return f"proche d'une autre voix, à confirmer ({digits})"
+        return f"probable, peu de matière ({digits})"
 
     @property
     def nameable(self) -> bool:
@@ -268,23 +268,23 @@ def blocks(utterances: list[Utterance], local_spans: list[Span]) -> list[Block]:
     """Groups utterances into passages from one source."""
     groups: list[Block] = []
     current: list[Utterance] = []
-    courant_local = False
+    local_current = False
     for utterance in sorted(utterances, key=lambda r: r.span.start):
         local = _is_local(utterance.span, local_spans)
-        if current and local != courant_local:
-            groups.append(Block(tuple(current), courant_local))
+        if current and local != local_current:
+            groups.append(Block(tuple(current), local_current))
             current = []
         current.append(utterance)
-        courant_local = local
+        local_current = local
     if current:
-        groups.append(Block(tuple(current), courant_local))
+        groups.append(Block(tuple(current), local_current))
     return groups
 
 def _is_local(span: Span, local_spans: list[Span]) -> bool:
     if span.duration <= 0:
         return any(local.overlap(span) > 0 for local in local_spans)
-    couvert = sum(local.overlap(span) for local in local_spans)
-    return couvert / span.duration >= 0.5
+    covered = sum(local.overlap(span) for local in local_spans)
+    return covered / span.duration >= 0.5
 
 @dataclass(frozen=True, slots=True)
 class Join:
@@ -317,7 +317,7 @@ class LiveThread:
     known: list[Person] = field(default_factory=list)
     join_threshold: float = LIVE_ATTACH_THRESHOLD
     people: int | None = None
-    profil: LanguageProfile = NEUTRAL
+    profile: LanguageProfile = NEUTRAL
     turns: list[LiveTurn] = field(default_factory=list)
     voice: dict[str, LiveVoice] = field(default_factory=dict)
     up_to: float = 0.0
@@ -335,8 +335,8 @@ class LiveThread:
         self.voice.setdefault(UNDETERMINED_VOICE, LiveVoice(UNDETERMINED_VOICE))
 
     def label(self, voice: str) -> str:
-        connue = self.voice.get(voice)
-        return connue.label if connue else f"Voix {voice}"
+        known_one = self.voice.get(voice)
+        return known_one.label if known_one else f"Voix {voice}"
 
     def rendered(self, since: float = 0.0) -> str:
         """The thread as flowing attributed text, so that it can be questioned."""
@@ -355,11 +355,11 @@ class LiveThread:
 
     def suggestable_names(self) -> list[str]:
         """The names a correction menu can offer without inventing anything."""
-        vus = [v.name for v in self.voice.values() if v.name and v.name != LOCAL_NAME]
+        seen = [v.name for v in self.voice.values() if v.name and v.name != LOCAL_NAME]
         for person in self.known:
-            if person.name not in vus:
-                vus.append(person.name)
-        return [LOCAL_NAME, *vus]
+            if person.name not in seen:
+                seen.append(person.name)
+        return [LOCAL_NAME, *seen]
 
     def hold(self, utterances: list[Utterance]) -> list[Utterance]:
         """Discards what was already shown in the previous slice."""
@@ -367,17 +367,17 @@ class LiveThread:
         for utterance in utterances:
             if not utterance.text.strip():
                 continue
-            if is_boilerplate(utterance.text, self.profil) or is_an_annotation(
+            if is_boilerplate(utterance.text, self.profile) or is_an_annotation(
                 utterance.text
             ):
                 continue
             duration = utterance.span.duration
-            neuf = utterance.span.end - max(utterance.span.start, self.up_to)
+            fresh_part = utterance.span.end - max(utterance.span.start, self.up_to)
             if duration <= 0:
                 if utterance.span.start >= self.up_to:
                     kept.append(utterance)
                 continue
-            if neuf / duration >= MINIMUM_FRESH_SHARE:
+            if fresh_part / duration >= MINIMUM_FRESH_SHARE:
                 kept.append(utterance)
         if kept:
             kept[0].text = drop_repetition(self.last_text, kept[0].text)
@@ -390,23 +390,23 @@ class LiveThread:
         if voiceprint is None:
             return UNDETERMINED_VOICE
 
-        proche = self._closest_voice(voiceprint)
-        if proche is None and voiceprint.source_duration < MINIMUM_VOICE_MATERIAL:
-            proche = self._the_least_distant(voiceprint) or UNDETERMINED_VOICE
-        if proche is None:
-            proche = self._nearby_established_voice(voiceprint)
+        closest = self._closest_voice(voiceprint)
+        if closest is None and voiceprint.source_duration < MINIMUM_VOICE_MATERIAL:
+            closest = self._the_least_distant(voiceprint) or UNDETERMINED_VOICE
+        if closest is None:
+            closest = self._nearby_established_voice(voiceprint)
         # No room left, by the hard ceiling or by the number announced: the
         # voiceprint joins whoever it resembles most, and the catch-all when it
         # resembles nobody. Lending a name is worse than saying "les autres".
-        if proche is None and (len(self._nameable_ones()) >= VOICES_AT_MOST
+        if closest is None and (len(self._nameable_ones()) >= VOICES_AT_MOST
                                or self._in_full()):
-            proche = (self._the_least_distant(voiceprint, RESEMBLES_NOBODY)
+            closest = (self._the_least_distant(voiceprint, RESEMBLES_NOBODY)
                       or UNDETERMINED_VOICE)
-        if proche is not None:
-            connue = self.voice[proche]
-            connue.add(voiceprint)
-            self._try_the_name_again(connue)
-            return proche
+        if closest is not None:
+            known_one = self.voice[closest]
+            known_one.add(voiceprint)
+            self._try_the_name_again(known_one)
+            return closest
 
         # No number at birth: it is earned by holding a share of the meeting,
         # in `_earn_a_number`. A number handed out on the first two seconds of
@@ -430,8 +430,8 @@ class LiveThread:
         if not self.people:
             return False
         has_spoken = any(turn.voice == LOCAL_VOICE for turn in self.turns)
-        distantes = self.people - (1 if has_spoken else 0)
-        return len(self._nameable_ones()) >= max(1, distantes)
+        remote_ones = self.people - (1 if has_spoken else 0)
+        return len(self._nameable_ones()) >= max(1, remote_ones)
 
     def _the_least_distant(
         self, voiceprint: Voiceprint, floor: float = -1.0
@@ -459,19 +459,19 @@ class LiveThread:
         The threshold is not enough on its own: it also has to clearly outrun the next
         best, otherwise the scrap belongs in the catch-all.
         """
-        etablies = [
+        established = [
             (similarity(voiceprint, v.aggregate_of), v.identifier)
             for v in self._nameable_ones()
             if sum(e.source_duration for e in v.voiceprints) >= ESTABLISHED_MATERIAL
         ]
-        if not etablies:
+        if not established:
             return None
-        ranking = sorted(etablies, key=lambda x: (-x[0], x[1]))
-        best, laquelle = ranking[0]
+        ranking = sorted(established, key=lambda x: (-x[0], x[1]))
+        best, which_one = ranking[0]
         second = ranking[1][0] if len(ranking) > 1 else -1.0
         if best < ADOPTION_THRESHOLD or best - second < LIVE_ADOPTION_MARGIN:
             return None
-        return laquelle
+        return which_one
 
     def _closest_voice(self, voiceprint: Voiceprint) -> str | None:
         """The voice of this meeting that most resembles, above the threshold."""
@@ -499,13 +499,13 @@ class LiveThread:
         match = recognise(voice.aggregate_of, self.known)
         if match is None:
             return
-        trouvee = (
-            Certainty.RECONNUE if match.sure else Certainty.PROBABLE
+        found_one = (
+            Certainty.RECOGNISED if match.sure else Certainty.PROBABLE
         )
-        if _WEIGHT[trouvee] < _WEIGHT[voice.certainty]:
+        if _WEIGHT[found_one] < _WEIGHT[voice.certainty]:
             return
         voice.name = match.name
-        voice.certainty = trouvee
+        voice.certainty = found_one
         voice.likeness = match.similarity
         voice.gap = match.margin
 
@@ -515,14 +515,14 @@ class LiveThread:
         Only ever upwards: a voice shown as a person stays one, even when the
         others speak so much afterwards that its share falls back.
         """
-        connue = self.voice.get(voice)
-        if connue is None or connue.rank > 0 or not connue.nameable:
+        known_one = self.voice.get(voice)
+        if known_one is None or known_one.rank > 0 or not known_one.nameable:
             return
         if voice == LOCAL_VOICE:
             return
         held = sum(t.span.duration for t in self.turns if t.voice == voice)
         if held >= CRUMB_SECONDS or self._only_voice_so_far(voice):
-            connue.rank = self._rank()
+            known_one.rank = self._rank()
 
     def _only_voice_so_far(self, voice: str) -> bool:
         """Nobody else has spoken yet, so showing it as a person costs no row.
@@ -576,7 +576,7 @@ class LiveThread:
             self._absorb(voice.identifier, fusion.identifier)
             voice = fusion
         voice.name = name
-        voice.certainty = Certainty.HUMAINE
+        voice.certainty = Certainty.HUMAN
         numbers = tuple(t.number for t in self.turns if t.voice == voice.identifier)
         return Correction(
             name=name, voice=voice.identifier, numbers=numbers,
@@ -588,17 +588,17 @@ class LiveThread:
 
         Records on the way what is needed to undo it.
         """
-        avalee = self.voice[source]
+        swallowed = self.voice[source]
         kept_one = self.voice[target]
-        deplaces = tuple(t.number for t in self.turns if t.voice == source)
+        moved = tuple(t.number for t in self.turns if t.voice == source)
         self.joins.append(Join(
             source=source, target=target,
-            voiceprints=tuple(avalee.voiceprints), numbers=deplaces,
-            name=avalee.name, certainty=avalee.certainty, rank=avalee.rank,
-            likeness=avalee.likeness, gap=avalee.gap,
+            voiceprints=tuple(swallowed.voiceprints), numbers=moved,
+            name=swallowed.name, certainty=swallowed.certainty, rank=swallowed.rank,
+            likeness=swallowed.likeness, gap=swallowed.gap,
             target_name=kept_one.name, target_certainty=kept_one.certainty,
         ))
-        kept_one.absorb(avalee)
+        kept_one.absorb(swallowed)
         for turn in self.turns:
             if turn.voice == source:
                 turn.voice = target
@@ -631,7 +631,7 @@ class LiveThread:
         kept_one = self.voice.get(target)
         if kept_one is None:
             return None
-        rendue = LiveVoice(
+        returned = LiveVoice(
             identifier=fusion.source, name=fusion.name,
             certainty=fusion.certainty, rank=fusion.rank,
             voiceprints=list(fusion.voiceprints),
@@ -640,12 +640,12 @@ class LiveThread:
         to_render = {id(e) for e in fusion.voiceprints}
         kept_one.voiceprints = [e for e in kept_one.voiceprints if id(e) not in to_render]
         kept_one.forget_aggregate()
-        if kept_one.certainty is not Certainty.HUMAINE:
+        if kept_one.certainty is not Certainty.HUMAN:
             kept_one.name, kept_one.certainty = fusion.target_name, fusion.target_certainty
         for turn in self.turns:
             if turn.voice == target and turn.number in set(fusion.numbers):
                 turn.voice = fusion.source
-        self.voice[fusion.source] = rendue
+        self.voice[fusion.source] = returned
         self.joins.remove(fusion)
         self.split_apart.add(frozenset({fusion.source, target}))
         return fusion
@@ -661,15 +661,15 @@ class LiveThread:
         one was measured here and dropped accuracy from 93% to 79.6%, which amounts to
         giving everything to the loudest voice.
         """
-        faits: list[tuple[str, str]] = []
-        faits += self.join_namesakes()
+        done_ones: list[tuple[str, str]] = []
+        done_ones += self.join_namesakes()
         candidates = {
             identifier: voice.voiceprints
             for identifier, voice in self.voice.items()
             if voice.voiceprints and identifier not in (LOCAL_VOICE, UNDETERMINED_VOICE)
         }
         if len(candidates) < 2:
-            return faits
+            return done_ones
         for source, target in join_voices(candidates).items():
             if source == target or source not in self.voice or target not in self.voice:
                 continue
@@ -678,8 +678,8 @@ class LiveThread:
             if self._held_apart(source, target):
                 continue
             self._absorb(source, target)
-            faits.append((source, target))
-        return faits
+            done_ones.append((source, target))
+        return done_ones
 
     def join_namesakes(self) -> list[tuple[str, str]]:
         """Two voices the bank names alike are the same person.
@@ -692,24 +692,24 @@ class LiveThread:
         for voice in self.voice.values():
             if voice.name and voice.nameable and voice.identifier != LOCAL_VOICE:
                 by_name.setdefault(voice.name.casefold(), []).append(voice)
-        faits: list[tuple[str, str]] = []
-        for portantes in by_name.values():
-            if len(portantes) < 2:
+        done_ones: list[tuple[str, str]] = []
+        for carrying in by_name.values():
+            if len(carrying) < 2:
                 continue
-            portantes.sort(key=lambda v: -v.seconds)
-            kept_one = portantes[0]
-            for absorbed_one in portantes[1:]:
+            carrying.sort(key=lambda v: -v.seconds)
+            kept_one = carrying[0]
+            for absorbed_one in carrying[1:]:
                 if self._held_apart(absorbed_one.identifier, kept_one.identifier):
                     continue
                 self._absorb(absorbed_one.identifier, kept_one.identifier)
-                faits.append((absorbed_one.identifier, kept_one.identifier))
-        return faits
+                done_ones.append((absorbed_one.identifier, kept_one.identifier))
+        return done_ones
 
     def _different_human_names(self, one: str, other: str) -> bool:
         first, second = self.voice[one], self.voice[other]
         return (
-            first.certainty is Certainty.HUMAINE
-            and second.certainty is Certainty.HUMAINE
+            first.certainty is Certainty.HUMAN
+            and second.certainty is Certainty.HUMAN
             and first.name != second.name
         )
 
@@ -719,7 +719,7 @@ class LiveThread:
         if target is None:
             target = LiveVoice(
                 identifier=self._identifier(), name=name,
-                certainty=Certainty.HUMAINE, rank=self._rank(),
+                certainty=Certainty.HUMAN, rank=self._rank(),
             )
             self.voice[target.identifier] = target
         turn.voice = target.identifier
@@ -754,9 +754,9 @@ class LiveThread:
         """
         if len(identifier) < 2 or identifier[0] != "v":
             return
-        chiffres = identifier[1:]
-        if chiffres.isdigit():
-            self.suite = max(self.suite, int(chiffres))
+        digits = identifier[1:]
+        if digits.isdigit():
+            self.suite = max(self.suite, int(digits))
 
     def _identifier(self) -> str:
         self.suite += 1
@@ -790,13 +790,13 @@ class LiveThread:
             return  # a label already shown never changes under the reader's eyes
         if rank <= 0:
             return
-        pris = any(v is not voice and v.rank == rank for v in self.voice.values())
-        voice.rank = self._rank() if pris else rank
+        taken = any(v is not voice and v.rank == rank for v in self.voice.values())
+        voice.rank = self._rank() if taken else rank
 
     def _voice_named(self, name: str) -> LiveVoice | None:
-        replie = name.casefold()
+        folded = name.casefold()
         for voice in self.voice.values():
-            if voice.name is not None and voice.name.casefold() == replie:
+            if voice.name is not None and voice.name.casefold() == folded:
                 return voice
         return None
 

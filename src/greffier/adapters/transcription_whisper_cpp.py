@@ -10,7 +10,7 @@ from pathlib import Path
 from greffier.domain.models import Span, Utterance
 from greffier.domain.transcription import without_loop
 
-_HORAIRE = re.compile(
+_TIMING = re.compile(
     r"(\d\d):(\d\d):(\d\d)[,.](\d\d\d)\s*-->\s*(\d\d):(\d\d):(\d\d)[,.](\d\d\d)"
 )
 
@@ -25,31 +25,31 @@ def lire_srt(path: Path) -> list[Utterance]:
         return utterances
     for block in re.split(r"\n\s*\n", content):
         lines = [line for line in block.splitlines() if line.strip()]
-        horaire = next(
-            (_HORAIRE.search(line) for line in lines if _HORAIRE.search(line)), None
+        timing = next(
+            (_TIMING.search(line) for line in lines if _TIMING.search(line)), None
         )
-        if not horaire:
+        if not timing:
             continue
         text = " ".join(
             line.strip() for line in lines
-            if not _HORAIRE.search(line) and not line.strip().isdigit()
+            if not _TIMING.search(line) and not line.strip().isdigit()
         )
         text = re.sub(r"^\(speaker \d+\)\s*", "", text).strip()
         if text:
             utterances.append(Utterance(
-                span=Span(_seconds(*horaire.groups()[:4]),
-                                      _seconds(*horaire.groups()[4:])),
+                span=Span(_seconds(*timing.groups()[:4]),
+                                      _seconds(*timing.groups()[4:])),
                 text=without_loop(text),
             ))
     return utterances
 
 class WhisperCppTranscriber:
-    def __init__(self, model: Path, vad: Path | None = None, fils: int = 8) -> None:
+    def __init__(self, model: Path, vad: Path | None = None, threads: int = 8) -> None:
         if not model.exists():
             raise FileNotFoundError(f"modèle de transcription introuvable : {model}")
         self.model = model
         self.vad = vad if vad and vad.exists() else None
-        self.fils = fils
+        self.threads = threads
 
     def warm(self) -> None:
         """Nothing to open: whisper.cpp loads its model in its own process."""
@@ -59,7 +59,7 @@ class WhisperCppTranscriber:
             base = Path(folder) / audio.stem
             command = [
                 "whisper-cli", "-m", str(self.model), "-f", str(audio),
-                "-l", language or "auto", "-t", str(self.fils), "-osrt", "-of", str(base),
+                "-l", language or "auto", "-t", str(self.threads), "-osrt", "-of", str(base),
             ]
             if self.vad:
                 command += ["--vad", "--vad-model", str(self.vad)]

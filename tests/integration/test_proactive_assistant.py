@@ -18,7 +18,7 @@ from greffier.wiring import assistant_of
 
 pytestmark = pytest.mark.lent
 
-ORDINAIRE = """Camille : le déploiement en préproduction s'est bien passé vendredi.
+ORDINARY = """Camille : le déploiement en préproduction s'est bien passé vendredi.
 Dominique : j'ai relu la documentation, elle est à jour.
 Camille : très bien. On enchaîne sur le point suivant.
 Dominique : d'accord.
@@ -42,16 +42,16 @@ def _assistant(material: str):
     config.assistant.active = True
     # No voice: what is covered is what it decides to say, not the speech.
     config.assistant.voice = "aucun"
-    lui = assistant_of(config, "essai-proactif")
-    if lui is None or lui.cerveau is None:
+    her = assistant_of(config, "essai-proactif")
+    if her is None or her.the_brain is None:
         pytest.skip("aucun rédacteur configuré")
-    lui.context = lambda: material
-    return lui
+    her.context = lambda: material
+    return her
 
 
 def test_an_ordinary_meeting_does_not_get_a_word_out_of_it():
     """By far the most frequent case, and the easiest to get wrong."""
-    assert _assistant(ORDINAIRE).contribution(now=600.0) is None
+    assert _assistant(ORDINARY).contribution(now=600.0) is None
 
 
 def test_a_decision_with_nobody_to_carry_it_makes_it_speak():
@@ -67,9 +67,9 @@ def test_a_question_left_hanging_makes_it_speak():
 
 def test_it_looks_for_nothing_while_it_rests():
     """One call to the model every ten seconds, for a silence."""
-    lui = _assistant(WITHOUT_OWNER)
-    lui.manners.spoke_at = 590.0
-    assert lui.contribution(now=600.0) is None
+    her = _assistant(WITHOUT_OWNER)
+    her.manners.spoke_at = 590.0
+    assert her.contribution(now=600.0) is None
 
 
 def test_what_it_says_is_pronounced(monkeypatch):

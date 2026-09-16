@@ -55,22 +55,22 @@ class SequenceExtractor:
         self.requests: list[list[Span]] = []
 
     def extract_spans(
-        self, audio: Path, intervalles: list[Span]
+        self, audio: Path, the_spans: list[Span]
     ) -> list[Voiceprint]:
-        self.requests.append(intervalles)
+        self.requests.append(the_spans)
         return [self.voiceprints.pop(0)] if self.voiceprints else []
 
 
 class InMemoryBank:
     def __init__(self, known: list[Person] | None = None) -> None:
         self.known = list(known or [])
-        self.recues: list[tuple[str, Voiceprint]] = []
+        self.received_ones: list[tuple[str, Voiceprint]] = []
 
     def people(self) -> list[Person]:
         return self.known
 
     def record(self, name: str, e: Voiceprint) -> Person:
-        self.recues.append((name, e))
+        self.received_ones.append((name, e))
         person = Person(name=name, voiceprints=[e])
         self.known.append(person)
         return person
@@ -86,8 +86,8 @@ def follower(tmp_path: Path, **overrides: object) -> Follower:
 
 
 def lines_of(log: Path) -> list[dict[str, object]]:
-    lues, _ = read_from(log)
-    return lues
+    read_ones, _ = read_from(log)
+    return read_ones
 
 
 class TestWhereWeAreInTheAudio:
@@ -128,18 +128,18 @@ class TestReadingOnlyWhatIsNew:
         premieres, where_in = read_from(log)
         assert len(premieres) == 1
         add(log, [{"genre": KIND_TURN, "numero": 2}])
-        suivantes, _ = read_from(log, where_in)
-        assert [x["numero"] for x in suivantes] == [2]
+        following_ones, _ = read_from(log, where_in)
+        assert [x["numero"] for x in following_ones] == [2]
 
     def test_a_half_written_line_waits_for_the_next_time(self, tmp_path: Path) -> None:
         log = tmp_path / "fil.jsonl"
-        entiere = '{"genre": "tour", "numero": 1}\n'
-        log.write_text(entiere + '{"genre": "tou', encoding="utf-8")
-        lues, where_in = read_from(log)
-        assert [x["numero"] for x in lues] == [1]
+        whole_one = '{"genre": "tour", "numero": 1}\n'
+        log.write_text(whole_one + '{"genre": "tou', encoding="utf-8")
+        read_ones, where_in = read_from(log)
+        assert [x["numero"] for x in read_ones] == [1]
         # The position stops at the last complete line: the rest is read once
         # it is whole.
-        assert where_in == len(entiere)
+        assert where_in == len(whole_one)
 
     def test_a_missing_log_makes_no_fuss(self, tmp_path: Path) -> None:
         assert read_from(tmp_path / "rien.jsonl") == ([], 0)
@@ -216,7 +216,7 @@ class TestPublishingWhatWasSaid:
 
     def test_a_model_that_falls_over_does_not_stop_the_meeting(self, tmp_path: Path) -> None:
         class Broken:
-            def extract_spans(self, audio: Path, intervalles: list[Span]):
+            def extract_spans(self, audio: Path, the_spans: list[Span]):
                 raise RuntimeError("BroadcastIterator::Init")
 
         instance = follower(tmp_path, extractor=Broken())
@@ -238,13 +238,13 @@ class TestCorrectionsComingIn:
     def test_a_correction_dropped_in_is_applied(self, tmp_path: Path) -> None:
         instance = self._a_thread(tmp_path)
         ask(instance.requests, number=1, name="Marc")
-        faites = instance.apply_requests()
-        assert [c.name for c in faites] == ["Marc"]
+        done_ones = instance.apply_requests()
+        assert [c.name for c in done_ones] == ["Marc"]
         assert instance.thread.label(instance.thread.turns[0].voice) == "Marc"
 
     def test_the_correction_is_confirmed_in_the_log(self, tmp_path: Path) -> None:
-        # That is how the window knows its correction was taken, and that
-        # toute autre fenêtre ouverte l'apprend aussi.
+        # That is how the window knows its correction was taken, and how
+        # any other open window learns it too.
         instance = self._a_thread(tmp_path)
         ask(instance.requests, number=1, name="Marc")
         instance.apply_requests()
@@ -266,7 +266,7 @@ class TestCorrectionsComingIn:
         instance.take_in(tmp_path / "tranche.wav", [utterance(0, 8)], offset=0.0)
         ask(instance.requests, number=1, name="Marc")
         instance.apply_requests()
-        assert [name for name, _ in bank.recues] == ["Marc"]
+        assert [name for name, _ in bank.received_ones] == ["Marc"]
 
     def test_your_own_voice_never_enters_the_bank(self, tmp_path: Path) -> None:
         # The mic already identifies whoever is recording: storing their voice
@@ -276,7 +276,7 @@ class TestCorrectionsComingIn:
         instance.take_in(tmp_path / "tranche.wav", [utterance(0, 8)], offset=0.0)
         ask(instance.requests, number=1, name="Tanguy")
         instance.apply_requests()
-        assert bank.recues == []
+        assert bank.received_ones == []
 
     def test_a_voice_corrected_too_early_is_learnt_once_it_has_enough(
         self, tmp_path: Path
@@ -302,10 +302,10 @@ class TestCorrectionsComingIn:
         ask(instance.requests, number=1, name="Sandy")
         instance.apply_requests()
         # Too little material to learn anything useful.
-        assert bank.recues == []
+        assert bank.received_ones == []
         # The person speaks again: this time there is enough.
         instance.take_in(tmp_path / "t2.wav", [utterance(3, 9)], offset=0.0)
-        assert [name for name, _ in bank.recues] == ["Sandy"]
+        assert [name for name, _ in bank.received_ones] == ["Sandy"]
 
     def test_a_voice_is_learnt_only_once(self, tmp_path: Path) -> None:
         bank = InMemoryBank()
@@ -318,7 +318,7 @@ class TestCorrectionsComingIn:
         ask(instance.requests, number=1, name="Sandy")
         instance.apply_requests()
         instance.take_in(tmp_path / "t2.wav", [utterance(9, 17)], offset=0.0)
-        assert [name for name, _ in bank.recues] == ["Sandy"]
+        assert [name for name, _ in bank.received_ones] == ["Sandy"]
 
     def test_a_request_matching_nothing_is_ignored(self, tmp_path: Path) -> None:
         instance = self._a_thread(tmp_path)
@@ -350,9 +350,9 @@ class TestReplayingInOrderToShow:
         instance.take_in(
             tmp_path / "t.wav", [utterance(0, 4, "bonjour"), utterance(4, 8)], offset=0.0
         )
-        rejoue = replay(lines_of(instance.log))
-        assert [t.text for t in rejoue.turns] == ["bonjour", "on cale la recette jeudi"]
-        assert rejoue.label(rejoue.turns[0].voice) == "Voix 1"
+        replayed = replay(lines_of(instance.log))
+        assert [t.text for t in replayed.turns] == ["bonjour", "on cale la recette jeudi"]
+        assert replayed.label(replayed.turns[0].voice) == "Voix 1"
 
     def test_a_correction_in_the_log_renames_the_past_sentences(
         self, tmp_path: Path
@@ -365,9 +365,9 @@ class TestReplayingInOrderToShow:
         instance.take_in(tmp_path / "t.wav", [utterance(0, 8)], offset=0.0)
         ask(instance.requests, number=1, name="Marc")
         instance.apply_requests()
-        rejoue = replay(lines_of(instance.log))
-        assert rejoue.label(rejoue.turns[0].voice) == "Marc"
-        assert rejoue.voice[rejoue.turns[0].voice].certainty is Certainty.HUMAINE
+        replayed = replay(lines_of(instance.log))
+        assert replayed.label(replayed.turns[0].voice) == "Marc"
+        assert replayed.voice[replayed.turns[0].voice].certainty is Certainty.HUMAN
 
     def test_replaying_twice_does_not_duplicate_the_sentences(self, tmp_path: Path) -> None:
         # The window reads in pieces: an overlap must not show the same
@@ -446,12 +446,12 @@ class TestSplittingAcrossTheTwoProcesses:
         kept_one = instance.thread.turns[0].voice
         request_a_split(instance.requests, kept_one)
         instance.apply_requests()
-        dites = [
+        said_ones = [
             x for x in lines_of(instance.log) if x["genre"] == KIND_SPLIT
         ]
-        assert len(dites) == 1
-        assert dites[0]["de"] == kept_one
-        assert dites[0]["numeros"] == [2]
+        assert len(said_ones) == 1
+        assert said_ones[0]["de"] == kept_one
+        assert said_ones[0]["numeros"] == [2]
 
     def test_a_replayed_thread_keeps_the_voices_apart(self, tmp_path: Path) -> None:
         """The point of it all: picking a thread up again does not remake the join."""
@@ -459,9 +459,9 @@ class TestSplittingAcrossTheTwoProcesses:
         kept_one = instance.thread.turns[0].voice
         request_a_split(instance.requests, kept_one)
         instance.apply_requests()
-        repris = replay(lines_of(instance.log))
-        assert len({t.voice for t in repris.turns}) == 2
-        assert repris.split_apart, "la paire doit rester tenue à part"
+        resumed = replay(lines_of(instance.log))
+        assert len({t.voice for t in resumed.turns}) == 2
+        assert resumed.split_apart, "la paire doit rester tenue à part"
 
     def test_every_voiceprint_goes_back_to_its_voice(self, tmp_path: Path) -> None:
         instance = self._two_joined_voices(tmp_path)
@@ -515,22 +515,22 @@ class TestHowFarAReplayedCorrectionReaches:
     def test_the_whole_voice_covers_the_turns_that_come_after(
         self, tmp_path: Path
     ) -> None:
-        repris = replay(lines_of(self._log(tmp_path, True)))
-        names = {repris.label(t.voice) for t in repris.turns}
+        resumed = replay(lines_of(self._log(tmp_path, True)))
+        names = {resumed.label(t.voice) for t in resumed.turns}
         assert names == {"Marc"}, names
 
     def test_only_this_sentence_covers_only_the_sentence(
         self, tmp_path: Path
     ) -> None:
-        repris = replay(lines_of(self._log(tmp_path, False)))
-        par_numero = {t.number: repris.label(t.voice) for t in repris.turns}
-        assert par_numero[1] == "Marc"
-        assert par_numero[2] != "Marc"
+        resumed = replay(lines_of(self._log(tmp_path, False)))
+        by_number = {t.number: resumed.label(t.voice) for t in resumed.turns}
+        assert by_number[1] == "Marc"
+        assert by_number[2] != "Marc"
 
     def test_a_log_from_before_stays_readable(self, tmp_path: Path) -> None:
         """Without the field: it falls back on the old deduction, for want of better."""
-        repris = replay(lines_of(self._log(tmp_path)))
-        assert repris.turns, "le journal doit rester relisible"
+        resumed = replay(lines_of(self._log(tmp_path)))
+        assert resumed.turns, "le journal doit rester relisible"
 
 
 class TestIdentifiersAreNeverReused:
@@ -558,8 +558,8 @@ class TestIdentifiersAreNeverReused:
     def test_the_counter_starts_after_the_last_voice_in_the_log(
         self, tmp_path: Path
     ) -> None:
-        repris = replay(lines_of(self._log_of_two_voices(tmp_path)))
-        assert repris._identifier() == "v4"
+        resumed = replay(lines_of(self._log_of_two_voices(tmp_path)))
+        assert resumed._identifier() == "v4"
 
     def test_correcting_a_sentence_overwrites_no_voice(
         self, tmp_path: Path
@@ -567,13 +567,13 @@ class TestIdentifiersAreNeverReused:
         """The visible symptom: three voices replayed, one correction, still three
         distinct people, and not two turns under the same name.
         """
-        repris = replay(lines_of(self._log_of_two_voices(tmp_path)))
-        avant = {t.number: t.voice for t in repris.turns}
-        repris.correct(2, "Marc", whole_voice=False)
-        apres = {t.number: t.voice for t in repris.turns}
-        assert apres[1] == avant[1], "la phrase 1 a changé de voix"
-        assert apres[3] == avant[3], "la phrase 3 a changé de voix"
-        assert len(set(apres.values())) == 3, apres
+        resumed = replay(lines_of(self._log_of_two_voices(tmp_path)))
+        earlier = {t.number: t.voice for t in resumed.turns}
+        resumed.correct(2, "Marc", whole_voice=False)
+        later = {t.number: t.voice for t in resumed.turns}
+        assert later[1] == earlier[1], "la phrase 1 a changé de voix"
+        assert later[3] == earlier[3], "la phrase 3 a changé de voix"
+        assert len(set(later.values())) == 3, later
 
 
 class TestARebuiltThreadShowsWhatTheListenerShows:
@@ -586,7 +586,7 @@ class TestARebuiltThreadShowsWhatTheListenerShows:
     Replaying without joining namesakes showed both.
     """
 
-    def _lignes(self, *voice: tuple[int, str, str, int]):
+    def _lines(self, *voice: tuple[int, str, str, int]):
         return [
             {"genre": "tour", "numero": n, "debut": float(n), "fin": float(n) + 2.0,
              "texte": "on cale la recette", "voix": v, "nom": name,
@@ -597,16 +597,16 @@ class TestARebuiltThreadShowsWhatTheListenerShows:
     def test_two_voices_of_one_name_become_one(self):
         from greffier.application.follow import replay
 
-        thread = replay(self._lignes(
+        thread = replay(self._lines(
             (1, "v1", "Bastien", 1), (2, "v2", "Bastien", 2), (3, "v3", "Lise", 3),
         ))
-        noms = sorted(v.name for v in thread.voice.values() if v.name)
-        assert noms == ["Bastien", "Lise", "Toi"]
+        the_names = sorted(v.name for v in thread.voice.values() if v.name)
+        assert the_names == ["Bastien", "Lise", "Toi"]
 
     def test_the_turns_of_both_are_kept(self):
         from greffier.application.follow import replay
 
-        thread = replay(self._lignes(
+        thread = replay(self._lines(
             (1, "v1", "Bastien", 1), (2, "v2", "Bastien", 2),
         ))
         assert len(thread.turns) == 2
@@ -615,13 +615,13 @@ class TestARebuiltThreadShowsWhatTheListenerShows:
     def test_a_number_the_log_shows_is_never_handed_out_again(self):
         from greffier.application.follow import replay
 
-        thread = replay(self._lignes((1, "v1", "", 11)))
+        thread = replay(self._lines((1, "v1", "", 11)))
         assert thread.last_rank >= 11
 
     def test_voices_of_different_names_stay_apart(self):
         from greffier.application.follow import replay
 
-        thread = replay(self._lignes(
+        thread = replay(self._lines(
             (1, "v1", "Bastien", 1), (2, "v2", "Lise", 2),
         ))
         assert len([v for v in thread.voice.values() if v.name]) == 3

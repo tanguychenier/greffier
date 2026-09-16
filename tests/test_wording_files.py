@@ -16,8 +16,8 @@ class TestTheCataloguesAgree:
     def test_no_language_is_missing_a_key(self, language):
         """Nothing checks a TOML file, so this does: a key added to the
         reference and forgotten elsewhere would silently show English."""
-        manquantes = wording_files.wording(language).missing()
-        assert not manquantes, f"{language} : {manquantes}"
+        missing_ones = wording_files.wording(language).missing()
+        assert not missing_ones, f"{language} : {missing_ones}"
 
     @pytest.mark.parametrize("language", SPOKEN)
     def test_no_language_carries_a_key_nobody_else_has(self, language):
@@ -28,8 +28,8 @@ class TestTheCataloguesAgree:
     def test_the_sentences_differ_between_languages(self):
         """A catalogue copied and not translated is worse than none."""
         fr, as_ = wording_files.read("fr"), wording_files.read("en")
-        identiques = {c for c in fr if fr[c] == as_.get(c)}
-        assert len(identiques) < len(fr) / 3, f"trop de phrases non traduites : {identiques}"
+        identical = {c for c in fr if fr[c] == as_.get(c)}
+        assert len(identical) < len(fr) / 3, f"trop de phrases non traduites : {identical}"
 
 
 class TestReadingOne:

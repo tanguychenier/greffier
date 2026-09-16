@@ -128,10 +128,10 @@ class FileStore:
             return []
 
         def recency(file: Path) -> tuple[int, tuple[int, ...], float]:
-            tenue = held_on(file.stem)
-            if tenue is None:
+            held = held_on(file.stem)
+            if held is None:
                 return (0, (0, 0, 0, 0, 0), file.stat().st_mtime)
-            return (1, tenue, 0.0)
+            return (1, held, 0.0)
 
         return [f.stem for f in sorted(self.folder.glob("*.json"),
                                        key=recency, reverse=True)]

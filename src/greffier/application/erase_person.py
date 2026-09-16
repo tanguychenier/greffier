@@ -84,25 +84,25 @@ class Erased:
         return len(self.traces)
 
 
-def _files_of(ou: Everywhere) -> Iterator[tuple[Path, str]]:
+def _files_of(where_: Everywhere) -> Iterator[tuple[Path, str]]:
     """Every file that can hold a name, with what it is in French."""
     folders = [
-        (ou.meetings, "*.json", "réunion transcrite"),
-        (ou.minutes_folder, "*.md", "compte rendu"),
-        (ou.transcripts, "*.txt", "transcription lisible"),
-        (ou.live, "*.jsonl", "fil du direct"),
-        (ou.propositions, "*.jsonl", "propositions de noms"),
-        (ou.questions, "*.jsonl", "questions posées"),
-        (ou.conversations, "*.jsonl", "conversation avec l'assistant"),
-        (ou.preparations, "*.json", "réunion préparée"),
+        (where_.meetings, "*.json", "réunion transcrite"),
+        (where_.minutes_folder, "*.md", "compte rendu"),
+        (where_.transcripts, "*.txt", "transcription lisible"),
+        (where_.live, "*.jsonl", "fil du direct"),
+        (where_.propositions, "*.jsonl", "propositions de noms"),
+        (where_.questions, "*.jsonl", "questions posées"),
+        (where_.conversations, "*.jsonl", "conversation avec l'assistant"),
+        (where_.preparations, "*.json", "réunion préparée"),
     ]
     for folder, motif, what in folders:
         if folder is None or not folder.is_dir():
             continue
         for path in sorted(folder.glob(motif)):
             yield path, what
-    for file, what in ((ou.memory, "mémoire des réunions"),
-                       (ou.troubles, "journal des incidents")):
+    for file, what in ((where_.memory, "mémoire des réunions"),
+                       (where_.troubles, "journal des incidents")):
         if file is not None and file.is_file():
             yield file, what
 
@@ -114,11 +114,11 @@ def _read(path: Path) -> str | None:
         return None
 
 
-def inventory(ou: Everywhere, name: str, voiceprints: int = 0) -> list[Trace]:
+def inventory(where_: Everywhere, name: str, voiceprints: int = 0) -> list[Trace]:
     """Where this name stands, heaviest first, without touching anything."""
     traces = [
         Trace(path, what, how_many)
-        for path, what in _files_of(ou)
+        for path, what in _files_of(where_)
         if (content := _read(path)) is not None
         and (how_many := count(content, name))
     ]
@@ -170,7 +170,7 @@ def _rewrite_json(content: str, name: str, replacement: str) -> tuple[str, int]:
 
 
 def erase(
-    ou: Everywhere,
+    where_: Everywhere,
     name: str,
     *,
     replacement: str = UNNAMED,
@@ -184,7 +184,7 @@ def erase(
     to know which.
     """
     done = Erased()
-    for path, what in _files_of(ou):
+    for path, what in _files_of(where_):
         content = _read(path)
         if content is None:
             continue

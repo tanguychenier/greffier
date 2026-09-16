@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 LARGE_MODEL_MEMORY_GB = 8.0
-DISQUE_NECESSAIRE_GO = 3.0
+DISK_NEEDED_GB = 3.0
 
 @dataclass
 class Reading:
@@ -14,8 +14,8 @@ class Reading:
     name: str
     present: bool
     detail: str = ""
-    remede: str = ""
-    bloquant: bool = False
+    remedy: str = ""
+    is_blocking: bool = False
 
 @dataclass
 class Recorder:
@@ -24,7 +24,7 @@ class Recorder:
     system: str = ""
     architecture: str = ""
     memory_gb: float = 0.0
-    disque_libre_go: float = 0.0
+    free_disk_gb: float = 0.0
     speedup: str = "processeur"   # metal | cuda | processeur
 
     @property
@@ -45,15 +45,15 @@ class Diagnostic:
     """The overall verdict: what is missing, and whether it can be fixed."""
 
     recorder: Recorder
-    constats: list[Reading] = field(default_factory=list)
+    readings: list[Reading] = field(default_factory=list)
 
     @property
     def blocking(self) -> list[Reading]:
-        return [c for c in self.constats if c.bloquant and not c.present]
+        return [c for c in self.readings if c.is_blocking and not c.present]
 
     @property
     def missing(self) -> list[Reading]:
-        return [c for c in self.constats if not c.present]
+        return [c for c in self.readings if not c.present]
 
     @property
     def ready(self) -> bool:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from greffier.domain.attribution import PART_MINIMALE, time_per_voice, voice_of
+from greffier.domain.attribution import MINIMUM_SHARE, time_per_voice, voice_of
 from greffier.domain.models import Span, SpeakerTurn
 
 
@@ -46,7 +46,7 @@ class TestWhoseVoice:
     def test_the_threshold_is_met_at_the_minimum_share(self):
         """Exactly at the threshold it decides: the refusal starts below."""
         turns = [turn("0", 0.0, 8.0), turn("1", 8.0, 10.0)]
-        assert voice_of(Span(0.0, 10.0), turns, PART_MINIMALE) == "0"
+        assert voice_of(Span(0.0, 10.0), turns, MINIMUM_SHARE) == "0"
         assert voice_of(Span(0.0, 10.0), turns, 0.81) is None
 
     def test_the_scattered_pieces_of_one_voice_add_up(self):

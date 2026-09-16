@@ -18,9 +18,9 @@ meetings, the French has to come out of it character for character.
 from greffier.adapters.assistant_terminal import Answers
 from greffier.adapters.configuration import SECTIONS, Config, render
 from greffier.adapters.writer_claude import GUIDANCE, guidance
-from greffier.adapters.writer_ollama import GUIDANCE as CONSIGNES_OLLAMA
-from greffier.adapters.writer_ollama import guidance as consignes_ollama
-from greffier.domain.languages import LANGUAGES, eprouvee, label_text, name_of
+from greffier.adapters.writer_ollama import GUIDANCE as OLLAMA_GUIDANCE
+from greffier.adapters.writer_ollama import guidance as ollama_guidance
+from greffier.domain.languages import LANGUAGES, label_text, name_of, proven
 
 
 class TestTheLanguageNeverLandsInTheEnvFile:
@@ -59,7 +59,7 @@ class TestTheGuidanceFollowsTheLanguage:
     def test_french_is_unchanged_character_for_character(self):
         assert guidance("") == GUIDANCE
         assert guidance("fr") == GUIDANCE
-        assert consignes_ollama("fr") == CONSIGNES_OLLAMA
+        assert ollama_guidance("fr") == OLLAMA_GUIDANCE
 
     def test_another_language_is_dictated_at_the_top(self):
         assert guidance("en").startswith("Rédige entièrement en Anglais")
@@ -75,10 +75,10 @@ class TestTheGuidanceFollowsTheLanguage:
 
 class TestTheCatalogueSaysWhatEachLanguageGets:
     def test_french_is_tested(self):
-        assert eprouvee("fr")
+        assert proven("fr")
 
     def test_the_others_are_not_and_say_so(self):
-        assert not eprouvee("en")
+        assert not proven("en")
         assert "à nommer à la main" in label_text("en")
 
     def test_automatic_detection_promises_nothing_false(self):

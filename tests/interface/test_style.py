@@ -15,7 +15,7 @@ import pytest
 
 from greffier.interface.style import CLAIR, SOMBRE, Palette, font, palette
 
-TEINTE = re.compile(r"^#[0-9a-fA-F]{6}$")
+TINT = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
 def both_palettes(palette: Palette) -> dict[str, str]:
@@ -35,7 +35,7 @@ class TestThePalettes:
         # on the first draw. That happened, with non-Latin characters slipped
         # into a hexadecimal value.
         for name, value in both_palettes(palette).items():
-            assert TEINTE.match(value), f"{name} = {value!r}"
+            assert TINT.match(value), f"{name} = {value!r}"
 
     @pytest.mark.parametrize("palette", [CLAIR, SOMBRE], ids=["clair", "sombre"])
     def test_the_text_contrasts_with_its_ground(self, palette: Palette) -> None:
@@ -71,8 +71,8 @@ class TestThePalettes:
     def test_the_states_can_be_told_apart(self, palette: Palette) -> None:
         # Rouge d'enregistrement, ambre de pause, gris de repos : trois états
         # qu'on doit pouvoir séparer d'un coup d'œil.
-        etats = {palette.active, palette.amber, palette.calm}
-        assert len(etats) == 3
+        states = {palette.active, palette.amber, palette.calm}
+        assert len(states) == 3
 
     def test_the_two_palettes_cover_the_same_roles(self) -> None:
         assert both_palettes(CLAIR).keys() == both_palettes(SOMBRE).keys()
@@ -96,7 +96,7 @@ class TestTheFont:
         assert font(12)[0] in {"SF Pro Text", "Segoe UI", "Helvetica"}
 
     def test_bold_can_be_asked_for(self) -> None:
-        assert font(12, gras=True)[2] == "bold"
+        assert font(12, bold=True)[2] == "bold"
         assert font(12)[2] == "normal"
 
     def test_a_family_is_always_given(self) -> None:
@@ -105,14 +105,14 @@ class TestTheFont:
         assert font(12)[0]
 
 
-def _luminance(teinte: str) -> float:
+def _luminance(tint: str) -> float:
     """Relative luminance, as the accessibility rules define it."""
-    channels = [int(teinte[i:i + 2], 16) / 255 for i in (1, 3, 5)]
-    lineaires = [
+    channels = [int(tint[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+    linear = [
         canal / 12.92 if canal <= 0.04045 else ((canal + 0.055) / 1.055) ** 2.4
         for canal in channels
     ]
-    return 0.2126 * lineaires[0] + 0.7152 * lineaires[1] + 0.0722 * lineaires[2]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
 
 
 def _contrast(first_call: str, second: str) -> float:
@@ -216,8 +216,8 @@ class TestTheThemeOfTheSystem:
 
         monkeypatch.setattr(style.platform, "system", lambda: "Linux")
 
-        def absente(*_a, **_k):
+        def absent_one(*_a, **_k):
             raise FileNotFoundError("gdbus")
 
-        monkeypatch.setattr(style.subprocess, "run", absente)
+        monkeypatch.setattr(style.subprocess, "run", absent_one)
         assert not style.system_is_dark()

@@ -163,7 +163,7 @@ def through_the_live_thread(
         log=config.paths.propositions / f"{audio.stem}.jsonl",
         transcriber=light_transcriber(config),
         follower=the_follower,
-        preparateur=_audio_recorder(config),
+        preparer=_audio_recorder(config),
         language="fr",
         slice_period=config.live.period,
     )

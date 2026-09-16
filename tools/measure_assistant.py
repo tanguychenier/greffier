@@ -76,9 +76,9 @@ def _meeting(folder: Path) -> tuple[Path, list[dict[str, Any]]]:
     return audio, timeline
 
 
-def _instrumented(lui: Any, clock: Clock) -> None:
+def _instrumented(her: Any, clock: Clock) -> None:
     """Hooks on the three steps, the loudspeaker replaced by the clock."""
-    brain = lui.cerveau
+    brain = her.the_brain
     write_up = brain.write_up
 
     def timed_write_up(text: str) -> str:
@@ -88,14 +88,14 @@ def _instrumented(lui: Any, clock: Clock) -> None:
         return answer
 
     brain.write_up = timed_write_up
-    answer_aside = lui.answer_aside
+    answer_aside = her.answer_aside
 
     def timed_answer_aside(opening: Any, now: float) -> None:
         clock.mark("spotted", opening.remark)
         answer_aside(opening, now)
 
-    lui.answer_aside = timed_answer_aside
-    voice = lui.voice
+    her.answer_aside = timed_answer_aside
+    voice = her.voice
     if voice is not None and hasattr(voice, "_play"):
         def silent_play(file: Path) -> bool:
             clock.mark("ready", file.name)
@@ -119,31 +119,31 @@ def replay(audio: Path, config: Any, model: str, brain: Any | None = None) -> Cl
     identifier = "banc-assistante"
     duration = sf.info(str(audio)).duration
     the_follower = follower(config, identifier)
-    lui = assistant_of(config, identifier)
-    if lui is None:
+    her = assistant_of(config, identifier)
+    if her is None:
         raise RuntimeError("no assistant: check « assistant.actif »")
     if brain is not None:
-        lui.cerveau = brain
-    if lui.cerveau is None:
+        her.the_brain = brain
+    if her.the_brain is None:
         raise RuntimeError("no brain: check « compte_rendu.moteur »")
-    lui.context = _live_material(config, identifier, the_follower)
-    if hasattr(lui.cerveau, "warm_up"):
-        lui.cerveau.warm_up()
+    her.context = _live_material(config, identifier, the_follower)
+    if hasattr(her.the_brain, "warm_up"):
+        her.the_brain.warm_up()
     transcriber = light_transcriber(config)
     # As the meeting does: the models open while the room settles.
-    _warm_up_aside(lui.voice, transcriber)
+    _warm_up_aside(her.voice, transcriber)
     time.sleep(WARM_UP_S)
     # The clock starts with the meeting, once the room has settled.
     clock = Clock()
-    _instrumented(lui, clock)
+    _instrumented(her, clock)
     watcher = Watcher(
         watch_rules=WatchRules(keyword="greffier"),
         log=config.paths.propositions / f"{identifier}.jsonl",
         transcriber=transcriber,
-        situer=lambda: Position(chunk=audio, written=min(duration, clock.now()), offset=0.0),
+        locate=lambda: Position(chunk=audio, written=min(duration, clock.now()), offset=0.0),
         follower=the_follower,
         language="fr",
-        assistant_of=lui,
+        assistant_of=her,
         speaking=somebody_speaking,
         slice_period=config.live.period,
     )
@@ -153,8 +153,8 @@ def replay(audio: Path, config: Any, model: str, brain: Any | None = None) -> Cl
             since=clock.now,
             job=Path(job),
         )
-    if hasattr(lui.cerveau, "close"):
-        lui.cerveau.close()
+    if hasattr(her.the_brain, "close"):
+        her.the_brain.close()
     return clock
 
 

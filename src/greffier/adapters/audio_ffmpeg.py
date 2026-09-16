@@ -73,15 +73,15 @@ class FfmpegRecorder:
 
     def start_recording(self, destination: Path) -> int:
         destination.parent.mkdir(parents=True, exist_ok=True)
-        processus = subprocess.Popen(
+        process_id = subprocess.Popen(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin",
              *self._input(), "-t", str(self.maximum_length),
              "-ar", "16000", "-c:a", "pcm_s16le", str(destination)],
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
-        return processus.pid
+        return process_id.pid
 
-    def stop_recording(self, processus: int) -> None:
+    def stop_recording(self, process_id: int) -> None:
         """Stops with SIGINT, never with SIGKILL.
 
         SIGKILL leaves the file's header unwritten, and a wav without a header is an
@@ -91,34 +91,34 @@ class FfmpegRecorder:
         import time
 
         try:
-            os.kill(processus, signal.SIGINT)
+            os.kill(process_id, signal.SIGINT)
         except ProcessLookupError:
             return
         for _ in range(60):
             time.sleep(0.25)
             try:
-                os.kill(processus, 0)
+                os.kill(process_id, 0)
             except ProcessLookupError:
                 return
-        os.kill(processus, signal.SIGKILL)
+        os.kill(process_id, signal.SIGKILL)
 
     def prepare_transcript(self, audio: Path, destination: Path) -> Path:
         """Normalises each channel, then mixes them."""
         channels = self._channels(audio) or 1
         if channels == 1:
-            filtre = "loudnorm=I=-20:TP=-1.5:LRA=11"
+            filter_ = "loudnorm=I=-20:TP=-1.5:LRA=11"
         else:
             parts = "".join(
                 f"[0:a]pan=mono|c0=c{i},loudnorm=I=-20:TP=-1.5:LRA=11[c{i}];"
                 for i in range(channels)
             )
-            entrees = "".join(f"[c{i}]" for i in range(channels))
-            filtre = f"{parts}{entrees}amix=inputs={channels}:normalize=0,loudnorm=I=-20:TP=-1.5"
+            entries = "".join(f"[c{i}]" for i in range(channels))
+            filter_ = f"{parts}{entries}amix=inputs={channels}:normalize=0,loudnorm=I=-20:TP=-1.5"
         destination.parent.mkdir(parents=True, exist_ok=True)
-        drapeau = "-filter_complex" if channels > 1 else "-af"
+        flag = "-filter_complex" if channels > 1 else "-af"
         done = subprocess.run(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(audio),
-             drapeau, filtre, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le",
+             flag, filter_, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le",
              str(destination)],
             capture_output=True, text=True, check=False,
         )
@@ -140,40 +140,40 @@ class FfmpegRecorder:
         channels = min((self._channels(m) for m in present_line), default=1) or 1
         with tempfile.TemporaryDirectory() as folder:
             atelier = Path(folder)
-            uniformes: list[Path] = []
+            uniform: list[Path] = []
             for rank, chunk in enumerate(present_line):
                 if self._channels(chunk) == channels:
-                    uniformes.append(chunk)
+                    uniform.append(chunk)
                     continue
-                converti = atelier / f"{rank:02d}.wav"
+                converted = atelier / f"{rank:02d}.wav"
                 self._run_chain(
                     ["-i", str(chunk), "-ac", str(channels), "-ar", "16000",
-                     "-c:a", "pcm_s16le", str(converti)],
+                     "-c:a", "pcm_s16le", str(converted)],
                     "conversion d'un morceau impossible",
                 )
-                uniformes.append(converti)
+                uniform.append(converted)
 
             listing = atelier / "morceaux.txt"
             listing.write_text(
-                "".join(f"file '{m.resolve()}'\n" for m in uniformes), encoding="utf-8"
+                "".join(f"file '{m.resolve()}'\n" for m in uniform), encoding="utf-8"
             )
-            recolle = atelier / "recolle.wav"
+            stitched_one = atelier / "recolle.wav"
             self._run_chain(
-                ["-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy", str(recolle)],
+                ["-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy", str(stitched_one)],
                 "recollage impossible",
             )
             destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(recolle), str(destination))
+            shutil.move(str(stitched_one), str(destination))
         return destination
 
-    def _run_chain(self, arguments: list[str], echec: str) -> None:
+    def _run_chain(self, arguments: list[str], failure: str) -> None:
         done = subprocess.run(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", *arguments],
             capture_output=True, text=True, check=False,
         )
         if done.returncode != 0:
             latest = (done.stderr or done.stdout).strip().splitlines()
-            raise RuntimeError(echec + (f" : {latest[-1]}" if latest else ""))
+            raise RuntimeError(failure + (f" : {latest[-1]}" if latest else ""))
 
     def _channels(self, audio: Path) -> int:
         done = subprocess.run(
@@ -195,16 +195,16 @@ class FfmpegRecorder:
         except RuntimeError:
             return DIGITAL_SILENCE
         with tempfile.TemporaryDirectory() as folder:
-            essai = Path(folder) / "essai.wav"
+            trial = Path(folder) / "essai.wav"
             done = subprocess.run(
                 ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
                  "-f", "avfoundation", "-i", f":{index}", "-t", f"{seconds}",
-                 "-ar", "16000", str(essai)],
+                 "-ar", "16000", str(trial)],
                 capture_output=True, text=True, check=False,
             )
-            if done.returncode != 0 or not essai.exists():
+            if done.returncode != 0 or not trial.exists():
                 return DIGITAL_SILENCE
-            measures = self.levels(essai)
+            measures = self.levels(trial)
         return max(measures) if measures else DIGITAL_SILENCE
 
     def levels(self, audio: Path) -> list[float]:
@@ -241,13 +241,13 @@ def why_unreadable(audio: Path) -> str:
     except OSError as trouble:
         return f"{audio.name} est illisible : {trouble.strerror or trouble}."
     try:
-        renseignements = soundfile.info(str(audio))
+        details = soundfile.info(str(audio))
     except (RuntimeError, OSError):
         return (
             f"{audio.name} n'est pas un enregistrement lisible : son en-tête ne "
             "dit pas de quel son il s'agit. Le fichier est peut-être incomplet, "
             "ou ce n'est pas un fichier audio."
         )
-    if renseignements.frames <= 0:
+    if details.frames <= 0:
         return f"{audio.name} ne contient aucun son."
     return ""

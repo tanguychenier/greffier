@@ -24,7 +24,7 @@ MAXIMUM_DENSITY = 0.85
 class Because(StrEnum):
     """Why the assistant would want to speak, strongest reason first."""
 
-    APPELE = "on l'appelle"
+    CALLED = "on l'appelle"
     INDISTINCT_VOICE = "il ne distingue pas une voix"
     DECISION_WITHOUT_FOLLOW_UP = "une décision sans responsable ni date"
     QUESTION_WITHOUT_ANSWER = "une question restée en l'air"
@@ -32,7 +32,7 @@ class Because(StrEnum):
     CONTRIBUTION = "il a quelque chose à ajouter"
 
 WEIGHT = {
-    Because.APPELE: 100,
+    Because.CALLED: 100,
     Because.INDISTINCT_VOICE: 60,
     Because.DECISION_WITHOUT_FOLLOW_UP: 50,
     Because.QUESTION_WITHOUT_ANSWER: 40,
@@ -57,7 +57,7 @@ class Opening:
     @property
     def urgent(self) -> bool:
         """An opening that ignores both the rest period and the density."""
-        return self.because is Because.APPELE
+        return self.because is Because.CALLED
 
 @dataclass
 class Manners:
@@ -66,10 +66,10 @@ class Manners:
     creux_minimal: float = MINIMUM_LULL
     rest: float = REST
     staleness: float = STALENESS
-    densite_maximale: float = MAXIMUM_DENSITY
+    maximum_density: float = MAXIMUM_DENSITY
     active: bool = True
     spoke_at: float | None = None
-    dits: set[str] = field(default_factory=set)
+    said_ones: set[str] = field(default_factory=set)
 
     def refusal(
         self,
@@ -81,7 +81,7 @@ class Manners:
         """What stops this opening being said, or nothing if it may be."""
         if not self.active:
             return "il ne participe pas"
-        if opening.subject and opening.subject in self.dits:
+        if opening.subject and opening.subject in self.said_ones:
             return "déjà dit"
         if opening.urgent:
             return None
@@ -89,7 +89,7 @@ class Manners:
             return "la conversation est passée à autre chose"
         if lull < self.creux_minimal:
             return "quelqu'un parle"
-        if density > self.densite_maximale:
+        if density > self.maximum_density:
             return "la discussion est trop dense"
         if self.spoke_at is not None and now - self.spoke_at < self.rest:
             remaining = self.rest - (now - self.spoke_at)
@@ -116,7 +116,7 @@ class Manners:
         """To be called once the remark has actually been spoken."""
         self.spoke_at = now
         if opening.subject:
-            self.dits.add(opening.subject)
+            self.said_ones.add(opening.subject)
 
 def speech_density(turns: list[tuple[float, float]], now: float,
                       window: float = 60.0) -> float:
@@ -131,7 +131,7 @@ def speech_density(turns: list[tuple[float, float]], now: float,
     )
     return min(1.0, is_speaking / width)
 
-def _ecart_tolere(name: str) -> int:
+def _tolerated_gap(name: str) -> int:
     """How far a word may sit from the name and still be it.
 
     A quarter of the name, and not a flat two edits. Measured on 3 809 turns of
@@ -142,9 +142,9 @@ def _ecart_tolere(name: str) -> int:
     """
     return len(name) // 4
 
-def _distance(one: str, other: str, plafond: int) -> int:
+def _distance(one: str, other: str, ceiling: int) -> int:
     """Edit distance, given up as soon as it passes the ceiling."""
-    return int(Levenshtein.distance(one, other, score_cutoff=plafond))
+    return int(Levenshtein.distance(one, other, score_cutoff=ceiling))
 
 def _strip_accents(word: str) -> str:
     import unicodedata
@@ -154,7 +154,7 @@ def _strip_accents(word: str) -> str:
         if unicodedata.category(c) != "Mn"
     )
 
-def _is_the_name(word: str, cherche: str) -> bool:
+def _is_the_name(word: str, searched: str) -> bool:
     """True when this word is the name, near enough to be taken out of a sentence.
 
     Wider than what makes it answer, and deliberately so: taking its name out of
@@ -163,8 +163,8 @@ def _is_the_name(word: str, cherche: str) -> bool:
     """
     if not word.strip():
         return False
-    plafond = 1 if len(cherche) < 5 else 2
-    return _distance(_strip_accents(word), cherche, plafond) <= plafond
+    ceiling = 1 if len(searched) < 5 else 2
+    return _distance(_strip_accents(word), searched, ceiling) <= ceiling
 
 def called_by_name(text: str, name: str) -> bool:
     """Is the assistant named in this sentence?
@@ -179,26 +179,26 @@ def called_by_name(text: str, name: str) -> bool:
     proper noun, and the transcription writes it as one; speaking up because
     somebody said "lui" is what makes the room look at the tool.
     """
-    cherche = _strip_accents(name.strip())
-    if not cherche:
+    searched = _strip_accents(name.strip())
+    if not searched:
         return False
     for word in re.findall(r"\w+", text, flags=re.UNICODE):
         if not word[:1].isupper():
             continue
         nu = _strip_accents(word)
-        plafond = _ecart_tolere(cherche)
-        if _distance(nu, cherche, plafond) <= plafond:
+        ceiling = _tolerated_gap(searched)
+        if _distance(nu, searched, ceiling) <= ceiling:
             return True
     return False
 
 def question_asked(text: str, name: str) -> str:
     """What is being asked of the assistant, with its name removed."""
-    cherche = _strip_accents(name.strip())
-    gardes = [
+    searched = _strip_accents(name.strip())
+    guards = [
         word for word in re.split(r"(\W+)", text, flags=re.UNICODE)
-        if not _is_the_name(word, cherche)
+        if not _is_the_name(word, searched)
     ]
-    remaining = re.sub(r"\s+", " ", "".join(gardes))
+    remaining = re.sub(r"\s+", " ", "".join(guards))
     remaining = re.sub(r"\s+([,.])", r"\1", remaining)
     return re.sub(r"^[\s,.:;!?]+", "", remaining).strip()
 
@@ -255,9 +255,9 @@ def is_own(text: str, remarks: list[frozenset[str]]) -> bool:
     if len(words) < WORDS_TO_JUDGE:
         return False
     return any(
-        len(words & dites) >= SHARE_OF_WORDS * len(words)
-        for dites in remarks
-        if dites
+        len(words & said_ones) >= SHARE_OF_WORDS * len(words)
+        for said_ones in remarks
+        if said_ones
     )
 
 
@@ -271,14 +271,14 @@ def without_own_name(remark: str, name: str) -> str:
     again, **for ever**. Observed in a real meeting, fifteen times in fifteen
     seconds.
     """
-    cherche = _strip_accents(name.strip())
-    if not cherche:
+    searched = _strip_accents(name.strip())
+    if not searched:
         return remark
-    gardes = [
+    guards = [
         word for word in re.split(r"(\W+)", remark, flags=re.UNICODE)
-        if not _is_the_name(word, cherche)
+        if not _is_the_name(word, searched)
     ]
-    remaining = "".join(gardes)
+    remaining = "".join(guards)
     if remaining == remark:
         return remark
     remaining = re.sub(r"\s+", " ", remaining)

@@ -10,11 +10,11 @@ from greffier.adapters import gitlab_api
 from greffier.domain.sources import Kind, Right, Source
 
 
-def source(droit: Right = Right.READING) -> Source:
+def source(right: Right = Right.READING) -> Source:
     return Source(
         name="recherche", kind=Kind.GITLAB,
-        adresse="https://gitlab.example.fr", project="equipe/outil",
-        droit=droit, token="GREFFIER_GITLAB_JETON",
+        address="https://gitlab.example.fr", project="equipe/outil",
+        right=right, token="GREFFIER_GITLAB_JETON",
     )
 
 
@@ -30,16 +30,16 @@ class FakeGitLab:
     """Un GitLab qui garde ce qu'on lui envoie : l'adresse et le corps comptent."""
 
     def __init__(self) -> None:
-        self.appels: list = []
+        self.calls: list = []
         self.charge: object = []
 
-    def __call__(self, requete, timeout=None):
-        self.appels.append(requete)
+    def __call__(self, the_request, timeout=None):
+        self.calls.append(the_request)
         return Response(json.dumps(self.charge).encode("utf-8"))
 
     @property
     def first_call(self):
-        return self.appels[0]
+        return self.calls[0]
 
 
 @pytest.fixture
@@ -52,19 +52,19 @@ def gitlab(monkeypatch) -> FakeGitLab:
 @pytest.fixture
 def silent_server(monkeypatch):
     """No call must leave: the refusal is decided before the network."""
-    def jamais(*_args, **_options):
+    def never(*_args, **_options):
         raise AssertionError("aucun appel ne devait partir")
 
-    monkeypatch.setattr(gitlab_api.urllib.request, "urlopen", jamais)
+    monkeypatch.setattr(gitlab_api.urllib.request, "urlopen", never)
 
 
 def fail_to_answer(monkeypatch, code: int) -> None:
-    def tomber(*_args, **_options):
+    def fall(*_args, **_options):
         raise urllib.error.HTTPError(
             "https://x", code, "non", {}, BytesIO(b'{"message":"non"}')  # type: ignore[arg-type]
         )
 
-    monkeypatch.setattr(gitlab_api.urllib.request, "urlopen", tomber)
+    monkeypatch.setattr(gitlab_api.urllib.request, "urlopen", fall)
 
 
 UN_TICKET = {
@@ -79,13 +79,13 @@ class TestReadingFromGitLab:
         gitlab.charge = [UN_TICKET]
         found = gitlab_api.tickets(source(), "glpat-x")
         assert found[0].number == 42
-        assert found[0].assigne == "Sophie"
-        assert found[0].etiquettes == ("recette",)
+        assert found[0].assignee == "Sophie"
+        assert found[0].labels == ("recette",)
 
     def test_a_ticket_with_nobody_assigned_breaks_nothing(self, gitlab):
         """GitLab rend « assignee: null », pas un objet vide."""
         gitlab.charge = [{**UN_TICKET, "assignee": None}]
-        assert gitlab_api.tickets(source(), "glpat-x")[0].assigne == ""
+        assert gitlab_api.tickets(source(), "glpat-x")[0].assignee == ""
 
     def test_the_line_shows_the_ticket_at_a_glance(self, gitlab):
         gitlab.charge = [UN_TICKET]
@@ -107,7 +107,7 @@ class TestReadingFromGitLab:
         assert "state=opened" in gitlab.first_call.full_url
 
     def test_a_search_term_is_passed_on(self, gitlab):
-        gitlab_api.tickets(source(), "glpat-x", cherche="envoi")
+        gitlab_api.tickets(source(), "glpat-x", searched="envoi")
         assert "search=envoi" in gitlab.first_call.full_url
 
     def test_reading_asks_for_no_write_right(self, gitlab):
@@ -132,30 +132,30 @@ class TestWritingToGitLab:
 
     def test_an_empty_title_is_refused(self, silent_server):
         with pytest.raises(gitlab_api.GitLabRefused):
-            gitlab_api.create_a_ticket(source(Right.ECRITURE), "glpat-x", "  ")
+            gitlab_api.create_a_ticket(source(Right.WRITING), "glpat-x", "  ")
 
     def test_an_empty_comment_is_refused(self, silent_server):
         with pytest.raises(gitlab_api.GitLabRefused):
-            gitlab_api.comment(source(Right.ECRITURE), "glpat-x", 42, "   ")
+            gitlab_api.comment(source(Right.WRITING), "glpat-x", 42, "   ")
 
     def test_the_created_ticket_comes_back_with_its_url(self, gitlab):
         """A write whose result is not shown cannot be checked."""
         gitlab.charge = UN_TICKET
         cree = gitlab_api.create_a_ticket(
-            source(Right.ECRITURE), "glpat-x", "Corriger l'envoi"
+            source(Right.WRITING), "glpat-x", "Corriger l'envoi"
         )
         assert cree.number == 42
-        assert cree.adresse.endswith("/issues/42")
+        assert cree.address.endswith("/issues/42")
         assert gitlab.first_call.method == "POST"
 
     def test_the_body_carries_the_title_given(self, gitlab):
         gitlab.charge = UN_TICKET
-        gitlab_api.create_a_ticket(source(Right.ECRITURE), "glpat-x", "Un titre")
+        gitlab_api.create_a_ticket(source(Right.WRITING), "glpat-x", "Un titre")
         assert json.loads(gitlab.first_call.data)["title"] == "Un titre"
 
     def test_a_comment_returns_the_url_of_the_ticket(self, gitlab):
         gitlab.charge = {"id": 7}
-        rendered = gitlab_api.comment(source(Right.ECRITURE), "glpat-x", 42, "vu")
+        rendered = gitlab_api.comment(source(Right.WRITING), "glpat-x", 42, "vu")
         assert rendered.endswith("/equipe/outil/-/issues/42")
         assert gitlab.first_call.method == "POST"
 
@@ -172,10 +172,10 @@ class TestWhenItFailsItSaysSo:
             gitlab_api.tickets(source(), "glpat-x")
 
     def test_an_unreachable_server_is_reported_without_falling_over(self, monkeypatch):
-        def tomber(*_args, **_options):
+        def fall(*_args, **_options):
             raise urllib.error.URLError("nom introuvable")
 
-        monkeypatch.setattr(gitlab_api.urllib.request, "urlopen", tomber)
+        monkeypatch.setattr(gitlab_api.urllib.request, "urlopen", fall)
         with pytest.raises(gitlab_api.GitLabRefused, match="injoignable"):
             gitlab_api.tickets(source(), "glpat-x")
 

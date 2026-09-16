@@ -14,9 +14,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from greffier.domain import names as noms_domaine
+from greffier.domain import names as names_domain
 from greffier.domain import profiles
-from greffier.domain import voiceprints as voix_domaine
+from greffier.domain import voiceprints as voice_domain
 from greffier.domain.attribution import voice_of
 from greffier.domain.boilerplate import (
     collapse_loops,
@@ -26,7 +26,7 @@ from greffier.domain.boilerplate import (
 from greffier.domain.her_voice import voices_of
 from greffier.domain.language import LanguageProfile
 from greffier.domain.meeting import StoredMeeting
-from greffier.domain.minutes import title as titre_du_compte_rendu
+from greffier.domain.minutes import title as title_of_the_minutes
 from greffier.domain.models import (
     Phase,
     Span,
@@ -86,13 +86,13 @@ class Outcome:
     names: dict[str, str] = field(default_factory=dict)
     propositions: dict[str, str] = field(default_factory=dict)
     minutes: str = ""
-    envoye: bool = False
+    sent: bool = False
     master_file: Path | None = None
     transcript_written: Path | None = None
     minutes_written: Path | None = None
     warnings: list[str] = field(default_factory=list)
     hardware_events: list[str] = field(default_factory=list)
-    profil: LanguageProfile = NEUTRAL
+    profile: LanguageProfile = NEUTRAL
     started_at: datetime | None = None
     ended_at: datetime | None = None
     subject: str = ""
@@ -102,7 +102,7 @@ class Outcome:
     @property
     def words(self) -> int:
         """The word count, counted the way the language separates them."""
-        return sum(self.profil.splitting.count_them(r.text) for r in self.utterances)
+        return sum(self.profile.splitting.count_them(r.text) for r in self.utterances)
 
     def name_of(self, voice: str | None) -> str:
         from greffier.domain.meeting import named_or_unknown
@@ -132,15 +132,15 @@ class Outcome:
         """Passages of at least `minimum` seconds without a single utterance."""
         if not self.utterances:
             return [Span(0.0, self.duration)] if self.duration > minimum else []
-        manques: list[Span] = []
+        missing_ones: list[Span] = []
         previous = 0.0
         for utterance in sorted(self.utterances, key=lambda r: r.span.start):
             if utterance.span.start - previous >= minimum:
-                manques.append(Span(previous, utterance.span.start))
+                missing_ones.append(Span(previous, utterance.span.start))
             previous = max(previous, utterance.span.end)
         if self.duration - previous >= minimum:
-            manques.append(Span(previous, self.duration))
-        return manques
+            missing_ones.append(Span(previous, self.duration))
+        return missing_ones
 
     def significant_voices(self, minimum: float = 10.0) -> dict[str, float]:
         """Voices that spoke enough to be an attendee.
@@ -172,7 +172,7 @@ class Chain:
     prompt_seed: str = ""
     context_header: str = ""
     instructions: Callable[[str], list[str]] | None = None
-    named_live: Callable[[str], list[noms_domaine.NamedSpan]] | None = None
+    named_live: Callable[[str], list[names_domain.NamedSpan]] | None = None
     people: int | None = None
     not_first_names: frozenset[str] = frozenset()
     recipient: str = ""
@@ -200,7 +200,7 @@ class Chain:
             return
         if all(level < SILENT_THRESHOLD_DB for level in levels):
             raise ChainStopped(
-                Phase.ECHEC,
+                Phase.FAILURE,
                 "Enregistrement muet sur tous les canaux. "
                 "Vérifie l'autorisation micro et le périphérique d'entrée.",
             )
@@ -240,7 +240,7 @@ class Chain:
         if coverage <= 0:
             return
         gaps = [t for t in outcome.gaps(SIGNIFICANT_GAP) if t.duration >= SIGNIFICANT_GAP]
-        perdu = sum(t.duration for t in gaps)
+        lost = sum(t.duration for t in gaps)
         if coverage < SUSPECT_COVERAGE:
             outcome.warnings.append(
                 f"Couverture de {coverage * 100:.0f} % seulement : le modèle a "
@@ -250,12 +250,12 @@ class Chain:
         elif coverage < LOW_COVERAGE:
             outcome.warnings.append(
                 f"Couverture de {coverage * 100:.0f} % : "
-                f"{perdu / 60:.0f} min sans aucun texte. Des silences peuvent "
+                f"{lost / 60:.0f} min sans aucun texte. Des silences peuvent "
                 "l'expliquer, mais vérifie qu'il ne manque rien d'important."
             )
         elif gaps:
             outcome.warnings.append(
-                f"{len(gaps)} passage(s) sans texte, {perdu / 60:.0f} min au total. "
+                f"{len(gaps)} passage(s) sans texte, {lost / 60:.0f} min au total. "
                 "Un silence, ou du texte perdu : le compte rendu ne tranche pas."
             )
 
@@ -304,7 +304,7 @@ class Chain:
         for turn in turns:
             per_voice.setdefault(turn.voice, []).append(turn.span)
         voiceprints = self._voiceprints_per_voice(audio, per_voice)
-        membership = voix_domaine.stitch(voiceprints)
+        membership = voice_domain.stitch(voiceprints)
         return [
             SpeakerTurn(t.span, membership.get(t.voice, t.voice), t.source) for t in turns
         ]
@@ -339,16 +339,16 @@ class Chain:
         per_voice: dict[str, list[Span]] = {}
         for turn in turns:
             per_voice.setdefault(turn.voice, []).append(turn.span)
-        siennes = self._her_voices(turns, audio.stem)
-        for voice, intervalles in per_voice.items():
-            if voice in siennes:
+        hers = self._her_voices(turns, audio.stem)
+        for voice, the_spans in per_voice.items():
+            if voice in hers:
                 continue
-            if sum(i.duration for i in intervalles) < MATERIAL_TO_RECOGNISE:
+            if sum(i.duration for i in the_spans) < MATERIAL_TO_RECOGNISE:
                 continue
-            excerpts = self.extractor.extract_spans(audio, intervalles)
+            excerpts = self.extractor.extract_spans(audio, the_spans)
             if not excerpts:
                 continue
-            match = voix_domaine.recognise(voix_domaine.aggregate(excerpts), known)
+            match = voice_domain.recognise(voice_domain.aggregate(excerpts), known)
             if match and match.sure:
                 found[voice] = match.name
         return found
@@ -365,34 +365,34 @@ class Chain:
         Both at once is a certainty. Either one alone stays a suggestion: better to ask
         than to write an invented name into minutes.
         """
-        mentions = noms_domaine.spot_mentions(
-            utterances, outcome.profil, self.not_first_names
+        mentions = names_domain.spot_mentions(
+            utterances, outcome.profile, self.not_first_names
         )
-        attribution = noms_domaine.attribute(mentions, turns)
+        attribution = names_domain.attribute(mentions, turns)
 
-        siennes = self._her_voices(turns, outcome.audio.stem)
-        for voice in siennes:
+        hers = self._her_voices(turns, outcome.audio.stem)
+        for voice in hers:
             outcome.names[voice] = self.her_name
 
         for voice, name in from_bank.items():
-            if voice in siennes:
+            if voice in hers:
                 continue
             outcome.names[voice] = name
 
-        for voice, found in attribution.certitudes.items():
-            if voice in siennes:
+        for voice, found in attribution.certainties.items():
+            if voice in hers:
                 continue
-            connu = from_bank.get(voice)
-            if connu and connu.lower() != found.name.lower():
+            known_one = from_bank.get(voice)
+            if known_one and known_one.lower() != found.name.lower():
                 outcome.warnings.append(
-                    f"La voix {voice} est reconnue comme {connu} mais nommée {found.name} "
+                    f"La voix {voice} est reconnue comme {known_one} mais nommée {found.name} "
                     "pendant la réunion."
                 )
                 continue
             outcome.names[voice] = found.name
 
         for proposition in attribution.propositions:
-            if proposition.voice in siennes:
+            if proposition.voice in hers:
                 continue
             if proposition.voice not in outcome.names:
                 outcome.propositions[proposition.voice] = proposition.name
@@ -410,10 +410,10 @@ class Chain:
         """
         if self.named_live is None:
             return
-        named: list[noms_domaine.NamedSpan] = []
+        named: list[names_domain.NamedSpan] = []
         with contextlib.suppress(Exception):
             named = self.named_live(outcome.audio.stem)
-        for voice, name in noms_domaine.from_live(named, turns).items():
+        for voice, name in names_domain.from_live(named, turns).items():
             other = outcome.names.get(voice)
             if other is None:
                 outcome.names[voice] = name
@@ -436,14 +436,14 @@ class Chain:
         After attribution, not before: attribution is what gives the names, and here it
         is the name that says two voices are one person.
         """
-        poids = {
+        weight = {
             voice: sum(
                 t.span.end - t.span.start
                 for t in outcome.turns if t.voice == voice
             )
             for voice in set(outcome.names)
         }
-        membership = noms_domaine.join_namesakes(outcome.names, poids)
+        membership = names_domain.join_namesakes(outcome.names, weight)
         replies = {v: c for v, c in membership.items() if v != c}
         if not replies:
             return
@@ -487,20 +487,20 @@ class Chain:
             brutes = self.transcriber.transcribe(
                 prepare, self.language, self.prompt_seed
             )
-        profil = profiles.pour(self.language)
-        outcome.profil = profil
+        profile = profiles.pour(self.language)
+        outcome.profile = profile
         outcome.utterances = collapse_loops([
             r for r in brutes
-            if not is_boilerplate(r.text, profil) and not is_an_annotation(r.text)
+            if not is_boilerplate(r.text, profile) and not is_an_annotation(r.text)
         ])
         if outcome.words < MINIMUM_WORDS:
             raise ChainStopped(
-                Phase.ECHEC,
+                Phase.FAILURE,
                 f"Transcription quasi vide ({outcome.words} mots) : "
                 "aucun compte rendu n'a été rédigé.",
             )
 
-        self._phase(Phase.LOCUTEURS, "Identification des locuteurs…")
+        self._phase(Phase.SPEAKERS, "Identification des locuteurs…")
         turns = self.diariser.segment(audio, self.people)
         turns = self._identify_voices(audio, turns)
         outcome.turns = turns
@@ -514,10 +514,10 @@ class Chain:
         self._keep(audio, outcome)
 
         if self.writer is None:
-            self._phase(Phase.TERMINE, "Transcription prête, aucun rédacteur configuré.")
+            self._phase(Phase.DONE, "Transcription prête, aucun rédacteur configuré.")
             return outcome
 
-        self._phase(Phase.REDACTION, f"{outcome.words} mots transcrits. Rédaction…")
+        self._phase(Phase.WRITING, f"{outcome.words} mots transcrits. Rédaction…")
         from greffier.application.render import (
             context_header,
             disclosure_header,
@@ -547,7 +547,7 @@ class Chain:
         outcome.minutes = self.writer.write_up(
             render_transcript(outcome, header)
         )
-        written_title = titre_du_compte_rendu(outcome.minutes, "")
+        written_title = title_of_the_minutes(outcome.minutes, "")
         if written_title:
             outcome.subject = (
                 written_title.split(":", 1)[-1].strip() if ":" in written_title else written_title
@@ -565,19 +565,19 @@ class Chain:
                     "Le compte rendu est gardé ; « greffier envoyer » réessaie."
                 )
             else:
-                outcome.envoye = True
+                outcome.sent = True
         elif send:
-            manque = ("aucun destinataire n'est configuré" if not self.recipient
+            lack = ("aucun destinataire n'est configuré" if not self.recipient
                       else "aucun moyen d'envoi n'est configuré")
             outcome.warnings.append(
-                f"Compte rendu NON envoyé : {manque}. "
+                f"Compte rendu NON envoyé : {lack}. "
                 "« greffier envoyer » pour l'expédier, ou renseigne "
                 "compte_rendu.destinataire dans la configuration."
             )
 
         self._phase(
-            Phase.TERMINE,
-            "Compte rendu envoyé." if outcome.envoye else "Compte rendu prêt, non envoyé.",
+            Phase.DONE,
+            "Compte rendu envoyé." if outcome.sent else "Compte rendu prêt, non envoyé.",
         )
         self._notify_user("Greffier", "Compte rendu prêt.")
         return outcome
@@ -657,14 +657,14 @@ class Chain:
         from greffier.domain.memory import Trace, what_the_minutes_left
 
         with contextlib.suppress(Exception):
-            decisions, ouverts = what_the_minutes_left(outcome.minutes)
+            decisions, open_ones = what_the_minutes_left(outcome.minutes)
             self.memory.remember(Trace(
                 identifier=audio.stem,
-                title=titre_du_compte_rendu(outcome.minutes, audio.stem),
+                title=title_of_the_minutes(outcome.minutes, audio.stem),
                 held_on=self._the_day(outcome, audio),
                 people=tuple(dict.fromkeys(outcome.names.values())),
                 decisions=decisions,
-                open_points=ouverts,
+                open_points=open_ones,
                 documents=tuple(self.documents_supplied),
             ))
 
@@ -673,7 +673,7 @@ class Chain:
         assert self.sender is not None
         self.sender.send(
             self.recipient,
-            titre_du_compte_rendu(
+            title_of_the_minutes(
                 outcome.minutes, f"Compte rendu de réunion : {audio.stem}"
             ),
             outcome.minutes,

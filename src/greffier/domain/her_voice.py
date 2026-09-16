@@ -44,17 +44,17 @@ def voices_of(
     out a voice per timbre, so a voice that is hers is hers throughout, and one
     stray overlap must not take a participant away from the room.
     """
-    gardes: dict[str, list[float]] = {}
+    guards: dict[str, list[float]] = {}
     for turn in turns:
         span = turn.span  # type: ignore[attr-defined]
         duration = span.end - span.start
         if duration <= 0:
             continue
-        sien = is_hers(span.start, span.end, intervals, part)
-        account = gardes.setdefault(turn.voice, [0.0, 0.0])  # type: ignore[attr-defined]
-        account[0] += duration if sien else 0.0
+        his = is_hers(span.start, span.end, intervals, part)
+        account = guards.setdefault(turn.voice, [0.0, 0.0])  # type: ignore[attr-defined]
+        account[0] += duration if his else 0.0
         account[1] += duration
     return {
-        voice for voice, (sienne, totale) in gardes.items()
-        if totale > 0 and sienne > part * totale
+        voice for voice, (hers_one, total) in guards.items()
+        if total > 0 and hers_one > part * total
     }

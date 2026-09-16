@@ -17,8 +17,8 @@ from greffier.adapters.configuration import Config
 @pytest.fixture
 def config(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-    for cle in [c for c in __import__("os").environ if c.startswith("GREFFIER_")]:
-        monkeypatch.delenv(cle)
+    for the_key in [c for c in __import__("os").environ if c.startswith("GREFFIER_")]:
+        monkeypatch.delenv(the_key)
     config = Config()
     config.paths.data = tmp_path / "donnees"
     config.paths.models = tmp_path / "modeles"
@@ -37,9 +37,9 @@ def config(tmp_path, monkeypatch):
 class TestWhoTranscribes:
     def test_whisper_cpp_is_given_its_two_models(self, config):
         config.transcription.engine = "whisper.cpp"
-        transcripteur = wiring._transcriber(config)
-        assert transcripteur.model.name == "ggml-large-v3-turbo.bin"
-        assert transcripteur.vad.name == "ggml-silero-v5.1.2.bin"
+        transcriber_ = wiring._transcriber(config)
+        assert transcriber_.model.name == "ggml-large-v3-turbo.bin"
+        assert transcriber_.vad.name == "ggml-silero-v5.1.2.bin"
 
     def test_elsewhere_faster_whisper_carries_the_model_name(self, config):
         config.transcription.engine = "faster-whisper"
@@ -70,7 +70,7 @@ class TestTheLiveModelKeepsUp:
         from greffier.adapters import system_diagnostic
         from greffier.domain.recorder import Recorder
 
-        recorder = Recorder(system="Linux", memory_gb=16.0, disque_libre_go=100.0)
+        recorder = Recorder(system="Linux", memory_gb=16.0, free_disk_gb=100.0)
         monkeypatch.setattr(Recorder, "advised_model", property(lambda self: model))
         monkeypatch.setattr(system_diagnostic, "recorder", lambda folder: recorder)
 
@@ -140,11 +140,11 @@ class TestWhatEarlierMeetingsLeft:
     def test_what_was_filed_comes_back(self, config):
         from greffier.domain.memory import Trace
 
-        memoire = wiring.memory(config)
-        memoire.remember(Trace(identifier="r1", title="recette",
+        memory_ = wiring.memory(config)
+        memory_.remember(Trace(identifier="r1", title="recette",
                                decisions=("Jeudi.",)))
         assert "recette" in wiring.what_earlier_meetings_left(config)
-        assert [t.title for t in memoire.recall()] == ["recette"]
+        assert [t.title for t in memory_.recall()] == ["recette"]
 
 
 @pytest.fixture
@@ -154,13 +154,13 @@ def without_loading_the_models(monkeypatch):
     An empty file is enough to prove a path is passed along, and onnxruntime
     refuses it on load. What is measured here is what is plugged where.
     """
-    class Doublure:
+    class Double:
         def __init__(self, model, **_):
             self.model = model
 
     # Patched where it is used, not where it is defined: wiring binds the name
     # at import, and a patch on the adapter would never be seen.
-    monkeypatch.setattr(wiring, "TitaNetExtractor", Doublure)
+    monkeypatch.setattr(wiring, "TitaNetExtractor", Double)
 
 
 @pytest.mark.usefixtures("without_loading_the_models")
@@ -283,7 +283,7 @@ class TestTheContextIsBlended:
         assert wiring.context(config).header() == ""
 
 
-class TestQuiOuvreLaCarteEnPremier:
+class TestWhoOpensTheCardFirst:
     """Two ONNX Runtimes do not fit in one process.
 
     faster-whisper brings its own with its voice detector, and whichever opens
@@ -293,33 +293,33 @@ class TestQuiOuvreLaCarteEnPremier:
     """
 
     @pytest.fixture
-    def places_gardees(self, monkeypatch):
+    def kept_places(self, monkeypatch):
         from greffier.adapters import cuda
 
-        gardees = []
-        monkeypatch.setattr(cuda, "keep_the_place", gardees.append)
-        return gardees
+        kept_ones = []
+        monkeypatch.setattr(cuda, "keep_the_place", kept_ones.append)
+        return kept_ones
 
-    def test_the_place_is_kept_before_the_transcriber_is_built(self, config, places_gardees):
+    def test_the_place_is_kept_before_the_transcriber_is_built(self, config, kept_places):
         config.transcription.engine = "faster-whisper"
         wiring._transcriber(config)
-        assert [p.name for p in places_gardees] == ["nemo_en_titanet_large.onnx"]
+        assert [p.name for p in kept_places] == ["nemo_en_titanet_large.onnx"]
 
-    def test_the_live_transcriber_keeps_it_too(self, config, places_gardees):
+    def test_the_live_transcriber_keeps_it_too(self, config, kept_places):
         """Live runs in its own process, which has the same rule."""
         config.transcription.engine = "faster-whisper"
         config.live.model = "small"
         wiring.light_transcriber(config)
-        assert [p.name for p in places_gardees] == ["nemo_en_titanet_large.onnx"]
+        assert [p.name for p in kept_places] == ["nemo_en_titanet_large.onnx"]
 
-    def test_whisper_cpp_keeps_it_as_well(self, config, places_gardees):
+    def test_whisper_cpp_keeps_it_as_well(self, config, kept_places):
         """whisper.cpp brings no rival, but the path is the same."""
         config.transcription.engine = "whisper.cpp"
         wiring._transcriber(config)
-        assert len(places_gardees) == 1
+        assert len(kept_places) == 1
 
 
-class TestQuiEcouteUneQuestionDictee:
+class TestWhoListensToADictatedQuestion:
     """The model transcribing a dictated question is not a meeting's.
 
     Measured on the same thirty-six seconds: 1.8 s with « base » against 9.4 s

@@ -45,9 +45,9 @@ def the_called_name_is_out_of_reach() -> str | None:
     passes three times out of four, which is worse than a test that says why it
     is not running.
     """
-    hors_de_portee = voices_are_out_of_reach(2)
-    if hors_de_portee:
-        return hors_de_portee
+    out_of_reach = voices_are_out_of_reach(2)
+    if out_of_reach:
+        return out_of_reach
     from make_meeting import synthesis_engine
 
     if synthesis_engine() != "say":

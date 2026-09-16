@@ -13,8 +13,8 @@ from dataclasses import replace
 from greffier.domain.language import LanguageProfile
 from greffier.domain.models import Span, Utterance
 
-_PONCTUATION = re.compile(r"[^\w\s]+", re.UNICODE)
-_ESPACES = re.compile(r"\s+")
+_PUNCTUATION = re.compile(r"[^\w\s]+", re.UNICODE)
+_SPACES = re.compile(r"\s+")
 
 def _nu(text: str) -> str:
     """The text without accents, without punctuation, in lower case."""
@@ -22,25 +22,25 @@ def _nu(text: str) -> str:
         c for c in unicodedata.normalize("NFD", text.lower())
         if unicodedata.category(c) != "Mn"
     )
-    return _ESPACES.sub(" ", _PONCTUATION.sub(" ", strip_accents)).strip()
+    return _SPACES.sub(" ", _PUNCTUATION.sub(" ", strip_accents)).strip()
 
-def is_boilerplate(text: str, profil: LanguageProfile) -> bool:
+def is_boilerplate(text: str, profile: LanguageProfile) -> bool:
     """True when the whole utterance is boilerplate from the model."""
-    return _nu(text) in profil.wording.boilerplate
+    return _nu(text) in profile.wording.boilerplate
 
-_BORNES_ANNOTATION = (("*", "*"), ("(", ")"), ("[", "]"), ("♪", "♪"), ("{", "}"))
+_ANNOTATION_BOUNDS = (("*", "*"), ("(", ")"), ("[", "]"), ("♪", "♪"), ("{", "}"))
 
 def is_an_annotation(text: str) -> bool:
     """True when the whole utterance is an annotation, not speech."""
     nu = text.strip()
     if len(nu) < 3:
         return False
-    for ouvre, firm in _BORNES_ANNOTATION:
-        if not (nu.startswith(ouvre) and nu.endswith(firm)):
+    for opens, firm in _ANNOTATION_BOUNDS:
+        if not (nu.startswith(opens) and nu.endswith(firm)):
             continue
-        if ouvre != firm:
-            return firm not in nu[len(ouvre):-len(firm)]
-        return nu.count(ouvre) == 2 or not nu.replace(ouvre, "").strip()
+        if opens != firm:
+            return firm not in nu[len(opens):-len(firm)]
+        return nu.count(opens) == 2 or not nu.replace(opens, "").strip()
     return False
 
 

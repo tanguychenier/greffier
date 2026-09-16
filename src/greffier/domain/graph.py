@@ -75,34 +75,34 @@ class Known:
     def header(self) -> str:
         if self.empty:
             return ""
-        lignes = [f"[Ce qui est déjà connu sur « {self.subject} »]"]
+        lines = [f"[Ce qui est déjà connu sur « {self.subject} »]"]
         if self.meetings:
-            lignes.append("Réunions précédentes : " + ", ".join(self.meetings))
+            lines.append("Réunions précédentes : " + ", ".join(self.meetings))
         if self.people:
-            lignes.append("Personnes qui y participent d'habitude : "
+            lines.append("Personnes qui y participent d'habitude : "
                           + ", ".join(self.people))
         if self.open_points:
-            lignes.append("Resté ouvert :")
-            lignes += [f"- {point}" for point in self.open_points]
+            lines.append("Resté ouvert :")
+            lines += [f"- {point}" for point in self.open_points]
         if self.documents:
-            lignes.append("Documents qui ont servi : " + ", ".join(self.documents))
+            lines.append("Documents qui ont servi : " + ", ".join(self.documents))
         if self.sources:
-            lignes.append("Sources suivies : " + ", ".join(self.sources))
-        return "\n".join(lignes) + "\n\n"
+            lines.append("Sources suivies : " + ", ".join(self.sources))
+        return "\n".join(lines) + "\n\n"
 
 
 def people_of(edges: Iterable[Edge], meetings: Iterable[str]) -> tuple[str, ...]:
     """Who attended these meetings, most recent first, each once."""
-    voulues = list(meetings)
-    rang = {name: numero for numero, name in enumerate(voulues)}
-    trouves: dict[str, int] = {}
+    wanted_ones = list(meetings)
+    rang = {name: number for number, name in enumerate(wanted_ones)}
+    found_ones: dict[str, int] = {}
     for edge in edges:
         if edge.link is not Link.ATTENDED:
             continue
         person, meeting = edge.start[1], edge.end[1]
         if meeting in rang:
-            trouves[person] = min(trouves.get(person, len(voulues)), rang[meeting])
-    return tuple(sorted(trouves, key=lambda name: trouves[name]))
+            found_ones[person] = min(found_ones.get(person, len(wanted_ones)), rang[meeting])
+    return tuple(sorted(found_ones, key=lambda name: found_ones[name]))
 
 
 def from_trace(trace: object, subject: str = "") -> tuple[list[Node], list[Edge]]:

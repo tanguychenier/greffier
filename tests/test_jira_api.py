@@ -13,10 +13,10 @@ from greffier.domain.sources import Kind, Right, Source
 SECRET = "moi@exemple.fr:jeton-atlassian"
 
 
-def source(droit: Right = Right.READING) -> Source:
+def source(right: Right = Right.READING) -> Source:
     return Source(
-        name="suivi", kind=Kind.JIRA, adresse="https://exemple.atlassian.net",
-        project="PROJ", droit=droit, token="trousseau:greffier-jira",
+        name="suivi", kind=Kind.JIRA, address="https://exemple.atlassian.net",
+        project="PROJ", right=right, token="trousseau:greffier-jira",
     )
 
 
@@ -30,16 +30,16 @@ class Response(BytesIO):
 
 class FakeJira:
     def __init__(self) -> None:
-        self.appels: list = []
+        self.calls: list = []
         self.charge: object = {"issues": []}
 
-    def __call__(self, requete, timeout=None):
-        self.appels.append(requete)
+    def __call__(self, the_request, timeout=None):
+        self.calls.append(the_request)
         return Response(json.dumps(self.charge).encode("utf-8"))
 
     @property
     def first_call(self):
-        return self.appels[0]
+        return self.calls[0]
 
 
 @pytest.fixture
@@ -51,10 +51,10 @@ def jira(monkeypatch) -> FakeJira:
 
 @pytest.fixture
 def silent_server(monkeypatch):
-    def jamais(*_args, **_options):
+    def never(*_args, **_options):
         raise AssertionError("aucun appel ne devait partir")
 
-    monkeypatch.setattr(jira_api.urllib.request, "urlopen", jamais)
+    monkeypatch.setattr(jira_api.urllib.request, "urlopen", never)
 
 
 A_REQUEST = {
@@ -89,17 +89,17 @@ class TestReadingFromJira:
         found = jira_api.requests(source(), SECRET)
         assert found[0].key == "PROJ-12"
         assert found[0].state == "En cours"
-        assert found[0].assigne == "Sophie"
+        assert found[0].assignee == "Sophie"
 
     def test_the_web_address_follows_from_the_key(self, jira):
         jira.charge = {"issues": [A_REQUEST]}
-        adresse = jira_api.requests(source(), SECRET)[0].adresse
-        assert adresse == "https://exemple.atlassian.net/browse/PROJ-12"
+        address = jira_api.requests(source(), SECRET)[0].address
+        assert address == "https://exemple.atlassian.net/browse/PROJ-12"
 
     def test_a_request_with_nobody_assigned_breaks_nothing(self, jira):
         jira.charge = {"issues": [{**A_REQUEST, "fields": {"summary": "x"}}]}
-        rendue = jira_api.requests(source(), SECRET)[0]
-        assert rendue.assigne == "" and rendue.state == ""
+        returned = jira_api.requests(source(), SECRET)[0]
+        assert returned.assignee == "" and returned.state == ""
 
     def test_the_line_shows_the_request_at_a_glance(self, jira):
         jira.charge = {"issues": [A_REQUEST]}
@@ -115,7 +115,7 @@ class TestReadingFromJira:
         assert "statusCategory" in jira.first_call.full_url
 
     def test_everything_can_be_asked_for(self, jira):
-        jira_api.requests(source(), SECRET, ouvertes=False)
+        jira_api.requests(source(), SECRET, open_ones=False)
         assert "statusCategory" not in jira.first_call.full_url
 
 
@@ -126,55 +126,55 @@ class TestWritingToJira:
 
     def test_an_empty_title_is_refused(self, silent_server):
         with pytest.raises(jira_api.JiraRefused):
-            jira_api.create_a_request(source(Right.ECRITURE), SECRET, " ")
+            jira_api.create_a_request(source(Right.WRITING), SECRET, " ")
 
     def test_the_created_request_comes_back_with_its_url(self, jira):
         jira.charge = {"key": "PROJ-13"}
-        creee = jira_api.create_a_request(
-            source(Right.ECRITURE), SECRET, "Reprendre la recette"
+        created = jira_api.create_a_request(
+            source(Right.WRITING), SECRET, "Reprendre la recette"
         )
-        assert creee.key == "PROJ-13"
-        assert creee.adresse.endswith("/browse/PROJ-13")
+        assert created.key == "PROJ-13"
+        assert created.address.endswith("/browse/PROJ-13")
         assert jira.first_call.method == "POST"
 
     def test_the_body_names_the_registered_project(self, jira):
         jira.charge = {"key": "PROJ-13"}
-        jira_api.create_a_request(source(Right.ECRITURE), SECRET, "x")
-        envoye = json.loads(jira.first_call.data)
-        assert envoye["fields"]["project"]["key"] == "PROJ"
+        jira_api.create_a_request(source(Right.WRITING), SECRET, "x")
+        sent = json.loads(jira.first_call.data)
+        assert sent["fields"]["project"]["key"] == "PROJ"
 
     def test_the_description_leaves_in_document_format(self, jira):
         """Raw text is refused by API 3, and the error does not say so."""
         jira.charge = {"key": "PROJ-13"}
         jira_api.create_a_request(
-            source(Right.ECRITURE), SECRET, "x", description="parce que"
+            source(Right.WRITING), SECRET, "x", description="parce que"
         )
-        decrit = json.loads(jira.first_call.data)["fields"]["description"]
-        assert decrit["type"] == "doc"
-        assert decrit["content"][0]["content"][0]["text"] == "parce que"
+        describes = json.loads(jira.first_call.data)["fields"]["description"]
+        assert describes["type"] == "doc"
+        assert describes["content"][0]["content"][0]["text"] == "parce que"
 
     def test_with_no_description_no_field_is_sent(self, jira):
         jira.charge = {"key": "PROJ-13"}
-        jira_api.create_a_request(source(Right.ECRITURE), SECRET, "x")
+        jira_api.create_a_request(source(Right.WRITING), SECRET, "x")
         assert "description" not in json.loads(jira.first_call.data)["fields"]
 
 
 class TestWhenItFailsItSaysSo:
     def test_refused_credentials_say_what_to_check(self, monkeypatch):
-        def tomber(*_args, **_options):
+        def fall(*_args, **_options):
             raise urllib.error.HTTPError(
                 "https://x", 401, "non", {}, BytesIO(b"{}")  # type: ignore[arg-type]
             )
 
-        monkeypatch.setattr(jira_api.urllib.request, "urlopen", tomber)
+        monkeypatch.setattr(jira_api.urllib.request, "urlopen", fall)
         with pytest.raises(jira_api.JiraRefused, match="jeton"):
             jira_api.requests(source(), SECRET)
 
     def test_an_unreachable_server_is_reported_without_falling_over(self, monkeypatch):
-        def tomber(*_args, **_options):
+        def fall(*_args, **_options):
             raise urllib.error.URLError("nom introuvable")
 
-        monkeypatch.setattr(jira_api.urllib.request, "urlopen", tomber)
+        monkeypatch.setattr(jira_api.urllib.request, "urlopen", fall)
         with pytest.raises(jira_api.JiraRefused, match="injoignable"):
             jira_api.requests(source(), SECRET)
 

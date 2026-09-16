@@ -23,13 +23,13 @@ import sys
 from pathlib import Path
 
 
-def _racines(prefixe: Path) -> list[Path]:
+def _roots(the_prefix: Path) -> list[Path]:
     """Where to look, most likely first."""
-    return [prefixe / "lib", prefixe / "share", prefixe]
+    return [the_prefix / "lib", the_prefix / "share", the_prefix]
 
 def _find(motif: str, prefixes: list[Path]) -> Path | None:
-    for prefixe in prefixes:
-        for root in _racines(prefixe):
+    for the_prefix in prefixes:
+        for root in _roots(the_prefix):
             if not root.is_dir():
                 continue
             for folder in sorted(root.glob(motif), reverse=True):
@@ -80,7 +80,7 @@ def available() -> tuple[bool, str]:
 #: declared Tcl missing on a machine where Tcl finds its files perfectly well
 #: (`set tcl_library` answers `/usr/share/tcltk/tcl8.6`), and the window refused
 #: to open on every distribution Python.
-_OU_VIT_TCL = ("lib/tcl*", "share/tcltk/tcl*", "share/tcl*")
+_WHERE_TCL_LIVES = ("lib/tcl*", "share/tcltk/tcl*", "share/tcl*")
 
 
 def _default_tcl() -> bool:
@@ -92,7 +92,7 @@ def _default_tcl() -> bool:
     """
     return any(
         (root / "init.tcl").exists()
-        for prefixe in (Path(sys.base_prefix), Path("/usr"), Path("/opt/homebrew"))
-        for motif in _OU_VIT_TCL
-        for root in prefixe.glob(motif)
+        for the_prefix in (Path(sys.base_prefix), Path("/usr"), Path("/opt/homebrew"))
+        for motif in _WHERE_TCL_LIVES
+        for root in the_prefix.glob(motif)
     )

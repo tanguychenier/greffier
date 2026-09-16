@@ -640,7 +640,7 @@ the two different people stay at **0.63**: at 0.75 the separation is clear.
 Attaching a block compares one short voice print to a voice's aggregate, once,
 and never redoes the comparison as the material accumulates.
 
-`Fil.recoller()` redoes it, on every slice, by calling `fusionner_voix`, the one
+`LiveThread.stitch()` redoes it, on every slice, by calling `join_voices`, the one
 from the final processing, same threshold, same minimum-material guard. Two
 voices named by a human under different names are never merged: a human
 correction is not undone on a measurement. The merge travels through the log
@@ -894,7 +894,7 @@ fallback and everyone can hear that it is one.
 
 - **Windows has not been run on a real machine.** The code paths are there and
   the tests cover the decisions, but nobody has double-clicked the thing.
-- **The live stitching is not the final one.** `Fil.recoller` runs on partial
+- **The live stitching is not the final one.** `LiveThread.stitch` runs on partial
   material during the meeting; the three passes added here run afterwards. A
   meeting still shows more voices while it happens than in its minutes.
 - **No way to delete a meeting** from the Réunions tab.

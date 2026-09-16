@@ -42,32 +42,32 @@ ROOM_VOICE = "Thomas"
 ASSISTANT_VOICE = "Amélie"
 
 
-def _synthetiser(voice: str, text: str, target: Path) -> Path | None:
+def _synthesise(voice: str, text: str, target: Path) -> Path | None:
     """A sentence spoken, as 16 kHz mono wav, by the machine's engine."""
     from make_meeting import speak
 
     return speak(text, voice, target)
 
 
-def _silence(secondes: float, target: Path) -> Path:
+def _silence(total_seconds: float, target: Path) -> Path:
     subprocess.run(
         ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
-         "-i", "anullsrc=r=16000:cl=mono", "-t", str(secondes),
+         "-i", "anullsrc=r=16000:cl=mono", "-t", str(total_seconds),
          "-c:a", "pcm_s16le", str(target)],
         check=False, capture_output=True,
     )
     return target
 
 
-def _coller(chunks: list[Path], target: Path) -> Path:
+def _glue(chunks: list[Path], target: Path) -> Path:
     """Glues wav files end to end, like one continuous recording."""
-    liste = target.with_suffix(".txt")
-    liste.write_text(
+    listing_ = target.with_suffix(".txt")
+    listing_.write_text(
         "".join(f"file '{p}'\n" for p in chunks), encoding="utf-8"
     )
     subprocess.run(
         ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "concat",
-         "-safe", "0", "-i", str(liste), "-c", "copy", str(target)],
+         "-safe", "0", "-i", str(listing_), "-c", "copy", str(target)],
         check=False, capture_output=True,
     )
     return target
@@ -82,17 +82,17 @@ class HautParleur:
     loudspeaker does.
     """
 
-    dites: list[str] = field(default_factory=list)
+    said_ones: list[str] = field(default_factory=list)
     still_speaking: bool = False
-    coupures: int = 0
+    cuts: int = 0
 
     def say(self, text: str) -> bool:
         if self.still_speaking:
             # What the real voice does since the fix: it refuses
             # rather than cut itself off.
-            self.coupures += 1
+            self.cuts += 1
             return False
-        self.dites.append(text)
+        self.said_ones.append(text)
         return True
 
     def go_quiet(self) -> None:
@@ -107,11 +107,11 @@ class CerveauDeTest:
     """Répond de façon déterministe, et compte combien de fois on l'appelle."""
 
     answers: list[str] = field(default_factory=list)
-    demandes: list[str] = field(default_factory=list)
+    requests: list[str] = field(default_factory=list)
     defect: str = "Je n'ai pas la réponse dans ce qui a été dit."
 
     def write_up(self, request: str) -> str:
-        self.demandes.append(request)
+        self.requests.append(request)
         if self.answers:
             return self.answers.pop(0)
         return self.defect
@@ -131,19 +131,19 @@ class Reunion:
     #: silence, like a real room between two sentences.
     USEFUL_SLICE = 3.4
 
-    def say(self, voice: str, text: str, avant: float = 0.6) -> None:
+    def say(self, voice: str, text: str, earlier: float = 0.6) -> None:
         self.rang += 1
-        if avant:
+        if earlier:
             self.chunks.append(
-                _silence(avant, self.folder / f"blanc{self.rang}.wav")
+                _silence(earlier, self.folder / f"blanc{self.rang}.wav")
             )
-        piece = _synthetiser(voice, text, self.folder / f"dit{self.rang}.wav")
+        piece = _synthesise(voice, text, self.folder / f"dit{self.rang}.wav")
         if piece is None:
             pytest.skip("synthèse impossible")
         self.chunks.append(piece)
-        self.respirer()
+        self.breathe()
 
-    def respirer(self) -> None:
+    def breathe(self) -> None:
         """Pads the take so that the slice is worth transcribing."""
         import soundfile
 
@@ -160,7 +160,7 @@ class Reunion:
         self.last_turn = len(self.chunks)
 
     def audio(self) -> Path:
-        return _coller(self.chunks, self.folder / "reunion.wav")
+        return _glue(self.chunks, self.folder / "reunion.wav")
 
     def duration(self) -> float:
         import soundfile
@@ -170,22 +170,22 @@ class Reunion:
 
 @pytest.fixture(scope="module")
 def transcriber():
-    for hors_de_portee in (voices_are_out_of_reach(2), the_called_name_is_out_of_reach()):
-        if hors_de_portee:
-            pytest.skip(hors_de_portee)
-    outil = light_transcriber(Config())
-    if outil is None:
+    for out_of_reach in (voices_are_out_of_reach(2), the_called_name_is_out_of_reach()):
+        if out_of_reach:
+            pytest.skip(out_of_reach)
+    tool = light_transcriber(Config())
+    if tool is None:
         pytest.skip("aucun modèle de transcription installé")
-    return outil
+    return tool
 
 
-def _veilleur(meeting: Reunion, the_assistant: AssistantSettings,
+def _watcher(meeting: Reunion, the_assistant: AssistantSettings,
               transcriber, folder: Path) -> Watcher:
     return Watcher(
         watch_rules=WatchRules(keyword="greffier"),
         log=folder / "propositions.jsonl",
         transcriber=transcriber,
-        situer=lambda: Position(
+        locate=lambda: Position(
             chunk=meeting.audio(), written=meeting.duration(), offset=0.0
         ),
         assistant_of=the_assistant,
@@ -193,9 +193,9 @@ def _veilleur(meeting: Reunion, the_assistant: AssistantSettings,
     )
 
 
-def _assistante(cerveau: CerveauDeTest, voice: HautParleur) -> AssistantSettings:
+def _the_assistant(the_brain: CerveauDeTest, voice: HautParleur) -> AssistantSettings:
     return AssistantSettings(
-        name=NAME, cerveau=cerveau, voice=voice,
+        name=NAME, the_brain=the_brain, voice=voice,
         manners=Manners(creux_minimal=0.0),
         context=lambda: "Réunion d'équipe sur la recette et la migration.",
     )
@@ -204,7 +204,7 @@ def _assistante(cerveau: CerveauDeTest, voice: HautParleur) -> AssistantSettings
 def _a_turn(watcher: Watcher, the_assistant: AssistantSettings,
              folder: Path) -> None:
     """One slice, then a wait for the answer: it is phrased in another thread."""
-    where_in = watcher.situer()
+    where_in = watcher.locate()
     assert where_in is not None
     watcher.transcription_turn(where_in, folder)
     if the_assistant._job is not None:
@@ -227,22 +227,22 @@ class TestAWholeConversation:
         meeting = Reunion(tmp_path)
         meeting.say(ROOM_VOICE,
                      f"{NAME}, est-ce que tu peux faire des recherches sur Internet ?")
-        cerveau = CerveauDeTest(answers=[
+        the_brain = CerveauDeTest(answers=[
             "Je peux chercher, d'après la documentation de l'éditeur."
         ])
         voice = HautParleur()
-        the_assistant = _assistante(cerveau, voice)
-        watcher = _veilleur(meeting, the_assistant, transcriber, tmp_path)
+        the_assistant = _the_assistant(the_brain, voice)
+        watcher = _watcher(meeting, the_assistant, transcriber, tmp_path)
 
         _a_turn(watcher, the_assistant, tmp_path)
-        assert len(voice.dites) == 1, voice.dites
-        assert NAME not in voice.dites[0], "son nom ne doit jamais sortir"
+        assert len(voice.said_ones) == 1, voice.said_ones
+        assert NAME not in voice.said_ones[0], "son nom ne doit jamais sortir"
 
         # The loudspeaker: what she said enters the room.
-        meeting.say(ASSISTANT_VOICE, voice.dites[0])
+        meeting.say(ASSISTANT_VOICE, voice.said_ones[0])
         _a_turn(watcher, the_assistant, tmp_path)
-        assert len(voice.dites) == 1, (
-            "elle a répondu à sa propre voix : " + str(voice.dites)
+        assert len(voice.said_ones) == 1, (
+            "elle a répondu à sa propre voix : " + str(voice.said_ones)
         )
 
     def test_the_room_is_still_heard_after_it_has_spoken(
@@ -251,23 +251,23 @@ class TestAWholeConversation:
         """The other half: the guard must not make it deaf."""
         meeting = Reunion(tmp_path)
         meeting.say(ROOM_VOICE, f"{NAME}, où en est la recette ?")
-        cerveau = CerveauDeTest(answers=[
+        the_brain = CerveauDeTest(answers=[
             "La recette est décalée à jeudi.",
             "Il reste deux anomalies bloquantes.",
         ])
         voice = HautParleur()
-        the_assistant = _assistante(cerveau, voice)
-        watcher = _veilleur(meeting, the_assistant, transcriber, tmp_path)
+        the_assistant = _the_assistant(the_brain, voice)
+        watcher = _watcher(meeting, the_assistant, transcriber, tmp_path)
 
         _a_turn(watcher, the_assistant, tmp_path)
-        assert len(voice.dites) == 1, voice.dites
+        assert len(voice.said_ones) == 1, voice.said_ones
 
-        meeting.say(ASSISTANT_VOICE, voice.dites[0])
+        meeting.say(ASSISTANT_VOICE, voice.said_ones[0])
         meeting.say(ROOM_VOICE, f"Et les anomalies {NAME} ?")
         _a_turn(watcher, the_assistant, tmp_path)
-        assert len(voice.dites) == 2, (
+        assert len(voice.said_ones) == 2, (
             "une nouvelle question de la salle doit obtenir une réponse : "
-            + str(voice.dites)
+            + str(voice.said_ones)
         )
 
     def test_it_does_not_answer_when_nobody_calls_it(
@@ -277,14 +277,14 @@ class TestAWholeConversation:
         meeting = Reunion(tmp_path)
         meeting.say(ROOM_VOICE,
                      "On passe au point suivant, la recette est calée pour jeudi.")
-        cerveau = CerveauDeTest()
+        the_brain = CerveauDeTest()
         voice = HautParleur()
-        the_assistant = _assistante(cerveau, voice)
-        watcher = _veilleur(meeting, the_assistant, transcriber, tmp_path)
+        the_assistant = _the_assistant(the_brain, voice)
+        watcher = _watcher(meeting, the_assistant, transcriber, tmp_path)
 
         _a_turn(watcher, the_assistant, tmp_path)
-        assert voice.dites == [], voice.dites
-        assert cerveau.demandes == [], "le modèle n'a même pas à être appelé"
+        assert voice.said_ones == [], voice.said_ones
+        assert the_brain.requests == [], "le modèle n'a même pas à être appelé"
 
     def test_it_does_not_cut_itself_off_while_still_speaking(
         self, transcriber, tmp_path
@@ -295,21 +295,21 @@ class TestAWholeConversation:
         """
         meeting = Reunion(tmp_path)
         meeting.say(ROOM_VOICE, f"{NAME}, tu nous entends ?")
-        cerveau = CerveauDeTest(answers=["Oui, je vous entends très bien."])
+        the_brain = CerveauDeTest(answers=["Oui, je vous entends très bien."])
         voice = HautParleur()
-        the_assistant = _assistante(cerveau, voice)
-        watcher = _veilleur(meeting, the_assistant, transcriber, tmp_path)
+        the_assistant = _the_assistant(the_brain, voice)
+        watcher = _watcher(meeting, the_assistant, transcriber, tmp_path)
 
         _a_turn(watcher, the_assistant, tmp_path)
-        assert len(voice.dites) == 1
+        assert len(voice.said_ones) == 1
 
-        # Elle parle encore quand la question suivante arrive.
+        # She is still speaking when the next question arrives.
         voice.still_speaking = True
         meeting.say(ROOM_VOICE,
                      f"{NAME}, et où en est la migration en Symfony sept ?")
         _a_turn(watcher, the_assistant, tmp_path)
-        assert len(voice.dites) == 1, "rien de neuf n'a été prononcé"
-        assert voice.coupures >= 1, "le refus doit avoir eu lieu"
+        assert len(voice.said_ones) == 1, "rien de neuf n'a été prononcé"
+        assert voice.cuts >= 1, "le refus doit avoir eu lieu"
         assert voice.still_speaking, "la phrase en cours n'a pas été coupée"
 
     def test_the_transcriber_loop_does_not_multiply_it(
@@ -319,14 +319,14 @@ class TestAWholeConversation:
         meeting = Reunion(tmp_path)
         for _ in range(3):
             meeting.say(ROOM_VOICE, f"{NAME}, tu peux nous rappeler la date ?",
-                         avant=0.15)
-        cerveau = CerveauDeTest(answers=["C'est jeudi."])
+                         earlier=0.15)
+        the_brain = CerveauDeTest(answers=["C'est jeudi."])
         voice = HautParleur()
-        the_assistant = _assistante(cerveau, voice)
-        watcher = _veilleur(meeting, the_assistant, transcriber, tmp_path)
+        the_assistant = _the_assistant(the_brain, voice)
+        watcher = _watcher(meeting, the_assistant, transcriber, tmp_path)
 
         _a_turn(watcher, the_assistant, tmp_path)
-        assert len(voice.dites) <= 1, voice.dites
+        assert len(voice.said_ones) <= 1, voice.said_ones
 
     def test_a_participant_restating_their_idea_is_heard(
         self, transcriber, tmp_path
@@ -334,12 +334,12 @@ class TestAWholeConversation:
         """The risk of the guard by words: taking a human for her."""
         from greffier.domain.participation import own_words
 
-        the_assistant = _assistante(CerveauDeTest(), HautParleur())
+        the_assistant = _the_assistant(CerveauDeTest(), HautParleur())
         the_assistant.its_own_words.append((0.0, own_words("La recette est décalée à jeudi.")))
         from greffier.domain.models import Span, Utterance
 
-        humain = Utterance(
+        human = Utterance(
             span=Span(300.0, 306.0),
             text="je propose plutôt de caler la recette mardi avec Pascal",
         )
-        assert not the_assistant._is_his_own(humain, 310.0)
+        assert not the_assistant._is_his_own(human, 310.0)

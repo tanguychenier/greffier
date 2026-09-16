@@ -19,7 +19,7 @@ from pathlib import Path
 from greffier.domain.sources import Kind, Registry, Right, Source
 from greffier.locations import config_folder
 
-GABARIT = '''# Les sources extérieures que Greffier a le droit de consulter.
+TEMPLATE = '''# Les sources extérieures que Greffier a le droit de consulter.
 #
 # Ce qui n'est pas ici n'existe pas pour l'outil : il ne découvre aucun projet
 # de lui-même. C'est ce qui borne le risque à ce que vous avez listé.
@@ -53,7 +53,7 @@ GABARIT = '''# Les sources extérieures que Greffier a le droit de consulter.
 # jeton = "trousseau:greffier-jira"
 '''
 
-PREFIXE_TROUSSEAU = "trousseau:"
+KEYCHAIN_PREFIX = "trousseau:"
 
 def read(file: Path) -> Registry:
     """The registered sources. Empty when the file does not exist."""
@@ -72,9 +72,9 @@ def read(file: Path) -> Registry:
             sources.append(Source(
                 name=str(input.get("nom", "")).strip(),
                 kind=Kind(str(input.get("genre", "")).strip().casefold()),
-                adresse=str(input.get("adresse", "")).strip().rstrip("/"),
+                address=str(input.get("adresse", "")).strip().rstrip("/"),
                 project=str(input.get("projet", "")).strip(),
-                droit=Right(str(input.get("droit", "lecture")).strip().casefold()),
+                right=Right(str(input.get("droit", "lecture")).strip().casefold()),
                 token=str(input.get("jeton", "")).strip(),
             ))
         except ValueError:
@@ -86,7 +86,7 @@ def lay_the_template(file: Path) -> bool:
     if file.exists():
         return False
     file.parent.mkdir(parents=True, exist_ok=True)
-    file.write_text(GABARIT, encoding="utf-8")
+    file.write_text(TEMPLATE, encoding="utf-8")
     return True
 
 def tokens_file() -> Path:
@@ -102,8 +102,8 @@ def token_for(source: Source, file: Path | None = None) -> str:
     """
     if not source.token:
         return ""
-    if source.token.startswith(PREFIXE_TROUSSEAU):
-        return _from_the_keychain(source.token[len(PREFIXE_TROUSSEAU):])
+    if source.token.startswith(KEYCHAIN_PREFIX):
+        return _from_the_keychain(source.token[len(KEYCHAIN_PREFIX):])
     from_environment = os.environ.get(source.token, "").strip()
     if from_environment:
         return from_environment

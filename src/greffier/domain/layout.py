@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from greffier.domain.board import Board, Node
 
 WIDTH = 220
-ENTRE_COLONNES = 380
+BETWEEN_COLUMNS = 380
 
 BETWEEN_LINES = 170
 
@@ -15,32 +15,32 @@ BETWEEN_LINES = 170
 class Slot:
     """A node and the place it goes."""
 
-    noeud: Node
+    node: Node
     x: int
     y: int
     parent: str = ""
 
-def disposer(board: Board) -> list[Slot]:
+def lay_out(board: Board) -> list[Slot]:
     """The slots of every node, root included."""
     if board.root is None:
         return []
     places: list[Slot] = []
-    _place(board.root, profondeur=0, haut=0, places=places, parent="")
+    _place(board.root, depth=0, top=0, places=places, parent="")
     return places
 
-def _feuilles(noeud: Node) -> int:
+def _leaves(node: Node) -> int:
     """Number of rows this subtree occupies. At least one."""
-    if not noeud.children:
+    if not node.children:
         return 1
-    return sum(_feuilles(enfant) for enfant in noeud.children)
+    return sum(_leaves(child) for child in node.children)
 
 def _place(
-    noeud: Node, profondeur: int, haut: int, places: list[Slot], parent: str
+    node: Node, depth: int, top: int, places: list[Slot], parent: str
 ) -> None:
-    height = _feuilles(noeud)
-    y = (haut + height / 2 - 0.5) * BETWEEN_LINES
-    places.append(Slot(noeud, profondeur * ENTRE_COLONNES, int(y), parent))
-    cursor = haut
-    for enfant in noeud.children:
-        _place(enfant, profondeur + 1, cursor, places, noeud.text)
-        cursor += _feuilles(enfant)
+    height = _leaves(node)
+    y = (top + height / 2 - 0.5) * BETWEEN_LINES
+    places.append(Slot(node, depth * BETWEEN_COLUMNS, int(y), parent))
+    cursor = top
+    for child in node.children:
+        _place(child, depth + 1, cursor, places, node.text)
+        cursor += _leaves(child)

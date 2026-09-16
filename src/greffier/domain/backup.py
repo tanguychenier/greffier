@@ -16,7 +16,7 @@ CONTENT = (
     "propositions",
 )
 
-ECARTES = {
+SET_ASIDE = {
     "enregistrements": "l'audio, 115 Mo par heure, c'est lui qui rend une "
                        "sauvegarde impossible, et une réunion transcrite reste "
                        "utilisable sans lui",
@@ -50,9 +50,9 @@ class BackupName:
 
 def to_erase(names: list[str], kept: int = KEPT) -> list[str]:
     """The backups in excess, oldest first."""
-    datees = [(BackupName.read(name), name) for name in names]
+    dated = [(BackupName.read(name), name) for name in names]
     known = sorted(
-        ((when, name) for when, name in datees if when is not None),
+        ((when, name) for when, name in dated if when is not None),
         reverse=True,
     )
     if len(known) <= max(1, kept):

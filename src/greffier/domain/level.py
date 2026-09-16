@@ -10,14 +10,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-BON_DB = -30.0
+GOOD_DB = -30.0
 
-INSUFFISANT_DB = -43.0
+INSUFFICIENT_DB = -43.0
 
 class Verdict(StrEnum):
-    BON = "bon"
-    FAIBLE = "faible"
-    INSUFFISANT = "insuffisant"
+    GOOD = "bon"
+    WEAK = "faible"
+    INSUFFICIENT = "insuffisant"
     SILENT = "muet"
 
 SILENT_DB = -70.0
@@ -26,11 +26,11 @@ def judge(db: float) -> Verdict:
     """What this speech level is worth."""
     if db < SILENT_DB:
         return Verdict.SILENT
-    if db < INSUFFISANT_DB:
-        return Verdict.INSUFFISANT
-    if db < BON_DB:
-        return Verdict.FAIBLE
-    return Verdict.BON
+    if db < INSUFFICIENT_DB:
+        return Verdict.INSUFFICIENT
+    if db < GOOD_DB:
+        return Verdict.WEAK
+    return Verdict.GOOD
 
 def say(db: float) -> str:
     """A sentence for the screen, giving the level **and** what to do about it."""
@@ -41,13 +41,13 @@ def say(db: float) -> str:
             "casque, le micro choisi, puis l'autorisation micro dans les "
             "réglages du système."
         )
-    if verdict is Verdict.INSUFFISANT:
+    if verdict is Verdict.INSUFFICIENT:
         return (
             f"Trop faible pour transcrire ({db:.0f} dB). À ce niveau, le modèle "
             "n'écrit pas moins bien : il invente. Rapproche le micro, monte son "
             "gain, ou prends un casque avant de démarrer."
         )
-    if verdict is Verdict.FAIBLE:
+    if verdict is Verdict.WEAK:
         return (
             f"Faible ({db:.0f} dB). La réunion sera transcrite, mais des mots "
             "seront perdus ou déformés. Un casque porté suffit généralement à "
@@ -57,28 +57,28 @@ def say(db: float) -> str:
 
 def sufficient(db: float) -> bool:
     """True when recording can start without a warning."""
-    return judge(db) in (Verdict.BON, Verdict.FAIBLE)
+    return judge(db) in (Verdict.GOOD, Verdict.WEAK)
 
-RELEVES_AVANT_ALERTE = 8
+READINGS_BEFORE_ALERT = 8
 
 @dataclass
 class LevelWatch:
     """Follows the captured level during the meeting and says if it falls short."""
 
-    releves: int = 0
-    meilleur_db: float = -200.0
-    alertee: bool = False
+    readings_: int = 0
+    best_db: float = -200.0
+    alerted: bool = False
 
     def observe(self, db: float) -> str:
         """What needs reporting, or an empty string."""
-        self.releves += 1
-        self.meilleur_db = max(self.meilleur_db, db)
-        if self.alertee or self.releves < RELEVES_AVANT_ALERTE:
+        self.readings_ += 1
+        self.best_db = max(self.best_db, db)
+        if self.alerted or self.readings_ < READINGS_BEFORE_ALERT:
             return ""
-        if sufficient(self.meilleur_db):
+        if sufficient(self.best_db):
             return ""
-        self.alertee = True
+        self.alerted = True
         return (
-            f"Le son capté reste trop faible ({self.meilleur_db:.0f} dB au plus "
-            "haut depuis le début). " + say(self.meilleur_db)
+            f"Le son capté reste trop faible ({self.best_db:.0f} dB au plus "
+            "haut depuis le début). " + say(self.best_db)
         )

@@ -460,8 +460,8 @@ def _read_toml(path: Path) -> dict[str, object]:
         return {}
     try:
         return tomllib.loads(path.read_text(encoding="utf-8"))
-    except tomllib.TOMLDecodeError as erreur:
-        raise ValueError(f"{path} est illisible : {erreur}") from erreur
+    except tomllib.TOMLDecodeError as the_error:
+        raise ValueError(f"{path} est illisible : {the_error}") from the_error
 
 def _accepted_names(field: object) -> tuple[str, ...]:
     """Every spelling a field answers to, the French one included."""
@@ -557,7 +557,7 @@ SECTIONS: dict[str, tuple[str, ...]] = {
     "apparence": ("theme",),
 }
 
-_COMMENTAIRES = {
+_COMMENTS = {
     "audio": "Périphériques de capture. « micro » vide : le mieux entendu au démarrage.",
     "transcription": ("Le modèle de la transcription définitive, faite après la réunion.\n"
                       "# « vocabulaire » est ce qui améliore le plus les noms propres rares."),
@@ -617,7 +617,7 @@ SUB_MODEL: dict[str, str] = {
     "apparence": "appearance",
 }
 
-def _attribut(model: BaseModel, key: str) -> str:
+def _attribute(model: BaseModel, key: str) -> str:
     """The name of the field that carries this file key.
 
     The file keys stay the ones machines have already written, the fields are in
@@ -635,11 +635,11 @@ def render(config: Config) -> str:
     for section, champs in SECTIONS.items():
         model = getattr(config, SUB_MODEL.get(section, section))
         lines = []
-        if section in _COMMENTAIRES:
-            lines.append(f"# {_COMMENTAIRES[section]}")
+        if section in _COMMENTS:
+            lines.append(f"# {_COMMENTS[section]}")
         lines.append(f"[{section}]")
         for field in champs:
-            value = getattr(model, _attribut(model, field))
+            value = getattr(model, _attribute(model, field))
             if value is None:
                 continue
             lines.append(f"{field} = {_value(value)}")
@@ -670,10 +670,10 @@ def save_settings(config: Config, folder: Path | None = None) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
         shutil.copy2(target, target.with_suffix(".toml.precedent"))
-    descripteur, temporary = tempfile.mkstemp(dir=target.parent, prefix=".config-",
+    descriptor, temporary = tempfile.mkstemp(dir=target.parent, prefix=".config-",
                                                suffix=".toml")
     try:
-        with os.fdopen(descripteur, "w", encoding="utf-8") as stream:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
             stream.write(render(config))
         os.replace(temporary, target)
     except BaseException:

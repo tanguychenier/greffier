@@ -7,7 +7,7 @@ from pathlib import Path
 
 from greffier.domain.context import Context, Speaker_, Term
 
-GABARIT = '''# Ce que Greffier doit savoir de votre milieu de travail.
+TEMPLATE = '''# Ce que Greffier doit savoir de votre milieu de travail.
 #
 # Sans ce fichier, la transcription rend le mot le plus proche qu'elle connaît :
 # « déploiement » devient « exploitement », « comptes rendus » devient
@@ -42,17 +42,17 @@ def read(file: Path) -> Context:
     except (OSError, tomllib.TOMLDecodeError):
         return Context()
 
-    termes = []
+    terms = []
     for input in content.get("termes", []):
         if isinstance(input, dict) and str(input.get("ecriture", "")).strip():
-            termes.append(Term(str(input["ecriture"]).strip(),
+            terms.append(Term(str(input["ecriture"]).strip(),
                                 str(input.get("sens", "")).strip()))
     gens = []
     for input in content.get("personnes", []):
         if isinstance(input, dict) and str(input.get("nom", "")).strip():
             gens.append(Speaker_(str(input["nom"]).strip(),
                                     str(input.get("role", "")).strip()))
-    return Context(tuple(termes), tuple(gens))
+    return Context(tuple(terms), tuple(gens))
 
 
 def from_vocabulary(words: list[str]) -> Context:
@@ -62,23 +62,23 @@ def from_vocabulary(words: list[str]) -> Context:
 
 def from_the_bank(names: list[str]) -> Context:
     """The regulars, as speakers without a role."""
-    return Context(intervenants=tuple(Speaker_(name.strip())
+    return Context(attendees_=tuple(Speaker_(name.strip())
                                        for name in names if name.strip()))
 
 
-def add_a_term(file: Path, ecriture: str, sens: str = "") -> bool:
+def add_a_term(file: Path, spelling: str, meaning: str = "") -> bool:
     """Appends a term to the file. False when it is already there."""
-    nu = ecriture.strip()
+    nu = spelling.strip()
     if not nu:
         return False
-    if any(t.ecriture.casefold() == nu.casefold() for t in read(file).termes):
+    if any(t.spelling.casefold() == nu.casefold() for t in read(file).terms):
         return False
     file.parent.mkdir(parents=True, exist_ok=True)
     if not file.exists():
         lay_the_template(file)
     lines = [f'\n[[termes]]\necriture = "{nu}"\n']
-    if sens.strip():
-        lines.append(f'sens = "{sens.strip()}"\n')
+    if meaning.strip():
+        lines.append(f'sens = "{meaning.strip()}"\n')
     with file.open("a", encoding="utf-8") as stream:
         stream.write("".join(lines))
     return True
@@ -89,7 +89,7 @@ def add_a_person(file: Path, name: str, role: str = "") -> bool:
     nu = name.strip()
     if not nu:
         return False
-    if any(i.name.casefold() == nu.casefold() for i in read(file).intervenants):
+    if any(i.name.casefold() == nu.casefold() for i in read(file).attendees_):
         return False
     file.parent.mkdir(parents=True, exist_ok=True)
     if not file.exists():
@@ -107,5 +107,5 @@ def lay_the_template(file: Path) -> bool:
     if file.exists():
         return False
     file.parent.mkdir(parents=True, exist_ok=True)
-    file.write_text(GABARIT, encoding="utf-8")
+    file.write_text(TEMPLATE, encoding="utf-8")
     return True

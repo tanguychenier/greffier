@@ -177,15 +177,15 @@ class TestCuttingTheSoundFromAnotherProcess:
 
         from greffier.adapters.voice_neural import silence
 
-        dormeur = subprocess.Popen(["sleep", "30"])
+        sleeper = subprocess.Popen(["sleep", "30"])
         gag = tmp_path / "parole.pid"
-        gag.write_text(str(dormeur.pid))
+        gag.write_text(str(sleeper.pid))
         assert silence(gag)
         for _ in range(20):
-            if dormeur.poll() is not None:
+            if sleeper.poll() is not None:
                 break
             time.sleep(0.1)
-        assert dormeur.poll() is not None, "le processus n'a pas été coupé"
+        assert sleeper.poll() is not None, "le processus n'a pas été coupé"
         assert not gag.exists()
 
     def test_going_quiet_with_nothing_to_kill_does_not_raise(self, tmp_path):
@@ -217,7 +217,7 @@ class TestOneCutStopsTheWholeRemark:
     which is worse than not stopping at all.
     """
 
-    def _voice_of(self, tmp_path, monkeypatch, retour):
+    def _voice_of(self, tmp_path, monkeypatch, return_value):
         """A voice whose player returns the exit code wanted."""
         from greffier.adapters import voice_neural
 
@@ -225,10 +225,10 @@ class TestOneCutStopsTheWholeRemark:
             pid = 4242
 
             def wait(self):
-                return retour
+                return return_value
 
             def poll(self):
-                return retour
+                return return_value
 
             def terminate(self):
                 ...
@@ -243,24 +243,24 @@ class TestOneCutStopsTheWholeRemark:
 
     def test_a_player_killed_by_a_signal_stops_what_follows(self, tmp_path, monkeypatch):
         """`afplay` killed by SIGTERM returns -15: that is the button, not an ending."""
-        voice = self._voice_of(tmp_path, monkeypatch, retour=-15)
+        voice = self._voice_of(tmp_path, monkeypatch, return_value=-15)
         assert voice._play(tmp_path / "un.wav") is False
-        assert voice._interrompu.is_set(), "la suite du propos n'a pas été annulée"
+        assert voice._interrupted.is_set(), "la suite du propos n'a pas été annulée"
 
     def test_a_player_that_ends_normally_lets_it_go_on(self, tmp_path,
                                                               monkeypatch):
-        voice = self._voice_of(tmp_path, monkeypatch, retour=0)
+        voice = self._voice_of(tmp_path, monkeypatch, return_value=0)
         assert voice._play(tmp_path / "un.wav") is True
-        assert not voice._interrompu.is_set()
+        assert not voice._interrupted.is_set()
 
     def test_the_gag_is_deleted_either_way(self, tmp_path, monkeypatch):
-        for retour in (-15, 0):
-            voice = self._voice_of(tmp_path, monkeypatch, retour=retour)
+        for return_value in (-15, 0):
+            voice = self._voice_of(tmp_path, monkeypatch, return_value=return_value)
             voice._play(tmp_path / "un.wav")
             assert not (tmp_path / "p.pid").exists()
 
 
-class TestLaVoixOuverteUneFois:
+class TestTheVoiceOpenedOnce:
     """Opening the voice model takes four and a half seconds.
 
     A new voice was built at every question asked in preparation: four and a
@@ -270,54 +270,54 @@ class TestLaVoixOuverteUneFois:
     """
 
     @pytest.fixture
-    def ouvertures(self, monkeypatch, tmp_path):
+    def openings(self, monkeypatch, tmp_path):
         from greffier.adapters import voice_neural
 
-        faites: list[str] = []
+        done_ones: list[str] = []
         monkeypatch.setattr(voice_neural, "_OPENED", {})
         monkeypatch.setattr(
             voice_neural.NeuralVoice, "_open",
-            lambda self, where: faites.append(where) or object(),
+            lambda self, where: done_ones.append(where) or object(),
         )
         (tmp_path / "tokens.txt").touch()
         (tmp_path / "fr_FR-upmc-medium.onnx").touch()
-        return faites, tmp_path
+        return done_ones, tmp_path
 
-    def test_two_questions_open_it_once(self, ouvertures):
+    def test_two_questions_open_it_once(self, openings):
         from greffier.adapters.voice_neural import NeuralVoice
 
-        faites, folder = ouvertures
+        done_ones, folder = openings
         first_one = NeuralVoice(folder, device="cpu")
-        seconde = NeuralVoice(folder, device="cpu")
-        assert first_one._load() is seconde._load()
-        assert faites == ["cpu"]
+        second_one = NeuralVoice(folder, device="cpu")
+        assert first_one._load() is second_one._load()
+        assert done_ones == ["cpu"]
 
-    def test_another_language_opens_its_own(self, ouvertures):
+    def test_another_language_opens_its_own(self, openings):
         """An English voice is not the French voice."""
         from greffier.adapters.voice_neural import NeuralVoice
 
-        faites, folder = ouvertures
+        done_ones, folder = openings
         NeuralVoice(folder, language="fr", device="cpu")._load()
         NeuralVoice(folder, language="en", device="cpu")._load()
-        assert len(faites) == 2
+        assert len(done_ones) == 2
 
-    def test_warming_opens_it_without_saying_anything(self, ouvertures):
+    def test_warming_opens_it_without_saying_anything(self, openings):
         from greffier.adapters.voice_neural import NeuralVoice
 
-        faites, folder = ouvertures
+        done_ones, folder = openings
         NeuralVoice(folder, device="cpu").warm()
-        assert faites == ["cpu"]
+        assert done_ones == ["cpu"]
 
-    def test_warming_never_raises(self, monkeypatch, ouvertures):
+    def test_warming_never_raises(self, monkeypatch, openings):
         """Called from a thread while somebody speaks: a failure here costs nothing."""
         from greffier.adapters import voice_neural
 
-        _, folder = ouvertures
+        _, folder = openings
 
-        def qui_refuse(_self, _where):
+        def which_refuses(_self, _where):
             raise RuntimeError("modèle illisible")
 
-        monkeypatch.setattr(voice_neural.NeuralVoice, "_open", qui_refuse)
+        monkeypatch.setattr(voice_neural.NeuralVoice, "_open", which_refuses)
         voice_neural.NeuralVoice(folder, device="cpu").warm()
 
 
@@ -361,13 +361,13 @@ class TestSpeakingThroughTheSystemAndBeingQuiet:
     def test_waiting_ends_with_the_sentence(self, monkeypatch):
         voice = self._voice(monkeypatch, seconds="0.2")
         voice.say("Courte.")
-        voice.attendre(timeout=5)
+        voice.wait_for_it(timeout=5)
         assert voice.is_speaking() is False
 
     def test_waiting_too_long_cuts_the_sentence(self, monkeypatch):
         voice = self._voice(monkeypatch, seconds="5")
         voice.say("Longue.")
-        voice.attendre(timeout=0.2)
+        voice.wait_for_it(timeout=0.2)
         assert voice.is_speaking() is False
 
     def test_a_synthesiser_that_cannot_start_says_no(self, monkeypatch):

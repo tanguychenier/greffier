@@ -63,7 +63,7 @@ def build(config: Config) -> Any:
     kept_one = [Depends(authorised)]
 
     @api.get("/sante")
-    def sante() -> dict[str, object]:
+    def health() -> dict[str, object]:
         """Open without a token: enough to know the door answers, and no more."""
         return {"outil": "greffier", "version": _version(), "pret": True}
 
@@ -90,7 +90,7 @@ def build(config: Config) -> Any:
         return _read(config.paths.transcripts / f"{identifier}.txt", "transcription")
 
     @api.get("/memoire", dependencies=kept_one)
-    def memoire() -> list[dict[str, object]]:
+    def memory_() -> list[dict[str, object]]:
         """What earlier meetings left: decisions, open points, documents."""
         from dataclasses import asdict
 
@@ -99,7 +99,7 @@ def build(config: Config) -> Any:
         return [asdict(trace) for trace in memory(config).recall()]
 
     @api.post("/reunions", dependencies=kept_one, status_code=202)
-    async def deposer(
+    async def deposit(
         recording: Annotated[UploadFile, File(alias="enregistrement")],
     ) -> dict[str, str]:
         """Takes a recording in and answers at once: an hour is not a request.

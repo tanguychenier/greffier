@@ -103,7 +103,7 @@ class TestAPluralIsNotAMangling:
     is that people stop reading the others.
     """
 
-    @pytest.mark.parametrize("heard,connu", [
+    @pytest.mark.parametrize("heard,known_one", [
         ("bailleurs", "bailleur"),
         ("serveurs", "serveur"),
         ("recettes", "recette"),
@@ -112,22 +112,22 @@ class TestAPluralIsNotAMangling:
         ("Backlog", "backlog"),
         ("sprints", "sprint"),
     ])
-    def test_no_question_about_a_variant(self, heard, connu):
+    def test_no_question_about_a_variant(self, heard, known_one):
         from greffier.domain.questions import Questioner
 
-        assert Questioner(known=[connu]).examine(f"on parle du {heard}") == []
+        assert Questioner(known=[known_one]).examine(f"on parle du {heard}") == []
 
-    @pytest.mark.parametrize("heard,connu", [
+    @pytest.mark.parametrize("heard,known_one", [
         ("Ouasis", "Oasis"),
         ("bakclog", "backlog"),
         ("Coppernic", "Copernic"),
     ])
-    def test_a_real_mangling_is_still_picked_up(self, heard, connu):
+    def test_a_real_mangling_is_still_picked_up(self, heard, known_one):
         """The fix must not carry away the very thing the tool exists for."""
         from greffier.domain.questions import Questioner
 
-        asked = Questioner(known=[connu]).examine(f"on parle de {heard}")
-        assert len(asked) == 1 and asked[0].expected == connu
+        asked = Questioner(known=[known_one]).examine(f"on parle de {heard}")
+        assert len(asked) == 1 and asked[0].expected == known_one
 
     def test_the_exact_term_raises_nothing(self):
         from greffier.domain.questions import Questioner
@@ -186,15 +186,15 @@ class TestWhatRecursIsNoAccident:
 class TestADerivedWord:
     """A term with a prefix in front is another word, not a mistake."""
 
-    @pytest.mark.parametrize("heard,connu", [
+    @pytest.mark.parametrize("heard,known_one", [
         ("rétablissements", "établissement"),
         ("reprod", "prod"),
         ("déploiement", "ploiement"),
     ])
-    def test_a_derived_word_raises_nothing(self, heard, connu):
+    def test_a_derived_word_raises_nothing(self, heard, known_one):
         from greffier.domain.questions import derived_word
 
-        assert derived_word(heard, connu)
+        assert derived_word(heard, known_one)
 
     def test_the_elision_counts(self):
         """"ré-" before a vowel gives "rétablissement".
@@ -205,15 +205,15 @@ class TestADerivedWord:
 
         assert derived_word("rétablissement", "établissement")
 
-    @pytest.mark.parametrize("heard,connu", [
+    @pytest.mark.parametrize("heard,known_one", [
         ("Ouasis", "Oasis"),
         ("merde", "merge"),
         ("bakclog", "backlog"),
     ])
-    def test_a_mangling_is_not_a_derived_word(self, heard, connu):
+    def test_a_mangling_is_not_a_derived_word(self, heard, known_one):
         from greffier.domain.questions import derived_word
 
-        assert not derived_word(heard, connu)
+        assert not derived_word(heard, known_one)
 
     def test_a_false_positive_costs_only_a_silence(self):
         """"recette" passes for "re" + "cette", and that is owned.
@@ -282,11 +282,11 @@ class TestAQuestionIsPutToTheRoomOnlyOnce:
         """Answering one question must not swallow the next."""
         from greffier.domain.questions import Question, Reason, already_noted, note
 
-        une = Question(number=1, text="J'ai entendu « merde ».",
+        one_ = Question(number=1, text="J'ai entendu « merde ».",
                        motif=Reason.NEAR_TERM)
         other = Question(number=2, text="J'ai entendu « Spring ».",
                          motif=Reason.NEAR_TERM)
-        assert already_noted([une, other], [note(une.text)]) == {1}
+        assert already_noted([one_, other], [note(one_.text)]) == {1}
 
     def test_an_empty_conversation_holds_nothing_back(self):
         from greffier.domain.questions import Question, Reason, already_noted

@@ -17,7 +17,7 @@ from greffier.domain.voiceprints import (
     aggregate,
     conflicting_names,
     consolidate,
-    enrichir,
+    enrich,
     join_voices,
     normalise,
     recognise,
@@ -26,8 +26,8 @@ from greffier.domain.voiceprints import (
 )
 
 
-def voice(*composantes: float, duration: float = 10.0):
-    return normalise(composantes, source_duration=duration)
+def voice(*components: float, duration: float = 10.0):
+    return normalise(components, source_duration=duration)
 
 
 class TestNormalisingAVoiceprint:
@@ -51,10 +51,10 @@ class TestNormalisingAVoiceprint:
 class TestAggregating:
     def test_long_extracts_weigh_more(self):
         """A minute of explanation counts for more than three seconds of "d'accord"."""
-        longue = voice(1.0, 0.0, duration=60.0)
-        breve = voice(0.0, 1.0, duration=3.0)
-        moyenne = aggregate([longue, breve])
-        assert similarity(moyenne, longue) > similarity(moyenne, breve)
+        long_one = voice(1.0, 0.0, duration=60.0)
+        brief = voice(0.0, 1.0, duration=3.0)
+        average = aggregate([long_one, brief])
+        assert similarity(average, long_one) > similarity(average, brief)
 
     def test_aggregating_nothing_is_an_error(self):
         with pytest.raises(ValueError, match="aucune empreinte"):
@@ -89,9 +89,9 @@ class TestRecognising:
         """Recorded on a headset then in a room, one person has two signatures: their
         average would resemble neither.
         """
-        au_casque = voice(1.0, 0.0, 0.0)
-        en_salle = voice(0.0, 1.0, 0.0)
-        bank = [Person("Josiane", [au_casque, en_salle]),
+        with_headset = voice(1.0, 0.0, 0.0)
+        in_the_room = voice(0.0, 1.0, 0.0)
+        bank = [Person("Josiane", [with_headset, in_the_room]),
                   Person("Marc", [voice(0.3, 0.3, 0.9)])]
         found = recognise(voice(0.05, 0.99, 0.0), bank)
         assert found is not None and found.name == "Josiane"
@@ -100,22 +100,22 @@ class TestRecognising:
         """A room with echo lowers the similarity: the threshold has to follow."""
         bank = [Person("Josiane", [voice(1.0, 0.0, 0.0)])]
         # 0.26 of similarity: under the measured threshold of 0.45.
-        lointaine = voice(0.26, 0.966, 0.0)
-        assert recognise(lointaine, bank) is None
-        assert recognise(lointaine, bank, threshold=0.2) is not None
+        distant = voice(0.26, 0.966, 0.0)
+        assert recognise(distant, bank) is None
+        assert recognise(distant, bank, threshold=0.2) is not None
 
 
 class TestFeedingTheBank:
     def test_it_adds_a_voiceprint_and_counts_the_meeting(self):
         josiane = Person("Josiane", [voice(1.0, 0.0)])
-        enrichir(josiane, voice(0.9, 0.1))
+        enrich(josiane, voice(0.9, 0.1))
         assert len(josiane.voiceprints) == 2
         assert josiane.meetings == 1
 
     def test_what_is_kept_is_bounded_and_favours_long_extracts(self):
         josiane = Person("Josiane", [voice(1.0, 0.0, duration=float(i)) for i in range(1, 4)])
         for i in range(10):
-            enrichir(josiane, voice(1.0, 0.0, duration=100.0 + i), maximum=3)
+            enrich(josiane, voice(1.0, 0.0, duration=100.0 + i), maximum=3)
         assert len(josiane.voiceprints) == 3
         assert min(e.source_duration for e in josiane.voiceprints) >= 100.0
 
@@ -240,9 +240,9 @@ class TestABankThatContradictsItself:
 
     def test_two_names_on_one_voice_are_flagged(self):
         one_of = voice(1.0, 0.0, 0.0)
-        presque = voice(0.99, 0.14, 0.0)
+        almost = voice(0.99, 0.14, 0.0)
         bank = [Person(name="Cédric", voiceprints=[one_of]),
-                  Person(name="Tanguy", voiceprints=[presque]),
+                  Person(name="Tanguy", voiceprints=[almost]),
                   Person(name="Sophie", voiceprints=[voice(0.0, 0.0, 1.0)])]
         conflicts = conflicting_names(bank)
         assert conflicts == {"Cédric": {"Tanguy"}, "Tanguy": {"Cédric"}}
@@ -439,8 +439,8 @@ class TestAVoiceThatHoldsSeveralPeople:
     def test_voiceprints_that_resemble_each_other_are_one_person(self):
         from greffier.domain.voiceprints import one_person
 
-        proche = normalise([1.0, 0.05, 0.0])
-        assert one_person([normalise([1.0, 0.0, 0.0]), proche])
+        closest = normalise([1.0, 0.05, 0.0])
+        assert one_person([normalise([1.0, 0.0, 0.0]), closest])
 
     def test_voiceprints_that_do_not_are_several(self):
         from greffier.domain.voiceprints import one_person
@@ -464,7 +464,7 @@ class TestAVoiceThatHoldsSeveralPeople:
                           threshold=JOIN_THRESHOLD)
 
 
-class TestLeMemeNiveauPourTous:
+class TestTheSameLevelForEverybody:
     """The sound level must no longer decide who is who.
 
     Measured on a single excerpt compared with itself, attenuated: 0.999 at
@@ -478,16 +478,16 @@ class TestLeMemeNiveauPourTous:
         from greffier.domain.voiceprints import COMMON_LEVEL, at_a_common_level
 
         fort = [0.5, -0.5] * 100
-        mis = at_a_common_level(fort)
-        rms = math.sqrt(sum(x * x for x in mis) / len(mis))
+        put = at_a_common_level(fort)
+        rms = math.sqrt(sum(x * x for x in put) / len(put))
         assert abs(rms - COMMON_LEVEL) < 1e-6
 
     def test_a_quiet_excerpt_reaches_the_same_level(self):
         from greffier.domain.voiceprints import COMMON_LEVEL, at_a_common_level
 
-        faible = [0.01, -0.01] * 100
-        mis = at_a_common_level(faible)
-        rms = math.sqrt(sum(x * x for x in mis) / len(mis))
+        weak = [0.01, -0.01] * 100
+        put = at_a_common_level(weak)
+        rms = math.sqrt(sum(x * x for x in put) / len(put))
         assert abs(rms - COMMON_LEVEL) < 1e-6
 
     def test_silence_is_left_alone(self):
@@ -506,21 +506,21 @@ class TestLeMemeNiveauPourTous:
         """Clipping moves the timbre further than the level did."""
         from greffier.domain.voiceprints import at_a_common_level
 
-        un_pic = [0.001] * 999 + [0.9]
-        mis = at_a_common_level(un_pic)
-        assert max(abs(x) for x in mis) <= 0.99
+        a_peak = [0.001] * 999 + [0.9]
+        put = at_a_common_level(a_peak)
+        assert max(abs(x) for x in put) <= 0.99
 
     def test_the_shape_is_kept(self):
         """Only the scale changes: two excerpts identical up to a factor
         have to return exactly the same thing."""
         from greffier.domain.voiceprints import at_a_common_level
 
-        onde = [0.3, -0.1, 0.25, -0.4] * 50
-        attenuee = [x * 0.06 for x in onde]
-        assert at_a_common_level(onde) == pytest.approx(at_a_common_level(attenuee))
+        wave = [0.3, -0.1, 0.25, -0.4] * 50
+        attenuated = [x * 0.06 for x in wave]
+        assert at_a_common_level(wave) == pytest.approx(at_a_common_level(attenuated))
 
 
-class TestLeSeuilSuitLaMatiere:
+class TestTheThresholdFollowsTheMaterial:
     """The same threshold for two seconds and for a minute does not hold.
 
     Measured on four AMI meetings against their manual annotations, through
@@ -550,9 +550,9 @@ class TestLeSeuilSuitLaMatiere:
     def test_it_climbs_between_the_two(self):
         from greffier.domain.voiceprints import threshold_for
 
-        montants = [threshold_for(m) for m in (5, 10, 15, 20, 25)]
-        assert montants == sorted(montants)
-        assert len(set(montants)) == len(montants)
+        amounts = [threshold_for(m) for m in (5, 10, 15, 20, 25)]
+        assert amounts == sorted(amounts)
+        assert len(set(amounts)) == len(amounts)
 
     def test_the_ceiling_can_be_lowered_by_the_caller(self):
         from greffier.domain.voiceprints import threshold_for
@@ -577,8 +577,8 @@ class TestLeSeuilSuitLaMatiere:
         from greffier.domain.voiceprints import join_voices
 
         un = normalise([1.0, 0.0, 0.0], source_duration=3.0)
-        presque = normalise([0.99, 0.14, 0.0], source_duration=3.0)
-        membership = join_voices({"a": [un], "b": [presque]})
+        almost = normalise([0.99, 0.14, 0.0], source_duration=3.0)
+        membership = join_voices({"a": [un], "b": [almost]})
         assert len(set(membership.values())) == 2
 
     def test_two_people_with_ample_material_stay_apart(self):

@@ -6,10 +6,10 @@ from greffier.application.tickets import Ticket, extract_json, from_answer, offe
 class FakeWriter:
     def __init__(self, response):
         self.response = response
-        self.recu = None
+        self.received = None
 
     def write_up(self, text):
-        self.recu = text
+        self.received = text
         return self.response
 
 
@@ -47,8 +47,8 @@ class TestBuildingTheTickets:
         proposition = from_answer(RESPONSE)
         first_call = proposition.tickets[0]
         assert first_call.title == "Décaler la recette à jeudi"
-        assert first_call.assigne == "Josiane"
-        assert first_call.echeance == "jeudi"
+        assert first_call.assignee == "Josiane"
+        assert first_call.due_date == "jeudi"
 
     def test_a_ticket_with_no_title_is_dropped(self):
         assert from_answer('[{"description": "sans titre"}]').tickets == []
@@ -56,7 +56,7 @@ class TestBuildingTheTickets:
     def test_the_missing_fields_stay_empty(self):
         """N'inventer ni assignation ni échéance : l'absence se voit."""
         ticket = from_answer('[{"titre": "Faire le point"}]').tickets[0]
-        assert ticket.assigne == "" and ticket.echeance == ""
+        assert ticket.assignee == "" and ticket.due_date == ""
 
 
 class TestWhatIsWrittenOut:
@@ -77,8 +77,8 @@ class TestTheWholeLoop:
     def test_the_minutes_are_passed_to_the_writer(self):
         writer = FakeWriter(RESPONSE)
         proposition = offer("# Compte rendu\n\nOn décale la recette.", writer)
-        assert "On décale la recette." in writer.recu
-        assert "un ticket par action réellement décidée" in writer.recu
+        assert "On décale la recette." in writer.received
+        assert "un ticket par action réellement décidée" in writer.received
         assert len(proposition.tickets) == 2
 
     def test_a_ticket_renders_itself_in_markdown(self):

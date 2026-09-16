@@ -39,12 +39,12 @@ class Suggestion:
 
 def links_in(text: str) -> list[str]:
     """Addresses present in a text, deduplicated and in order."""
-    vus: list[str] = []
+    seen: list[str] = []
     for found in _LINK.finditer(text):
         lien = found.group(0).rstrip(".,;:!?")
-        if lien not in vus:
-            vus.append(lien)
-    return vus
+        if lien not in seen:
+            seen.append(lien)
+    return seen
 
 def instruction_after(text: str, keyword: str) -> str | None:
     """What follows the wake word, when it is spoken."""
@@ -55,16 +55,16 @@ def instruction_after(text: str, keyword: str) -> str | None:
     suite = found.group("suite").strip()
     return suite or None
 
-def decisions_in(text: str, profil: LanguageProfile) -> bool:
+def decisions_in(text: str, profile: LanguageProfile) -> bool:
     """Does the passage announce a decision or a follow-up?"""
-    return any(motif.search(text) for motif in profil.wording.decision_patterns)
+    return any(motif.search(text) for motif in profile.wording.decision_patterns)
 
 @dataclass
 class WatchRules:
     """Gathers a meeting's suggestions, never acting on its own."""
 
     keyword: str = "greffier"
-    profil: LanguageProfile = NEUTRAL
+    profile: LanguageProfile = NEUTRAL
     propositions: list[Suggestion] = field(default_factory=list)
     _seen: set[str] = field(default_factory=set)
 
@@ -89,7 +89,7 @@ class WatchRules:
                 if self._add(candidate):
                     fresh.append(candidate)
                 continue
-            if decisions_in(utterance.text, self.profil):
+            if decisions_in(utterance.text, self.profile):
                 candidate = Suggestion(
                     kind=Kind.DECISION, text=utterance.text.strip(), at_instant=at_instant,
                     origin=Origin.SPEECH, context="",

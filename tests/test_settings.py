@@ -36,7 +36,7 @@ def filled_in():
         transcription={"modele": "large-v3-turbo", "langue": "en",
                        "vocabulaire": ["CASA", "OTP", "Sébastien"]},
         live={"actif": False, "periode": 20.0, "modele": "small"},
-        locuteurs={"pas_des_prenoms": ["Copernic", "Jira"], "personnes": 4},
+        speakers={"pas_des_prenoms": ["Copernic", "Jira"], "personnes": 4},
         minutes={"moteur": "claude", "modele": "opus", "destinataire": "moi@exemple.fr"},
         email={"serveur": "smtp.office365.com", "port": 465, "utilisateur": "moi"},
         appearance={"theme": "sombre"},
@@ -45,11 +45,11 @@ def filled_in():
 
 class TestTheRoundTrip:
     def test_everything_written_reads_back_identical(self, filled_in):
-        relu = Config.model_validate(tomllib.loads(settings.render(filled_in)))
+        reread_one = Config.model_validate(tomllib.loads(settings.render(filled_in)))
         for section in settings.SECTIONS:
-            attribut = settings.SUB_MODEL.get(section, section)
-            expected = getattr(filled_in, attribut).model_dump()
-            assert getattr(relu, attribut).model_dump() == expected, section
+            attribute = settings.SUB_MODEL.get(section, section)
+            expected = getattr(filled_in, attribute).model_dump()
+            assert getattr(reread_one, attribute).model_dump() == expected, section
 
     def test_default_settings_read_back_too(self):
         rendered = settings.render(Config())
@@ -59,7 +59,7 @@ class TestTheRoundTrip:
         """An unreadable file would only be discovered on the next command."""
         assert tomllib.loads(settings.render(filled_in))
 
-    def test_les_accents_restent_tels_quels(self):
+    def test_accents_stay_as_they_are(self):
         """Un vocabulaire échappé rendrait l'amorce du modèle inutilisable."""
         rendered = settings.render(Config(transcription={"vocabulaire": ["Sébastien", "Noël"]}))
         assert "Sébastien" in rendered and "Noël" in rendered
@@ -77,7 +77,7 @@ class TestWhatIsNeverWritten:
 
     def test_a_field_left_unset_is_left_out(self):
         """TOML has no « null »: writing « personnes = None » would break everything."""
-        rendered = settings.render(Config(locuteurs={"personnes": None}))
+        rendered = settings.render(Config(speakers={"personnes": None}))
         assert "personnes" not in rendered
         assert tomllib.loads(rendered)
 
@@ -115,13 +115,13 @@ class TestWritingTheSettingsFile:
         """
         folder = tmp_path / "c"
         settings.save_settings(Config(appearance={"theme": "clair"}), folder=folder)
-        avant = (folder / "config.toml").read_text(encoding="utf-8")
+        earlier = (folder / "config.toml").read_text(encoding="utf-8")
 
-        def rendre_casse(_config_in):
+        def make_broken(_config_in):
             raise OSError("disque plein")
 
-        monkeypatch.setattr(settings, "render", rendre_casse)
+        monkeypatch.setattr(settings, "render", make_broken)
         with pytest.raises(OSError):
             settings.save_settings(Config(appearance={"theme": "sombre"}), folder=folder)
-        assert (folder / "config.toml").read_text(encoding="utf-8") == avant
+        assert (folder / "config.toml").read_text(encoding="utf-8") == earlier
         assert not [f for f in folder.iterdir() if f.name.startswith(".config-")]

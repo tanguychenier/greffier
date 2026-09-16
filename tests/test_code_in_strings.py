@@ -29,7 +29,7 @@ STANDARD = [
 ]
 
 
-def fichiers_python() -> list[pathlib.Path]:
+def python_files() -> list[pathlib.Path]:
     return [
         p for racine in ("src", "tools")
         for p in sorted((RACINE / racine).rglob("*.py"))
@@ -45,22 +45,22 @@ class TestTheStandardLibraryIsCalledByItsRealNames:
             except ImportError:  # pragma: no cover, dépend du système
                 continue
 
-        fautes = []
-        for p in fichiers_python():
-            arbre = ast.parse(p.read_text(encoding="utf-8"))
-            importes = {
-                a.name for n in ast.walk(arbre) if isinstance(n, ast.Import)
+        faults = []
+        for p in python_files():
+            tree = ast.parse(p.read_text(encoding="utf-8"))
+            imported = {
+                a.name for n in ast.walk(tree) if isinstance(n, ast.Import)
                 for a in n.names if a.asname is None and a.name in charges
             }
-            for n in ast.walk(arbre):
+            for n in ast.walk(tree):
                 if (isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name)
-                        and n.value.id in importes
+                        and n.value.id in imported
                         and not hasattr(charges[n.value.id], n.attr)):
-                    fautes.append(
+                    faults.append(
                         f"{p.relative_to(RACINE)}:{n.lineno} "
                         f"{n.value.id}.{n.attr} n'existe pas"
                     )
-        assert not fautes, "\n".join(fautes)
+        assert not faults, "\n".join(faults)
 
 
 class TestTheCodeQuotedInsideStringsStillResolves:
@@ -69,26 +69,26 @@ class TestTheCodeQuotedInsideStringsStillResolves:
     MOTIF = re.compile(r"from (greffier[\w.]+) import ([A-Za-z_][\w]*)")
 
     def _citations(self):
-        for p in fichiers_python():
-            arbre = ast.parse(p.read_text(encoding="utf-8"))
-            for n in ast.walk(arbre):
+        for p in python_files():
+            tree = ast.parse(p.read_text(encoding="utf-8"))
+            for n in ast.walk(tree):
                 if isinstance(n, ast.Constant) and isinstance(n.value, str):
                     for module, name in self.MOTIF.findall(n.value):
                         yield p, n.lineno, module, name
 
     def test_every_quoted_import_names_something_that_exists(self):
-        fautes = []
+        faults = []
         for p, line, module, name in self._citations():
             try:
                 charge = importlib.import_module(module)
             except ImportError as trouble:
-                fautes.append(f"{p.relative_to(RACINE)}:{line} {module} : {trouble}")
+                faults.append(f"{p.relative_to(RACINE)}:{line} {module} : {trouble}")
                 continue
             if not hasattr(charge, name):
-                fautes.append(
+                faults.append(
                     f"{p.relative_to(RACINE)}:{line} {module}.{name} n'existe pas"
                 )
-        assert not fautes, "\n".join(fautes)
+        assert not faults, "\n".join(faults)
 
     def test_the_check_actually_looks_at_something(self):
         """Guards against the check passing because it found nothing to read."""

@@ -17,7 +17,7 @@ from pathlib import Path
 from greffier.adapters import system_diagnostic as diagnostic
 from greffier.adapters.configuration import CLAUDE_MODELS, Config, save_settings
 from greffier.adapters.writer_ollama import available_models
-from greffier.domain.languages import LANGUAGES, eprouvee, label_text, name_of
+from greffier.domain.languages import LANGUAGES, label_text, name_of, proven
 from greffier.domain.recorder import Diagnostic
 from greffier.locations import config_folder, data_folder
 
@@ -68,7 +68,7 @@ def language_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
     language = dialogue.choose("Langue des réunions", choice, rank)
     answers.set_up("transcription", "langue", language)
 
-    if language and not eprouvee(language):
+    if language and not proven(language):
         dialogue.show(
             f"\n{name_of(language)} se transcrit et son compte rendu s'écrit, mais la\n"
             "reconnaissance des prénoms n'y est pas éprouvée : elle reste éteinte,\n"
@@ -101,15 +101,15 @@ def hardware_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
         f"Machine : {recorder.system} {recorder.architecture}, "
         f"{recorder.memory_gb:.0f} Go de mémoire, calcul « {recorder.speedup} »."
     )
-    for constat in state.constats:
-        mark = "✓" if constat.present else ("✗" if constat.bloquant else "⚠")
-        dialogue.show(f"  {mark} {constat.name}, {constat.detail}")
+    for the_reading in state.readings:
+        mark = "✓" if the_reading.present else ("✗" if the_reading.is_blocking else "⚠")
+        dialogue.show(f"  {mark} {the_reading.name}, {the_reading.detail}")
 
     if state.blocking:
         dialogue.show("\nÀ régler avant de continuer :")
-        for constat in state.blocking:
-            dialogue.show(f"  • {constat.name} : {constat.remede}")
-            answers.to_do.append(constat.remede)
+        for the_reading in state.blocking:
+            dialogue.show(f"  • {the_reading.name} : {the_reading.remedy}")
+            answers.to_do.append(the_reading.remedy)
 
     answers.place("GREFFIER_TRANSCRIPTION__MODEL", recorder.advised_model)
     answers.place(
@@ -190,17 +190,17 @@ def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
         answers.place("GREFFIER_MINUTES__RECIPIENT", "")
         return
 
-    adresse = ""
+    address = ""
     for _ in range(3):
-        adresse = dialogue.ask("À quelle adresse", "").strip()
-        if "@" in adresse:
+        address = dialogue.ask("À quelle adresse", "").strip()
+        if "@" in address:
             break
         dialogue.show("Il faut une adresse contenant « @ ».")
-    if "@" not in adresse:
+    if "@" not in address:
         dialogue.show("Sans adresse, le compte rendu restera simplement sur le disque.")
         answers.place("GREFFIER_MINUTES__RECIPIENT", "")
         return
-    answers.place("GREFFIER_MINUTES__RECIPIENT", adresse)
+    answers.place("GREFFIER_MINUTES__RECIPIENT", address)
 
     if diagnostic.outlook_present():
         dialogue.show(
@@ -217,7 +217,7 @@ def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
     server = dialogue.ask("Serveur SMTP", "smtp.office365.com")
     answers.place("GREFFIER_EMAIL__SERVER", server)
     answers.place("GREFFIER_EMAIL__PORT", dialogue.ask("Port", "587"))
-    user = dialogue.ask("Identifiant", adresse)
+    user = dialogue.ask("Identifiant", address)
     answers.place("GREFFIER_EMAIL__USER", user)
     dialogue.show(
         "Le mot de passe n'est pas écrit dans la configuration. Fournis-le par\n"
@@ -240,14 +240,14 @@ def vocabulary_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> 
         answers.place("GREFFIER_SPEAKERS__NOT_FIRST_NAMES",
                        json.dumps(words, ensure_ascii=False))
 
-ETAPES = [language_step, hardware_step, writer_step, delivery_step, vocabulary_step]
+STEPS = [language_step, hardware_step, writer_step, delivery_step, vocabulary_step]
 
 def run_chain(dialogue: Dialogue, state: Diagnostic | None = None) -> Answers:
     """Runs the assistant and returns what it retained."""
     state = state or diagnostic.examine(data_folder())
     answers = Answers()
-    for etape in ETAPES:
-        etape(dialogue, state, answers)
+    for step in STEPS:
+        step(dialogue, state, answers)
     return answers
 
 def write(answers: Answers, file: Path | None = None) -> Path:
@@ -266,10 +266,10 @@ def apply_settings(answers: Answers) -> None:
         return
     config = Config.load()
     for section, champs in answers.settings.items():
-        objet = getattr(config, section, None)
-        if objet is None:
+        subject_line = getattr(config, section, None)
+        if subject_line is None:
             continue
         for attribute, value in champs.items():
-            if hasattr(objet, attribute):
-                setattr(objet, attribute, value)
+            if hasattr(subject_line, attribute):
+                setattr(subject_line, attribute, value)
     save_settings(config)

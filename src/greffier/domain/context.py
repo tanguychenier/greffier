@@ -11,23 +11,23 @@ from dataclasses import dataclass
 
 PROMPT_MAXIMUM = 850
 
-_PREAMBULE = "Réunion de travail."
+_PREAMBLE = "Réunion de travail."
 
 @dataclass(frozen=True, slots=True)
 class Term:
     """A word the model cannot guess: acronym, product, proper noun."""
 
-    ecriture: str
-    sens: str = ""
+    spelling: str
+    meaning: str = ""
 
     def __post_init__(self) -> None:
-        if not self.ecriture.strip():
+        if not self.spelling.strip():
             raise ValueError("un terme sans écriture ne sert à rien")
 
     @property
     def gloss(self) -> str:
         """"OTP (one-time password)", or just "OTP" when the sense is unknown."""
-        return f"{self.ecriture} ({self.sens})" if self.sens else self.ecriture
+        return f"{self.spelling} ({self.meaning})" if self.meaning else self.spelling
 
 @dataclass(frozen=True, slots=True)
 class Speaker_:
@@ -48,20 +48,20 @@ class Speaker_:
 class Context:
     """The glossary and the directory of a working setting."""
 
-    termes: tuple[Term, ...] = ()
-    intervenants: tuple[Speaker_, ...] = ()
+    terms: tuple[Term, ...] = ()
+    attendees_: tuple[Speaker_, ...] = ()
 
     @property
     def empty(self) -> bool:
-        return not self.termes and not self.intervenants
+        return not self.terms and not self.attendees_
 
     def join(self, other: Context) -> Context:
         """This context, completed by another, which wins on equal names."""
-        termes = {t.ecriture.casefold(): t for t in self.termes}
-        termes.update({t.ecriture.casefold(): t for t in other.termes})
-        gens = {i.name.casefold(): i for i in self.intervenants}
-        gens.update({i.name.casefold(): i for i in other.intervenants})
-        return Context(tuple(termes.values()), tuple(gens.values()))
+        terms = {t.spelling.casefold(): t for t in self.terms}
+        terms.update({t.spelling.casefold(): t for t in other.terms})
+        gens = {i.name.casefold(): i for i in self.attendees_}
+        gens.update({i.name.casefold(): i for i in other.attendees_})
+        return Context(tuple(terms.values()), tuple(gens.values()))
 
     def prompt_seed(self, heard_before: Sequence[str] = ()) -> str:
         """The transcriber's seed: spellings, without their meaning.
@@ -75,17 +75,17 @@ class Context:
         and a first name is exactly the kind of rare word a model replaces with
         something it knows.
         """
-        retenus = _hold(self._words(heard_before),
-                        PROMPT_MAXIMUM - len(_PREAMBULE) - len(" Vocabulaire : ."))
-        if not retenus:
+        retained_ones = _hold(self._words(heard_before),
+                        PROMPT_MAXIMUM - len(_PREAMBLE) - len(" Vocabulaire : ."))
+        if not retained_ones:
             return ""
-        return f"{_PREAMBULE} Vocabulaire : " + ", ".join(retenus) + "."
+        return f"{_PREAMBLE} Vocabulaire : " + ", ".join(retained_ones) + "."
 
-    def ecartes(self, heard_before: Sequence[str] = ()) -> tuple[str, ...]:
+    def set_aside(self, heard_before: Sequence[str] = ()) -> tuple[str, ...]:
         """The terms the seed could not carry, so that it can be said."""
         words = self._words(heard_before)
-        retenus = set(_hold(words, PROMPT_MAXIMUM - len(_PREAMBULE) - len(" Vocabulaire : .")))
-        return tuple(m for m in words if m not in retenus)
+        retained_ones = set(_hold(words, PROMPT_MAXIMUM - len(_PREAMBLE) - len(" Vocabulaire : .")))
+        return tuple(m for m in words if m not in retained_ones)
 
     def _words(self, heard_before: Sequence[str] = ()) -> list[str]:
         """What the seed may carry, in the order it gives up.
@@ -94,8 +94,8 @@ class Context:
         down on purpose; those merely expected last, since a preparation lists
         a room and would otherwise push out what was chosen for good.
         """
-        return ([t.ecriture for t in self.termes]
-                + [i.name for i in self.intervenants]
+        return ([t.spelling for t in self.terms]
+                + [i.name for i in self.attendees_]
                 + [name for name in heard_before if name.strip()])
 
     def header(self) -> str:
@@ -103,29 +103,29 @@ class Context:
         if self.empty:
             return ""
         lines = ["[Contexte du milieu de travail]"]
-        if self.termes:
+        if self.terms:
             lines.append(
                 "Termes et sigles employés dans cette organisation, avec leur sens. "
                 "Emploie ces écritures, y compris là où la transcription les a "
                 "manifestement déformés. N'en cite que ceux dont il est question :"
             )
-            lines += [f"- {t.gloss}" for t in self.termes]
-        if self.intervenants:
+            lines += [f"- {t.gloss}" for t in self.terms]
+        if self.attendees_:
             lines.append(
                 "Personnes de cette organisation. N'attribue une position à "
                 "quelqu'un que si la transcription le montre, jamais d'après son rôle :"
             )
-            lines += [f"- {i.gloss}" for i in self.intervenants]
+            lines += [f"- {i.gloss}" for i in self.attendees_]
         return "\n".join(lines) + "\n\n"
 
 def _hold(words: list[str], place: int) -> list[str]:
     """The first words that fit in the room available."""
-    retenus: list[str] = []
+    retained_ones: list[str] = []
     length = 0
     for word in dict.fromkeys(m for m in words if m.strip()):
-        ajout = len(word) + (2 if retenus else 0)
-        if length + ajout > place:
+        addition = len(word) + (2 if retained_ones else 0)
+        if length + addition > place:
             continue
-        retenus.append(word)
-        length += ajout
-    return retenus
+        retained_ones.append(word)
+        length += addition
+    return retained_ones

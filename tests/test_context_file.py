@@ -17,8 +17,8 @@ class TestReadingTheContextFile:
             encoding="utf-8",
         )
         context = read(file)
-        assert context.termes[0].ecriture == "OTP"
-        assert context.intervenants[0].role == "cheffe de projet"
+        assert context.terms[0].spelling == "OTP"
+        assert context.attendees_[0].role == "cheffe de projet"
 
     def test_a_missing_file_is_not_an_error(self, tmp_path):
         assert read(tmp_path / "jamais-ecrit.toml").empty
@@ -36,20 +36,20 @@ class TestReadingTheContextFile:
             encoding="utf-8",
         )
         context = read(file)
-        assert [t.ecriture for t in context.termes] == ["CASA"]
+        assert [t.spelling for t in context.terms] == ["CASA"]
 
 
-class TestSourcesDeja:
+class TestSourcesAlreadyThere:
     """Two sources already existed and were not used."""
 
     def test_the_vocabulary_from_the_settings_is_taken_in(self):
         context = from_vocabulary(["CASA", "OTP", "  "])
-        assert [t.ecriture for t in context.termes] == ["CASA", "OTP"]
+        assert [t.spelling for t in context.terms] == ["CASA", "OTP"]
 
     def test_the_voice_bank_supplies_the_regulars(self):
         """Un prénom mal transcrit décide de l'attribution des tours de parole."""
         context = from_the_bank(["Katell", "Pascal", ""])
-        assert [i.name for i in context.intervenants] == ["Katell", "Pascal"]
+        assert [i.name for i in context.attendees_] == ["Katell", "Pascal"]
 
 
 class TestTheTemplateFile:
@@ -73,15 +73,15 @@ class TestAddingFromTheConversation:
 
         file = tmp_path / "contexte.toml"
         assert add_a_term(file, "OTP", "mot de passe à usage unique")
-        term = next(t for t in read(file).termes if t.ecriture == "OTP")
-        assert term.sens == "mot de passe à usage unique"
+        term = next(t for t in read(file).terms if t.spelling == "OTP")
+        assert term.meaning == "mot de passe à usage unique"
 
     def test_a_person_is_added_with_their_role(self, tmp_path):
         from greffier.adapters.context_file import add_a_person
 
         file = tmp_path / "contexte.toml"
         assert add_a_person(file, "Maud", "cheffe de projet")
-        gens = read(file).intervenants
+        gens = read(file).attendees_
         assert gens[-1].name == "Maud"
         assert gens[-1].role == "cheffe de projet"
 

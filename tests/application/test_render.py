@@ -29,10 +29,10 @@ def a_meeting(**overrides) -> StoredMeeting:
 
 class FakeWriter:
     def __init__(self) -> None:
-        self.recu: str | None = None
+        self.received: str | None = None
 
     def write_up(self, transcription: str) -> str:
-        self.recu = transcription
+        self.received = transcription
         return "# Compte rendu\n\nTout va bien."
 
 
@@ -52,8 +52,8 @@ class TestWritingTheMinutesAgain:
         meeting = a_meeting(names={"1": "Josiane", "2": "Marc"})
         writer = FakeWriter()
         regenerate_minutes(meeting, writer)
-        assert "[Josiane]" in writer.recu
-        assert "[Marc]" in writer.recu
+        assert "[Josiane]" in writer.received
+        assert "[Marc]" in writer.received
 
     def test_the_text_returned_is_the_writer_s(self) -> None:
         assert (
@@ -67,14 +67,14 @@ class TestWritingTheMinutesAgain:
 
         writer = FakeWriter()
         regenerate_minutes(a_meeting(one_take=True), writer)
-        assert ATTRIBUTION_BY_VOICE_LINE in writer.recu
+        assert ATTRIBUTION_BY_VOICE_LINE in writer.received
 
     def test_two_channels_say_nothing_about_the_take(self) -> None:
         from greffier.application.render import ATTRIBUTION_BY_VOICE_LINE
 
         writer = FakeWriter()
         regenerate_minutes(a_meeting(), writer)
-        assert ATTRIBUTION_BY_VOICE_LINE not in writer.recu
+        assert ATTRIBUTION_BY_VOICE_LINE not in writer.received
 
     def test_the_hardware_events_survive_the_rewrite(self) -> None:
         """The defect aimed at: regenerating must not make the minutes less
@@ -82,7 +82,7 @@ class TestWritingTheMinutesAgain:
         meeting = a_meeting(hardware_events=["casque branché à 12:03"])
         writer = FakeWriter()
         regenerate_minutes(meeting, writer)
-        assert "casque branché à 12:03" in writer.recu
+        assert "casque branché à 12:03" in writer.received
 
 
 class TestTheInstructionsGivenDuringTheMeeting:
@@ -196,8 +196,8 @@ class TestReviewingTheVoices:
             turns=[SpeakerTurn(Span(0, 40), "1"), SpeakerTurn(Span(60, 95), "2")],
             names={"1": "Josiane"},
         )
-        avant, apres = render.review_voices(meeting, FakeExtractor({0: same, 60: same}))
-        assert (avant, apres) == (2, 1)
+        earlier, later = render.review_voices(meeting, FakeExtractor({0: same, 60: same}))
+        assert (earlier, later) == (2, 1)
         assert len(meeting.names) == 1
         assert set(meeting.names.values()) == {"Josiane"}
         assert {u.voice for u in meeting.utterances} == set(meeting.names)
@@ -205,8 +205,8 @@ class TestReviewingTheVoices:
     def test_two_different_signatures_stay_two_voices(self):
         meeting = a_meeting(names={"1": "Josiane"})
         one, other = self._voiceprint(1.0, 0.0, 0.0), self._voiceprint(0.0, 1.0, 0.0)
-        avant, apres = render.review_voices(meeting, FakeExtractor({0: one, 60: other}))
-        assert (avant, apres) == (2, 2)
+        earlier, later = render.review_voices(meeting, FakeExtractor({0: one, 60: other}))
+        assert (earlier, later) == (2, 2)
         assert meeting.names == {"1": "Josiane"}
 
     def test_the_bank_is_asked_again_about_a_voice_without_a_name(self):

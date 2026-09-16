@@ -24,9 +24,9 @@ class TestSounds:
         assert propose.feasible
 
     def test_the_common_formats_are_recognised(self):
-        for suffixe in (".wav", ".m4a", ".mp3", ".opus", ".flac"):
+        for the_suffix in (".wav", ".m4a", ".mp3", ".opus", ".flac"):
             assert offer(
-                Path(f"x{suffixe}"), 50_000_000, ALL
+                Path(f"x{the_suffix}"), 50_000_000, ALL
             ).destination is Destination.MEETING
 
     def test_too_short_a_sound_is_not_a_meeting(self):

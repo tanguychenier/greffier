@@ -16,12 +16,12 @@ class Device:
 
     name: str
     uid: str
-    entrees: int = 0
+    entries: int = 0
     sorties: int = 0
 
     @property
     def captured(self) -> bool:
-        return self.entrees > 0
+        return self.entries > 0
 
 @dataclass(frozen=True)
 class Hardware:
@@ -43,8 +43,8 @@ class Action(Enum):
     """What the recording should do about the change observed."""
 
     NOTHING = "rien"
-    RECONSTRUIRE = "reconstruire"
-    ALERTER = "alerter"
+    REBUILD = "reconstruire"
+    ALERT = "alerter"
 
 @dataclass(frozen=True)
 class Decision:
@@ -53,23 +53,23 @@ class Decision:
     mic: str = ""
     audio_suspect: bool = False
 
-def _headset_usable(hardware: Hardware, prefere: str) -> Device | None:
-    expected = hardware.by_name(prefere)
+def _headset_usable(hardware: Hardware, preferred: str) -> Device | None:
+    expected = hardware.by_name(preferred)
     if expected is not None and expected.captured:
         return expected
     return None
 
 def _fallback_mic(hardware: Hardware, excluded: tuple[str, ...]) -> Device | None:
     """The best mic available, excluding those to be avoided."""
-    candidats = [
+    candidates_ = [
         p for p in hardware.mics
         if p.name not in excluded and not _is_loopback(p.name) and not _is_aggregated(p)
     ]
-    if not candidats:
+    if not candidates_:
         return None
-    casques = [p for p in candidats if not _is_built_in(p.name) and p.entrees == 1]
-    integres = [p for p in candidats if _is_built_in(p.name)]
-    return (casques or integres or candidats)[0]
+    headsets = [p for p in candidates_ if not _is_built_in(p.name) and p.entries == 1]
+    built_in = [p for p in candidates_ if _is_built_in(p.name)]
+    return (headsets or built_in or candidates_)[0]
 
 def _is_aggregated(device: Device) -> bool:
     """The devices the tool builds itself."""
@@ -86,54 +86,56 @@ class WatchRules:
     """Follows the hardware during a recording and says when to react."""
 
     wanted_mic: str
-    agrege: str = "Reunion Entree"
+    aggregated: str = "Reunion Entree"
     events: list[str] = field(default_factory=list)
 
-    def examine(self, avant: Hardware, apres: Hardware) -> Decision:
+    def examine(self, earlier: Hardware, later: Hardware) -> Decision:
         """Compares two hardware states and decides."""
-        if avant.devices == apres.devices:
+        if earlier.devices == later.devices:
             return Decision(Action.NOTHING)
 
-        voulu_avant = avant.present(self.wanted_mic)
-        voulu_apres = apres.present(self.wanted_mic)
+        wanted_before = earlier.present(self.wanted_mic)
+        wanted_after = later.present(self.wanted_mic)
 
-        if voulu_apres and not voulu_avant:
+        if wanted_after and not wanted_before:
             self.events.append(f"{self.wanted_mic} branché en cours de réunion")
             return Decision(
-                Action.RECONSTRUIRE,
+                Action.REBUILD,
                 f"« {self.wanted_mic} » vient d'être branché : "
                 "la capture reprend dessus, le début de la réunion ne l'a pas eu.",
                 mic=self.wanted_mic,
                 audio_suspect=True,
             )
 
-        if voulu_avant and not voulu_apres:
+        if wanted_before and not wanted_after:
             self.events.append(f"{self.wanted_mic} débranché en cours de réunion")
-            repli = _fallback_mic(apres, excluded=(self.wanted_mic, self.agrege))
-            if repli is None:
+            fallback = _fallback_mic(later, excluded=(self.wanted_mic, self.aggregated))
+            if fallback is None:
                 return Decision(
-                    Action.ALERTER,
+                    Action.ALERT,
                     f"« {self.wanted_mic} » a été débranché et aucun autre micro "
                     "n'est disponible : ta voix n'est plus enregistrée.",
                     audio_suspect=True,
                 )
             return Decision(
-                Action.RECONSTRUIRE,
+                Action.REBUILD,
                 f"« {self.wanted_mic} » a été débranché : la capture reprend sur "
-                f"« {repli.name} ».",
-                mic=repli.name,
+                f"« {fallback.name} ».",
+                mic=fallback.name,
                 audio_suspect=True,
             )
 
-        if not voulu_apres:
-            repli = _fallback_mic(apres, excluded=(self.wanted_mic, self.agrege))
-            avant_repli = _fallback_mic(avant, excluded=(self.wanted_mic, self.agrege))
-            if repli is not None and (avant_repli is None or repli.name != avant_repli.name):
-                self.events.append(f"{repli.name} branché en cours de réunion")
+        if not wanted_after:
+            fallback = _fallback_mic(later, excluded=(self.wanted_mic, self.aggregated))
+            before_fallback = _fallback_mic(earlier, excluded=(self.wanted_mic, self.aggregated))
+            if fallback is not None and (
+                before_fallback is None or fallback.name != before_fallback.name
+            ):
+                self.events.append(f"{fallback.name} branché en cours de réunion")
                 return Decision(
-                    Action.RECONSTRUIRE,
-                    f"« {repli.name} » vient d'être branché : la capture reprend dessus.",
-                    mic=repli.name,
+                    Action.REBUILD,
+                    f"« {fallback.name} » vient d'être branché : la capture reprend dessus.",
+                    mic=fallback.name,
                     audio_suspect=True,
                 )
 
@@ -147,12 +149,12 @@ class MicChoice:
 
     name: str
     level_db: float
-    ecartes: tuple[tuple[str, float], ...] = ()
+    set_aside: tuple[tuple[str, float], ...] = ()
     all_silent: bool = False
     preferred_headset: bool = False
 
 def choose_by_listening(
-    essais: dict[str, float], casques: frozenset[str] = frozenset()
+    trials: dict[str, float], headsets: frozenset[str] = frozenset()
 ) -> MicChoice | None:
     """Keeps the mic that will best capture **the meeting**, after listening.
 
@@ -160,43 +162,43 @@ def choose_by_listening(
     have a mute button on the cable. Choosing without listening yields a whole
     meeting of silence.
     """
-    if not essais:
+    if not trials:
         return None
-    ranking = sorted(essais.items(), key=lambda x: -x[1])
+    ranking = sorted(trials.items(), key=lambda x: -x[1])
     name, level = ranking[0]
-    if casques:
-        vivants = [
+    if headsets:
+        alive_ones = [
             (other, db) for other, db in ranking
-            if other in casques and db >= SILENT_FLOOR_DB
+            if other in headsets and db >= SILENT_FLOOR_DB
         ]
-        if vivants and vivants[0][0] != name:
-            name, level = vivants[0]
+        if alive_ones and alive_ones[0][0] != name:
+            name, level = alive_ones[0]
             ranking = [(name, level)] + [
                 pair for pair in ranking if pair[0] != name
             ]
     return MicChoice(
         name=name,
         level_db=level,
-        ecartes=tuple(ranking[1:]),
-        all_silent=max(essais.values()) < SILENT_FLOOR_DB,
-        preferred_headset=bool(casques) and name in casques,
+        set_aside=tuple(ranking[1:]),
+        all_silent=max(trials.values()) < SILENT_FLOOR_DB,
+        preferred_headset=bool(headsets) and name in headsets,
     )
 
-def candidates_to_listen_to(hardware: Hardware, prefere: str) -> list[str]:
+def candidates_to_listen_to(hardware: Hardware, preferred: str) -> list[str]:
     """The mics worth a listen, the preferred one first."""
     useful_ones = [
         p.name for p in hardware.mics
         if not _is_loopback(p.name) and not _is_aggregated(p)
     ]
-    if prefere and prefere in useful_ones:
-        useful_ones.remove(prefere)
-        useful_ones.insert(0, prefere)
+    if preferred and preferred in useful_ones:
+        useful_ones.remove(preferred)
+        useful_ones.insert(0, preferred)
     return sorted(
         useful_ones,
         key=lambda name: (
-            name != prefere,
+            name != preferred,
             _is_built_in(name),
-            name not in {p.name for p in hardware.mics if p.entrees == 1},
+            name not in {p.name for p in hardware.mics if p.entries == 1},
         ),
     )
 
@@ -213,14 +215,14 @@ def headsets_among(hardware: Hardware) -> frozenset[str]:
     return frozenset(
         p.name for p in hardware.mics
         if p.name in sorties
-        and p.entrees == 1
+        and p.entries == 1
         and not _is_loopback(p.name) and not _is_aggregated(p)
         and not _is_built_in(p.name)
     )
 
-def advised_mic(hardware: Hardware, prefere: str) -> str:
+def advised_mic(hardware: Hardware, preferred: str) -> str:
     """Mic to put in the aggregate now, given what is plugged in."""
-    if headset_present(hardware, prefere):
-        return prefere
-    repli = _fallback_mic(hardware, excluded=(prefere,))
-    return repli.name if repli else ""
+    if headset_present(hardware, preferred):
+        return preferred
+    fallback = _fallback_mic(hardware, excluded=(preferred,))
+    return fallback.name if fallback else ""

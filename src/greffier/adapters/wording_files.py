@@ -30,14 +30,14 @@ def translated() -> tuple[str, ...]:
 
 
 def _flat(read: dict[str, object], prefix: str = "") -> dict[str, str]:
-    plat: dict[str, str] = {}
+    flat: dict[str, str] = {}
     for key, value in read.items():
         path = f"{prefix}{key}"
         if isinstance(value, dict):
-            plat |= _flat(value, f"{path}.")
+            flat |= _flat(value, f"{path}.")
         elif isinstance(value, str):
-            plat[path] = value
-    return plat
+            flat[path] = value
+    return flat
 
 
 def read(language: str) -> dict[str, str]:

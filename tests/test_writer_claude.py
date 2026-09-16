@@ -17,18 +17,18 @@ def spy(monkeypatch):
     """Keeps the command launched, without ever calling the assistant."""
     vu: dict[str, list[str]] = {}
 
-    def faux_run(command, **options):
+    def fake_run(command, **options):
         vu["commande"] = list(command)
         vu["entree"] = options.get("input", "")
         return subprocess.CompletedProcess(command, 0, stdout="# Compte rendu\n", stderr="")
 
     monkeypatch.setattr("greffier.adapters.writer_claude.shutil.which",
                         lambda _name: "/usr/local/bin/claude")
-    monkeypatch.setattr("greffier.adapters.writer_claude.subprocess.run", faux_run)
+    monkeypatch.setattr("greffier.adapters.writer_claude.subprocess.run", fake_run)
     return vu
 
 
-class TestModele:
+class TestTheModel:
     def test_the_model_asked_for_is_passed_on(self, spy):
         ClaudeWriter("opus").write_up("Sandy : bonjour.")
         assert "--model" in spy["commande"]

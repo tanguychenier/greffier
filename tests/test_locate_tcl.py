@@ -12,23 +12,23 @@ from pathlib import Path
 from greffier.locations import locate_tcl
 
 
-def prefixe_avec_tcl(tmp_path: Path) -> Path:
+def prefix_with_tcl(tmp_path: Path) -> Path:
     (tmp_path / "lib" / "tcl9.0").mkdir(parents=True)
     (tmp_path / "lib" / "tk9.0").mkdir()
     return tmp_path
 
 
-class TestSituerTcl:
+class TestLocatingTcl:
     def test_both_variables_are_set_beside_the_interpreter(self, tmp_path):
         env: dict[str, str] = {}
-        locate_tcl(env, prefixe_avec_tcl(tmp_path))
+        locate_tcl(env, prefix_with_tcl(tmp_path))
         assert env["TCL_LIBRARY"] == str(tmp_path / "lib" / "tcl9.0")
         assert env["TK_LIBRARY"] == str(tmp_path / "lib" / "tk9.0")
 
     def test_a_setting_already_there_is_honoured(self, tmp_path):
         """Un poste qui a son propre Tcl garde le sien."""
         env = {"TCL_LIBRARY": "/usr/share/tcl9.0"}
-        locate_tcl(env, prefixe_avec_tcl(tmp_path))
+        locate_tcl(env, prefix_with_tcl(tmp_path))
         assert env["TCL_LIBRARY"] == "/usr/share/tcl9.0"
         assert env["TK_LIBRARY"] == str(tmp_path / "lib" / "tk9.0")
 
@@ -89,5 +89,5 @@ class TestWhereADistributionKeepsTcl:
 
         (tmp_path / "lib").mkdir()
         monkeypatch.setattr(startup.sys, "base_prefix", str(tmp_path))
-        monkeypatch.setattr(startup, "_OU_VIT_TCL", ("lib/tcl*",))
+        monkeypatch.setattr(startup, "_WHERE_TCL_LIVES", ("lib/tcl*",))
         assert not startup._default_tcl()

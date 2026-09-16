@@ -36,101 +36,101 @@ class Attachment:
         except OSError:
             return 0
 
-def pieces_de(ou: Places, identifier: str) -> list[Attachment]:
+def pieces_de(where_: Places, identifier: str) -> list[Attachment]:
     """Everything that exists for this meeting, heaviest first."""
-    candidats = [
-        (ou.recordings, ("wav", "opus", "m4a", "mp3"), "enregistrement audio"),
-        (ou.meetings, ("json",), "réunion transcrite"),
-        (ou.transcripts, ("txt",), "transcription lisible"),
-        (ou.minutes_folder, ("md",), "compte rendu"),
-        (ou.live, ("jsonl",), "fil du direct"),
-        (ou.propositions, ("jsonl",), "propositions de noms"),
-        (ou.questions, ("jsonl",), "questions posées"),
-        (ou.conversations, ("jsonl",), "conversation avec l'assistant"),
+    candidates_ = [
+        (where_.recordings, ("wav", "opus", "m4a", "mp3"), "enregistrement audio"),
+        (where_.meetings, ("json",), "réunion transcrite"),
+        (where_.transcripts, ("txt",), "transcription lisible"),
+        (where_.minutes_folder, ("md",), "compte rendu"),
+        (where_.live, ("jsonl",), "fil du direct"),
+        (where_.propositions, ("jsonl",), "propositions de noms"),
+        (where_.questions, ("jsonl",), "questions posées"),
+        (where_.conversations, ("jsonl",), "conversation avec l'assistant"),
     ]
     found = [
         Attachment(path, what)
-        for folder, suffixes, what in candidats
+        for folder, suffixes, what in candidates_
         if folder is not None
-        for suffixe in suffixes
-        if (path := folder / f"{identifier}.{suffixe}").exists()
+        for the_suffix in suffixes
+        if (path := folder / f"{identifier}.{the_suffix}").exists()
     ]
     found += [
         Attachment(document, f"document fourni ({document.stem})")
-        for document in _supplied_documents(ou, identifier)
+        for document in _supplied_documents(where_, identifier)
     ]
     return sorted(found, key=lambda p: -p.bytes_read)
 
-def _supplied_documents(ou: Places, identifier: str) -> list[Path]:
+def _supplied_documents(where_: Places, identifier: str) -> list[Path]:
     """The documents dropped during the meeting."""
-    if ou.pieces is None:
+    if where_.pieces is None:
         return []
-    folder = ou.pieces / identifier
+    folder = where_.pieces / identifier
     return sorted(folder.glob("*.txt")) if folder.is_dir() else []
 
-def forget(ou: Places, identifier: str) -> list[Attachment]:
+def forget(where_: Places, identifier: str) -> list[Attachment]:
     """Erases the meeting, and returns what was erased."""
-    effacees: list[Attachment] = []
-    for piece in pieces_de(ou, identifier):
+    erased: list[Attachment] = []
+    for piece in pieces_de(where_, identifier):
         try:
             piece.path.unlink()
         except OSError:
             continue
-        effacees.append(piece)
-    if ou.pieces is not None:
+        erased.append(piece)
+    if where_.pieces is not None:
         with contextlib.suppress(OSError):
-            (ou.pieces / identifier).rmdir()
-    return effacees
+            (where_.pieces / identifier).rmdir()
+    return erased
 
 @dataclass(frozen=True, slots=True)
 class Tidying:
     """What a tidying pass did, or would do."""
 
     identifier: str
-    geste: str
-    gagne: int = 0
+    the_gesture: str
+    gained: int = 0
     trouble: str = ""
 
-def audio_de(ou: Places, identifier: str) -> Path | None:
+def audio_de(where_: Places, identifier: str) -> Path | None:
     """This meeting's recording, compressed or not."""
-    for suffixe in ("wav", "opus", "m4a", "mp3"):
-        path = ou.recordings / f"{identifier}.{suffixe}"
+    for the_suffix in ("wav", "opus", "m4a", "mp3"):
+        path = where_.recordings / f"{identifier}.{the_suffix}"
         if path.exists():
             return path
     return None
 
 def tidy(
-    ou: Places,
+    where_: Places,
     rule: Rule,
     meetings: Sequence[tuple[str, float, bool]],
-    compresser: Callable[[Path], Path],
+    compress: Callable[[Path], Path],
     for_real: bool = False,
 ) -> list[Tidying]:
     """Applies the retention rule, or only says what it would do."""
-    faits: list[Tidying] = []
-    for identifier, jours, transcrite in meetings:
-        audio = audio_de(ou, identifier)
+    done_ones: list[Tidying] = []
+    for identifier, days, is_transcribed in meetings:
+        audio = audio_de(where_, identifier)
         if audio is None:
             continue
-        geste = rule.decide(jours, transcrite, audio.suffix == ".opus")
-        if geste is Gesture.NOTHING:
+        the_gesture = rule.decide(days, is_transcribed, audio.suffix == ".opus")
+        if the_gesture is Gesture.NOTHING:
             continue
-        avant = audio.stat().st_size if audio.exists() else 0
+        earlier = audio.stat().st_size if audio.exists() else 0
         if not for_real:
-            gagne = avant if geste is Gesture.EFFACER else int(avant * 0.9)
-            faits.append(Tidying(identifier, str(geste), gagne))
+            gained = earlier if the_gesture is Gesture.ERASE else int(earlier * 0.9)
+            done_ones.append(Tidying(identifier, str(the_gesture), gained))
             continue
         try:
-            if geste is Gesture.EFFACER:
+            if the_gesture is Gesture.ERASE:
                 audio.unlink()
-                faits.append(Tidying(identifier, str(geste), avant))
+                done_ones.append(Tidying(identifier, str(the_gesture), earlier))
             else:
-                produit = compresser(audio)
-                apres = produit.stat().st_size if produit.exists() else 0
-                faits.append(Tidying(identifier, str(geste), max(0, avant - apres)))
+                product = compress(audio)
+                later = product.stat().st_size if product.exists() else 0
+                done_ones.append(Tidying(identifier, str(the_gesture), max(0, earlier - later)))
         except (OSError, RuntimeError) as trouble:
-            faits.append(Tidying(identifier, str(geste), 0, str(trouble)))
-    return faits
+            done_ones.append(Tidying(identifier, str(the_gesture), 0, str(trouble)))
+    return done_ones
 
 def readable(bytes_read: int) -> str:
     """"151 MB", "34 kB", for a sentence a person reads."""

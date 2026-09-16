@@ -109,24 +109,24 @@ def _her(config: Config):
     from greffier.cli import _live_material
     from greffier.wiring import assistant_of
 
-    lui = assistant_of(config, MEETING)
-    assert lui is not None and lui.cerveau is not None
-    lui.voice = Voice()
-    lui.context = _live_material(config, MEETING, Follower())
-    lui.manners.creux_minimal = 0.0
-    return lui
+    her = assistant_of(config, MEETING)
+    assert her is not None and her.the_brain is not None
+    her.voice = Voice()
+    her.context = _live_material(config, MEETING, Follower())
+    her.manners.creux_minimal = 0.0
+    return her
 
 
-def _asked(lui, question: str) -> str:
-    remark = lui.answer(Opening(because=Because.APPELE, remark=question, born_at=1.0), 2.0)
+def _asked(her, question: str) -> str:
+    remark = her.answer(Opening(because=Because.CALLED, remark=question, born_at=1.0), 2.0)
     return remark.remark
 
 
-def _registry(config: Config, adresse: str) -> None:
+def _registry(config: Config, address: str) -> None:
     config.paths.sources.parent.mkdir(parents=True, exist_ok=True)
     config.paths.sources.write_text(
         '[[sources]]\nnom = "recherche"\ngenre = "gitlab"\n'
-        f'adresse = "{adresse}"\nprojet = "equipe/outil"\n'
+        f'adresse = "{address}"\nprojet = "equipe/outil"\n'
         'jeton = "GREFFIER_GITLAB_JETON_D_ESSAI"\n',
         encoding="utf-8",
     )
@@ -137,11 +137,11 @@ class TestADocumentHandedOverIsUsed:
         config = _config(home, monkeypatch)
         attachments_file.write(config.paths.pieces, MEETING, "budget",
                                "Budget du lot 2 : 42 000 euros hors taxes, validé le 3 septembre.")
-        lui = _her(config)
+        her = _her(config)
         try:
-            answer = _asked(lui, "quel est le budget du lot 2 ?")
+            answer = _asked(her, "quel est le budget du lot 2 ?")
         finally:
-            lui.cerveau.close()
+            her.the_brain.close()
         lowered = answer.lower()
         assert "42" in lowered or "quarante-deux" in lowered, answer
         assert "budget" in lowered or "document" in lowered, answer
@@ -154,11 +154,11 @@ class TestTheCompanySources:
         monkeypatch.delenv("GREFFIER_GITLAB_JETON_D_ESSAI", raising=False)
         config = _config(home, monkeypatch)
         _registry(config, gitlab)
-        lui = _her(config)
+        her = _her(config)
         try:
-            answer = _asked(lui, "quels tickets sont ouverts sur GitLab ?")
+            answer = _asked(her, "quels tickets sont ouverts sur GitLab ?")
         finally:
-            lui.cerveau.close()
+            her.the_brain.close()
         lowered = answer.lower()
         assert "jeton" in lowered or "accès" in lowered, answer
         assert "facturation" not in lowered, "no ticket invented"
@@ -169,11 +169,11 @@ class TestTheCompanySources:
         monkeypatch.setenv("GREFFIER_GITLAB_JETON_D_ESSAI", "secret-d-essai")
         config = _config(home, monkeypatch)
         _registry(config, gitlab)
-        lui = _her(config)
+        her = _her(config)
         try:
-            answer = _asked(lui, "quels tickets sont ouverts sur GitLab ?")
+            answer = _asked(her, "quels tickets sont ouverts sur GitLab ?")
         finally:
-            lui.cerveau.close()
+            her.the_brain.close()
         lowered = answer.lower()
         assert "facturation" in lowered or "export" in lowered, answer
         assert "gitlab" in lowered, answer
@@ -184,15 +184,15 @@ class TestTheWeb:
         self, home, monkeypatch
     ):
         config = _config(home, monkeypatch, web=True)
-        lui = _her(config)
+        her = _her(config)
         searched: list[int] = []
-        lui.cerveau.on_search = lambda: searched.append(1)
+        her.the_brain.on_search = lambda: searched.append(1)
         try:
             answer = _asked(
-                lui, "quelle est la dernière version stable de Python à ce jour ?"
+                her, "quelle est la dernière version stable de Python à ce jour ?"
             )
         finally:
-            lui.cerveau.close()
+            her.the_brain.close()
         assert searched, f"no search was made: {answer!r}"
         lowered = answer.lower()
         marks = ("d'après", "selon", "site", "documentation")

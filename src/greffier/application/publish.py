@@ -10,7 +10,7 @@ from pathlib import Path
 
 from greffier.domain.store import Destination, Suggestion
 
-CONSIGNES_DOCUMENT = """Tu lis un document de travail pour en extraire le
+DOCUMENT_GUIDANCE = """Tu lis un document de travail pour en extraire le
 vocabulaire qu'une transcription automatique ne pourrait pas deviner.
 
 Rends **uniquement** un tableau JSON, sans texte avant ni après :
@@ -40,8 +40,8 @@ class Done:
     """What a drop produced."""
 
     proposition: Suggestion
-    produit: Path | None = None
-    appris: tuple[tuple[str, str, str], ...] = ()
+    product: Path | None = None
+    learned: tuple[tuple[str, str, str], ...] = ()
     trouble: str = ""
 
 def tools_present() -> frozenset[str]:
@@ -72,16 +72,16 @@ def read_the_text(document: Path) -> str:
     """The text of a document, whatever its format. Empty when unreadable."""
     from greffier.domain.store import TEXTS, TOOLED_TEXTS
 
-    suffixe = document.suffix.casefold()
-    if suffixe in TEXTS:
+    the_suffix = document.suffix.casefold()
+    if the_suffix in TEXTS:
         try:
             return document.read_text(encoding="utf-8", errors="replace")
         except OSError:
             return ""
-    if suffixe not in TOOLED_TEXTS:
+    if the_suffix not in TOOLED_TEXTS:
         return ""
     command = (
-        ["pdftotext", "-q", str(document), "-"] if suffixe == ".pdf"
+        ["pdftotext", "-q", str(document), "-"] if the_suffix == ".pdf"
         else ["textutil", "-stdout", "-convert", "txt", str(document)]
     )
     if shutil.which(command[0]) is None:
@@ -105,7 +105,7 @@ def learn_from_text(
     if not text.strip():
         return ()
     rendered = writer.write_up(  # type: ignore[attr-defined]
-        CONSIGNES_DOCUMENT + text[:READ_AT_MOST]
+        DOCUMENT_GUIDANCE + text[:READ_AT_MOST]
     )
     block = re.search(r"```(?:json)?\s*(.*?)```", rendered, re.DOTALL)
     brut = block.group(1) if block else rendered
@@ -119,16 +119,16 @@ def learn_from_text(
     if not isinstance(items, list):
         return ()
 
-    retenus: list[tuple[str, str, str]] = []
+    retained_ones: list[tuple[str, str, str]] = []
     for item in items[:maximum]:
         if not isinstance(item, dict):
             continue
-        ecriture = str(item.get("ecriture", "")).strip()
-        if not ecriture:
+        spelling = str(item.get("ecriture", "")).strip()
+        if not spelling:
             continue
         kind = "personne" if str(item.get("genre", "")).strip() == "personne" else "terme"
-        retenus.append((ecriture, str(item.get("sens", "")).strip(), kind))
-    return tuple(retenus)
+        retained_ones.append((spelling, str(item.get("sens", "")).strip(), kind))
+    return tuple(retained_ones)
 
 def run_chain(
     proposition: Suggestion,
@@ -142,7 +142,7 @@ def run_chain(
     if proposition.destination is Destination.VIDEO:
         target = recordings / f"{proposition.file.stem}.wav"
         try:
-            return Done(proposition, produit=extract_sound(proposition.file, target))
+            return Done(proposition, product=extract_sound(proposition.file, target))
         except (RuntimeError, OSError) as trouble:
             return Done(proposition, trouble=str(trouble))
 
@@ -152,7 +152,7 @@ def run_chain(
             if target.resolve() != proposition.file.resolve():
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(proposition.file, target)
-            return Done(proposition, produit=target)
+            return Done(proposition, product=target)
         except OSError as trouble:
             return Done(proposition, trouble=str(trouble))
 
@@ -162,7 +162,7 @@ def run_chain(
         try:
             return Done(
                 proposition,
-                appris=learn_from_document(proposition.file, writer),
+                learned=learn_from_document(proposition.file, writer),
             )
         except (RuntimeError, OSError) as trouble:
             return Done(proposition, trouble=str(trouble))

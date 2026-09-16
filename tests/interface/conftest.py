@@ -36,8 +36,8 @@ def test_screen(tmp_path, monkeypatch):
     pytest.importorskip("tkinter")
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
-    for cle in [c for c in os.environ if c.startswith("GREFFIER_") and c != OPT_IN]:
-        monkeypatch.delenv(cle)
+    for the_key in [c for c in os.environ if c.startswith("GREFFIER_") and c != OPT_IN]:
+        monkeypatch.delenv(the_key)
 
     from greffier.interface import asking
 
@@ -56,8 +56,8 @@ def window(test_screen):
 
     try:
         opened_one = Window(Config())
-    except tk.TclError as pourquoi:
-        pytest.skip(f"pas d'écran pour Tk : {pourquoi}")
+    except tk.TclError as why:
+        pytest.skip(f"pas d'écran pour Tk : {why}")
     opened_one.root.update()
     yield opened_one
     opened_one.root.destroy()

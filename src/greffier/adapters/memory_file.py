@@ -16,7 +16,7 @@ from greffier.domain.memory import Trace
 
 #: Read back at most this many meetings. What the header can carry is bounded
 #: anyway; reading a hundred lines to keep four would only cost disk.
-DERNIERES = 12
+LAST_ONES = 12
 
 
 def file_in(folder: Path) -> Path:
@@ -33,7 +33,7 @@ def remember(file: Path, trace: Trace) -> None:
         output_.write(line + "\n")
 
 
-def recall(file: Path, limit: int = DERNIERES) -> list[Trace]:
+def recall(file: Path, limit: int = LAST_ONES) -> list[Trace]:
     """The most recent meetings first, the unreadable lines passed over.
 
     A line that cannot be read is skipped rather than fatal: this file is meant
@@ -61,6 +61,6 @@ def recall(file: Path, limit: int = DERNIERES) -> list[Trace]:
             open_points=tuple(read_.get("open_points") or ()),
             documents=tuple(read_.get("documents") or ()),
         ))
-    derniers = traces[-limit:]
-    derniers.reverse()
-    return derniers
+    last_ones = traces[-limit:]
+    last_ones.reverse()
+    return last_ones

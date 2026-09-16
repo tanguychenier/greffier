@@ -16,8 +16,8 @@ class MentionKind(StrEnum):
     """Who the mention points at, relative to whoever speaks it."""
 
     AUTO_PRESENTATION = "auto_presentation"   # le locuteur courant
-    INTERPELLATION = "interpellation"         # le locuteur suivant
-    RENVOI = "renvoi"                         # le locuteur précédent
+    ADDRESSING = "interpellation"         # le locuteur suivant
+    REFERRAL = "renvoi"                         # le locuteur précédent
 
 class Phase(StrEnum):
     """The states a meeting goes through, from recording to sending."""
@@ -25,20 +25,20 @@ class Phase(StrEnum):
     REST = "repos"
     RECORDING = "enregistrement"
     PAUSE = "pause"
-    FINALISATION = "finalisation"
+    FINALISING = "finalisation"
     TRANSCRIPTION = "transcription"
-    LOCUTEURS = "locuteurs"
-    REDACTION = "redaction"
+    SPEAKERS = "locuteurs"
+    WRITING = "redaction"
     SENDING = "envoi"
-    TERMINE = "termine"
-    INTERROMPU = "interrompu"
-    ECHEC = "echec"
+    DONE = "termine"
+    INTERRUPTED = "interrompu"
+    FAILURE = "echec"
 
     @property
     def in_progress(self) -> bool:
         return self in {
-            Phase.RECORDING, Phase.FINALISATION, Phase.TRANSCRIPTION,
-            Phase.LOCUTEURS, Phase.REDACTION, Phase.SENDING,
+            Phase.RECORDING, Phase.FINALISING, Phase.TRANSCRIPTION,
+            Phase.SPEAKERS, Phase.WRITING, Phase.SENDING,
         }
 
 class Source(StrEnum):

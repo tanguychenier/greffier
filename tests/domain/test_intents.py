@@ -12,40 +12,40 @@ from greffier.domain.intents import Learning, What, agreement, understand
 
 class TestWhatIsUnderstood:
     def test_an_acronym_with_its_meaning(self):
-        appris = understand("retiens que OTP veut dire mot de passe à usage unique")
-        assert appris is not None
-        assert appris.what is What.TERME
-        assert appris.subject == "OTP"
-        assert appris.precision == "mot de passe à usage unique"
+        learned = understand("retiens que OTP veut dire mot de passe à usage unique")
+        assert learned is not None
+        assert learned.what is What.TERM
+        assert learned.subject == "OTP"
+        assert learned.precision == "mot de passe à usage unique"
 
     def test_the_form_with_an_equals_sign(self):
-        appris = understand("retiens : CASA = la plateforme de gestion des logements")
-        assert appris is not None
-        assert appris.subject == "CASA"
-        assert "plateforme" in appris.precision
+        learned = understand("retiens : CASA = la plateforme de gestion des logements")
+        assert learned is not None
+        assert learned.subject == "CASA"
+        assert "plateforme" in learned.precision
 
     def test_a_term_without_a_meaning(self):
         """« retiens le sigle FAST » : l'orthographe seule sert la transcription."""
-        appris = understand("retiens le sigle FAST")
-        assert appris is not None
-        assert appris.subject == "FAST"
-        assert appris.precision == ""
+        learned = understand("retiens le sigle FAST")
+        assert learned is not None
+        assert learned.subject == "FAST"
+        assert learned.precision == ""
 
     def test_a_person_and_their_role(self):
-        appris = understand("note que Maud est cheffe de projet Oasis")
-        assert appris is not None
-        assert appris.what is What.NOBODY
-        assert appris.subject == "Maud"
-        assert "cheffe de projet" in appris.precision
+        learned = understand("note que Maud est cheffe de projet Oasis")
+        assert learned is not None
+        assert learned.what is What.NOBODY
+        assert learned.subject == "Maud"
+        assert "cheffe de projet" in learned.precision
 
     def test_a_surname_and_a_first_name(self):
-        appris = understand("retiens que Pascal Berthier est développeur")
-        assert appris is not None
-        assert appris.subject == "Pascal Berthier"
+        learned = understand("retiens que Pascal Berthier est développeur")
+        assert learned is not None
+        assert learned.subject == "Pascal Berthier"
 
     def test_several_verbs_will_do(self):
-        for verbe in ("retiens", "note", "apprends", "garde"):
-            assert understand(f"{verbe} que XYZ signifie quelque chose") is not None
+        for verb in ("retiens", "note", "apprends", "garde"):
+            assert understand(f"{verb} que XYZ signifie quelque chose") is not None
 
 
 class TestWhatMustNotBeUnderstood:
@@ -93,7 +93,7 @@ class TestTheConfirmation:
 
     def test_learning_with_no_subject_is_refused(self):
         with pytest.raises(ValueError, match="sans sujet"):
-            Learning(What.TERME, "   ")
+            Learning(What.TERM, "   ")
 
 
 class TestYesOrNo:

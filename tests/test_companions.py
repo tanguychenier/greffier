@@ -13,7 +13,7 @@ from greffier.adapters import companions
 
 
 @pytest.fixture
-def lancements(monkeypatch):
+def launches(monkeypatch):
     lances: list[list[str]] = []
     monkeypatch.setattr(
         companions.subprocess, "Popen", lambda command, **k: lances.append(command))
@@ -21,36 +21,36 @@ def lancements(monkeypatch):
 
 
 class TestTheLiveThread:
-    def test_it_starts_when_the_settings_ask_for_it(self, lancements, tmp_path):
+    def test_it_starts_when_the_settings_ask_for_it(self, launches, tmp_path):
         assert companions.start_the_live_thread(tmp_path, active=True)
-        assert lancements[0][-1] == "assister"
+        assert launches[0][-1] == "assister"
 
-    def test_it_does_not_when_they_do_not(self, lancements, tmp_path):
+    def test_it_does_not_when_they_do_not(self, launches, tmp_path):
         assert not companions.start_the_live_thread(tmp_path, active=False)
-        assert lancements == []
+        assert launches == []
 
-    def test_the_settings_file_follows_it(self, lancements, tmp_path):
+    def test_the_settings_file_follows_it(self, launches, tmp_path):
         """A meeting started with a chosen configuration keeps it in its helpers."""
         companions.start_the_live_thread(tmp_path, True, tmp_path / "config.toml")
-        assert "--config" in lancements[0]
+        assert "--config" in launches[0]
 
-    def test_its_output_is_kept(self, lancements, tmp_path):
+    def test_its_output_is_kept(self, launches, tmp_path):
         """A helper that dies silently is a meeting with no live thread and no reason."""
         companions.start_the_live_thread(tmp_path, active=True)
         assert (tmp_path / "direct.log").exists()
 
 
 class TestTheHardwareWatch:
-    def test_it_is_macos_only(self, lancements, tmp_path, monkeypatch):
+    def test_it_is_macos_only(self, launches, tmp_path, monkeypatch):
         """Elsewhere a device does not vanish from under a running recording."""
         monkeypatch.setattr(companions, "SYSTEM", "Linux")
         assert not companions.start_the_watch(tmp_path)
-        assert lancements == []
+        assert launches == []
 
-    def test_there_it_starts(self, lancements, tmp_path, monkeypatch):
+    def test_there_it_starts(self, launches, tmp_path, monkeypatch):
         monkeypatch.setattr(companions, "SYSTEM", "Darwin")
         assert companions.start_the_watch(tmp_path)
-        assert lancements[0][-1] == "veiller"
+        assert launches[0][-1] == "veiller"
 
 
 class TestWhenItCannotStart:

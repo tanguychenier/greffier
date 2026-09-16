@@ -10,13 +10,13 @@ def said(text, start=10.0, end=12.0):
 
 
 class FakeVoiceAdapter:
-    def __init__(self, marche=True):
-        self.marche = marche
+    def __init__(self, works=True):
+        self.works = works
         self.remark = []
 
     def say(self, text):
         self.remark.append(text)
-        return self.marche
+        return self.works
 
     def go_quiet(self):
         ...
@@ -54,28 +54,28 @@ class TestBeingCalledByName:
         retained = assistant.turn([said("Lucie, est-ce que tu nous entends bien ?")],
                                  now=13.0)
         assert retained is not None
-        assert retained.because is Because.APPELE
+        assert retained.because is Because.CALLED
         assert retained.remark == "est-ce que tu nous entends bien ?"
 
     def test_it_answers_with_its_voice_and_leaves_a_trace(self):
         traces = []
-        voice, cerveau = FakeVoiceAdapter(), FakeBrain()
-        assistant = AssistantSettings(name="Lucie", voice=voice, cerveau=cerveau,
+        voice, the_brain = FakeVoiceAdapter(), FakeBrain()
+        assistant = AssistantSettings(name="Lucie", voice=voice, the_brain=the_brain,
                                 tracer=lambda who, what: traces.append((who, what)))
-        opening = Opening(because=Because.APPELE, remark="tu nous entends ?", born_at=10.0)
+        opening = Opening(because=Because.CALLED, remark="tu nous entends ?", born_at=10.0)
         rendered = assistant.answer(opening, now=13.0)
-        assert rendered.prononce
+        assert rendered.pronounced
         assert voice.remark == ["Oui, je vous entends très bien."]
         assert traces == [("lucie", "Oui, je vous entends très bien.")]
 
     def test_with_no_voice_it_still_takes_part_in_writing(self):
         """Not everybody wants a voice in the room."""
         traces = []
-        assistant = AssistantSettings(name="Lucie", cerveau=FakeBrain(),
+        assistant = AssistantSettings(name="Lucie", the_brain=FakeBrain(),
                                 tracer=lambda who, what: traces.append(what))
         rendered = assistant.answer(
-            Opening(because=Because.APPELE, remark="?", born_at=1.0), now=2.0)
-        assert not rendered.prononce and traces == ["Oui, je vous entends très bien."]
+            Opening(because=Because.CALLED, remark="?", born_at=1.0), now=2.0)
+        assert not rendered.pronounced and traces == ["Oui, je vous entends très bien."]
 
     def test_an_ordinary_meeting_does_not_make_it_speak(self):
         """The common case, by far: it has nothing to say."""
@@ -163,7 +163,7 @@ class TestTheCycleThatEarnsItsPlace:
         assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter())
         question = assistant.ask_who_is_speaking("7", now=50.0)
         rendered = assistant.answer(question, now=50.0)
-        assert "prénom" in rendered.remark and assistant.cerveau is None
+        assert "prénom" in rendered.remark and assistant.the_brain is None
 
 
 class TestManners:
@@ -174,10 +174,10 @@ class TestManners:
         Someone addressing the tool is not waiting for it to judge the moment.
         """
         assistant = AssistantSettings(name="Lucie", manners=Manners(creux_minimal=2.0))
-        idee = Opening(because=Because.CONTRIBUTION, remark="une idée", born_at=11.0)
+        idea = Opening(because=Because.CONTRIBUTION, remark="une idée", born_at=11.0)
         # The sentence ends at 12 s and we are at 12.5 s: someone is still speaking.
         assert assistant.turn([said("on continue", 11.0, 12.0)], now=12.5,
-                              occasions=[idee]) is None
+                              occasions=[idea]) is None
 
     def test_being_called_overrides_the_lull(self):
         assistant = AssistantSettings(name="Lucie", manners=Manners(creux_minimal=2.0))
@@ -201,21 +201,21 @@ class TestWhenThingsFail:
                 raise RuntimeError("modèle absent")
 
         voice = FakeVoiceAdapter()
-        assistant = AssistantSettings(name="Lucie", voice=voice, cerveau=Broken())
+        assistant = AssistantSettings(name="Lucie", voice=voice, the_brain=Broken())
         rendered = assistant.answer(
-            Opening(because=Because.APPELE, remark="?", born_at=1.0), now=2.0)
-        assert rendered == Remark(remark="", because=Because.APPELE, a=2.0)
+            Opening(because=Because.CALLED, remark="?", born_at=1.0), now=2.0)
+        assert rendered == Remark(remark="", because=Because.CALLED, a=2.0)
         assert voice.remark == []
 
     def test_a_phrasing_that_fails_still_leaves_the_written_trace(self):
         """What it had to say is not lost because the sound failed."""
         traces = []
-        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(marche=False),
-                                cerveau=FakeBrain(),
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(works=False),
+                                the_brain=FakeBrain(),
                                 tracer=lambda who, what: traces.append(what))
         rendered = assistant.answer(
-            Opening(because=Because.APPELE, remark="?", born_at=1.0), now=2.0)
-        assert not rendered.prononce and traces == ["Oui, je vous entends très bien."]
+            Opening(because=Because.CALLED, remark="?", born_at=1.0), now=2.0)
+        assert not rendered.pronounced and traces == ["Oui, je vous entends très bien."]
 
 
 class TestARemarkAlreadyWrittenGoesThroughNobody:
@@ -227,9 +227,9 @@ class TestARemarkAlreadyWrittenGoesThroughNobody:
     """
 
     def test_the_thanks_are_pronounced_word_for_word(self):
-        voice, cerveau = FakeVoiceAdapter(), FakeBrain("Parfait, je vous laisse.")
+        voice, the_brain = FakeVoiceAdapter(), FakeBrain("Parfait, je vous laisse.")
         assistant = AssistantSettings(
-            name="Lucie", voice=voice, cerveau=cerveau,
+            name="Lucie", voice=voice, the_brain=the_brain,
             name_voice=lambda _v, _p: True,
         )
         assistant.awaiting = assistant.ask_who_is_speaking("12", now=100.0)
@@ -237,24 +237,24 @@ class TestARemarkAlreadyWrittenGoesThroughNobody:
         assert suite is not None
         rendered = assistant.answer(suite, now=108.0)
         assert rendered.remark == "Merci, c'est noté : je mets Hubert sur cette voix."
-        assert cerveau.requests == [], "le modèle a été appelé pour rien"
+        assert the_brain.requests == [], "le modèle a été appelé pour rien"
 
     def test_the_question_about_a_voice_does_not_go_through_either(self):
         """It has to be immediate: nothing remote phrases it."""
-        cerveau = FakeBrain("autre chose")
-        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), cerveau=cerveau)
+        the_brain = FakeBrain("autre chose")
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), the_brain=the_brain)
         question = assistant.ask_who_is_speaking("7", now=50.0)
         rendered = assistant.answer(question, now=50.0)
-        assert "prénom" in rendered.remark and cerveau.requests == []
+        assert "prénom" in rendered.remark and the_brain.requests == []
 
     def test_a_real_question_always_goes_through_the_model(self):
-        cerveau = FakeBrain("Oui, je vous entends.")
-        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), cerveau=cerveau,
+        the_brain = FakeBrain("Oui, je vous entends.")
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), the_brain=the_brain,
                                 context=lambda: "réunion")
         rendered = assistant.answer(
-            Opening(because=Because.APPELE, remark="tu nous entends ?", born_at=1.0),
+            Opening(because=Because.CALLED, remark="tu nous entends ?", born_at=1.0),
             now=2.0)
-        assert rendered.remark == "Oui, je vous entends." and len(cerveau.requests) == 1
+        assert rendered.remark == "Oui, je vous entends." and len(the_brain.requests) == 1
 
 
 class TestTheExchangeGoesOn:
@@ -263,8 +263,8 @@ class TestTheExchangeGoesOn:
     """
 
     def test_it_reacts_to_the_answer_it_is_given(self):
-        cerveau = FakeBrain("Très bien, donc c'est Hubert qui s'en occupe.")
-        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), cerveau=cerveau)
+        the_brain = FakeBrain("Très bien, donc c'est Hubert qui s'en occupe.")
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), the_brain=the_brain)
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte la migration ?", born_at=100.0)
         suite = assistant.turn([said("c'est Hubert qui prend", 104.0, 106.0)],
@@ -275,17 +275,17 @@ class TestTheExchangeGoesOn:
 
     def test_the_question_asked_is_given_to_the_model(self):
         """Without it, it would react to an answer whose question it does not know."""
-        cerveau = FakeBrain("…")
-        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), cerveau=cerveau)
+        the_brain = FakeBrain("…")
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), the_brain=the_brain)
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte la migration ?", born_at=100.0)
         assistant.turn([said("Hubert", 104.0, 106.0)], now=109.0)
-        assert any("Qui porte la migration ?" in c for c in cerveau.guidance_seen)
+        assert any("Qui porte la migration ?" in c for c in the_brain.guidance_seen)
 
     def test_a_nothing_makes_it_go_quiet(self):
         """Two more remarks would make it one participant too many."""
         assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(),
-                                cerveau=FakeBrain("RIEN"))
+                                the_brain=FakeBrain("RIEN"))
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte la migration ?", born_at=100.0)
         assert assistant.turn([said("bon, on passe", 104.0, 106.0)],
@@ -300,7 +300,7 @@ class TestTheExchangeGoesOn:
     def test_it_does_not_wait_for_ever(self):
         """Any sentence closes the wait: nothing watches for ever."""
         assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(),
-                                cerveau=FakeBrain("RIEN"))
+                                the_brain=FakeBrain("RIEN"))
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte ça ?", born_at=100.0)
         assistant.turn([said("autre chose", 104.0, 106.0)], now=109.0)
@@ -317,7 +317,7 @@ class TestItGoesOnWhileItHasQuestions:
     def test_a_follow_up_question_keeps_the_exchange_open(self):
         assistant = AssistantSettings(
             name="Lucie", voice=FakeVoiceAdapter(),
-            cerveau=FakeBrain("Et qui valide, une fois que c'est fait ?"))
+            the_brain=FakeBrain("Et qui valide, une fois que c'est fait ?"))
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte la migration ?", born_at=100.0)
         suite = assistant.turn([said("Hubert s'en charge", 104.0, 106.0)],
@@ -328,7 +328,7 @@ class TestItGoesOnWhileItHasQuestions:
     def test_a_conclusion_closes_the_exchange(self):
         assistant = AssistantSettings(
             name="Lucie", voice=FakeVoiceAdapter(),
-            cerveau=FakeBrain("Très bien, c'est noté."))
+            the_brain=FakeBrain("Très bien, c'est noté."))
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte la migration ?", born_at=100.0)
         assistant.turn([said("Hubert s'en charge", 104.0, 106.0)], now=109.0)
@@ -342,7 +342,7 @@ class TestItGoesOnWhileItHasQuestions:
         """
         assistant = AssistantSettings(
             name="Lucie", voice=FakeVoiceAdapter(),
-            cerveau=FakeBrain("Et pour quand ?"))
+            the_brain=FakeBrain("Et pour quand ?"))
         assistant.manners.has_spoken(
             Opening(because=Because.CONTRIBUTION, remark="Qui porte ça ?", born_at=100.0),
             now=100.0)
@@ -363,9 +363,9 @@ class TestTheLoopCannotHappen:
 
     QUESTION = "Lucie, est-ce que tu peux faire des recherches sur Internet ?"
 
-    def _her(self, cerveau=None, voice=None):
+    def _her(self, the_brain=None, voice=None):
         return AssistantSettings(
-            name="Lucie", cerveau=cerveau, voice=voice,
+            name="Lucie", the_brain=the_brain, voice=voice,
             manners=Manners(creux_minimal=0.0),
         )
 
@@ -373,7 +373,7 @@ class TestTheLoopCannotHappen:
         """It repeated the question, its own name included, and so called itself."""
         she = self._her()
         rendered = she.answer(
-            Opening(because=Because.APPELE, remark=self.QUESTION, born_at=1.0), 2.0
+            Opening(because=Because.CALLED, remark=self.QUESTION, born_at=1.0), 2.0
         )
         assert rendered.remark == ""
 
@@ -383,66 +383,66 @@ class TestTheLoopCannotHappen:
                 return "Lucie ne peut pas chercher sur Internet."
 
         voice = FakeVoiceAdapter()
-        she = self._her(cerveau=CerveauQuiRepete(), voice=voice)
+        she = self._her(the_brain=CerveauQuiRepete(), voice=voice)
         rendered = she.answer(
-            Opening(because=Because.APPELE, remark=self.QUESTION, born_at=1.0), 2.0
+            Opening(because=Because.CALLED, remark=self.QUESTION, born_at=1.0), 2.0
         )
         assert "Lucie" not in rendered.remark
         assert voice.remark and "Lucie" not in voice.remark[0]
 
     def test_it_does_not_react_to_its_own_words(self):
         """The exact case: its sentence comes back through the capture loop."""
-        class Cerveau:
+        class TheBrain:
             def write_up(self, _request):
                 return "Je n'ai pas accès à Internet depuis cette réunion."
 
-        she = self._her(cerveau=Cerveau(), voice=FakeVoiceAdapter())
+        she = self._her(the_brain=TheBrain(), voice=FakeVoiceAdapter())
         she.answer(
-            Opening(because=Because.APPELE, remark=self.QUESTION, born_at=1.0), 2.0
+            Opening(because=Because.CALLED, remark=self.QUESTION, born_at=1.0), 2.0
         )
-        revenu = [said("Je n'ai pas accès à Internet depuis cette réunion.", 10.0, 14.0)]
-        assert she.turn(revenu, 15.0) is None
+        came_back = [said("Je n'ai pas accès à Internet depuis cette réunion.", 10.0, 14.0)]
+        assert she.turn(came_back, 15.0) is None
 
     def test_a_mangled_transcription_of_its_words_does_not_call_it(self):
-        class Cerveau:
+        class TheBrain:
             def write_up(self, _request):
                 return "Je n'ai pas accès à Internet depuis cette réunion."
 
-        she = self._her(cerveau=Cerveau(), voice=FakeVoiceAdapter())
+        she = self._her(the_brain=TheBrain(), voice=FakeVoiceAdapter())
         she.answer(
-            Opening(because=Because.APPELE, remark=self.QUESTION, born_at=1.0), 2.0
+            Opening(because=Because.CALLED, remark=self.QUESTION, born_at=1.0), 2.0
         )
-        abime = [said("je n ai pas acces a internet depuis cette", 10.0, 14.0)]
-        assert she.turn(abime, 15.0) is None
+        damaged = [said("je n ai pas acces a internet depuis cette", 10.0, 14.0)]
+        assert she.turn(damaged, 15.0) is None
 
     def test_the_room_is_still_heard(self):
         """The guard must not make it deaf: that is the whole difficulty."""
-        class Cerveau:
+        class TheBrain:
             def write_up(self, _request):
                 return "Je n'ai pas accès à Internet."
 
-        she = self._her(cerveau=Cerveau(), voice=FakeVoiceAdapter())
+        she = self._her(the_brain=TheBrain(), voice=FakeVoiceAdapter())
         she.answer(
-            Opening(because=Because.APPELE, remark=self.QUESTION, born_at=1.0), 2.0
+            Opening(because=Because.CALLED, remark=self.QUESTION, born_at=1.0), 2.0
         )
-        de_la_salle = [said("Lucie, tu peux nous rappeler la date ?", 20.0, 24.0)]
-        retained = she.turn(de_la_salle, 25.0)
-        assert retained is not None and retained.because is Because.APPELE
+        of_the_room = [said("Lucie, tu peux nous rappeler la date ?", 20.0, 24.0)]
+        retained = she.turn(of_the_room, 25.0)
+        assert retained is not None and retained.because is Because.CALLED
 
     def test_it_forgets_its_words_after_a_while(self):
         """Otherwise a participant restating their idea would be taken for it."""
-        class Cerveau:
+        class TheBrain:
             def write_up(self, _request):
                 return "La migration en Symfony sept reste à confier à quelqu'un."
 
-        she = self._her(cerveau=Cerveau(), voice=FakeVoiceAdapter())
+        she = self._her(the_brain=TheBrain(), voice=FakeVoiceAdapter())
         she.answer(
-            Opening(because=Because.APPELE, remark="Lucie, où en est la migration ?",
+            Opening(because=Because.CALLED, remark="Lucie, où en est la migration ?",
                     born_at=1.0),
             2.0,
         )
-        tard = [said("la migration en Symfony sept reste à confier à quelqu'un", 600.0, 606.0)]
-        assert she._is_his_own(tard[0], 610.0) is False
+        late = [said("la migration en Symfony sept reste à confier à quelqu'un", 600.0, 606.0)]
+        assert she._is_his_own(late[0], 610.0) is False
 
 
 class TestItMaySearch:
@@ -455,34 +455,34 @@ class TestItMaySearch:
     """
 
     def test_the_spoken_guidance_allows_searching(self):
-        from greffier.application.take_part import CONSIGNES_ORALES
+        from greffier.application.take_part import SPOKEN_GUIDANCE
 
-        consigne = CONSIGNES_ORALES.format(name="Lucie", nothing=NOTHING)
-        assert "chercher en ligne" in consigne
-        assert "de ton propre chef" in consigne
+        guidance_line = SPOKEN_GUIDANCE.format(name="Lucie", nothing=NOTHING)
+        assert "chercher en ligne" in guidance_line
+        assert "de ton propre chef" in guidance_line
 
     def test_it_names_the_source_without_saying_the_address(self):
         """A URL cannot be heard; a source with no name cannot be checked."""
-        from greffier.application.take_part import CONSIGNES_ORALES
+        from greffier.application.take_part import SPOKEN_GUIDANCE
 
-        consigne = CONSIGNES_ORALES.format(name="Lucie", nothing=NOTHING)
-        assert "nomme la source à voix haute" in consigne
-        assert "jamais son" in consigne and "adresse" in consigne
+        guidance_line = SPOKEN_GUIDANCE.format(name="Lucie", nothing=NOTHING)
+        assert "nomme la source à voix haute" in guidance_line
+        assert "jamais son" in guidance_line and "adresse" in guidance_line
 
     def test_it_no_longer_has_to_stick_to_the_meeting(self):
         old = "Si tu n'as pas la réponse dans ce qui a été dit, dis-le"
-        from greffier.application.take_part import CONSIGNES_ORALES
+        from greffier.application.take_part import SPOKEN_GUIDANCE
 
-        assert old not in CONSIGNES_ORALES
+        assert old not in SPOKEN_GUIDANCE
 
     def test_the_tools_are_granted_when_the_setting_says_so(self):
         from greffier.adapters.configuration import Config
         from greffier.adapters.writer_claude import ClaudeWriter
         from greffier.wiring import assistant
 
-        cerveau = assistant(Config(conversation={"recherche_web": True}))
-        assert isinstance(cerveau, ClaudeWriter)
-        assert cerveau.tools == ClaudeWriter.SEARCH_TOOLS
+        the_brain = assistant(Config(conversation={"recherche_web": True}))
+        assert isinstance(the_brain, ClaudeWriter)
+        assert the_brain.tools == ClaudeWriter.SEARCH_TOOLS
 
     def test_the_setting_really_takes_them_away(self):
         """Whoever wants nothing to leave the machine must be able to have that."""
@@ -490,9 +490,9 @@ class TestItMaySearch:
         from greffier.adapters.writer_claude import ClaudeWriter
         from greffier.wiring import assistant
 
-        cerveau = assistant(Config(conversation={"recherche_web": False}))
-        assert isinstance(cerveau, ClaudeWriter)
-        assert cerveau.tools == ()
+        the_brain = assistant(Config(conversation={"recherche_web": False}))
+        assert isinstance(the_brain, ClaudeWriter)
+        assert the_brain.tools == ()
 
 
 class TestStoppedForGood:
@@ -503,14 +503,14 @@ class TestStoppedForGood:
     into a room where the meeting is over.
     """
 
-    def _her(self, cerveau=None):
+    def _her(self, the_brain=None):
         return AssistantSettings(
-            name="Lucie", voice=FakeVoiceAdapter(), cerveau=cerveau or FakeBrain(),
+            name="Lucie", voice=FakeVoiceAdapter(), the_brain=the_brain or FakeBrain(),
             manners=Manners(active=True),
         )
 
     def _a_call(self, now=12.0):
-        return Opening(because=Because.APPELE, remark="Lucie, une idée ?", born_at=now)
+        return Opening(because=Because.CALLED, remark="Lucie, une idée ?", born_at=now)
 
     def test_nothing_is_pronounced_after_a_stop(self):
         she = self._her()
@@ -520,10 +520,10 @@ class TestStoppedForGood:
 
     def test_the_speaker_is_cut_by_the_stop(self):
         she = self._her()
-        coupee = []
-        she.voice.go_quiet = lambda: coupee.append(True)
+        cut_one = []
+        she.voice.go_quiet = lambda: cut_one.append(True)
         she.stop()
-        assert coupee == [True]
+        assert cut_one == [True]
 
     def test_a_remark_phrased_during_the_stop_stays_in(self):
         """The thread was already inside the brain when the meeting ended."""
@@ -534,7 +534,7 @@ class TestStoppedForGood:
                 she.stop()
                 return super().write_up(text)
 
-        she.cerveau = BrainThatEnds()
+        she.the_brain = BrainThatEnds()
         assert she.answer(self._a_call(), now=12.0).remark == ""
         assert she.voice.remark == []
 
@@ -548,10 +548,10 @@ class TestStoppedForGood:
         """The neural voice goes through a subprocess: killing it can fail."""
         she = self._her()
 
-        def tomber():
+        def fall():
             raise OSError("kill: no such process")
 
-        she.voice.go_quiet = tomber
+        she.voice.go_quiet = fall
         she.stop()
         assert she.stopped
 
@@ -572,15 +572,15 @@ class TestSheKnowsTheSetting:
 
     def _her(self, milieu=None):
         return AssistantSettings(
-            name="Lucie", cerveau=FakeBrain(), manners=Manners(active=True),
+            name="Lucie", the_brain=FakeBrain(), manners=Manners(active=True),
             setting=milieu,
         )
 
     def test_the_glossary_opens_the_guidance(self):
         she = self._her(lambda: "[Contexte] CASA : gestion des logements.\n\n")
-        consignes = she.guidance()
-        assert consignes.startswith("[Contexte] CASA")
-        assert "Lucie" in consignes, "elle garde ses propres consignes"
+        guidance_ = she.guidance()
+        assert guidance_.startswith("[Contexte] CASA")
+        assert "Lucie" in guidance_, "elle garde ses propres consignes"
 
     def test_without_a_setting_the_guidance_does_not_change(self):
         assert "Contexte" not in self._her().guidance()
@@ -591,20 +591,20 @@ class TestSheKnowsTheSetting:
     def test_a_setting_that_fails_to_read_does_not_silence_her(self):
         """The context file can be missing or unreadable: she still answers."""
 
-        def tomber():
+        def fall():
             raise OSError("contexte.toml illisible")
 
-        consignes = self._her(tomber).guidance()
-        assert "Lucie" in consignes and consignes
+        guidance_ = self._her(fall).guidance()
+        assert "Lucie" in guidance_ and guidance_
 
     def test_the_setting_is_read_when_asked_for_and_not_before(self):
         """It is read at each call, so a term added mid-meeting is taken in."""
-        appels = []
-        she = self._her(lambda: appels.append(1) or "[Contexte] X.\n\n")
-        assert not appels
+        calls = []
+        she = self._her(lambda: calls.append(1) or "[Contexte] X.\n\n")
+        assert not calls
         she.guidance()
         she.guidance()
-        assert len(appels) == 2
+        assert len(calls) == 2
 
 
 class TestNothingToAnswerIsSilence:
@@ -619,7 +619,7 @@ class TestNothingToAnswerIsSilence:
     and it teaches everybody that the tool is listening in order to judge.
     """
 
-    def _elle(self, answer):
+    def _she(self, answer):
         class Brain:
             def __init__(self):
                 self.own_guidance = ""
@@ -628,41 +628,41 @@ class TestNothingToAnswerIsSilence:
                 return answer
 
         return AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(),
-                                 cerveau=Brain(), manners=Manners(active=True))
+                                 the_brain=Brain(), manners=Manners(active=True))
 
-    def _appel(self):
-        return Opening(because=Because.APPELE, remark="Lucie, une idée ?", born_at=1.0)
+    def _call(self):
+        return Opening(because=Because.CALLED, remark="Lucie, une idée ?", born_at=1.0)
 
     def test_the_word_for_nothing_is_not_pronounced(self):
-        she = self._elle(NOTHING)
-        assert she.answer(self._appel(), now=2.0).remark == ""
+        she = self._she(NOTHING)
+        assert she.answer(self._call(), now=2.0).remark == ""
         assert she.voice.remark == []
 
     def test_a_sentence_that_starts_with_it_is_not_pronounced_either(self):
         """A model that explains itself says "RIEN, ce n'était pas pour moi"."""
-        she = self._elle(f"{NOTHING}, ce n'était pas une question pour moi")
-        assert she.answer(self._appel(), now=2.0).remark == ""
+        she = self._she(f"{NOTHING}, ce n'était pas une question pour moi")
+        assert she.answer(self._call(), now=2.0).remark == ""
 
     def test_a_real_answer_still_goes_out(self):
-        she = self._elle("Le RFC 5545 le permet, avec un TRIGGER négatif.")
+        she = self._she("Le RFC 5545 le permet, avec un TRIGGER négatif.")
         assert she.voice is not None
-        assert she.answer(self._appel(), now=2.0).remark
+        assert she.answer(self._call(), now=2.0).remark
         assert she.voice.remark
 
     def test_the_guidance_names_the_word_that_buys_silence(self):
-        from greffier.application.take_part import CONSIGNES_ORALES
+        from greffier.application.take_part import SPOKEN_GUIDANCE
 
-        consigne = CONSIGNES_ORALES.format(name="Lucie", nothing=NOTHING)
-        assert NOTHING in consigne
-        assert "pas une question pour moi" in consigne, (
+        guidance_line = SPOKEN_GUIDANCE.format(name="Lucie", nothing=NOTHING)
+        assert NOTHING in guidance_line
+        assert "pas une question pour moi" in guidance_line, (
             "la consigne nomme la phrase à ne plus dire"
         )
 
     def test_keeping_quiet_does_not_cost_the_rest(self):
         """It said nothing, so it has not spoken: the rest guards a remark that
         was made, not one that was withheld."""
-        she = self._elle(NOTHING)
-        she.answer(self._appel(), now=2.0)
+        she = self._she(NOTHING)
+        she.answer(self._call(), now=2.0)
         assert she.manners.spoke_at is None
 
 
@@ -672,34 +672,34 @@ class TestSpeakingOfHerOwnAccord:
 
     def _her(self, response, spoke_at=None, rest=180.0):
         brain = FakeBrain(response)
-        lui = AssistantSettings(
-            name="Lucie", cerveau=brain, voice=FakeVoiceAdapter(),
+        her = AssistantSettings(
+            name="Lucie", the_brain=brain, voice=FakeVoiceAdapter(),
             manners=Manners(active=True, creux_minimal=0.0, rest=rest, spoke_at=spoke_at),
             context=lambda: "Jacques : on n'a pas fixé qui relance le partenaire.",
         )
-        return lui, brain
+        return her, brain
 
     def test_a_contribution_comes_with_its_own_guidance(self):
-        lui, brain = self._her("Personne n'a été désigné pour relancer le partenaire.")
-        opening = lui.contribution(now=100.0)
+        her, brain = self._her("Personne n'a été désigné pour relancer le partenaire.")
+        opening = her.contribution(now=100.0)
         assert opening is not None and opening.because is Because.CONTRIBUTION
         assert "Personne n'a été désigné" in opening.remark
         assert "sans y avoir été invitée à parler" in brain.guidance_seen[0]
         assert brain.own_guidance == "", "the guidance is put back after the call"
 
     def test_nothing_to_add_is_nothing(self):
-        lui, _ = self._her(NOTHING)
-        assert lui.contribution(now=100.0) is None
+        her, _ = self._her(NOTHING)
+        assert her.contribution(now=100.0) is None
 
     def test_she_rests_after_having_spoken(self):
-        lui, brain = self._her("Encore une idée.", spoke_at=50.0, rest=180.0)
-        assert lui.contribution(now=100.0) is None
+        her, brain = self._her("Encore une idée.", spoke_at=50.0, rest=180.0)
+        assert her.contribution(now=100.0) is None
         assert brain.requests == [], "the model is not even asked"
 
     def test_without_material_the_model_is_not_asked(self):
-        lui, brain = self._her("Une idée.")
-        lui.context = lambda: "   "
-        assert lui.contribution(now=100.0) is None
+        her, brain = self._her("Une idée.")
+        her.context = lambda: "   "
+        assert her.contribution(now=100.0) is None
         assert brain.requests == []
 
     def test_a_model_that_fails_costs_nothing(self):
@@ -709,23 +709,23 @@ class TestSpeakingOfHerOwnAccord:
             def write_up(self, text):
                 raise RuntimeError("quota")
 
-        lui, _ = self._her("x")
-        lui.cerveau = Broken()
-        assert lui.contribution(now=100.0) is None
+        her, _ = self._her("x")
+        her.the_brain = Broken()
+        assert her.contribution(now=100.0) is None
 
     def test_looked_for_aside_the_result_serves_the_next_slice(self):
-        lui, _ = self._her("Personne n'a été désigné pour relancer le partenaire.")
-        lui.look_for_a_contribution_aside(now=100.0)
-        assert lui._search is not None
-        lui._search.join(timeout=5)
-        assert lui.in_reserve is not None
-        retained = lui.turn([said("on passe au point suivant")], now=110.0)
+        her, _ = self._her("Personne n'a été désigné pour relancer le partenaire.")
+        her.look_for_a_contribution_aside(now=100.0)
+        assert her._search is not None
+        her._search.join(timeout=5)
+        assert her.in_reserve is not None
+        retained = her.turn([said("on passe au point suivant")], now=110.0)
         assert retained is not None and retained.because is Because.CONTRIBUTION
-        assert lui.in_reserve is None, "handed over once"
+        assert her.in_reserve is None, "handed over once"
 
     def test_one_search_at_a_time_and_none_while_something_waits(self):
-        lui, brain = self._her("Une idée.")
-        lui.in_reserve = Opening(because=Because.CONTRIBUTION, remark="déjà là", born_at=1.0)
-        lui.look_for_a_contribution_aside(now=100.0)
-        assert lui._search is None
+        her, brain = self._her("Une idée.")
+        her.in_reserve = Opening(because=Because.CONTRIBUTION, remark="déjà là", born_at=1.0)
+        her.look_for_a_contribution_aside(now=100.0)
+        assert her._search is None
         assert brain.requests == []

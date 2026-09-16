@@ -22,10 +22,10 @@ from greffier.ports import outbound
 
 def _identifier(name: str, horodatage: datetime) -> str:
     """A readable, sortable file name: the date first."""
-    depouille = unicodedata.normalize("NFD", name)
-    without_accents = "".join(c for c in depouille if unicodedata.category(c) != "Mn")
-    reduit = re.sub(r"[^a-zA-Z0-9]+", "-", without_accents).strip("-").lower()
-    return f"{horodatage:%Y-%m-%d_%Hh%M}_{reduit or short_voiceprint(name)}"
+    stripped = unicodedata.normalize("NFD", name)
+    without_accents = "".join(c for c in stripped if unicodedata.category(c) != "Mn")
+    reduced = re.sub(r"[^a-zA-Z0-9]+", "-", without_accents).strip("-").lower()
+    return f"{horodatage:%Y-%m-%d_%Hh%M}_{reduced or short_voiceprint(name)}"
 
 def _kill_tree(pid: int) -> None:
     """Stops a process and its descendants."""
@@ -38,8 +38,8 @@ def _kill_tree(pid: int) -> None:
         ).stdout.split()
     except (OSError, subprocess.SubprocessError):
         children = []
-    for enfant in children:
-        _kill_tree(int(enfant))
+    for child in children:
+        _kill_tree(int(child))
     with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
         os.kill(pid, signal.SIGTERM)
 
@@ -65,8 +65,8 @@ class RecorderState:
     pid: int | None = None
     chunks: list[Path] = field(default_factory=list)
     events: list[str] = field(default_factory=list)
-    suspendu_le: datetime | None = None
-    pause_totale: float = 0.0
+    suspended_at: datetime | None = None
+    total_pause: float = 0.0
     ended_at: datetime | None = None
     previous_output: str = ""
 
@@ -75,10 +75,10 @@ class RecorderState:
         """Time actually recorded, pauses deducted."""
         if self.start is None:
             return 0.0
-        ecoule = (datetime.now(UTC) - self.start).total_seconds() - self.pause_totale
-        if self.suspendu_le is not None:
-            ecoule -= (datetime.now(UTC) - self.suspendu_le).total_seconds()
-        return max(0.0, ecoule)
+        elapsed = (datetime.now(UTC) - self.start).total_seconds() - self.total_pause
+        if self.suspended_at is not None:
+            elapsed -= (datetime.now(UTC) - self.suspended_at).total_seconds()
+        return max(0.0, elapsed)
 
 @dataclass
 class StateLog:
@@ -126,11 +126,11 @@ class Recording:
             pid=content.get("pid"),
             chunks=[Path(x) for x in content.get("morceaux", [])],
             events=list(content.get("evenements", [])),
-            suspendu_le=(
+            suspended_at=(
                 datetime.fromisoformat(content["suspendu_le"])
                 if content.get("suspendu_le") else None
             ),
-            pause_totale=float(content.get("pause_totale", 0.0)),
+            total_pause=float(content.get("pause_totale", 0.0)),
             ended_at=(
                 datetime.fromisoformat(content["terminee_le"])
                 if content.get("terminee_le") else None
@@ -138,11 +138,11 @@ class Recording:
             previous_output=content.get("sortie_precedente", ""),
         )
         if state.phase.in_progress and not _alive(state.pid):
-            enregistrait = state.phase in (Phase.RECORDING, Phase.PAUSE)
-            state.phase = Phase.ECHEC
+            was_recording = state.phase in (Phase.RECORDING, Phase.PAUSE)
+            state.phase = Phase.FAILURE
             state.message = (
                 "Enregistrement interrompu (redémarrage ?). L'audio est conservé."
-                if enregistrait
+                if was_recording
                 else "Traitement interrompu (fermeture, veille ?). La "
                      "transcription est gardée : « Rédiger » reprend."
             )
@@ -160,8 +160,8 @@ class Recording:
             "pid": state.pid,
             "morceaux": [str(x) for x in state.chunks],
             "evenements": state.events,
-            "suspendu_le": state.suspendu_le.isoformat() if state.suspendu_le else "",
-            "pause_totale": state.pause_totale,
+            "suspendu_le": state.suspended_at.isoformat() if state.suspended_at else "",
+            "pause_totale": state.total_pause,
             "terminee_le": state.ended_at.isoformat() if state.ended_at else "",
             "sortie_precedente": state.previous_output,
         }
@@ -193,7 +193,7 @@ class Recording:
         if not state.phase.in_progress or not _alive(pid) or pid is None:
             raise RuntimeError("Aucun traitement en cours.")
         _kill_tree(pid)
-        state.phase = Phase.INTERROMPU
+        state.phase = Phase.INTERRUPTED
         state.message = "Traitement interrompu. L'audio est conservé."
         state.pid = None
         self.write(state)
@@ -209,7 +209,7 @@ class Recording:
         state.phase = Phase.PAUSE
         state.pid = None
         state.message = "En pause. Ce qui a été capté est conservé."
-        state.suspendu_le = datetime.now(UTC)
+        state.suspended_at = datetime.now(UTC)
         self.write(state)
         return state
 
@@ -223,13 +223,13 @@ class Recording:
         state.chunks.append(following)
         state.phase = Phase.RECORDING
         state.message = "Enregistrement en cours."
-        if state.suspendu_le is not None:
-            state.pause_totale += (datetime.now(UTC) - state.suspendu_le).total_seconds()
-            state.suspendu_le = None
+        if state.suspended_at is not None:
+            state.total_pause += (datetime.now(UTC) - state.suspended_at).total_seconds()
+            state.suspended_at = None
         self.write(state)
         return state
 
-    def reprendre(self, because: str) -> RecorderState:
+    def resume_(self, because: str) -> RecorderState:
         """Closes the current chunk and starts the next."""
         state = self.read()
         if state.phase is not Phase.RECORDING or state.audio is None:
@@ -285,7 +285,7 @@ class Recording:
         # went on showing a meeting being recorded throughout: the click seemed
         # not to have been taken. A meeting ends when the button is pressed,
         # not when the encoder has caught up.
-        state.phase = Phase.FINALISATION
+        state.phase = Phase.FINALISING
         state.message = "Fin de la réunion, écriture du fichier…"
         state.ended_at = datetime.now(UTC)
         self.write(state)

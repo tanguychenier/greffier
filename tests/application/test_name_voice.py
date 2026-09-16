@@ -57,39 +57,39 @@ class TestTheVoicesOfferedForNaming:
         past the material threshold.
         """
         meeting = a_meeting(propositions={"2": "Kilian"})
-        longue = next(v for v in voices_to_name(meeting) if v.voice == "1")
-        assert longue.part == 1.0
+        long_one = next(v for v in voices_to_name(meeting) if v.voice == "1")
+        assert long_one.part == 1.0
 
 
 class FakeStore:
     def __init__(self, meeting):
         self.meeting = meeting
-        self.ecritures = 0
+        self.spellings = 0
 
     def read(self, _identifier):
         return self.meeting
 
     def record(self, meeting):
         self.meeting = meeting
-        self.ecritures += 1
+        self.spellings += 1
 
 
 class FakeBank:
     def __init__(self):
-        self.ajouts = []
+        self.additions = []
 
     def people(self):
         return []
 
     def record(self, name, voiceprint):
-        self.ajouts.append(name)
+        self.additions.append(name)
 
 
 class FakeExtractor:
-    def extract_spans(self, _audio, intervalles):
+    def extract_spans(self, _audio, the_spans):
         from greffier.domain.voiceprints import normalise
 
-        return [normalise([1.0, 0.0], source_duration=i.duration) for i in intervalles]
+        return [normalise([1.0, 0.0], source_duration=i.duration) for i in the_spans]
 
 
 def a_naming_setup(meeting):
@@ -159,7 +159,7 @@ class TestNamingRefusesWhatIsNotAName:
         naming = a_naming_setup(meeting)
         with pytest.raises(ValueError):
             naming.name_voice("2026-08-24_reunion", "1", "?")
-        assert naming.bank.ajouts == []
+        assert naming.bank.additions == []
 
 
 class TestForgettingAName:

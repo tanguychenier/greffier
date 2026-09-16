@@ -29,7 +29,7 @@ class Recorder(Protocol):
 
     def read(self) -> Any: ...  # pragma: no cover
 
-    def reprendre(self, because: str) -> Any: ...  # pragma: no cover
+    def resume_(self, because: str) -> Any: ...  # pragma: no cover
 
     def report(self, warning: str) -> Any: ...  # pragma: no cover
 
@@ -40,7 +40,7 @@ class HardwareWatch:
     recorder: Recorder
     list_: Lister
     watch_rules: WatchRules
-    reconstruire: Callable[[str], bool]
+    rebuild: Callable[[str], bool]
     notify_user: Callable[[str], None] = lambda _: None
     captured_size: Callable[[], int | None] | None = None
     captured_level: Callable[[], float | None] | None = None
@@ -78,19 +78,19 @@ class HardwareWatch:
         if decision.action is Action.NOTHING:
             return
 
-        if decision.action is Action.ALERTER:
+        if decision.action is Action.ALERT:
             self.recorder.report(decision.because)
             self.notify_user(decision.because)
             return
 
-        if not self.reconstruire(decision.mic):
+        if not self.rebuild(decision.mic):
             self.recorder.report(
                 f"{decision.because} La reconstruction du périphérique a échoué : "
                 "la capture continue sur l'ancien."
             )
             self.notify_user("Changement de matériel non pris en compte.")
             return
-        self.recorder.reprendre(decision.because)
+        self.recorder.resume_(decision.because)
         self.notify_user(decision.because)
 
     def _check_the_capture(self) -> None:
@@ -117,10 +117,10 @@ class HardwareWatch:
         """
         if self.room_left is None or self._said_the_disk_is_filling:
             return
-        libre = self.room_left()
-        if libre is None:
+        free_space = self.room_left()
+        if free_space is None:
             return
-        because = space.said_during_the_meeting(space.Room(libre, self.channels))
+        because = space.said_during_the_meeting(space.Room(free_space, self.channels))
         if not because:
             return
         self._said_the_disk_is_filling = True
@@ -140,11 +140,11 @@ class HardwareWatch:
         self.recorder.report(because)
         self.notify_user("Le son capté est trop faible.")
 
-    def loop(self, dormir: Callable[[float], None] = time.sleep) -> int:
+    def loop(self, sleep_: Callable[[float], None] = time.sleep) -> int:
         """Watches until the recording stops."""
         turns = 0
         while self.recorded():
             self.turn()
             turns += 1
-            dormir(self.span)
+            sleep_(self.span)
         return turns

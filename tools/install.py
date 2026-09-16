@@ -42,10 +42,10 @@ for _flux in (sys.stdout, sys.stderr):
             _flux.reconfigure(encoding="utf-8", errors="replace")
 
 
-def _printable(symbole):
+def _printable(symbol):
     """Does the symbol fit in the console's encoding?"""
     try:
-        symbole.encode(sys.stdout.encoding or "utf-8")
+        symbol.encode(sys.stdout.encoding or "utf-8")
         return True
     except (UnicodeEncodeError, LookupError):
         return False
@@ -124,8 +124,10 @@ class Context:
         )
         # An earlier chain may already hold the models: taking them beats
         # fetching 1.6 GB again. Emptied to test from nothing.
-        reprise = os.environ.get("GREFFIER_MODELES_EXISTANTS", str(Path.home() / "reunions/models"))
-        self.reprise = Path(reprise) if reprise else None
+        resumed = os.environ.get(
+            "GREFFIER_MODELES_EXISTANTS", str(Path.home() / "reunions/models")
+        )
+        self.reprise = Path(resumed) if resumed else None
         self.to_do = []
 
     def ask(self, question):
@@ -173,11 +175,11 @@ def locations_step():
     Application Support. Does nothing elsewhere, nor when there is nothing
     to move.
     """
-    deplaces = LOCATIONS.relocate(SYSTEM)
-    if not deplaces:
+    moved = LOCATIONS.relocate(SYSTEM)
+    if not moved:
         return
     title("0. Emplacements")
-    for source, target in deplaces:
+    for source, target in moved:
         ok(f"{source} → {target}")
 
 
@@ -200,7 +202,7 @@ def nvidia_card():
 SHERPA_CUDA = "1.13.7"
 
 
-def sherpa_cuda_wheel(system, marqueur, machine):
+def sherpa_cuda_wheel(system, marker, machine):
     """The address of the sherpa-onnx wheel that talks to the card, or None.
 
     Cutting into speaker turns runs the voiceprint model on every excerpt,
@@ -211,9 +213,9 @@ def sherpa_cuda_wheel(system, marqueur, machine):
     sherpa-onnx project.
     """
     if system == "Linux" and machine == "x86_64":
-        end = f".onnxruntime1.27.1-{marqueur}-{marqueur}-linux_x86_64.whl"
+        end = f".onnxruntime1.27.1-{marker}-{marker}-linux_x86_64.whl"
     elif system == "Windows" and machine in ("AMD64", "x86_64"):
-        end = f"-{marqueur}-{marqueur}-win_amd64.whl"
+        end = f"-{marker}-{marker}-win_amd64.whl"
     else:
         return None
     return (
@@ -241,10 +243,10 @@ def card_step(ctx, python):
     """Replaces sherpa-onnx with the version that uses the card."""
     if not nvidia_card():
         return
-    marqueur, machine = _python_tag(python)
-    if marqueur is None:
+    marker, machine = _python_tag(python)
+    if marker is None:
         return
-    url = sherpa_cuda_wheel(SYSTEM, marqueur, machine)
+    url = sherpa_cuda_wheel(SYSTEM, marker, machine)
     if url is None:
         return
     if ctx.check_only:
@@ -345,16 +347,16 @@ def package_manager():
         return None
     # In a container or on a continuous integration runner everything runs as
     # root, where « sudo » is often not even installed.
-    prefixe = [] if getattr(os, "geteuid", lambda: 1)() == 0 else ["sudo"]
-    for outil, command in (
+    the_prefix = [] if getattr(os, "geteuid", lambda: 1)() == 0 else ["sudo"]
+    for tool, command in (
         ("apt-get", ["apt-get", "install", "-y"]),
         ("dnf", ["dnf", "install", "-y"]),
         ("pacman", ["pacman", "-S", "--noconfirm"]),
         ("zypper", ["zypper", "install", "-y"]),
         ("apk", ["apk", "add"]),
     ):
-        if shutil.which(outil):
-            return (outil, prefixe + command)
+        if shutil.which(tool):
+            return (tool, the_prefix + command)
     return None
 
 
@@ -386,15 +388,15 @@ def install_package(ctx, name, because):
         warn(f"{name} absent, et aucun package_manager de paquets reconnu sur ce poste")
         info(f"Installe-le à la main : {because}")
         return False
-    outil, command = gest
-    package = PACKAGES.get(name, {}).get(outil)
+    tool, command = gest
+    package = PACKAGES.get(name, {}).get(tool)
     if package is None:
-        warn(f"{name} n'est pas empaqueté par {outil}")
+        warn(f"{name} n'est pas empaqueté par {tool}")
         return False
-    if not ctx.ask(f"Installer {name} avec {outil} ? ({because})"):
+    if not ctx.ask(f"Installer {name} avec {tool} ? ({because})"):
         ctx.to_do.append(f"{' '.join(command)} {package}")
         return False
-    if outil == "apt-get":
+    if tool == "apt-get":
         # Without a refresh, apt fails on an image or a machine whose package
         # list has never been updated.
         run_job(command[:-2] + ["update", "-qq"], stdout=subprocess.DEVNULL)
@@ -734,15 +736,15 @@ OLLAMA_FAMILIES = ("qwen3", "mistral-small", "gemma3", "llama3.1", "qwen2.5")
 OLLAMA_MODEL = os.environ.get("GREFFIER_MODELE_OLLAMA", "qwen3:8b")
 
 
-def usable_model(disponibles):
+def usable_model(available_ones):
     """The first model present that belongs to a recognised family.
 
     The comparison bears on the start of the name: « qwen3.8 », « qwen3:8b »
     and « qwen3:14b » are the same family, and either will do.
     """
-    for famille in OLLAMA_FAMILIES:
-        for present in disponibles:
-            if present.split(":")[0].replace(".", "").startswith(famille.replace(".", "")):
+    for family in OLLAMA_FAMILIES:
+        for present in available_ones:
+            if present.split(":")[0].replace(".", "").startswith(family.replace(".", "")):
                 return present
     return None
 
@@ -781,14 +783,14 @@ def writer_step(ctx):
     info("Installation : https://claude.com/claude-code")
 
     if shutil.which("ollama"):
-        disponibles = ollama_models()
-        found = usable_model(disponibles)
+        available_ones = ollama_models()
+        found = usable_model(available_ones)
         if found:
             ok(f"Ollama disponible en remplacement : {found} (tout reste local)")
             return {"moteur": "ollama", "modele": found}
         warn(
             f"Ollama installé mais aucun modèle de synthèse reconnu "
-            f"({len(disponibles)} présents)"
+            f"({len(available_ones)} présents)"
         )
         if ctx.ask(
             f"Télécharger {OLLAMA_MODEL} pour rédiger en local ? (~5 Go)"
@@ -937,10 +939,10 @@ def environment_step(ctx, engine):
 
     if shutil.which("uv"):
         if not python.exists():
-            lisse = a_smoothing_interpreter()
-            if lisse is not None:
-                ok(f"interpréteur au texte lissé : {lisse}")
-                run_job(["uv", "venv", "--python", lisse], cwd=ROOT)
+            smooth = a_smoothing_interpreter()
+            if smooth is not None:
+                ok(f"interpréteur au texte lissé : {smooth}")
+                run_job(["uv", "venv", "--python", smooth], cwd=ROOT)
             else:
                 if SYSTEM == "Linux":
                     warn("texte non lissé dans la fenêtre : aucun Python 3.13 "
@@ -1100,16 +1102,16 @@ def integrate_with_desktop(ctx, target, write=True):
     """
     folder = autostart_folder()
     if SYSTEM == "Darwin":
-        file, gabarit = folder / "com.reunions.greffier.plist", AGENT_MACOS
+        file, template = folder / "com.reunions.greffier.plist", AGENT_MACOS
     elif SYSTEM == "Windows":
-        file, gabarit = folder / "Greffier.cmd", WINDOWS_STARTUP
+        file, template = folder / "Greffier.cmd", WINDOWS_STARTUP
     elif SYSTEM == "Linux":
-        file, gabarit = folder / "greffier.desktop", LINUX_SHORTCUT
+        file, template = folder / "greffier.desktop", LINUX_SHORTCUT
     else:
         return None
     if write:
         make_folder(folder)
-        file.write_text(gabarit.format(target=target), encoding="utf-8")
+        file.write_text(template.format(target=target), encoding="utf-8")
     return file
 
 
@@ -1329,7 +1331,7 @@ def check_step(ctx, python):
     if not voiceprints.exists():
         warn("modèle d'empreintes absent : identification des voix indisponible")
         return False
-    controle = subprocess.run(
+    checking = subprocess.run(
         [str(python), "-c",
          "import sys, pathlib;"
          "sys.path.insert(0, 'src');"
@@ -1337,9 +1339,9 @@ def check_step(ctx, python):
          f"TitaNetExtractor(pathlib.Path(r'{voiceprints}'))"],
         capture_output=True, text=True, cwd=ROOT, check=False,
     )
-    if controle.returncode != 0:
+    if checking.returncode != 0:
         error("le modèle d'empreintes ne se charge pas")
-        info(controle.stderr.strip().splitlines()[-1] if controle.stderr.strip() else "")
+        info(checking.stderr.strip().splitlines()[-1] if checking.stderr.strip() else "")
         return False
     ok("modèle d'empreintes chargé")
     return True
@@ -1348,15 +1350,15 @@ def check_step(ctx, python):
 # ---------------------------------------------------------------------- main
 
 def main():
-    analyseur = argparse.ArgumentParser(description=__doc__)
-    analyseur.add_argument("--oui", dest="yes", action="store_true",
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--oui", dest="yes", action="store_true",
                            help="installe sans poser de question")
-    analyseur.add_argument("--verifier", dest="check", action="store_true",
+    parser.add_argument("--verifier", dest="check", action="store_true",
                            help="constate l'état sans rien installer")
-    analyseur.add_argument("--modeles", dest="models",
+    parser.add_argument("--modeles", dest="models",
                            help="dossier où ranger les modèles")
-    analyseur.add_argument("--config", help="dossier de configuration")
-    args = analyseur.parse_args()
+    parser.add_argument("--config", help="dossier de configuration")
+    args = parser.parse_args()
 
     print(_tint("1;37", f"Greffier : installation sur {SYSTEM} {platform.machine()}"))
     if sys.version_info < (3, 9):
@@ -1379,7 +1381,7 @@ def main():
         configuration_step(ctx, engine, wording)
         desktop_step(ctx, python)
         skill_step(ctx)
-        saine = check_step(ctx, python)
+        healthy = check_step(ctx, python)
     except Abort as because:
         error(str(because))
         return 1
@@ -1392,7 +1394,7 @@ def main():
         for command in ctx.to_do:
             info(command)
 
-    title("Installé." if saine else "Installé, avec des réserves.")
+    title("Installé." if healthy else "Installé, avec des réserves.")
     info(f"modèles       {ctx.models}")
 
     # The installation lays the tools down; the assistant decides how they are
@@ -1406,7 +1408,7 @@ def main():
                 info("Lance « greffier configurer » quand tu voudras.")
         else:
             info("À faire plus tard : greffier configurer")
-    return 0 if saine else 1
+    return 0 if healthy else 1
 
 
 if __name__ == "__main__":
