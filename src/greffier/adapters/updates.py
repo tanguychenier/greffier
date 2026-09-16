@@ -15,7 +15,7 @@ import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError
-from importlib.metadata import version as version_du_paquet
+from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +25,7 @@ REPOSITORY = "tanguychenier/greffier"
 
 TIMEOUT = 5.0
 
-DELAI_TELECHARGEMENT = 600.0
+DOWNLOAD_DELAY = 600.0
 
 ARTEFACTS = {
     "Darwin": "Greffier-macos.zip",
@@ -39,7 +39,7 @@ class Verdict:
 
     installed: str
     available: str = ""
-    adresse: str = ""
+    address: str = ""
     trouble: str = ""
     artefact: str = ""
     artefact_name: str = ""
@@ -68,13 +68,13 @@ class Verdict:
 def installed_version() -> str:
     """The version of the bundle in place, or an empty string."""
     try:
-        installed = version_du_paquet("greffier")
+        installed = package_version("greffier")
     except PackageNotFoundError:
         installed = ""
-    from_the_sources = _version_du_projet()
+    from_the_sources = _project_version()
     return from_the_sources or installed
 
-def _version_du_projet() -> str:
+def _project_version() -> str:
     """The version written in pyproject.toml, when it can be reached."""
     project = Path(__file__).resolve().parents[3] / "pyproject.toml"
     if not project.exists():
@@ -112,7 +112,7 @@ def installable() -> tuple[bool, str]:
         return (False, "le dépôt porte des modifications non validées")
     return (True, str(store))
 
-_RELAIS = """#!/bin/bash
+_RELAY = """#!/bin/bash
 set -u
 exec >>"$3" 2>&1
 echo "=== mise à jour lancée le $(date '+%Y-%m-%d %H:%M:%S') ==="
@@ -144,7 +144,7 @@ def install(app: str = "Greffier") -> tuple[bool, str]:
     log = Path.home() / "Library" / "Logs" / "Greffier-maj.log"
     log.parent.mkdir(parents=True, exist_ok=True)
     script = Path(tempfile.gettempdir()) / "greffier-mise-a-jour.sh"
-    script.write_text(_RELAIS, encoding="utf-8")
+    script.write_text(_RELAY, encoding="utf-8")
     script.chmod(0o755)
     try:
         subprocess.Popen(
@@ -165,7 +165,7 @@ def bundle_of_this_process(argv0: str = "") -> Path | None:
     return None
 
 def download(
-    url: str, target: Path, timeout: float = DELAI_TELECHARGEMENT,
+    url: str, target: Path, timeout: float = DOWNLOAD_DELAY,
     progress: Callable[[int, int], None] | None = None,
 ) -> tuple[bool, str]:
     """Writes the artifact to disk. Never raises.
@@ -173,18 +173,18 @@ def download(
     In chunks, reporting progress: this is a hundred and fifty megabytes, and a
     window that froze silently for two minutes passed for broken.
     """
-    requete = urllib.request.Request(url, headers={"User-Agent": "Greffier"})
+    the_request = urllib.request.Request(url, headers={"User-Agent": "Greffier"})
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        with urllib.request.urlopen(requete, timeout=timeout) as response:
+        with urllib.request.urlopen(the_request, timeout=timeout) as response:
             total = int(response.headers.get("Content-Length") or 0)
-            recu = 0
+            received = 0
             with target.open("wb") as output:
                 while chunk := response.read(262144):
                     output.write(chunk)
-                    recu += len(chunk)
+                    received += len(chunk)
                     if progress is not None:
-                        progress(recu, total)
+                        progress(received, total)
     except (urllib.error.URLError, TimeoutError):
         return (False, "pas de réseau")
     except (OSError, ValueError) as trouble:
@@ -212,7 +212,7 @@ def unpack(archive: Path, folder: Path) -> tuple[bool, str]:
         return (False, str(trouble))
     return (True, str(folder))
 
-_RELAIS_BINAIRE = """#!/bin/bash
+_BINARY_RELAY = """#!/bin/bash
 set -u
 exec >>"$3" 2>&1
 echo "=== mise a jour binaire lancee le $(date '+%Y-%m-%d %H:%M:%S') ==="
@@ -266,9 +266,9 @@ def install_from_release(
         return (False, "aucun binaire publié pour ce système")
     atelier = Path(tempfile.mkdtemp(prefix="greffier-maj."))
     archive = atelier / verdict.artefact_name
-    recu, ou = download(verdict.artefact, archive, progress=progress)
-    if not recu:
-        return (False, ou)
+    received, where_ = download(verdict.artefact, archive, progress=progress)
+    if not received:
+        return (False, where_)
     opened, trouble = unpack(archive, atelier / "contenu")
     if not opened:
         return (False, trouble)
@@ -276,8 +276,8 @@ def install_from_release(
     if platform.system() != "Darwin":
         return (True, str(atelier / "contenu"))
 
-    paquets = list((atelier / "contenu").glob("*.app"))
-    if not paquets:
+    packages = list((atelier / "contenu").glob("*.app"))
+    if not packages:
         return (False, "l'archive ne contient pas d'application")
     app = bundle_of_this_process(argv0)
     if app is None:
@@ -286,11 +286,11 @@ def install_from_release(
     log = Path.home() / "Library" / "Logs" / "Greffier-maj.log"
     log.parent.mkdir(parents=True, exist_ok=True)
     script = Path(tempfile.gettempdir()) / "greffier-maj-binaire.sh"
-    script.write_text(_RELAIS_BINAIRE, encoding="utf-8")
+    script.write_text(_BINARY_RELAY, encoding="utf-8")
     script.chmod(0o755)
     try:
         subprocess.Popen(
-            ["/bin/bash", str(script), str(paquets[0]), str(os.getpid()),
+            ["/bin/bash", str(script), str(packages[0]), str(os.getpid()),
              str(log), str(app)],
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL, start_new_session=True,
@@ -319,13 +319,13 @@ def check(store: str = REPOSITORY, timeout: float = TIMEOUT) -> Verdict:
     if not installed:
         return Verdict(installed="", trouble="version installée inconnue")
 
-    adresse = f"https://api.github.com/repos/{store}/releases/latest"
-    requete = urllib.request.Request(
-        adresse,
+    address = f"https://api.github.com/repos/{store}/releases/latest"
+    the_request = urllib.request.Request(
+        address,
         headers={"Accept": "application/vnd.github+json", "User-Agent": "Greffier"},
     )
     try:
-        with urllib.request.urlopen(requete, timeout=timeout) as response:
+        with urllib.request.urlopen(the_request, timeout=timeout) as response:
             content = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as trouble:
         if trouble.code == 404:
@@ -347,7 +347,7 @@ def check(store: str = REPOSITORY, timeout: float = TIMEOUT) -> Verdict:
     return Verdict(
         installed=installed,
         available=label.lstrip("v"),
-        adresse=str(content.get("html_url", "")),
+        address=str(content.get("html_url", "")),
         artefact=url,
         artefact_name=name,
     )

@@ -10,8 +10,8 @@ from __future__ import annotations
 from greffier.adapters.devices_coreaudio import analyser
 from greffier.domain.devices import Hardware, WatchRules, advised_mic
 
-# Relevé réel, casque et station débranchés.
-SEUL = """Périphériques audio :
+# A real reading, headset and dock unplugged.
+ALONE = """Périphériques audio :
 
   BlackHole 2ch  [entrée 2ch, sortie 2ch]
     uid: BlackHole2ch_UID
@@ -25,8 +25,8 @@ SEUL = """Périphériques audio :
     uid: com.reunions.sortie
 """
 
-# Le même poste, casque Jabra et station branchés.
-BRANCHE = """Périphériques audio :
+# The same machine, Jabra headset and dock plugged in.
+PLUGGED = """Périphériques audio :
 
   BlackHole 2ch  [entrée 2ch, sortie 2ch]
     uid: BlackHole2ch_UID
@@ -51,34 +51,34 @@ BRANCHE = """Périphériques audio :
 
 class TestReadingWhatTheWriterReturned:
     def test_every_device_is_recognised(self) -> None:
-        assert len(analyser(SEUL).devices) == 5
-        assert len(analyser(BRANCHE).devices) == 9
+        assert len(analyser(ALONE).devices) == 5
+        assert len(analyser(PLUGGED).devices) == 9
 
     def test_the_channels_are_read_both_ways(self) -> None:
-        agrege = analyser(SEUL).by_name("Reunion Entree")
-        assert agrege is not None
-        assert agrege.entrees == 3
-        assert agrege.sorties == 2
+        aggregated = analyser(ALONE).by_name("Reunion Entree")
+        assert aggregated is not None
+        assert aggregated.entries == 3
+        assert aggregated.sorties == 2
 
     def test_an_output_only_device_has_no_input(self) -> None:
-        hp = analyser(SEUL).by_name("Haut-parleurs MacBook Pro")
+        hp = analyser(ALONE).by_name("Haut-parleurs MacBook Pro")
         assert hp is not None
-        assert hp.entrees == 0
+        assert hp.entries == 0
         assert not hp.captured
 
     def test_l_uid_est_conserve_entier(self) -> None:
-        jabra = analyser(BRANCHE).by_name("Jabra EVOLVE 30 II")
+        jabra = analyser(PLUGGED).by_name("Jabra EVOLVE 30 II")
         assert jabra is not None
         assert jabra.uid.endswith(":1")
 
     def test_a_name_carried_by_two_devices_is_not_lost(self) -> None:
-        # Le Jabra expose micro et écouteurs sous le même nom, uid différents.
-        jabras = [p for p in analyser(BRANCHE).devices if p.name.startswith("Jabra")]
+        # The Jabra exposes mic and earphones under the same name, different uids.
+        jabras = [p for p in analyser(PLUGGED).devices if p.name.startswith("Jabra")]
         assert len(jabras) == 2
-        assert {p.entrees for p in jabras} == {0, 1}
+        assert {p.entries for p in jabras} == {0, 1}
 
     def test_only_the_devices_that_capture_count_as_mics(self) -> None:
-        assert {p.name for p in analyser(SEUL).mics} == {
+        assert {p.name for p in analyser(ALONE).mics} == {
             "BlackHole 2ch", "Micro MacBook Pro", "Reunion Entree",
         }
 
@@ -86,11 +86,11 @@ class TestReadingWhatTheWriterReturned:
         assert analyser("").devices == ()
         assert analyser("Périphériques audio :\n\n").devices == ()
 
-    def test_une_sortie_tronquee_ignore_l_entree_incomplete(self) -> None:
+    def test_a_truncated_output_ignores_the_incomplete_entry(self) -> None:
         # A device announced without its "uid" line is dropped rather than
         # entering the comparison in a partial shape.
-        tronque = SEUL[: SEUL.index("  Reunion Entree")] + "  Casque coupé  [entrée 1ch]\n"
-        names = {p.name for p in analyser(tronque).devices}
+        truncated = ALONE[: ALONE.index("  Reunion Entree")] + "  Casque coupé  [entrée 1ch]\n"
+        names = {p.name for p in analyser(truncated).devices}
         assert "Casque coupé" not in names
 
 
@@ -99,7 +99,7 @@ class TestDecidingOnRealHardware:
 
     def test_plugging_the_headset_in_is_seen(self) -> None:
         watch_rules = WatchRules(wanted_mic="Jabra EVOLVE 30 II")
-        decision = watch_rules.examine(analyser(SEUL), analyser(BRANCHE))
+        decision = watch_rules.examine(analyser(ALONE), analyser(PLUGGED))
         assert decision.mic == "Jabra EVOLVE 30 II"
         assert decision.audio_suspect
 
@@ -107,12 +107,12 @@ class TestDecidingOnRealHardware:
         # On unplugging, the Realtek dock disappears too. But even if it
         # stayed it should not be chosen: see the next test.
         watch_rules = WatchRules(wanted_mic="Jabra EVOLVE 30 II")
-        assert watch_rules.examine(analyser(BRANCHE), analyser(SEUL)).mic == "Micro MacBook Pro"
+        assert watch_rules.examine(analyser(PLUGGED), analyser(ALONE)).mic == "Micro MacBook Pro"
 
     def test_the_dock_alone_does_not_beat_the_laptop_mic(self) -> None:
         # Dock plugged in, headset not: the Realtek line input is almost always
         # empty, the laptop mic captures at least something.
-        hardware = analyser(BRANCHE)
+        hardware = analyser(PLUGGED)
         without_headset = Hardware(
             tuple(p for p in hardware.devices if not p.name.startswith("Jabra"))
         )
@@ -120,4 +120,4 @@ class TestDecidingOnRealHardware:
         assert advised_mic(without_headset, "Jabra EVOLVE 30 II") == "Micro MacBook Pro"
 
     def test_the_aggregate_is_never_kept_despite_its_three_inputs(self) -> None:
-        assert advised_mic(analyser(SEUL), "Casque absent") == "Micro MacBook Pro"
+        assert advised_mic(analyser(ALONE), "Casque absent") == "Micro MacBook Pro"

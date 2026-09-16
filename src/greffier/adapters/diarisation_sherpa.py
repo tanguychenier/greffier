@@ -13,7 +13,7 @@ import sherpa_onnx
 import soundfile as sf
 
 from greffier.adapters import cuda
-from greffier.adapters.channels_file import TRAME_S, levels_per_frame, split_channels
+from greffier.adapters.channels_file import FRAME_S, levels_per_frame, split_channels
 from greffier.domain.arithmetic import AUTO, CARD, chosen_device, compute_threads
 from greffier.domain.channels import LOCAL_VOICE, local_turns, remove
 from greffier.domain.models import Source, Span, SpeakerTurn
@@ -48,18 +48,18 @@ class SherpaDiariser:
         return device
 
     def segment(self, audio: Path, people: int | None) -> list[SpeakerTurn]:
-        fils = compute_threads()
+        threads = compute_threads()
         device = self._device()
         config = sherpa_onnx.OfflineSpeakerDiarizationConfig(
             segmentation=sherpa_onnx.OfflineSpeakerSegmentationModelConfig(
                 pyannote=sherpa_onnx.OfflineSpeakerSegmentationPyannoteModelConfig(
                     model=str(self.segmentation)
                 ),
-                num_threads=fils,
+                num_threads=threads,
                 provider=device,
             ),
             embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(
-                model=str(self.voiceprints), num_threads=fils, provider=device),
+                model=str(self.voiceprints), num_threads=threads, provider=device),
             clustering=sherpa_onnx.FastClusteringConfig(
                 num_clusters=people if people else -1, threshold=self.threshold
             ),
@@ -77,30 +77,30 @@ class SherpaDiariser:
             )
 
         channels = split_channels(data, frequency)
-        mic, system, distante = channels.mic, channels.system, channels.distante
+        mic, system, remote = channels.mic, channels.system, channels.remote
         local_spans = (
             local_turns(
                 levels_per_frame(mic, frequency),
                 levels_per_frame(system, frequency),
-                TRAME_S,
+                FRAME_S,
             )
-            if distante and mic is not None
+            if remote and mic is not None
             else []
         )
-        a_segmenter = system if distante else (mic if mic is not None else system)
+        to_segment = system if remote else (mic if mic is not None else system)
 
-        distants = [
+        remote_ones = [
             SpeakerTurn(
                 span=Span(s.start, s.end),
                 voice=str(s.speaker),
-                source=Source.SYSTEM if distante else Source.UNKNOWN,
+                source=Source.SYSTEM if remote else Source.UNKNOWN,
             )
-            for s in engine.process(a_segmenter).sort_by_start_time()
+            for s in engine.process(to_segment).sort_by_start_time()
         ]
-        gardes = remove([t.span for t in distants], local_spans)
-        distants = [t for t in distants if t.span in gardes]
+        guards = remove([t.span for t in remote_ones], local_spans)
+        remote_ones = [t for t in remote_ones if t.span in guards]
 
-        turns = distants + [
+        turns = remote_ones + [
             SpeakerTurn(span=x, voice=LOCAL_VOICE, source=Source.MIC)
             for x in local_spans
         ]

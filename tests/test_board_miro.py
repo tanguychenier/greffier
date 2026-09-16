@@ -3,7 +3,7 @@
 import pytest
 
 from greffier.adapters import board_miro
-from greffier.adapters.board_miro import INTERDITS, MiroRefused, token
+from greffier.adapters.board_miro import FORBIDDEN, MiroRefused, token
 
 
 class TestForbiddenBoards:
@@ -14,19 +14,19 @@ class TestForbiddenBoards:
     """
 
     def test_the_forbidden_list_is_not_empty(self):
-        assert INTERDITS
+        assert FORBIDDEN
 
     def test_publishing_to_a_forbidden_board_fails_before_any_call(self, monkeypatch):
-        def jamais(*_args, **_options):
+        def never(*_args, **_options):
             raise AssertionError("aucun appel ne doit partir")
 
-        monkeypatch.setattr(board_miro, "_appeler", jamais)
+        monkeypatch.setattr(board_miro, "_call", never)
         with pytest.raises(MiroRefused, match="interdits"):
-            board_miro.textes_presents(next(iter(INTERDITS)))
+            board_miro.texts_present(next(iter(FORBIDDEN)))
 
 
 class TestWhereTheTokenComesFrom:
-    def test_l_environnement_est_lu_d_abord(self, monkeypatch):
+    def test_the_environment_is_read_first(self, monkeypatch):
         monkeypatch.setenv("GREFFIER_MIRO_JETON", "abc")
         assert token() == "abc"
 
@@ -52,22 +52,22 @@ class TestWhereTheTokenComesFrom:
         assert "/var/miro" not in source
 
 
-class TestPublicationSansReseau:
+class TestPublishingWithoutNetwork:
     def mark(self, monkeypatch, present_line=(), poses=None):
         """Replaces the API with a stand-in that writes down what it is asked."""
-        appels = []
+        calls = []
 
-        def wrong(path, methode="GET", corps=None):
-            appels.append((methode, path, corps))
+        def wrong(path, http_method="GET", corps=None):
+            calls.append((http_method, path, corps))
             if "/items" in path:
                 return {"data": [
                     {"data": {"content": f"<p>{text}</p>"}} for text in present_line
                 ]}
-            return {"id": f"objet-{len(appels)}"}
+            return {"id": f"objet-{len(calls)}"}
 
-        monkeypatch.setattr(board_miro, "_appeler", wrong)
+        monkeypatch.setattr(board_miro, "_call", wrong)
         monkeypatch.setenv("GREFFIER_MIRO_JETON", "essai")
-        return appels
+        return calls
 
     def test_only_the_missing_nodes_are_placed(self, monkeypatch):
         from greffier.domain.board import Board, Contribution, join
@@ -85,10 +85,10 @@ class TestPublicationSansReseau:
 
         board = Board("Oasis")
         join(board, [Contribution("Un point")])
-        appels = self.mark(monkeypatch)
+        calls = self.mark(monkeypatch)
         board_miro.publish(board, "uXjVtest=")
-        methodes = {methode for methode, _, _ in appels}
-        assert methodes <= {"GET", "POST"}, "ni DELETE ni PATCH"
+        methods = {http_method for http_method, _, _ in calls}
+        assert methods <= {"GET", "POST"}, "ni DELETE ni PATCH"
 
     def test_the_standing_is_read_from_the_colour(self, monkeypatch):
         from greffier.domain.board import Board, Contribution, Kind, Standing, join
@@ -96,12 +96,12 @@ class TestPublicationSansReseau:
         board = Board("Oasis")
         # A lead: only a lead and an action can be settled.
         join(board, [Contribution("Décidé", kind=Kind.LEAD, state=Standing.AGREED)])
-        appels = self.mark(monkeypatch)
+        calls = self.mark(monkeypatch)
         board_miro.publish(board, "uXjVtest=")
         colours = [
             corps["style"]["fillColor"]
-            for methode, path, corps in appels
-            if methode == "POST" and "sticky_notes" in path and corps
+            for http_method, path, corps in calls
+            if http_method == "POST" and "sticky_notes" in path and corps
         ]
         assert board_miro.COLOURS[Standing.AGREED] in colours
 
@@ -111,55 +111,55 @@ class TestPublicationSansReseau:
 
         board = Board("Oasis")
         join(board, [Contribution("a < b & c")])
-        appels = self.mark(monkeypatch)
+        calls = self.mark(monkeypatch)
         board_miro.publish(board, "uXjVtest=")
-        contenus = [
+        contents = [
             corps["data"]["content"]
-            for methode, path, corps in appels
-            if methode == "POST" and "sticky_notes" in path and corps
+            for http_method, path, corps in calls
+            if http_method == "POST" and "sticky_notes" in path and corps
         ]
-        assert any("&lt;" in content and "&amp;" in content for content in contenus)
+        assert any("&lt;" in content and "&amp;" in content for content in contents)
 
 
 class TestTheLinksBetweenNodes:
     """A board without a single line was published with nothing to say so."""
 
     def mark(self, monkeypatch):
-        appels = []
+        calls = []
 
-        def wrong(path, methode="GET", corps=None):
-            appels.append((methode, path, corps))
+        def wrong(path, http_method="GET", corps=None):
+            calls.append((http_method, path, corps))
             if "/items" in path:
                 return {"data": []}
             return {"id": "3458764683144805305"}
 
-        monkeypatch.setattr(board_miro, "_appeler", wrong)
+        monkeypatch.setattr(board_miro, "_call", wrong)
         monkeypatch.setenv("GREFFIER_MIRO_JETON", "essai")
-        return appels
+        return calls
 
-    def test_les_identifiants_partent_en_nombres(self):
+    def test_the_identifiers_leave_as_numbers(self):
         """L'API les refuse en chaînes : « expected of type [Number] »."""
         from greffier.domain.board import Board, Contribution, join
 
         board = Board("Oasis")
         join(board, [Contribution("Un point")])
-        appels = []
+        calls = []
 
-        def wrong(path, methode="GET", corps=None):
-            appels.append((methode, path, corps))
+        def wrong(path, http_method="GET", corps=None):
+            calls.append((http_method, path, corps))
             if "/items" in path:
                 return {"data": []}
             return {"id": "3458764683144805305"}
 
         import pytest as _pytest
         monkeypatch = _pytest.MonkeyPatch()
-        monkeypatch.setattr(board_miro, "_appeler", wrong)
+        monkeypatch.setattr(board_miro, "_call", wrong)
         monkeypatch.setenv("GREFFIER_MIRO_JETON", "essai")
         try:
             board_miro.publish(board, "uXjVtest=")
         finally:
             monkeypatch.undo()
-        liens = [corps for methode, path, corps in appels
+        liens = [corps for http_method, path, corps in calls
                  if "connectors" in path and corps]
         assert liens, "un lien doit être tracé"
         assert isinstance(liens[0]["startItem"]["id"], int)
@@ -172,7 +172,7 @@ class TestTheLinksBetweenNodes:
         self.mark(monkeypatch)
         written = board_miro.publish(board, "uXjVtest=")
         assert written.liens == 2
-        assert written.liens_manques == 0
+        assert written.links_missed == 0
 
     def test_the_links_that_failed_are_counted_not_swallowed(self, monkeypatch):
         from greffier.domain.board import Board, Contribution, join
@@ -180,18 +180,18 @@ class TestTheLinksBetweenNodes:
         board = Board("Oasis")
         join(board, [Contribution("A")])
 
-        def wrong(path, methode="GET", corps=None):
+        def wrong(path, http_method="GET", corps=None):
             if "/items" in path:
                 return {"data": []}
             if "connectors" in path:
                 raise board_miro.MiroRefused("refusé")
             return {"id": "3458764683144805305"}
 
-        monkeypatch.setattr(board_miro, "_appeler", wrong)
+        monkeypatch.setattr(board_miro, "_call", wrong)
         monkeypatch.setenv("GREFFIER_MIRO_JETON", "essai")
         written = board_miro.publish(board, "uXjVtest=")
         assert written.liens == 0
-        assert written.liens_manques == 1, "l'échec doit se compter"
+        assert written.links_missed == 1, "l'échec doit se compter"
 
 
 class TestLaRacine:

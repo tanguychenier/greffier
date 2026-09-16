@@ -72,14 +72,14 @@ def system_is_dark() -> bool:
             "/v", "AppsUseLightTheme",
         ])
         return "0x0" in read_
-    portail = _output([
+    portal = _output([
         "gdbus", "call", "--session", "--dest", "org.freedesktop.portal.Desktop",
         "--object-path", "/org/freedesktop/portal/desktop",
         "--method", "org.freedesktop.portal.Settings.Read",
         "org.freedesktop.appearance", "color-scheme",
     ])
-    if portail:
-        return "uint32 1" in portail
+    if portal:
+        return "uint32 1" in portal
     setting = _output(["gsettings", "get", "org.gnome.desktop.interface",
                        "color-scheme"])
     if setting:
@@ -104,14 +104,14 @@ def palette(theme: str = "systeme") -> Palette:
         return SOMBRE
     return SOMBRE if system_is_dark() else CLAIR
 
-def font(size: int, gras: bool = False) -> tuple[str, int, str]:
+def font(size: int, bold: bool = False) -> tuple[str, int, str]:
     """The system interface font, with a fallback."""
-    familles = {
+    families = {
         "Darwin": "SF Pro Text",
         "Windows": "Segoe UI",
     }
-    famille = familles.get(platform.system(), "Helvetica")
-    return (famille, -size, "bold" if gras else "normal")
+    family = families.get(platform.system(), "Helvetica")
+    return (family, -size, "bold" if bold else "normal")
 
 def blend(since: str, into: str, part: float) -> str:
     """A colour between two others, in hexadecimal."""
@@ -121,5 +121,5 @@ def blend(since: str, into: str, part: float) -> str:
 
 def title_font(size: int) -> tuple[str, int, str]:
     """A more editorial face for the meeting's name."""
-    famille = {"Darwin": "Georgia", "Windows": "Georgia"}.get(platform.system(), "Times")
-    return (famille, -size, "bold")
+    family = {"Darwin": "Georgia", "Windows": "Georgia"}.get(platform.system(), "Times")
+    return (family, -size, "bold")

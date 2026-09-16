@@ -29,7 +29,8 @@ from greffier.adapters.store_files import FileStore
 from greffier.adapters.voice_bank_files import FileVoiceBank
 from greffier.adapters.voiceprints_titanet import TitaNetExtractor
 from greffier.adapters.writer_ollama import OllamaWriter
-from greffier.application.follow import Follower, files, known_people
+from greffier.application.company_sources import Reading, Sources, read_all
+from greffier.application.follow import Follower, Position, files, known_people
 from greffier.application.name_voice import Naming
 from greffier.application.process import Chain
 from greffier.application.record import Recording
@@ -74,11 +75,25 @@ def _transcriber(config: Config) -> outbound.Transcriber:
         size=config.transcription.model, device=config.hardware.device
     )
 
+#: The live thread's model where the card takes the large one. Measured on
+#: 2026-09-16 (CUDA, int8): large-v3 reads a minute of meeting in 12.1 s and
+#: the eight-second listening pass in 1.95 s, more than the ten-second slice
+#: it has to keep up with, and every call to the assistant waited behind it.
+#: large-v3-turbo does the same in 3.7 s and 1.3 s, and heard the assistant's
+#: name eight times out of eight where base and small heard it four.
+LIVE_MODEL = "large-v3-turbo"
+
 def _live_model(config: Config) -> str:
     """The model this machine can run in the noise of a recording."""
     from greffier.adapters import system_diagnostic as diagnostic
+    from greffier.adapters.model_files import downloaded
 
-    return diagnostic.recorder(config.paths.data).advised_model
+    advised = diagnostic.recorder(config.paths.data).advised_model
+    if advised != "large-v3":
+        return advised
+    # Not fetched here: a download of one and a half gigabytes is the
+    # installer's business, never a meeting's.
+    return LIVE_MODEL if downloaded(LIVE_MODEL) else advised
 
 def light_transcriber(config: Config) -> outbound.Transcriber | None:
     """The live transcription model: fast rather than precise."""
@@ -86,8 +101,8 @@ def light_transcriber(config: Config) -> outbound.Transcriber | None:
     size = config.live.model or _live_model(config)
     if config.transcription.engine == "whisper.cpp":
         models = config.paths.models
-        candidats = [models / f"ggml-{size}.bin", models / "ggml-large-v3-turbo.bin"]
-        model = next((m for m in candidats if m.exists()), None)
+        candidates_ = [models / f"ggml-{size}.bin", models / "ggml-large-v3-turbo.bin"]
+        model = next((m for m in candidates_ if m.exists()), None)
         if model is None:
             return None
         from greffier.adapters.transcription_whisper_cpp import WhisperCppTranscriber
@@ -118,6 +133,34 @@ def dictation_transcriber(config: Config) -> outbound.Transcriber | None:
     )
 
 
+def company_sources(config: Config) -> Sources:
+    """The registered outside sources, read for the assistant when a token is there."""
+    from greffier.adapters import sources_file
+    from greffier.adapters.gitlab_api import tickets
+    from greffier.adapters.jira_api import requests
+
+    def read() -> list[Reading]:
+        return read_all(
+            sources_file.read(config.paths.sources),
+            sources_file.token_for,
+            lambda source, token: [ticket.say() for ticket in tickets(source, token)],
+            lambda source, token: [request.say() for request in requests(source, token)],
+        )
+
+    return Sources(read)
+
+def somebody_speaking(where_: Position) -> bool | None:
+    """Whether the file being written carries speech at this position.
+
+    What the listening thread watches to listen the moment somebody stops,
+    rather than on the clock. None when the file cannot be read yet.
+    """
+    from greffier.adapters.live_levels import read_level
+    from greffier.domain.channels import WhoSpeaks
+
+    reading = read_level(where_.chunk, up_to=where_.written)
+    return None if reading is None else reading.who is not WhoSpeaks.NOBODY
+
 def follower(config: Config, identifier: str) -> Follower:
     """The thread shown during the meeting, and what feeds it."""
     log, requests = files(config.paths.live, identifier)
@@ -138,8 +181,22 @@ def follower(config: Config, identifier: str) -> Follower:
         channels=FileChannelReader(),
         extractor=extractor,
         bank=bank,
+        segmenter=slice_segmenter(config),
         identifier=identifier,
     )
+
+def slice_segmenter(config: Config) -> outbound.SliceSegmenter | None:
+    """What cuts a live slice at the changes of speaker; nothing without the models."""
+    from greffier.adapters.segmentation_sherpa import SherpaSliceSegmenter
+
+    diarisation = config.paths.models / "diarisation"
+    try:
+        return SherpaSliceSegmenter(
+            segmentation=diarisation / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx",
+            voiceprints=diarisation / "nemo_en_titanet_large.onnx",
+        )
+    except FileNotFoundError:
+        return None
 
 def writer(config: Config) -> outbound.Writer | None:
     """The writer alone, to regenerate a set of minutes."""
@@ -166,7 +223,7 @@ def assistant(config: Config) -> outbound.Writer | None:
     if engine != "claude":
         return None
     from greffier.adapters.writer_claude import (
-        CONSIGNES_CONVERSATION,
+        CONVERSATION_GUIDANCE,
         ClaudeWriter,
     )
 
@@ -176,10 +233,10 @@ def assistant(config: Config) -> outbound.Writer | None:
         language=config.minutes.language,
         tools=(ClaudeWriter.SEARCH_TOOLS
                 if config.conversation.recherche_web else ()),
-        own_guidance=CONSIGNES_CONVERSATION,
+        own_guidance=CONVERSATION_GUIDANCE,
     )
 
-def cartographe(config: Config) -> outbound.Writer | None:
+def mapper(config: Config) -> outbound.Writer | None:
     """Who extracts a board's points."""
     engine = config.minutes.engine
     if engine == "ollama":
@@ -232,7 +289,7 @@ def _instructions_of(config: Config) -> Callable[[str], list[str]]:
     def lire(identifier: str) -> list[str]:
         turns = conversations_file.read(
             conversations_file.file_for(config.paths.conversations, identifier),
-            derniers=0,
+            last_ones=0,
         )
         return [x.text.strip() for x in turns if x.who == "moi" and x.text.strip()]
 
@@ -258,7 +315,7 @@ def _named_live(config: Config) -> Callable[[str], list[NamedSpan]]:
             voice = thread.voice.get(turn.voice)
             if voice is None or voice.name is None:
                 continue
-            if voice.certainty is not Certainty.HUMAINE:
+            if voice.certainty is not Certainty.HUMAN:
                 continue
             named.append(NamedSpan(name=voice.name, span=turn.span))
         return named
@@ -272,15 +329,15 @@ def memory(config: Config) -> outbound.Memory:
 
     file = config.paths.memory
 
-    class Memoire:
+    class TheMemory:
         def remember(self, trace: Trace) -> None:
             memory_file.remember(file, trace)
             _index(config, trace)
 
-        def recall(self, limit: int = memory_file.DERNIERES) -> list[Trace]:
+        def recall(self, limit: int = memory_file.LAST_ONES) -> list[Trace]:
             return memory_file.recall(file, limit)
 
-    return Memoire()
+    return TheMemory()
 
 
 def _index(config: Config, trace: Trace) -> None:
@@ -379,9 +436,9 @@ def _audio_recorder(config: Config) -> FfmpegRecorder:
 def list_(config: Config) -> CoreAudioLister:
     """Reading the audio hardware, for the watch and the diagnostic."""
     source = Path(__file__).resolve().parent.parent.parent / "macos/creer-peripheriques.swift"
-    prete = Path(sys.executable).resolve().parent.parent / "Resources/lister-peripheriques"
+    ready = Path(sys.executable).resolve().parent.parent / "Resources/lister-peripheriques"
     return CoreAudioLister(
-        source, config.paths.data / "cache", prete if prete.exists() else None
+        source, config.paths.data / "cache", ready if ready.exists() else None
     )
 
 def recording(config: Config) -> Recording:
@@ -447,13 +504,13 @@ def wire_up(config: Config) -> Chain:
 
 def assistant_voice(config: Config) -> Any | None:
     """Whatever pronounces, or nothing when the assistant takes part in writing."""
-    voulu = config.assistant.voice
-    if voulu == "aucun":
+    wanted_one = config.assistant.voice
+    if wanted_one == "aucun":
         return None
-    if voulu == "kokoro":
+    if wanted_one == "kokoro":
         from greffier.adapters.voice_neural import NeuralVoice
 
-        neuronale = NeuralVoice(
+        neural = NeuralVoice(
             config.paths.synthetic_voice,
             language=config.transcription.language or "fr",
             voice=config.assistant.effective_speaker,
@@ -461,8 +518,8 @@ def assistant_voice(config: Config) -> Any | None:
             gag=config.paths.gag,
             device=config.hardware.device,
         )
-        if neuronale.available:
-            return neuronale
+        if neural.available:
+            return neural
     from greffier.adapters.voice_system import SystemVoice
 
     system = SystemVoice()
@@ -480,7 +537,7 @@ def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
     def tracer(who: str, what: str) -> None:
         conversations_file.add(file, who, what)
 
-    lui = AssistantSettings(
+    her = AssistantSettings(
         name=config.assistant.name,
         manners=Manners(
             active=True,
@@ -491,29 +548,52 @@ def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
         tracer=tracer,
         setting=lambda: context(config).header() + what_earlier_meetings_left(config),
     )
-    cerveau = assistant(config)
-    if cerveau is not None and hasattr(cerveau, "own_guidance"):
-        cerveau.own_guidance = lui.guidance()
-        # The same setting as the conversation tab, and for the same reason:
-        # its guidance tells it that it may look something up and name the
-        # source aloud. Handed no tools, it answered "yes I can search" and
-        # "no I have no access" in turn, four times in one meeting.
-        from greffier.adapters.writer_claude import ClaudeWriter
+    brain = spoken_brain(config, her.guidance())
+    her.keep_its_turn = _keep_her_turn(config, identifier)
+    her.brain = brain
+    return her
 
-        cerveau.tools = (  # type: ignore[attr-defined]
-            ClaudeWriter.SEARCH_TOOLS if config.conversation.recherche_web else ()
-        )
-        if config.conversation.recherche_web:
-            # A short sound, the moment a search actually starts. Called by its
-            # name the assistant takes a few seconds to answer, and nothing said
-            # whether it was thinking or looking something up: waiting without
-            # knowing what for is what makes a wait feel long.
-            from greffier.adapters.cue_sound import cue
+def spoken_brain(config: Config, own_guidance: str) -> Any | None:
+    """What the assistant thinks with when it answers out loud.
 
-            cerveau.on_search = cue()  # type: ignore[attr-defined]
-    lui.keep_its_turn = _keep_her_turn(config, identifier)
-    lui.cerveau = cerveau
-    return lui
+    Not the writer of the minutes: that one starts a process per call, which
+    costs five seconds before the first word, and a voice called by its name
+    in a room cannot wait that long. With Claude Code the process is started
+    once for the meeting and kept warm (see `brain_claude`); with Ollama the
+    model is already resident and the writer is fast enough as it is.
+    """
+    engine = config.minutes.engine
+    if engine == "ollama":
+        brain: Any = OllamaWriter(config.minutes.effective_model,
+                                    language=config.minutes.language,
+                                    own_guidance=own_guidance)
+        return brain
+    if engine != "claude":
+        return None
+    from greffier.adapters.brain_claude import ClaudeSession
+
+    on_search = None
+    if config.conversation.recherche_web:
+        # A short sound, the moment a search actually starts. Called by its
+        # name the assistant takes a few seconds to answer, and nothing said
+        # whether it was thinking or looking something up: waiting without
+        # knowing what for is what makes a wait feel long.
+        from greffier.adapters.cue_sound import cue
+
+        on_search = cue()
+    # The same tools as the conversation tab, and for the same reason: its
+    # guidance tells it that it may look something up and name the source
+    # aloud. Handed no tools, it answered "yes I can search" and "no I have
+    # no access" in turn, four times in one meeting.
+    # Built here, warmed up and closed by whoever runs the meeting: a factory
+    # that starts a process is a factory no test can call.
+    return ClaudeSession(
+        model=config.assistant.model,
+        language=config.minutes.language,
+        tools=(ClaudeSession.SEARCH_TOOLS if config.conversation.recherche_web else ()),
+        own_guidance=own_guidance,
+        on_search=on_search,
+    )
 
 
 def _keep_her_turn(config: Config, identifier: str) -> Callable[[float, float], None]:

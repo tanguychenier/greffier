@@ -20,8 +20,8 @@ from greffier.cli import application
 #: The whole package, and not « cli.py » alone: the two launches the
 #: window shared with the command line now live in an adapter, and a
 #: verb launched from anywhere has to exist.
-PAQUET = Path(__file__).resolve().parents[2] / "src" / "greffier"
-SOURCE = PAQUET / "cli.py"
+PACKAGE = Path(__file__).resolve().parents[2] / "src" / "greffier"
+SOURCE = PACKAGE / "cli.py"
 
 
 def command_names() -> set[str]:
@@ -33,13 +33,13 @@ class TestWhatTheToolLaunchesItself:
 
     @staticmethod
     def launched() -> list[str]:
-        verbes: list[str] = []
-        for file in sorted(PAQUET.rglob("*.py")):
-            verbes += re.findall(
+        verbs: list[str] = []
+        for file in sorted(PACKAGE.rglob("*.py")):
+            verbs += re.findall(
                 r'\[sys\.executable,\s*"-m",\s*"greffier",\s*"([a-z-]+)"\]',
                 file.read_text(encoding="utf-8"),
             )
-        return verbes
+        return verbs
 
     def test_there_is_something_to_check(self):
         assert self.launched()
@@ -54,21 +54,21 @@ class TestANameIsNeverInherited:
     function renames the command."""
 
     def test_every_command_is_named_in_its_decorator(self):
-        arbre = ast.parse(SOURCE.read_text(encoding="utf-8"))
+        tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
         unnamed = []
-        for noeud in ast.walk(arbre):
-            if not isinstance(noeud, ast.FunctionDef):
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef):
                 continue
-            for decorateur in noeud.decorator_list:
-                if not isinstance(decorateur, ast.Call):
+            for decorator in node.decorator_list:
+                if not isinstance(decorator, ast.Call):
                     continue
-                target = decorateur.func
+                target = decorator.func
                 if not (isinstance(target, ast.Attribute) and target.attr == "command"):
                     continue
-                named = bool(decorateur.args) or any(
-                    word.arg == "name" for word in decorateur.keywords)
+                named = bool(decorator.args) or any(
+                    word.arg == "name" for word in decorator.keywords)
                 if not named:
-                    unnamed.append(noeud.name)
+                    unnamed.append(node.name)
         assert unnamed == []
 
 

@@ -28,28 +28,28 @@ class Output:
 
 
 def _answer(monkeypatch: pytest.MonkeyPatch, output: Any) -> list[list[str]]:
-    appels: list[list[str]] = []
+    calls: list[list[str]] = []
 
-    def faux_run(command: list[str], **_options: Any) -> Any:
-        appels.append(command)
+    def fake_run(command: list[str], **_options: Any) -> Any:
+        calls.append(command)
         if isinstance(output, Exception):
             raise output
         return output
 
-    monkeypatch.setattr(subprocess, "run", faux_run)
-    return appels
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    return calls
 
 
-class TestSondeDEnvoi:
+class TestTheSendingProbe:
     def test_a_clear_path_says_nothing(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _answer(monkeypatch, Output(0, stdout="Microsoft Outlook"))
         assert OutlookSender().probe() is None
 
     def test_the_probe_sends_nothing(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """It asks Outlook for its name, and nothing more."""
-        appels = _answer(monkeypatch, Output(0))
+        calls = _answer(monkeypatch, Output(0))
         OutlookSender().probe()
-        script = " ".join(appels[0])
+        script = " ".join(calls[0])
         assert "get name" in script
         assert "send" not in script
         assert "outgoing message" not in script
@@ -59,26 +59,26 @@ class TestSondeDEnvoi:
     ) -> None:
         """A message that does not say what to do makes it look like all is lost."""
         _answer(monkeypatch, Output(1, stderr="execution error: ... (-1743)"))
-        empeche = OutlookSender().probe()
-        assert empeche is not None
-        assert "Automatisation" in empeche
-        assert "ne partira pas" in empeche
+        prevented = OutlookSender().probe()
+        assert prevented is not None
+        assert "Automatisation" in prevented
+        assert "ne partira pas" in prevented
 
     def test_outlook_closed_is_said_differently(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _answer(monkeypatch, Output(1, stderr="Application isn't running (-1728)"))
-        empeche = OutlookSender().probe()
-        assert empeche is not None
-        assert "lancé" in empeche
+        prevented = OutlookSender().probe()
+        assert prevented is not None
+        assert "lancé" in prevented
 
     def test_an_unknown_error_is_reported_as_it_is(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _answer(monkeypatch, Output(1, stderr="quelque chose d'inédit"))
-        empeche = OutlookSender().probe()
-        assert empeche is not None
-        assert "inédit" in empeche
+        prevented = OutlookSender().probe()
+        assert prevented is not None
+        assert "inédit" in prevented
 
     def test_a_probe_that_never_ends_does_not_block(
         self, monkeypatch: pytest.MonkeyPatch
@@ -107,45 +107,45 @@ class TestWhenOutlookDoesNotAnswer:
     a timeout can still happen, and it has to say so.
     """
 
-    def _envoyer(self, monkeypatch, output: str, code: int = 1):
-        appels: list[list[str]] = []
+    def _send(self, monkeypatch, output: str, code: int = 1):
+        calls: list[list[str]] = []
 
         class Returned:
             returncode = code
             stderr = output
             stdout = ""
 
-        def faux_run(command, **_options):
-            appels.append(command)
+        def fake_run(command, **_options):
+            calls.append(command)
             return Returned()
 
-        monkeypatch.setattr(subprocess, "run", faux_run)
+        monkeypatch.setattr(subprocess, "run", fake_run)
         OutlookSender().send("moi@exemple.fr", "Sujet", "Corps", [])
 
     def test_a_timeout_says_what_to_do(self, monkeypatch):
-        with pytest.raises(TimeoutError) as souci:
-            self._envoyer(monkeypatch, "execution error: ... (-1712)")
-        said = str(souci.value)
+        with pytest.raises(TimeoutError) as the_trouble:
+            self._send(monkeypatch, "execution error: ... (-1712)")
+        said = str(the_trouble.value)
         assert "n'a pas répondu à temps" in said
         assert "greffier envoyer" in said, "il faut dire comment réessayer"
 
     def test_outlook_closed_is_said_differently(self, monkeypatch):
         with pytest.raises(RuntimeError, match="n'est pas lancé"):
-            self._envoyer(monkeypatch, "Application isn't running (-1728)")
+            self._send(monkeypatch, "Application isn't running (-1728)")
 
-    def test_l_autorisation_manquante_reste_distincte(self, monkeypatch):
+    def test_the_missing_permission_stays_distinct(self, monkeypatch):
         with pytest.raises(PermissionError, match="Automatisation"):
-            self._envoyer(monkeypatch, "execution error: ... (-1743)")
+            self._send(monkeypatch, "execution error: ... (-1743)")
 
     def test_an_unknown_error_keeps_the_last_line(self, monkeypatch):
         with pytest.raises(RuntimeError, match="quelque chose d'inédit"):
-            self._envoyer(monkeypatch, "bruit\nquelque chose d'inédit")
+            self._send(monkeypatch, "bruit\nquelque chose d'inédit")
 
     def test_a_sending_that_works_says_nothing(self, monkeypatch):
-        self._envoyer(monkeypatch, "", code=0)
+        self._send(monkeypatch, "", code=0)
 
-    def test_le_delai_entoure_l_ordre_d_envoi(self):
-        """La cause : AppleScript abandonne au bout de soixante secondes."""
+    def test_the_timeout_wraps_the_send_order(self):
+        """The cause: AppleScript gives up after sixty seconds."""
         source = OutlookSender.SOURCE
         assert "with timeout of 600 seconds" in source
         assert source.index("with timeout") < source.index("send m")
@@ -153,4 +153,4 @@ class TestWhenOutlookDoesNotAnswer:
 
     def test_the_probe_has_its_own_timeout(self):
         """It runs when a meeting starts: it has to return."""
-        assert "with timeout of 60 seconds" in OutlookSender.SONDE
+        assert "with timeout of 60 seconds" in OutlookSender.PROBE

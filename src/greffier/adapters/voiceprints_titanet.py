@@ -60,7 +60,7 @@ class TitaNetExtractor:
                 _OPENED[clef] = ready
         return ready
 
-    def extract(self, echantillons: np.ndarray, frequency: int) -> Voiceprint:
+    def extract(self, samples: np.ndarray, frequency: int) -> Voiceprint:
         """The voiceprint of an excerpt, capped in duration and levelled.
 
         Levelled because the model is not level-invariant: the same excerpt
@@ -68,17 +68,17 @@ class TitaNetExtractor:
         that tell one person from two sit between 0.45 and 0.75.
         """
         borne = int(MAXIMUM_LENGTH * frequency)
-        if len(echantillons) > borne:
-            milieu = len(echantillons) // 2
-            echantillons = echantillons[milieu - borne // 2 : milieu + borne // 2]
-        at_level = np.asarray(at_a_common_level(echantillons.tolist()), dtype="float32")
+        if len(samples) > borne:
+            milieu = len(samples) // 2
+            samples = samples[milieu - borne // 2 : milieu + borne // 2]
+        at_level = np.asarray(at_a_common_level(samples.tolist()), dtype="float32")
         stream = self._extractor.create_stream()
         stream.accept_waveform(sample_rate=frequency, waveform=at_level)
         stream.input_finished()
         vector = self._extractor.compute(stream)
-        return normalise(vector, source_duration=len(echantillons) / frequency)
+        return normalise(vector, source_duration=len(samples) / frequency)
 
-    def extract_together(self, audio: Path, intervalles: list[Span]) -> Voiceprint | None:
+    def extract_together(self, audio: Path, the_spans: list[Span]) -> Voiceprint | None:
         """One voiceprint for all these passages at once, or None.
 
         A real conversation is made of short turns: measured on a meeting round
@@ -94,7 +94,7 @@ class TitaNetExtractor:
         data, frequency = sf.read(audio, dtype="float32", always_2d=True)
         signal = data.mean(axis=1)
         chunks = []
-        for span in sorted(intervalles, key=lambda s: s.start):
+        for span in sorted(the_spans, key=lambda s: s.start):
             start = max(0, int(span.start * frequency))
             end = min(int(span.end * frequency), len(signal))
             if end > start:
@@ -109,13 +109,13 @@ class TitaNetExtractor:
     def extract_spans(
         self,
         audio: Path,
-        intervalles: list[Span],
+        the_spans: list[Span],
     ) -> list[Voiceprint]:
         """One voiceprint per span, the too-short ones dropped."""
         data, frequency = sf.read(audio, dtype="float32", always_2d=True)
         signal = data.mean(axis=1)
         voiceprints: list[Voiceprint] = []
-        for span in intervalles:
+        for span in the_spans:
             if span.duration < MINIMUM_LENGTH:
                 continue
             start = int(span.start * frequency)

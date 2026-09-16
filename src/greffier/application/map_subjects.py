@@ -90,14 +90,14 @@ def analyser(rendered: str, maximum: int = 12) -> list[Contribution]:
     if not isinstance(items, list):
         raise UnreadableOutput("la réponse n'est pas un tableau")
 
-    apports: list[Contribution] = []
+    contributions: list[Contribution] = []
     for item in items[:maximum]:
         if not isinstance(item, dict):
             continue
         text = str(item.get("texte", "")).strip()
         if not text:
             continue
-        apports.append(Contribution(
+        contributions.append(Contribution(
             text=text,
             kind=_KINDS.get(str(item.get("genre", "")).strip(), Kind.OBSERVATION),
             state=_STANDINGS.get(str(item.get("etat", "")).strip(), Standing.UNDER_DISCUSSION)
@@ -105,4 +105,4 @@ def analyser(rendered: str, maximum: int = 12) -> list[Contribution]:
             else Standing.UNDER_DISCUSSION,
             under=str(item.get("sous", "")).strip(),
         ))
-    return apports
+    return contributions

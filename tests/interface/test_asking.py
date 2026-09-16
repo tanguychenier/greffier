@@ -56,14 +56,14 @@ class TestNoBoxEscapesThisModule:
         # A single `messagebox.showinfo` or `filedialog.askopenfilenames` left
         # in the window is a window that can hang on a screen with nobody in
         # front of it, and the suite would stop dead rather than say why.
-        arbre = ast.parse(WINDOW.read_text(encoding="utf-8"))
-        appels = [
-            node for node in ast.walk(arbre)
+        tree = ast.parse(WINDOW.read_text(encoding="utf-8"))
+        calls = [
+            node for node in ast.walk(tree)
             if isinstance(node, ast.Attribute)
             and isinstance(node.value, ast.Name)
             and node.value.id in ("messagebox", "filedialog")
         ]
-        assert appels == [], f"{len(appels)} boîte(s) hors de asking.py"
+        assert calls == [], f"{len(calls)} boîte(s) hors de asking.py"
 
 
 class TestPickingAFileIsABoxToo:

@@ -23,15 +23,15 @@ if str(RACINE / "tools") not in sys.path:
 
 def voices_are_out_of_reach(timbres: int = 2) -> str | None:
     """The reason to skip, or None when this machine can synthesise a meeting."""
-    from make_meeting import SID_VITS, synthesis_engine
+    from make_meeting import synthesis_engine, vits_timbres
 
     engine = synthesis_engine()
     if engine is None:
         return ("aucune synthèse vocale : « say » sur macOS, sinon la voix de "
                 "l'assistant (« python3 tools/install.py »), et ffmpeg dans les deux cas")
-    if engine == "vits" and timbres > len(SID_VITS):
+    if engine == "vits" and timbres > vits_timbres():
         return (f"{timbres} timbres demandés, la voix installée en porte "
-                f"{len(SID_VITS)} : cette réunion-là demande « say »")
+                f"{vits_timbres()} : cette réunion-là demande « say »")
     return None
 
 
@@ -40,21 +40,13 @@ def the_called_name_is_out_of_reach() -> str | None:
 
     The assistant only speaks when it hears its own name, so these tests measure
     the round trip before they measure anything else. « say » carries it. The
-    French VITS does not, reliably: measured four times on « Lucie, où en est la
-    recette ? », it came back « UCI » once -- once is enough to make a test that
-    passes three times out of four, which is worse than a test that says why it
-    is not running.
+    French VITS did not, reliably: measured on ten sentences, « Lucie, où en est
+    la recette ? » came back « Ici, où en est la recette » two times in ten.
+    Since 16/09 the watch tells the transcriber, in its seed, that she is in
+    the room, and the same ten came back whole: these tests run on the VITS
+    voices too, through the watch that carries the seed.
     """
-    hors_de_portee = voices_are_out_of_reach(2)
-    if hors_de_portee:
-        return hors_de_portee
-    from make_meeting import synthesis_engine
-
-    if synthesis_engine() != "say":
-        return ("le prénom qui ouvre une phrase n'est pas rendu de façon sûre par la "
-                "voix installée : cette famille-là demande « say »")
-    return None
-
+    return voices_are_out_of_reach(2)
 
 def transcription_is_out_of_reach(config) -> str | None:
     """The reason to skip, or None when this machine can put the chain through."""

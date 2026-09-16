@@ -1,6 +1,6 @@
 """The registry of subjects: what cannot be guessed is written once."""
 
-from greffier.adapters.subjects_file import lay_the_template, noter_la_carte, read
+from greffier.adapters.subjects_file import lay_the_template, note_the_board, read
 
 
 class TestReadingTheSetting:
@@ -28,20 +28,20 @@ class TestReadingTheSetting:
         assert read(file).subjects == []
 
 
-class TestAjoutSeul:
+class TestAddingAlone:
     """The file carries comments: it is never regenerated."""
 
     def test_the_board_of_a_new_subject_is_noted(self, tmp_path):
         file = tmp_path / "sujets.toml"
-        assert noter_la_carte(file, "Oasis", "uXjV1=") is True
+        assert note_the_board(file, "Oasis", "uXjV1=") is True
         subject = read(file).by_name("Oasis")
         assert subject is not None and subject.board == "uXjV1="
 
     def test_a_subject_already_mapped_is_untouched(self, tmp_path):
         """Two maps for one subject is what is to be avoided."""
         file = tmp_path / "sujets.toml"
-        noter_la_carte(file, "Oasis", "premiere=")
-        assert noter_la_carte(file, "Oasis", "seconde=") is False
+        note_the_board(file, "Oasis", "premiere=")
+        assert note_the_board(file, "Oasis", "seconde=") is False
         subject = read(file).by_name("Oasis")
         assert subject is not None and subject.board == "premiere="
 
@@ -50,7 +50,7 @@ class TestAjoutSeul:
         file.write_text(
             '[[sujets]]\nnom = "Oasis"\nalias = ["esup-oasis"]\n', encoding="utf-8"
         )
-        assert noter_la_carte(file, "Oasis", "uXjV1=") is True
+        assert note_the_board(file, "Oasis", "uXjV1=") is True
         subject = read(file).by_name("Oasis")
         assert subject is not None
         assert subject.board == "uXjV1=", "la dernière entrée l'emporte"
@@ -59,5 +59,5 @@ class TestAjoutSeul:
     def test_the_comments_of_the_template_survive(self, tmp_path):
         file = tmp_path / "sujets.toml"
         lay_the_template(file)
-        noter_la_carte(file, "Oasis", "uXjV1=")
+        note_the_board(file, "Oasis", "uXjV1=")
         assert "ne se devine pas" in file.read_text(encoding="utf-8")

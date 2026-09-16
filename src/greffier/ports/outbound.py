@@ -29,7 +29,7 @@ class AudioRecorder(Protocol):
         """Starts recording in the background, returns the process identifier."""
         ...
 
-    def stop_recording(self, processus: int) -> None:
+    def stop_recording(self, process_id: int) -> None:
         """Stops cleanly, leaving the audio file usable."""
         ...
 
@@ -84,6 +84,18 @@ class Diariser(Protocol):
 
 
 @runtime_checkable
+class SliceSegmenter(Protocol):
+    """Cuts a slice of the meeting under way at the changes of speaker.
+
+    The labels hold within the slice only: the live thread joins the turns of
+    one slice to those of the next by voiceprint, not by label.
+    """
+
+    def turns(self, audio: Path) -> list[SpeakerTurn]:
+        ...
+
+
+@runtime_checkable
 class ChannelReader(Protocol):
     """Says which passages of a recording came from the mic.
 
@@ -99,10 +111,10 @@ class ChannelReader(Protocol):
 class VoiceprintExtractor(Protocol):
     """Produces the vocal signature of an excerpt."""
 
-    def extract_spans(self, audio: Path, intervalles: list[Span]) -> list[Voiceprint]:
+    def extract_spans(self, audio: Path, the_spans: list[Span]) -> list[Voiceprint]:
         ...
 
-    def extract_together(self, audio: Path, intervalles: list[Span]) -> Voiceprint | None:
+    def extract_together(self, audio: Path, the_spans: list[Span]) -> Voiceprint | None:
         """One signature for several passages read as one, or None if too short.
 
         A voice made only of short turns has no signature of its own otherwise,

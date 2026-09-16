@@ -33,14 +33,14 @@ def read(file: Path) -> list[tuple[float, float]]:
     """Her speaking turns, the unreadable lines passed over."""
     if not file.exists():
         return []
-    intervalles: list[tuple[float, float]] = []
+    the_spans: list[tuple[float, float]] = []
     for line in file.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line:
             continue
         try:
             read_ = json.loads(line)
-            intervalles.append((float(read_["de"]), float(read_["a"])))
+            the_spans.append((float(read_["de"]), float(read_["a"])))
         except (json.JSONDecodeError, KeyError, TypeError, ValueError):
             continue
-    return intervalles
+    return the_spans

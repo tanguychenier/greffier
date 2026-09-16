@@ -23,18 +23,18 @@ def model(tmp_path):
 
 class TestWhisperCpp:
     def _command(self, monkeypatch, model, language):
-        vue: dict[str, list[str]] = {}
+        view: dict[str, list[str]] = {}
 
-        def faux_run(command, **_options):
-            vue["commande"] = list(command)
+        def fake_run(command, **_options):
+            view["commande"] = list(command)
             # An empty .srt is enough: it is the command that is tested.
             Path(command[command.index("-of") + 1] + ".srt").write_text("", encoding="utf-8")
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
         monkeypatch.setattr(
-            "greffier.adapters.transcription_whisper_cpp.subprocess.run", faux_run)
+            "greffier.adapters.transcription_whisper_cpp.subprocess.run", fake_run)
         WhisperCppTranscriber(model).transcribe(model, language, "")
-        return vue["commande"]
+        return view["commande"]
 
     def test_a_language_given_is_passed_on(self, monkeypatch, model):
         command = self._command(monkeypatch, model, "en")
@@ -47,26 +47,26 @@ class TestWhisperCpp:
 
 
 class TestFasterWhisper:
-    def _langue_recue(self, monkeypatch, language):
-        from greffier.adapters import transcription_faster_whisper as adaptateur
+    def _language_received(self, monkeypatch, language):
+        from greffier.adapters import transcription_faster_whisper as adapter
 
-        vue: dict[str, object] = {}
+        view: dict[str, object] = {}
 
         class FakeModel:
             def transcribe(self, _audio, **options):
-                vue["language"] = options.get("language")
+                view["language"] = options.get("language")
                 return iter(()), None
 
-        transcriber = adaptateur.FasterWhisperTranscriber.__new__(
-            adaptateur.FasterWhisperTranscriber)
+        transcriber = adapter.FasterWhisperTranscriber.__new__(
+            adapter.FasterWhisperTranscriber)
         monkeypatch.setattr(transcriber, "_load", lambda: FakeModel(), raising=False)
         transcriber.transcribe(Path("essai.wav"), language, "")
-        return vue["language"]
+        return view["language"]
 
     def test_a_language_given_is_passed_on(self, monkeypatch):
-        assert self._langue_recue(monkeypatch, "es") == "es"
+        assert self._language_received(monkeypatch, "es") == "es"
 
     def test_an_empty_language_becomes_none(self, monkeypatch):
         """The string « auto » would be refused: it is the absence that triggers
         the detection."""
-        assert self._langue_recue(monkeypatch, "") is None
+        assert self._language_received(monkeypatch, "") is None

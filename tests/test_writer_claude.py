@@ -17,18 +17,18 @@ def spy(monkeypatch):
     """Keeps the command launched, without ever calling the assistant."""
     vu: dict[str, list[str]] = {}
 
-    def faux_run(command, **options):
+    def fake_run(command, **options):
         vu["commande"] = list(command)
         vu["entree"] = options.get("input", "")
         return subprocess.CompletedProcess(command, 0, stdout="# Compte rendu\n", stderr="")
 
     monkeypatch.setattr("greffier.adapters.writer_claude.shutil.which",
                         lambda _name: "/usr/local/bin/claude")
-    monkeypatch.setattr("greffier.adapters.writer_claude.subprocess.run", faux_run)
+    monkeypatch.setattr("greffier.adapters.writer_claude.subprocess.run", fake_run)
     return vu
 
 
-class TestModele:
+class TestTheModel:
     def test_the_model_asked_for_is_passed_on(self, spy):
         ClaudeWriter("opus").write_up("Sandy : bonjour.")
         assert "--model" in spy["commande"]
@@ -46,7 +46,7 @@ class TestModele:
         assert not any("Sandy" in chunk for chunk in spy["commande"])
 
     def test_no_tool_is_allowed(self, spy):
-        """Le rédacteur écrit un document, il n'a rien à lire ni à exécuter."""
+        """The writer writes a document; it has nothing to read nor to run."""
         command = spy if False else None
         ClaudeWriter("opus").write_up("x")
         assert "--allowed-tools" in spy["commande"]

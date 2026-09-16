@@ -14,16 +14,16 @@ from pathlib import Path
 
 from greffier.domain.models import Person, Voiceprint
 from greffier.domain.texts import short_voiceprint
-from greffier.domain.voiceprints import VOICEPRINTS_PER_PERSON, enrichir
+from greffier.domain.voiceprints import VOICEPRINTS_PER_PERSON, enrich
 
 FORMAT = 1
 
 def _file_at(name: str) -> str:
     """A safe file name, derived from the person's name."""
-    depouille = unicodedata.normalize("NFD", name)
-    without_accents = "".join(c for c in depouille if unicodedata.category(c) != "Mn")
-    reduit = re.sub(r"[^a-zA-Z0-9]+", "-", without_accents).strip("-").lower()
-    return reduit or short_voiceprint(name)
+    stripped = unicodedata.normalize("NFD", name)
+    without_accents = "".join(c for c in stripped if unicodedata.category(c) != "Mn")
+    reduced = re.sub(r"[^a-zA-Z0-9]+", "-", without_accents).strip("-").lower()
+    return reduced or short_voiceprint(name)
 
 class FileVoiceBank:
     def __init__(self, folder: Path, maximum: int = VOICEPRINTS_PER_PERSON) -> None:
@@ -68,18 +68,18 @@ class FileVoiceBank:
         """Removes from the whole bank the voiceprints from one meeting."""
         retires: dict[str, int] = {}
         for person in self.people():
-            rangs = [
+            ranks = [
                 rank for rank, voiceprint in enumerate(person.voiceprints)
                 if voiceprint.origin == identifier
             ]
-            if rangs:
-                retires[person.name] = self.remove_voiceprints(person.name, rangs)
+            if ranks:
+                retires[person.name] = self.remove_voiceprints(person.name, ranks)
         return retires
 
     def record(self, name: str, voiceprint: Voiceprint) -> Person:
         """Adds a voiceprint to someone, creating them if needed."""
         person = self.find(name) or Person(name=name)
-        enrichir(person, voiceprint, maximum=self.maximum)
+        enrich(person, voiceprint, maximum=self.maximum)
         person.seen_at = datetime.now(UTC)
         self._write(person)
         return person
@@ -116,32 +116,32 @@ class FileVoiceBank:
     def join(self, kept: str, absorbed: str) -> Person:
         """Joins two entries that named the same person."""
         principal = self.find(kept)
-        secondaire = self.find(absorbed)
-        if principal is None or secondaire is None:
+        secondary = self.find(absorbed)
+        if principal is None or secondary is None:
             raise KeyError("les deux personnes doivent exister dans la banque")
-        for voiceprint in secondaire.voiceprints:
-            enrichir(principal, voiceprint, maximum=self.maximum)
-        principal.meetings = max(principal.meetings, secondaire.meetings)
+        for voiceprint in secondary.voiceprints:
+            enrich(principal, voiceprint, maximum=self.maximum)
+        principal.meetings = max(principal.meetings, secondary.meetings)
         (self.folder / f"{_file_at(absorbed)}.json").unlink()
         self._write(principal)
         return principal
 
-    def remove_voiceprints(self, name: str, rangs: list[int]) -> int:
+    def remove_voiceprints(self, name: str, ranks: list[int]) -> int:
         """Removes specific voiceprints, without erasing the person."""
         person = self.find(name)
         if person is None:
             return 0
-        a_retirer = {r for r in rangs if 0 <= r < len(person.voiceprints)}
-        if not a_retirer:
+        to_remove = {r for r in ranks if 0 <= r < len(person.voiceprints)}
+        if not to_remove:
             return 0
         person.voiceprints = [
-            e for i, e in enumerate(person.voiceprints) if i not in a_retirer
+            e for i, e in enumerate(person.voiceprints) if i not in to_remove
         ]
         if not person.voiceprints:
             self.forget(name)
-            return len(a_retirer)
+            return len(to_remove)
         self._write(person)
-        return len(a_retirer)
+        return len(to_remove)
 
     def forget(self, name: str) -> bool:
         """Erases a person, voiceprints included."""

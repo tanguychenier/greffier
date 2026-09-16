@@ -30,7 +30,7 @@ SENTENCES = [
 ]
 
 
-def _synthetiser(voice: str, text: str, target: Path) -> Path | None:
+def _synthesise(voice: str, text: str, target: Path) -> Path | None:
     """A real audio file, from the system's speech synthesis. macOS for now."""
     if shutil.which("say") is None or shutil.which("ffmpeg") is None:
         return None
@@ -49,17 +49,17 @@ def _synthetiser(voice: str, text: str, target: Path) -> Path | None:
 
 @pytest.fixture(scope="module")
 def transcriber():
-    outil = light_transcriber(Config())
-    if outil is None:
+    tool = light_transcriber(Config())
+    if tool is None:
         pytest.skip("aucun modèle de transcription installé")
-    return outil
+    return tool
 
 
 @pytest.mark.parametrize("voice,sentence,expected", SENTENCES)
 def test_its_name_is_heard_in_real_sound(
     voice, sentence, expected, transcriber, tmp_path
 ):
-    audio = _synthetiser(voice, sentence, tmp_path / "phrase.wav")
+    audio = _synthesise(voice, sentence, tmp_path / "phrase.wav")
     if audio is None:
         pytest.skip("« say » ou ffmpeg absent : synthèse impossible")
     utterances = transcriber.transcribe(audio, "fr", f"{NAME}, l'assistante de réunion.")
@@ -73,7 +73,7 @@ def test_the_question_is_taken_out_without_the_name(transcriber, tmp_path):
     "Lucie, est-ce que tu nous entends ?" is better handled as "est-ce que tu nous
     entends ?": the name adds nothing and clutters the question.
     """
-    audio = _synthetiser("Thomas", f"{NAME}, est-ce que tu nous entends bien ?",
+    audio = _synthesise("Thomas", f"{NAME}, est-ce que tu nous entends bien ?",
                          tmp_path / "phrase.wav")
     if audio is None:
         pytest.skip("« say » ou ffmpeg absent : synthèse impossible")

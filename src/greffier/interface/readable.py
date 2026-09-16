@@ -8,12 +8,12 @@ from pathlib import Path
 
 def clock(seconds: float) -> str:
     """The meeting's stopwatch."""
-    entier = max(0, int(seconds))
-    heures, remaining = divmod(entier, 3600)
-    minutes, restantes = divmod(remaining, 60)
-    if heures:
-        return f"{heures}:{minutes:02d}:{restantes:02d}"
-    return f"{minutes}:{restantes:02d}"
+    whole = max(0, int(seconds))
+    hours, remaining = divmod(whole, 3600)
+    minutes, left_over = divmod(remaining, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{left_over:02d}"
+    return f"{minutes}:{left_over:02d}"
 
 def readable_subject(identifier: str, minutes: Path, subject: str = "") -> str:
     """The meeting's subject: the chosen one, else what was written."""
@@ -21,18 +21,18 @@ def readable_subject(identifier: str, minutes: Path, subject: str = "") -> str:
         return subject.strip()
     if minutes.exists():
         with contextlib.suppress(OSError):
-            from greffier.domain.minutes import title as extraire_titre
+            from greffier.domain.minutes import title as extract_title
 
-            title = extraire_titre(minutes.read_text(encoding="utf-8"), "")
+            title = extract_title(minutes.read_text(encoding="utf-8"), "")
             if title:
                 without_prefix = title.split(":", 1)[-1].strip() if ":" in title else title
                 return without_prefix or title
     return identifier
 
-ETIREMENT_MAXIMUM = 1.25
+MAXIMUM_STRETCH = 1.25
 
 def button_grid(
-    largeurs: list[int], offerte: int, gap: int = 9
+    widths: list[int], offered: int, gap: int = 9
 ) -> tuple[int, int]:
     """The grid of a button bar: (buttons per row, column width).
 
@@ -59,20 +59,20 @@ def button_grid(
     stretched over nothing. A button out of proportion is as badly laid out as
     one that overflows.
     """
-    total = len(largeurs)
+    total = len(widths)
     if not total:
         return (1, 0)
-    demandee = max(largeurs)
-    plafond = int(demandee * ETIREMENT_MAXIMUM)
-    for rangs in range(1, total + 1):
-        by_rank = -(-total // rangs)  # integer division rounding up
-        if by_rank * demandee + (by_rank - 1) * gap <= offerte:
+    requested = max(widths)
+    ceiling = int(requested * MAXIMUM_STRETCH)
+    for ranks in range(1, total + 1):
+        by_rank = -(-total // ranks)  # integer division rounding up
+        if by_rank * requested + (by_rank - 1) * gap <= offered:
             break
     else:
         by_rank = 1
-    available = (offerte - (by_rank - 1) * gap) // by_rank
-    colonne = max(demandee, min(plafond, available))
-    return (by_rank, colonne)
+    available = (offered - (by_rank - 1) * gap) // by_rank
+    the_column = max(requested, min(ceiling, available))
+    return (by_rank, the_column)
 
 def dot_marker(count: int) -> str:
     """What a tab badge shows for this count. Empty for nothing.
@@ -88,7 +88,7 @@ def dot_marker(count: int) -> str:
         return ""
     return str(count) if count < 10 else "9+"
 
-def live_state_line(in_a_meeting: bool, annonce: str, sentences: int) -> str:
+def live_state_line(in_a_meeting: bool, announcement: str, sentences: int) -> str:
     """The line that says what the thread is doing, or why it is doing nothing.
 
     An empty tab reads as "nobody is speaking" when it often means "nothing is
@@ -101,7 +101,7 @@ def live_state_line(in_a_meeting: bool, annonce: str, sentences: int) -> str:
             "s'affiche ici et le locuteur se corrige d'un clic sur son nom."
         )
     if sentences == 0:
-        awaiting = annonce or "En attente de la première tranche…"
+        awaiting = announcement or "En attente de la première tranche…"
         return f"{awaiting} Cliquez sur un nom pour corriger qui parle."
     aide = (
         "Cliquez sur un nom pour corriger qui parle : « ? » signale un nom reconnu "

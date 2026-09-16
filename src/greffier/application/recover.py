@@ -42,20 +42,21 @@ def from_the_thread(
             text=turn.text.strip(),
             voice=turn.voice,
             source=Source.UNKNOWN,
+            confidence=turn.confidence,
         ))
         turns.append(SpeakerTurn(turn.span, turn.voice, Source.UNKNOWN))
 
     names = {
-        voice: connue.name
-        for voice, connue in thread.voice.items()
-        if connue.name and connue.certainty.name != "INCONNUE"
+        voice: known_one.name
+        for voice, known_one in thread.voice.items()
+        if known_one.name and known_one.certainty.name != "INCONNUE"
     }
     duration = turns[-1].span.end if turns else 0.0
     when = held_on(identifier)
-    commencee = None
+    begun = None
     if when is not None:
-        annee, mois, jour, heure, minute = when
-        commencee = datetime(annee, mois, jour, heure, minute).astimezone()
+        year, month, day, the_hour, minute = when
+        begun = datetime(year, month, day, the_hour, minute).astimezone()
 
     return StoredMeeting(
         identifier=identifier,
@@ -67,9 +68,9 @@ def from_the_thread(
         names=names,
         propositions={},
         warnings=[WARNING],
-        started_at=commencee,
+        started_at=begun,
         ended_at=(
-            commencee + timedelta(seconds=duration) if commencee and duration else None
+            begun + timedelta(seconds=duration) if begun and duration else None
         ),
     )
 
@@ -77,15 +78,15 @@ def join_spans(turns: list[SpeakerTurn]) -> list[SpeakerTurn]:
     """Stitches together consecutive turns of one voice."""
     if not turns:
         return []
-    recolles = [SpeakerTurn(turns[0].span, turns[0].voice, turns[0].source)]
+    stitched = [SpeakerTurn(turns[0].span, turns[0].voice, turns[0].source)]
     for turn in turns[1:]:
-        last = recolles[-1]
+        last = stitched[-1]
         if turn.voice == last.voice and turn.span.start <= last.span.end:
-            recolles[-1] = SpeakerTurn(
+            stitched[-1] = SpeakerTurn(
                 Span(last.span.start,
                            max(last.span.end, turn.span.end)),
                 last.voice, last.source,
             )
             continue
-        recolles.append(SpeakerTurn(turn.span, turn.voice, turn.source))
-    return recolles
+        stitched.append(SpeakerTurn(turn.span, turn.voice, turn.source))
+    return stitched

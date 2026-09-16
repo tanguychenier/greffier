@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from greffier.adapters import cuda as adaptateur
+from greffier.adapters import cuda as adapter
 
 ON_LINUX = ("cublas/lib/libcublas.so.12", "cublas/lib/libcublasLt.so.12",
               "cudnn/lib/libcudnn.so.9", "cudnn/lib/libcudnn_graph.so.9",
@@ -30,14 +30,14 @@ ON_WINDOWS = ("cublas/bin/cublas64_12.dll", "cublas/bin/cublasLt64_12.dll",
                 "cufft/bin/cufft64_11.dll", "curand/bin/curand64_10.dll")
 
 
-def _poser(monkeypatch, tmp_path, fichiers):
+def _poser(monkeypatch, tmp_path, files):
     """An "nvidia" folder filled the way the wheels fill it."""
-    for relatif in fichiers:
-        path = tmp_path / relatif
+    for relative in files:
+        path = tmp_path / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.touch()
     monkeypatch.setattr(
-        adaptateur.importlib.util, "find_spec",
+        adapter.importlib.util, "find_spec",
         lambda _name: SimpleNamespace(submodule_search_locations=[str(tmp_path)]),
     )
     return tmp_path
@@ -45,126 +45,126 @@ def _poser(monkeypatch, tmp_path, fichiers):
 
 @pytest.fixture
 def wheels_in(monkeypatch, tmp_path):
-    monkeypatch.setattr(adaptateur, "SYSTEM", "Linux")
+    monkeypatch.setattr(adapter, "SYSTEM", "Linux")
     return _poser(monkeypatch, tmp_path, ON_LINUX)
 
 
 @pytest.fixture
 def wheels_under_windows(monkeypatch, tmp_path):
-    monkeypatch.setattr(adaptateur, "SYSTEM", "Windows")
+    monkeypatch.setattr(adapter, "SYSTEM", "Windows")
     return _poser(monkeypatch, tmp_path, ON_WINDOWS)
 
 
-class TestBibliothequesTrouvees:
+class TestLibrariesFound:
     def test_every_library_is_returned(self, wheels_in):
-        names = [path.name for path in adaptateur.libraries()]
+        names = [path.name for path in adapter.libraries()]
         assert set(names) == {"libcublasLt.so.12", "libcublas.so.12", "libcudnn.so.9",
                              "libcudnn_graph.so.9", "libnvrtc.so.12", "libcudart.so.12",
                              "libcufft.so.11", "libcurand.so.10"}
 
     def test_cublaslt_comes_before_cublas(self, wheels_in):
         """cuBLAS depends on it: loaded first, it would not find it."""
-        names = [path.name for path in adaptateur.libraries()]
+        names = [path.name for path in adapter.libraries()]
         assert names.index("libcublasLt.so.12") < names.index("libcublas.so.12")
 
     def test_without_the_wheels_there_is_nothing_to_load(self, monkeypatch):
         """The ordinary case: they only serve an NVIDIA card."""
-        monkeypatch.setattr(adaptateur.importlib.util, "find_spec", lambda _name: None)
-        assert adaptateur.libraries() == []
+        monkeypatch.setattr(adapter.importlib.util, "find_spec", lambda _name: None)
+        assert adapter.libraries() == []
 
     def test_a_package_with_no_folder_does_not_make_it_fail(self, monkeypatch):
         monkeypatch.setattr(
-            adaptateur.importlib.util, "find_spec",
+            adapter.importlib.util, "find_spec",
             lambda _name: SimpleNamespace(submodule_search_locations=None),
         )
-        assert adaptateur.libraries() == []
+        assert adapter.libraries() == []
 
 
-class TestChargement:
+class TestLoading:
     def test_an_unreadable_library_does_not_stop_the_transcription(self, wheels_in):
         """The card will be unusable, and falling back on the processor is enough:
         giving up transcribing for that would be worse than slow."""
-        essais = []
+        trials = []
 
-        def chargeur_qui_tombe(path, **_options):
-            essais.append(path)
+        def loader_that_falls(path, **_options):
+            trials.append(path)
             raise OSError("format non reconnu")
 
         with pytest.MonkeyPatch.context() as patch:
-            patch.setattr(adaptateur.ctypes, "CDLL", chargeur_qui_tombe)
-            adaptateur.show_to_the_loader()
+            patch.setattr(adapter.ctypes, "CDLL", loader_that_falls)
+            adapter.show_to_the_loader()
 
-        assert len(essais) == 8, "chaque bibliothèque doit avoir été tentée"
+        assert len(trials) == 8, "chaque bibliothèque doit avoir été tentée"
 
 
-class TestUneCarteRepond:
+class TestACardAnswers:
     @pytest.fixture(autouse=True)
-    def sans_memoire(self):
+    def without_memory(self):
         """The answer is cached: each case has to start from scratch."""
-        adaptateur.a_card_answers.cache_clear()
+        adapter.a_card_answers.cache_clear()
         yield
-        adaptateur.a_card_answers.cache_clear()
+        adapter.a_card_answers.cache_clear()
 
     def test_no_driver_means_no_card(self, monkeypatch):
         """By far the most common case: a machine without NVIDIA."""
-        def pas_de_pilote(_name, **_options):
+        def no_driver(_name, **_options):
             raise OSError("libcuda.so.1: cannot open shared object file")
 
-        monkeypatch.setattr(adaptateur.ctypes, "CDLL", pas_de_pilote)
-        assert adaptateur.a_card_answers() is False
+        monkeypatch.setattr(adapter.ctypes, "CDLL", no_driver)
+        assert adapter.a_card_answers() is False
 
     def test_a_driver_that_counts_one_card(self, monkeypatch):
-        monkeypatch.setattr(adaptateur.ctypes, "CDLL", lambda *_a, **_k: _Pilote(1))
-        assert adaptateur.a_card_answers() is True
+        monkeypatch.setattr(adapter.ctypes, "CDLL", lambda *_a, **_k: _Driver(1))
+        assert adapter.a_card_answers() is True
 
     def test_a_driver_installed_without_a_card(self, monkeypatch):
         """Happens in a container: the driver is there, the card was not passed through."""
-        monkeypatch.setattr(adaptateur.ctypes, "CDLL", lambda *_a, **_k: _Pilote(0))
-        assert adaptateur.a_card_answers() is False
+        monkeypatch.setattr(adapter.ctypes, "CDLL", lambda *_a, **_k: _Driver(0))
+        assert adapter.a_card_answers() is False
 
     def test_a_driver_that_refuses_to_start(self, monkeypatch):
-        monkeypatch.setattr(adaptateur.ctypes, "CDLL", lambda *_a, **_k: _Pilote(1, init=999))
-        assert adaptateur.a_card_answers() is False
+        monkeypatch.setattr(adapter.ctypes, "CDLL", lambda *_a, **_k: _Driver(1, init=999))
+        assert adapter.a_card_answers() is False
 
     def test_a_driver_that_cannot_count(self, monkeypatch):
-        monkeypatch.setattr(adaptateur.ctypes, "CDLL", lambda *_a, **_k: _Pilote(1, count=999))
-        assert adaptateur.a_card_answers() is False
+        monkeypatch.setattr(adapter.ctypes, "CDLL", lambda *_a, **_k: _Driver(1, count=999))
+        assert adapter.a_card_answers() is False
 
     def test_a_driver_without_the_expected_calls(self, monkeypatch):
         """A library of the same name must not bring the start-up down."""
-        monkeypatch.setattr(adaptateur.ctypes, "CDLL", lambda *_a, **_k: object())
-        assert adaptateur.a_card_answers() is False
+        monkeypatch.setattr(adapter.ctypes, "CDLL", lambda *_a, **_k: object())
+        assert adapter.a_card_answers() is False
 
     def test_the_driver_is_asked_only_once(self, monkeypatch):
-        appels = []
+        calls = []
 
         def account(*_a, **_k):
-            appels.append(1)
-            return _Pilote(1)
+            calls.append(1)
+            return _Driver(1)
 
-        monkeypatch.setattr(adaptateur.ctypes, "CDLL", account)
-        adaptateur.a_card_answers()
-        adaptateur.a_card_answers()
-        assert len(appels) == 1
+        monkeypatch.setattr(adapter.ctypes, "CDLL", account)
+        adapter.a_card_answers()
+        adapter.a_card_answers()
+        assert len(calls) == 1
 
 
-class _Pilote:
+class _Driver:
     """What ctypes returns when libcuda.so.1 is there."""
 
-    def __init__(self, cartes: int, init: int = 0, count: int = 0) -> None:
-        self._cartes = cartes
+    def __init__(self, cards: int, init: int = 0, count: int = 0) -> None:
+        self._cards = cards
         self._init = init
         self._count = count
 
     def cuInit(self, _flags):  # noqa: N802, it is the name in the library
         return self._init
 
-    def cuDeviceGetCount(self, pointeur):  # noqa: N802, idem
-        pointeur._obj.value = self._cartes
+    def cuDeviceGetCount(self, pointer):  # noqa: N802, idem
+        pointer._obj.value = self._cards
         return self._count
 
 
-class TestDeuxMoteursOnnx:
+class TestTwoOnnxEngines:
     """Two ONNX Runtimes do not fit in one process.
 
     faster-whisper brings its own with its voice detector. Measured: whichever
@@ -175,106 +175,106 @@ class TestDeuxMoteursOnnx:
     """
 
     @pytest.fixture(autouse=True)
-    def sans_memoire(self, monkeypatch):
+    def without_memory(self, monkeypatch):
         """The seat kept and the driver's answer are remembered: start from scratch."""
-        adaptateur.a_card_answers.cache_clear()
-        monkeypatch.setattr(adaptateur, "_place_kept", False)
+        adapter.a_card_answers.cache_clear()
+        monkeypatch.setattr(adapter, "_place_kept", False)
 
     @pytest.fixture
-    def avec_carte(self, monkeypatch):
-        monkeypatch.setattr(adaptateur, "a_card_answers", lambda: True)
+    def with_card(self, monkeypatch):
+        monkeypatch.setattr(adapter, "a_card_answers", lambda: True)
 
     @pytest.fixture
     def le_rival(self, monkeypatch):
         monkeypatch.setitem(sys.modules, "onnxruntime", object())
 
     def test_the_rival_is_seen_when_it_is_loaded(self, le_rival):
-        assert adaptateur.another_runtime_is_open() is True
+        assert adapter.another_runtime_is_open() is True
 
     def test_no_rival_before_anything_transcribes(self, monkeypatch):
         monkeypatch.delitem(sys.modules, "onnxruntime", raising=False)
-        assert adaptateur.another_runtime_is_open() is False
+        assert adapter.another_runtime_is_open() is False
 
-    def test_the_card_is_lost_to_whoever_came_first(self, avec_carte, le_rival):
-        assert adaptateur.a_card_is_usable() is False
+    def test_the_card_is_lost_to_whoever_came_first(self, with_card, le_rival):
+        assert adapter.a_card_is_usable() is False
 
-    def test_keeping_the_place_holds_the_card(self, avec_carte, le_rival, monkeypatch):
+    def test_keeping_the_place_holds_the_card(self, with_card, le_rival, monkeypatch):
         """The rival may load afterwards: the seat is taken."""
-        monkeypatch.setattr(adaptateur, "_place_kept", True)
-        assert adaptateur.a_card_is_usable() is True
+        monkeypatch.setattr(adapter, "_place_kept", True)
+        assert adapter.a_card_is_usable() is True
 
     def test_without_a_card_nothing_is_usable(self, monkeypatch):
-        monkeypatch.setattr(adaptateur, "a_card_answers", lambda: False)
-        assert adaptateur.a_card_is_usable() is False
+        monkeypatch.setattr(adapter, "a_card_answers", lambda: False)
+        assert adapter.a_card_is_usable() is False
 
 
-class TestGarderLaPlace:
+class TestKeepingThePlace:
     @pytest.fixture(autouse=True)
-    def sans_memoire(self, monkeypatch):
+    def without_memory(self, monkeypatch):
         """The seat kept and the driver's answer are remembered: start from scratch."""
-        adaptateur.a_card_answers.cache_clear()
-        monkeypatch.setattr(adaptateur, "_place_kept", False)
+        adapter.a_card_answers.cache_clear()
+        monkeypatch.setattr(adapter, "_place_kept", False)
 
     @pytest.fixture
     def silent_sherpa(self, monkeypatch):
         """The model weighs a hundred megabytes: here the openings are counted."""
-        ouvertures = []
+        openings = []
         monkeypatch.setitem(
             sys.modules, "sherpa_onnx",
             SimpleNamespace(
                 SpeakerEmbeddingExtractorConfig=lambda **o: o,
-                SpeakerEmbeddingExtractor=lambda config: ouvertures.append(config),
+                SpeakerEmbeddingExtractor=lambda config: openings.append(config),
             ),
         )
-        monkeypatch.setattr(adaptateur, "show_to_the_loader", lambda: None)
-        return ouvertures
+        monkeypatch.setattr(adapter, "show_to_the_loader", lambda: None)
+        return openings
 
     def test_the_place_is_kept_once(self, monkeypatch, tmp_path, silent_sherpa):
-        monkeypatch.setattr(adaptateur, "a_card_answers", lambda: True)
+        monkeypatch.setattr(adapter, "a_card_answers", lambda: True)
         monkeypatch.delitem(sys.modules, "onnxruntime", raising=False)
         model = tmp_path / "empreintes.onnx"
         model.touch()
-        adaptateur.keep_the_place(model)
-        adaptateur.keep_the_place(model)
+        adapter.keep_the_place(model)
+        adapter.keep_the_place(model)
         assert len(silent_sherpa) == 1, "ouvrir deux fois coûterait une seconde pour rien"
         assert silent_sherpa[0]["provider"] == "cuda"
 
     def test_a_machine_without_a_card_keeps_nothing(self, monkeypatch, tmp_path, silent_sherpa):
-        monkeypatch.setattr(adaptateur, "a_card_answers", lambda: False)
+        monkeypatch.setattr(adapter, "a_card_answers", lambda: False)
         model = tmp_path / "empreintes.onnx"
         model.touch()
-        adaptateur.keep_the_place(model)
+        adapter.keep_the_place(model)
         assert silent_sherpa == []
 
     def test_a_missing_model_keeps_nothing(self, monkeypatch, tmp_path, silent_sherpa):
         """Before the first installation of the models, there is nothing to open."""
-        monkeypatch.setattr(adaptateur, "a_card_answers", lambda: True)
+        monkeypatch.setattr(adapter, "a_card_answers", lambda: True)
         monkeypatch.delitem(sys.modules, "onnxruntime", raising=False)
-        adaptateur.keep_the_place(tmp_path / "absent.onnx")
+        adapter.keep_the_place(tmp_path / "absent.onnx")
         assert silent_sherpa == []
 
     def test_a_model_that_refuses_does_not_stop_the_meeting(
         self, monkeypatch, tmp_path, silent_sherpa
     ):
-        monkeypatch.setattr(adaptateur, "a_card_answers", lambda: True)
+        monkeypatch.setattr(adapter, "a_card_answers", lambda: True)
         monkeypatch.delitem(sys.modules, "onnxruntime", raising=False)
         monkeypatch.setitem(
             sys.modules, "sherpa_onnx",
             SimpleNamespace(
                 SpeakerEmbeddingExtractorConfig=lambda **o: o,
-                SpeakerEmbeddingExtractor=_qui_refuse,
+                SpeakerEmbeddingExtractor=_which_refuses,
             ),
         )
         model = tmp_path / "empreintes.onnx"
         model.touch()
-        adaptateur.keep_the_place(model)
+        adapter.keep_the_place(model)
 
 
-def _qui_refuse(_config):
+def _which_refuses(_config):
     raise RuntimeError("le modèle n'a pas pu être ouvert")
 
 
-class TestLesTroisSystemes:
+class TestTheThreeSystems:
     """Every system keeps its libraries elsewhere, or has none.
 
     The NVIDIA wheels put « .so » files under « lib/ » on Linux and « .dll »
@@ -283,55 +283,55 @@ class TestLesTroisSystemes:
     """
 
     def test_windows_looks_for_its_dll(self, wheels_under_windows):
-        noms = [path.name for path in adaptateur.libraries("Windows")]
-        assert set(noms) == {"cublas64_12.dll", "cublasLt64_12.dll", "cudnn64_9.dll",
+        the_names = [path.name for path in adapter.libraries("Windows")]
+        assert set(the_names) == {"cublas64_12.dll", "cublasLt64_12.dll", "cudnn64_9.dll",
                              "cudnn_graph64_9.dll", "nvrtc64_120_0.dll",
                              "cudart64_12.dll", "cufft64_11.dll", "curand64_10.dll"}
 
     def test_windows_loads_cublaslt_before_cublas(self, wheels_under_windows):
-        noms = [path.name for path in adaptateur.libraries("Windows")]
-        assert noms.index("cublasLt64_12.dll") < noms.index("cublas64_12.dll")
+        the_names = [path.name for path in adapter.libraries("Windows")]
+        assert the_names.index("cublasLt64_12.dll") < the_names.index("cublas64_12.dll")
 
     def test_macos_has_nothing_to_load(self, wheels_in):
         """The files are there -- an untidy machine -- and still nothing."""
-        assert adaptateur.libraries("Darwin") == []
+        assert adapter.libraries("Darwin") == []
 
     def test_macos_never_answers_for_a_card(self, monkeypatch):
         """And without even trying to open a driver that does not exist."""
-        essais = []
-        monkeypatch.setattr(adaptateur, "SYSTEM", "Darwin")
-        monkeypatch.setattr(adaptateur.ctypes, "CDLL", lambda *a, **k: essais.append(a))
-        adaptateur.a_card_answers.cache_clear()
-        assert adaptateur.a_card_answers() is False
-        assert essais == []
-        adaptateur.a_card_answers.cache_clear()
+        trials = []
+        monkeypatch.setattr(adapter, "SYSTEM", "Darwin")
+        monkeypatch.setattr(adapter.ctypes, "CDLL", lambda *a, **k: trials.append(a))
+        adapter.a_card_answers.cache_clear()
+        assert adapter.a_card_answers() is False
+        assert trials == []
+        adapter.a_card_answers.cache_clear()
 
     @pytest.mark.parametrize(
-        ("system", "pilote"), [("Linux", "libcuda.so.1"), ("Windows", "nvcuda.dll")]
+        ("system", "the_driver"), [("Linux", "libcuda.so.1"), ("Windows", "nvcuda.dll")]
     )
-    def test_each_system_asks_its_own_driver(self, monkeypatch, system, pilote):
-        demandes: list[str] = []
-        monkeypatch.setattr(adaptateur, "SYSTEM", system)
+    def test_each_system_asks_its_own_driver(self, monkeypatch, system, the_driver):
+        requests: list[str] = []
+        monkeypatch.setattr(adapter, "SYSTEM", system)
         monkeypatch.setattr(
-            adaptateur.ctypes, "CDLL",
-            lambda name, **_k: (demandes.append(name), _Pilote(1))[1],
+            adapter.ctypes, "CDLL",
+            lambda name, **_k: (requests.append(name), _Driver(1))[1],
         )
-        adaptateur.a_card_answers.cache_clear()
-        assert adaptateur.a_card_answers() is True
-        assert demandes == [pilote]
-        adaptateur.a_card_answers.cache_clear()
+        adapter.a_card_answers.cache_clear()
+        assert adapter.a_card_answers() is True
+        assert requests == [the_driver]
+        adapter.a_card_answers.cache_clear()
 
     def test_windows_declares_the_folder_to_the_loader(self, monkeypatch, wheels_under_windows):
         """Without it, a DLL loaded from here does not find those it depends on."""
         declares = []
-        monkeypatch.setattr(adaptateur.os, "add_dll_directory", declares.append, raising=False)
-        monkeypatch.setattr(adaptateur.ctypes, "CDLL", lambda *_a, **_k: None)
-        adaptateur.show_to_the_loader()
+        monkeypatch.setattr(adapter.os, "add_dll_directory", declares.append, raising=False)
+        monkeypatch.setattr(adapter.ctypes, "CDLL", lambda *_a, **_k: None)
+        adapter.show_to_the_loader()
         assert {Path(d).name for d in declares} == {"bin"}
         assert len(declares) == 6, "un dossier par paquet, pas un par fichier"
 
 
-class TestLeCalculAnnonce:
+class TestTheComputationAnnounced:
     """What the diagnostic says of the computing available.
 
     « nvidia-smi is there » is not « a card answers »: a container may carry
@@ -342,16 +342,16 @@ class TestLeCalculAnnonce:
     def diagnostic(self, monkeypatch):
         from greffier.adapters import system_diagnostic
 
-        adaptateur.a_card_answers.cache_clear()
+        adapter.a_card_answers.cache_clear()
         monkeypatch.setattr(system_diagnostic, "SYSTEM", "Linux")
         return system_diagnostic
 
     def test_a_card_that_answers_is_announced(self, diagnostic, monkeypatch):
-        monkeypatch.setattr(adaptateur, "a_card_answers", lambda: True)
+        monkeypatch.setattr(adapter, "a_card_answers", lambda: True)
         assert diagnostic.speedup() == "cuda"
 
     def test_the_tool_without_the_card_is_not(self, diagnostic, monkeypatch):
-        monkeypatch.setattr(adaptateur, "a_card_answers", lambda: False)
+        monkeypatch.setattr(adapter, "a_card_answers", lambda: False)
         assert diagnostic.speedup() == "processeur"
 
     def test_apple_silicon_has_metal_and_never_asks(self, monkeypatch):
@@ -359,9 +359,9 @@ class TestLeCalculAnnonce:
 
         monkeypatch.setattr(system_diagnostic, "SYSTEM", "Darwin")
         monkeypatch.setattr(system_diagnostic.platform, "machine", lambda: "arm64")
-        monkeypatch.setattr(adaptateur, "a_card_answers", _jamais_appele)
+        monkeypatch.setattr(adapter, "a_card_answers", _never_called)
         assert system_diagnostic.speedup() == "metal"
 
 
-def _jamais_appele():
+def _never_called():
     raise AssertionError("macOS n'a pas de carte NVIDIA à interroger")

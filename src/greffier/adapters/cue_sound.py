@@ -41,7 +41,7 @@ def cue(file: Path = WEB_SEARCH) -> Callable[[], None]:
     if command is None or not file.exists():
         return lambda: None
 
-    def sonner() -> None:
+    def ring() -> None:
         # A sound that cannot be played is not a reason to lose an answer.
         with contextlib.suppress(OSError):
             subprocess.Popen(
@@ -49,4 +49,4 @@ def cue(file: Path = WEB_SEARCH) -> Callable[[], None]:
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
 
-    return sonner
+    return ring

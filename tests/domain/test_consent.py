@@ -7,7 +7,7 @@ minutes can.
 
 from greffier.domain.consent import (
     MENTIONS,
-    RAPPEL,
+    REMINDER,
     Disclosure,
     mention,
     read,
@@ -18,7 +18,7 @@ from greffier.domain.consent import (
 class TestReadingTheSetting:
     def test_the_three_states_read_back(self):
         assert read("rien") is Disclosure.NOTHING
-        assert read("annoncé") is Disclosure.ANNONCE
+        assert read("annoncé") is Disclosure.ANNOUNCEMENT
         assert read("accord") is Disclosure.AGREEMENT
 
     def test_case_and_spaces_do_not_count(self):
@@ -37,11 +37,11 @@ class TestWhatTheMinutesSay:
             assert mention(state)
 
     def test_nothing_said_is_said_plainly(self):
-        """Prétendre le contraire serait pire que de l'avouer."""
+        """Claiming otherwise would be worse than admitting it."""
         assert "n'a pas été tracée" in mention(Disclosure.NOTHING)
 
     def test_telling_them_does_not_claim_consent(self):
-        sentence = mention(Disclosure.ANNONCE)
+        sentence = mention(Disclosure.ANNOUNCEMENT)
         assert "informés" in sentence
         assert "accord" not in sentence
 
@@ -58,10 +58,10 @@ class TestWhatIsLeftToDo:
         assert to_draw(Disclosure.NOTHING) is True
 
     def test_a_recorded_notice_is_enough(self):
-        assert to_draw(Disclosure.ANNONCE) is False
+        assert to_draw(Disclosure.ANNOUNCEMENT) is False
         assert to_draw(Disclosure.AGREEMENT) is False
 
     def test_the_reminder_says_why_and_what_to_do(self):
-        aplati = " ".join(RAPPEL.split())
-        assert "donnée biométrique" in aplati
-        assert "prévenir les participants" in aplati
+        flattened = " ".join(REMINDER.split())
+        assert "donnée biométrique" in flattened
+        assert "prévenir les participants" in flattened

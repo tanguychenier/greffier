@@ -9,6 +9,7 @@ from __future__ import annotations
 import contextlib
 import os
 import platform
+import queue
 import re
 import shutil
 import subprocess
@@ -31,11 +32,11 @@ RATE = 0.95
 
 SENTENCE_ENDS = re.compile(r"(?<=[.!?…])\s+")
 
-TIRETS = re.compile(r"\s*[—–-]\s*")
+DASHES = re.compile(r"\s*[—–-]\s*")
 
 def clean(text: str) -> str:
     """What is pronounced, stripped of what is not."""
-    without_dashes = TIRETS.sub(", ", text)
+    without_dashes = DASHES.sub(", ", text)
     return re.sub(r"\s+", " ", without_dashes).strip()
 
 def sentences(text: str, maximum: int = 240) -> list[str]:
@@ -59,6 +60,31 @@ def sentences(text: str, maximum: int = 240) -> list[str]:
             chunks.append(current)
     return chunks
 
+#: How long the voice waits for the next sentence before checking it was not
+#: cut in the meantime.
+WAIT_FOR_WORDS_S = 0.2
+
+#: A remark whose next sentence does not come within this is over: the model
+#: gave up long before (`brain_claude.TURN_TIMEOUT`), and a voice waiting
+#: for ever would refuse every remark after it.
+PATIENCE_S = 90.0
+
+
+class Mouth:
+    """Where the sentences of one remark go, in the order they are spoken."""
+
+    def __init__(self, pending: queue.Queue[str | None]) -> None:
+        self._pending = pending
+
+    def add(self, text: str) -> None:
+        for chunk in sentences(text):
+            self._pending.put(chunk)
+
+    def close(self) -> None:
+        """The remark is complete: the voice stops once the queue is empty."""
+        self._pending.put(None)
+
+
 def player() -> list[str] | None:
     """The command that plays a wav file, according to the system."""
     if SYSTEM == "Darwin" and shutil.which("afplay"):
@@ -76,17 +102,17 @@ def player() -> list[str] | None:
 def _without_chatter() -> Iterator[None]:
     """Muffles what the native library writes to standard error."""
     try:
-        copie = os.dup(2)
+        copy_ = os.dup(2)
     except OSError:
         yield
         return
     try:
-        with open(os.devnull, "w") as puits:
-            os.dup2(puits.fileno(), 2)
+        with open(os.devnull, "w") as sink:
+            os.dup2(sink.fileno(), 2)
         yield
     finally:
-        os.dup2(copie, 2)
-        os.close(copie)
+        os.dup2(copy_, 2)
+        os.close(copy_)
 
 _OPENED: dict[tuple[str, str, str, int], Any] = {}
 
@@ -96,19 +122,20 @@ class NeuralVoice:
     """Pronounces a text with a neural voice, locally."""
 
     def __init__(self, folder: Path, language: str = "fr", voice: int = FRENCH_VOICE,
-                 rate: float = RATE, fils: int = 4,
+                 rate: float = RATE, threads: int = 4,
                  gag: Path | None = None, device: str = AUTO) -> None:
         self.gag = Path(gag) if gag else None
         self.folder = Path(folder)
         self.language = language
         self.voice = voice
         self.rate = rate
-        self.fils = fils
+        self.threads = threads
         self.device = device
         self._engine = None
-        self._verrou = threading.Lock()
+        self._lock = threading.Lock()
         self._reading: subprocess.Popen[bytes] | None = None
-        self._interrompu = threading.Event()
+        self._interrupted = threading.Event()
+        self._busy = threading.Event()
 
     @property
     def installed(self) -> bool:
@@ -131,7 +158,7 @@ class NeuralVoice:
         if self._engine is not None:
             return self._engine
         where = chosen_device(self.device, cuda.a_card_is_usable())
-        clef = (str(self.folder), self.language, where, self.fils)
+        clef = (str(self.folder), self.language, where, self.threads)
         with _TURN:
             ready = _OPENED.get(clef)
             if ready is None:
@@ -154,7 +181,7 @@ class NeuralVoice:
             cuda.show_to_the_loader()
         import sherpa_onnx
 
-        commun = {
+        shared_one = {
             "tokens": str(self.folder / "tokens.txt"),
             "data_dir": str(self.folder / "espeak-ng-data"),
         }
@@ -162,16 +189,16 @@ class NeuralVoice:
             model = sherpa_onnx.OfflineTtsModelConfig(
                 kokoro=sherpa_onnx.OfflineTtsKokoroModelConfig(
                     model=str(self._network), voices=str(self._voice_table),
-                    lang=ESPEAK_LANGUAGE.get(self.language, self.language), **commun,
+                    lang=ESPEAK_LANGUAGE.get(self.language, self.language), **shared_one,
                 ),
-                num_threads=self.fils,
+                num_threads=self.threads,
                 provider=where,
             )
         else:
             model = sherpa_onnx.OfflineTtsModelConfig(
                 vits=sherpa_onnx.OfflineTtsVitsModelConfig(
-                    model=str(self._network), **commun),
-                num_threads=self.fils,
+                    model=str(self._network), **shared_one),
+                num_threads=self.threads,
                 provider=where,
             )
         configuration = sherpa_onnx.OfflineTtsConfig(model=model)
@@ -191,7 +218,7 @@ class NeuralVoice:
             return expected
         return next(iter(sorted(self.folder.glob("*.onnx"))), expected)
 
-    def fabriquer(self, text: str, destination: Path) -> Path | None:
+    def build_one(self, text: str, destination: Path) -> Path | None:
         """Writes the spoken text into a file, without playing it."""
         import soundfile
 
@@ -215,33 +242,61 @@ class NeuralVoice:
         is never what was wanted; the room already got an answer.
         """
         chunks = sentences(text)
-        if not chunks or not self.available:
+        if not chunks:
             return False
-        if self.is_speaking():
+        mouth = self.begin()
+        if mouth is None:
             return False
-        self._interrompu.clear()
-        threading.Thread(target=self._pronounce, args=(chunks,), daemon=True).start()
+        for chunk in chunks:
+            mouth.add(chunk)
+        mouth.close()
         return True
 
-    def _pronounce(self, chunks: list[str]) -> None:
+    def begin(self) -> Mouth | None:
+        """A remark said as its sentences come, the model still writing.
+
+        Nothing when the voice is not there or already speaking: the caller
+        then keeps the remark, as `say` would have refused it.
+        """
+        if not self.available or self.is_speaking():
+            return None
+        self._interrupted.clear()
+        self._busy.set()
+        pending: queue.Queue[str | None] = queue.Queue()
+        threading.Thread(target=self._pronounce, args=(pending,), daemon=True).start()
+        return Mouth(pending)
+
+    def _pronounce(self, pending: queue.Queue[str | None]) -> None:
         import soundfile
 
-        with tempfile.TemporaryDirectory() as folder:
-            for rank, chunk in enumerate(chunks):
-                if self._interrompu.is_set():
-                    return
-                try:
-                    with _without_chatter():
-                        rendered = self._load().generate(
-                            chunk, sid=self.voice, speed=self.rate)
-                except (RuntimeError, OSError):
-                    return
-                if len(rendered.samples) == 0:
-                    continue
-                file = Path(folder) / f"{rank}.wav"
-                soundfile.write(str(file), rendered.samples, rendered.sample_rate)
-                if not self._play(file):
-                    return
+        try:
+            with tempfile.TemporaryDirectory() as folder:
+                rank = 0
+                waited = 0.0
+                while not self._interrupted.is_set() and waited < PATIENCE_S:
+                    try:
+                        chunk = pending.get(timeout=WAIT_FOR_WORDS_S)
+                    except queue.Empty:
+                        waited += WAIT_FOR_WORDS_S
+                        continue
+                    waited = 0.0
+                    if chunk is None:
+                        return
+                    try:
+                        with _without_chatter():
+                            rendered = self._load().generate(
+                                chunk, sid=self.voice, speed=self.rate)
+                    except (RuntimeError, OSError):
+                        return
+                    if len(rendered.samples) == 0:
+                        continue
+                    file = Path(folder) / f"{rank}.wav"
+                    rank += 1
+                    soundfile.write(str(file), rendered.samples, rendered.sample_rate)
+                    if not self._play(file):
+                        return
+        finally:
+            self._busy.clear()
 
     def _play(self, file: Path) -> bool:
         """Plays a file and waits for it. False when it was cut."""
@@ -253,8 +308,8 @@ class NeuralVoice:
             if command[0] == "powershell" else [*command, str(file)]
         )
         try:
-            with self._verrou:
-                if self._interrompu.is_set():
+            with self._lock:
+                if self._interrupted.is_set():
                     return False
                 self._reading = subprocess.Popen(
                     command, stdin=subprocess.DEVNULL,
@@ -266,9 +321,9 @@ class NeuralVoice:
         finally:
             self._publish_the_gag(None)
         if code is not None and code < 0:
-            self._interrompu.set()
+            self._interrupted.set()
             return False
-        return not self._interrompu.is_set()
+        return not self._interrupted.is_set()
 
     def _publish_the_gag(self, pid: int | None) -> None:
         """Tells whoever wants to cut which process is playing the sound."""
@@ -282,7 +337,15 @@ class NeuralVoice:
                 self.gag.write_text(str(pid), encoding="utf-8")
 
     def is_speaking(self) -> bool:
-        with self._verrou:
+        """True from the first sentence handed over to the last one played.
+
+        The gaps count: between two sentences the voice is rendering the
+        next one, or waiting for the model to finish it, and a remark that
+        started then would cut this one short.
+        """
+        if self._busy.is_set():
+            return True
+        with self._lock:
             return self._reading is not None and self._reading.poll() is None
 
     def go_quiet(self) -> None:
@@ -291,8 +354,8 @@ class NeuralVoice:
         Measured at 26 ms. Cutting only the current sentence let the next one resume,
         which reads as a button that does not work.
         """
-        self._interrompu.set()
-        with self._verrou:
+        self._interrupted.set()
+        with self._lock:
             reading, self._reading = self._reading, None
         if reading is not None and reading.poll() is None:
             reading.terminate()

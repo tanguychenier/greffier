@@ -34,7 +34,7 @@ def add(file: Path, who: str, text: str) -> None:
                 ensure_ascii=False,
             ) + "\n")
 
-def read(file: Path, derniers: int = TURNS_REREAD) -> list[Exchange]:
+def read(file: Path, last_ones: int = TURNS_REREAD) -> list[Exchange]:
     """The last turns of the conversation, oldest first."""
     if not file.exists():
         return []
@@ -57,4 +57,4 @@ def read(file: Path, derniers: int = TURNS_REREAD) -> list[Exchange]:
                 text=str(line["texte"]),
                 when=when,
             ))
-    return turns[-derniers:] if derniers > 0 else turns
+    return turns[-last_ones:] if last_ones > 0 else turns

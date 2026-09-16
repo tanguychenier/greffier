@@ -23,7 +23,7 @@ SYSTEM = platform.system()
 
 #: A sentence, not a speech. Past this the recording stops on its own: a key
 #: held down by a book on a desk must not fill a disk.
-SECONDES_MAXIMUM = 120
+MAXIMUM_SECONDS = 120
 
 
 def _input(device: str) -> list[str]:
@@ -38,7 +38,7 @@ def _input(device: str) -> list[str]:
 class Dictation:
     """One sentence, from the press to the release."""
 
-    def __init__(self, device: str = "", maximum: int = SECONDES_MAXIMUM) -> None:
+    def __init__(self, device: str = "", maximum: int = MAXIMUM_SECONDS) -> None:
         self.device = device
         self.maximum = maximum
         self._process: subprocess.Popen[bytes] | None = None

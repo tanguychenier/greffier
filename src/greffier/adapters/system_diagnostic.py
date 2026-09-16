@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from greffier.domain.recorder import (
-    DISQUE_NECESSAIRE_GO,
+    DISK_NEEDED_GB,
     Diagnostic,
     Reading,
     Recorder,
@@ -33,9 +33,9 @@ def memory_gb() -> float:
             output = subprocess.run(
                 ["wmic", "computersystem", "get", "TotalPhysicalMemory"],
                 capture_output=True, text=True, check=False).stdout
-            chiffres = [m for m in output.split() if m.isdigit()]
-            if chiffres:
-                return int(chiffres[0]) / 1024**3
+            digits = [m for m in output.split() if m.isdigit()]
+            if digits:
+                return int(digits[0]) / 1024**3
     except (OSError, ValueError, subprocess.SubprocessError):
         pass
     return 0.0
@@ -65,14 +65,14 @@ def recorder(data_folder: Path | None = None) -> Recorder:
     while not target.exists() and target.parent != target:
         target = target.parent
     try:
-        libre = shutil.disk_usage(target).free / 1024**3
+        free_space = shutil.disk_usage(target).free / 1024**3
     except OSError:
-        libre = 0.0
+        free_space = 0.0
     return Recorder(
         system=SYSTEM,
         architecture=platform.machine(),
         memory_gb=round(memory_gb(), 1),
-        disque_libre_go=round(libre, 1),
+        free_disk_gb=round(free_space, 1),
         speedup=speedup(),
     )
 
@@ -101,12 +101,12 @@ def claude_signed_in() -> bool:
 class ClaudeAccount:
     """Who writes, as seen from the machine."""
 
-    adresse: str
+    address: str
     organisation: str
-    formule: str
+    phrasing: str
 
     def __str__(self) -> str:
-        chunks = [m for m in (self.adresse, self.organisation) if m]
+        chunks = [m for m in (self.address, self.organisation) if m]
         return " · ".join(chunks) if chunks else "session ouverte"
 
 def claude_account() -> ClaudeAccount | None:
@@ -120,9 +120,9 @@ def claude_account() -> ClaudeAccount | None:
     if not (count or content.get("userID")):
         return None
     return ClaudeAccount(
-        adresse=str(count.get("emailAddress") or ""),
+        address=str(count.get("emailAddress") or ""),
         organisation=str(count.get("organizationName") or ""),
-        formule=str(count.get("seatTier") or count.get("billingType") or ""),
+        phrasing=str(count.get("seatTier") or count.get("billingType") or ""),
     )
 
 CLAUDE_INSTALL_COMMAND = {
@@ -146,7 +146,7 @@ def system_capture() -> Reading:
             name="Capture du son des autres participants",
             present=present,
             detail="BlackHole installé" if present else "BlackHole absent",
-            remede="brew install --cask blackhole-2ch && sudo killall coreaudiod",
+            remedy="brew install --cask blackhole-2ch && sudo killall coreaudiod",
         )
     if SYSTEM == "Linux":
         present = sound_server_present()
@@ -154,7 +154,7 @@ def system_capture() -> Reading:
             name="Capture du son des autres participants",
             present=present,
             detail="moniteur PipeWire/PulseAudio" if present else "aucun serveur de son",
-            remede="installe « pipewire-pulse » ou « pulseaudio »",
+            remedy="installe « pipewire-pulse » ou « pulseaudio »",
         )
     return Reading(
         name="Capture du son des autres participants",
@@ -177,33 +177,33 @@ def mic_present() -> Reading:
         present = True
         detail = "supposé présent"
     return Reading(name="Micro", present=present, detail=detail,
-                   remede="branche un micro ou un casque", bloquant=True)
+                   remedy="branche un micro ou un casque", is_blocking=True)
 
 def models_present(data_folder: Path | None = None) -> Reading:
     """The models the chain loads, which no meeting starts without."""
     from greffier.adapters.model_files import missing, weight
-    from greffier.locations import data_folder as ou
+    from greffier.locations import data_folder as where_
 
-    folder = (data_folder or ou()) / "modeles"
+    folder = (data_folder or where_()) / "modeles"
     engine = "whisper.cpp" if SYSTEM == "Darwin" else "faster-whisper"
     absent = missing(folder, engine)
     if not absent:
         return Reading(name="Modèles", present=True,
                        detail="transcription, voix et diarisation en place")
-    noms = ", ".join(m.role for m in absent)
+    the_names = ", ".join(m.role for m in absent)
     return Reading(
         name="Modèles", present=False,
-        detail=f"{len(absent)} manquant(s) : {noms}, {weight(absent)} à télécharger",
-        remede="python3 tools/install.py",
-        bloquant=any(m.required for m in absent),
+        detail=f"{len(absent)} manquant(s) : {the_names}, {weight(absent)} à télécharger",
+        remedy="python3 tools/install.py",
+        is_blocking=any(m.required for m in absent),
     )
 
 def known_voices(data_folder: Path | None = None) -> Reading:
     """How many people the bank already recognises without being told."""
     from greffier.adapters.voice_bank_files import FileVoiceBank
-    from greffier.locations import data_folder as ou
+    from greffier.locations import data_folder as where_
 
-    folder = (data_folder or ou()) / "banque-de-voix"
+    folder = (data_folder or where_()) / "banque-de-voix"
     if not folder.exists():
         return Reading(name="Banque de voix", present=True,
                        detail="vide : les voix se nomment en réunion")
@@ -211,7 +211,7 @@ def known_voices(data_folder: Path | None = None) -> Reading:
         known = FileVoiceBank(folder).people()
     except (OSError, ValueError) as trouble:
         return Reading(name="Banque de voix", present=False, detail=str(trouble),
-                       remede="vérifie les droits sur le dossier banque-de-voix")
+                       remedy="vérifie les droits sur le dossier banque-de-voix")
     if not known:
         return Reading(name="Banque de voix", present=True,
                        detail="vide : les voix se nomment en réunion")
@@ -221,38 +221,38 @@ def known_voices(data_folder: Path | None = None) -> Reading:
 def examine(data_folder: Path | None = None) -> Diagnostic:
     """Everything worth knowing before configuring the tool."""
     infos = recorder(data_folder)
-    constats = [
+    readings = [
         Reading(
             name="ffmpeg", present=shutil.which("ffmpeg") is not None,
             detail="enregistrement et conversion audio",
-            remede="brew install ffmpeg" if SYSTEM == "Darwin" else "installe ffmpeg",
-            bloquant=True,
+            remedy="brew install ffmpeg" if SYSTEM == "Darwin" else "installe ffmpeg",
+            is_blocking=True,
         ),
         mic_present(),
         system_capture(),
         Reading(
             name="Claude Code", present=claude_installed(),
             detail=claude_version() or "absent",
-            remede=CLAUDE_INSTALL_COMMAND.get(SYSTEM, ""),
+            remedy=CLAUDE_INSTALL_COMMAND.get(SYSTEM, ""),
         ),
         Reading(
             name="Session Claude", present=claude_signed_in(),
             detail="authentifiée" if claude_signed_in() else "jamais connectée",
-            remede="lance « claude » une fois et connecte-toi",
+            remedy="lance « claude » une fois et connecte-toi",
         ),
         Reading(
             name="Mémoire vive", present=infos.supports_large_model,
             detail=f"{infos.memory_gb:.0f} Go, modèle conseillé : {infos.advised_model}",
-            remede="un modèle plus petit sera utilisé, la transcription sera moins fine",
+            remedy="un modèle plus petit sera utilisé, la transcription sera moins fine",
         ),
         Reading(
-            name="Espace disque", present=infos.disque_libre_go >= DISQUE_NECESSAIRE_GO,
-            detail=(f"{infos.disque_libre_go:.0f} Go libres, "
-                    f"{DISQUE_NECESSAIRE_GO:.0f} Go nécessaires"),
-            remede="libère de la place avant de télécharger les modèles",
-            bloquant=True,
+            name="Espace disque", present=infos.free_disk_gb >= DISK_NEEDED_GB,
+            detail=(f"{infos.free_disk_gb:.0f} Go libres, "
+                    f"{DISK_NEEDED_GB:.0f} Go nécessaires"),
+            remedy="libère de la place avant de télécharger les modèles",
+            is_blocking=True,
         ),
         models_present(data_folder),
         known_voices(data_folder),
     ]
-    return Diagnostic(recorder=infos, constats=constats)
+    return Diagnostic(recorder=infos, readings=readings)

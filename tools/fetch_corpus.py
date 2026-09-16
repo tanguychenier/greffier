@@ -45,12 +45,15 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from greffier.locations import data_folder  # noqa: E402
 
-#: The two SUMM-RE meetings kept: four people each, recorded in person at the
-#: H2C2 studio, one a reporting meeting and one a planning meeting, each held
-#: in a single parquet file of the `dev` split so that one download is enough.
+#: The SUMM-RE meetings kept: four people each, recorded in person at the
+#: H2C2 studio, a reporting meeting and a planning meeting, each held in a
+#: single parquet file of the `dev` split so that one download is enough.
+#: 032b is the decision meeting of the same series as 032a, the same four
+#: people a second time: what the voice bank is measured on.
 SUMMRE_REPOSITORY = "linagora/SUMM-RE"
 SUMMRE_MEETINGS = {
     "032a_EARH": "data/dev/dev-00009-of-00029.parquet",
+    "032b_EADH": "data/dev/dev-00010-of-00029.parquet",
     "036c_EAPH": "data/dev/dev-00015-of-00029.parquet",
 }
 SUMMRE_LICENCE = "CC BY-SA 4.0, LINAGORA and LPL Aix-Marseille (ANR-20-CE23-0017)"

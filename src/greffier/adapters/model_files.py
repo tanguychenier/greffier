@@ -20,13 +20,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-TELECHARGEMENT = 1800.0
+DOWNLOAD = 1800.0
 """Seconds allowed for one model. A 1.5 GB file on a slow line takes a while."""
 
 CHUNK = 1 << 20
 """Read size. A megabyte keeps the progress smooth without thrashing."""
 
-REQUIS_PARTOUT = "voix"
+REQUIRED_EVERYWHERE = "voix"
 """The voice is fetched on every system, and that is a decision.
 
 It is the part people hear, and it has to sound the same on macOS, Linux and
@@ -138,7 +138,7 @@ def weight(models: list[Model]) -> str:
 
 def fetch(
     model: Model, folder: Path, progress: Callable[[int, int], None] | None = None,
-    delai: float = TELECHARGEMENT,
+    delay: float = DOWNLOAD,
 ) -> tuple[bool, str]:
     """Fetches one model into the folder. Never raises.
 
@@ -148,68 +148,68 @@ def fetch(
     """
     target = model.target(folder)
     target.parent.mkdir(parents=True, exist_ok=True)
-    partiel = target.with_suffix(target.suffix + ".partiel")
-    requete = urllib.request.Request(model.url, headers={"User-Agent": "Greffier"})
+    partial = target.with_suffix(target.suffix + ".partiel")
+    the_request = urllib.request.Request(model.url, headers={"User-Agent": "Greffier"})
     try:
-        with urllib.request.urlopen(requete, timeout=delai) as stream:
+        with urllib.request.urlopen(the_request, timeout=delay) as stream:
             total = int(stream.headers.get("Content-Length") or 0)
-            recu = 0
-            with partiel.open("wb") as output:
+            received = 0
+            with partial.open("wb") as output:
                 while chunk := stream.read(CHUNK):
                     output.write(chunk)
-                    recu += len(chunk)
+                    received += len(chunk)
                     if progress is not None:
-                        progress(recu, total)
+                        progress(received, total)
     except (urllib.error.URLError, TimeoutError):
-        partiel.unlink(missing_ok=True)
+        partial.unlink(missing_ok=True)
         return (False, "pas de réseau")
-    except OSError as souci:
-        partiel.unlink(missing_ok=True)
-        return (False, str(souci))
+    except OSError as the_trouble:
+        partial.unlink(missing_ok=True)
+        return (False, str(the_trouble))
 
     if not model.archive:
-        partiel.replace(target)
+        partial.replace(target)
         return (True, str(target))
-    result = _deballer(partiel, model, folder)
-    partiel.unlink(missing_ok=True)
+    result = _unpack(partial, model, folder)
+    partial.unlink(missing_ok=True)
     return result
 
 
-def _deballer(archive: Path, model: Model, folder: Path) -> tuple[bool, str]:
+def _unpack(archive: Path, model: Model, folder: Path) -> tuple[bool, str]:
     """Opens an archive and puts its folder where the tool expects it."""
     atelier = folder / f".{model.target(folder).name}.atelier"
     with contextlib.suppress(OSError):
         if atelier.exists():
-            _effacer(atelier)
+            _erase(atelier)
     try:
         atelier.mkdir(parents=True, exist_ok=True)
-        with tarfile.open(archive) as boite:
-            boite.extractall(atelier, filter="data")
-    except (OSError, tarfile.TarError) as souci:
-        _effacer(atelier)
-        return (False, str(souci))
+        with tarfile.open(archive) as box:
+            box.extractall(atelier, filter="data")
+    except (OSError, tarfile.TarError) as the_trouble:
+        _erase(atelier)
+        return (False, str(the_trouble))
 
-    dedans = [p for p in atelier.iterdir() if p.is_dir()]
-    venu = next((p for p in dedans if p.name == model.folder), None) or (
-        dedans[0] if dedans else None
+    inside = [p for p in atelier.iterdir() if p.is_dir()]
+    came = next((p for p in inside if p.name == model.folder), None) or (
+        inside[0] if inside else None
     )
-    if venu is None:
-        _effacer(atelier)
+    if came is None:
+        _erase(atelier)
         return (False, "archive vide")
     target = model.target(folder)
     with contextlib.suppress(OSError):
         if target.exists():
-            _effacer(target)
+            _erase(target)
     try:
-        venu.replace(target)
-    except OSError as souci:
-        _effacer(atelier)
-        return (False, str(souci))
-    _effacer(atelier)
+        came.replace(target)
+    except OSError as the_trouble:
+        _erase(atelier)
+        return (False, str(the_trouble))
+    _erase(atelier)
     return (True, str(target))
 
 
-def _effacer(path: Path) -> None:
+def _erase(path: Path) -> None:
     import shutil
 
     with contextlib.suppress(OSError):
@@ -225,7 +225,10 @@ def _effacer(path: Path) -> None:
 #: drop-down list is not the moment for that.
 DEPOTS = {
     "large-v3": "Systran/faster-whisper-large-v3",
-    "large-v3-turbo": "deepdml/faster-whisper-large-v3-turbo-ct2",
+    # The repository faster-whisper itself resolves the name to: with another
+    # one here, `downloaded` looked in the wrong place, said no, and the live
+    # thread silently stayed on the large model.
+    "large-v3-turbo": "mobiuslabsgmbh/faster-whisper-large-v3-turbo",
     "large-v2": "Systran/faster-whisper-large-v2",
     "medium": "Systran/faster-whisper-medium",
     "small": "Systran/faster-whisper-small",

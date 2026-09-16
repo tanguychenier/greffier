@@ -15,8 +15,9 @@
 # - **Windows**: a folder with an .exe, by PyInstaller. Never run on a real
 #   Windows machine as these lines are written: what this workflow proves is
 #   that it builds and that it starts on the runner.
-# - **Linux**: the source tree and its installer. An AppImage would be handier,
-#   and is still to be done.
+# - **Linux**: the source tree and its installer, and an AppImage: one file
+#   to download, mark executable and double-click, built by
+#   `tools/build_appimage.py` and run on `--version` on the runner.
 name: Release
 
 on:
@@ -93,7 +94,7 @@ jobs:
           pyinstaller --noconfirm --name Greffier --windowed `
             --collect-all sherpa_onnx --collect-all soundfile `
             --collect-submodules greffier --collect-data greffier `
-            tools/windows_launcher.py
+            tools/launcher.py
       - name: It starts
         # A `--windowed` executable detaches from the terminal and returns at
         # once, so calling it directly reports its launcher's exit code and
@@ -133,4 +134,32 @@ jobs:
         uses: ./.github/actions/attach-to-release
         with:
           file: Greffier-linux.tar.gz
+
+  appimage:
+    name: Linux AppImage
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Dependencies
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q libfuse2 python3-tk
+          python -m pip install -q -e ".[transcription]"
+          python -m pip install -q pyinstaller
+      - name: Build, then run it on --version
+        # The same PyInstaller command as the Windows executable, wrapped by
+        # appimagetool; `--check` runs the result, the only check a runner
+        # without a screen allows. Opened on a virtual screen on 2026-09-16.
+        run: python3 tools/build_appimage.py --check
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Greffier-appimage
+          path: dist/Greffier-x86_64.AppImage
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: ./.github/actions/attach-to-release
+        with:
+          file: dist/Greffier-x86_64.AppImage
           token: ${{ github.token }}

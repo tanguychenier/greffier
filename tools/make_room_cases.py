@@ -32,10 +32,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 #: Mesuré : a voice 18 dB down is what somebody sitting back from the table
 #: gives, and it used to cost 0.05 of similarity to their own voice, enough to
 #: make them a second person.
-RECUL_DB = -18.0
+DISTANCE_DB = -18.0
 
 #: A meeting room with air conditioning sits around 20 dB of signal to noise.
-RAPPORT_BRUIT_DB = 20.0
+NOISE_RATIO_DB = 20.0
 
 
 def _lire(path: Path) -> tuple[np.ndarray, int]:
@@ -43,7 +43,7 @@ def _lire(path: Path) -> tuple[np.ndarray, int]:
     return data, hz
 
 
-def loin(source: Path, destination: Path, db: float = RECUL_DB) -> Path:
+def loin(source: Path, destination: Path, db: float = DISTANCE_DB) -> Path:
     """The second half quieter, as if one voice had moved away."""
     data, hz = _lire(source)
     milieu = len(data) // 2
@@ -53,13 +53,13 @@ def loin(source: Path, destination: Path, db: float = RECUL_DB) -> Path:
     return destination
 
 
-def bruit(source: Path, destination: Path, rapport_db: float = RAPPORT_BRUIT_DB) -> Path:
+def noise(source: Path, destination: Path, rapport_db: float = NOISE_RATIO_DB) -> Path:
     """A steady background, at a stated signal-to-noise ratio."""
     data, hz = _lire(source)
-    puissance = float(np.mean(data ** 2)) or 1e-12
-    ampleur = float(np.sqrt(puissance / (10 ** (rapport_db / 10))))
-    tirage = np.random.default_rng(11)
-    output_ = data + tirage.normal(0, ampleur, data.shape).astype("float32")
+    power = float(np.mean(data ** 2)) or 1e-12
+    extent = float(np.sqrt(power / (10 ** (rapport_db / 10))))
+    draw = np.random.default_rng(11)
+    output_ = data + draw.normal(0, extent, data.shape).astype("float32")
     sf.write(destination, np.clip(output_, -1.0, 1.0), hz)
     return destination
 
@@ -68,7 +68,7 @@ def bruit(source: Path, destination: Path, rapport_db: float = RAPPORT_BRUIT_DB)
 #: dialogue rather than cut out of the audio: a voice that holds six seconds in
 #: an hour is the case the chain used to turn into a person of its own, and it
 #: has to be a real second timbre for the test to mean anything.
-TARD = [
+LATE = [
     ("A", "Nous avons fait le tour du calendrier de la recette, des deux anomalies "
           "remontées lundi, et de la procédure de retour arrière."),
     ("A", "La préproduction est en place depuis vendredi, sans aucun incident sur "
@@ -79,7 +79,7 @@ TARD = [
 ]
 
 
-def tard(source: Path, destination: Path) -> Path:
+def late(source: Path, destination: Path) -> Path:
     """A voice that says one sentence, at the very end.
 
     Built from its own dialogue and not cut out of the audio: what is being
@@ -88,31 +88,31 @@ def tard(source: Path, destination: Path) -> Path:
     """
     from make_meeting import make
 
-    return make(destination, dialogue=TARD)
+    return make(destination, dialogue=LATE)
 
 
 def ensemble(source: Path, destination: Path, part: float = 0.3) -> Path:
     """Two people over each other, for a stretch of the meeting."""
     data, hz = _lire(source)
     start = int(len(data) * 0.35)
-    longueur = int(len(data) * part)
+    length = int(len(data) * part)
     output_ = data.copy()
-    other = data[:longueur] * 0.8
-    end = min(start + longueur, len(output_))
+    other = data[:length] * 0.8
+    end = min(start + length, len(output_))
     output_[start:end] += other[: end - start]
     sf.write(destination, np.clip(output_, -1.0, 1.0), hz)
     return destination
 
 
-CAS = {"loin": loin, "bruit": bruit, "tard": tard, "ensemble": ensemble}
+CASES = {"loin": loin, "bruit": noise, "tard": late, "ensemble": ensemble}
 
 
 def main() -> int:
-    analyseur = argparse.ArgumentParser(description=__doc__)
-    analyseur.add_argument("sortie", type=Path)
-    analyseur.add_argument("--cas", choices=sorted(CAS))
-    analyseur.add_argument("--source", type=Path)
-    read_ = analyseur.parse_args()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("sortie", type=Path)
+    parser.add_argument("--cas", choices=sorted(CASES))
+    parser.add_argument("--source", type=Path)
+    read_ = parser.parse_args()
 
     read_.output_.mkdir(parents=True, exist_ok=True)
     source = read_.source
@@ -120,10 +120,10 @@ def main() -> int:
         from make_meeting import make
 
         source = make(read_.output_ / "propre.wav")
-    for name, fabrique in sorted(CAS.items()):
-        if read_.cas and name != read_.cas:
+    for name, makes in sorted(CASES.items()):
+        if read_.case and name != read_.case:
             continue
-        path = fabrique(source, read_.output_ / f"{name}.wav")
+        path = makes(source, read_.output_ / f"{name}.wav")
         print(f"{name:9} {path}")
     return 0
 

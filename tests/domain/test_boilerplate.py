@@ -105,7 +105,7 @@ class TestTheTranscriberLoop:
         assert len(collapse_loops(self._loop(11))) == 1
 
     def test_the_kept_sentence_covers_the_whole_run(self):
-        """Le passage a bien duré onze secondes : l'horodatage doit le dire."""
+        """The passage did last eleven seconds: the timestamp must say so."""
         kept_one = collapse_loops(self._loop(11))[0]
         assert (kept_one.span.start, kept_one.span.end) == (30.0, 41.0)
 
@@ -122,41 +122,41 @@ class TestTheTranscriberLoop:
         Three segments glued together fold up; the one arriving after the silence
         stays a sentence of its own, because it was said on its own.
         """
-        dites = [
+        said_ones = [
             Utterance(span=Span(0.0, 1.0), text="tu m'entends ?"),
             Utterance(span=Span(1.0, 2.0), text="tu m'entends ?"),
             Utterance(span=Span(2.0, 3.0), text="tu m'entends ?"),
             Utterance(span=Span(9.0, 10.0), text="tu m'entends ?"),
         ]
-        gardees = collapse_loops(dites)
-        assert len(gardees) == 2
-        assert (gardees[0].span.start, gardees[0].span.end) == (0.0, 3.0)
-        assert gardees[1].span.start == 9.0
+        kept_ones = collapse_loops(said_ones)
+        assert len(kept_ones) == 2
+        assert (kept_ones[0].span.start, kept_ones[0].span.end) == (0.0, 3.0)
+        assert kept_ones[1].span.start == 9.0
 
     def test_two_loops_in_a_row_are_two_sentences(self):
-        dites = self._loop(4) + [
+        said_ones = self._loop(4) + [
             Utterance(span=Span(34.0 + i, 35.0 + i), text="Je vais vous créer la vache.")
             for i in range(4)
         ]
-        gardees = collapse_loops(dites)
-        assert len(gardees) == 2
-        assert gardees[0].text != gardees[1].text
+        kept_ones = collapse_loops(said_ones)
+        assert len(kept_ones) == 2
+        assert kept_ones[0].text != kept_ones[1].text
 
     def test_case_and_accents_do_not_make_two_sentences(self):
-        dites = [
+        said_ones = [
             Utterance(span=Span(0.0, 1.0), text="Voilà."),
             Utterance(span=Span(1.0, 2.0), text="voila"),
             Utterance(span=Span(2.0, 3.0), text="VOILÀ !"),
         ]
-        assert len(collapse_loops(dites)) == 1
+        assert len(collapse_loops(said_ones)) == 1
 
     def test_an_ordinary_conversation_is_untouched(self):
-        dites = [
+        said_ones = [
             Utterance(span=Span(0.0, 3.0), text="on cale la recette jeudi"),
             Utterance(span=Span(3.0, 6.0), text="d'accord, je prévois les tests"),
             Utterance(span=Span(6.0, 9.0), text="et la mise en prod lundi"),
         ]
-        assert collapse_loops(dites) == dites
+        assert collapse_loops(said_ones) == said_ones
 
     def test_an_empty_or_short_list_breaks_nothing(self):
         assert collapse_loops([]) == []

@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from greffier.domain.board import content_words, key
 
-MENTIONS_MINIMALES = 3
+MINIMUM_MENTIONS = 3
 
 @dataclass(frozen=True, slots=True)
 class Subject:
@@ -47,11 +47,11 @@ class Registry:
                 present[subject.name] = total
         return present
 
-    def subjects_of(self, text: str, minimum: int = MENTIONS_MINIMALES) -> list[str]:
+    def subjects_of(self, text: str, minimum: int = MINIMUM_MENTIONS) -> list[str]:
         """The subjects actually discussed, most present first."""
         accounts = self.count_them(text)
-        retenus = [(name, count) for name, count in accounts.items() if count >= minimum]
-        return [name for name, _ in sorted(retenus, key=lambda pair: -pair[1])]
+        retained_ones = [(name, count) for name, count in accounts.items() if count >= minimum]
+        return [name for name, _ in sorted(retained_ones, key=lambda pair: -pair[1])]
 
 def _count_without_overlap(
     words: list[str], forms_of_address: tuple[str, ...]
@@ -67,14 +67,14 @@ def _count_without_overlap(
     total = 0
     position = 0
     while position < len(words):
-        trouvee = next(
+        found_one = next(
             (suite for suite in suites
              if words[position:position + len(suite)] == suite),
             None,
         )
-        if trouvee is None:
+        if found_one is None:
             position += 1
             continue
         total += 1
-        position += len(trouvee)
+        position += len(found_one)
     return total

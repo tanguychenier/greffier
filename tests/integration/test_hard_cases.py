@@ -21,7 +21,7 @@ import pytest
 from greffier.adapters.configuration import Config
 from greffier.application.name_voice import voices_to_name
 from greffier.application.process import Chain
-from greffier.application.process import _as_stored_meeting as depuis_resultat
+from greffier.application.process import _as_stored_meeting as from_result
 from tests.integration.prerequisites import (
     transcription_is_out_of_reach,
     voices_are_out_of_reach,
@@ -36,19 +36,19 @@ pytestmark = pytest.mark.integration
 @pytest.fixture(scope="session")
 def config() -> Config:
     configuration = Config()
-    hors_de_portee = transcription_is_out_of_reach(configuration)
-    if hors_de_portee:
-        pytest.skip(hors_de_portee)
+    out_of_reach = transcription_is_out_of_reach(configuration)
+    if out_of_reach:
+        pytest.skip(out_of_reach)
     return configuration
 
 
-def _fabriquer_cas(name: str, tmp_path_factory) -> Path:
+def _make_cases(name: str, tmp_path_factory) -> Path:
     from make_hard_cases import CASES
     from make_meeting import make
 
-    hors_de_portee = voices_are_out_of_reach(len(set(CASES[name][0].values())))
-    if hors_de_portee:
-        pytest.skip(hors_de_portee)
+    out_of_reach = voices_are_out_of_reach(len(set(CASES[name][0].values())))
+    if out_of_reach:
+        pytest.skip(out_of_reach)
     voice, dialogue = CASES[name]
     destination = tmp_path_factory.mktemp("audio") / f"cas-{name}.wav"
     return make(destination, voice=voice, dialogue=dialogue)
@@ -70,11 +70,11 @@ def three_voices_result(config: Config, tmp_path_factory):
     The segmentation must neither join two of them by accident nor over-cut one
     person into several voices.
     """
-    audio = _fabriquer_cas("trois-voix", tmp_path_factory)
+    audio = _make_cases("trois-voix", tmp_path_factory)
     return _process(config, audio)
 
 
-class TestTroisVoix:
+class TestThreeVoices:
     def test_the_three_voices_are_told_apart(self, three_voices_result):
         """Three distinct voices, each with several seconds of material: not two, which
         would be a wrong join, and not more, which would be over-cutting left over.
@@ -98,12 +98,23 @@ def brief_proposal_result(config: Config, tmp_path_factory):
     """C speaks once, briefly, and is never named by themselves: only a reference back
     just after their turn points at them, a clue too weak to be asserted, but one
     that must not be lost for all that.
+
+    On the VITS voices this one is not stable: measured eight times on
+    2026-09-16, the guess came four times, the four others lost it to the
+    model hearing « Merci, on avance » or « Merci Kian », or to the short
+    voice coming out under another number. A test that passes one run in
+    two says nothing, so this family keeps to « say » until the cause is
+    settled; the three-voice case next to it holds on both engines.
     """
-    audio = _fabriquer_cas("proposition-breve", tmp_path_factory)
+    from make_meeting import synthesis_engine
+
+    if synthesis_engine() != "say":
+        pytest.skip("la proposition brève n'est pas stable sur la voix installée : « say »")
+    audio = _make_cases("proposition-breve", tmp_path_factory)
     return _process(config, audio)
 
 
-class TestPropositionBreve:
+class TestABriefProposal:
     def test_the_guess_is_there_in_the_outcome(self, brief_proposal_result):
         """The information is never lost: the reference back does produce a guess, never
         a certainty, since one clue is not enough.
@@ -118,7 +129,7 @@ class TestPropositionBreve:
         """The defect fixed: the voices offered for naming must no longer silence a short
         voice that carries a guess.
         """
-        meeting = depuis_resultat(brief_proposal_result, duration=60.0)
+        meeting = from_result(brief_proposal_result, duration=60.0)
         brief_voice = min(
             brief_proposal_result.speaking_time(),
             key=lambda v: brief_proposal_result.speaking_time()[v],

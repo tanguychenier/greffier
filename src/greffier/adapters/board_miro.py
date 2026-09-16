@@ -24,13 +24,13 @@ from pathlib import Path
 from typing import Any
 
 from greffier.domain.board import Board, Node, Standing
-from greffier.domain.layout import disposer
+from greffier.domain.layout import lay_out
 
 BASE = "https://api.miro.com/v2"
 
-INTERDITS = frozenset({"uXjVH5WwzTI="})
+FORBIDDEN = frozenset({"uXjVH5WwzTI="})
 
-PREFIXE = "Greffier"
+PREFIX = "Greffier"
 
 COLOURS = {
     Standing.AGREED: "light_green",
@@ -50,9 +50,9 @@ class Written:
     board_id: str
     poses: tuple[str, ...] = ()
     already: tuple[str, ...] = ()
-    adresse: str = ""
+    address: str = ""
     liens: int = 0
-    liens_manques: int = 0
+    links_missed: int = 0
 
 def token() -> str:
     """The access token, from the environment or the keychain."""
@@ -69,11 +69,11 @@ def token() -> str:
         "« GREFFIER_MIRO_JETON_FICHIER » vers le fichier qui le contient"
     )
 
-def _appeler(path: str, methode: str = "GET",
+def _call(path: str, http_method: str = "GET",
              corps: dict[str, Any] | None = None) -> dict[str, Any]:
-    requete = urllib.request.Request(
+    the_request = urllib.request.Request(
         f"{BASE}{path}",
-        method=methode,
+        method=http_method,
         data=json.dumps(corps).encode("utf-8") if corps is not None else None,
         headers={
             "Authorization": f"Bearer {token()}",
@@ -82,7 +82,7 @@ def _appeler(path: str, methode: str = "GET",
         },
     )
     try:
-        with urllib.request.urlopen(requete, timeout=20) as response:
+        with urllib.request.urlopen(the_request, timeout=20) as response:
             brut = response.read().decode("utf-8")
             return json.loads(brut) if brut.strip() else {}
     except urllib.error.HTTPError as trouble:
@@ -93,7 +93,7 @@ def _appeler(path: str, methode: str = "GET",
 
 def _keep(board_id: str) -> str:
     """Refuses a forbidden board at once."""
-    if board_id in INTERDITS:
+    if board_id in FORBIDDEN:
         raise MiroRefused(
             f"le tableau {board_id} est sur la liste des tableaux interdits : "
             "cet outil n'y écrit jamais"
@@ -102,8 +102,8 @@ def _keep(board_id: str) -> str:
 
 def create_the_board(subject: str) -> tuple[str, str]:
     """Creates a subject's board. Returns its identifier."""
-    response = _appeler("/boards", "POST", {
-        "name": f"{PREFIXE} : {subject}",
+    response = _call("/boards", "POST", {
+        "name": f"{PREFIX} : {subject}",
         "description": (
             f"Carte du sujet « {subject} », tenue par Greffier au fil des réunions. "
             "Jaune : en discussion. Vert : acté. Gris : dépassé. "
@@ -124,26 +124,26 @@ class Placement:
     y: int
     of_the_tool: bool = False
 
-def objets_presents(board_id: str) -> dict[str, str]:
+def objects_present(board_id: str) -> dict[str, str]:
     """The points already on the board: label and identifier."""
     _keep(board_id)
     found: dict[str, str] = {}
     cursor = ""
     while True:
-        parametres = {"limit": "50"}
+        parameters = {"limit": "50"}
         if cursor:
-            parametres["cursor"] = cursor
-        response = _appeler(
+            parameters["cursor"] = cursor
+        response = _call(
             f"/boards/{urllib.parse.quote(board_id, safe='')}/items"
-            f"?{urllib.parse.urlencode(parametres)}"
+            f"?{urllib.parse.urlencode(parameters)}"
         )
-        for objet in response.get("data", []):
-            content = (objet.get("data") or {}).get("content", "")
+        for subject_line in response.get("data", []):
+            content = (subject_line.get("data") or {}).get("content", "")
             if not content:
                 continue
             first_one = _without_markup(content.split("</p>")[0])
             if first_one:
-                found.setdefault(first_one, str(objet.get("id", "")))
+                found.setdefault(first_one, str(subject_line.get("id", "")))
         cursor = str(response.get("cursor", ""))
         if not cursor:
             return found
@@ -156,23 +156,23 @@ def placements_present(board_id: str) -> dict[str, Placement]:
     found: dict[str, Placement] = {}
     cursor = ""
     while True:
-        parametres = {"limit": "50"}
+        parameters = {"limit": "50"}
         if cursor:
-            parametres["cursor"] = cursor
-        response = _appeler(
+            parameters["cursor"] = cursor
+        response = _call(
             f"/boards/{urllib.parse.quote(board_id, safe='')}/items"
-            f"?{urllib.parse.urlencode(parametres)}"
+            f"?{urllib.parse.urlencode(parameters)}"
         )
-        for objet in response.get("data", []):
-            content = (objet.get("data") or {}).get("content", "")
+        for subject_line in response.get("data", []):
+            content = (subject_line.get("data") or {}).get("content", "")
             if not content:
                 continue
             first_one = _without_markup(content.split("</p>")[0])
             if not first_one or first_one in found:
                 continue
-            position = objet.get("position") or {}
+            position = subject_line.get("position") or {}
             found[first_one] = Placement(
-                identifier=str(objet.get("id", "")),
+                identifier=str(subject_line.get("id", "")),
                 x=int(position.get("x", 0) or 0),
                 y=int(position.get("y", 0) or 0),
                 of_the_tool=bool(_PROVENANCE.search(_without_markup(content))),
@@ -203,21 +203,21 @@ def _dots_placed(board_id: str) -> set[tuple[int, int]]:
     positions: set[tuple[int, int]] = set()
     cursor = ""
     while True:
-        parametres = {"limit": "50"}
+        parameters = {"limit": "50"}
         if cursor:
-            parametres["cursor"] = cursor
+            parameters["cursor"] = cursor
         try:
-            response = _appeler(
+            response = _call(
                 f"/boards/{urllib.parse.quote(board_id, safe='')}/shapes"
-                f"?{urllib.parse.urlencode(parametres)}"
+                f"?{urllib.parse.urlencode(parameters)}"
             )
         except MiroRefused:
             return positions
-        for forme in response.get("data", []):
-            content = _without_markup((forme.get("data") or {}).get("content", ""))
+        for shape in response.get("data", []):
+            content = _without_markup((shape.get("data") or {}).get("content", ""))
             if content.strip().casefold() != SETTLED_MARK:
                 continue
-            position = forme.get("position") or {}
+            position = shape.get("position") or {}
             positions.add((
                 int(position.get("x", 0) or 0), int(position.get("y", 0) or 0)
             ))
@@ -242,23 +242,23 @@ def mark_actions(
         )
         if pose is None:
             continue
-        attendue = (pose.x + BADGE_OFFSET[0], pose.y + BADGE_OFFSET[1])
+        expected = (pose.x + BADGE_OFFSET[0], pose.y + BADGE_OFFSET[1])
         if any(
-            abs(x - attendue[0]) <= BADGE_TOLERANCE
-            and abs(y - attendue[1]) <= BADGE_TOLERANCE
+            abs(x - expected[0]) <= BADGE_TOLERANCE
+            and abs(y - expected[1]) <= BADGE_TOLERANCE
             for x, y in already_marked
         ):
             continue
         try:
-            _appeler(
+            _call(
                 f"/boards/{urllib.parse.quote(board_id, safe='')}/shapes",
                 "POST",
                 {
                     "data": {"shape": "round_rectangle",
-                             "content": f"<p>{_echapper(SETTLED_MARK)}</p>"},
+                             "content": f"<p>{_escape(SETTLED_MARK)}</p>"},
                     "style": {"fillColor": "#2e6b52", "color": "#ffffff",
                               "fontSize": "12"},
-                    "position": {"x": attendue[0], "y": attendue[1],
+                    "position": {"x": expected[0], "y": expected[1],
                                  "origin": "center"},
                     "geometry": {"width": 70, "height": 34},
                 },
@@ -268,7 +268,7 @@ def mark_actions(
             continue
     return tuple(marks)
 
-def textes_presents(board_id: str) -> set[str]:
+def texts_present(board_id: str) -> set[str]:
     """The comparison keys of the points already on the board."""
     from greffier.domain.board import key
 
@@ -293,95 +293,95 @@ def publish(board: Board, board_id: str, meeting: str = "") -> Written:
     poses: list[str] = []
     known: list[str] = []
 
-    for place in disposer(board):
-        if any(same_point(label_text, place.noeud.text) for label_text in present_line):
-            known.append(place.noeud.text)
+    for place in lay_out(board):
+        if any(same_point(label_text, place.node.text) for label_text in present_line):
+            known.append(place.node.text)
             continue
         from greffier.domain.board import WITHOUT_STANDING
 
         colour = (
-            SUBJECT_COLOUR if place.noeud.kind in WITHOUT_STANDING
-            else COLOURS.get(place.noeud.state, "light_yellow")
+            SUBJECT_COLOUR if place.node.kind in WITHOUT_STANDING
+            else COLOURS.get(place.node.state, "light_yellow")
         )
         corps = {
-            "data": {"content": _as_html(place.noeud, meeting),
+            "data": {"content": _as_html(place.node, meeting),
                      "shape": "square"},
             "style": {"fillColor": colour},
             "position": {"x": place.x, "y": place.y, "origin": "center"},
         }
-        response = _appeler(
+        response = _call(
             f"/boards/{urllib.parse.quote(board_id, safe='')}/sticky_notes",
             "POST", corps,
         )
         identifier = str(response.get("id", ""))
         if identifier:
-            identifiers[place.noeud.text] = identifier
-            poses.append(place.noeud.text)
+            identifiers[place.node.text] = identifier
+            poses.append(place.node.text)
 
-    liens, manques = _relier(board_id, board, identifiers)
-    return Written(board_id, tuple(poses), tuple(known), liens=liens, liens_manques=manques)
+    liens, missing_ones = _link(board_id, board, identifiers)
+    return Written(board_id, tuple(poses), tuple(known), liens=liens, links_missed=missing_ones)
 
-def _as_html(noeud: Node, meeting: str) -> str:
+def _as_html(node: Node, meeting: str) -> str:
     """The sticky note's text: the point, then where it comes from."""
     from greffier.domain.board import WITHOUT_STANDING
 
-    lines = [f"<p>{_echapper(noeud.text)}</p>"]
-    if noeud.kind not in WITHOUT_STANDING and noeud.state is not Standing.AGREED:
-        lines.append(f"<p><i>{noeud.state}</i></p>")
-    origin = meeting or (noeud.meetings[-1] if noeud.meetings else "")
+    lines = [f"<p>{_escape(node.text)}</p>"]
+    if node.kind not in WITHOUT_STANDING and node.state is not Standing.AGREED:
+        lines.append(f"<p><i>{node.state}</i></p>")
+    origin = meeting or (node.meetings[-1] if node.meetings else "")
     if origin:
-        lines.append(f"<p><i>{_echapper(origin)}</i></p>")
+        lines.append(f"<p><i>{_escape(origin)}</i></p>")
     return "".join(lines)
 
-def _liens_existants(board_id: str) -> set[tuple[str, str]]:
+def _existing_links(board_id: str) -> set[tuple[str, str]]:
     """The pairs already connected, so as not to draw twice."""
     couples: set[tuple[str, str]] = set()
     cursor = ""
     while True:
-        parametres = {"limit": "50"}
+        parameters = {"limit": "50"}
         if cursor:
-            parametres["cursor"] = cursor
+            parameters["cursor"] = cursor
         try:
-            response = _appeler(
+            response = _call(
                 f"/boards/{urllib.parse.quote(board_id, safe='')}/connectors"
-                f"?{urllib.parse.urlencode(parametres)}"
+                f"?{urllib.parse.urlencode(parameters)}"
             )
         except MiroRefused:
             return couples
         for lien in response.get("data", []):
             depart = str((lien.get("startItem") or {}).get("id", ""))
-            arrivee = str((lien.get("endItem") or {}).get("id", ""))
-            if depart and arrivee:
-                couples.add((depart, arrivee))
+            arrival = str((lien.get("endItem") or {}).get("id", ""))
+            if depart and arrival:
+                couples.add((depart, arrival))
         cursor = str(response.get("cursor", ""))
         if not cursor:
             return couples
 
-def _echapper(text: str) -> str:
+def _escape(text: str) -> str:
     return (text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
-def _relier(
+def _link(
     board_id: str, board: Board, identifiers: dict[str, str]
 ) -> tuple[int, int]:
     """Draws the links between the nodes just placed."""
     traces = 0
-    manques = 0
-    already_linked = _liens_existants(board_id)
-    for place in disposer(board):
+    missing_ones = 0
+    already_linked = _existing_links(board_id)
+    for place in lay_out(board):
         depart = identifiers.get(place.parent)
-        arrivee = identifiers.get(place.noeud.text)
-        if not place.parent or depart is None or arrivee is None:
+        arrival = identifiers.get(place.node.text)
+        if not place.parent or depart is None or arrival is None:
             continue
-        if (depart, arrivee) in already_linked:
+        if (depart, arrival) in already_linked:
             continue
         try:
-            _appeler(
+            _call(
                 f"/boards/{urllib.parse.quote(board_id, safe='')}/connectors",
                 "POST",
-                {"startItem": {"id": int(depart)}, "endItem": {"id": int(arrivee)},
+                {"startItem": {"id": int(depart)}, "endItem": {"id": int(arrival)},
                  "style": {"strokeStyle": "normal", "strokeWidth": "2"}},
             )
             traces += 1
         except (MiroRefused, ValueError):
-            manques += 1
-    return (traces, manques)
+            missing_ones += 1
+    return (traces, missing_ones)

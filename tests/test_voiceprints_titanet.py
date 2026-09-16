@@ -21,33 +21,33 @@ class Recorded:
     """Keeps what it is given, in place of the model."""
 
     def __init__(self) -> None:
-        self.recus: list[int] = []
+        self.received_ones: list[int] = []
 
-    def borner(self, echantillons: np.ndarray, frequency: int) -> np.ndarray:
+    def bound(self, samples: np.ndarray, frequency: int) -> np.ndarray:
         # Reproduces the adapter's bounding, the only rule at play.
         borne = int(MAXIMUM_LENGTH * frequency)
-        if len(echantillons) > borne:
-            milieu = len(echantillons) // 2
-            echantillons = echantillons[milieu - borne // 2 : milieu + borne // 2]
-        self.recus.append(len(echantillons))
-        return echantillons
+        if len(samples) > borne:
+            milieu = len(samples) // 2
+            samples = samples[milieu - borne // 2 : milieu + borne // 2]
+        self.received_ones.append(len(samples))
+        return samples
 
 
-class TestBornes:
+class TestBounds:
     def test_the_bound_stays_under_the_measured_limit(self) -> None:
         # 120 s pass and 150 s fail: the bound has to sit clearly under that.
         assert MAXIMUM_LENGTH <= 120.0
         assert MAXIMUM_LENGTH >= MINIMUM_LENGTH
 
-    def test_un_extrait_court_passe_entier(self) -> None:
+    def test_a_short_excerpt_goes_through_whole(self) -> None:
         kept = Recorded()
-        kept.borner(np.zeros(16000 * 10, dtype="float32"), 16000)
-        assert kept.recus == [16000 * 10]
+        kept.bound(np.zeros(16000 * 10, dtype="float32"), 16000)
+        assert kept.received_ones == [16000 * 10]
 
     def test_too_long_an_extract_is_brought_back_to_the_bound(self) -> None:
         kept = Recorded()
-        kept.borner(np.zeros(16000 * 600, dtype="float32"), 16000)
-        assert kept.recus == [int(16000 * MAXIMUM_LENGTH)]
+        kept.bound(np.zeros(16000 * 600, dtype="float32"), 16000)
+        assert kept.received_ones == [int(16000 * MAXIMUM_LENGTH)]
 
     def test_it_is_the_middle_of_the_passage_that_is_kept(self) -> None:
         # The start of a long turn of speech often carries a hesitation or an

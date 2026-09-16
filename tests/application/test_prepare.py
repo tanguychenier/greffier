@@ -11,95 +11,95 @@ from greffier.application.prepare import Preparing
 from greffier.domain.preparation import Preparation, question_prompt
 
 
-class Cerveau:
-    def __init__(self, answer="Elle a été décalée à jeudi.", casse=False):
+class TheBrain:
+    def __init__(self, answer="Elle a été décalée à jeudi.", broken=False):
         self.answer = answer
-        self.casse = casse
-        self.recu: list[str] = []
+        self.broken = broken
+        self.received: list[str] = []
 
     def write_up(self, text):
-        self.recu.append(text)
-        if self.casse:
+        self.received.append(text)
+        if self.broken:
             raise RuntimeError("le rédacteur n'a rien produit")
         return self.answer
 
 
-def _une() -> Preparation:
+def _one() -> Preparation:
     return Preparation(identifier="2026-09-12_10h00_preparation", subject="recette")
 
 
 class TestAnsweringOutLoud:
     def test_the_answer_comes_back_and_is_kept(self):
-        preparation, answered = Preparing(Cerveau()).answer(
-            _une(), "rappelle-moi la dernière réunion")
+        preparation, answered = Preparing(TheBrain()).answer(
+            _one(), "rappelle-moi la dernière réunion")
         assert answered == "Elle a été décalée à jeudi."
         assert preparation.exchanges[-1].asked == "rappelle-moi la dernière réunion"
         assert preparation.exchanges[-1].answered == answered
 
     def test_it_is_said_aloud_when_there_is_a_voice(self):
-        dites: list[str] = []
-        Preparing(Cerveau(), speak=dites.append).answer(_une(), "et Jira ?")
-        assert dites == ["Elle a été décalée à jeudi."]
+        said_ones: list[str] = []
+        Preparing(TheBrain(), speak=said_ones.append).answer(_one(), "et Jira ?")
+        assert said_ones == ["Elle a été décalée à jeudi."]
 
     def test_without_a_voice_it_is_only_written(self):
-        _, answered = Preparing(Cerveau()).answer(_une(), "et Jira ?")
+        _, answered = Preparing(TheBrain()).answer(_one(), "et Jira ?")
         assert answered
 
     def test_a_question_that_fails_is_kept_all_the_same(self):
         """Asking and getting an error must not swallow the question."""
-        preparation, answered = Preparing(Cerveau(casse=True)).answer(
-            _une(), "va voir dans le dépôt")
+        preparation, answered = Preparing(TheBrain(broken=True)).answer(
+            _one(), "va voir dans le dépôt")
         assert answered.startswith("✗")
         assert preparation.exchanges[-1].asked == "va voir dans le dépôt"
         assert preparation.exchanges[-1].answered == ""
 
     def test_a_voice_that_fails_costs_no_answer(self):
-        def muette(_):
+        def silent_one(_):
             raise OSError("aucun lecteur")
 
-        _, answered = Preparing(Cerveau(), speak=muette).answer(_une(), "et Jira ?")
+        _, answered = Preparing(TheBrain(), speak=silent_one).answer(_one(), "et Jira ?")
         assert answered == "Elle a été décalée à jeudi."
 
     def test_an_empty_question_asks_nothing(self):
-        cerveau = Cerveau()
-        preparation, answered = Preparing(cerveau).answer(_une(), "   ")
-        assert answered == "" and cerveau.recu == []
+        brain = TheBrain()
+        preparation, answered = Preparing(brain).answer(_one(), "   ")
+        assert answered == "" and brain.received == []
         assert preparation.exchanges == ()
 
 
 class TestTakingInASpokenSentence:
     def test_the_cue_says_it_was_heard(self):
         """Hearing nothing at all is indistinguishable from a microphone off."""
-        sonneries: list[int] = []
-        said = Preparing(Cerveau(), heard=lambda: sonneries.append(1)).transcribed(
+        rings_heard: list[int] = []
+        said = Preparing(TheBrain(), heard=lambda: rings_heard.append(1)).transcribed(
             "  rappelle-moi   la dernière  ")
         assert said == "rappelle-moi la dernière"
-        assert sonneries == [1]
+        assert rings_heard == [1]
 
     def test_nothing_said_sounds_nothing(self):
-        sonneries: list[int] = []
-        assert Preparing(Cerveau(), heard=lambda: sonneries.append(1)).transcribed(" ") == ""
-        assert sonneries == []
+        rings_heard: list[int] = []
+        assert Preparing(TheBrain(), heard=lambda: rings_heard.append(1)).transcribed(" ") == ""
+        assert rings_heard == []
 
     def test_a_cue_that_cannot_play_costs_no_sentence(self):
         def silent():
             raise OSError("aucun lecteur")
 
-        assert Preparing(Cerveau(), heard=silent).transcribed("bonjour") == "bonjour"
+        assert Preparing(TheBrain(), heard=silent).transcribed("bonjour") == "bonjour"
 
 
 class TestWhatTheModelIsTold:
     def test_the_question_comes_before_the_material(self):
         """Given four thousand characters first, a model answers the material."""
-        seed = question_prompt(_une().raising("un point"), "[Contexte]", "et alors ?")
+        seed = question_prompt(_one().raising("un point"), "[Contexte]", "et alors ?")
         assert seed.index("et alors ?") < seed.index("un point")
 
     def test_it_says_the_meeting_has_not_happened(self):
         """Otherwise the model reports what was decided in a meeting nobody held."""
-        seed = question_prompt(_une(), "", "et alors ?")
+        seed = question_prompt(_one(), "", "et alors ?")
         assert "n'a pas encore eu lieu" in seed
         assert "N'invente aucun propos" in seed
 
     def test_the_setting_is_carried(self):
-        seed = question_prompt(_une(), "[Contexte] FAST = formulaire", "et alors ?")
+        seed = question_prompt(_one(), "[Contexte] FAST = formulaire", "et alors ?")
         assert "FAST = formulaire" in seed

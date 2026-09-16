@@ -72,8 +72,8 @@ def list_(folder: Path) -> list[Preparation]:
     """The preparations, most recent first."""
     if not folder.is_dir():
         return []
-    lues = [read(folder, file.stem) for file in sorted(folder.glob("*.json"))]
-    return [p for p in reversed(lues) if p is not None]
+    read_ones = [read(folder, file.stem) for file in sorted(folder.glob("*.json"))]
+    return [p for p in reversed(read_ones) if p is not None]
 
 
 def waiting(folder: Path) -> Preparation | None:

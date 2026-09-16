@@ -54,6 +54,6 @@ class LanguageProfile:
     wording: Wording = field(default_factory=Wording)
 
     @property
-    def eprouve(self) -> bool:
+    def proven_one(self) -> bool:
         """Whether this profile can recognise first names in its language."""
         return self.detection.active

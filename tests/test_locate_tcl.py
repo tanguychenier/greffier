@@ -12,23 +12,23 @@ from pathlib import Path
 from greffier.locations import locate_tcl
 
 
-def prefixe_avec_tcl(tmp_path: Path) -> Path:
+def prefix_with_tcl(tmp_path: Path) -> Path:
     (tmp_path / "lib" / "tcl9.0").mkdir(parents=True)
     (tmp_path / "lib" / "tk9.0").mkdir()
     return tmp_path
 
 
-class TestSituerTcl:
+class TestLocatingTcl:
     def test_both_variables_are_set_beside_the_interpreter(self, tmp_path):
         env: dict[str, str] = {}
-        locate_tcl(env, prefixe_avec_tcl(tmp_path))
+        locate_tcl(env, prefix_with_tcl(tmp_path))
         assert env["TCL_LIBRARY"] == str(tmp_path / "lib" / "tcl9.0")
         assert env["TK_LIBRARY"] == str(tmp_path / "lib" / "tk9.0")
 
     def test_a_setting_already_there_is_honoured(self, tmp_path):
-        """Un poste qui a son propre Tcl garde le sien."""
+        """A machine with a Tcl of its own keeps it."""
         env = {"TCL_LIBRARY": "/usr/share/tcl9.0"}
-        locate_tcl(env, prefixe_avec_tcl(tmp_path))
+        locate_tcl(env, prefix_with_tcl(tmp_path))
         assert env["TCL_LIBRARY"] == "/usr/share/tcl9.0"
         assert env["TK_LIBRARY"] == str(tmp_path / "lib" / "tk9.0")
 
@@ -45,7 +45,7 @@ class TestSituerTcl:
         assert env == {}
 
     def test_the_most_recent_version_is_chosen(self, tmp_path):
-        """Deux Tcl côte à côte : on prend le plus récent, pas le premier lu."""
+        """Two Tcl side by side: the most recent is taken, not the first read."""
         for version in ("8.6", "9.0"):
             (tmp_path / "lib" / f"tcl{version}").mkdir(parents=True)
             (tmp_path / "lib" / f"tk{version}").mkdir()
@@ -89,5 +89,5 @@ class TestWhereADistributionKeepsTcl:
 
         (tmp_path / "lib").mkdir()
         monkeypatch.setattr(startup.sys, "base_prefix", str(tmp_path))
-        monkeypatch.setattr(startup, "_OU_VIT_TCL", ("lib/tcl*",))
+        monkeypatch.setattr(startup, "_WHERE_TCL_LIVES", ("lib/tcl*",))
         assert not startup._default_tcl()

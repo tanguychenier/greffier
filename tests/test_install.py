@@ -35,13 +35,13 @@ def the_installer():
 def under(the_installer, monkeypatch):
     """Makes the installer believe it is running on the system asked for."""
 
-    def basculer(system, **variables):
+    def switch(system, **variables):
         monkeypatch.setattr(the_installer, "SYSTEM", system)
         for key, value in variables.items():
             monkeypatch.setenv(key, value)
         return the_installer
 
-    return basculer
+    return switch
 
 
 class TestWhereThingsLive:
@@ -84,35 +84,35 @@ class TestWhereThingsLive:
 class TestThePackageManager:
     def test_windows_prefers_winget_to_scoop(self, under, monkeypatch):
         module = under("Windows")
-        monkeypatch.setattr(module.shutil, "which", lambda outil: "C:\\\\winget.exe")
-        outil, _ = module.package_manager()
-        assert outil == "winget"
+        monkeypatch.setattr(module.shutil, "which", lambda tool: "C:\\\\winget.exe")
+        tool, _ = module.package_manager()
+        assert tool == "winget"
 
     def test_windows_with_no_manager_does_not_crash(self, under, monkeypatch):
         module = under("Windows")
-        monkeypatch.setattr(module.shutil, "which", lambda outil: None)
+        monkeypatch.setattr(module.shutil, "which", lambda tool: None)
         assert module.package_manager() is None
 
     def test_linux_recognises_apt(self, under, monkeypatch):
         module = under("Linux")
-        monkeypatch.setattr(module.shutil, "which", lambda outil: "/usr/bin/apt-get"
-                            if outil == "apt-get" else None)
-        outil, command = module.package_manager()
-        assert outil == "apt-get" and "install" in command
+        monkeypatch.setattr(module.shutil, "which", lambda tool: "/usr/bin/apt-get"
+                            if tool == "apt-get" else None)
+        tool, command = module.package_manager()
+        assert tool == "apt-get" and "install" in command
 
     def test_root_does_not_call_sudo(self, under, monkeypatch):
         """In a container and in continuous integration, sudo is not installed."""
         module = under("Linux")
-        monkeypatch.setattr(module.shutil, "which", lambda outil: "/usr/bin/apt-get"
-                            if outil == "apt-get" else None)
+        monkeypatch.setattr(module.shutil, "which", lambda tool: "/usr/bin/apt-get"
+                            if tool == "apt-get" else None)
         monkeypatch.setattr(module.os, "geteuid", lambda: 0, raising=False)
         _, command = module.package_manager()
         assert "sudo" not in command
 
     def test_an_ordinary_user_goes_through_sudo(self, under, monkeypatch):
         module = under("Linux")
-        monkeypatch.setattr(module.shutil, "which", lambda outil: "/usr/bin/apt-get"
-                            if outil == "apt-get" else None)
+        monkeypatch.setattr(module.shutil, "which", lambda tool: "/usr/bin/apt-get"
+                            if tool == "apt-get" else None)
         monkeypatch.setattr(module.os, "geteuid", lambda: 501, raising=False)
         _, command = module.package_manager()
         assert command[0] == "sudo"
@@ -175,9 +175,9 @@ class TestTheRepairSkill:
     def test_the_skill_says_where_to_look(self, the_installer):
         """A skill that names neither the logs nor the diagnostic leaves it groping."""
         text = (RACINE / "skills/greffier/SKILL.md").read_text(encoding="utf-8")
-        for indice in ("greffier diagnostic", "Application Support",
+        for index in ("greffier diagnostic", "Application Support",
                        "Library/Logs/Greffier.log", "greffier rediger", "opus"):
-            assert indice in text, indice
+            assert index in text, index
 
     def test_every_skill_in_the_repository_has_a_header(self):
         """A skill with no header is not loaded, and nothing says so."""
@@ -192,10 +192,10 @@ class TestTheRepairSkill:
         """Being proactive with no guard rail is a nuisance in a meeting."""
         text = (RACINE / "skills/assister-une-reunion/SKILL.md").read_text(
             encoding="utf-8")
-        aplati = " ".join(text.split())
-        assert "Rien ne surgit" in aplati
-        assert "jamais la phrase de la réunion" in aplati
-        assert "Ne jamais effacer ce qu'un humain a posé" in aplati
+        flattened = " ".join(text.split())
+        assert "Rien ne surgit" in flattened
+        assert "jamais la phrase de la réunion" in flattened
+        assert "Ne jamais effacer ce qu'un humain a posé" in flattened
 
     def test_it_is_laid_where_the_assistant_looks_for_it(self, under, monkeypatch, tmp_path):
         module = under("Darwin")
@@ -206,7 +206,7 @@ class TestTheRepairSkill:
         """The repository may be moved: a link would point into the void."""
         module = under("Darwin")
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-        monkeypatch.setattr(module.shutil, "which", lambda outil: "/usr/local/bin/claude")
+        monkeypatch.setattr(module.shutil, "which", lambda tool: "/usr/local/bin/claude")
 
         class Context:
             yes = True
@@ -232,7 +232,7 @@ class TestTheRepairSkill:
         """
         module = under("Linux")
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-        monkeypatch.setattr(module.shutil, "which", lambda outil: "/usr/bin/claude")
+        monkeypatch.setattr(module.shutil, "which", lambda tool: "/usr/bin/claude")
         (tmp_path / ".claude").mkdir()
         (tmp_path / ".claude/skills").symlink_to(tmp_path / "gone/skills")
 
@@ -251,7 +251,7 @@ class TestTheRepairSkill:
     def test_with_no_coding_assistant_nothing_is_laid_down(self, under, monkeypatch, tmp_path):
         module = under("Darwin")
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-        monkeypatch.setattr(module.shutil, "which", lambda outil: None)
+        monkeypatch.setattr(module.shutil, "which", lambda tool: None)
 
         class Context:
             yes = True
@@ -468,7 +468,7 @@ class TestCapturingSoundOnLinux:
     def test_the_server_socket_is_enough(self, under, monkeypatch, tmp_path):
         module = under("Linux", XDG_RUNTIME_DIR=str(tmp_path))
         monkeypatch.delenv("PULSE_SERVER", raising=False)
-        monkeypatch.setattr(module.shutil, "which", lambda _outil: None)
+        monkeypatch.setattr(module.shutil, "which", lambda _tool: None)
         (tmp_path / "pulse").mkdir()
         (tmp_path / "pulse" / "native").touch()
 
@@ -484,7 +484,7 @@ class TestCapturingSoundOnLinux:
         """A remote server puts no socket in this session."""
         module = under("Linux", XDG_RUNTIME_DIR=str(tmp_path),
                       PULSE_SERVER="tcp:192.168.1.10:4713")
-        monkeypatch.setattr(module.shutil, "which", lambda _outil: None)
+        monkeypatch.setattr(module.shutil, "which", lambda _tool: None)
 
         assert module.sound_server_present()
 
@@ -501,20 +501,20 @@ class TestAccelerationByTheCard:
     def test_a_card_is_recognised(self, under, monkeypatch):
         module = under("Linux")
         monkeypatch.setattr(module.shutil, "which",
-                            lambda outil: "/usr/bin/nvidia-smi" if outil == "nvidia-smi" else None)
+                            lambda tool: "/usr/bin/nvidia-smi" if tool == "nvidia-smi" else None)
 
         assert module.nvidia_card()
 
     def test_with_no_card_nothing_is_offered(self, under, monkeypatch):
         module = under("Linux")
-        monkeypatch.setattr(module.shutil, "which", lambda _outil: None)
+        monkeypatch.setattr(module.shutil, "which", lambda _tool: None)
 
         assert not module.nvidia_card()
 
     def test_macos_is_served_by_metal(self, under, monkeypatch):
         """No NVIDIA card is usable there, and the chip already has Metal."""
         module = under("Darwin")
-        monkeypatch.setattr(module.shutil, "which", lambda _outil: "/usr/bin/nvidia-smi")
+        monkeypatch.setattr(module.shutil, "which", lambda _tool: "/usr/bin/nvidia-smi")
 
         assert not module.nvidia_card()
 
@@ -596,49 +596,49 @@ class TestAnEnvironmentInheritedFromBefore:
     which reads as "nothing works on Linux".
     """
 
-    def _prepare(self, the_installer, tmp_path, monkeypatch, avec_uv):
-        lancees = []
+    def _prepare(self, the_installer, tmp_path, monkeypatch, with_uv):
+        launched = []
         monkeypatch.setattr(the_installer, "ROOT", tmp_path)
         monkeypatch.setattr(the_installer, "SYSTEM", "Linux")
         monkeypatch.setattr(the_installer.shutil, "which",
-                            lambda name: "/usr/bin/uv" if (name == "uv" and avec_uv) else None)
+                            lambda name: "/usr/bin/uv" if (name == "uv" and with_uv) else None)
         monkeypatch.setattr(the_installer, "run_job",
-                            lambda command, **_: lancees.append(list(command)))
+                            lambda command, **_: launched.append(list(command)))
         monkeypatch.setattr(the_installer, "nvidia_card", lambda: False)
-        return lancees
+        return launched
 
     def test_a_venv_with_no_interpreter_is_remade(self, the_installer, tmp_path, monkeypatch):
-        lancees = self._prepare(the_installer, tmp_path, monkeypatch, avec_uv=True)
-        # Le dossier existe, l'interpréteur non : exactement l'état d'un venv
-        # copié d'une machine à l'autre.
+        launched = self._prepare(the_installer, tmp_path, monkeypatch, with_uv=True)
+        # The folder exists, the interpreter does not: exactly the state of a
+        # venv copied from one machine to another.
         (tmp_path / ".venv" / "bin").mkdir(parents=True)
 
         context = type("Ctx", (), {"check_only": False, "to_do": [],
                                     "ask": lambda self, _q: False})()
         the_installer.environment_step(context, "whisper.cpp")
 
-        assert not (tmp_path / ".venv").exists() or lancees, "rien n'a été refait"
-        assert any("venv" in " ".join(c) for c in lancees), lancees
+        assert not (tmp_path / ".venv").exists() or launched, "rien n'a été refait"
+        assert any("venv" in " ".join(c) for c in launched), launched
 
     def test_a_complete_venv_is_not_remade(self, the_installer, tmp_path, monkeypatch):
         """Reinstalling on every launch would cost minutes for nothing."""
-        lancees = self._prepare(the_installer, tmp_path, monkeypatch, avec_uv=True)
-        interprete = tmp_path / ".venv" / "bin" / "python"
-        interprete.parent.mkdir(parents=True)
-        interprete.write_text("")
+        launched = self._prepare(the_installer, tmp_path, monkeypatch, with_uv=True)
+        interpreter = tmp_path / ".venv" / "bin" / "python"
+        interpreter.parent.mkdir(parents=True)
+        interpreter.write_text("")
 
         context = type("Ctx", (), {"check_only": False, "to_do": [],
                                     "ask": lambda self, _q: False})()
         the_installer.environment_step(context, "whisper.cpp")
 
-        assert not any(c[:2] == ["uv", "venv"] for c in lancees), lancees
-        assert any("install" in " ".join(c) for c in lancees), lancees
+        assert not any(c[:2] == ["uv", "venv"] for c in launched), launched
+        assert any("install" in " ".join(c) for c in launched), launched
 
     def test_with_neither_uv_nor_venv_the_installer_stops_and_says_so(
         self, the_installer, tmp_path, monkeypatch
     ):
         """Three lines further down, the Python traceback would have named no package."""
-        self._prepare(the_installer, tmp_path, monkeypatch, avec_uv=False)
+        self._prepare(the_installer, tmp_path, monkeypatch, with_uv=False)
         context = type("Ctx", (), {"check_only": False, "to_do": [],
                                     "ask": lambda self, _q: False})()
         with pytest.raises(SystemExit):
@@ -672,7 +672,7 @@ class TestWhetherTheVoiceIsThere:
         assert not the_installer.voice_present(tmp_path)
 
 
-class TestRoueCuda:
+class TestTheCudaWheel:
     """Which sherpa-onnx wheel the installation fetches, system by system.
 
     PyPI's cannot talk to the card, and none on PyPI can. Measured on a 40.7 s
@@ -705,42 +705,42 @@ class TestRoueCuda:
         assert "cp314-cp314" in url
 
 
-class TestEtapeCarte:
+class TestTheCardStep:
     @pytest.fixture
     def jobs(self, the_installer, monkeypatch):
-        faits = []
+        done_ones = []
         monkeypatch.setattr(
             the_installer, "run_job",
-            lambda command, **_k: faits.append(command) or _Fini(),
+            lambda command, **_k: done_ones.append(command) or _Finished(),
         )
         monkeypatch.setattr(the_installer, "_python_tag", lambda _p: ("cp313", "x86_64"))
-        return faits
+        return done_ones
 
     def test_a_machine_without_a_card_installs_nothing(
         self, the_installer, monkeypatch, jobs
     ):
         monkeypatch.setattr(the_installer, "nvidia_card", lambda: False)
-        the_installer.card_step(_Demande(), "python")
+        the_installer.card_step(_Request(), "python")
         assert jobs == []
 
     def test_macos_is_never_asked(self, under, monkeypatch, jobs):
         """Apple stopped supporting NVIDIA with Mojave: there is nothing to speed up."""
         module = under("Darwin")
         monkeypatch.setattr(module, "shutil", _AvecNvidiaSmi())
-        module.card_step(_Demande(), "python")
+        module.card_step(_Request(), "python")
         assert jobs == []
 
     def test_linux_with_a_card_takes_the_wheel(self, under, monkeypatch, jobs):
         module = under("Linux")
         monkeypatch.setattr(module, "nvidia_card", lambda: True)
-        module.card_step(_Demande(), "python")
+        module.card_step(_Request(), "python")
         assert len(jobs) == 1
         assert jobs[0][-1].endswith("linux_x86_64.whl")
 
     def test_windows_with_a_card_takes_its_own(self, under, monkeypatch, jobs):
         module = under("Windows")
         monkeypatch.setattr(module, "nvidia_card", lambda: True)
-        module.card_step(_Demande(), "python")
+        module.card_step(_Request(), "python")
         assert jobs[0][-1].endswith("win_amd64.whl")
 
     def test_an_interpreter_that_will_not_answer_stops_there(
@@ -749,20 +749,20 @@ class TestEtapeCarte:
         module = under("Linux")
         monkeypatch.setattr(module, "nvidia_card", lambda: True)
         monkeypatch.setattr(module, "_python_tag", lambda _p: (None, None))
-        module.card_step(_Demande(), "python")
+        module.card_step(_Request(), "python")
         assert jobs == []
 
     def test_a_refusal_leaves_the_command_to_run_later(self, under, monkeypatch, jobs):
         module = under("Linux")
         monkeypatch.setattr(module, "nvidia_card", lambda: True)
-        request = _Demande()
+        request = _Request()
         request.answer = False
         module.card_step(request, "python")
         assert jobs == []
         assert request.to_do and request.to_do[0].startswith("uv pip install")
 
 
-class _Fini:
+class _Finished:
     returncode = 0
 
 
@@ -774,7 +774,7 @@ class _AvecNvidiaSmi:
         return "/usr/bin/nvidia-smi"
 
 
-class _Demande:
+class _Request:
     """What the installation passes as context, reduced to what serves here."""
 
     check_only = False
@@ -786,3 +786,54 @@ class _Demande:
 
     def ask(self, _question):
         return self.answer
+
+
+class TestTheTranscriptionModelsArePreparedByTheInstaller:
+    """The live thread runs the turbo model where the card takes the large
+    one, and never fetches it itself: a download of one and a half gigabytes
+    is not something a meeting starts. So the installer prepares both.
+    """
+
+    class Context:
+        check_only = False
+
+    def _prepared(self, module, monkeypatch, tmp_path):
+        prepared = []
+
+        def run(command, **kwargs):
+            prepared.append(command[-1])
+
+            class Done:
+                returncode = 0
+                stderr = ""
+
+            return Done()
+
+        monkeypatch.setattr(module.subprocess, "run", run)
+        python = tmp_path / "python"
+        python.touch()
+        module.whisper_model_step(self.Context(), "faster-whisper", python)
+        return prepared
+
+    def test_both_the_large_and_the_turbo_model_are_prepared(
+        self, under, monkeypatch, tmp_path
+    ):
+        module = under("Linux")
+        prepared = self._prepared(module, monkeypatch, tmp_path)
+        assert len(prepared) == 2
+        assert "WhisperModel('large-v3'" in prepared[0]
+        assert "WhisperModel('large-v3-turbo'" in prepared[1]
+
+    def test_the_same_model_asked_twice_is_prepared_once(
+        self, under, monkeypatch, tmp_path
+    ):
+        module = under("Linux")
+        monkeypatch.setattr(module, "WHISPER_MODEL", "large-v3-turbo")
+        assert len(self._prepared(module, monkeypatch, tmp_path)) == 1
+
+    def test_with_whisper_cpp_nothing_is_prepared(self, under, monkeypatch, tmp_path):
+        module = under("Darwin")
+        called = []
+        monkeypatch.setattr(module.subprocess, "run", lambda *a, **k: called.append(a))
+        module.whisper_model_step(self.Context(), "whisper.cpp", tmp_path / "python")
+        assert called == []

@@ -46,18 +46,18 @@ pytestmark = pytest.mark.integration
 @pytest.fixture(scope="session")
 def config() -> Config:
     configuration = Config()
-    hors_de_portee = transcription_is_out_of_reach(configuration)
-    if hors_de_portee:
-        pytest.skip(hors_de_portee)
+    out_of_reach = transcription_is_out_of_reach(configuration)
+    if out_of_reach:
+        pytest.skip(out_of_reach)
     return configuration
 
 
 @pytest.fixture(scope="session")
 def table(tmp_path_factory) -> Path:
     # Three people around the table, hence three timbres.
-    hors_de_portee = voices_are_out_of_reach(3)
-    if hors_de_portee:
-        pytest.skip(hors_de_portee)
+    out_of_reach = voices_are_out_of_reach(3)
+    if out_of_reach:
+        pytest.skip(out_of_reach)
     from make_meeting import make_in_the_room
 
     return make_in_the_room(tmp_path_factory.mktemp("audio") / "table.wav")
@@ -96,7 +96,7 @@ class TestVerdictDeCanal:
 
         data, frequency = sf.read(table, dtype="float32", always_2d=True)
         channels = split_channels(data, frequency)
-        assert channels.distante is False
+        assert channels.remote is False
         assert np.array_equal(channels.system, channels.mic)
 
     def test_no_passage_is_declared_local(self, table: Path):
@@ -111,7 +111,7 @@ class TestVerdictDeCanal:
         assert FileChannelReader().local_passages(table) == []
 
 
-class TestChaineEnPresentiel:
+class TestTheChainInTheRoom:
     def test_the_meeting_is_transcribed(self, outcome):
         assert outcome.words > 60, "la transcription a perdu l'essentiel du dialogue"
 
@@ -143,14 +143,14 @@ class TestChaineEnPresentiel:
         chain: nothing guarantees whisper's cut falls on a change of speaker,
         and a room has no channel to catch it.
         """
-        from greffier.domain.attribution import PART_MINIMALE, time_per_voice
+        from greffier.domain.attribution import MINIMUM_SHARE, time_per_voice
 
         for utterance in outcome.utterances:
-            cumuls = time_per_voice(utterance.span, outcome.turns)
-            if not cumuls:
+            totals = time_per_voice(utterance.span, outcome.turns)
+            if not totals:
                 continue
-            part = max(cumuls.values()) / sum(cumuls.values())
-            if part < PART_MINIMALE:
+            part = max(totals.values()) / sum(totals.values())
+            if part < MINIMUM_SHARE:
                 assert utterance.voice is None, (
                     f"« {utterance.text[:40]} » est partagée à {part:.0%} "
                     "et se voit pourtant attribuer une voix"

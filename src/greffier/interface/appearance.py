@@ -17,14 +17,14 @@ from greffier.interface.style import Palette, font
 MAIN = "hand2"
 
 def rounded_rectangle(
-    toile: tk.Canvas,
+    canvas: tk.Canvas,
     x1: float, y1: float, x2: float, y2: float,
     rayon: float,
     fill: str = "",
     outline: str = "",
 ) -> int:
     """A rounded rectangle, which Tk does not provide."""
-    return toile.create_polygon(
+    return canvas.create_polygon(
         _rounded_points(x1, y1, x2, y2, rayon),
         smooth=True, splinesteps=24, fill=fill, outline=outline,
     )
@@ -49,7 +49,7 @@ class Button(tk.Canvas):
         self.principal = principal
         self.action = action
         self._active = True
-        self._forme = rounded_rectangle(
+        self._shape = rounded_rectangle(
             self, 1, 1, width - 1, height - 1, 9,
             fill=self._plain_background(), outline=colours.rule if not principal else "",
         )
@@ -63,19 +63,19 @@ class Button(tk.Canvas):
         self.bind("<Leave>", lambda _e: self._paint(hover=False))
         self.bind("<Button-1>", lambda _e: self.action() if self._active else None)
 
-    def redimensionner(self, width: int) -> None:
+    def resize(self, width: int) -> None:
         """Takes the button's width again, shape and text together."""
         width = max(48, int(width))
         if width == int(self.cget("width")):
             return
         self.configure(width=width)
-        self.delete(self._forme)
-        self._forme = rounded_rectangle(
+        self.delete(self._shape)
+        self._shape = rounded_rectangle(
             self, 1, 1, width - 1, self._height - 1, self._rayon,
             fill=self._plain_background(),
             outline=self.colours.rule if not self.principal else "",
         )
-        self.tag_lower(self._forme, self._text)
+        self.tag_lower(self._shape, self._text)
         self.coords(self._text, width / 2, self._height / 2)
 
     def _plain_background(self) -> str:
@@ -90,21 +90,21 @@ class Button(tk.Canvas):
         if not self._active:
             return
         if self.principal:
-            self.itemconfigure(self._forme, fill=self.colours.accent)
+            self.itemconfigure(self._shape, fill=self.colours.accent)
         else:
             self.itemconfigure(
-                self._forme, fill=self.colours.hover if hover else self.colours.board
+                self._shape, fill=self.colours.hover if hover else self.colours.board
             )
         self.configure(cursor=MAIN if hover else "")
 
-    def _en_avant(self) -> Button:
+    def _in_front(self) -> Button:
         """The action of a screen, without competing with the one of the window.
 
         One filled button per view: « Démarrer la réunion » is what the tool is
         for and keeps it. The action of a tab is marked by its outline and its
         ink, which the eye finds second rather than first.
         """
-        self.itemconfigure(self._forme, outline=self.colours.accent)
+        self.itemconfigure(self._shape, outline=self.colours.accent)
         self.itemconfigure(self._text, fill=self.colours.accent)
         return self
 
@@ -114,7 +114,7 @@ class Button(tk.Canvas):
         « Supprimer » sat in a row of eight identical buttons, beside
         « Traiter ». What cannot be undone must not look like what can.
         """
-        self.itemconfigure(self._forme, outline="", fill=self.colours.board)
+        self.itemconfigure(self._shape, outline="", fill=self.colours.board)
         self.itemconfigure(self._text, fill=self.colours.calm)
         return self
 
@@ -143,16 +143,16 @@ class Button(tk.Canvas):
         if principal == self.principal:
             return
         self.principal = principal
-        self.itemconfigure(self._forme, fill=self._plain_background(),
+        self.itemconfigure(self._shape, fill=self._plain_background(),
                            outline="" if principal else self.colours.rule)
         self.itemconfigure(self._text, fill=self._ink(),
                            font=font(12, principal))
 
-    def activer(self, yes: bool) -> None:
+    def enable(self, yes: bool) -> None:
         self._active = yes
         self.itemconfigure(self._text, fill=self._ink())
         self.itemconfigure(
-            self._forme,
+            self._shape,
             fill=self._plain_background() if yes else self.colours.hover,
         )
 
@@ -177,22 +177,22 @@ class Listing(tk.Canvas):
         self._choice: list[tuple[str, str]] = []
         self._key = ""
         self._active = True
-        self._forme = rounded_rectangle(
+        self._shape = rounded_rectangle(
             self, 1, 1, width - 1, height - 1, 8,
             fill=colours.ground, outline=colours.rule,
         )
         self._text = self.create_text(
             12, height / 2, text="", anchor="w", fill=colours.ink, font=font(12),
         )
-        pointe = width - 15
+        tip = width - 15
         milieu = height / 2
         self._chevron = self.create_line(
-            [pointe - 5, milieu - 2, pointe, milieu + 3, pointe + 5, milieu - 2],
+            [tip - 5, milieu - 2, tip, milieu + 3, tip + 5, milieu - 2],
             fill=colours.ink_pale, width=1.6, capstyle="round", joinstyle="round",
         )
         self.bind("<Enter>", lambda _e: self._paint(hover=True))
         self.bind("<Leave>", lambda _e: self._paint(hover=False))
-        self.bind("<Button-1>", self._deployer)
+        self.bind("<Button-1>", self._unfold)
         # Scrolling the page while a list was open left it floating above a
         # setting that had moved. The wheel puts it away.
         self.bind_all("<MouseWheel>", self._ranger, add="+")
@@ -214,7 +214,7 @@ class Listing(tk.Canvas):
             self._key = key
             self._show()
 
-    def activer(self, yes: bool) -> None:
+    def enable(self, yes: bool) -> None:
         self._active = yes
         self.itemconfigure(self._text,
                            fill=self.colours.ink if yes else self.colours.calm)
@@ -235,22 +235,22 @@ class Listing(tk.Canvas):
         self.itemconfigure(self._text, text=label_text)
 
     def _text_width(self, text: str) -> int:
-        essai = self.create_text(-1000, -1000, text=text, anchor="w", font=font(12))
-        left, _, right, _ = self.bbox(essai)
-        self.delete(essai)
+        trial = self.create_text(-1000, -1000, text=text, anchor="w", font=font(12))
+        left, _, right, _ = self.bbox(trial)
+        self.delete(trial)
         return int(right - left)
 
     def _paint(self, hover: bool) -> None:
         if not self._active:
             return
         self.itemconfigure(
-            self._forme,
+            self._shape,
             fill=self.colours.hover if hover else self.colours.ground,
             outline=self.colours.ink_pale if hover else self.colours.rule,
         )
         self.configure(cursor=MAIN if hover else "")
 
-    def _deployer(self, _event: tk.Event | None = None) -> None:
+    def _unfold(self, _event: tk.Event | None = None) -> None:
         if not self._active or not self._choice:
             return
         c = self.colours
@@ -261,7 +261,7 @@ class Listing(tk.Canvas):
         for key, label_text in self._choice:
             mark = "✓ " if key == self._key else "   "
             menu.add_command(label=f"{mark}{label_text}",
-                             command=functools.partial(self._retenir, key))
+                             command=functools.partial(self._retain, key))
         self._menu: tk.Menu | None = menu
         # `tk_popup` rather than `post`: the first one grabs, so a click
         # elsewhere closes the list. With `post`, nothing closed it: it stayed
@@ -282,7 +282,7 @@ class Listing(tk.Canvas):
             menu.unpost()
             menu.destroy()
 
-    def _retenir(self, key: str) -> None:
+    def _retain(self, key: str) -> None:
         change = key != self._key
         self._key = key
         self._show()
@@ -303,7 +303,7 @@ class Scroller(tk.Canvas):
         self.width = width
         self._first = 0.0
         self._last = 1.0
-        self._pouce = rounded_rectangle(self, 1, 0, width - 1, 0, width / 2)
+        self._thumb = rounded_rectangle(self, 1, 0, width - 1, 0, width / 2)
         self.bind("<Configure>", lambda _e: self._draw())
         self.bind("<Button-1>", self._move)
         self.bind("<B1-Motion>", self._move)
@@ -318,27 +318,27 @@ class Scroller(tk.Canvas):
 
     def _tint(self, hover: bool) -> None:
         self.itemconfigure(
-            self._pouce, fill=self.colours.ink_pale if hover else self.colours.calm
+            self._thumb, fill=self.colours.ink_pale if hover else self.colours.calm
         )
 
     def _draw(self) -> None:
         height = self.winfo_height()
         if height <= 1 or self._last - self._first >= 0.999:
-            self.itemconfigure(self._pouce, state="hidden")
+            self.itemconfigure(self._thumb, state="hidden")
             return
-        self.itemconfigure(self._pouce, state="normal")
+        self.itemconfigure(self._thumb, state="normal")
         minimum = min(24, height)
-        haut = self._first * height
-        bas = max(self._last * height, haut + minimum)
+        top = self._first * height
+        bottom = max(self._last * height, top + minimum)
         self.coords(
-            self._pouce, *_rounded_points(1, haut, self.width - 1, bas, self.width / 2)
+            self._thumb, *_rounded_points(1, top, self.width - 1, bottom, self.width / 2)
         )
 
     def _move(self, event: tk.Event) -> None:
         height = self.winfo_height() or 1
-        portee = self._last - self._first
-        target = event.y / height - portee / 2
-        self.command("moveto", max(0.0, min(1.0 - portee, target)))
+        reach = self._last - self._first
+        target = event.y / height - reach / 2
+        self.command("moveto", max(0.0, min(1.0 - reach, target)))
 
 class LevelMeter(tk.Canvas):
     """A rounded level bar that changes colour with the level."""
@@ -354,42 +354,42 @@ class LevelMeter(tk.Canvas):
         self.height = height
         rounded_rectangle(self, 0, 0, width, height, height / 2,
                           fill=colours.rule, outline="")
-        self._jauge = rounded_rectangle(self, 0, 0, 1, height, height / 2,
+        self._gauge = rounded_rectangle(self, 0, 0, 1, height, height / 2,
                                         fill=colours.green, outline="")
         self._value = 0.0
         self._target = 0.0
-        self._glisse: str | None = None
+        self._slide: str | None = None
 
     def reveal(self, part: float) -> None:
         self._target = max(0.0, min(1.0, part))
-        if self._glisse is None:
+        if self._slide is None:
             self._step()
 
     def _step(self) -> None:
         if not self.winfo_exists():
-            self._glisse = None
+            self._slide = None
             return
         gap = self._target - self._value
         if abs(gap) < 0.004:
             self._value = self._target
             self._draw()
-            self._glisse = None
+            self._slide = None
             return
         self._value += gap * 0.32
         self._draw()
-        self._glisse = self.after(30, self._step)
+        self._slide = self.after(30, self._step)
 
     def _draw(self) -> None:
         part = self._value
         if part <= 0.01:
-            self.itemconfigure(self._jauge, state="hidden")
+            self.itemconfigure(self._gauge, state="hidden")
             return
-        self.itemconfigure(self._jauge, state="normal")
+        self.itemconfigure(self._gauge, state="normal")
         length = max(self.height, part * self.width)
-        self.coords(self._jauge, *_rounded_points(0, 0, length, self.height,
+        self.coords(self._gauge, *_rounded_points(0, 0, length, self.height,
                                                    self.height / 2))
         self.itemconfigure(
-            self._jauge, fill=self.colours.amber if part > 0.7 else self.colours.green
+            self._gauge, fill=self.colours.amber if part > 0.7 else self.colours.green
         )
 
 def _rounded_points(
@@ -409,14 +409,14 @@ class _Segment(tk.Canvas):
 
     def __init__(self, parent: tk.Misc, caption: str, colours: Palette,
                  action: Callable[[str], None]) -> None:
-        self.largeur_nue = len(caption) * 9 + 34
-        super().__init__(parent, width=self.largeur_nue, height=32,
+        self.bare_width = len(caption) * 9 + 34
+        super().__init__(parent, width=self.bare_width, height=32,
                          highlightthickness=0, bg=colours.ground)
         self.caption = caption
         self.colours = colours
         self._count = 0
         self._chosen = False
-        self.forme = -1
+        self.shape = -1
         self.text = -1
         self._draw()
         self.bind("<Button-1>", lambda _e: action(self.caption))
@@ -430,30 +430,30 @@ class _Segment(tk.Canvas):
         whose width cannot change without remaking them.
         """
         self.delete("all")
-        width = self.largeur_nue + (self.BADGE_PLACE if self._count else 0)
+        width = self.bare_width + (self.BADGE_PLACE if self._count else 0)
         self.configure(width=width)
-        self.forme = rounded_rectangle(
+        self.shape = rounded_rectangle(
             self, 1, 1, width - 1, 31, 8,
             fill=self.colours.board if self._chosen else self.colours.ground,
         )
         self.text = self.create_text(
-            self.largeur_nue / 2, 16, text=self.caption,
+            self.bare_width / 2, 16, text=self.caption,
             fill=self.colours.accent if self._chosen else self.colours.ink_pale,
             font=font(12),
         )
         if not self._count:
             return
         mark = dot_marker(self._count)
-        centre = self.largeur_nue + self.BADGE_PLACE / 2 - 5
+        centre = self.bare_width + self.BADGE_PLACE / 2 - 5
         self.create_oval(centre - 9, 7, centre + 9, 25,
                          fill=self.colours.accent, outline="")
         self.create_text(centre, 16, text=mark, fill=self.colours.board,
-                         font=font(9, gras=True))
+                         font=font(9, bold=True))
 
     def paint(self, chosen: bool) -> None:
         self._chosen = chosen
         self.itemconfigure(
-            self.forme, fill=self.colours.board if chosen else self.colours.ground
+            self.shape, fill=self.colours.board if chosen else self.colours.ground
         )
         self.itemconfigure(
             self.text,
@@ -478,26 +478,26 @@ class ButtonBar(tk.Frame):
         self.colours = colours
         self._buttons: list[tuple[Button, int]] = []
         self._grille = (0, 0)
-        self.bind("<Configure>", self._replacer)
+        self.bind("<Configure>", self._replace)
 
     def add(self, button: Button, width: int) -> None:
         self._buttons.append((button, width))
-        self._grille = (0, 0)  # forcer un replacement au prochain <Configure>
+        self._grille = (0, 0)  # forces a new layout at the next <Configure>
 
-    def _replacer(self, _event: object = None) -> None:
-        offerte = self.winfo_width()
-        if offerte <= 1 or not self._buttons:
+    def _replace(self, _event: object = None) -> None:
+        offered = self.winfo_width()
+        if offered <= 1 or not self._buttons:
             return
-        by_rank, colonne = button_grid(
-            [width for _, width in self._buttons], offerte, self.GAP
+        by_rank, the_column = button_grid(
+            [width for _, width in self._buttons], offered, self.GAP
         )
-        if (by_rank, colonne) == self._grille:
+        if (by_rank, the_column) == self._grille:
             return
-        self._grille = (by_rank, colonne)
+        self._grille = (by_rank, the_column)
         last_rank = (len(self._buttons) - 1) // by_rank
         for index, (button, _) in enumerate(self._buttons):
             rank = index // by_rank
-            button.redimensionner(colonne)
+            button.resize(the_column)
             button.grid(
                 row=rank,
                 column=index % by_rank,
@@ -533,10 +533,10 @@ class Tabs(tk.Frame):
         """
         page = tk.Frame(self.corps, bg=self.colours.ground)
         self._pages[caption] = page
-        def montrer(_shown: str, key: str = caption) -> None:
+        def show(_shown: str, key: str = caption) -> None:
             self.reveal(key)
 
-        segment = _Segment(self.bar, shown or caption, self.colours, montrer)
+        segment = _Segment(self.bar, shown or caption, self.colours, show)
         segment.pack(side="left", padx=(0, 6))
         self._segments[caption] = segment
         if self._current is None:
@@ -552,9 +552,9 @@ class Tabs(tk.Frame):
         for name, segment in self._segments.items():
             segment.paint(name == caption)
         self._current = caption
-        segment_courant = self._segments.get(caption)
-        if segment_courant is not None:
-            segment_courant.mark(0)
+        current_segment = self._segments.get(caption)
+        if current_segment is not None:
+            current_segment.mark(0)
         if self.on_reveal is not None:
             self.on_reveal(caption)
 

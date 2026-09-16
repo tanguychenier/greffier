@@ -30,7 +30,7 @@ from greffier.domain.live import (
     LiveVoice,
     blocks,
 )
-from greffier.domain.models import Person, Span, Utterance, Voiceprint
+from greffier.domain.models import Person, Span, SpeakerTurn, Utterance, Voiceprint
 from greffier.domain.voiceprints import aggregate
 from greffier.ports import outbound
 
@@ -91,6 +91,7 @@ def _turn_line(turn: LiveTurn, voice: LiveVoice) -> dict[str, Any]:
         "fin": round(turn.span.end, 2),
         "texte": turn.text,
         "voix": turn.voice,
+        "confiance": turn.confidence,
         "nom": voice.name,
         "certitude": voice.certainty.value,
         "rang": voice.rank,
@@ -184,29 +185,29 @@ def replay(lines: list[dict[str, Any]], thread: LiveThread | None = None) -> Liv
 
 def _replay_split(thread: LiveThread, line: dict[str, Any]) -> None:
     """Replays a split: the named turns go back to the returned voice."""
-    rendue, target = str(line.get("voix", "")), str(line.get("de", ""))
-    if not rendue or not target or rendue == target:
+    returned, target = str(line.get("voix", "")), str(line.get("de", ""))
+    if not returned or not target or returned == target:
         return
-    thread.split_apart.add(frozenset({rendue, target}))
+    thread.split_apart.add(frozenset({returned, target}))
     kept_one = thread.voice.get(target)
-    if rendue in thread.voice or kept_one is None:
+    if returned in thread.voice or kept_one is None:
         return
     numbers = {int(n) for n in line.get("numeros", [])}
-    thread.reserve_identifier(rendue)
+    thread.reserve_identifier(returned)
     thread.reserve_rank(int(line.get("rang", 0)))
-    thread.voice[rendue] = LiveVoice(
-        identifier=rendue,
+    thread.voice[returned] = LiveVoice(
+        identifier=returned,
         name=line.get("nom"),
         certainty=_certitude(line.get("certitude")),
         rank=int(line.get("rang", 0)),
     )
-    if kept_one.certainty is not Certainty.HUMAINE:
+    if kept_one.certainty is not Certainty.HUMAN:
         kept_one.name = line.get("nom_cible")
         kept_one.certainty = _certitude(line.get("certitude_cible"))
     for turn in thread.turns:
         if turn.voice == target and turn.number in numbers:
-            turn.voice = rendue
-    thread.split_apart.add(frozenset({rendue, target}))
+            turn.voice = returned
+    thread.split_apart.add(frozenset({returned, target}))
 
 def _certitude(value: Any) -> Certainty:
     try:
@@ -219,18 +220,18 @@ def _replay_join(thread: LiveThread, line: dict[str, Any]) -> None:
     source, target = str(line.get("voix", "")), str(line.get("vers", ""))
     if not source or not target or source == target:
         return
-    avalee, kept_one = thread.voice.get(source), thread.voice.get(target)
-    if avalee is None or kept_one is None:
+    swallowed, kept_one = thread.voice.get(source), thread.voice.get(target)
+    if swallowed is None or kept_one is None:
         for turn in thread.turns:
             if turn.voice == source:
                 turn.voice = target
         thread.voice.pop(source, None)
         return
-    closed_before = avalee.certainty.firm
-    name_before, certitude_avant = avalee.name, avalee.certainty
+    closed_before = swallowed.certainty.firm
+    name_before, certainty_before = swallowed.name, swallowed.certainty
     thread.join_into(source, target)
     if not kept_one.certainty.firm and closed_before:
-        kept_one.name, kept_one.certainty = name_before, certitude_avant
+        kept_one.name, kept_one.certainty = name_before, certainty_before
 
 def _replay_turn(thread: LiveThread, line: dict[str, Any]) -> None:
     identifier = str(line.get("voix", ""))
@@ -249,11 +250,13 @@ def _replay_turn(thread: LiveThread, line: dict[str, Any]) -> None:
     if any(t.number == number for t in thread.turns):
         return
     start, end = float(line.get("debut", 0.0)), float(line.get("fin", 0.0))
+    confidence = line.get("confiance")
     thread.turns.append(LiveTurn(
         number=number,
         span=Span(start, max(start, end)),
         text=str(line.get("texte", "")),
         voice=identifier,
+        confidence=float(confidence) if confidence is not None else None,
     ))
     thread.up_to = max(thread.up_to, end)
 
@@ -294,9 +297,10 @@ class Follower:
     channels: outbound.ChannelReader | None = None
     extractor: outbound.VoiceprintExtractor | None = None
     bank: outbound.VoiceBank | None = None
+    segmenter: outbound.SliceSegmenter | None = None
     identifier: str = ""
-    _lues: int = field(default=0, repr=False)
-    _appris: dict[str, str] = field(default_factory=dict, repr=False)
+    _read_ones: int = field(default=0, repr=False)
+    _learned: dict[str, str] = field(default_factory=dict, repr=False)
 
     def take_in(
         self, slice_: Path, utterances: list[Utterance], offset: float
@@ -304,29 +308,30 @@ class Follower:
         """Attributes a slice's sentences and publishes them."""
         self.apply_requests()
         local_spans = self.channels.local_passages(slice_) if self.channels else []
-        globaux = [
+        global_ones = [
             Span(x.start + offset, x.end + offset) for x in local_spans
         ]
         # The transcriber's repeat loop is folded here, before attribution:
         # eleven times the same sentence is one voice more and eleven lines.
         utterances = collapse_loops(utterances)
-        recalees = [
+        rebased = [
             Utterance(
                 span=Span(
                     r.span.start + offset, r.span.end + offset
                 ),
-                text=r.text, voice=r.voice, source=r.source,
+                text=r.text, voice=r.voice, source=r.source, confidence=r.confidence,
             )
             for r in utterances
         ]
-        kept = self.thread.hold(recalees)
+        kept = self.thread.hold(rebased)
         if not kept:
             return []
 
+        turns = self._turns(slice_, offset)
         new_ones: list[LiveTurn] = []
         lines: list[dict[str, Any]] = []
-        for block in blocks(kept, globaux):
-            voiceprint = self._voiceprint(slice_, block, local_spans, offset)
+        for block in blocks(kept, global_ones, turns):
+            voiceprint = self._voiceprint(slice_, block, local_spans, offset, turns)
             voice = self.thread.attach(voiceprint, block.local)
             for turn in self.thread.record_turn(block, voice):
                 new_ones.append(turn)
@@ -337,20 +342,52 @@ class Follower:
         self.learn_named_voices()
         return new_ones
 
+    def _turns(self, slice_: Path, offset: float) -> list[SpeakerTurn]:
+        """The speaker turns of the slice, on the meeting clock."""
+        if self.segmenter is None:
+            return []
+        try:
+            found = self.segmenter.turns(slice_)
+        except (RuntimeError, OSError, ValueError):
+            return []
+        return [
+            SpeakerTurn(
+                span=Span(turn.span.start + offset, turn.span.end + offset),
+                voice=turn.voice, source=turn.source,
+            )
+            for turn in found
+        ]
+
     def _voiceprint(
-        self, slice_: Path, block: Block, local_spans: list[Span], offset: float
+        self,
+        slice_: Path,
+        block: Block,
+        local_spans: list[Span],
+        offset: float,
+        turns: list[SpeakerTurn] | None = None,
     ) -> Voiceprint | None:
-        """The voiceprint of a remote passage, taken from what is not local."""
+        """The voiceprint of a remote passage, taken from what is not local.
+
+        A block cut at the changes of speaker is read where its speaker talks,
+        the interjections of the others left out, and read as one excerpt:
+        the turns of a lively meeting are short, and a print asks for more
+        than most of them hold.
+        """
         if block.local or self.extractor is None:
             return None
-        within_the_slice = Span(
-            max(0.0, block.span.start - offset),
-            max(0.0, block.span.end - offset),
-        )
-        chunks = subtract(within_the_slice, local_spans)
+        chunks = [
+            piece
+            for span in block.spans_of_the_speaker(turns or [])
+            for piece in subtract(
+                Span(max(0.0, span.start - offset), max(0.0, span.end - offset)),
+                local_spans,
+            )
+        ]
         if not chunks:
             return None
         try:
+            if block.speaker is not None:
+                return self.extractor.extract_together(slice_, chunks)
             found = self.extractor.extract_spans(slice_, chunks)
         except (RuntimeError, OSError, ValueError):
             return None
@@ -364,27 +401,27 @@ class Follower:
         Two consequences, and the second is the one that counts: the following slices
         carry the right name, and the voiceprint enters the **voice bank**.
         """
-        lines, self._lues = read_from(self.requests, self._lues)
-        faites: list[Correction] = []
+        lines, self._read_ones = read_from(self.requests, self._read_ones)
+        done_ones: list[Correction] = []
         confirmations: list[dict[str, Any]] = []
         for line in lines:
             if "separer" in line:
-                defaite = self.thread.split(str(line["separer"]))
-                if defaite is not None:
-                    confirmations.append(_split_line(defaite))
+                undone = self.thread.split(str(line["separer"]))
+                if undone is not None:
+                    confirmations.append(_split_line(undone))
                 continue
-            correction = self._appliquer(line)
+            correction = self._apply(line)
             if correction is None:
                 continue
-            faites.append(correction)
+            done_ones.append(correction)
             confirmations.append(_correction_line(correction))
         for source, target in self.thread.join_namesakes():
             confirmations.append(_meeting_line(source, target))
         add(self.log, confirmations)
         self.learn_named_voices()
-        return faites
+        return done_ones
 
-    def _appliquer(self, line: dict[str, Any]) -> Correction | None:
+    def _apply(self, line: dict[str, Any]) -> Correction | None:
         try:
             return self.thread.correct(
                 number=int(line["numero"]),
@@ -398,11 +435,11 @@ class Follower:
         """Pours into the bank the voices a human named, as soon as there is enough."""
         if self.bank is None:
             return []
-        appris: list[str] = []
+        learned: list[str] = []
         for voice in self.thread.voice.values():
-            if voice.certainty is not Certainty.HUMAINE or voice.name is None:
+            if voice.certainty is not Certainty.HUMAN or voice.name is None:
                 continue
-            if self._appris.get(voice.identifier) == voice.name:
+            if self._learned.get(voice.identifier) == voice.name:
                 continue
             voiceprint = self.thread.voiceprint_to_learn(voice)
             if voiceprint is None:
@@ -410,11 +447,11 @@ class Follower:
             with contextlib.suppress(OSError):
                 self.bank.record(
                     voice.name, replace(voiceprint, origin=self.identifier))
-                self._appris[voice.identifier] = voice.name
-                appris.append(voice.name)
-        return appris
+                self._learned[voice.identifier] = voice.name
+                learned.append(voice.name)
+        return learned
 
-    def annoncer(self, message: str, active: bool = True) -> None:
+    def announce(self, message: str, active: bool = True) -> None:
         """Tells the window what the live thread can do, or why it cannot."""
         add(self.log, [{"genre": KIND_STATE, "message": message, "actif": active}])
 

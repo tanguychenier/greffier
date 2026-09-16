@@ -14,9 +14,9 @@ import threading
 
 SYSTEM = platform.system()
 
-QUALITES = ("Premium", "Enhanced")
+QUALITIES = ("Premium", "Enhanced")
 
-COMPACTES_ACCEPTABLES = ("Thomas", "Amélie", "Audrey", "Aurelie")
+ACCEPTABLE_COMPACT_ONES = ("Thomas", "Amélie", "Audrey", "Aurelie")
 
 DEBIT = 165
 
@@ -42,22 +42,38 @@ def best_voice() -> str | None:
     voice = _say_voice()
     if not voice:
         return None
-    for qualite in QUALITES:
+    for quality in QUALITIES:
         for language in ("fr_FR", "fr_CA"):
             for name, this_language in voice:
-                if f"({qualite})" in name and this_language == language:
+                if f"({quality})" in name and this_language == language:
                     return name
-    for prefere in COMPACTES_ACCEPTABLES:
+    for preferred in ACCEPTABLE_COMPACT_ONES:
         for name, _ in voice:
-            if name.split(" (")[0] == prefere:
+            if name.split(" (")[0] == preferred:
                 return name
     return voice[0][0]
 
 def better_voice_available() -> bool:
     """Is a neural voice installed?"""
     return any(
-        f"({qualite})" in name for name, _ in _say_voice() for qualite in QUALITES
+        f"({quality})" in name for name, _ in _say_voice() for quality in QUALITIES
     )
+
+class WholeRemark:
+    """Gathers the sentences of a remark, and says them together when it is complete."""
+
+    def __init__(self, voice: SystemVoice) -> None:
+        self._voice = voice
+        self._parts: list[str] = []
+
+    def add(self, text: str) -> None:
+        self._parts.append(text.strip())
+
+    def close(self) -> None:
+        remark = " ".join(part for part in self._parts if part)
+        if remark:
+            self._voice.say(remark)
+
 
 class SystemVoice:
     """Pronounces a text through the system synthesiser."""
@@ -66,7 +82,7 @@ class SystemVoice:
         self.voice = voice if voice is not None else best_voice()
         self.debit = debit
         self._in_progress: subprocess.Popen[bytes] | None = None
-        self._verrou = threading.Lock()
+        self._lock = threading.Lock()
 
     @property
     def available(self) -> bool:
@@ -85,13 +101,13 @@ class SystemVoice:
                 return ["espeak-ng", "-v", "fr", "-s", str(self.debit), text]
             return []
         if SYSTEM == "Windows" and shutil.which("powershell"):
-            echappe = text.replace("'", "''")
+            escaped = text.replace("'", "''")
             return [
                 "powershell", "-NoProfile", "-Command",
                 "Add-Type -AssemblyName System.Speech; "
                 "$v = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
                 f"$v.Rate = {max(-10, min(10, (self.debit - 175) // 15))}; "
-                f"$v.Speak('{echappe}')",
+                f"$v.Speak('{escaped}')",
             ]
         return []
 
@@ -107,7 +123,7 @@ class SystemVoice:
         # the sentence under way when an answer arrived mid-sentence.
         if self.is_speaking():
             return False
-        with self._verrou:
+        with self._lock:
             try:
                 self._in_progress = subprocess.Popen(
                     command, stdin=subprocess.DEVNULL,
@@ -117,13 +133,19 @@ class SystemVoice:
                 return False
         return True
 
+    def begin(self) -> WholeRemark | None:
+        """The system voice takes one text at a time: the remark is said at the end."""
+        if self.is_speaking() or not self.available:
+            return None
+        return WholeRemark(self)
+
     def is_speaking(self) -> bool:
-        with self._verrou:
+        with self._lock:
             return self._in_progress is not None and self._in_progress.poll() is None
 
     def go_quiet(self) -> None:
         """Cuts the current sentence. No effect when there is none."""
-        with self._verrou:
+        with self._lock:
             in_progress, self._in_progress = self._in_progress, None
         if in_progress is not None and in_progress.poll() is None:
             in_progress.terminate()
@@ -132,9 +154,9 @@ class SystemVoice:
             except subprocess.TimeoutExpired:
                 in_progress.kill()
 
-    def attendre(self, timeout: float = 30.0) -> None:
+    def wait_for_it(self, timeout: float = 30.0) -> None:
         """Waits for the sentence to finish. For the command line."""
-        with self._verrou:
+        with self._lock:
             in_progress = self._in_progress
         if in_progress is not None:
             try:

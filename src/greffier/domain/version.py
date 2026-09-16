@@ -12,8 +12,8 @@ def read(brute: str) -> tuple[int, int, int] | None:
     found = _VERSION.match(brute.strip())
     if found is None:
         return None
-    majeure, mineure, corrective = found.groups()
-    return (int(majeure), int(mineure), int(corrective or 0))
+    major, minor, corrective = found.groups()
+    return (int(major), int(minor), int(corrective or 0))
 
 
 def is_newer(candidate: str, installed: str) -> bool:

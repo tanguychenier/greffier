@@ -61,31 +61,35 @@ def available_models() -> list[str]:
     return [line.split()[0] for line in output.splitlines()[1:] if line.strip()]
 
 class OllamaWriter:
-    def __init__(self, model: str, hote: str = "http://127.0.0.1:11434",
-                 language: str = "") -> None:
+    def __init__(self, model: str, host: str = "http://127.0.0.1:11434",
+                 language: str = "", own_guidance: str = "") -> None:
         self.model = model
-        self.hote = hote.rstrip("/")
+        self.host = host.rstrip("/")
         self.language = language
+        #: Given, the writer's own instructions give way: the assistant
+        #: answering out loud is not writing minutes.
+        self.own_guidance = own_guidance
 
     def write_up(self, transcription: str) -> str:
+        header = self.own_guidance or guidance(self.language)
         corps = json.dumps({
             "model": self.model,
-            "prompt": guidance(self.language) + transcription,
+            "prompt": header + transcription,
             "stream": False,
             "options": {"temperature": 0.2},
         }).encode("utf-8")
-        requete = urllib.request.Request(
-            f"{self.hote}/api/generate", data=corps,
+        the_request = urllib.request.Request(
+            f"{self.host}/api/generate", data=corps,
             headers={"Content-Type": "application/json"}, method="POST",
         )
         try:
-            with urllib.request.urlopen(requete, timeout=900) as response:
+            with urllib.request.urlopen(the_request, timeout=900) as response:
                 text = str(json.load(response).get("response", "")).strip()
-        except urllib.error.URLError as erreur:
+        except urllib.error.URLError as the_error:
             raise RuntimeError(
-                f"Ollama injoignable sur {self.hote} : {erreur}. "
+                f"Ollama injoignable sur {self.host} : {the_error}. "
                 "Lance « ollama serve », ou change « compte_rendu.moteur »."
-            ) from erreur
+            ) from the_error
         if not text:
             raise RuntimeError(f"Le modèle {self.model} n'a rien produit.")
         return text

@@ -5,10 +5,10 @@ conversation readily mixes: what the tool does today and at what price, what
 the state of the art offers, and what would have to be measured before
 changing anything.
 
-**Warning about the second part.** What I know of the state of the art
-stops at May 2026 and has not been checked since. The names and the
-principles are safe; the rankings and the "best" are not, and an up-to-date
-survey is the first thing to do together.
+**Warning about the second part.** What I knew of the state of the art
+stopped at May 2026. Section 4, added on 2026-09-16, is the survey brought
+up to date on the sources of the day; the second part is left as it was,
+for what it says of the principles.
 
 **Since then:** the bench of extractors was run on a real meeting of 1 h 42,
 and it settles the question of the voiceprint model. CAM++ and ResNet293,
@@ -131,3 +131,58 @@ Three figures, and not one more, all available on the labelled meeting:
 And one rule: **no threshold change without the measurement that goes with
 it.** Three of the four thresholds of this project were first set by guess,
 and all three were wrong.
+
+## 4. The survey, brought up to date on 2026-09-16
+
+What the warning at the top asked for. Checked on the day, on the sources
+named; the figures are the authors' own, on public benchmarks, and none of
+them was run here.
+
+### Whole pipelines
+
+| Pipeline | What it is | DER, AMI-SDM, no collar | Licence of the weights | Runs on |
+|---|---|---|---|---|
+| pyannote 3.1 (ours, through sherpa-onnx) | segmentation 3.0 + embeddings + clustering | 22.4 to 22.7 % | MIT | ONNX, no PyTorch |
+| pyannote **community-1** (pyannote.audio 4.0, 2026) | same shape, WeSpeaker embeddings, VBx clustering, "exclusive" output for transcription | **19.9 %** (17.0 % on AMI-IHM, 20.2 % DIHARD 3) | CC-BY-4.0 | PyTorch |
+| pyannote **precision-2** | the commercial one | 15.6 % | paid API | their servers |
+| **DiariZen** Large-s80-v2 (BUT, 2025-26) | pruned WavLM-Large + Conformer + VBx | **13.9 %** (14.5 % DIHARD 3) | **CC BY-NC 4.0**, non-commercial | PyTorch, CUDA |
+| NVIDIA **Sortformer** | end-to-end, one Transformer | strong on the authors' figures, not on the public comparative benchmark | open | PyTorch; **four speakers at most** |
+| Rev **reverb-diarization v2** (in sherpa-onnx since 12/2024) | pyannote 3 fine-tuned, WavLM features | "22 % less WDER than pyannote 3.0" on Rev's own suites | **non-production licence**, commercial licence on request | ONNX |
+
+### Voiceprints
+
+The sherpa-onnx catalogue of speaker models has not moved since October
+2024: the same nine WeSpeaker, nine 3D-Speaker, three NeMo. The two at the
+top of that list, CAM++ and ResNet293, were benched here on a real meeting
+and lost to TitaNet on short excerpts (negative margin, see section 1).
+
+One new architecture stands out since: **ReDimNet2** (IDRnD, March 2026,
+Interspeech 2026), 0.29 % EER on VoxCeleb1-O with 12 M parameters, 0.57 %
+with 3.6 M. The first ReDimNet's code and weights are MIT; ReDimNet2's
+weights are announced as released, without a licence named in the paper,
+and neither has an ONNX export.
+
+### What follows from it
+
+Within what the tool is built on, ONNX through sherpa-onnx, no PyTorch, a
+licence that allows a company to ship it, **nothing has changed since the
+retrospective of 10 September**: the segmentation stays pyannote 3.0, the
+voiceprints TitaNet, and the bar for any candidate stays +0.099 of margin at
+14.6 ms per excerpt, measured on the real meeting.
+
+Two things would be worth a measurement, in this order:
+
+1. **ReDimNet (b2 or b3, MIT) exported to ONNX**, run through
+   `tools/compare_extractors.py` on the labelled meeting. The only new
+   candidate that fits the constraints; its author's figures are on clean
+   VoxCeleb, and the bench here is on 2.5-second excerpts round a table,
+   which is where CAM++ and ResNet293 fell.
+2. **pyannote community-1**, if the tool were to carry PyTorch: three DER
+   points on AMI-SDM, and the "exclusive" output made for reconciling with
+   a transcription. That is a decision about the size of what is shipped
+   (PyTorch is two gigabytes and a graphics card story of its own), not
+   about a model, and it is his.
+
+DiariZen would be the biggest gain (eight DER points on AMI-SDM) and is out
+of reach: its weights are non-commercial. Sortformer is out of reach for
+another reason: four speakers at most, and a meeting has six.

@@ -26,9 +26,9 @@ class TestWhenTheCaptureStops:
     def test_stillness_ends_up_raising_the_alarm(self):
         monitoring = CaptureWatch()
         monitoring.observe(5000)
-        raisons = [monitoring.observe(5000) for _ in range(TURNS_BEFORE_ALERT)]
-        assert raisons[-1], "l'alerte doit finir par sortir"
-        assert "n'avance plus" in raisons[-1]
+        reasons = [monitoring.observe(5000) for _ in range(TURNS_BEFORE_ALERT)]
+        assert reasons[-1], "l'alerte doit finir par sortir"
+        assert "n'avance plus" in reasons[-1]
 
     def test_it_does_not_cry_out_on_the_first_still_turn(self):
         """A write buffer emptying is not a failure."""
@@ -39,8 +39,8 @@ class TestWhenTheCaptureStops:
     def test_it_says_so_only_once(self):
         monitoring = CaptureWatch()
         monitoring.observe(5000)
-        dites = [r for _ in range(10) if (r := monitoring.observe(5000))]
-        assert len(dites) == 1, "répéter à chaque tour noierait le message"
+        said_ones = [r for _ in range(10) if (r := monitoring.observe(5000))]
+        assert len(said_ones) == 1, "répéter à chaque tour noierait le message"
 
     def test_starting_again_rearms_the_watch(self):
         """A change of hardware can interrupt the capture for the length of one piece."""
@@ -57,5 +57,5 @@ class TestWhenTheCaptureStops:
         """It does not happen normally, so it must not pass unnoticed."""
         monitoring = CaptureWatch()
         monitoring.observe(9000)
-        raisons = [monitoring.observe(1000) for _ in range(TURNS_BEFORE_ALERT)]
-        assert raisons[-1]
+        reasons = [monitoring.observe(1000) for _ in range(TURNS_BEFORE_ALERT)]
+        assert reasons[-1]

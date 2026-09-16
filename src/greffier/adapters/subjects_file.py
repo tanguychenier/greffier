@@ -7,7 +7,7 @@ from pathlib import Path
 
 from greffier.domain.subjects import Registry, Subject
 
-GABARIT = '''# Les sujets que Greffier suit, et où vit la carte de chacun.
+TEMPLATE = '''# Les sujets que Greffier suit, et où vit la carte de chacun.
 #
 # « alias » est ce qui ne se devine pas : personne ne peut savoir
 # qu'« esup-oasis » désigne le même projet qu'« Oasis ». Sans l'alias, chaque
@@ -58,22 +58,22 @@ def lay_the_template(file: Path) -> bool:
     if file.exists():
         return False
     file.parent.mkdir(parents=True, exist_ok=True)
-    file.write_text(GABARIT, encoding="utf-8")
+    file.write_text(TEMPLATE, encoding="utf-8")
     return True
 
-def noter_la_carte(file: Path, subject: str, board: str) -> bool:
+def note_the_board(file: Path, subject: str, board: str) -> bool:
     """Records a subject's board identifier, append-only."""
-    registre = read(file)
-    connu = registre.by_name(subject)
-    if connu is not None and connu.board:
+    the_registry = read(file)
+    known_one = the_registry.by_name(subject)
+    if known_one is not None and known_one.board:
         return False
     lay_the_template(file)
     with file.open("a", encoding="utf-8") as stream:
-        if connu is None:
+        if known_one is None:
             stream.write(f'\n[[sujets]]\nnom = "{subject}"\ncarte = "{board}"\n')
         else:
             stream.write(
-                f'\n[[sujets]]\nnom = "{connu.name}"\n'
-                f'alias = {list(connu.alias)!r}\ncarte = "{board}"\n'
+                f'\n[[sujets]]\nnom = "{known_one.name}"\n'
+                f'alias = {list(known_one.alias)!r}\ncarte = "{board}"\n'
             )
     return True

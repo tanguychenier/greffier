@@ -241,3 +241,200 @@ sentence-level figures move by a few points from one run to the next. The
 comparison that settles a threshold is the turn-level one of
 `measure_stitching.py`, computed once from a cached segmentation, where
 036c goes from 72.2 % to 93.5 % right with nothing else changed.
+
+## The assistant's speed, from the end of the question to her first word (2026-09-16)
+
+Asked from use: she took seconds to answer, and it felt long. Measured on a
+synthesised meeting that asks her three questions and leaves her twelve
+seconds after each (`tools/measure_assistant.py`), through the chain a
+meeting runs: the pass that spots her name, the model that phrases the
+answer, the voice that renders it, the loudspeaker replaced by a clock. Three
+figures per question, all counted from the end of the question: *spotted*
+(her name heard), *answered* (the model's text back), *ready* (the first
+sentence rendered, the moment the room would hear her). Two runs each.
+
+Where the seconds went, measured one piece at a time:
+
+| Piece | Before | After | What changed |
+|---|---|---|---|
+| The model, one question | `claude -p` cold: 4.6 s haiku, 5.0 sonnet, 6.2 opus | 1.4 to 2.4 s | One process kept open for the meeting (`brain_claude`), fed one message after another; the guidance as its system prompt (first token 0.7 s instead of 2.7); sonnet rather than opus for what is spoken |
+| The listening pass | in the loop, after the slice: every 4 s at best, never while a slice was transcribed | its own thread, run the moment the room goes quiet | `SpeechEnd` on the levels of the file being written; the clock as fallback, and no pass while nobody has spoken |
+| The live model, on this card | large-v3: 12.1 s per minute, 1.95 s per pass | large-v3-turbo: 3.7 s per minute, 1.3 s per pass | Turbo where the card takes the large model; the installer fetches it |
+| The voice, first answer | 5 to 6 s to open | opened before the first word | Warmed up at the start of the meeting, with the live model |
+| A question cut in half | answered as heard | held for the next pass | A call with no full stop waits once; the same words again go through |
+
+Which small model would hear her name: base heard it 4 times out of 8 on
+the synthesised voices, small 4 out of 8, large-v3-turbo 8 out of 8. The
+pass keeps the turbo model.
+
+End to end, on this machine (CUDA, 6 GB, live thread on), the same file
+before and after, two runs each:
+
+| | Question 1 | Question 2 | Question 3 |
+|---|---|---|---|
+| Before, spotted / answered / ready | 5.0 / 8.6 / **8.9** s and 3.9 / 11.5 / **11.8** s | 3.5 / 8.8 / **9.3** s and 3.8 / 7.7 / **8.0** s | 6.2 / 9.8 / **10.0** s and 4.4 / 8.5 / **8.9** s |
+| After | 0.0 / 1.4 / **3.0** s and 0.0 / 2.6 / **2.8** s | 1.7 / 3.3 / **3.5** s and 1.9 / 5.8 / **6.5** s | 2.9 / 5.1 / **5.6** s and 3.6 / 10.7 / **11.0** s |
+
+From 9.5 s on average to 5.4 s, and to **3 s on the first question** of each
+run: the room's half second of quiet, the pass, the model, the voice. The
+second run's third question is the model taking seven seconds to answer
+where it takes two elsewhere, which the bench shows as it is: the wire is
+the account's, and its speed is not the tool's to promise. The question
+timeline ends where the synthesised file ends, half a second after the
+voice stops, which is why a name can be *spotted* at 0.0 s.
+
+What is left, in order of size: the model's share (1.4 to 2.6 s when it
+answers at its usual pace), then the pass (1.3 s on this card for eight
+seconds of audio, 0.8 s on the MacBook the tool runs on), then the half
+second the room has to keep quiet before anyone can tell the question is
+over. Below that would take the answer streamed to the voice sentence by
+sentence, or a model reached without Claude Code in front of it.
+
+A caveat on the day's benches, and the reason there are two "after"
+rows in `assistant.json`: the first "after" was measured with the large
+model still on the live thread, `downloaded` having looked for the turbo
+model under the wrong repository name and said no. The figures above are
+the ones with the turbo model really on.
+
+## The live words against the reference (2026-09-16)
+
+`tools/measure_live.py` replays SUMM-RE 032a slice by slice through
+`Watcher.transcription_turn` and the real live thread, driving the clock
+itself, and holds the words the thread shows against the reference. The
+final transcription of the same file reads at **24.5 %** of errors and
+220 rare terms out of 254 (large-v3, the full recording at once). The
+live thread can only do worse; the question was by how much, and what
+moves the figure. Seconds per slice are wall time on this card, live
+thread included (voiceprints, levelling).
+
+| Live model | Period | Context before the slice | Levelled | Word error rate | Rare terms | Seconds per slice |
+|---|---|---|---|---|---|---|
+| large-v3 | 10 s | 50 s | yes | 31.2 % | 205 | 17.0 |
+| large-v3 | 10 s | 20 s | yes | **29.6 %** | 203 | 9.4 |
+| large-v3 | 10 s | none | yes | 32.5 % | 203 | 4.1 |
+| large-v3-turbo | 10 s | 50 s | yes | **43.3 %** | 161 | 10.9 |
+| large-v3-turbo | 10 s | 20 s | yes | 32.0 % | 205 | 6.6 |
+| large-v3-turbo | 10 s | none | yes | 31.5 % | 205 | **3.0** |
+| large-v3-turbo | 10 s | 20 s | no | 32.7 % | 202 | 3.9 |
+| large-v3-turbo | **5 s** | 20 s | yes | **56.5 %** | 126 | 4.7 |
+
+What it says, the same file giving figures two or three points apart from
+one run to the next (the temperature ladder samples where the model is
+unsure):
+
+- **The context before the slice buys nothing** on the words: 29.6 to 32.5
+  for large-v3 across none, twenty and fifty seconds, 31.5 to 32.0 for the
+  turbo model across none and twenty, the rare terms unchanged. It costs
+  everything on the card: a slice of ten seconds with fifty of context is
+  a minute of audio, 17 s on this card with the large model. **Fifty
+  seconds hurt the turbo model outright**: 43.3 %, a third of the rare
+  terms gone, the model losing its footing on a long window.
+- **The period must not go under ten seconds**: at five, every sentence is
+  cut in half at a boundary, heard in two pieces that do not add up, and
+  half the rare terms are lost.
+- **The turbo model reads two to three points worse than large-v3** on the
+  same slices, at less than half the cost; the levelling costs a third of
+  the slice time for a point that is inside the noise on a studio
+  recording, and stays for the rooms it was measured on.
+
+What follows: `CONTEXT_S` goes from 50 to 20, not to none. The words read
+alike either way; twenty keeps what a real meeting showed on 2026-09-09
+for a proper name ("sur la ZIS" with fifteen seconds of window, "sur Asis"
+with thirty, "sur Oasis" with sixty), which this corpus, a studio
+conversation with few names of its own, cannot measure. The card spends
+half of what it spent, and every second the card is not on a slice is a
+second the assistant's name is heard sooner.
+
+## The same four people, one meeting later (2026-09-16)
+
+The question from use: does the tool keep somebody's voice, so that a
+person named once is named by the tool the next time, whatever their tone
+that day? SUMM-RE 032a and 032b are the same four people, a reporting
+meeting and a decision meeting of the same series. `tools/measure_bank.py`
+names the four voices of 032a after the reference, through the product's
+own gesture (`Naming`, the one behind « greffier nommer »), then puts 032b
+through the chain with that bank and through the live thread with it, and
+checks every sentence the reference attributes: named right, named wrong,
+left to nobody. The names are the reference's people, given first names
+for the bank.
+
+| 032b, 419 to 448 sentences judged | Right | Wrong | Nobody |
+|---|---|---|---|
+| After the meeting, the chain and the bank | **65.6 %** (275) | **6.7 %** (28) | 27.7 % (116) |
+| Live thread, one voice per slice (before) | 71.4 % (320) | **28.3 %** (127) | 0.2 % (1) |
+| Live thread, the slice cut at the changes of speaker, a sentence given from 80 % of its time | 74.5 % (333) | 12.3 % (55) | 13.2 % (59) |
+| … and the scraps under the short threshold with the others | 75.4 % (337) | 11.0 % (49) | 13.6 % (61) |
+| … a sentence given from 70 % of its time | 76.1 % (340) | 9.6 % (43) | 14.3 % (64) |
+| … from 60 % | 76.3 % (341) | 8.5 % (38) | 15.2 % (68) |
+| … **from half of it** (kept) | **80.3 %** (359) | **8.3 %** (37) | 11.4 % (51) |
+| Live thread again, the transcriber in the loop, with all of the above | **82.1 %** (368) | **8.7 %** (39) | 9.2 % (41) |
+
+Per person, after the meeting: Alice 88 right, 21 wrong, 56 to nobody out
+of 165; Bruno 67 / 3 / 17 out of 87; Chloé 105 / 3 / 32 out of 140;
+Diane 15 / 1 / 11 out of 27. Live, the slice cut, from half: Alice 102 /
+21 / 19 out of 142; Bruno 117 / 3 / 5 out of 125; Chloé 121 / 12 / 17 out
+of 150; Diane 19 / 1 / 10 out of 30. The replay is exact: the same
+setting run twice gives the same thread to the byte, so a point between
+two rows is the setting, not the dice. The last row is the live thread
+run again in full, words transcribed on the card and slices cut: what the
+replay promised, with the transcriber back in the loop.
+
+What it says:
+
+- **The bank recognises the same person a meeting later, every time.**
+  After the meeting the chain finds four voices and the bank puts the four
+  right names on them; live, the thread founds four voices and the bank
+  names them right too, Chloé on the first sentence, Diane at 56 s, Bruno
+  at 78 s, Alice at 161 s. Not one name is wrong at the end. What is wrong
+  is the sentence under the name. One thing to know: in the full run, the
+  voice that ends up as Alice was called « Diane ? » from 56 s to 161 s,
+  named on six seconds of material and renamed once there was more; the
+  question mark next to a name from a print is there for that.
+- **After the meeting, a sentence in four is left to nobody**, by the
+  rule of the minutes (`attribution.MINIMUM_SHARE`): a sentence whose time
+  is not held at 80 % by one speaker turn goes to no one rather than to
+  the most talkative. On a lively meeting where the four cut into each
+  other, that is a quarter of the sentences, and 7 % still land on the
+  wrong person, the boundaries of the transcriber not being the
+  segmenter's. Alice, who carries 40 % of the sentences and changes tone,
+  is held as one voice: 88 of her sentences on it, two scraps of a second
+  each, and the 21 wrong ones on the three others' voices, not on a second
+  Alice.
+- **Live, the slice was one block.** The thread took one print per slice
+  for everything that did not come from the microphone, and gave the ten
+  seconds to whoever that print resembled: **28 % of the sentences under
+  the wrong name**, and everybody named, since nothing was ever left out.
+  A wrong name on screen costs more than no name.
+- **The slice cut at the changes of speaker** brings the wrong ones from
+  127 to 37. The segmentation model the chain uses is run on the slice
+  alone, on the processor, in windows of ten seconds (0.14 s a window under
+  load; the same audio read as one fifteen-second piece cost twelve
+  seconds, the engine joining its windows with the voiceprint model). The
+  labels hold inside the window only; the sentences are grouped by turn
+  with the rule of the minutes, one print per group read where that
+  speaker talks, and the thread joins the groups to its voices by print as
+  it always did. Two more rules came out of the replay: a scrap under two
+  seconds used to join the nearest voice whatever the likeness, and now
+  joins it from the threshold measured for short material (0.45), or goes
+  with the others; and the catch-all of those scraps must never take a
+  print, since the bank then named the mixture of four people (eighty
+  sentences under one name, in the run that showed it).
+- **The share a turn must hold of a sentence is not the minutes' 80 %.**
+  In the minutes the share decides the name, and a straddling sentence
+  goes to nobody. Live, the share only groups the sentences whose audio
+  makes one print, and the print decides the voice: the lower the share,
+  the longer the groups, the better the prints, and the fewer sentences
+  standing alone on a print of mixed audio. From 80 % down to half, the
+  wrong ones go from 49 to 37 and the right ones from 337 to 359, every
+  step in the same direction. `LIVE_MINIMUM_SHARE` is 0.5.
+- **What is left wrong is short**: 25 of the 37 sentences last under two
+  seconds, « Après Noël » said by two people in the same breath, « Arrête »,
+  « Vendredi ! ». The rest sit in the exchanges where the four talk over
+  one another, where the reference itself gives one sentence to one
+  person.
+
+The replay is `tools/measure_bank.py --replay`, through
+`tools/replay_follower.py`: the live thread is fed the very words it
+showed last time, slice by slice, without the transcriber, so a change to
+who-said-what is measured in four minutes on the processor, the card left
+to the words.

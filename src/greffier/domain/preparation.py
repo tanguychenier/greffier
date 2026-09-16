@@ -107,44 +107,44 @@ class Preparation:
         """
         if self.empty:
             return ""
-        lignes = ["[Préparation de cette réunion]"]
+        lines = ["[Préparation de cette réunion]"]
         if self.subject:
-            lignes.append(f"Sujet annoncé : {self.subject}")
+            lines.append(f"Sujet annoncé : {self.subject}")
         if self.to_raise:
-            lignes.append("Points à soulever, dans l'ordre où ils ont été notés :")
-            lignes += [f"- {point}" for point in self.to_raise]
+            lines.append("Points à soulever, dans l'ordre où ils ont été notés :")
+            lines += [f"- {point}" for point in self.to_raise]
         if self.expected:
-            lignes.append(
+            lines.append(
                 "Personnes attendues : " + ", ".join(self.expected)
                 + ". N'attribue un propos qu'à quelqu'un dont la transcription "
                 "montre la présence."
             )
         if self.documents:
-            lignes.append("Documents rassemblés avant la séance : "
+            lines.append("Documents rassemblés avant la séance : "
                           + ", ".join(self.documents))
-        header = "\n".join(lignes)
-        echanges = _that_fit(self.exchanges, place - len(header))
-        if echanges:
+        header = "\n".join(lines)
+        the_exchanges = _that_fit(self.exchanges, place - len(header))
+        if the_exchanges:
             header += (
                 "\n\nCe qui a été demandé avant la réunion, et ce qui a été "
-                "répondu. N'y reviens que si la séance y touche :\n" + echanges
+                "répondu. N'y reviens que si la séance y touche :\n" + the_exchanges
             )
         return header + "\n\n"
 
 
 def _that_fit(exchanges: tuple[Exchange, ...], place: int) -> str:
     """The most recent exchanges that fit, in the order they happened."""
-    retenus: list[str] = []
-    longueur = 0
+    retained_ones: list[str] = []
+    length = 0
     for exchange in reversed(exchanges):
         rendered = f"- demandé : {exchange.asked}"
         if exchange.answered:
             rendered += f"\n  répondu : {exchange.answered}"
-        if longueur + len(rendered) + 1 > place:
+        if length + len(rendered) + 1 > place:
             break
-        retenus.append(rendered)
-        longueur += len(rendered) + 1
-    return "\n".join(reversed(retenus))
+        retained_ones.append(rendered)
+        length += len(rendered) + 1
+    return "\n".join(reversed(retained_ones))
 
 
 def question_prompt(preparation: Preparation, setting: str, question: str) -> str:

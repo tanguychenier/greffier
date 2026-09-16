@@ -40,7 +40,7 @@ class OutlookSender:
 end run
 """
 
-    SONDE = (
+    PROBE = (
         "with timeout of 60 seconds\n"
         '  tell application "Microsoft Outlook" to get name\n'
         "end timeout"
@@ -55,7 +55,7 @@ end run
         """
         try:
             outcome = subprocess.run(
-                ["osascript", "-e", self.SONDE],
+                ["osascript", "-e", self.PROBE],
                 capture_output=True, text=True, check=False, timeout=20,
             )
         except (OSError, subprocess.TimeoutExpired):

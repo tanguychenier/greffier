@@ -14,40 +14,40 @@ SYSTEM = platform.system()
 
 _LINE = re.compile(r"^\s{2}(\S.*?)\s+\[(.+?)\]\s*$")
 _UID = re.compile(r"^\s+uid:\s*(.+?)\s*$")
-_ENTREES = re.compile(r"entrée (\d+)ch")
+_INPUTS = re.compile(r"entrée (\d+)ch")
 _SORTIES = re.compile(r"sortie (\d+)ch")
 
 class CoreAudioLister:
     """Gives the state of the audio hardware, on demand."""
 
-    def __init__(self, source: Path, cache: Path, prete: Path | None = None) -> None:
+    def __init__(self, source: Path, cache: Path, ready: Path | None = None) -> None:
         self.source = source
-        self.prete = prete
-        self.binaire = cache / "lister-peripheriques"
+        self.ready = ready
+        self.binary = cache / "lister-peripheriques"
 
     def available(self) -> bool:
         if SYSTEM != "Darwin":
             return False
-        return self.source.exists() or (self.prete is not None and self.prete.exists())
+        return self.source.exists() or (self.ready is not None and self.ready.exists())
 
     def _compiler(self) -> bool:
         """Compiles the source when needed. False when compiling is impossible."""
-        if self.binaire.exists() and self.binaire.stat().st_mtime >= self.source.stat().st_mtime:
+        if self.binary.exists() and self.binary.stat().st_mtime >= self.source.stat().st_mtime:
             return True
         if not shutil.which("swiftc"):
             return False
-        self.binaire.parent.mkdir(parents=True, exist_ok=True)
+        self.binary.parent.mkdir(parents=True, exist_ok=True)
         done = subprocess.run(
-            ["swiftc", "-O", str(self.source), "-o", str(self.binaire)],
+            ["swiftc", "-O", str(self.source), "-o", str(self.binary)],
             capture_output=True, text=True, check=False,
         )
-        return done.returncode == 0 and self.binaire.exists()
+        return done.returncode == 0 and self.binary.exists()
 
     def _raw_output(self) -> str:
-        if self.prete is not None and self.prete.exists():
-            command = [str(self.prete), "--list"]
+        if self.ready is not None and self.ready.exists():
+            command = [str(self.ready), "--list"]
         elif self._compiler():
-            command = [str(self.binaire), "--list"]
+            command = [str(self.binary), "--list"]
         elif shutil.which("swift"):
             command = ["swift", str(self.source), "--list"]
         else:
@@ -76,13 +76,13 @@ def analyser(output: str) -> Hardware:
         uid = _UID.match(line)
         if uid and in_progress is not None:
             name, channels = in_progress
-            entrees = _ENTREES.search(channels)
+            entries = _INPUTS.search(channels)
             sorties = _SORTIES.search(channels)
             found.append(
                 Device(
                     name=name,
                     uid=uid.group(1),
-                    entrees=int(entrees.group(1)) if entrees else 0,
+                    entries=int(entries.group(1)) if entries else 0,
                     sorties=int(sorties.group(1)) if sorties else 0,
                 )
             )

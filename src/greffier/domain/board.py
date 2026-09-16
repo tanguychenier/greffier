@@ -81,10 +81,10 @@ def same_point(one: str, other: str) -> bool:
         return False
     if one_words == other_words:
         return True
-    communs = sum(
+    common_ones = sum(
         1 for word in one_words if any(_near_ones(word, target) for target in other_words)
     )
-    return communs / max(len(one_words), len(other_words)) >= COMMON_SHARE
+    return common_ones / max(len(one_words), len(other_words)) >= COMMON_SHARE
 
 @dataclass
 class Node:
@@ -103,13 +103,13 @@ class Node:
     def key(self) -> str:
         return key(self.text)
 
-    def enfant(self, text: str) -> Node | None:
+    def child(self, text: str) -> Node | None:
         """The child that carries this point, rewording aside."""
         return next((n for n in self.children if same_point(n.text, text)), None)
 
     def count(self) -> int:
         """Number of nodes, this one included."""
-        return 1 + sum(enfant.count() for enfant in self.children)
+        return 1 + sum(child.count() for child in self.children)
 
 @dataclass
 class Board:
@@ -139,54 +139,54 @@ class Contribution:
 class Summary:
     """What a join changed. Nothing is ever deleted."""
 
-    ajoutes: tuple[str, ...] = ()
-    actes: tuple[str, ...] = ()
+    added: tuple[str, ...] = ()
+    settled: tuple[str, ...] = ()
     known: tuple[str, ...] = ()
 
     @property
     def empty(self) -> bool:
-        return not self.ajoutes and not self.actes
+        return not self.added and not self.settled
 
-def join(board: Board, apports: list[Contribution], meeting: str = "") -> Summary:
+def join(board: Board, contributions: list[Contribution], meeting: str = "") -> Summary:
     """Pours the contributions into the board. **Never erases anything.**"""
     assert board.root is not None
-    ajoutes: list[str] = []
-    actes: list[str] = []
+    added: list[str] = []
+    settled: list[str] = []
     known: list[str] = []
 
-    for contribution in apports:
+    for contribution in contributions:
         if not contribution.text.strip():
             continue
         parent = _find(board.root, contribution.under) if contribution.under else board.root
         if parent is None:
             parent = board.root
-        existant = parent.enfant(contribution.text)
-        if existant is None:
+        existing = parent.child(contribution.text)
+        if existing is None:
             parent.children.append(Node(
                 text=contribution.text.strip(),
                 kind=contribution.kind,
                 state=contribution.state,
                 meetings=[meeting] if meeting else [],
             ))
-            ajoutes.append(contribution.text.strip())
+            added.append(contribution.text.strip())
             continue
-        if meeting and meeting not in existant.meetings:
-            existant.meetings.append(meeting)
-        voulu = state_allows(existant.kind, contribution.state)
-        if voulu is Standing.AGREED and existant.state is Standing.UNDER_DISCUSSION:
-            existant.state = Standing.AGREED
-            actes.append(existant.text)
+        if meeting and meeting not in existing.meetings:
+            existing.meetings.append(meeting)
+        wanted_one = state_allows(existing.kind, contribution.state)
+        if wanted_one is Standing.AGREED and existing.state is Standing.UNDER_DISCUSSION:
+            existing.state = Standing.AGREED
+            settled.append(existing.text)
         else:
-            known.append(existant.text)
+            known.append(existing.text)
 
-    return Summary(tuple(ajoutes), tuple(actes), tuple(known))
+    return Summary(tuple(added), tuple(settled), tuple(known))
 
-def _find(noeud: Node, text: str) -> Node | None:
+def _find(node: Node, text: str) -> Node | None:
     """The node carrying this label, wherever it sits in the tree."""
-    if same_point(noeud.text, text):
-        return noeud
-    for enfant in noeud.children:
-        found = _find(enfant, text)
+    if same_point(node.text, text):
+        return node
+    for child in node.children:
+        found = _find(child, text)
         if found is not None:
             return found
     return None

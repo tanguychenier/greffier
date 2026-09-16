@@ -123,9 +123,9 @@ class TestTheRoundTrip:
     def test_what_is_written_reads_back(self, tmp_path):
         store = FileStore(tmp_path)
         store.record(meeting("2026-09-09_10h05_reunion"))
-        relue = store.read("2026-09-09_10h05_reunion")
-        assert relue.utterances[0].text == "Bonjour."
-        assert relue.turns[0].voice == "1"
+        reread = store.read("2026-09-09_10h05_reunion")
+        assert reread.utterances[0].text == "Bonjour."
+        assert reread.turns[0].voice == "1"
 
 
 def joined_meeting(identifier: str = "2026-09-10_10h10_reunion") -> StoredMeeting:
@@ -186,25 +186,25 @@ class TestSplittingTwoVoicesAfterTheMeeting:
 
     def test_the_join_survives_being_written(self, tmp_path):
         """Without that, splitting works only while the application stays open."""
-        magasin = FileStore(tmp_path)
-        magasin.record(joined_meeting())
-        relue = magasin.read("2026-09-10_10h10_reunion")
-        assert relue.can_split("v1")
-        assert relue.split("v1") is not None
-        assert {t.voice for t in relue.turns} == {"v1", "v2"}
+        the_store = FileStore(tmp_path)
+        the_store.record(joined_meeting())
+        reread = the_store.read("2026-09-10_10h10_reunion")
+        assert reread.can_split("v1")
+        assert reread.split("v1") is not None
+        assert {t.voice for t in reread.turns} == {"v1", "v2"}
 
     def test_a_file_written_before_stays_readable(self, tmp_path):
         """No meeting already processed may become unreadable."""
         import json
 
-        magasin = FileStore(tmp_path)
-        path = magasin.record(meeting("2026-09-09_10h05_reunion"))
-        contenu = json.loads(path.read_text(encoding="utf-8"))
-        del contenu["fusions"]
-        path.write_text(json.dumps(contenu, ensure_ascii=False), encoding="utf-8")
-        relue = magasin.read("2026-09-09_10h05_reunion")
-        assert relue.joins == []
-        assert not relue.can_split("1")
+        the_store = FileStore(tmp_path)
+        path = the_store.record(meeting("2026-09-09_10h05_reunion"))
+        content = json.loads(path.read_text(encoding="utf-8"))
+        del content["fusions"]
+        path.write_text(json.dumps(content, ensure_ascii=False), encoding="utf-8")
+        reread = the_store.read("2026-09-09_10h05_reunion")
+        assert reread.joins == []
+        assert not reread.can_split("1")
 
     def test_two_joins_come_apart_in_reverse_order(self):
         detail = joined_meeting()

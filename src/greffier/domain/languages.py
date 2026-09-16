@@ -16,15 +16,15 @@ def name_of(code: str) -> str:
     """The name of a language, or the code itself when unknown."""
     return _NAMES.get(code, code)
 
-def eprouvee(code: str) -> bool:
+def proven(code: str) -> bool:
     """Whether first-name recognition is genuinely served in this language."""
     from greffier.domain import profiles
 
-    return profiles.pour(code).eprouve
+    return profiles.pour(code).proven_one
 
 def label_text(code: str) -> str:
     """What to show next to a language, without euphemism."""
     name = name_of(code)
-    if not code or eprouvee(code):
+    if not code or proven(code):
         return name
     return f"{name} : voix à nommer à la main"

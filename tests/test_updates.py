@@ -45,10 +45,10 @@ def answer_bytes(monkeypatch, bytes_read: bytes) -> None:
 
 
 def fail_to_answer(monkeypatch, trouble: Exception) -> None:
-    def tomber(*_args, **_options):
+    def fall(*_args, **_options):
         raise trouble
 
-    monkeypatch.setattr(updates.urllib.request, "urlopen", tomber)
+    monkeypatch.setattr(updates.urllib.request, "urlopen", fall)
 
 
 class TestWhenThereIsSomethingBetter:
@@ -57,7 +57,7 @@ class TestWhenThereIsSomethingBetter:
         verdict = updates.check()
         assert verdict.update
         assert verdict.available == "0.3.0"
-        assert verdict.adresse == "https://exemple/0.3.0"
+        assert verdict.address == "https://exemple/0.3.0"
 
     def test_the_sentence_says_both_versions(self, monkeypatch, installed_0_2_0):
         answer(monkeypatch, {"tag_name": "v0.3.0"})
@@ -145,7 +145,7 @@ class TestInstallingFromTheSources:
         assert where_in == str(store)
 
     def test_a_modified_repository_is_refused(self, monkeypatch, tmp_path):
-        """« git pull » sur un arbre sale échoue à moitié : mieux vaut refuser avant."""
+        """« git pull » on a dirty tree half fails: better refuse beforehand."""
         store = self.a_git_repository(tmp_path, clean=False)
         monkeypatch.setenv("GREFFIER_DEPOT_SOURCE", str(store))
         possible, because = updates.installable()
@@ -157,20 +157,20 @@ class TestTheRelayScript:
     """The relay waits for the process to die before touching the bundle."""
 
     def test_it_waits_for_the_process_to_end(self):
-        assert 'kill -0 "$2"' in updates._RELAIS
+        assert 'kill -0 "$2"' in updates._RELAY
 
     def test_it_refuses_to_act_while_the_application_still_runs(self):
-        assert "n'a pas quitté" in updates._RELAIS
+        assert "n'a pas quitté" in updates._RELAY
 
     def test_it_never_merges(self):
         """A diverged repository must not be patched up by an update."""
-        assert "git pull --ff-only" in updates._RELAIS
+        assert "git pull --ff-only" in updates._RELAY
 
     def test_a_pull_that_fails_leaves_the_bundle_untouched(self):
-        assert "le paquet est intact" in updates._RELAIS
+        assert "le paquet est intact" in updates._RELAY
 
     def test_it_starts_the_application_again(self):
-        assert "open -a" in updates._RELAIS
+        assert "open -a" in updates._RELAY
 
 
 class TestABundleNewerThanTheProcess:
@@ -182,7 +182,7 @@ class TestABundleNewerThanTheProcess:
     """
 
     def test_outside_a_bundle_the_question_does_not_arise(self):
-        """Depuis la ligne de commande, le code suit le dépôt."""
+        """From the command line, the code follows the repository."""
         from greffier.adapters.updates import bundle_is_newer
 
         assert not bundle_is_newer("/usr/bin/python3")
@@ -283,29 +283,29 @@ class TestDownloadingAndUnpacking:
     def test_the_archive_is_written_and_the_progress_told(self, monkeypatch, tmp_path):
         bytes_read = b"x" * 300000
         answer_bytes(monkeypatch, bytes_read)
-        vus: list[tuple[int, int]] = []
-        recu, where_in = updates.download(
+        seen: list[tuple[int, int]] = []
+        received, where_in = updates.download(
             "https://exemple/a.zip", tmp_path / "a.zip",
-            progress=lambda r, t: vus.append((r, t)),
+            progress=lambda r, t: seen.append((r, t)),
         )
-        assert recu, where_in
+        assert received, where_in
         assert (tmp_path / "a.zip").read_bytes() == bytes_read
-        assert vus and vus[-1][0] == len(bytes_read)
+        assert seen and seen[-1][0] == len(bytes_read)
 
     def test_an_empty_archive_is_refused(self, monkeypatch, tmp_path):
         """Better to refuse than to replace the application with nothing."""
         answer_bytes(monkeypatch, b"")
-        recu, trouble = updates.download(
+        received, trouble = updates.download(
             "https://exemple/a.zip", tmp_path / "a.zip"
         )
-        assert not recu and "vide" in trouble
+        assert not received and "vide" in trouble
 
     def test_with_no_network_nothing_is_written(self, monkeypatch, tmp_path):
         fail_to_answer(monkeypatch, urllib.error.URLError("coupé"))
-        recu, trouble = updates.download(
+        received, trouble = updates.download(
             "https://exemple/a.zip", tmp_path / "a.zip"
         )
-        assert not recu and trouble == "pas de réseau"
+        assert not received and trouble == "pas de réseau"
 
     def test_a_zip_opens(self, tmp_path):
         import zipfile
@@ -347,23 +347,23 @@ class TestAnUpdateLosesNothing:
     """
 
     def test_the_relay_never_names_the_data_folder(self):
-        relais = updates._RELAIS_BINAIRE
-        for interdit in ("Application Support", "banque-de-voix", "reunions",
+        relay = updates._BINARY_RELAY
+        for forbidden_one in ("Application Support", "banque-de-voix", "reunions",
                          "conversations", "comptes-rendus", "config.toml",
                          "enregistrements"):
-            assert interdit not in relais, interdit
+            assert forbidden_one not in relay, forbidden_one
 
     def test_the_relay_keeps_the_old_bundle_before_replacing_it(self):
         """And puts it back when the new one does not start: seen today, an
         update left the machine with no application at all."""
-        relais = updates._RELAIS_BINAIRE
-        assert ".precedent" in relais
-        assert relais.count('mv "$DE_COTE" "$APP"') >= 2, "restauré dans les deux échecs"
+        relay = updates._BINARY_RELAY
+        assert ".precedent" in relay
+        assert relay.count('mv "$DE_COTE" "$APP"') >= 2, "restauré dans les deux échecs"
 
     def test_the_relay_waits_for_the_application_to_close(self):
-        relais = updates._RELAIS_BINAIRE
-        assert 'kill -0 "$PID"' in relais
-        assert "n'a pas quitte" in relais or "n'a pas quitté" in relais
+        relay = updates._BINARY_RELAY
+        assert 'kill -0 "$PID"' in relay
+        assert "n'a pas quitte" in relay or "n'a pas quitté" in relay
 
     def test_nothing_is_installed_when_there_is_nothing_to_take(self):
         verdict = updates.Verdict(installed="0.2.0", available="0.3.0")

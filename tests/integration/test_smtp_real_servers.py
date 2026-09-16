@@ -31,14 +31,14 @@ pytestmark = pytest.mark.integration
 
 #: The two conventions, at two providers. 465 encrypts from the opening, 587
 #: negotiates through STARTTLS; getting it wrong fails on the first byte.
-SERVEURS = [
+SERVERS = [
     ("smtp.gmail.com", 465),
     ("smtp.gmail.com", 587),
     ("smtp.office365.com", 587),
 ]
 
 
-@pytest.fixture(params=SERVEURS, ids=lambda p: f"{p[0]}:{p[1]}")
+@pytest.fixture(params=SERVERS, ids=lambda p: f"{p[0]}:{p[1]}")
 def session(request):
     """A session opened by the real code, or the test is skipped."""
     server, port = request.param
@@ -46,11 +46,11 @@ def session(request):
     try:
         with sender.session() as opened_one:
             yield opened_one
-    except (TimeoutError, OSError, smtplib.SMTPException, ssl.SSLError) as erreur:
-        pytest.skip(f"{server}:{port} injoignable ({type(erreur).__name__}) : {erreur}")
+    except (TimeoutError, OSError, smtplib.SMTPException, ssl.SSLError) as the_error:
+        pytest.skip(f"{server}:{port} injoignable ({type(the_error).__name__}) : {the_error}")
 
 
-class TestSessionReelle:
+class TestARealSession:
     def test_the_connection_succeeds(self, session: smtplib.SMTP):
         """The server said hello and the session holds: the port and the class agree."""
         code, _ = session.docmd("NOOP")

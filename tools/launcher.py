@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Entry point of the Windows executable.
+"""Entry point of the packaged executables: the Windows one, the Linux AppImage.
 
 PyInstaller needs a script to bundle, and `python -m greffier fenetre` is
 not one. This file does nothing but what that command would do, with three
-precautions the executable requires and the command line does not:
+precautions an executable requires and the command line does not:
 
 - **hand back on `--version`.** A graphical executable launched with no
   screen, a continuous integration runner for instance, cannot open a
@@ -16,7 +16,7 @@ precautions the executable requires and the command line does not:
   likely case on a fresh machine, and « ModuleNotFoundError » tells nobody.
 
 Opened on a Windows runner on 2026-09-15 (`windows-proof.yml`), never yet on
-somebody's own machine.
+somebody's own machine. Wrapped into an AppImage by `tools/build_appimage.py`.
 """
 
 from __future__ import annotations

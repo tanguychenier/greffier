@@ -12,7 +12,7 @@ from __future__ import annotations
 import struct
 from pathlib import Path
 
-from greffier.adapters.live_levels import lire_forme, read_level, written_duration
+from greffier.adapters.live_levels import read_level, read_shape, written_duration
 from greffier.domain.channels import WhoSpeaks
 
 
@@ -20,26 +20,26 @@ def wav(
     path: Path,
     channels: list[list[int]],
     frequency: int = 16000,
-    avec_liste: bool = False,
-    fmt_etendu: bool = False,
+    with_list: bool = False,
+    extended_fmt: bool = False,
 ) -> Path:
     """Builds a WAV, with or without the chunks ffmpeg adds."""
-    entrelace = bytearray()
-    for trame in zip(*channels, strict=True):
-        for value in trame:
-            entrelace += struct.pack("<h", value)
+    interleaved = bytearray()
+    for frame in zip(*channels, strict=True):
+        for value in frame:
+            interleaved += struct.pack("<h", value)
 
     nb = len(channels)
-    size_fmt = 40 if fmt_etendu else 16
+    size_fmt = 40 if extended_fmt else 16
     fmt = struct.pack("<HHIIHH", 1, nb, frequency, frequency * nb * 2, nb * 2, 16)
-    if fmt_etendu:
+    if extended_fmt:
         fmt += b"\x00" * (size_fmt - 16)
     chunks = b"fmt " + struct.pack("<I", size_fmt) + fmt
-    if avec_liste:
+    if with_list:
         info = b"INFOISFT" + struct.pack("<I", 14) + b"Lavf62.0.100\x00\x00"
         chunks += b"LIST" + struct.pack("<I", len(info)) + info
     # ffmpeg announces an unknown size while the file is still open.
-    chunks += b"data" + struct.pack("<I", 0xFFFFFFFF) + bytes(entrelace)
+    chunks += b"data" + struct.pack("<I", 0xFFFFFFFF) + bytes(interleaved)
     path.write_bytes(b"RIFF" + struct.pack("<I", len(chunks) + 4) + b"WAVE" + chunks)
     return path
 
@@ -48,61 +48,80 @@ FORT = [12000] * 8000
 SILENT = [0] * 8000
 
 
-class TestLectureDeLEntete:
+class TestReadingTheHeader:
     def test_a_canonical_header_is_read(self, tmp_path: Path) -> None:
-        forme = lire_forme(wav(tmp_path / "a.wav", [FORT, SILENT, SILENT]))
-        assert forme is not None
-        assert forme.channels == 3 and forme.data_start == 44
+        shape = read_shape(wav(tmp_path / "a.wav", [FORT, SILENT, SILENT]))
+        assert shape is not None
+        assert shape.channels == 3 and shape.data_start == 44
 
     def test_l_entete_reel_de_ffmpeg_est_lu(self, tmp_path: Path) -> None:
         # Extended "fmt" plus "LIST": 102 bytes, the shape seen in use.
-        forme = lire_forme(
-            wav(tmp_path / "b.wav", [FORT, SILENT, SILENT], avec_liste=True, fmt_etendu=True)
+        shape = read_shape(
+            wav(tmp_path / "b.wav", [FORT, SILENT, SILENT], with_list=True, extended_fmt=True)
         )
-        assert forme is not None
-        assert forme.data_start == 102
+        assert shape is not None
+        assert shape.data_start == 102
 
     def test_a_file_that_is_not_wav_is_refused(self, tmp_path: Path) -> None:
         wrong = tmp_path / "c.wav"
         wrong.write_bytes(b"pas du tout un wav" * 4)
-        assert lire_forme(wrong) is None
+        assert read_shape(wrong) is None
 
     def test_a_truncated_header_is_refused(self, tmp_path: Path) -> None:
         court = tmp_path / "d.wav"
         court.write_bytes(b"RIFF" + b"\x00" * 8)
-        assert lire_forme(court) is None
+        assert read_shape(court) is None
 
 
 class TestWhoIsSpeaking:
     def test_the_mic_alone_gives_you(self, tmp_path: Path) -> None:
-        releve = read_level(wav(tmp_path / "a.wav", [FORT, SILENT, SILENT]))
-        assert releve is not None
-        assert releve.who is WhoSpeaks.YOU
+        reading_ = read_level(wav(tmp_path / "a.wav", [FORT, SILENT, SILENT]))
+        assert reading_ is not None
+        assert reading_.who is WhoSpeaks.YOU
 
     def test_the_channels_are_not_swapped_with_ffmpeg_s_header(
         self, tmp_path: Path
     ) -> None:
         # The defect seen: with these chunks, the reading was offset
         # et l'interface annonçait « les autres parlent ».
-        releve = read_level(
-            wav(tmp_path / "b.wav", [FORT, SILENT, SILENT], avec_liste=True, fmt_etendu=True)
+        reading_ = read_level(
+            wav(tmp_path / "b.wav", [FORT, SILENT, SILENT], with_list=True, extended_fmt=True)
         )
-        assert releve is not None
-        assert releve.who is WhoSpeaks.YOU
-        assert releve.mic_db > releve.system_db
+        assert reading_ is not None
+        assert reading_.who is WhoSpeaks.YOU
+        assert reading_.mic_db > reading_.system_db
 
     def test_the_loopback_alone_gives_the_others(self, tmp_path: Path) -> None:
-        releve = read_level(
-            wav(tmp_path / "c.wav", [SILENT, FORT, FORT], avec_liste=True, fmt_etendu=True)
+        reading_ = read_level(
+            wav(tmp_path / "c.wav", [SILENT, FORT, FORT], with_list=True, extended_fmt=True)
         )
-        assert releve is not None
-        assert releve.who is WhoSpeaks.THE_OTHERS
+        assert reading_ is not None
+        assert reading_.who is WhoSpeaks.THE_OTHERS
 
     def test_a_file_with_no_samples_returns_nothing(self, tmp_path: Path) -> None:
         assert read_level(wav(tmp_path / "d.wav", [[], [], []])) is None
 
     def test_a_missing_file_returns_nothing(self, tmp_path: Path) -> None:
         assert read_level(tmp_path / "jamais-ecrit.wav") is None
+
+
+class TestTheLevelAtAGivenMoment:
+    """A recording replayed from a finished file has its "now" in the middle."""
+
+    def test_the_window_ends_where_it_is_asked_to(self, tmp_path: Path) -> None:
+        # Half a second loud, half a second silent, at 16 kHz.
+        loud_then_quiet = [12000] * 8000 + [0] * 8000
+        audio = wav(tmp_path / "d.wav", [loud_then_quiet])
+        assert read_level(audio, window_s=0.25, up_to=0.5).who is WhoSpeaks.YOU
+        assert read_level(audio, window_s=0.25, up_to=1.0).who is WhoSpeaks.NOBODY
+
+    def test_beyond_the_end_it_reads_the_end(self, tmp_path: Path) -> None:
+        audio = wav(tmp_path / "e.wav", [[12000] * 8000])
+        assert read_level(audio, window_s=0.25, up_to=9.0).who is WhoSpeaks.YOU
+
+    def test_before_the_first_sample_there_is_nothing(self, tmp_path: Path) -> None:
+        audio = wav(tmp_path / "f.wav", [[12000] * 8000])
+        assert read_level(audio, window_s=0.25, up_to=0.0) is None
 
 
 class TestTheLengthWrittenSoFar:
@@ -114,9 +133,9 @@ class TestTheLengthWrittenSoFar:
 
     def test_the_length_is_counted_in_bytes_not_in_the_header(self, tmp_path: Path) -> None:
         # The header announces 0xFFFFFFFF as long as the file is open: trusting it
-        # donnerait une durée absurde.
-        file = wav(tmp_path / "en-cours.wav", [FORT, SILENT], avec_liste=True,
-                      fmt_etendu=True)
+        # would give an absurd length.
+        file = wav(tmp_path / "en-cours.wav", [FORT, SILENT], with_list=True,
+                      extended_fmt=True)
         assert written_duration(file) == 8000 / 16000
 
     def test_a_file_barely_opened_carries_nothing(self, tmp_path: Path) -> None:

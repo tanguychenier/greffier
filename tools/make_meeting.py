@@ -17,10 +17,12 @@ two-voice dialogue and not for the meeting round a table, which stays on
 """
 
 import argparse
+import json
 import shutil
 import subprocess
 import sys
 import tempfile
+import wave
 from pathlib import Path
 
 # The dialogue is written to exercise the three ways of naming somebody, and so
@@ -47,12 +49,12 @@ _DIALOGUE = [
 #: VITS says « Sandy » in a way whisper writes « Samy », then « Sani », which
 #: would have the chain fail on a word nobody pronounced. « Sophie » comes back
 #: intact from both, and so does « Jacques ».
-PRENOMS = {"say": ("Jacques", "Sandy"), "vits": ("Jacques", "Sophie")}
+FIRST_NAMES = {"say": ("Jacques", "Sandy"), "vits": ("Jacques", "Sophie")}
 
 
 def first_names() -> tuple[str, str]:
     """The two first names this machine's synthesiser can be trusted with."""
-    return PRENOMS[synthesis_engine() or "say"]
+    return FIRST_NAMES[synthesis_engine() or "say"]
 
 
 def two_voice_dialogue() -> list[tuple[str, str]]:
@@ -116,7 +118,7 @@ IN_ROOM_VOICE = {"A": "Thomas", "B": "Amélie", "C": "Rocko"}
 #: was not strictly nil was enough to conclude « video call ». Hence a leak in
 #: the test file, rather than a silent second channel that would make the test
 #: too easy.
-FUITE_DB = -40.0
+LEAK_DB = -40.0
 
 
 # Two voices as far apart as possible: the segmentation has to tell them apart,
@@ -124,11 +126,27 @@ FUITE_DB = -40.0
 VOICE = {"A": "Thomas", "B": "Amélie"}
 SILENCE = 0.4  # seconds between two lines, as in a real discussion
 
+#: In a dialogue, a line whose speaker is this is a pause: its text is the
+#: number of seconds nobody talks, the time a room leaves the assistant to answer.
+PAUSE = None
+
 
 #: The speaker ids of the French VITS voice, for machines without « say ».
-#: Two timbres and not three: the network carries two (`num_speakers = 2`),
-#: which is what the two-voice dialogue needs and what the round table does not.
+#: The network carries two timbres (`num_speakers = 2`), which is what the
+#: two-voice dialogue needs and what the round table does not.
 SID_VITS = {"Thomas": 0, "Amélie": 1}
+
+#: The third timbre the round table needs, made from the first by lowering
+#: its pitch, the tempo kept. Measured with TitaNet on 2026-09-16 on the
+#: same sentence: at 0.82 the shifted voice sits at 0.30 to 0.38 of
+#: similarity with the voice it comes from and under 0.10 with the other,
+#: below every threshold the chain joins voices at (0.45 and 0.75). For the
+#: chain it is somebody else, which is all a test set asks of it.
+SHIFTED_VITS = {"Rocko": ("Thomas", 0.82)}
+
+def vits_timbres() -> int:
+    """How many distinct voices the installed network can lend a meeting."""
+    return len(SID_VITS) + len(SHIFTED_VITS)
 
 _LOADED: dict[int, object] = {}
 
@@ -171,15 +189,25 @@ def _speak(engine: str, voice: str, text: str, folder: Path, index: int) -> Path
         return raw
     from greffier.adapters.voice_neural import NeuralVoice
 
-    sid = SID_VITS[voice]
+    base, factor = SHIFTED_VITS.get(voice, (voice, 1.0))
+    sid = SID_VITS[base]
     if sid not in _LOADED:
         # One instance per timbre, kept: the network is loaded on first use and
         # reloading it for every line would cost more than the meeting itself.
         _LOADED[sid] = NeuralVoice(_installed_voice(), voice=sid, rate=1.0)
     raw = folder / f"{index:02d}-brut.wav"
-    if _LOADED[sid].fabriquer(text, raw) is None:
+    if _LOADED[sid].build_one(text, raw) is None:
         raise RuntimeError(f"la synthèse n'a rien produit pour « {text[:40]}… »")
-    return raw
+    if factor == 1.0:
+        return raw
+    shifted = folder / f"{index:02d}-brut-{voice}.wav"
+    subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(raw),
+         "-af", f"asetrate=16000*{factor},aresample=16000,atempo={1 / factor:.4f}",
+         "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", str(shifted)],
+        check=True,
+    )
+    return shifted
 
 
 def speak(text: str, voice: str, destination: Path) -> Path | None:
@@ -192,7 +220,7 @@ def speak(text: str, voice: str, destination: Path) -> Path | None:
     engine = synthesis_engine()
     if engine is None:
         return None
-    if engine != "say" and voice not in SID_VITS:
+    if engine != "say" and voice not in SID_VITS and voice not in SHIFTED_VITS:
         return None
     with tempfile.TemporaryDirectory() as folder:
         raw = _speak(engine, voice, text, Path(folder), 0)
@@ -216,39 +244,47 @@ def make(destination: Path, voice: dict | None = None, dialogue=None) -> Path:
         )
 
     voice = voice or VOICE
-    lignes = dialogue if dialogue is not None else two_voice_dialogue()
+    lines = dialogue if dialogue is not None else two_voice_dialogue()
     if engine == "vits":
-        inconnues = sorted({name for name in voice.values() if name not in SID_VITS})
-        if inconnues:
+        unknown_ones = sorted({
+            name for name in voice.values()
+            if name not in SID_VITS and name not in SHIFTED_VITS
+        })
+        if unknown_ones:
             raise RuntimeError(
-                f"la voix installée porte {len(SID_VITS)} timbres ; "
-                f"{', '.join(inconnues)} demande « say »"
+                f"la voix installée porte {vits_timbres()} timbres ; "
+                f"{', '.join(unknown_ones)} demande « say »"
             )
     with tempfile.TemporaryDirectory() as folder:
         job = Path(folder)
-        chunks = []
-        for index, (speaker_index, text) in enumerate(lignes):
-            chunks.append(_speak(engine, voice[speaker_index], text, job, index))
+        chunks: list[Path] = []
+        for index, (speaker_index, text) in enumerate(lines):
+            if speaker_index is PAUSE:
+                chunks.append(_silence(job, float(text), f"{index:02d}-pause"))
+            else:
+                chunks.append(_speak(engine, voice[speaker_index], text, job, index))
 
-        silence = job / "silence.wav"
-        subprocess.run(
-            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
-             "-i", f"anullsrc=r=16000:cl=mono:d={SILENCE}", str(silence)],
-            check=True,
-        )
+        silence = _silence(job, SILENCE, "silence")
 
         listing = job / "liste.txt"
-        entrees = []
-        for chunk in chunks:
-            converti = chunk.with_name(chunk.stem.removesuffix("-brut") + "-16k.wav")
+        entries = []
+        timeline: list[dict[str, object]] = []
+        cursor = 0.0
+        for (speaker_index, text), chunk in zip(lines, chunks, strict=True):
+            converted = chunk.with_name(chunk.stem.removesuffix("-brut") + "-16k.wav")
             subprocess.run(
                 ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(chunk),
-                 "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", str(converti)],
+                 "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", str(converted)],
                 check=True,
             )
-            entrees += [converti, silence]
+            entries += [converted, silence]
+            length = _length(converted)
+            if speaker_index is not PAUSE:
+                timeline.append({"speaker": speaker_index, "text": text,
+                                 "start": round(cursor, 2), "end": round(cursor + length, 2)})
+            cursor += length + SILENCE
         listing.write_text(
-            "\n".join(f"file '{path}'" for path in entrees) + "\n", encoding="utf-8"
+            "\n".join(f"file '{path}'" for path in entries) + "\n", encoding="utf-8"
         )
 
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -258,7 +294,27 @@ def make(destination: Path, voice: dict | None = None, dialogue=None) -> Path:
              "-c:a", "pcm_s16le", str(destination)],
             check=True,
         )
+        # Where each line falls, for whoever measures a delay against the file.
+        destination.with_suffix(".timeline.json").write_text(
+            json.dumps(timeline, ensure_ascii=False, indent=1), encoding="utf-8"
+        )
     return destination
+
+
+def _silence(job: Path, seconds: float, name: str) -> Path:
+    file = job / f"{name}.wav"
+    subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
+         "-i", f"anullsrc=r=16000:cl=mono:d={seconds}", str(file)],
+        check=True,
+    )
+    return file
+
+
+def _length(wav: Path) -> float:
+    """Seconds of a 16 kHz mono wav, read from its header."""
+    with wave.open(str(wav), "rb") as read:
+        return read.getnframes() / read.getframerate()
 
 
 def make_in_the_room(destination: Path) -> Path:
@@ -280,7 +336,7 @@ def make_in_the_room(destination: Path) -> Path:
         subprocess.run(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(melange),
              "-filter_complex",
-             f"[0:a]asplit=2[m][f];[f]volume={FUITE_DB}dB[b];[m][b]amerge=inputs=2[s]",
+             f"[0:a]asplit=2[m][f];[f]volume={LEAK_DB}dB[b];[m][b]amerge=inputs=2[s]",
              "-map", "[s]", "-ar", "16000", "-ac", "2", "-c:a", "pcm_s16le",
              str(destination)],
             check=True,
@@ -289,13 +345,13 @@ def make_in_the_room(destination: Path) -> Path:
 
 
 def main() -> int:
-    analyseur = argparse.ArgumentParser(description=__doc__)
-    analyseur.add_argument("output", type=Path)
-    analyseur.add_argument(
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("output", type=Path)
+    parser.add_argument(
         "--in-the-room", action="store_true",
         help="trois voix autour d'une table, en stéréo, au lieu de deux en mono",
     )
-    arguments = analyseur.parse_args()
+    arguments = parser.parse_args()
     path = (
         make_in_the_room(arguments.output)
         if arguments.in_the_room

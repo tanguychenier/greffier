@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import re
 
-_GRAS = re.compile(r"\*\*(.+?)\*\*")
+_BOLD = re.compile(r"\*\*(.+?)\*\*")
 
 def title(minutes: str, defect: str) -> str:
     """Email subject: the title of the minutes, not the name of the file."""
     for line in minutes.splitlines():
-        nue = line.strip()
-        if nue.startswith("# "):
-            title = _GRAS.sub(r"\1", nue[2:].strip())
+        bare = line.strip()
+        if bare.startswith("# "):
+            title = _BOLD.sub(r"\1", bare[2:].strip())
             return title or defect
-        if nue:
+        if bare:
             break
     return defect

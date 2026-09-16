@@ -19,15 +19,15 @@ class Attachment:
 
     name: str
     file: Path
-    caracteres: int
+    characters: int
 
     def say(self) -> str:
-        return f"{self.name} ({self.caracteres // 1000 or 1} k caractères)"
+        return f"{self.name} ({self.characters // 1000 or 1} k caractères)"
 
 def attachments_folder(base: Path, identifier: str) -> Path:
     return base / identifier
 
-def _aplatir(name: str) -> str:
+def _flatten(name: str) -> str:
     """A safe file name, without accents or spaces."""
     without_accents = "".join(
         letter for letter in unicodedata.normalize("NFD", name)
@@ -43,9 +43,9 @@ def write(base: Path, identifier: str, name: str, text: str) -> Attachment | Non
         return None
     folder = attachments_folder(base, identifier)
     folder.mkdir(parents=True, exist_ok=True)
-    file = folder / f"{_aplatir(name)}.txt"
+    file = folder / f"{_flatten(name)}.txt"
     file.write_text(f"{HEADER}{name}\n{useful}", encoding="utf-8")
-    return Attachment(name=name, file=file, caracteres=len(useful))
+    return Attachment(name=name, file=file, characters=len(useful))
 
 def list_(base: Path, identifier: str) -> list[Attachment]:
     """The documents supplied for this meeting, newest first."""
@@ -60,7 +60,7 @@ def list_(base: Path, identifier: str) -> list[Attachment]:
             continue
         header, _, corps = content.partition("\n")
         name = header[len(HEADER):].strip() if header.startswith(HEADER) else file.stem
-        found.append(Attachment(name=name, file=file, caracteres=len(corps)))
+        found.append(Attachment(name=name, file=file, characters=len(corps)))
     return found
 
 def material(base: Path, identifier: str, at_most: int = AT_MOST) -> str:

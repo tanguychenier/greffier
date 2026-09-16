@@ -16,10 +16,44 @@ def held_on(identifier: str) -> tuple[int, int, int, int, int] | None:
     found = HORODATAGE.match(identifier)
     if found is None:
         return None
-    annee, mois, jour, heure, minute = found.groups()
-    return (int(annee), int(mois), int(jour), int(heure or 0), int(minute or 0))
+    year, month, day, the_hour, minute = found.groups()
+    return (int(year), int(month), int(day), int(the_hour or 0), int(minute or 0))
 
 IDENTIFIABLE_SECONDS = 6.0
+
+#: An unnamed voice carrying less than this share of the speaking time, in a
+#: meeting that already has this many voices above the floor, is a piece of
+#: somebody else rather than somebody. Measured on the meeting of 2026-09-10,
+#: six people: the chain announced twelve voices, six of them holding 4 to
+#: 37 seconds of the 3 878, and 2.3 % of the time between them.
+THIN_SHARE = 0.05
+VOICES_BEFORE_THINNING = 3
+
+THE_OTHERS = "Les autres"
+
+def thin_voices(
+    names: dict[str, str],
+    speaking: dict[str, float],
+    floor: float = IDENTIFIABLE_SECONDS,
+    share: float = THIN_SHARE,
+    minimum_voices: int = VOICES_BEFORE_THINNING,
+) -> set[str]:
+    """The unnamed voices to group under « Les autres »: too short, or too thin.
+
+    Too short is the floor below which a voiceprint means nothing; too thin
+    is a share of the meeting that no attendee holds once three or more
+    voices carry it. A named voice is never thin: the human correction is
+    the one thing nothing argues with.
+    """
+    total = sum(speaking.values())
+    above_the_floor = [v for v, seconds in speaking.items() if seconds >= floor]
+    thin = {v for v, seconds in speaking.items() if v not in names and seconds < floor}
+    if len(above_the_floor) >= minimum_voices and total > 0:
+        thin |= {
+            v for v, seconds in speaking.items()
+            if v not in names and seconds < share * total
+        }
+    return thin
 
 def named_or_unknown(
     voice: str | None,
@@ -27,14 +61,16 @@ def named_or_unknown(
     speaking: dict[str, float],
     floor: float = IDENTIFIABLE_SECONDS,
 ) -> str:
-    """What a voice is called, and « Indéterminé » when it cannot be anybody.
+    """What a voice is called, and « Les autres » when it cannot be anybody.
 
     Measured on four AMI meetings against their manual annotations, through the
     microphone in the middle of the table: above six seconds of speech the chain
     finds exactly one voice per person, four for four, none split and none
     confused. Below it, the scraps -- a « oui », a « hmm », a crossing of two
     people -- were each given a number of their own, and a meeting of four came
-    out announcing eleven and twenty people.
+    out announcing eleven and twenty people. The thin voices join them: on
+    a real meeting of six, six more voices of a few seconds each were
+    announced as people.
 
     A voice somebody has named keeps its name whatever it holds: the human
     correction is the one thing nothing argues with.
@@ -43,8 +79,8 @@ def named_or_unknown(
         return "Indéterminé"
     if voice in names:
         return names[voice]
-    if speaking.get(voice, 0.0) < floor:
-        return "Indéterminé"
+    if voice in thin_voices(names, speaking, floor):
+        return THE_OTHERS
     return f"Personne {voice}"
 
 @dataclass(frozen=True, slots=True)
@@ -87,17 +123,22 @@ class StoredMeeting:
     """One sound take for the whole room: no channel says who is speaking."""
 
     def attendees(self, minimum: float = 10.0) -> list[str]:
-        """The voices that carried the meeting, most talkative first."""
+        """The voices that carried the meeting, most talkative first.
+
+        Named, or above the minimum and not thin: the ones grouped under
+        « Les autres » are not announced as people.
+        """
         temps = self.speaking_time()
+        thin = thin_voices(self.names, temps)
         return [
             voice for voice, duration in temps.items()
-            if duration >= minimum or voice in self.names
+            if voice in self.names or (duration >= minimum and voice not in thin)
         ]
 
     def voice_named(self, name: str) -> list[str]:
         """The voices already given that name, in this meeting."""
-        replie = name.casefold()
-        return [v for v, porte in self.names.items() if porte.casefold() == replie]
+        folded = name.casefold()
+        return [v for v, carries in self.names.items() if carries.casefold() == folded]
 
     def join_into(self, absorbed_one: str, kept_one: str) -> int:
         """Pours every turn and utterance of one voice into another.
@@ -107,12 +148,12 @@ class StoredMeeting:
         """
         if absorbed_one == kept_one:
             return 0
-        rangs = tuple(i for i, t in enumerate(self.turns) if t.voice == absorbed_one)
-        dits = tuple(
+        ranks = tuple(i for i, t in enumerate(self.turns) if t.voice == absorbed_one)
+        said_ones = tuple(
             i for i, u in enumerate(self.utterances) if u.voice == absorbed_one
         )
         self.joins.append(Join(
-            absorbed=absorbed_one, kept=kept_one, turns=rangs, utterances=dits,
+            absorbed=absorbed_one, kept=kept_one, turns=ranks, utterances=said_ones,
             name=self.names.get(absorbed_one),
             proposition=self.propositions.get(absorbed_one),
         ))
@@ -125,7 +166,7 @@ class StoredMeeting:
                 utterance.voice = kept_one
         self.names.pop(absorbed_one, None)
         self.propositions.pop(absorbed_one, None)
-        return len(rangs)
+        return len(ranks)
 
     def can_split(self, kept: str) -> bool:
         """True when this voice absorbed another one that can be taken back."""
@@ -137,23 +178,23 @@ class StoredMeeting:
         Gives the absorbed voice back its identifier, its turns, its utterances
         and the name it carried. Returns nothing when there is nothing to undo.
         """
-        rendue = next((f for f in reversed(self.joins) if f.kept == kept), None)
-        if rendue is None:
+        returned = next((f for f in reversed(self.joins) if f.kept == kept), None)
+        if returned is None:
             return None
-        for rang in rendue.turns:
+        for rang in returned.turns:
             if 0 <= rang < len(self.turns):
                 self.turns[rang] = replace(
-                    self.turns[rang], voice=rendue.absorbed
+                    self.turns[rang], voice=returned.absorbed
                 )
-        for rang in rendue.utterances:
+        for rang in returned.utterances:
             if 0 <= rang < len(self.utterances):
-                self.utterances[rang].voice = rendue.absorbed
-        if rendue.name:
-            self.names[rendue.absorbed] = rendue.name
-        if rendue.proposition:
-            self.propositions[rendue.absorbed] = rendue.proposition
-        self.joins.remove(rendue)
-        return rendue
+                self.utterances[rang].voice = returned.absorbed
+        if returned.name:
+            self.names[returned.absorbed] = returned.name
+        if returned.proposition:
+            self.propositions[returned.absorbed] = returned.proposition
+        self.joins.remove(returned)
+        return returned
 
     @property
     def caption(self) -> str:
@@ -171,16 +212,16 @@ class StoredMeeting:
         """Passages of at least `minimum` seconds without a single utterance."""
         if not self.utterances:
             return [Span(0.0, self.duration)] if self.duration > minimum else []
-        manques: list[Span] = []
-        ordonnees = sorted(self.utterances, key=lambda r: r.span.start)
+        missing_ones: list[Span] = []
+        ordered = sorted(self.utterances, key=lambda r: r.span.start)
         previous = 0.0
-        for utterance in ordonnees:
+        for utterance in ordered:
             if utterance.span.start - previous >= minimum:
-                manques.append(Span(previous, utterance.span.start))
+                missing_ones.append(Span(previous, utterance.span.start))
             previous = max(previous, utterance.span.end)
         if self.duration - previous >= minimum:
-            manques.append(Span(previous, self.duration))
-        return manques
+            missing_ones.append(Span(previous, self.duration))
+        return missing_ones
 
     def name_of(self, voice: str | None) -> str:
         return named_or_unknown(voice, self.names, self.speaking_time())

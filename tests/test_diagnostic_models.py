@@ -28,10 +28,10 @@ def poser(data, model, size=None):
 
 class TestTheModelsAreLookedAt:
     def test_a_bare_machine_is_told_what_is_missing(self, data):
-        constat = diagnostic.models_present(data)
-        assert not constat.present
-        assert "manquant" in constat.detail
-        assert constat.remede, "il dit quoi faire, pas seulement ce qui manque"
+        the_reading = diagnostic.models_present(data)
+        assert not the_reading.present
+        assert "manquant" in the_reading.detail
+        assert the_reading.remedy, "il dit quoi faire, pas seulement ce qui manque"
 
     def test_the_download_weight_is_announced(self, data):
         """In whichever unit: the engines differ per system, and so does the
@@ -41,35 +41,35 @@ class TestTheModelsAreLookedAt:
                          diagnostic.models_present(data).detail)
 
     def test_a_missing_required_model_blocks(self, data):
-        assert diagnostic.models_present(data).bloquant
+        assert diagnostic.models_present(data).is_blocking
 
     def test_a_full_machine_says_so(self, data, monkeypatch):
         from greffier.adapters import model_files
 
         monkeypatch.setattr(model_files, "missing", lambda _folder, _engine="": [])
-        constat = diagnostic.models_present(data)
-        assert constat.present
-        assert "en place" in constat.detail
+        the_reading = diagnostic.models_present(data)
+        assert the_reading.present
+        assert "en place" in the_reading.detail
 
     def test_the_engine_of_the_system_is_the_one_looked_up(self, data, monkeypatch):
         """whisper.cpp on macOS, faster-whisper elsewhere: they need different
         files, and asking for the wrong ones reports a machine unusable."""
         from greffier.adapters import model_files
 
-        vus = []
+        seen = []
         monkeypatch.setattr(model_files, "missing",
-                            lambda folder, engine="": vus.append(engine) or [])
+                            lambda folder, engine="": seen.append(engine) or [])
         monkeypatch.setattr(diagnostic, "SYSTEM", "Linux")
         diagnostic.models_present(data)
-        assert vus == ["faster-whisper"]
+        assert seen == ["faster-whisper"]
 
 
 class TestTheVoiceBankIsLookedAt:
     def test_an_absent_bank_is_not_a_fault(self, tmp_path):
         """A first meeting has no bank: the voices are named during it."""
-        constat = diagnostic.known_voices(tmp_path)
-        assert constat.present
-        assert "vide" in constat.detail
+        the_reading = diagnostic.known_voices(tmp_path)
+        assert the_reading.present
+        assert "vide" in the_reading.detail
 
     def test_the_number_of_known_people_is_said(self, tmp_path, monkeypatch):
         from greffier.adapters import voice_bank_files
@@ -90,13 +90,13 @@ class TestTheVoiceBankIsLookedAt:
 
         (tmp_path / "banque-de-voix").mkdir()
 
-        def refuser(_self):
+        def refuse(_self):
             raise OSError("Permission denied")
 
-        monkeypatch.setattr(voice_bank_files.FileVoiceBank, "people", refuser)
-        constat = diagnostic.known_voices(tmp_path)
-        assert not constat.present
-        assert "Permission denied" in constat.detail
+        monkeypatch.setattr(voice_bank_files.FileVoiceBank, "people", refuse)
+        the_reading = diagnostic.known_voices(tmp_path)
+        assert not the_reading.present
+        assert "Permission denied" in the_reading.detail
 
 
 class TestTheWholeReading:
@@ -104,8 +104,8 @@ class TestTheWholeReading:
         from greffier.adapters import model_files
 
         monkeypatch.setattr(model_files, "missing", lambda _folder, _engine="": [])
-        noms = [c.name for c in diagnostic.examine(data).constats]
-        assert "Modèles" in noms and "Banque de voix" in noms
+        the_names = [c.name for c in diagnostic.examine(data).readings]
+        assert "Modèles" in the_names and "Banque de voix" in the_names
 
     def test_missing_models_make_the_machine_not_ready(self, data):
         assert not diagnostic.examine(data).ready

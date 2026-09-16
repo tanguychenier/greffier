@@ -50,12 +50,12 @@ def over_video(
     useful_ones = min(len(mic_db), len(system_db))
     if useful_ones == 0:
         return False
-    domine = sum(
+    dominates = sum(
         1
         for i in range(useful_ones)
         if system_db[i] > mic_db[i] + r.margin_db and system_db[i] > r.floor_db
     )
-    return domine / useful_ones >= VIDEO_SHARE
+    return dominates / useful_ones >= VIDEO_SHARE
 
 def who_speaks(
     mic_db: float,
@@ -94,7 +94,7 @@ def local_turns(
 
 def _regroup(local_ones: list[bool], step_s: float, r: ChannelSettings) -> list[Span]:
     """Assembles frames into spans, closing the short silences."""
-    plages: list[tuple[int, int]] = []
+    ranges: list[tuple[int, int]] = []
     start: int | None = None
     last = 0
     for i, active in enumerate(local_ones):
@@ -103,14 +103,14 @@ def _regroup(local_ones: list[bool], step_s: float, r: ChannelSettings) -> list[
                 start = i
             last = i
         elif start is not None and (i - last) * step_s > r.stitch_s:
-            plages.append((start, last + 1))
+            ranges.append((start, last + 1))
             start = None
     if start is not None:
-        plages.append((start, last + 1))
+        ranges.append((start, last + 1))
 
     return [
         Span(a * step_s, b * step_s)
-        for a, b in plages
+        for a, b in ranges
         if (b - a) * step_s >= r.minimum_length_s
     ]
 
@@ -136,10 +136,63 @@ def remove(turns: list[Span], local_spans: list[Span]) -> list[Span]:
         return turns
     remaining: list[Span] = []
     for turn in turns:
-        couvert = sum(
+        covered = sum(
             max(0.0, min(turn.end, local.end) - max(turn.start, local.start))
             for local in local_spans
         )
-        if turn.duration <= 0 or couvert / turn.duration < 0.5:
+        if turn.duration <= 0 or covered / turn.duration < 0.5:
             remaining.append(turn)
     return remaining
+
+#: How long the room has to be quiet before somebody is taken to have finished.
+QUIET_S = 0.5
+
+@dataclass
+class SpeechEnd:
+    """Says, from level snapshots, the moment somebody has just stopped talking.
+
+    The pass that listens for the assistant's name used to run on the clock,
+    every three seconds: a question that ended right after a pass waited for
+    the next one, and a pass that landed in the middle of one read half a
+    question. The moment somebody stops is the moment to listen.
+
+    Snapshots come when whoever watches has time to look, and a pass takes
+    seconds: an end noticed late is still an end, and still the earliest
+    moment there is to listen.
+    """
+
+    quiet_s: float = QUIET_S
+    last_speech_at: float | None = None
+    announced_at: float | None = None
+    noted_at: float | None = None
+
+    def note(self, at: float, speaking: bool) -> bool:
+        """Records one snapshot; True once, when a speech has just ended."""
+        self.noted_at = at
+        if speaking:
+            self.last_speech_at = at
+            return False
+        if self.last_speech_at is None or self.announced_at == self.last_speech_at:
+            return False
+        if at - self.last_speech_at < self.quiet_s:
+            return False
+        self.announced_at = self.last_speech_at
+        return True
+
+    def spoken_since(self, moment: float) -> bool:
+        """Whether anyone spoke after `moment`, as far as the snapshots know.
+
+        True when nothing was ever noted: with no level to read, the caller
+        cannot tell, and must act as if somebody had.
+        """
+        if self.noted_at is None:
+            return True
+        return self.resumed_after(moment)
+
+    def resumed_after(self, moment: float) -> bool:
+        """Whether a snapshot heard somebody after `moment`. Nothing known, False.
+
+        The other side of `spoken_since`: here doubt must not hold anything
+        back, since what it would hold is an answer to a question.
+        """
+        return self.last_speech_at is not None and self.last_speech_at > moment

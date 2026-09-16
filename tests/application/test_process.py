@@ -29,7 +29,7 @@ class FakeRecorder:
     def start_recording(self, destination):
         return 4242
 
-    def stop_recording(self, processus):
+    def stop_recording(self, process_id):
         pass
 
     def prepare_transcript(self, audio, destination):
@@ -48,10 +48,10 @@ class FakeRecorder:
 class FakeTranscriber:
     def __init__(self, utterances):
         self.utterances = utterances
-        self.amorce_recue = None
+        self.seed_received = None
 
     def transcribe(self, audio, language, prompt_seed):
-        self.amorce_recue = prompt_seed
+        self.seed_received = prompt_seed
         return list(self.utterances)
 
 
@@ -65,19 +65,19 @@ class FakeDiariser:
 
 class FakeWriter:
     def __init__(self):
-        self.recu = None
+        self.received = None
 
     def write_up(self, transcription):
-        self.recu = transcription
+        self.received = transcription
         return "# Compte rendu\n\nTout va bien."
 
 
 class FakeSender:
     def __init__(self):
-        self.envois = []
+        self.sendings = []
 
     def send(self, recipient, subject, corps, pieces):
-        self.envois.append((recipient, subject, corps))
+        self.sendings.append((recipient, subject, corps))
 
 
 class FakeStateLog:
@@ -123,7 +123,7 @@ class TestTheGuardRails:
         processing = chain(audio_recorder=FakeRecorder(levels=(-120.0, -120.0)))
         with pytest.raises(ChainStopped) as stop:
             processing.run_chain(AUDIO)
-        assert stop.value.phase is Phase.ECHEC
+        assert stop.value.phase is Phase.FAILURE
         assert "muet" in stop.value.because
 
     def test_an_empty_transcription_is_not_written_up(self):
@@ -132,7 +132,7 @@ class TestTheGuardRails:
         processing = chain(transcriber=transcriber, writer=writer)
         with pytest.raises(ChainStopped, match="quasi vide"):
             processing.run_chain(AUDIO)
-        assert writer.recu is None, "le rédacteur ne doit pas être appelé"
+        assert writer.received is None, "le rédacteur ne doit pas être appelé"
 
     def test_a_count_of_people_the_audio_contradicts_is_flagged(self):
         """Announcing a number forces exactly that many groups, silently.
@@ -176,13 +176,23 @@ class TestTheGuardRails:
         assert not any("voix entendues" in a for a in outcome.warnings)
 
     def test_a_count_given_takes_the_suggestion_s_place(self):
+        """With the count given, the thin voice is grouped under « Les autres »
+        and three voices for three people contradict nothing."""
         turns = [turn(0, 600, "1"), turn(600, 1200, "2"), turn(1200, 1800, "3"),
                  turn(1800, 1812, "4")]
         processing = chain(diariser=FakeDiariser(turns))
         processing.people = 3
         outcome = processing.run_chain(AUDIO)
         assert not any("voix entendues" in a for a in outcome.warnings)
-        assert any("3 participants sont annoncés" in a for a in outcome.warnings)
+        assert not any("participants sont annoncés" in a for a in outcome.warnings)
+        assert outcome.name_of("4") == "Les autres"
+
+    def test_a_count_that_contradicts_the_voices_heard_is_said(self):
+        turns = [turn(0, 600, "1"), turn(600, 1200, "2"), turn(1200, 1800, "3")]
+        processing = chain(diariser=FakeDiariser(turns))
+        processing.people = 2
+        outcome = processing.run_chain(AUDIO)
+        assert any("2 participants sont annoncés" in a for a in outcome.warnings)
 
     def test_the_word_threshold_stays_low_but_not_zero(self):
         assert 0 < MINIMUM_WORDS <= 50
@@ -204,15 +214,15 @@ class TestTheChainOfPhases:
         log = FakeStateLog()
         chain(log=log).run_chain(AUDIO)
         assert log.phases[0] == Phase.TRANSCRIPTION.value
-        assert Phase.LOCUTEURS.value in log.phases
-        assert log.phases[-1] == Phase.TERMINE.value
+        assert Phase.SPEAKERS.value in log.phases
+        assert log.phases[-1] == Phase.DONE.value
 
     def test_the_vocabulary_reaches_the_transcriber(self):
         transcriber = FakeTranscriber(CHATTER)
         processing = chain(transcriber=transcriber)
         processing.prompt_seed = "Vocabulaire : Copernic."
         processing.run_chain(AUDIO)
-        assert transcriber.amorce_recue == "Vocabulaire : Copernic."
+        assert transcriber.seed_received == "Vocabulaire : Copernic."
 
     def test_with_no_writer_the_transcription_is_still_there(self):
         outcome = chain(writer=None).run_chain(AUDIO)
@@ -221,17 +231,17 @@ class TestTheChainOfPhases:
     def test_the_sending_happens_only_with_a_recipient(self):
         sender = FakeSender()
         processing = chain(sender=sender)
-        assert processing.run_chain(AUDIO).envoye is False
+        assert processing.run_chain(AUDIO).sent is False
         processing.recipient = "moi@exemple.fr"
-        assert processing.run_chain(AUDIO).envoye is True
-        assert sender.envois[0][0] == "moi@exemple.fr"
+        assert processing.run_chain(AUDIO).sent is True
+        assert sender.sendings[0][0] == "moi@exemple.fr"
 
     def test_it_can_process_without_sending(self):
         sender = FakeSender()
         processing = chain(sender=sender)
         processing.recipient = "moi@exemple.fr"
         outcome = processing.run_chain(AUDIO, send=False)
-        assert outcome.minutes and not outcome.envoye and not sender.envois
+        assert outcome.minutes and not outcome.sent and not sender.sendings
 
 
 class TestGivingTheVoicesTheirNames:
@@ -259,10 +269,10 @@ class TestGivingTheVoicesTheirNames:
     def test_the_rendered_transcription_carries_names_and_times(self):
         writer = FakeWriter()
         chain(writer=writer).run_chain(AUDIO)
-        assert "[Tanguy]" in writer.recu
-        assert "00:00" in writer.recu
+        assert "[Tanguy]" in writer.received
+        assert "00:00" in writer.received
         # A voice with no name stays identified, never invented.
-        assert "[Personne 2]" in writer.recu
+        assert "[Personne 2]" in writer.received
 
 
 class TestTheNamesGivenDuringTheMeeting:
@@ -305,11 +315,11 @@ class TestTheNamesGivenDuringTheMeeting:
         assert processing.run_chain(AUDIO).names == without.names
 
     def test_a_reader_that_fails_never_costs_the_minutes(self):
-        def casse(_):
+        def broken(_):
             raise OSError("le journal du direct est illisible")
 
         processing = chain()
-        processing.named_live = casse
+        processing.named_live = broken
         assert processing.run_chain(AUDIO).names["1"] == "Tanguy"
 
 
@@ -318,31 +328,31 @@ class FakeExtractor:
 
     def __init__(self, vectors):
         self.vectors = vectors
-        self.appels = []
+        self.calls = []
 
-    def extract_spans(self, audio, intervalles):
+    def extract_spans(self, audio, the_spans):
         from greffier.domain.voiceprints import normalise
 
-        self.appels.append(list(intervalles))
+        self.calls.append(list(the_spans))
         # One vector per span, and not the first one applied to all: the real
         # extractor reads every extract. Tying them together made a grouped
         # call pass for one and the same voice.
         return [
             normalise(self.vectors[(i.start, i.end)], source_duration=i.duration)
-            for i in intervalles
+            for i in the_spans
         ]
 
 
 class FakeBank:
     def __init__(self, people):
         self._people = people
-        self.ajouts = []
+        self.additions = []
 
     def people(self):
         return list(self._people)
 
     def record(self, name, voiceprint):
-        self.ajouts.append(name)
+        self.additions.append(name)
 
 
 class TestTheVoiceBank:
@@ -423,10 +433,10 @@ class TestHerOwnVoiceIsNotAParticipant:
     somebody in the room and asked to be named.
     """
 
-    def _chain(self, intervalles):
+    def _chain(self, the_spans):
         processing = chain()
         processing.her_name = "Lucie"
-        processing.her_turns_of = lambda _identifier: intervalles
+        processing.her_turns_of = lambda _identifier: the_spans
         return processing
 
     def test_her_voice_carries_her_name(self):
@@ -481,8 +491,8 @@ class TestReadingTheOutcome:
 
     def test_speaking_time_runs_from_the_most_talkative_down(self):
         outcome = chain().run_chain(AUDIO)
-        durees = list(outcome.speaking_time().values())
-        assert durees == sorted(durees, reverse=True)
+        durations = list(outcome.speaking_time().values())
+        assert durations == sorted(durations, reverse=True)
 
 
 class TestHowMuchToTrustIt:
@@ -513,8 +523,8 @@ class TestHowMuchToTrustIt:
         writer = FakeWriter()
         chain(transcriber=transcriber, diariser=diariser,
                writer=writer).run_chain(AUDIO)
-        assert "Fiabilité de la transcription" in writer.recu
-        assert "ne comble" in writer.recu
+        assert "Fiabilité de la transcription" in writer.received
+        assert "ne comble" in writer.received
         assert reliability_header(chain().run_chain(AUDIO)) == "", \
             "une transcription complète ne doit pas être affublée d'un avertissement"
 
@@ -586,7 +596,7 @@ class TestTheContextHeader:
         # UTC, and the header brings them back.
         header = context_header(
             "2026-09-09_10h05_reunion",
-            1620.0,  # la transcription s'arrête à 10 h 32
+            1620.0,  # the transcription stops at 10:32
             started_at=datetime(2026, 9, 9, 10, 5).astimezone(),
             ended_at=datetime(2026, 9, 9, 10, 37).astimezone(),
         )
@@ -627,7 +637,7 @@ class TestTheContextHeader:
         processing = chain(writer=writer)
         processing.disclosure = "annoncé"
         processing.run_chain(AUDIO)
-        assert "Mention sur l'enregistrement" in writer.recu
+        assert "Mention sur l'enregistrement" in writer.received
 
     def test_the_named_participants_are_listed(self) -> None:
         from greffier.application.render import context_header
@@ -744,15 +754,15 @@ class TestTheChainKeepsTheMeeting:
     """
 
     def test_the_master_file_is_written(self, tmp_path):
-        deposees = []
+        deposited = []
 
         class SpyStore:
             def record(self, meeting):
-                deposees.append(meeting)
+                deposited.append(meeting)
                 return tmp_path / "reunions/essai.json"
 
         outcome = chain(store=SpyStore()).run_chain(AUDIO)
-        assert deposees, "la chaîne doit déposer la réunion"
+        assert deposited, "la chaîne doit déposer la réunion"
         assert outcome.master_file == tmp_path / "reunions/essai.json"
 
     def test_the_transcription_and_the_minutes_are_written(self, tmp_path):
@@ -785,7 +795,7 @@ class TestTheChainKeepsTheMeeting:
         )
         outcome = processing.run_chain(AUDIO)
         assert (tmp_path / "comptes-rendus").exists(), "le compte rendu survit à l'envoi"
-        assert outcome.envoye is False
+        assert outcome.sent is False
         assert any("injoignable" in a for a in outcome.warnings)
 
     def test_it_is_kept_before_writing_up(self, tmp_path):
@@ -801,11 +811,11 @@ class TestTheChainKeepsTheMeeting:
             def write_up(self, transcription):
                 raise subprocess.TimeoutExpired(cmd="redacteur", timeout=900)
 
-        deposees = []
+        deposited = []
 
         class SpyStore:
             def record(self, meeting):
-                deposees.append(meeting)
+                deposited.append(meeting)
                 return tmp_path / "reunions/essai.json"
 
         processing = chain(
@@ -817,9 +827,9 @@ class TestTheChainKeepsTheMeeting:
         with pytest.raises(subprocess.TimeoutExpired):
             processing.run_chain(AUDIO)
 
-        assert deposees, "la réunion doit être déposée avant la rédaction"
-        assert deposees[0].utterances, "la transcription doit y être"
-        assert deposees[0].turns, "l'attribution des voix doit y être"
+        assert deposited, "la réunion doit être déposée avant la rédaction"
+        assert deposited[0].utterances, "la transcription doit y être"
+        assert deposited[0].turns, "l'attribution des voix doit y être"
         transcription = tmp_path / "transcriptions" / f"{AUDIO.stem}.txt"
         assert transcription.exists(), "la transcription lisible survit"
         assert not (tmp_path / "comptes-rendus").exists(), "aucun compte rendu tronqué"
@@ -834,18 +844,18 @@ class TestTheChainKeepsTheMeeting:
             def write_up(self, transcription):
                 return "# Compte rendu : point d'avancement des projets\n\nTexte."
 
-        deposees = []
+        deposited = []
 
         class SpyStore:
             def record(self, meeting):
-                deposees.append(meeting)
+                deposited.append(meeting)
                 return tmp_path / "reunions/essai.json"
 
             def read(self, identifier):
                 raise FileNotFoundError(identifier)
 
         chain(writer=TitlingWriter(), store=SpyStore()).run_chain(AUDIO)
-        assert deposees[-1].subject == "point d'avancement des projets"
+        assert deposited[-1].subject == "point d'avancement des projets"
 
     def test_a_subject_typed_by_hand_survives_reprocessing(self, tmp_path):
         """A correction the chain would overwrite would serve no purpose."""
@@ -857,11 +867,11 @@ class TestTheChainKeepsTheMeeting:
             def write_up(self, transcription):
                 return "# Compte rendu : titre automatique\n\nTexte."
 
-        deposees = []
+        deposited = []
 
         class StoreWithSubject:
             def record(self, meeting):
-                deposees.append(meeting)
+                deposited.append(meeting)
                 return tmp_path / "reunions/essai.json"
 
             def read(self, identifier):
@@ -873,7 +883,7 @@ class TestTheChainKeepsTheMeeting:
                 )
 
         chain(writer=TitlingWriter(), store=StoreWithSubject()).run_chain(AUDIO)
-        assert deposees[-1].subject == "Point Oasis"
+        assert deposited[-1].subject == "Point Oasis"
 
     def test_with_no_folder_the_chain_still_works(self):
         """The integration tests use it in memory, writing nothing."""
@@ -890,11 +900,11 @@ class TestTheChainKeepsTheMeeting:
         the second they were ready, while the command went on to offer naming the
         voices of a meeting no store had ever heard of.
         """
-        deposees = []
+        deposited = []
 
         class SpyStore:
             def record(self, meeting):
-                deposees.append(meeting)
+                deposited.append(meeting)
                 return tmp_path / "reunions/essai.json"
 
         outcome = chain(
@@ -903,7 +913,7 @@ class TestTheChainKeepsTheMeeting:
             transcripts_folder=tmp_path / "transcriptions",
         ).run_chain(AUDIO)
 
-        assert deposees, "la réunion doit être déposée même sans compte rendu"
+        assert deposited, "la réunion doit être déposée même sans compte rendu"
         assert outcome.transcript_written is not None
         assert outcome.transcript_written.exists()
 
@@ -984,7 +994,7 @@ class TestTheChannelsInARoom:
             writer=writer,
         )
         outcome = processing.run_chain(AUDIO)
-        assert ATTRIBUTION_BY_VOICE_LINE in writer.recu
+        assert ATTRIBUTION_BY_VOICE_LINE in writer.received
         assert _as_stored_meeting(outcome, 90.0).one_take
 
     def test_one_voice_with_no_loopback_is_flagged(self):
@@ -1061,8 +1071,8 @@ class TestNamesakesAfterTheMeeting:
         """Otherwise the minutes still attribute to a voice that no longer exists."""
         outcome = self._outcome()
         kept_one = next(iter(outcome.names))
-        portees = {r.voice for r in outcome.utterances if r.voice is not None}
-        assert portees == {kept_one}, portees
+        reaches = {r.voice for r in outcome.utterances if r.voice is not None}
+        assert reaches == {kept_one}, reaches
 
     def test_two_distinct_people_stay_two(self):
         """The guard rail: the rule must not fold everything onto one voice."""
@@ -1105,7 +1115,7 @@ class TestWhenTheSendingFails:
     def test_the_chain_goes_to_the_end(self):
         log = FakeStateLog()
         self._outcome(log)
-        assert log.phases[-1] == Phase.TERMINE.value, log.phases
+        assert log.phases[-1] == Phase.DONE.value, log.phases
 
     def test_the_sending_phase_is_not_the_last_one_left(self):
         """It was the one that lied: "Envoi du compte rendu…", for ever."""
@@ -1120,7 +1130,7 @@ class TestWhenTheSendingFails:
         assert any("greffier envoyer" in a for a in outcome.warnings)
 
     def test_the_minutes_are_not_announced_as_sent(self):
-        assert self._outcome(FakeStateLog()).envoye is False
+        assert self._outcome(FakeStateLog()).sent is False
 
     def test_the_minutes_are_there_all_the_same(self):
         assert self._outcome(FakeStateLog()).minutes
@@ -1188,13 +1198,13 @@ class TestTheFloorBeforeNamingAVoice:
     def _outcome_of(self, second_duration: float):
         from greffier.domain.voiceprints import normalise
 
-        vecteurs = {(0.0, 12.0): [1.0, 0.0, 0.0], (21.0, 28.0): [1.0, 0.0, 0.0],
+        the_vectors = {(0.0, 12.0): [1.0, 0.0, 0.0], (21.0, 28.0): [1.0, 0.0, 0.0],
                     (13.0, 13.0 + second_duration): [0.02, 1.0, 0.0]}
         turns = [turn(0, 12, "1"), turn(13, 13 + second_duration, "2"),
                  turn(21, 28, "1")]
         bank = FakeBank([Person("Josiane", [normalise([0.02, 1.0, 0.0])])])
         return chain(
-            extractor=FakeExtractor(vecteurs), bank=bank,
+            extractor=FakeExtractor(the_vectors), bank=bank,
             diariser=FakeDiariser(turns),
         ).run_chain(AUDIO)
 
@@ -1226,24 +1236,24 @@ class TestTheInstructionsReachTheWriter:
     among them "Il n'y a pas de sophie dans la réunion".
     """
 
-    CONSIGNES = [
+    GUIDANCE = [
         "Il n'y a pas de sophie dans la réunion",
         "Pascal n'a pas dit booting, mais blue team",
     ]
 
-    def _writer(self, consignes):
+    def _writer(self, guidance_):
         writer = FakeWriter()
-        chain(writer=writer, instructions=lambda _i: consignes).run_chain(AUDIO)
-        return writer.recu
+        chain(writer=writer, instructions=lambda _i: guidance_).run_chain(AUDIO)
+        return writer.received
 
     def test_the_instructions_are_in_front_of_the_writer(self):
-        transcription = self._writer(self.CONSIGNES)
+        transcription = self._writer(self.GUIDANCE)
         assert "Il n'y a pas de sophie" in transcription
         assert "blue team" in transcription
 
     def test_they_come_before_the_rest_of_the_header(self):
         """A correction made by hand wins over what the transcription believes."""
-        transcription = self._writer(self.CONSIGNES)
+        transcription = self._writer(self.GUIDANCE)
         assert transcription.index("Consignes données") < transcription.index(
             "Mention sur l'enregistrement"
         )
@@ -1253,16 +1263,28 @@ class TestTheInstructionsReachTheWriter:
 
     def test_an_unreadable_conversation_does_not_cost_the_minutes(self):
         """The minutes are worth more than a header."""
-        def tombe(_identifier):
+        def falls(_identifier):
             raise OSError("fichier illisible")
 
         writer = FakeWriter()
-        outcome = chain(writer=writer, instructions=tombe).run_chain(AUDIO)
+        outcome = chain(writer=writer, instructions=falls).run_chain(AUDIO)
         assert outcome.minutes, "le compte rendu doit être écrit quand même"
-        assert "Consignes données" not in writer.recu
+        assert "Consignes données" not in writer.received
 
     def test_with_no_reader_of_instructions_the_chain_runs(self):
         """The port is optional: the command line may leave it unwired."""
         writer = FakeWriter()
         chain(writer=writer).run_chain(AUDIO)
-        assert "Consignes données" not in writer.recu
+        assert "Consignes données" not in writer.received
+
+
+class TestTheCardGivenUpOnIsSaid:
+    def test_the_fallback_to_the_processor_is_a_warning_of_the_outcome(self):
+        transcriber = FakeTranscriber(CHATTER)
+        transcriber.fell_back_because = "CUDA out of memory"
+        outcome = chain(transcriber=transcriber).run_chain(AUDIO)
+        assert any("processeur" in w and "CUDA out of memory" in w for w in outcome.warnings)
+
+    def test_a_transcriber_on_the_card_says_nothing(self):
+        outcome = chain(transcriber=FakeTranscriber(CHATTER)).run_chain(AUDIO)
+        assert not any("processeur" in w for w in outcome.warnings)

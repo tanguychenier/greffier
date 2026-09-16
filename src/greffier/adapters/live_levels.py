@@ -41,14 +41,14 @@ class LevelReading:
         return _part(self.mic_db)
 
     @property
-    def systeme_part(self) -> float:
+    def system_share(self) -> float:
         return _part(self.system_db)
 
 def _part(db: float) -> float:
     """Converts decibels into a displayable fraction."""
     return max(0.0, min(1.0, (db + 60.0) / 50.0))
 
-def lire_forme(audio: Path) -> Shape | None:
+def read_shape(audio: Path) -> Shape | None:
     """Reads the format and where the samples start."""
     try:
         with audio.open("rb") as file:
@@ -77,32 +77,42 @@ def lire_forme(audio: Path) -> Shape | None:
         position = corps + size + (size % 2)
     return None
 
-def read_level(audio: Path, window_s: float = WINDOW_S) -> LevelReading | None:
-    """The levels of the last fractions of a second written."""
-    forme = lire_forme(audio)
-    if forme is None or forme.bytes_per_sample != 2:
+def read_level(
+    audio: Path, window_s: float = WINDOW_S, up_to: float | None = None
+) -> LevelReading | None:
+    """The levels of the last fractions of a second written.
+
+    `up_to`, in seconds, reads the window that ends there instead of at the
+    end of the file: a recording replayed from a finished file has its "now"
+    somewhere in the middle.
+    """
+    shape = read_shape(audio)
+    if shape is None or shape.bytes_per_sample != 2:
         return None
-    voulu = int(forme.frequency * window_s) * forme.bytes_per_frame
+    wanted_one = int(shape.frequency * window_s) * shape.bytes_per_frame
     try:
         size = audio.stat().st_size
-        if size <= forme.data_start:
+        if up_to is not None:
+            frames = int(up_to * shape.frequency)
+            size = min(size, shape.data_start + frames * shape.bytes_per_frame)
+        if size <= shape.data_start:
             return None
         with audio.open("rb") as file:
-            depart = max(forme.data_start, size - voulu)
-            depart -= (depart - forme.data_start) % forme.bytes_per_frame
+            depart = max(shape.data_start, size - wanted_one)
+            depart -= (depart - shape.data_start) % shape.bytes_per_frame
             file.seek(depart)
-            brut = file.read(voulu)
+            brut = file.read(wanted_one)
     except OSError:
         return None
 
-    trames = len(brut) // forme.bytes_per_frame
-    if trames == 0:
+    frame_count = len(brut) // shape.bytes_per_frame
+    if frame_count == 0:
         return None
-    echantillons = np.frombuffer(brut[: trames * forme.bytes_per_frame], dtype="<i2")
-    channels = echantillons.reshape(trames, forme.channels).astype(np.float64) / 32768.0
+    samples = np.frombuffer(brut[: frame_count * shape.bytes_per_frame], dtype="<i2")
+    channels = samples.reshape(frame_count, shape.channels).astype(np.float64) / 32768.0
 
     mic = channels[:, 0]
-    system = channels[:, 1:].mean(axis=1) if forme.channels > 1 else np.zeros(trames)
+    system = channels[:, 1:].mean(axis=1) if shape.channels > 1 else np.zeros(frame_count)
     mic_db, system_db = _decibels(mic), _decibels(system)
     return LevelReading(
         mic_db=mic_db,
@@ -117,12 +127,12 @@ def _decibels(signal: np.ndarray) -> float:
 
 def written_duration(audio: Path) -> float | None:
     """How much sound the file actually holds."""
-    forme = lire_forme(audio)
-    if forme is None:
+    shape = read_shape(audio)
+    if shape is None:
         return None
     try:
         size = audio.stat().st_size
     except OSError:
         return None
-    useful_ones = max(0, size - forme.data_start)
-    return useful_ones / (forme.frequency * forme.bytes_per_frame)
+    useful_ones = max(0, size - shape.data_start)
+    return useful_ones / (shape.frequency * shape.bytes_per_frame)

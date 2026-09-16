@@ -19,7 +19,7 @@ from types import SimpleNamespace
 import pytest
 
 from greffier.adapters import cuda
-from greffier.adapters import diarisation_sherpa as decoupage
+from greffier.adapters import diarisation_sherpa as cutting
 from greffier.adapters import voice_neural as voice
 from greffier.adapters import voiceprints_titanet as voiceprints
 
@@ -37,86 +37,86 @@ def without_card(monkeypatch):
 
 
 @pytest.fixture
-def avec_carte(monkeypatch):
+def with_card(monkeypatch):
     monkeypatch.setattr(cuda, "a_card_answers", lambda: True)
 
 
 @pytest.fixture
-def chargeur(monkeypatch):
+def loader(monkeypatch):
     """Counts the times the CUDA libraries are shown to the loader."""
-    appels = []
-    monkeypatch.setattr(cuda, "show_to_the_loader", lambda: appels.append(1))
-    return appels
+    calls = []
+    monkeypatch.setattr(cuda, "show_to_the_loader", lambda: calls.append(1))
+    return calls
 
 
-class TestLeDecoupage:
-    def test_the_card_is_taken_when_there_is_one(self, models, avec_carte, chargeur):
-        outil = decoupage.SherpaDiariser(
+class TestTheSegmentation:
+    def test_the_card_is_taken_when_there_is_one(self, models, with_card, loader):
+        tool = cutting.SherpaDiariser(
             models / "segmentation.onnx", models / "empreintes.onnx"
         )
-        assert outil._device() == "cuda"
-        assert chargeur == [1], "les bibliothèques doivent être chargées avant le modèle"
+        assert tool._device() == "cuda"
+        assert loader == [1], "les bibliothèques doivent être chargées avant le modèle"
 
-    def test_the_processor_when_no_card_answers(self, models, without_card, chargeur):
-        outil = decoupage.SherpaDiariser(
+    def test_the_processor_when_no_card_answers(self, models, without_card, loader):
+        tool = cutting.SherpaDiariser(
             models / "segmentation.onnx", models / "empreintes.onnx"
         )
-        assert outil._device() == "cpu"
-        assert chargeur == [], "rien à charger sans carte"
+        assert tool._device() == "cpu"
+        assert loader == [], "rien à charger sans carte"
 
-    def test_the_setting_wins_over_the_card(self, models, avec_carte, chargeur):
+    def test_the_setting_wins_over_the_card(self, models, with_card, loader):
         """A card taken by something else is refused in the settings file."""
-        outil = decoupage.SherpaDiariser(
+        tool = cutting.SherpaDiariser(
             models / "segmentation.onnx", models / "empreintes.onnx", device="cpu"
         )
-        assert outil._device() == "cpu"
-        assert chargeur == []
+        assert tool._device() == "cpu"
+        assert loader == []
 
     def test_a_missing_model_is_said_before_anything_else(self, tmp_path):
         with pytest.raises(FileNotFoundError):
-            decoupage.SherpaDiariser(tmp_path / "absent.onnx", tmp_path / "absent.onnx")
+            cutting.SherpaDiariser(tmp_path / "absent.onnx", tmp_path / "absent.onnx")
 
 
-class TestLesEmpreintes:
+class TestTheVoiceprints:
     @pytest.fixture
     def silent_sherpa(self, monkeypatch):
         """The model weighs a hundred megabytes: here only what is passed to it is kept."""
-        recus: list[dict] = []
+        received_ones: list[dict] = []
         monkeypatch.setattr(voiceprints, "_OPENED", {})
 
         monkeypatch.setattr(
             voiceprints,
             "sherpa_onnx",
             SimpleNamespace(
-                SpeakerEmbeddingExtractorConfig=lambda **options: recus.append(options),
+                SpeakerEmbeddingExtractorConfig=lambda **options: received_ones.append(options),
                 SpeakerEmbeddingExtractor=lambda _config: object(),
             ),
         )
-        return recus
+        return received_ones
 
-    def test_the_card_reaches_the_model(self, models, avec_carte, chargeur, silent_sherpa):
-        outil = voiceprints.TitaNetExtractor(models / "empreintes.onnx")
-        assert outil.device == "cuda"
-        assert outil._extractor is not None
+    def test_the_card_reaches_the_model(self, models, with_card, loader, silent_sherpa):
+        tool = voiceprints.TitaNetExtractor(models / "empreintes.onnx")
+        assert tool.device == "cuda"
+        assert tool._extractor is not None
         assert silent_sherpa[0]["provider"] == "cuda"
-        assert chargeur == [1]
+        assert loader == [1]
 
-    def test_the_processor_reaches_the_model(self, models, without_card, chargeur, silent_sherpa):
-        outil = voiceprints.TitaNetExtractor(models / "empreintes.onnx")
-        assert outil._extractor is not None
+    def test_the_processor_reaches_the_model(self, models, without_card, loader, silent_sherpa):
+        tool = voiceprints.TitaNetExtractor(models / "empreintes.onnx")
+        assert tool._extractor is not None
         assert silent_sherpa[0]["provider"] == "cpu"
-        assert outil.device == "cpu"
-        assert chargeur == []
+        assert tool.device == "cpu"
+        assert loader == []
 
-    def test_the_setting_wins_over_the_card(self, models, avec_carte, chargeur, silent_sherpa):
-        outil = voiceprints.TitaNetExtractor(models / "empreintes.onnx", device="cpu")
-        assert outil._extractor is not None
+    def test_the_setting_wins_over_the_card(self, models, with_card, loader, silent_sherpa):
+        tool = voiceprints.TitaNetExtractor(models / "empreintes.onnx", device="cpu")
+        assert tool._extractor is not None
         assert silent_sherpa[0]["provider"] == "cpu"
 
-    def test_the_model_keeps_its_threads(self, models, without_card, chargeur, silent_sherpa):
+    def test_the_model_keeps_its_threads(self, models, without_card, loader, silent_sherpa):
         """Choosing the card must not lose the choice of threads."""
-        outil = voiceprints.TitaNetExtractor(models / "empreintes.onnx")
-        assert outil._extractor is not None
+        tool = voiceprints.TitaNetExtractor(models / "empreintes.onnx")
+        assert tool._extractor is not None
         assert silent_sherpa[0]["num_threads"] >= 1
 
     def test_naming_a_second_voice_opens_nothing(self, models, without_card, silent_sherpa):
@@ -131,19 +131,19 @@ class LaVoix:
     """What sherpa receives to make a voice, without loading the 76 MB."""
 
     def __init__(self, monkeypatch, folder):
-        self.recus: dict = {}
+        self.received_ones: dict = {}
         monkeypatch.setitem(
-            __import__("sys").modules, "sherpa_onnx", self._faux_sherpa()
+            __import__("sys").modules, "sherpa_onnx", self._fake_sherpa()
         )
         (folder / "tokens.txt").touch()
         (folder / "fr_FR-upmc-medium.onnx").touch()
         self.folder = folder
 
-    def _faux_sherpa(self):
-        recus = self.recus
+    def _fake_sherpa(self):
+        received_ones = self.received_ones
 
         def model(**options):
-            recus.update(options)
+            received_ones.update(options)
             return SimpleNamespace(**options)
 
         return SimpleNamespace(
@@ -157,28 +157,28 @@ class LaVoix:
         )
 
 
-class TestLaVoix:
-    def test_the_card_reaches_the_voice(self, tmp_path, monkeypatch, avec_carte, chargeur):
-        banc = LaVoix(monkeypatch, tmp_path)
-        voice.NeuralVoice(banc.folder)._load()
-        assert banc.recus["provider"] == "cuda"
-        assert chargeur == [1]
+class TestTheVoice:
+    def test_the_card_reaches_the_voice(self, tmp_path, monkeypatch, with_card, loader):
+        bench = LaVoix(monkeypatch, tmp_path)
+        voice.NeuralVoice(bench.folder)._load()
+        assert bench.received_ones["provider"] == "cuda"
+        assert loader == [1]
 
     def test_the_processor_when_no_card_answers(
-        self, tmp_path, monkeypatch, without_card, chargeur
+        self, tmp_path, monkeypatch, without_card, loader
     ):
-        banc = LaVoix(monkeypatch, tmp_path)
-        voice.NeuralVoice(banc.folder)._load()
-        assert banc.recus["provider"] == "cpu"
-        assert chargeur == []
+        bench = LaVoix(monkeypatch, tmp_path)
+        voice.NeuralVoice(bench.folder)._load()
+        assert bench.received_ones["provider"] == "cpu"
+        assert loader == []
 
-    def test_the_setting_wins_over_the_card(self, tmp_path, monkeypatch, avec_carte, chargeur):
-        banc = LaVoix(monkeypatch, tmp_path)
-        voice.NeuralVoice(banc.folder, device="cpu")._load()
-        assert banc.recus["provider"] == "cpu"
+    def test_the_setting_wins_over_the_card(self, tmp_path, monkeypatch, with_card, loader):
+        bench = LaVoix(monkeypatch, tmp_path)
+        voice.NeuralVoice(bench.folder, device="cpu")._load()
+        assert bench.received_ones["provider"] == "cpu"
 
-    def test_the_model_is_opened_once(self, tmp_path, monkeypatch, avec_carte, chargeur):
+    def test_the_model_is_opened_once(self, tmp_path, monkeypatch, with_card, loader):
         """Ouvrir le modèle coûte cinq secondes : deux fois serait dix."""
-        banc = LaVoix(monkeypatch, tmp_path)
-        parlante = voice.NeuralVoice(banc.folder)
-        assert parlante._load() is parlante._load()
+        bench = LaVoix(monkeypatch, tmp_path)
+        speaking_one = voice.NeuralVoice(bench.folder)
+        assert speaking_one._load() is speaking_one._load()

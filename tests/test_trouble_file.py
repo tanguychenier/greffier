@@ -5,7 +5,7 @@ from __future__ import annotations
 from greffier.adapters.trouble_file import KEPT, TroubleFile
 
 
-class TestIlEcrit:
+class TestItWrites:
     def test_an_incident_reaches_the_file(self, tmp_path):
         log = TroubleFile(tmp_path / "incidents.log", "0.3.22")
         log.note("transcription", "le modèle a refusé")
@@ -23,7 +23,7 @@ class TestIlEcrit:
         assert "second" in log.read()[-1]
 
 
-class TestIlNeTombeJamais:
+class TestItNeverFalls:
     def test_a_folder_that_cannot_be_written_costs_nothing(self, tmp_path):
         """A log is not worth a meeting: it keeps quiet rather than fail."""
         obstacle = tmp_path / "obstacle"
@@ -39,11 +39,11 @@ class TestIlNeTombeJamais:
         assert not (tmp_path / "incidents.log").exists()
 
 
-class TestIlNeGrossitPas:
+class TestItDoesNotGrow:
     def test_the_file_is_brought_back_to_what_is_kept(self, tmp_path):
         log = TroubleFile(tmp_path / "incidents.log")
         for n in range(KEPT * 2 + 5):
             log.note("chaîne", f"incident {n}")
-        lignes = (tmp_path / "incidents.log").read_text().splitlines()
-        assert len(lignes) <= KEPT + 5
-        assert f"incident {KEPT * 2 + 4}" in lignes[-1]
+        lines = (tmp_path / "incidents.log").read_text().splitlines()
+        assert len(lines) <= KEPT + 5
+        assert f"incident {KEPT * 2 + 4}" in lines[-1]

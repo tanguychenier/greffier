@@ -31,16 +31,16 @@ class TestCuttingALineForAScreen:
         assert wrap("D'accord.") == ["D'accord."]
 
     def test_a_long_turn_is_cut_on_words(self) -> None:
-        lignes = wrap("La recette est prête, mais la signature électronique "
+        lines = wrap("La recette est prête, mais la signature électronique "
                        "attend encore le prestataire.")
-        assert all(len(line) <= LINE_WIDTH for line in lignes)
-        assert " ".join(lignes) == ("La recette est prête, mais la signature "
+        assert all(len(line) <= LINE_WIDTH for line in lines)
+        assert " ".join(lines) == ("La recette est prête, mais la signature "
                                      "électronique attend encore le prestataire.")
 
     def test_a_word_longer_than_the_line_is_left_whole(self) -> None:
         # Broken, it is no longer the word that was said.
-        adresse = "https://exemple.test/" + "x" * 60
-        assert wrap(f"voir {adresse}") == ["voir", adresse]
+        address = "https://exemple.test/" + "x" * 60
+        assert wrap(f"voir {address}") == ["voir", address]
 
     def test_nothing_said_is_no_block(self) -> None:
         assert blocks_of([said(0, 1, "   ")]) == []
@@ -78,8 +78,8 @@ class TestSubtitlesAPlayerReads:
 
     def test_the_blocks_are_numbered_from_one_without_a_gap(self) -> None:
         output_ = srt([said(0, 4, "un"), said(5, 9, "deux")], NAMES)
-        numeros = [line for line in output_.splitlines() if line.isdigit()]
-        assert numeros == ["1", "2"]
+        numbers = [line for line in output_.splitlines() if line.isdigit()]
+        assert numbers == ["1", "2"]
 
     def test_a_voice_nobody_named_carries_no_prefix(self) -> None:
         assert "Sophie" not in srt([said(0, 1, "D'accord.", voice="v9")], NAMES)
@@ -108,16 +108,16 @@ class TestOneLinePerTurnForASpreadsheet:
         assert first_one == "debut;fin;duree;voix;nom;confiance;texte"
 
     def test_a_turn_carries_its_times_its_voice_and_its_name(self) -> None:
-        lignes = list(csv.reader(
+        lines = list(csv.reader(
             io.StringIO(sheet([said(1, 3.5, "D'accord.")], NAMES)), delimiter=";"
         ))
-        assert lignes[1] == ["1.00", "3.50", "2.50", "v1", "Sophie", "", "D'accord."]
+        assert lines[1] == ["1.00", "3.50", "2.50", "v1", "Sophie", "", "D'accord."]
 
     def test_a_semicolon_in_what_was_said_does_not_make_a_column(self) -> None:
-        lignes = list(csv.reader(
+        lines = list(csv.reader(
             io.StringIO(sheet([said(0, 1, "oui ; non")], NAMES)), delimiter=";"
         ))
-        assert lignes[1][-1] == "oui ; non"
+        assert lines[1][-1] == "oui ; non"
 
 
 class TestAskingForAShape:
@@ -163,11 +163,11 @@ class TestNamingTheSpeakerWithoutRepeatingOneself:
         # what the line was before this.
         output_ = srt([said(0, 9, "La recette est prête depuis lundi, il manque "
                                   "la signature du prestataire.")], NAMES)
-        lignes = [
+        lines = [
             line for line in output_.splitlines()
             if line and not line.isdigit() and "-->" not in line
         ]
-        assert all(len(line) <= LINE_WIDTH for line in lignes)
+        assert all(len(line) <= LINE_WIDTH for line in lines)
 
     def test_the_browser_format_keeps_the_name_out_of_the_text(self) -> None:
         output_ = vtt([said(0, 30, " ".join(["mot"] * 60), voice="v2")], NAMES)
@@ -177,13 +177,13 @@ class TestNamingTheSpeakerWithoutRepeatingOneself:
 
 class TestHowSureTheModelWas:
     def test_the_figure_is_carried_into_the_spreadsheet(self) -> None:
-        peu_sur = Utterance(span=Span(0, 1), text="bailleurs", voice="v1",
+        unsure = Utterance(span=Span(0, 1), text="bailleurs", voice="v1",
                             confidence=0.42)
-        lignes = list(csv.reader(io.StringIO(sheet([peu_sur], NAMES)), delimiter=";"))
-        assert lignes[1][5] == "0.42"
+        lines = list(csv.reader(io.StringIO(sheet([unsure], NAMES)), delimiter=";"))
+        assert lines[1][5] == "0.42"
 
     def test_a_turn_nobody_judged_leaves_the_column_empty(self) -> None:
         # Empty, not zero: no figure is not a low figure, and a spreadsheet
         # would average a zero in.
-        lignes = list(csv.reader(io.StringIO(sheet([said(0, 1, "oui")])), delimiter=";"))
-        assert lignes[1][5] == ""
+        lines = list(csv.reader(io.StringIO(sheet([said(0, 1, "oui")])), delimiter=";"))
+        assert lines[1][5] == ""

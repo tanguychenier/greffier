@@ -15,23 +15,23 @@ class CaptureWatch:
     """Follows the size of the current file and says when capture stopped."""
 
     still_turns: int = 0
-    alertee: bool = False
+    alerted: bool = False
     _size: int | None = None
 
     def observe(self, bytes_read: int) -> str:
         """What needs reporting, or an empty string when nothing does."""
-        precedente, self._size = self._size, bytes_read
-        if precedente is None:
+        previous, self._size = self._size, bytes_read
+        if previous is None:
             return ""
-        if bytes_read > precedente:
+        if bytes_read > previous:
             self.still_turns = 0
-            self.alertee = False
+            self.alerted = False
             return ""
 
         self.still_turns += 1
-        if self.still_turns < TURNS_BEFORE_ALERT or self.alertee:
+        if self.still_turns < TURNS_BEFORE_ALERT or self.alerted:
             return ""
-        self.alertee = True
+        self.alerted = True
         return (
             "L'enregistrement n'avance plus : aucun son n'a été écrit depuis "
             f"{self.still_turns * 4} secondes. Vérifie le micro et "

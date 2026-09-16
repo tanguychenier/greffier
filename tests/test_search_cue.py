@@ -47,46 +47,46 @@ class _Err:
 
 
 @pytest.fixture
-def sonne(monkeypatch):
+def rings(monkeypatch):
     """A writer whose call is replayed from a recorded stream."""
-    sonneries: list[int] = []
+    rings_heard: list[int] = []
 
     def writer(output_: str, code: int = 0) -> ClaudeWriter:
         monkeypatch.setattr("shutil.which", lambda _: "/usr/bin/claude")
         monkeypatch.setattr(
             "subprocess.Popen", lambda *a, **k: FakeProcess(output_, code)
         )
-        return ClaudeWriter(on_search=lambda: sonneries.append(1))
+        return ClaudeWriter(on_search=lambda: rings_heard.append(1))
 
-    writer.sonneries = sonneries  # type: ignore[attr-defined]
+    writer.rings_heard = rings_heard  # type: ignore[attr-defined]
     return writer
 
 
 class TestTheCueSoundsOnASearch:
-    def test_it_sounds_when_a_search_starts(self, sonne):
-        writer = sonne(_stream(_search(), _answer("Il reste deux anomalies.")))
+    def test_it_sounds_when_a_search_starts(self, rings):
+        writer = rings(_stream(_search(), _answer("Il reste deux anomalies.")))
         assert writer.write_up("...") == "Il reste deux anomalies."
-        assert sonne.sonneries == [1]
+        assert rings.rings_heard == [1]
 
-    def test_it_sounds_once_for_a_search_repeated(self, sonne):
+    def test_it_sounds_once_for_a_search_repeated(self, rings):
         """Three queries in a row are one question for the room."""
-        writer = sonne(_stream(_search(), _search("WebFetch"), _answer("Oui.")))
+        writer = rings(_stream(_search(), _search("WebFetch"), _answer("Oui.")))
         writer.write_up("...")
-        assert sonne.sonneries == [1], "une seule pastille par réponse"
+        assert rings.rings_heard == [1], "une seule pastille par réponse"
 
-    def test_a_plain_answer_stays_silent(self, sonne):
-        writer = sonne(_stream(_answer("Jeudi.")))
+    def test_a_plain_answer_stays_silent(self, rings):
+        writer = rings(_stream(_answer("Jeudi.")))
         assert writer.write_up("...") == "Jeudi."
-        assert sonne.sonneries == []
+        assert rings.rings_heard == []
 
-    def test_a_line_that_is_not_an_event_costs_nothing(self, sonne):
+    def test_a_line_that_is_not_an_event_costs_nothing(self, rings):
         """A stream is not a contract: a warning in front must change nothing."""
-        writer = sonne("warning: something\n" + _stream(_search(), _answer("Oui.")))
+        writer = rings("warning: something\n" + _stream(_search(), _answer("Oui.")))
         assert writer.write_up("...") == "Oui."
-        assert sonne.sonneries == [1]
+        assert rings.rings_heard == [1]
 
-    def test_nothing_answered_is_still_an_error(self, sonne):
-        writer = sonne(_stream(_search()), code=1)
+    def test_nothing_answered_is_still_an_error(self, rings):
+        writer = rings(_stream(_search()), code=1)
         with pytest.raises(RuntimeError):
             writer.write_up("...")
 
@@ -122,10 +122,10 @@ class TestTheSoundItself:
 
         from greffier.adapters.cue_sound import WEB_SEARCH
 
-        son, taux = soundfile.read(str(WEB_SEARCH))
+        son, rate = soundfile.read(str(WEB_SEARCH))
         crete = max(abs(son.min()), abs(son.max()))
         assert crete < 0.2, f"crête {crete:.2f} : trop fort pour une pastille"
-        assert len(son) / taux < 0.6, "une pastille ne dure pas"
+        assert len(son) / rate < 0.6, "une pastille ne dure pas"
 
     def test_with_no_player_it_stays_silent(self, monkeypatch):
         from greffier.adapters import cue_sound

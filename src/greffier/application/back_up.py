@@ -19,7 +19,7 @@ class Made:
     dossiers: tuple[str, ...]
     files: int
     bytes_read: int
-    effacees: tuple[str, ...] = ()
+    erased: tuple[str, ...] = ()
     data: Path | None = None
 
     @property
@@ -49,7 +49,7 @@ def do_it(
     destination.mkdir(parents=True, exist_ok=True)
     archive = destination / f"{name}.tar.gz"
 
-    pris: list[str] = []
+    taken: list[str] = []
     files = 0
     temporary = archive.with_suffix(".partiel")
     try:
@@ -59,7 +59,7 @@ def do_it(
                 if not source.exists():
                     continue
                 tar.add(source, arcname=folder)
-                pris.append(folder)
+                taken.append(folder)
                 files += sum(1 for _ in source.rglob("*") if _.is_file())
             if config is not None and config.exists():
                 for file in ("config.toml", "contexte.toml", "sujets.toml"):
@@ -67,13 +67,13 @@ def do_it(
                     if path.exists():
                         tar.add(path, arcname=f"configuration/{file}")
                         files += 1
-                pris.append("configuration")
+                taken.append("configuration")
         temporary.replace(archive)
     except BaseException:
         temporary.unlink(missing_ok=True)
         raise
 
-    effacees: list[str] = []
+    erased: list[str] = []
     for old_one in to_erase(
         [path.name.removesuffix(".tar.gz")
          for path in destination.glob("greffier-*.tar.gz")],
@@ -82,24 +82,24 @@ def do_it(
         path = destination / f"{old_one}.tar.gz"
         try:
             path.unlink()
-            effacees.append(old_one)
+            erased.append(old_one)
         except OSError:
             continue
 
-    return Made(archive, tuple(pris), files,
-                 archive.stat().st_size, tuple(effacees), data=data)
+    return Made(archive, tuple(taken), files,
+                 archive.stat().st_size, tuple(erased), data=data)
 
 def restore(archive: Path, data: Path, overwrite: bool = False) -> list[str]:
     """Puts a backup back. Returns the folders restored."""
     if not archive.exists():
         raise FileNotFoundError(f"archive introuvable : {archive}")
     with tarfile.open(archive, "r:gz") as tar:
-        racines = sorted({
-            membre.name.split("/")[0] for membre in tar.getmembers()
-            if "/" in membre.name or membre.isdir()
+        roots = sorted({
+            member.name.split("/")[0] for member in tar.getmembers()
+            if "/" in member.name or member.isdir()
         })
         if not overwrite:
-            already = [name for name in racines if (data / name).exists()]
+            already = [name for name in roots if (data / name).exists()]
             if already:
                 raise FileExistsError(
                     "déjà présent, et rien n'a été touché : "
@@ -108,7 +108,7 @@ def restore(archive: Path, data: Path, overwrite: bool = False) -> list[str]:
                 )
         data.mkdir(parents=True, exist_ok=True)
         tar.extractall(data, filter="data")
-    return racines
+    return roots
 
 def list_(destination: Path) -> list[tuple[str, int, datetime]]:
     """The backups present, most recent first."""

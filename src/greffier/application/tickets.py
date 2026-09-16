@@ -35,8 +35,8 @@ Compte rendu :
 class Ticket:
     title: str
     description: str = ""
-    assigne: str = ""
-    echeance: str = ""
+    assignee: str = ""
+    due_date: str = ""
     excerpt: str = ""
 
     def as_markdown(self) -> str:
@@ -44,10 +44,10 @@ class Ticket:
         if self.description:
             lines += [self.description, ""]
         details = []
-        if self.assigne:
-            details.append(f"**Pour** {self.assigne}")
-        if self.echeance:
-            details.append(f"**Échéance** {self.echeance}")
+        if self.assignee:
+            details.append(f"**Pour** {self.assignee}")
+        if self.due_date:
+            details.append(f"**Échéance** {self.due_date}")
         if details:
             lines += [" · ".join(details), ""]
         if self.excerpt:
@@ -77,11 +77,11 @@ class Suggestion:
 
 def extract_json(response: str) -> list[object]:
     """Recovers the JSON array, even wrapped in text."""
-    nettoye = re.sub(r"^```(?:json)?|```$", "", response.strip(), flags=re.MULTILINE).strip()
+    cleaned = re.sub(r"^```(?:json)?|```$", "", response.strip(), flags=re.MULTILINE).strip()
     try:
-        charge = json.loads(nettoye)
+        charge = json.loads(cleaned)
     except json.JSONDecodeError:
-        found = re.search(r"\[.*\]", nettoye, re.DOTALL)
+        found = re.search(r"\[.*\]", cleaned, re.DOTALL)
         if not found:
             return []
         try:
@@ -103,8 +103,8 @@ def from_answer(response: str) -> Suggestion:
         tickets.append(Ticket(
             title=title,
             description=str(item.get("description", "")).strip(),
-            assigne=str(item.get("assigne", "")).strip(),
-            echeance=str(item.get("echeance", "")).strip(),
+            assignee=str(item.get("assigne", "")).strip(),
+            due_date=str(item.get("echeance", "")).strip(),
             excerpt=str(item.get("extrait", "")).strip(),
         ))
     return Suggestion(tickets=tickets, brut=response)

@@ -16,7 +16,7 @@ from greffier.adapters.configuration import Config
 
 #: The places an update replaces. A data path falling in there would be lost on
 #: the first rebuild.
-REMPLACES = ("/Applications/", "site-packages", "/Contents/")
+REPLACED = ("/Applications/", "site-packages", "/Contents/")
 
 
 def every_path(config: Config) -> dict[str, Path]:
@@ -41,7 +41,7 @@ class TestNothingLivesInsideTheBundle:
         faulty = {
             name: path
             for name, path in every_path(Config()).items()
-            if any(chunk in str(path) for chunk in REMPLACES)
+            if any(chunk in str(path) for chunk in REPLACED)
         }
         assert not faulty, f"perdu à la prochaine mise à jour : {faulty}"
 
@@ -93,7 +93,7 @@ class TestAnOlderFileStaysReadable:
         }
         path = tmp_path / "2026-08-01_09h00_ancienne.json"
         path.write_text(json.dumps(minimal), encoding="utf-8")
-        relue = FileStore(tmp_path).read("2026-08-01_09h00_ancienne")
-        assert relue.utterances[0].text == "Bonjour."
-        assert relue.subject == ""
-        assert relue.started_at is None
+        reread = FileStore(tmp_path).read("2026-08-01_09h00_ancienne")
+        assert reread.utterances[0].text == "Bonjour."
+        assert reread.subject == ""
+        assert reread.started_at is None

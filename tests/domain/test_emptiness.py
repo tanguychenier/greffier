@@ -17,7 +17,7 @@ class TestLesReunions:
         assert meetings(40) is None
 
 
-class TestLesVoix:
+class TestTheVoices:
     def test_nothing_chosen_is_not_nothing_to_name(self):
         """Both cases are empty, the two sentences are not the same:
         one asks for a click, the other says the work is done."""
@@ -36,7 +36,7 @@ class TestLesVoix:
         assert voices(a_meeting_is_chosen=False, how_many=7) is Missing.NO_MEETING_CHOSEN
 
 
-class TestLeFil:
+class TestTheThread:
     def test_empty_until_somebody_speaks(self):
         assert thread(0) is Missing.NO_THREAD_YET
 
@@ -44,10 +44,10 @@ class TestLeFil:
         assert thread(1) is None
 
 
-class TestCeQueLesBoutonsPeuvent:
+class TestWhatTheButtonsCanDo:
     def test_nothing_missing_lets_them_act(self):
         assert may_act(None) is True
 
     def test_anything_missing_holds_them(self):
-        for raison in Missing:
-            assert may_act(raison) is False
+        for reason in Missing:
+            assert may_act(reason) is False

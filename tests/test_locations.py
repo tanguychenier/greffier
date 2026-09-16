@@ -12,7 +12,7 @@ import pytest
 
 from greffier import locations
 
-NATIF = "Library/Application Support/Greffier"
+NATIVE = "Library/Application Support/Greffier"
 
 
 @pytest.fixture
@@ -25,9 +25,9 @@ def a_clean_home(monkeypatch, tmp_path):
 
 
 class TestMacOS:
-    def test_tout_vit_dans_application_support(self, a_clean_home):
-        assert locations.config_folder("Darwin") == a_clean_home / NATIF
-        assert locations.data_folder("Darwin") == a_clean_home / NATIF
+    def test_everything_lives_in_application_support(self, a_clean_home):
+        assert locations.config_folder("Darwin") == a_clean_home / NATIVE
+        assert locations.data_folder("Darwin") == a_clean_home / NATIVE
 
     def test_xdg_wins_when_it_is_set(self, a_clean_home, monkeypatch):
         """It is what isolates the tests, and what leaves the choice open."""
@@ -36,8 +36,8 @@ class TestMacOS:
         assert locations.config_folder("Darwin") == a_clean_home / "xdg/greffier"
         assert locations.data_folder("Darwin") == a_clean_home / "xdg-donnees/greffier"
 
-    def test_une_ancienne_configuration_reste_servie(self, a_clean_home):
-        """Un poste installé avant continue de lire sa configuration."""
+    def test_an_old_configuration_is_still_served(self, a_clean_home):
+        """A machine installed before goes on reading its configuration."""
         former = a_clean_home / ".config/greffier"
         former.mkdir(parents=True)
         (former / "config.toml").write_text("", encoding="utf-8")
@@ -47,30 +47,30 @@ class TestMacOS:
         """The native folder exists as soon as there is data: that does not mean it holds
         any settings.
         """
-        (a_clean_home / NATIF / "enregistrements").mkdir(parents=True)
+        (a_clean_home / NATIVE / "enregistrements").mkdir(parents=True)
         former = a_clean_home / ".config/greffier"
         former.mkdir(parents=True)
         (former / ".env").write_text("", encoding="utf-8")
         assert locations.config_folder("Darwin") == former
 
     def test_the_native_settings_come_before_the_old_ones(self, a_clean_home):
-        for folder in (a_clean_home / NATIF, a_clean_home / ".config/greffier"):
+        for folder in (a_clean_home / NATIVE, a_clean_home / ".config/greffier"):
             folder.mkdir(parents=True)
             (folder / "config.toml").write_text("", encoding="utf-8")
-        assert locations.config_folder("Darwin") == a_clean_home / NATIF
+        assert locations.config_folder("Darwin") == a_clean_home / NATIVE
 
-    def test_d_anciennes_donnees_restent_servies(self, a_clean_home):
+    def test_old_data_is_still_served(self, a_clean_home):
         former = a_clean_home / ".local/share/greffier"
         former.mkdir(parents=True)
         assert locations.data_folder("Darwin") == former
 
-    def test_les_donnees_natives_priment(self, a_clean_home):
+    def test_native_data_comes_first(self, a_clean_home):
         (a_clean_home / ".local/share/greffier").mkdir(parents=True)
-        (a_clean_home / NATIF).mkdir(parents=True)
-        assert locations.data_folder("Darwin") == a_clean_home / NATIF
+        (a_clean_home / NATIVE).mkdir(parents=True)
+        assert locations.data_folder("Darwin") == a_clean_home / NATIVE
 
 
-class TestAilleurs:
+class TestElsewhere:
     def test_linux_suit_xdg(self, a_clean_home, monkeypatch):
         monkeypatch.setenv("XDG_CONFIG_HOME", str(a_clean_home / "c"))
         assert locations.config_folder("Linux") == a_clean_home / "c/greffier"
@@ -87,13 +87,13 @@ class TestAilleurs:
         assert locations.config_folder() == expected
 
 
-class TestDemenagement:
+class TestMovingHouse:
     def test_anywhere_but_macos_nothing_moves(self, a_clean_home):
         (a_clean_home / ".config/greffier").mkdir(parents=True)
         assert locations.relocate("Linux") == []
         assert (a_clean_home / ".config/greffier").exists()
 
-    def test_configuration_et_donnees_rejoignent_application_support(self, a_clean_home):
+    def test_configuration_and_data_move_to_application_support(self, a_clean_home):
         config = a_clean_home / ".config/greffier"
         data = a_clean_home / ".local/share/greffier"
         config.mkdir(parents=True)
@@ -102,36 +102,36 @@ class TestDemenagement:
         (config / ".env").write_text("X=1\n", encoding="utf-8")
         (data / "modeles/gros.bin").write_bytes(b"\0" * 10)
 
-        faits = locations.relocate("Darwin")
+        done_ones = locations.relocate("Darwin")
 
-        natif = a_clean_home / NATIF
-        assert (natif / "config.toml").read_text(encoding="utf-8") == "[audio]\n"
-        assert (natif / ".env").exists()
-        assert (natif / "modeles/gros.bin").stat().st_size == 10
+        native = a_clean_home / NATIVE
+        assert (native / "config.toml").read_text(encoding="utf-8") == "[audio]\n"
+        assert (native / ".env").exists()
+        assert (native / "modeles/gros.bin").stat().st_size == 10
         assert not config.exists() and not data.exists(), "les dossiers vides disparaissent"
-        assert {target.name for _, target in faits} == {"config.toml", ".env", "modeles"}
+        assert {target.name for _, target in done_ones} == {"config.toml", ".env", "modeles"}
         # Afterwards everything resolves to the same place: nothing hidden left.
-        assert locations.config_folder("Darwin") == natif
-        assert locations.data_folder("Darwin") == natif
+        assert locations.config_folder("Darwin") == native
+        assert locations.data_folder("Darwin") == native
 
     def test_it_can_be_run_again_with_nothing_to_do(self, a_clean_home):
         assert locations.relocate("Darwin") == []
-        assert not (a_clean_home / NATIF).exists(), "rien à déplacer : rien n'est créé"
+        assert not (a_clean_home / NATIVE).exists(), "rien à déplacer : rien n'est créé"
 
     def test_it_never_overwrites_what_exists_at_the_destination(self, a_clean_home):
-        natif = a_clean_home / NATIF
-        natif.mkdir(parents=True)
-        (natif / "config.toml").write_text("neuf", encoding="utf-8")
+        native = a_clean_home / NATIVE
+        native.mkdir(parents=True)
+        (native / "config.toml").write_text("neuf", encoding="utf-8")
         former = a_clean_home / ".config/greffier"
         former.mkdir(parents=True)
         (former / "config.toml").write_text("vieux", encoding="utf-8")
         (former / "config.toml.sauvegarde").write_text("", encoding="utf-8")
 
-        faits = locations.relocate("Darwin")
+        done_ones = locations.relocate("Darwin")
 
-        assert (natif / "config.toml").read_text(encoding="utf-8") == "neuf"
+        assert (native / "config.toml").read_text(encoding="utf-8") == "neuf"
         assert (former / "config.toml").exists(), "le conflit reste en place, visible"
-        assert [target.name for _, target in faits] == ["config.toml.sauvegarde"]
+        assert [target.name for _, target in done_ones] == ["config.toml.sauvegarde"]
 
     def test_xdg_set_means_hands_off(self, a_clean_home, monkeypatch):
         monkeypatch.setenv("XDG_CONFIG_HOME", str(a_clean_home / "xdg"))

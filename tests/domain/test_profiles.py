@@ -21,7 +21,7 @@ def say(*texts: str) -> list[Utterance]:
 
 #: Two ordinary English sentences on which the French patterns returned
 #: "Budget" and "Anyway", and an introduction they missed.
-ANGLAIS = (
+ENGLISH = (
     "Budget, on the other hand, is not settled.",
     "Anyway, on Monday we ship.",
     "Marketing, on our side, is ready.",
@@ -53,18 +53,18 @@ class TestTheNeutralProfileInventsNothing:
         """With the French profile these sentences returned "Budget", "Anyway" and
         "Marketing", three participants who do not exist.
         """
-        assert spot_mentions(say(*ANGLAIS), NEUTRAL) == []
+        assert spot_mentions(say(*ENGLISH), NEUTRAL) == []
 
     def test_french_did_manufacture_them(self):
         """The proof that switching the detection off is a fix and not a retreat: the
         defect is reproduced here, for good.
         """
-        inventes = {m.name for m in spot_mentions(say(*ANGLAIS), FRENCH)}
-        assert {"Budget", "Anyway", "Marketing"} <= inventes
+        invented = {m.name for m in spot_mentions(say(*ENGLISH), FRENCH)}
+        assert {"Budget", "Anyway", "Marketing"} <= invented
 
     def test_the_neutral_one_does_not_claim_to_be_tested(self):
-        assert not NEUTRAL.eprouve
-        assert FRENCH.eprouve
+        assert not NEUTRAL.proven_one
+        assert FRENCH.proven_one
 
 
 class TestATestedProfileFindsItsFirstNames:
@@ -82,11 +82,11 @@ class TestATestedProfileFindsItsFirstNames:
         assert {"Jacques", "Sandy"} <= {m.name for m in mentions}
 
     def test_every_tested_profile_has_what_it_takes(self):
-        for profil in profiles.REGISTRE.values():
-            if not profil.eprouve:
+        for profile in profiles.REGISTRY.values():
+            if not profile.proven_one:
                 continue
-            assert profil.detection.motifs, profil.code
-            assert profil.detection.excluded, profil.code
+            assert profile.detection.motifs, profile.code
+            assert profile.detection.excluded, profile.code
 
 
 class TestCuttingIntoTurns:

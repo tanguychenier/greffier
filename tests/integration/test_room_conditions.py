@@ -40,21 +40,21 @@ def config() -> Config:
 
 
 @pytest.fixture(scope="module")
-def salles(tmp_path_factory, config):
+def rooms(tmp_path_factory, config):
     """The same meeting, put through four rooms."""
-    hors = voices_are_out_of_reach(2) or transcription_is_out_of_reach(config)
-    if hors:
-        pytest.skip(hors)
+    outside = voices_are_out_of_reach(2) or transcription_is_out_of_reach(config)
+    if outside:
+        pytest.skip(outside)
     import make_room_cases
 
     folder = tmp_path_factory.mktemp("salles")
     from make_meeting import make
 
     clean = make(folder / "propre.wav")
-    faites = {"propre": clean}
-    for name, fabrique in make_room_cases.CAS.items():
-        faites[name] = fabrique(clean, folder / f"{name}.wav")
-    return faites
+    done_ones = {"propre": clean}
+    for name, makes in make_room_cases.CASES.items():
+        done_ones[name] = makes(clean, folder / f"{name}.wav")
+    return done_ones
 
 
 def _voices(config: Config, audio: Path) -> dict[str, float]:
@@ -62,7 +62,7 @@ def _voices(config: Config, audio: Path) -> dict[str, float]:
     from greffier.adapters.diarisation_sherpa import SherpaDiariser
     from greffier.adapters.voiceprints_titanet import TitaNetExtractor
     from greffier.application.render import voiceprints_per_voice
-    from greffier.domain import voiceprints as domaine
+    from greffier.domain import voiceprints as the_domain
 
     diarisation = config.paths.models / "diarisation"
     diariser = SherpaDiariser(
@@ -74,7 +74,7 @@ def _voices(config: Config, audio: Path) -> dict[str, float]:
     per_voice: dict[str, list] = {}
     for turn in turns:
         per_voice.setdefault(turn.voice, []).append(turn.span)
-    membership = domaine.stitch(voiceprints_per_voice(extractor, audio, per_voice))
+    membership = the_domain.stitch(voiceprints_per_voice(extractor, audio, per_voice))
     spoken: dict[str, float] = {}
     for turn in turns:
         group = membership.get(turn.voice, turn.voice)
@@ -83,27 +83,27 @@ def _voices(config: Config, audio: Path) -> dict[str, float]:
 
 
 @pytest.mark.integration
-class TestLaSalleNeFabriquePasDeMonde:
-    def test_a_clean_meeting_holds_two_people(self, config, salles):
-        assert len(_voices(config, salles["propre"])) == 2
+class TestTheRoomMakesNobodyUp:
+    def test_a_clean_meeting_holds_two_people(self, config, rooms):
+        assert len(_voices(config, rooms["propre"])) == 2
 
-    def test_somebody_leaning_back_stays_one_person(self, config, salles):
+    def test_somebody_leaning_back_stays_one_person(self, config, rooms):
         """A voice losing 18 dB mid-meeting cost 0.05 of resemblance to
         itself, enough to become somebody else."""
-        assert len(_voices(config, salles["loin"])) == 2
+        assert len(_voices(config, rooms["loin"])) == 2
 
-    def test_a_room_with_a_background_holds_two_people(self, config, salles):
-        assert len(_voices(config, salles["bruit"])) == 2
+    def test_a_room_with_a_background_holds_two_people(self, config, rooms):
+        assert len(_voices(config, rooms["bruit"])) == 2
 
-    def test_two_people_speaking_at_once_are_still_two(self, config, salles):
-        assert len(_voices(config, salles["ensemble"])) == 2
+    def test_two_people_speaking_at_once_are_still_two(self, config, rooms):
+        assert len(_voices(config, rooms["ensemble"])) == 2
 
     def test_one_sentence_at_the_end_is_a_voice_but_not_yet_a_person(
-        self, config, salles
+        self, config, rooms
     ):
         """It exists as a voice, and is not announced as an identified
         person: under six seconds, nothing allows saying so."""
-        spoke = _voices(config, salles["tard"])
+        spoke = _voices(config, rooms["tard"])
         assert len(spoke) == 2
-        montrees = [s for s in spoke.values() if s >= IDENTIFIABLE_SECONDS]
-        assert len(montrees) == 1
+        shown = [s for s in spoke.values() if s >= IDENTIFIABLE_SECONDS]
+        assert len(shown) == 1

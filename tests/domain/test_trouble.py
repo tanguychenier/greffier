@@ -13,7 +13,7 @@ import pytest
 from greffier.domain.trouble import Trouble, without_traces, worth_keeping
 
 
-class TestCeQuOnEcrit:
+class TestWhatIsWritten:
     def test_a_line_carries_the_moment_the_place_and_the_reason(self):
         line = Trouble("transcription", "le modèle a refusé").line()
         assert "transcription" in line and "le modèle a refusé" in line
@@ -34,7 +34,7 @@ class TestCeQuOnEcrit:
             Trouble("   ", "quelque chose")
 
 
-class TestCeQuOnNEcritPas:
+class TestWhatIsNotWritten:
     def test_a_path_is_taken_out(self):
         """A path carries the account name, and often a meeting's subject."""
         without = without_traces("échec sur /home/quelqu-un/reunions/point-budget.wav")
@@ -57,12 +57,12 @@ class TestCeQuOnNEcritPas:
         assert "exemple.fr" not in line
 
 
-class TestLeFichierNeGrossitPas:
+class TestTheFileDoesNotGrow:
     def test_only_the_last_ones_are_kept(self):
-        lignes = [f"ligne {n}" for n in range(500)]
-        gardees = worth_keeping(lignes, 200)
-        assert len(gardees) == 200
-        assert gardees[-1] == "ligne 499"
+        lines = [f"ligne {n}" for n in range(500)]
+        kept_ones = worth_keeping(lines, 200)
+        assert len(kept_ones) == 200
+        assert kept_ones[-1] == "ligne 499"
 
     def test_a_short_file_is_kept_whole(self):
         assert worth_keeping(["une", "deux"], 200) == ["une", "deux"]

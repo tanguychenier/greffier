@@ -328,7 +328,16 @@ voix = "kokoro"       # kokoro (le modèle installé) | systeme | aucun
 locuteur = 0          # quand le modèle porte plusieurs voix
 repos = 180.0         # seconds between two unprompted remarks
 creux_minimal = 2.0   # silence required before speaking at all
+modele = "sonnet"     # what answers out loud; the minutes keep their own
 ```
+
+What it answers with is not what writes the minutes. Spoken, an answer has
+to come quickly; written, it has to be right. With Claude Code the process is
+started once for the meeting and kept warm, and fed one question after
+another: measured on a real transcript, the first answer of a cold process
+came in 5 s, the next ones in 2 s, and sonnet was the fastest of the three
+models at it (haiku, through this wire, was the slowest). See
+`docs/corpus.md` for the figures.
 
 Give it a first name rather than leaving "Greffier": a transcription model
 renders a first name reliably, whereas "greffier" sits two edits away from
@@ -340,6 +349,19 @@ picked **by ear** against three others, and it wins on the numbers too: 48x real
 time, four seconds of speech computed in eight hundredths, 80 MB. The installer
 fetches it. Without it the assistant falls back on the system voice, which every
 machine ships and which everyone can hear is a machine.
+
+**What it answers from.** What was said, first. Then the documents handed
+over for the meeting (the **Conversation** tab, "Fournir un document"), and
+the company's sources registered in `sources.toml` next to the configuration
+file: the open tickets of a GitLab project, the open requests of a Jira
+project, read only, and only what is registered. It names what it uses: "d'après
+le document budget", "d'après GitLab". A source whose token is not there is
+not read: it says it has no access and asks for the token, which goes in
+**Réglages ▸ Sources d'entreprise**, pasted once, kept in a file of yours
+alone (`jetons.toml`, mode 600) and never in the registry. With the web
+search on (`conversation.recherche_web`), a fact outside the meeting is looked
+up and its source named aloud. Each of the four is played end to end against
+the real model in `tests/integration/test_context_scenarios.py`.
 
 ## Does it actually work?
 
@@ -443,6 +465,7 @@ greffier exporter --format csv         # one line per turn, for a spreadsheet
 greffier montage                       # the notable passages, real voices
 greffier lire                          # the minutes read aloud
 greffier tickets                       # the decided actions, ready to open
+greffier tickets --creer recherche     # ... and opened on that source, one yes each
 greffier archiver                      # compresses processed recordings
 ```
 
@@ -472,6 +495,10 @@ systems**: Tkinter comes with Python, there is nothing to install.
     recording, without consulting any model, and without ever being wrong.
   - A name followed by a **`?`** comes from the voice print: it is a proposal,
     not an assertion.
+  - Each slice of ten seconds is cut at the changes of speaker before a print
+    is taken, so two people in the same ten seconds are two lines. A sentence
+    astride two speakers, or a scrap too short to resemble anybody, is shown
+    with `Les autres` rather than under a name that might be wrong.
   - **Clicking the name corrects it.** By default the correction covers the
     whole voice: when the tool gets the person wrong, it gets them wrong for
     every passage; "only this sentence" is there for overlaps. The correction
@@ -539,6 +566,13 @@ pipx install dist/greffier-*.whl     # or pip install, in a dedicated environmen
 
 The wheel holds the code only: the models are fetched on the first run of
 `tools/install.py`.
+
+Each tag also publishes three things to double-click, built by
+`.github/workflows/release.yml`: the macOS bundle, the Windows executable,
+and a Linux AppImage (`python3 tools/build_appimage.py --check` builds and
+runs it here: one file of 380 MB, marked executable, that opens the window
+on a machine with nothing else installed but ffmpeg; the models are fetched
+on first launch, which is what the first-launch guide says to do).
 
 ## Development
 

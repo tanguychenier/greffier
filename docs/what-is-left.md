@@ -57,6 +57,7 @@ there, and fixed.
 | The learning threshold at 6 s, with no second chance | A correction entered at the second sentence **never** made it into the bank: it was displayed, then served neither the following meeting nor the minutes | fixed |
 | The position tracked on the meeting clock | After a pause, the clock and the audio written to disk diverge by the whole stopped time, and ffmpeg read past the end of the file | fixed |
 | The last seconds never read | You finished your sentence in front of a thread that stopped before it | fixed |
+| One voice per slice | Measured on SUMM-RE 032b, four people who cut into each other: a ten-second slice went whole to whoever its print resembled, **28 % of the sentences under the wrong name**, and the scraps of everybody, poured into the catch-all, got a name from the bank | fixed: the slice is cut at the changes of speaker on the processor, one print per speaker, a scrap joins a voice from the short-material threshold only, the catch-all takes no print; 9 % wrong and 82 % right on the same meeting, `corpus.md` |
 
 ## What direct measurement fixed (2026-09-01)
 
@@ -195,6 +196,66 @@ interface is not reachable with this toolkit. What was done removes the two
 concrete defects reported (resizing, missing or ugly scrollbars); the austerity
 that remains beyond them is a matter of taste, to be refined point by point
 rather than through endless iteration.
+
+### The assistant's answer is not streamed to the voice
+
+Measured on 2026-09-16 (see `corpus.md`): her first word now comes 4.6 to
+6.5 s after the end of the question on a small card, of which the model's
+share is 1.4 to 2.4 s and the first token 0.7 s. Handing each sentence to the
+voice as it arrives would save the time the model takes to write the second
+one, half a second to a second on a two-sentence answer. It needs the answer
+read as a stream (`--include-partial-messages`) and a voice that queues
+sentences rather than refusing while it speaks; not done while the pass that
+spots her name costs more than the model.
+
+## Her initiative, replayed on two real meetings (2026-09-16)
+
+The meeting of 2026-09-10 is on the Mac; the corpus stood in.
+`tools/replay_initiative.py` feeds the assistant the live thread slice by
+slice, `initiative` on, through the real model (sonnet, kept warm), and logs
+what she would have said and when. Two SUMM-RE meetings of the same four
+people: 032a, a reporting meeting, through the live thread the tool itself
+wrote (its words, its errors); 032b, a decision meeting, through the
+reference transcript.
+
+| Meeting | Length | Looks | Interventions | What she said | Judged |
+|---|---|---|---|---|---|
+| 032a, reporting, live thread | 20 min | 118 | **0** | | nothing to say, and she said nothing |
+| 032b, decision, reference | 20 min | 123 | **1**, at 15:20 | "Le premier jeudi de janvier ou un autre, quelqu'un le note quelque part ?", right after the four agreed on "un jeudi juste après les vacances de Noël" | right moment, useful, one sentence; not intrusive |
+
+One remark in forty minutes, on the one decision left without a date, and
+silence on everything else: the guidance holds. What keeps the default at
+**off** is not the behaviour, it is the price of looking: a call to the
+model every ten seconds for the whole meeting, 118 and 123 here, 1.6 s of
+model time each, on the account that writes the minutes. The button in the
+**En direct** tab turns it on for a meeting; turning it on by default would
+want the looks made cheaper first, the model asked only after a sentence
+the domain already reads as a decision or a question left open
+(`instructions.decisions_in`), which nobody has measured.
+
+## Test coverage, measured per layer (2026-09-16)
+
+`pytest --cov=greffier` on the unit suite (integration and slow tests
+deselected, the way the continuous integration runs it), before and after
+the tests written on 16/09:
+
+| Layer | Before | After | What was added |
+|---|---|---|---|
+| `domain` | 96.6 % | 96.8 % | the end of a speech, the verdict of the bank measure, the slice cut at the changes of speaker |
+| `application` | 85.3 % | 90.6 % | the company sources, the voice review, the passages worth hearing again, her own contributions, the sound out of a video, the follower with a segmenter |
+| `adapters` | 82.3 % | 84.8 % | the kept Claude session through real pipes, the recorder's ffmpeg gestures on real files, the system voice in motion, the tokens file, the segmenter's windows |
+| `interface` (window, API) | 52.5 % | 61.6 % | the Meetings tab and the settings on the real window, documents and questions from the window, the token pasted |
+| `cli.py`, `wiring.py` | 40.2 % | 56.2 % | the commands after the meeting driven as a person would, the writer and the sender doubled, the segmenter wired or not |
+| **all** | **74.4 %** | **80.1 %** | 2 343 to 2 618 tests |
+
+What stays thin, and why: `cli.py` (46 %) and `window.py` (55 %) hold the
+gestures that need a microphone, a running meeting or a person answering a
+box; the e2e suite around the bench (`test_replay_e2e`, `test_assistant_latency`,
+`test_context_scenarios`) covers those where the models are, and skips
+cleanly where they are not. The adapters under 70 % are the ones that wrap a
+model (`voiceprints_titanet`, `diarisation_sherpa`, `transcription_whisper_cpp`)
+or a service (`board_miro`): what they wrap is covered by the integration
+tests, what they add is small.
 
 ## What is not to be done
 
@@ -629,7 +690,7 @@ the two different people stay at **0.63**: at 0.75 the separation is clear.
 Attaching a block compares one short voice print to a voice's aggregate, once,
 and never redoes the comparison as the material accumulates.
 
-`Fil.recoller()` redoes it, on every slice, by calling `fusionner_voix`, the one
+`LiveThread.stitch()` redoes it, on every slice, by calling `join_voices`, the one
 from the final processing, same threshold, same minimum-material guard. Two
 voices named by a human under different names are never merged: a human
 correction is not undone on a measurement. The merge travels through the log
@@ -883,7 +944,7 @@ fallback and everyone can hear that it is one.
 
 - **Windows has not been run on a real machine.** The code paths are there and
   the tests cover the decisions, but nobody has double-clicked the thing.
-- **The live stitching is not the final one.** `Fil.recoller` runs on partial
+- **The live stitching is not the final one.** `LiveThread.stitch` runs on partial
   material during the meeting; the three passes added here run afterwards. A
   meeting still shows more voices while it happens than in its minutes.
 - **No way to delete a meeting** from the Réunions tab.
@@ -953,7 +1014,7 @@ measured threshold.
   it too, and is ruled out: it would lose the stars.
 - **Windows has still not been run on a real machine.** Sixteen tests cover the
   system-specific paths: cursor, PowerShell literal, executable path, voice
-  player, and `tools/windows_launcher.py` answers `--version`. Nobody has
+  player, and `tools/launcher.py` answers `--version`. Nobody has
   double-clicked it.
 - **No AppImage for Linux**, only the source tree and its installer.
 - **The assistant does not read the connected sources** (GitLab, Jira, Trello)

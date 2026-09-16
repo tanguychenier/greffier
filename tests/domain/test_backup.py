@@ -4,8 +4,8 @@ from datetime import datetime
 
 from greffier.domain.backup import (
     CONTENT,
-    ECARTES,
     KEPT,
+    SET_ASIDE,
     BackupName,
     to_erase,
 )
@@ -18,24 +18,24 @@ class TestWhatIsBackedUp:
 
     def test_the_audio_is_left_out(self):
         """It is what makes a backup impossible: 115 MB per hour."""
-        assert "enregistrements" in ECARTES
+        assert "enregistrements" in SET_ASIDE
         assert "enregistrements" not in CONTENT
 
     def test_the_models_are_left_out(self):
-        assert "modeles" in ECARTES
+        assert "modeles" in SET_ASIDE
 
     def test_every_exclusion_says_why(self):
         """A backup that grows for no known reason ends up not being made."""
-        for folder, because in ECARTES.items():
+        for folder, because in SET_ASIDE.items():
             assert len(because) > 20, folder
 
     def test_nothing_is_both_taken_and_left_out(self):
-        assert not set(CONTENT) & set(ECARTES)
+        assert not set(CONTENT) & set(SET_ASIDE)
 
     def test_what_carries_the_work_is_taken(self):
-        for essentiel in ("reunions", "comptes-rendus", "transcriptions",
+        for essential in ("reunions", "comptes-rendus", "transcriptions",
                           "conversations"):
-            assert essentiel in CONTENT
+            assert essential in CONTENT
 
 
 class TestTheBackupName:
@@ -55,23 +55,23 @@ class TestTheBackupName:
 
 class TestKeepingOnlySoMany:
     def names(self, how_many: int) -> list[str]:
-        return [str(BackupName(datetime(2026, 9, jour, 12, 0))) for jour in range(1, how_many + 1)]
+        return [str(BackupName(datetime(2026, 9, day, 12, 0))) for day in range(1, how_many + 1)]
 
     def test_under_the_count_nothing_is_deleted(self):
         assert to_erase(self.names(3), kept=7) == []
 
     def test_the_oldest_ones_go(self):
-        a_partir = to_erase(self.names(10), kept=7)
-        assert len(a_partir) == 3
-        assert "greffier-2026-09-01_12h00" in a_partir
-        assert "greffier-2026-09-10_12h00" not in a_partir
+        starting_from = to_erase(self.names(10), kept=7)
+        assert len(starting_from) == 3
+        assert "greffier-2026-09-01_12h00" in starting_from
+        assert "greffier-2026-09-10_12h00" not in starting_from
 
     def test_the_most_recent_one_never_goes(self):
         """A rotation that can erase everything is a purge, not a rotation."""
         names = self.names(5)
-        a_partir = to_erase(names, kept=0)
-        assert "greffier-2026-09-05_12h00" not in a_partir
-        assert len(a_partir) == 4
+        starting_from = to_erase(names, kept=0)
+        assert "greffier-2026-09-05_12h00" not in starting_from
+        assert len(starting_from) == 4
 
     def test_what_is_not_a_backup_is_left_alone(self):
         """Erasing happens in a folder that may hold something else."""

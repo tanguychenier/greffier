@@ -63,13 +63,20 @@ through a sitting.
 
 - [ ] Fetch the meeting of 2026-09-10 (six people, 3 878 s) from the Mac:
       audio, json and jsonl. It is not on this PC.
-- [ ] Extend `tools/replay_live.py` to feed `watch.py` with the thread of
+- [x] Extend `tools/replay_live.py` to feed `watch.py` with the thread of
       sentences, `initiative` on, and log every time she would have spoken
       and what she would have said.
       *Proof: the log of the interventions on the real meeting.*
-- [ ] Judge each intervention: right moment, useful, intrusive. Decide the
+      Done on 16/09 as `tools/replay_initiative.py`, on the corpus for want
+      of the Mac's audio: the live thread of 032a and the reference of 032b,
+      through the real model.
+- [x] Judge each intervention: right moment, useful, intrusive. Decide the
       default value on those figures.
       *Proof: the table in `what-is-left.md`, and the default setting that follows from it.*
+      Done on 16/09: one intervention in forty minutes, on the one decision
+      left without a date, judged right; the default stays off for the price
+      of looking (a model call every ten seconds), said in `what-is-left.md`
+      with what would let it change.
 
 ## Phase 4. Two short product tasks
 
@@ -98,16 +105,43 @@ nine.
 
 ## Phase 6. The rest, afterwards
 
-- [ ] Say it doubts at the moment it doubts.
-- [ ] A first launch that takes you by the hand when nothing is configured.
-- [ ] Group the stray voices under "Les autres".
-- [ ] The GitLab, Jira and Trello sources for a spoken question (waits for
-      a real configuration).
-- [ ] An AppImage for Linux.
-- [ ] The 22 skips of the integration suite: the table meeting with three
-      timbres, and "Lucie" heard as "UCI".
-- [ ] An up-to-date survey of speaker separation; any candidate has to beat
-      +0.099 of margin at 14.6 ms.
+- [x] Say it doubts at the moment it doubts. Done on 16/09: the engine's
+      figure travels with each live turn, log and replay included, and the
+      window marks the doubtful sentence « (?) » as it appears, the way the
+      transcript did the next day.
+- [x] A first launch that takes you by the hand when nothing is configured.
+      Done on 16/09: the Conversation tab lists the three things to do, in
+      order, the models, the account, a microphone, ticks them as they get
+      done, and says once that everything is in place. Five tests on the
+      real window; `docs/scenarios.md` had it under « What the tool should have ».
+- [x] Group the stray voices under "Les autres". Done on 16/09: an unnamed
+      voice under a twentieth of the speaking time, once three voices carry
+      the meeting, is « Les autres » in the transcript and not counted as
+      an attendee; the warning that suggests giving the count says so.
+- [x] The GitLab, Jira and Trello sources for a spoken question (waits for
+      a real configuration). Done on 16/09 for GitLab and Jira, read for
+      her the way the documents are, the token pasted in the window; Trello
+      is not a registered kind.
+- [x] An AppImage for Linux. Done on 16/09: `tools/build_appimage.py`
+      (PyInstaller, the same command as the Windows executable, then
+      appimagetool), a job in `release.yml` that runs it on `--version`;
+      built here and opened on a virtual screen, 382 MB, the window with its
+      French sentences on a fresh home.
+- [x] The 22 skips of the integration suite: the table meeting with three
+      timbres, and "Lucie" heard as "UCI". Done on 16/09: her name in the
+      transcriber's seed brought « Lucie » back whole on the VITS voices
+      (eighteen tests run on Linux now), and a third timbre made from the
+      first by lowering its pitch (0.82, measured under every join threshold
+      with TitaNet) opens the round table and the three-voice cases (eleven
+      more). Two stay on « say »: the brief proposal, which the VITS voices
+      give one run in two, for a cause not settled.
+- [x] An up-to-date survey of speaker separation; any candidate has to beat
+      +0.099 of margin at 14.6 ms. Done on 16/09, section 4 of
+      `speaker-separation.md`: within the tool's constraints (ONNX, no
+      PyTorch, a licence a company can ship) nothing has changed; the one
+      candidate worth exporting and measuring is ReDimNet (MIT); pyannote
+      community-1 would need PyTorch, DiariZen is non-commercial, Sortformer
+      stops at four speakers.
 - [x] The older documents of `docs/` put into English, like the code, and
       renamed: `what-is-left`, `scenarios`, `calibration`,
       `speaker-separation`, `graphics-card`, `retrospective-2026-09-10`
@@ -135,30 +169,68 @@ meeting is never needed to see what a meeting does.
       and the final processing are the product's own, untouched.
       `tests/integration/test_replay_e2e.py` replays the synthetic meeting and
       checks the recording's length, the live thread's words and the minutes.
-- [ ] Live words measured: the live transcript against the reference, next
+- [x] Live words measured: the live transcript against the reference, next
       to the post-meeting one, per slice length, cut on silence or on the
       clock, with and without the previous slice as context.
       *Proof: the table in `corpus.md`, and only what moves the figure kept.*
-- [ ] The same person across two meetings: named on one SUMM-RE meeting,
+      Done on 16/09: eight settings on 032a (`tools/measure_live.py`, through
+      the real thread). The live thread reads at 30 to 32 % where the final
+      transcription reads at 24.5 %; the context before the slice moves
+      nothing but the cost (and throws the turbo model at fifty seconds), a
+      period of five seconds loses half the rare terms, the turbo model
+      reads two points worse than large-v3 at less than half the cost.
+      `CONTEXT_S` goes from 50 to 20. The cut on silence is measured below.
+- [x] The same person across two meetings: named on one SUMM-RE meeting,
       recognised on the next of the same series; and one person whose tone
       changes inside a meeting, held as one voice.
       *Proof: the recognition rate across 032a → 032b, the coherence figure per person.*
-- [ ] Lucie's speed, measured end to end on the bench with synthesised
+      Done on 16/09: `tools/measure_bank.py` names the four voices of 032a
+      through the product's own gesture and judges 032b sentence by
+      sentence. The bank names the four right, after the meeting and live;
+      Alice, who changes tone, is one voice on both sides. What the measure
+      found instead: the live thread gave a whole slice to one voice, 28 %
+      of the sentences under the wrong name. The slice is now cut at the
+      changes of speaker with the segmentation model, on the processor
+      (`SherpaSliceSegmenter`), the wrong ones fall to 9 % and the right
+      ones rise to 82 %, 9 % going with the others; `--replay` measures
+      the attribution without the transcriber, exactly. The figures are in
+      `corpus.md`.
+- [x] Lucie's speed, measured end to end on the bench with synthesised
       questions, then cut: the slice ends when the speaker stops rather than
       on the clock, the answer streams to the voice as it comes, a faster
       model for what is spoken, the process kept warm.
       *Proof: the time from the end of the question to the first spoken word, before and after, in `corpus.md`.*
-- [ ] Context, as scenarios on the bench: a document handed over is used in
+      Done on 16/09: `tools/measure_assistant.py` times the three steps on a
+      replayed meeting. One Claude process kept warm for the meeting with the
+      guidance as its system prompt (the model's share from 3.6 to 7.7 s down
+      to 1.4 to 2.4), the listening pass on its own thread and run the moment
+      the room goes quiet, the turbo model for the live thread where the card
+      takes the large one, the voice and the live model opened before the
+      first word. From 9.5 s to 5.7 s on this card; the streamed answer was
+      not needed to get there and stays on the list below.
+- [x] Context, as scenarios on the bench: a document handed over is used in
       an answer; a web search is made and its source named; a company source
       (GitLab, Jira, Trello) is read when its token is there; when it is not,
       Lucie asks for the access, gets it from the window, and says what she
       did with it.
       *Proof: one e2e test per scenario.*
-- [ ] The project manager's day, listed and covered: before the meeting
+      Done on 16/09: the registered sources (GitLab, Jira) are read for her
+      the way the documents are (`company_sources`), a source without a
+      token is named to her as such and she asks for it, the token goes in
+      Réglages ▸ Sources d'entreprise. Four scenarios played against the
+      real model in `test_context_scenarios`; what she said is in
+      `scenarios.md`. Trello is not a registered kind and stays open.
+- [x] The project manager's day, listed and covered: before the meeting
       (documents, agenda, who will be there, what to look up), during
       (questions, decisions, actions, look-ups), after (minutes, tickets,
       follow-up), each scenario in `scenarios.md` with its state.
       *Proof: `scenarios.md` extended, every open line either covered or measured.*
+      Done on 16/09: twenty-seven lines in three tables, before, during,
+      after; what was missing on the way was built (`greffier tickets
+      --creer` creates the offered tickets on a source registered in
+      writing, one yes each: the adapters existed and nothing called them).
+      Four lines stay open and say so: the calendar, a comment on a ticket,
+      a meeting joined from its invitation, her initiative on a real meeting.
 - [x] The badge on the Conversation tab counts what has not been seen, not
       everything Lucie ever said: read her message, switch tab, one more
       message arrives, the badge said three where one was new.
@@ -166,10 +238,13 @@ meeting is never needed to see what a meeting does.
       Done on 16/09: the window notes which questions were on screen while the
       tab was open, and the badge counts the others. Four tests on the real
       window; the one with « one more after a look » fails on the previous code.
-- [ ] Test coverage measured per layer and raised where it is thin; the e2e
+- [x] Test coverage measured per layer and raised where it is thin; the e2e
       suite around the bench runs where the models are and skips cleanly
       where they are not.
       *Proof: the coverage figure before and after in `what-is-left.md`.*
+      Done on 16/09: from 74.4 % to 79.3 % overall, the command line from
+      30 % to 46 %, the window from 44 % to 55 %; the table per layer and
+      what stays thin, and why, in `what-is-left.md`.
 
 ## Decisions that are his, not tasks
 

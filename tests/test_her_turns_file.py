@@ -35,6 +35,6 @@ class TestKeepingHerTurns:
 
     def test_a_folder_it_cannot_write_costs_no_answer(self, tmp_path):
         """She is talking: a file is not a reason to stop her."""
-        interdit = tmp_path / "fichier"
-        interdit.write_text("", encoding="utf-8")
-        turns.keep(interdit / "sous" / "r.jsonl", 1.0, 2.0)
+        forbidden_one = tmp_path / "fichier"
+        forbidden_one.write_text("", encoding="utf-8")
+        turns.keep(forbidden_one / "sous" / "r.jsonl", 1.0, 2.0)

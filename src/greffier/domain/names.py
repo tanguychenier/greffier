@@ -15,18 +15,18 @@ from dataclasses import dataclass, field
 from greffier.domain.language import LanguageProfile
 from greffier.domain.models import MentionKind, Span, SpeakerTurn, Utterance
 
-POIDS: dict[MentionKind, int] = {
+WEIGHT: dict[MentionKind, int] = {
     MentionKind.AUTO_PRESENTATION: 3,
-    MentionKind.INTERPELLATION: 2,
-    MentionKind.RENVOI: 1,
+    MentionKind.ADDRESSING: 2,
+    MentionKind.REFERRAL: 1,
 }
 
 FOLLOWING_WINDOW = 30.0
 PREVIOUS_WINDOW = 60.0
 
 def _without_accents(word: str) -> str:
-    depouille = unicodedata.normalize("NFD", word.replace("’", "'"))
-    return "".join(c for c in depouille if unicodedata.category(c) != "Mn").lower()
+    stripped = unicodedata.normalize("NFD", word.replace("’", "'"))
+    return "".join(c for c in stripped if unicodedata.category(c) != "Mn").lower()
 
 @dataclass(frozen=True, slots=True)
 class Mention:
@@ -54,7 +54,7 @@ class Attribution:
     name: str
     score: int
     indices: list[Mention] = field(default_factory=list)
-    concurrent: str | None = None      # deuxième nom le mieux placé, s'il existe
+    concurrent: str | None = None      # the second best placed name, if any
     score_concurrent: int = 0
 
     @property
@@ -63,11 +63,11 @@ class Attribution:
         if self.score < 3 or self.score < 2 * self.score_concurrent:
             return False
         types = {mention.type for mention in self.indices}
-        return types != {MentionKind.INTERPELLATION}
+        return types != {MentionKind.ADDRESSING}
 
 @dataclass(slots=True)
 class Outcome:
-    certitudes: dict[str, Attribution] = field(default_factory=dict)
+    certainties: dict[str, Attribution] = field(default_factory=dict)
     propositions: list[Attribution] = field(default_factory=list)
 
 _WORD = re.compile(r"[\w'’-]+")
@@ -83,27 +83,27 @@ def _common_words(utterances: list[Utterance]) -> frozenset[str]:
 
 def spot_mentions(
     utterances: list[Utterance],
-    profil: LanguageProfile,
+    profile: LanguageProfile,
     excluded: frozenset[str] | None = None,
 ) -> list[Mention]:
     """Collects every spoken name and what it points at."""
-    if not profil.detection.active:
+    if not profile.detection.active:
         return []
-    interdits = profil.detection.excluded | (excluded or frozenset()) | _common_words(utterances)
-    francs = [(t, m) for t, m, confirmation in profil.detection.motifs if not confirmation]
-    larges = [(t, m) for t, m, confirmation in profil.detection.motifs if confirmation]
+    forbidden = profile.detection.excluded | (excluded or frozenset()) | _common_words(utterances)
+    francs = [(t, m) for t, m, confirmation in profile.detection.motifs if not confirmation]
+    larges = [(t, m) for t, m, confirmation in profile.detection.motifs if confirmation]
 
-    mentions = _passe(utterances, francs, interdits, None, profil)
+    mentions = _pass(utterances, francs, forbidden, None, profile)
     known = {m.key for m in mentions}
-    mentions += _passe(utterances, larges, interdits, known, profil)
+    mentions += _pass(utterances, larges, forbidden, known, profile)
     return sorted(mentions, key=lambda m: m.at_instant)
 
-def _passe(
+def _pass(
     utterances: list[Utterance],
     motifs: list[tuple[MentionKind, re.Pattern[str]]],
-    interdits: frozenset[str],
+    forbidden: frozenset[str],
     known: set[str] | None,
-    profil: LanguageProfile,
+    profile: LanguageProfile,
 ) -> list[Mention]:
     mentions: list[Mention] = []
     for utterance in utterances:
@@ -111,15 +111,15 @@ def _passe(
         for type_mention, motif in motifs:
             for found in motif.finditer(utterance.text):
                 name = found.group("nom")
-                if (_without_accents(name) in interdits
-                or len(name) < profil.detection.minimum_length):
+                if (_without_accents(name) in forbidden
+                or len(name) < profile.detection.minimum_length):
                     continue
-                depouille = _without_accents(name)
-                suffixe = profil.detection.adverb_suffix
+                stripped = _without_accents(name)
+                the_suffix = profile.detection.adverb_suffix
                 if (
-                    suffixe
-                    and len(depouille) >= profil.detection.suffix_length
-                    and depouille.endswith(suffixe)
+                    the_suffix
+                    and len(stripped) >= profile.detection.suffix_length
+                    and stripped.endswith(the_suffix)
                 ):
                     continue
                 if known is not None and _without_accents(name) not in known:
@@ -133,61 +133,61 @@ def _passe(
                     excerpt=utterance.text.strip(),
                 )
                 old_one = seen.get(key)
-                if old_one is None or POIDS[type_mention] > POIDS[old_one.type]:
+                if old_one is None or WEIGHT[type_mention] > WEIGHT[old_one.type]:
                     seen[key] = candidate
         mentions.extend(seen.values())
     return mentions
 
-ECART_TOLERE = 3.0
+TOLERATED_GAP = 3.0
 
 def _voice_during(span: Span, turns: list[SpeakerTurn]) -> str | None:
     """The voice that speaks the most during the utterance."""
-    cumuls: dict[str, float] = {}
+    totals: dict[str, float] = {}
     for turn in turns:
-        commun = span.overlap(turn.span)
-        if commun > 0:
-            cumuls[turn.voice] = cumuls.get(turn.voice, 0.0) + commun
-    if cumuls:
-        return max(cumuls, key=lambda v: cumuls[v])
-    proche = min(
+        shared_one = span.overlap(turn.span)
+        if shared_one > 0:
+            totals[turn.voice] = totals.get(turn.voice, 0.0) + shared_one
+    if totals:
+        return max(totals, key=lambda v: totals[v])
+    closest = min(
         turns,
         key=lambda t: min(abs(t.span.start - span.end),
                           abs(span.start - t.span.end)),
         default=None,
     )
-    if proche is None:
+    if closest is None:
         return None
-    gap = min(abs(proche.span.start - span.end),
-                abs(span.start - proche.span.end))
-    return proche.voice if gap <= ECART_TOLERE else None
+    gap = min(abs(closest.span.start - span.end),
+                abs(span.start - closest.span.end))
+    return closest.voice if gap <= TOLERATED_GAP else None
 
-def _next_voice(at_instant: float, courante: str | None, turns: list[SpeakerTurn]) -> str | None:
+def _next_voice(at_instant: float, current: str | None, turns: list[SpeakerTurn]) -> str | None:
     for turn in turns:
-        if turn.span.start > at_instant and turn.voice != courante:
+        if turn.span.start > at_instant and turn.voice != current:
             return turn.voice if turn.span.start - at_instant <= FOLLOWING_WINDOW else None
     return None
 
 def _previous_voice(
-    at_instant: float, courante: str | None, turns: list[SpeakerTurn]
+    at_instant: float, current: str | None, turns: list[SpeakerTurn]
 ) -> str | None:
-    candidat: SpeakerTurn | None = None
+    the_candidate: SpeakerTurn | None = None
     for turn in turns:
-        if turn.span.end <= at_instant and turn.voice != courante:
-            candidat = turn
-    if candidat is None:
+        if turn.span.end <= at_instant and turn.voice != current:
+            the_candidate = turn
+    if the_candidate is None:
         return None
-    return candidat.voice if at_instant - candidat.span.end <= PREVIOUS_WINDOW else None
+    return the_candidate.voice if at_instant - the_candidate.span.end <= PREVIOUS_WINDOW else None
 
 def target(mention: Mention, turns: list[SpeakerTurn]) -> str | None:
     """The voice this mention points at, according to its kind."""
-    courante = _voice_during(mention.span, turns)
+    current = _voice_during(mention.span, turns)
     match mention.type:
         case MentionKind.AUTO_PRESENTATION:
-            return courante
-        case MentionKind.INTERPELLATION:
-            return _next_voice(mention.at_instant, courante, turns)
-        case MentionKind.RENVOI:
-            return _previous_voice(mention.at_instant, courante, turns)
+            return current
+        case MentionKind.ADDRESSING:
+            return _next_voice(mention.at_instant, current, turns)
+        case MentionKind.REFERRAL:
+            return _previous_voice(mention.at_instant, current, turns)
 
 def attribute(mentions: list[Mention], turns: list[SpeakerTurn]) -> Outcome:
     """Brings spoken names and voices together, clue by clue."""
@@ -198,30 +198,30 @@ def attribute(mentions: list[Mention], turns: list[SpeakerTurn]) -> Outcome:
         voice = target(mention, turns)
         if voice is None:
             continue
-        scores[voice][mention.name] += POIDS[mention.type]
+        scores[voice][mention.name] += WEIGHT[mention.type]
         indices[(voice, mention.name)].append(mention)
 
-    candidats: list[Attribution] = []
+    candidates_: list[Attribution] = []
     for voice, by_name in scores.items():
         ranking = sorted(by_name.items(), key=lambda x: (-x[1], x[0]))
         best, score = ranking[0]
         second, score_second = ranking[1] if len(ranking) > 1 else (None, 0)
-        candidats.append(Attribution(
+        candidates_.append(Attribution(
             voice=voice, name=best, score=score,
             indices=indices[(voice, best)],
             concurrent=second, score_concurrent=score_second,
         ))
 
     outcome = Outcome()
-    pris: dict[str, Attribution] = {}
-    for attribution in sorted(candidats, key=lambda a: -a.score):
+    taken: dict[str, Attribution] = {}
+    for attribution in sorted(candidates_, key=lambda a: -a.score):
         if not attribution.certain:
             outcome.propositions.append(attribution)
             continue
-        tenant = pris.get(_without_accents(attribution.name))
+        tenant = taken.get(_without_accents(attribution.name))
         if tenant is None:
-            pris[_without_accents(attribution.name)] = attribution
-            outcome.certitudes[attribution.voice] = attribution
+            taken[_without_accents(attribution.name)] = attribution
+            outcome.certainties[attribution.voice] = attribution
         else:
             outcome.propositions.append(attribution)
 
@@ -229,23 +229,23 @@ def attribute(mentions: list[Mention], turns: list[SpeakerTurn]) -> Outcome:
     return outcome
 
 def join_namesakes(
-    names: dict[str, str], poids: dict[str, float]
+    names: dict[str, str], weight: dict[str, float]
 ) -> dict[str, str]:
     """Two voices given the same name are the same person.
 
     Measured on a real 1h42 meeting: "Lise" landed on nine separate voices, eight
     of them holding a single turn. The most fed voice wins.
     """
-    portantes: dict[str, list[str]] = {}
+    carrying: dict[str, list[str]] = {}
     for voice, name in names.items():
-        replie = _without_accents(name.strip().casefold())
-        if replie:
-            portantes.setdefault(replie, []).append(voice)
+        folded = _without_accents(name.strip().casefold())
+        if folded:
+            carrying.setdefault(folded, []).append(voice)
     membership = {voice: voice for voice in names}
-    for group in portantes.values():
+    for group in carrying.values():
         if len(group) < 2:
             continue
-        kept_one = max(group, key=lambda v: (poids.get(v, 0.0), v))
+        kept_one = max(group, key=lambda v: (weight.get(v, 0.0), v))
         for voice in group:
             membership[voice] = kept_one
     return membership
@@ -296,11 +296,11 @@ def from_live(named: list[NamedSpan], turns: list[SpeakerTurn]) -> dict[str, str
     per_name: dict[str, dict[str, float]] = {}
     for turn in turns:
         held[turn.voice] = held.get(turn.voice, 0.0) + turn.span.duration
-        for nommee in named:
-            common = _overlap(turn.span, nommee.span)
+        for named_one in named:
+            common = _overlap(turn.span, named_one.span)
             if common > 0:
                 par = per_name.setdefault(turn.voice, {})
-                par[nommee.name] = par.get(nommee.name, 0.0) + common
+                par[named_one.name] = par.get(named_one.name, 0.0) + common
     found: dict[str, str] = {}
     for voice, shares in per_name.items():
         total = held.get(voice, 0.0)

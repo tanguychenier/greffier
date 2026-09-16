@@ -37,15 +37,15 @@ class TestSpottingAFirstName:
     def test_addressing_someone(self):
         mentions = _mentions_in([utterance(0, 3, "Josiane, tu peux nous faire le point ?")])
         assert mentions[0].name == "Josiane"
-        assert mentions[0].type is MentionKind.INTERPELLATION
+        assert mentions[0].type is MentionKind.ADDRESSING
 
     def test_handing_over_the_floor(self):
         mentions = _mentions_in([utterance(0, 3, "Je passe la parole à Sophie.")])
-        assert (mentions[0].name, mentions[0].type) == ("Sophie", MentionKind.INTERPELLATION)
+        assert (mentions[0].name, mentions[0].type) == ("Sophie", MentionKind.ADDRESSING)
 
     def test_referring_back(self):
         mentions = _mentions_in([utterance(0, 2, "Merci Marc pour la démonstration.")])
-        assert (mentions[0].name, mentions[0].type) == ("Marc", MentionKind.RENVOI)
+        assert (mentions[0].name, mentions[0].type) == ("Marc", MentionKind.REFERRAL)
 
     def test_everyday_tools_are_not_first_names(self):
         """Without that exclusion, "merci Jira" would create a participant."""
@@ -63,7 +63,7 @@ class TestSpottingAFirstName:
         """"C'est Marc" and "Marc, tu" overlap: the strong pattern wins."""
         mentions = _mentions_in([utterance(0, 3, "Marc, tu peux répondre ?")])
         assert len(mentions) == 1
-        assert mentions[0].type is MentionKind.INTERPELLATION
+        assert mentions[0].type is MentionKind.ADDRESSING
 
 
 class TestGivingAVoiceAName:
@@ -72,13 +72,13 @@ class TestGivingAVoiceAName:
         turns = [turn(0, 5, "v1"), turn(5, 10, "v2")]
         outcome = attribute(_mentions_in(utterances), turns)
         # A single clue of weight 3: enough to be certain.
-        assert outcome.certitudes["v1"].name == "Tanguy"
+        assert outcome.certainties["v1"].name == "Tanguy"
 
     def test_addressing_someone_names_the_next_speaker(self):
         utterances = [utterance(2, 4, "Josiane, tu peux nous dire où on en est ?")]
         turns = [turn(0, 5, "v1"), turn(6, 20, "v2")]
         outcome = attribute(_mentions_in(utterances), turns)
-        assert "v1" not in outcome.certitudes
+        assert "v1" not in outcome.certainties
         assert outcome.propositions[0].voice == "v2"
         assert outcome.propositions[0].name == "Josiane"
 
@@ -100,28 +100,28 @@ class TestGivingAVoiceAName:
                  turn(23, 40, "v2"), turn(40, 43, "v1"),
                  turn(43, 60, "v2"), turn(60, 63, "v1")]
         outcome = attribute(_mentions_in(utterances), turns)
-        assert outcome.certitudes["v2"].name == "Marc"
-        assert outcome.certitudes["v2"].score == 3
+        assert outcome.certainties["v2"].name == "Marc"
+        assert outcome.certainties["v2"].score == 3
 
     def test_a_clue_outside_the_window_does_not_count(self):
         """A "merci Marc" two minutes later names nobody any more."""
         utterances = [utterance(200, 202, "Merci Marc.")]
         turns = [turn(0, 20, "v2"), turn(199, 210, "v1")]
         outcome = attribute(_mentions_in(utterances), turns)
-        assert outcome.certitudes == {}
+        assert outcome.certainties == {}
         assert outcome.propositions == []
 
     def test_one_name_cannot_point_at_two_voices(self):
-        """Deux voix revendiquant « Marc » : la mieux étayée le garde."""
+        """Two voices claiming « Marc »: the better supported keeps it."""
         utterances = [
-            utterance(1, 3, "Moi c'est Marc."),        # v1, poids 3
-            utterance(11, 12, "Merci Marc."),          # renvoie vers v1 aussi
-            utterance(31, 32, "Merci Marc."),          # renvoie vers v3
+            utterance(1, 3, "Moi c'est Marc."),        # v1, weight 3
+            utterance(11, 12, "Merci Marc."),          # points back to v1 as well
+            utterance(31, 32, "Merci Marc."),          # points back to v3
         ]
         turns = [turn(0, 5, "v1"), turn(5, 10, "v2"), turn(10, 15, "v2"),
                  turn(20, 30, "v3"), turn(30, 35, "v2")]
         outcome = attribute(_mentions_in(utterances), turns)
-        assert outcome.certitudes["v1"].name == "Marc"
+        assert outcome.certainties["v1"].name == "Marc"
         assert all(a.voice != "v1" for a in outcome.propositions)
 
     def test_a_credible_rival_prevents_certainty(self):
@@ -131,7 +131,7 @@ class TestGivingAVoiceAName:
         ]
         turns = [turn(0, 10, "v1")]
         outcome = attribute(_mentions_in(utterances), turns)
-        assert outcome.certitudes == {}
+        assert outcome.certainties == {}
         assert {p.name for p in outcome.propositions} == {"Marc"}
 
 
@@ -155,11 +155,11 @@ class TestWordingsHeardInRealMeetings:
 
     def test_you_comma_first_name(self):
         m = _mentions_in([utterance(0, 3, "Mais pour ça, toi, Josiane, c'est pas besoin ?")])
-        assert [(x.name, x.type) for x in m] == [("Josiane", MentionKind.INTERPELLATION)]
+        assert [(x.name, x.type) for x in m] == [("Josiane", MentionKind.ADDRESSING)]
 
     def test_a_first_name_leading_into_an_address(self):
         m = _mentions_in([utterance(0, 3, "Josiane, on a lu ensemble et tu nous diras")])
-        assert [(x.name, x.type) for x in m] == [("Josiane", MentionKind.INTERPELLATION)]
+        assert [(x.name, x.type) for x in m] == [("Josiane", MentionKind.ADDRESSING)]
 
     def test_one_word_alone_does_not_make_a_first_name(self):
         """« Ouais. », « Exact. », « Complètement. » remplissent les transcriptions."""
@@ -177,10 +177,10 @@ class TestWordingsHeardInRealMeetings:
 
     def test_what_so_and_so_was_presenting(self):
         m = _mentions_in([utterance(0, 3, "pour ce que présentait Josiane.")])
-        assert [(x.name, x.type) for x in m] == [("Josiane", MentionKind.RENVOI)]
+        assert [(x.name, x.type) for x in m] == [("Josiane", MentionKind.REFERRAL)]
 
     def test_an_opening_of_a_sentence_is_not_a_first_name(self):
-        """« Bref, tu vois… », « Après, on verra… » : rien à retenir."""
+        """« Bref, tu vois… », « Après, on verra… »: nothing to keep."""
         texts = ["Bref, tu vois ce que je veux dire.", "Après, on verra bien.",
                   "Donc, vous avez compris.", "Mais, tu sais bien."]
         assert _mentions_in([utterance(0, 2, t) for t in texts]) == []
@@ -224,11 +224,11 @@ class TestBeingAddressedWithNoAnswer:
         outcome = attribute(_mentions_in(utterances), turns)
         # Six points gathered, well over the threshold, and still nothing is
         # asserted: all three clues may point at somebody who is not there.
-        assert outcome.certitudes == {}
+        assert outcome.certainties == {}
 
     def test_but_the_name_is_still_offered(self):
         # Proposing keeps the information without presenting it as settled: it is
-        # à l'utilisateur de trancher, en écoutant dix secondes.
+        # for the user to settle, by listening ten seconds.
         utterances = [
             utterance(10, 12, "Tanguy, tu peux nous sortir les horaires ?"),
             utterance(40, 42, "Tanguy, tu me confirmes le déploiement ?"),
@@ -247,14 +247,14 @@ class TestBeingAddressedWithNoAnswer:
         ]
         turns = [turn(0, 12, "v1"), turn(12, 39, "v2"), turn(39, 42, "v1")]
         outcome = attribute(_mentions_in(utterances), turns)
-        assert outcome.certitudes["v2"].name == "Sandy"
+        assert outcome.certainties["v2"].name == "Sandy"
 
     def test_introducing_oneself_is_always_enough_alone(self):
         # The person names themselves: there is nothing speculative in that.
         utterances = [utterance(0, 4, "Bonjour, moi c'est Jacques, je commence.")]
         turns = [turn(0, 20, "v1")]
         outcome = attribute(_mentions_in(utterances), turns)
-        assert outcome.certitudes["v1"].name == "Jacques"
+        assert outcome.certainties["v1"].name == "Jacques"
 
 
 class TestJoiningNamesakesAfterTheMeeting:
@@ -268,8 +268,8 @@ class TestJoiningNamesakesAfterTheMeeting:
 
     def test_nine_voices_of_one_name_make_one(self) -> None:
         names = {f"v{i}": "Lise" for i in range(9)}
-        poids = {f"v{i}": float(i) for i in range(9)}
-        membership = join_namesakes(names, poids)
+        weight = {f"v{i}": float(i) for i in range(9)}
+        membership = join_namesakes(names, weight)
         assert len(set(membership.values())) == 1
 
     def test_the_best_fed_voice_wins(self) -> None:

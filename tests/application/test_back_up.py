@@ -39,17 +39,17 @@ def lay_out_the_config(root):
 class TestWhatIsCarriedAway:
     def test_the_text_is_taken(self, tmp_path):
         data = lay_out_some_data(tmp_path / "donnees")
-        faite = do_it(data, None, tmp_path / "copies")
-        assert "banque-de-voix" in faite.dossiers
-        assert "reunions" in faite.dossiers
-        assert "comptes-rendus" in faite.dossiers
+        done_one = do_it(data, None, tmp_path / "copies")
+        assert "banque-de-voix" in done_one.dossiers
+        assert "reunions" in done_one.dossiers
+        assert "comptes-rendus" in done_one.dossiers
 
     def test_the_audio_is_not_taken(self, tmp_path):
         """1.1 GB against 3 MB: it is what makes the backup possible at all."""
         data = lay_out_some_data(tmp_path / "donnees")
-        faite = do_it(data, None, tmp_path / "copies")
-        assert "enregistrements" not in faite.dossiers
-        assert faite.bytes_read < 100_000, "l'archive doit rester légère"
+        done_one = do_it(data, None, tmp_path / "copies")
+        assert "enregistrements" not in done_one.dossiers
+        assert done_one.bytes_read < 100_000, "l'archive doit rester légère"
 
     def test_the_models_are_not_taken(self, tmp_path):
         data = lay_out_some_data(tmp_path / "donnees")
@@ -59,16 +59,16 @@ class TestWhatIsCarriedAway:
         """They would have to be typed again by hand: that is what to avoid."""
         data = lay_out_some_data(tmp_path / "donnees")
         config = lay_out_the_config(tmp_path / "config")
-        faite = do_it(data, config, tmp_path / "copies")
-        assert "configuration" in faite.dossiers
+        done_one = do_it(data, config, tmp_path / "copies")
+        assert "configuration" in done_one.dossiers
 
     def test_a_fresh_installation_does_not_make_it_fail(self, tmp_path):
         """Neither conversations nor questions: that is not an anomaly."""
         empty = tmp_path / "vide"
         empty.mkdir()
-        faite = do_it(empty, None, tmp_path / "copies")
-        assert faite.archive.exists()
-        assert faite.dossiers == ()
+        done_one = do_it(empty, None, tmp_path / "copies")
+        assert done_one.archive.exists()
+        assert done_one.dossiers == ()
 
 
 class TestRestoring:
@@ -76,10 +76,10 @@ class TestRestoring:
 
     def test_what_was_backed_up_restores(self, tmp_path):
         data = lay_out_some_data(tmp_path / "donnees")
-        faite = do_it(data, None, tmp_path / "copies")
+        done_one = do_it(data, None, tmp_path / "copies")
         elsewhere = tmp_path / "ailleurs"
-        remis = restore(faite.archive, elsewhere)
-        assert "reunions" in remis
+        handed = restore(done_one.archive, elsewhere)
+        assert "reunions" in handed
         assert (elsewhere / "comptes-rendus" / "2026-09-09_10h05_reunion.md").exists()
         assert (elsewhere / "transcriptions" / "2026-09-09_10h05_reunion.txt").read_text(
             encoding="utf-8") == "Bonjour."
@@ -89,14 +89,14 @@ class TestRestoring:
         repaired.
         """
         data = lay_out_some_data(tmp_path / "donnees")
-        faite = do_it(data, None, tmp_path / "copies")
+        done_one = do_it(data, None, tmp_path / "copies")
         with pytest.raises(FileExistsError, match="rien n'a été touché"):
-            restore(faite.archive, data)
+            restore(done_one.archive, data)
 
     def test_overwriting_stays_possible_when_asked_for(self, tmp_path):
         data = lay_out_some_data(tmp_path / "donnees")
-        faite = do_it(data, None, tmp_path / "copies")
-        assert restore(faite.archive, data, overwrite=True)
+        done_one = do_it(data, None, tmp_path / "copies")
+        assert restore(done_one.archive, data, overwrite=True)
 
     def test_a_missing_archive_says_so(self, tmp_path):
         with pytest.raises(FileNotFoundError, match="introuvable"):
@@ -107,20 +107,20 @@ class TestKeepingOnlySoMany:
     def test_the_old_ones_go(self, tmp_path):
         data = lay_out_some_data(tmp_path / "donnees")
         copies = tmp_path / "copies"
-        for jour in range(1, 6):
+        for day in range(1, 6):
             do_it(data, None, copies, kept=3,
-                  when=datetime(2026, 9, jour, 12, 0, tzinfo=UTC))
+                  when=datetime(2026, 9, day, 12, 0, tzinfo=UTC))
         assert len(list_(copies)) == 3
 
     def test_the_most_recent_one_always_survives(self, tmp_path):
         data = lay_out_some_data(tmp_path / "donnees")
         copies = tmp_path / "copies"
-        for jour in (1, 2):
+        for day in (1, 2):
             do_it(data, None, copies, kept=0,
-                  when=datetime(2026, 9, jour, 12, 0, tzinfo=UTC))
-        restantes = list_(copies)
-        assert len(restantes) == 1
-        assert "2026-09-02" in restantes[0][0]
+                  when=datetime(2026, 9, day, 12, 0, tzinfo=UTC))
+        left_over = list_(copies)
+        assert len(left_over) == 1
+        assert "2026-09-02" in left_over[0][0]
 
 
 class TestAnArchiveCutShort:
@@ -138,13 +138,13 @@ class TestWhereTheArchiveIsWritten:
         backup at all on the day it matters.
         """
         data = lay_out_some_data(tmp_path / "Greffier")
-        faite = do_it(data, None, tmp_path / "Greffier" / "sauvegardes")
-        assert faite.on_the_same_disk is True
+        done_one = do_it(data, None, tmp_path / "Greffier" / "sauvegardes")
+        assert done_one.on_the_same_disk is True
 
     def test_a_folder_elsewhere_is_not(self, tmp_path):
         data = lay_out_some_data(tmp_path / "donnees")
-        faite = do_it(data, None, tmp_path / "disque-externe")
-        assert faite.on_the_same_disk is False
+        done_one = do_it(data, None, tmp_path / "disque-externe")
+        assert done_one.on_the_same_disk is False
 
     def test_a_folder_named_after_the_tool_is_not_the_same_disk(
         self, tmp_path
@@ -153,5 +153,5 @@ class TestWhereTheArchiveIsWritten:
         looking for the word warned whoever had done the right thing.
         """
         data = lay_out_some_data(tmp_path / "Greffier")
-        faite = do_it(data, None, tmp_path / "nuage" / "Greffier-sauvegardes")
-        assert faite.on_the_same_disk is False
+        done_one = do_it(data, None, tmp_path / "nuage" / "Greffier-sauvegardes")
+        assert done_one.on_the_same_disk is False

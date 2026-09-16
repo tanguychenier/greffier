@@ -58,24 +58,24 @@ def at_a_common_level(samples: Sequence[float]) -> list[float]:
     loudest sample past full scale: clipping moves the timbre further than the
     level ever did.
     """
-    carre = math.fsum(float(x) * float(x) for x in samples)
-    if not samples or carre <= 0:
+    square = math.fsum(float(x) * float(x) for x in samples)
+    if not samples or square <= 0:
         return [float(x) for x in samples]
-    rms = math.sqrt(carre / len(samples))
+    rms = math.sqrt(square / len(samples))
     if rms < SILENCE_FLOOR:
         return [float(x) for x in samples]
-    facteur = COMMON_LEVEL / rms
-    plus_haut = max(abs(float(x)) for x in samples)
-    if plus_haut * facteur > 0.99:
-        facteur = 0.99 / plus_haut
-    return [float(x) * facteur for x in samples]
+    factor = COMMON_LEVEL / rms
+    higher = max(abs(float(x)) for x in samples)
+    if higher * factor > 0.99:
+        factor = 0.99 / higher
+    return [float(x) * factor for x in samples]
 
 def normalise(vector: Sequence[float], source_duration: float = 0.0) -> Voiceprint:
     """Brings the vector to length 1, so that a cosine is a dot product."""
-    norme = math.sqrt(math.fsum(x * x for x in vector))
-    if norme == 0:
+    norm = math.sqrt(math.fsum(x * x for x in vector))
+    if norm == 0:
         raise ValueError("vecteur nul : extrait sans parole ?")
-    return Voiceprint(vector=tuple(x / norme for x in vector), source_duration=source_duration)
+    return Voiceprint(vector=tuple(x / norm for x in vector), source_duration=source_duration)
 
 def similarity(a: Voiceprint, b: Voiceprint) -> float:
     """Cosine between two normalised voiceprints, in [-1, 1]."""
@@ -91,9 +91,9 @@ def aggregate(voiceprints: Iterable[Voiceprint]) -> Voiceprint:
     if not listing:
         raise ValueError("aucune empreinte à agréger")
     size = len(listing[0].vector)
-    poids_total = math.fsum(max(e.source_duration, 1e-6) for e in listing)
+    total_weight = math.fsum(max(e.source_duration, 1e-6) for e in listing)
     somme = [
-        math.fsum(e.vector[i] * max(e.source_duration, 1e-6) for e in listing) / poids_total
+        math.fsum(e.vector[i] * max(e.source_duration, 1e-6) for e in listing) / total_weight
         for i in range(size)
     ]
     return normalise(somme, source_duration=math.fsum(e.source_duration for e in listing))
@@ -112,17 +112,19 @@ class Match:
 
 def _score(voiceprint: Voiceprint, person: Person) -> float:
     """How close a voiceprint sits to a known person."""
-    return max((similarity(voiceprint, connue) for connue in person.voiceprints), default=-1.0)
+    return max(
+        (similarity(voiceprint, known_one) for known_one in person.voiceprints), default=-1.0
+    )
 
 def conflicting_names(bank: Iterable[Person]) -> dict[str, set[str]]:
     """Names in the bank that carry the same voice, pair by pair."""
     people = [p for p in bank if p.voiceprints]
-    agregats = {p.name: aggregate(p.voiceprints) if len(p.voiceprints) > 1 else p.voiceprints[0]
+    aggregates = {p.name: aggregate(p.voiceprints) if len(p.voiceprints) > 1 else p.voiceprints[0]
                 for p in people}
     conflicts: dict[str, set[str]] = {}
     for i, one in enumerate(people):
         for other in people[i + 1:]:
-            if similarity(agregats[one.name], agregats[other.name]) >= CONFLICT_THRESHOLD:
+            if similarity(aggregates[one.name], aggregates[other.name]) >= CONFLICT_THRESHOLD:
                 conflicts.setdefault(one.name, set()).add(other.name)
                 conflicts.setdefault(other.name, set()).add(one.name)
     return conflicts
@@ -196,12 +198,12 @@ def join_voices(
     membership = {voice: voice for voice in per_voice}
 
     while True:
-        agregats = {voice: aggregate(e) for voice, e in groups.items()}
-        names = sorted(agregats)
+        aggregates = {voice: aggregate(e) for voice, e in groups.items()}
+        names = sorted(aggregates)
         best: tuple[float, str, str] | None = None
         for i, a in enumerate(names):
             for b in names[i + 1:]:
-                score = similarity(agregats[a], agregats[b])
+                score = similarity(aggregates[a], aggregates[b])
                 of_each = (sum(e.source_duration for e in groups[a]),
                              sum(e.source_duration for e in groups[b]))
                 if (
@@ -262,14 +264,14 @@ def adopt_fragments(
             ((similarity(aggregate_of, aggregate(e)), g) for g, e in established_ones.items()),
             key=lambda x: (-x[0], x[1]),
         )
-        best, hote = ranking[0]
+        best, host = ranking[0]
         second = ranking[1][0] if len(ranking) > 1 else -1.0
         if best < threshold or best - second < minimum_margin:
             continue
-        established_ones[hote] = established_ones[hote] + groups[fragment]
+        established_ones[host] = established_ones[host] + groups[fragment]
         for voice, into in retained.items():
             if into == fragment:
-                retained[voice] = hote
+                retained[voice] = host
     return retained
 
 def consolidate(
@@ -283,12 +285,12 @@ def consolidate(
     while True:
         groups = _groups(per_voice, retained)
         established_ones = {g: e for g, e in groups.items() if _material(e) >= established_material}
-        agregats = {g: aggregate(e) for g, e in established_ones.items()}
-        names = sorted(agregats)
+        aggregates = {g: aggregate(e) for g, e in established_ones.items()}
+        names = sorted(aggregates)
         best: tuple[float, str, str] | None = None
         for i, one in enumerate(names):
             for other in names[i + 1:]:
-                score = similarity(agregats[one], agregats[other])
+                score = similarity(aggregates[one], aggregates[other])
                 if score >= threshold and (best is None or score > best[0]):
                     best = (score, one, other)
         if best is None:
@@ -351,10 +353,10 @@ def doubtful_entry(
     if not elsewhere:
         return ""
     best, who = max(elsewhere)
-    chez_soi = _score(new_one, known[vise]) if vise in known else -1.0
-    if best < RECOGNITION_THRESHOLD or best - chez_soi < margin:
+    own_score = _score(new_one, known[vise]) if vise in known else -1.0
+    if best < RECOGNITION_THRESHOLD or best - own_score < margin:
         return ""
-    if chez_soi < 0:
+    if own_score < 0:
         return (
             f"Cette voix ressemble à {who} ({best:.2f}), déjà en banque. "
             f"Si c'est bien {who}, nomme-la ainsi : deux entrées pour la même "
@@ -363,7 +365,7 @@ def doubtful_entry(
         )
     return (
         f"Cette voix ressemble davantage à {who} ({best:.2f}) qu'à {vise} "
-        f"({chez_soi:.2f}). Si c'est une erreur, retire le nom : une empreinte "
+        f"({own_score:.2f}). Si c'est une erreur, retire le nom : une empreinte "
         "fausse est reconnue à chaque réunion suivante."
     )
 
@@ -384,7 +386,7 @@ class Intruder:
 def intruding_voiceprints(
     person: Person,
     bank: Iterable[Person],
-    ecart_minimal: float = 0.05,
+    minimum_gap: float = 0.05,
 ) -> list[Intruder]:
     """This person's voiceprints that probably belong to another."""
     if len(person.voiceprints) < 2:
@@ -392,19 +394,19 @@ def intruding_voiceprints(
     others = [p for p in bank if p.name != person.name and p.voiceprints]
     if not others:
         return []
-    suspectes = []
+    suspects = []
     for rank, voiceprint in enumerate(person.voiceprints):
-        siennes = [e for i, e in enumerate(person.voiceprints) if i != rank]
-        at_home = max(similarity(voiceprint, e) for e in siennes)
+        hers = [e for i, e in enumerate(person.voiceprints) if i != rank]
+        at_home = max(similarity(voiceprint, e) for e in hers)
         elsewhere, who = max((_score(voiceprint, p), p.name) for p in others)
-        if elsewhere - at_home >= ecart_minimal:
-            suspectes.append(Intruder(
+        if elsewhere - at_home >= minimum_gap:
+            suspects.append(Intruder(
                 rank=rank, at_home=at_home, elsewhere=elsewhere, who=who,
                 duration=voiceprint.source_duration,
             ))
-    return sorted(suspectes, key=lambda x: -x.gap)
+    return sorted(suspects, key=lambda x: -x.gap)
 
-def enrichir(
+def enrich(
     person: Person,
     new_one: Voiceprint,
     maximum: int = VOICEPRINTS_PER_PERSON,

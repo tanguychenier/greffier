@@ -61,12 +61,20 @@ class TestFallingBackToTheProcessor:
         assert requests == ["auto", "cpu"]
 
     def test_the_model_is_reloaded_for_the_processor(self, monkeypatch):
-        """Le modèle chargé porte la carte : le garder rejouerait la panne."""
+        """The loaded model carries the card: keeping it would replay the failure."""
         transcriber, _ = self._transcriber(monkeypatch, refuse={"auto"})
 
         transcriber.transcribe(Path("reunion.wav"), "fr", "")
 
         assert transcriber.device == "cpu"
+
+    def test_why_the_card_was_given_up_on_is_kept(self, monkeypatch):
+        """The processor is ten times slower: a meeting transcribed in an hour
+        instead of six minutes deserves a word, and the chain says it."""
+        transcriber, _ = self._transcriber(monkeypatch, refuse={"auto"})
+        assert transcriber.fell_back_because is None
+        transcriber.transcribe(Path("reunion.wav"), "fr", "")
+        assert transcriber.fell_back_because == "Library libcublas.so.12 is not found"
 
     def test_a_failure_of_the_processor_is_not_hidden(self, monkeypatch):
         """Otherwise the fallback would go round in circles and hide the real cause."""
@@ -78,7 +86,7 @@ class TestFallingBackToTheProcessor:
         assert requests == ["auto", "cpu"]
 
 
-class TestLeModeleOuvertUneFois:
+class TestTheModelOpenedOnce:
     """Opening large-v3 takes twelve to nineteen seconds.
 
     Longer than transcribing forty seconds of meeting. The model is therefore
@@ -87,62 +95,62 @@ class TestLeModeleOuvertUneFois:
     """
 
     @pytest.fixture
-    def ouvertures(self, monkeypatch):
-        from greffier.adapters import transcription_faster_whisper as adaptateur
+    def openings(self, monkeypatch):
+        from greffier.adapters import transcription_faster_whisper as adapter
 
-        faites: list[tuple[str, str]] = []
-        monkeypatch.setattr(adaptateur, "_OPENED", {})
+        done_ones: list[tuple[str, str]] = []
+        monkeypatch.setattr(adapter, "_OPENED", {})
 
         class FauxModule:
             def WhisperModel(self, size, device, compute_type):  # noqa: N802
-                faites.append((size, device))
+                done_ones.append((size, device))
                 return object()
 
         monkeypatch.setitem(__import__("sys").modules, "faster_whisper", FauxModule())
-        monkeypatch.setattr(adaptateur.cuda, "show_to_the_loader", lambda: None)
-        return faites
+        monkeypatch.setattr(adapter.cuda, "show_to_the_loader", lambda: None)
+        return done_ones
 
-    def test_two_transcribers_share_one_model(self, ouvertures):
+    def test_two_transcribers_share_one_model(self, openings):
         first = FasterWhisperTranscriber(size="large-v3", device="cuda")
         second = FasterWhisperTranscriber(size="large-v3", device="cuda")
         assert first._load() is second._load()
-        assert ouvertures == [("large-v3", "cuda")]
+        assert openings == [("large-v3", "cuda")]
 
-    def test_another_size_opens_its_own(self, ouvertures):
+    def test_another_size_opens_its_own(self, openings):
         """Live takes a lighter model: it is not the same one."""
         FasterWhisperTranscriber(size="large-v3", device="cuda")._load()
         FasterWhisperTranscriber(size="small", device="cuda")._load()
-        assert ouvertures == [("large-v3", "cuda"), ("small", "cuda")]
+        assert openings == [("large-v3", "cuda"), ("small", "cuda")]
 
-    def test_warming_opens_it_without_transcribing(self, ouvertures):
+    def test_warming_opens_it_without_transcribing(self, openings):
         FasterWhisperTranscriber(size="large-v3", device="cuda").warm()
-        assert ouvertures == [("large-v3", "cuda")]
+        assert openings == [("large-v3", "cuda")]
 
-    def test_warming_never_raises(self, monkeypatch, ouvertures):
+    def test_warming_never_raises(self, monkeypatch, openings):
         """Called from a thread during the closing: a failure here costs nothing,
         the chain will open the model again and say so properly."""
-        from greffier.adapters import transcription_faster_whisper as adaptateur
+        from greffier.adapters import transcription_faster_whisper as adapter
 
         class QuiRefuse:
             def WhisperModel(self, *_a, **_k):  # noqa: N802
                 raise RuntimeError("plus de mémoire sur la carte")
 
         monkeypatch.setitem(__import__("sys").modules, "faster_whisper", QuiRefuse())
-        monkeypatch.setattr(adaptateur, "_OPENED", {})
+        monkeypatch.setattr(adapter, "_OPENED", {})
         FasterWhisperTranscriber(size="large-v3", device="cuda").warm()
 
-    def test_a_model_that_failed_is_not_handed_out_again(self, monkeypatch, ouvertures):
-        """Celui qui a cassé portait la carte : le rendre rejouerait la panne."""
-        from greffier.adapters import transcription_faster_whisper as adaptateur
+    def test_a_model_that_failed_is_not_handed_out_again(self, monkeypatch, openings):
+        """The one that broke carried the card: handing it out again would replay the failure."""
+        from greffier.adapters import transcription_faster_whisper as adapter
 
         transcriber = FasterWhisperTranscriber(size="large-v3", device="cuda")
         transcriber._load()
-        assert ("large-v3", "cuda") in adaptateur._OPENED
+        assert ("large-v3", "cuda") in adapter._OPENED
 
-        def qui_casse(_audio, _language, _seed):
+        def which_breaks(_audio, _language, _seed):
             raise RuntimeError("Library libcublas.so.12 is not found")
 
-        monkeypatch.setattr(transcriber, "_utterances", qui_casse)
+        monkeypatch.setattr(transcriber, "_utterances", which_breaks)
         with pytest.raises(RuntimeError):
             transcriber.transcribe(Path("reunion.wav"), "fr", "")
-        assert ("large-v3", "cuda") not in adaptateur._OPENED
+        assert ("large-v3", "cuda") not in adapter._OPENED

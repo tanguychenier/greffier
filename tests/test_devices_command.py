@@ -19,7 +19,7 @@ runner = CliRunner()
 
 
 @pytest.fixture
-def sur_macos(monkeypatch):
+def on_macos(monkeypatch):
     monkeypatch.setattr(platform, "system", lambda: "Darwin")
 
 
@@ -46,12 +46,12 @@ class TestElsewhereThanMacOS:
 
 
 class TestWhichMicrophoneIsUsed:
-    def test_the_one_the_command_names(self, sur_macos, swift, tmp_path):
+    def test_the_one_the_command_names(self, on_macos, swift, tmp_path):
         runner.invoke(application, ["peripheriques", "--micro", "Shure MV7"])
         assert swift and "--mic" in swift[0]
         assert swift[0][swift[0].index("--mic") + 1] == "Shure MV7"
 
-    def test_failing_that_the_one_in_the_settings(self, sur_macos, swift, tmp_path):
+    def test_failing_that_the_one_in_the_settings(self, on_macos, swift, tmp_path):
         """A microphone chosen once in the window is a microphone chosen."""
         settings = tmp_path / "config.toml"
         settings.write_text('[audio]\nmicro = "Rode NT-USB"\n', encoding="utf-8")
@@ -59,7 +59,7 @@ class TestWhichMicrophoneIsUsed:
         assert swift[0][swift[0].index("--mic") + 1] == "Rode NT-USB"
 
     def test_with_neither_it_refuses_rather_than_guesses(
-            self, sur_macos, swift, tmp_path):
+            self, on_macos, swift, tmp_path):
         settings = tmp_path / "config.toml"
         settings.write_text("[audio]\n", encoding="utf-8")
         answered = runner.invoke(
@@ -70,7 +70,7 @@ class TestWhichMicrophoneIsUsed:
         assert "aucun micro" in answered.stderr
         assert not swift, "rien ne doit être lancé sans savoir quoi chercher"
 
-    def test_listing_needs_no_microphone(self, sur_macos, swift, tmp_path):
+    def test_listing_needs_no_microphone(self, on_macos, swift, tmp_path):
         """Asking what exists is precisely what one does when one does not know."""
         settings = tmp_path / "config.toml"
         settings.write_text("[audio]\n", encoding="utf-8")

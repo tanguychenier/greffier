@@ -12,11 +12,11 @@ import unicodedata
 from greffier.domain.texts import short_voiceprint
 
 _INK = "#24242b"
-_ENCRE_PALE = "#5b5b66"
+_PALE_INK = "#5b5b66"
 _FILET = "#e0e0e6"
 _HEADER_GROUND = "#f6f6f8"
 _FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
-_POLICE_FIXE = "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+_FIXED_FONT = "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
 
 _STYLES = {
     "h1": f"margin:0 0 7px;font:600 25px/1.25 {_FONT};color:{_INK};"
@@ -38,19 +38,19 @@ _STYLES = {
     "td_absent": f"border:1px solid {_FILET};padding:9px 11px;vertical-align:top;"
                  f"color:#9a9aa4;font-style:italic",
     "blockquote": f"margin:14px 0;padding:9px 15px;border-left:3px solid {_FILET};"
-                  f"color:{_ENCRE_PALE};font-style:italic",
-    "code": f"font:13px {_POLICE_FIXE};background:{_HEADER_GROUND};"
+                  f"color:{_PALE_INK};font-style:italic",
+    "code": f"font:13px {_FIXED_FONT};background:{_HEADER_GROUND};"
             f"padding:1px 5px;border-radius:3px",
     "hr": f"border:0;border-top:1px solid {_FILET};margin:26px 0",
 }
 
-_GRAS = re.compile(r"\*\*(.+?)\*\*")
-_ITALIQUE = re.compile(r"(?<![\w*])\*([^*\n]+)\*(?![\w*])")
+_BOLD = re.compile(r"\*\*(.+?)\*\*")
+_ITALIC = re.compile(r"(?<![\w*])\*([^*\n]+)\*(?![\w*])")
 _CODE = re.compile(r"`([^`\n]+)`")
 _LINK = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
 _TABLE_SEPARATOR = re.compile(r"^\s*\|?[\s:|-]+\|[\s:|-]*$")
 
-def _balise(style: str, content: str, extra: str = "", name: str = "") -> str:
+def _tag(style: str, content: str, extra: str = "", name: str = "") -> str:
     """A styled HTML tag."""
     return f'<{name or style} style="{_STYLES[style]}"{extra}>{content}</{name or style}>'
 
@@ -64,18 +64,18 @@ def _cell_style(content: str, rank: int) -> str:
 def _as_line(text: str) -> str:
     """Escapes the text, then renders bold, italic and code."""
     output = html.escape(text, quote=False)
-    output = _CODE.sub(lambda m: _balise("code", m.group(1)), output)
-    output = _GRAS.sub(r"<strong>\1</strong>", output)
-    output = _ITALIQUE.sub(r"<em>\1</em>", output)
+    output = _CODE.sub(lambda m: _tag("code", m.group(1)), output)
+    output = _BOLD.sub(r"<strong>\1</strong>", output)
+    output = _ITALIC.sub(r"<em>\1</em>", output)
     return _LINK.sub(
         lambda m: f'<a href="{m.group(2)}" style="color:#2c5aa0">{m.group(1)}</a>', output
     )
 
-def _ancre(title: str) -> str:
+def _anchor(title: str) -> str:
     """A stable identifier for a section, without accents."""
     without_accents = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode()
-    reduit = re.sub(r"[^a-z0-9]+", "-", without_accents.lower()).strip("-")
-    return "s-" + (reduit or short_voiceprint(title))
+    reduced = re.sub(r"[^a-z0-9]+", "-", without_accents.lower()).strip("-")
+    return "s-" + (reduced or short_voiceprint(title))
 
 def sections(minutes: str) -> list[str]:
     """The titles of the second-level sections, in order."""
@@ -87,26 +87,26 @@ def sections(minutes: str) -> list[str]:
 
 def _summary(minutes: str) -> str:
     """A table of contents at the top of the email."""
-    titres = sections(minutes)
-    if len(titres) < 3:
+    titles = sections(minutes)
+    if len(titles) < 3:
         return ""
-    entrees = "".join(
+    entries = "".join(
         f'<span style="white-space:nowrap;margin:0 22px 0 0;'
         f'font:400 13px/2 {_FONT}">'
-        f'<span style="color:{_ENCRE_PALE}">{number}.</span> '
-        f'<a href="#{_ancre(title)}" style="color:{_INK};text-decoration:none">'
+        f'<span style="color:{_PALE_INK}">{number}.</span> '
+        f'<a href="#{_anchor(title)}" style="color:{_INK};text-decoration:none">'
         f"{html.escape(title)}</a></span>"
-        for number, title in enumerate(titres, 1)
+        for number, title in enumerate(titles, 1)
     )
     return (
         f'<div style="margin:0 0 30px;padding:13px 17px;background:{_HEADER_GROUND};'
         f'border-left:3px solid {_INK};border-radius:0 4px 4px 0">'
         f'<div style="font:600 10px/1 {_FONT};letter-spacing:.11em;'
-        f'text-transform:uppercase;color:{_ENCRE_PALE};padding-bottom:7px">Sommaire</div>'
-        f"{entrees}</div>"
+        f'text-transform:uppercase;color:{_PALE_INK};padding-bottom:7px">Sommaire</div>'
+        f"{entries}</div>"
     )
 
-def _cellules(line: str) -> list[str]:
+def _cells(line: str) -> list[str]:
     return [c.strip() for c in line.strip().strip("|").split("|")]
 
 def as_html(markdown: str) -> str:
@@ -116,69 +116,69 @@ def as_html(markdown: str) -> str:
     i = 0
     while i < len(lines):
         line = lines[i]
-        nue = line.strip()
+        bare = line.strip()
 
-        if not nue:
+        if not bare:
             i += 1
             continue
 
-        if nue.startswith("#"):
-            level = len(nue) - len(nue.lstrip("#"))
+        if bare.startswith("#"):
+            level = len(bare) - len(bare.lstrip("#"))
             name = f"h{min(level, 3)}"
-            text = nue.lstrip("#").strip()
-            ancre = f' id="{_ancre(text)}"' if level == 2 else ""
-            output.append(_balise(name, _as_line(text), ancre))
+            text = bare.lstrip("#").strip()
+            anchor = f' id="{_anchor(text)}"' if level == 2 else ""
+            output.append(_tag(name, _as_line(text), anchor))
             i += 1
             continue
 
-        if set(nue) <= {"-", "*", "_"} and len(nue) >= 3:
+        if set(bare) <= {"-", "*", "_"} and len(bare) >= 3:
             output.append(f'<hr style="{_STYLES["hr"]}">')
             i += 1
             continue
 
-        if "|" in nue and i + 1 < len(lines) and _TABLE_SEPARATOR.match(lines[i + 1]):
-            entetes = _cellules(nue)
+        if "|" in bare and i + 1 < len(lines) and _TABLE_SEPARATOR.match(lines[i + 1]):
+            headers = _cells(bare)
             i += 2
             corps: list[list[str]] = []
             while i < len(lines) and "|" in lines[i]:
-                corps.append(_cellules(lines[i]))
+                corps.append(_cells(lines[i]))
                 i += 1
-            tete = "".join(_balise("th", _as_line(c)) for c in entetes)
-            rangs = "".join(
+            head = "".join(_tag("th", _as_line(c)) for c in headers)
+            ranks = "".join(
                 "<tr>"
                 + "".join(
-                    _balise(_cell_style(c, rank), _as_line(c), name="td")
+                    _tag(_cell_style(c, rank), _as_line(c), name="td")
                     for rank, c in enumerate(r)
                 )
                 + "</tr>"
                 for r in corps
             )
-            output.append(_balise("table", f"<thead><tr>{tete}</tr></thead><tbody>{rangs}</tbody>"))
+            output.append(_tag("table", f"<thead><tr>{head}</tr></thead><tbody>{ranks}</tbody>"))
             continue
 
-        if nue.startswith((">", "&gt;")):
+        if bare.startswith((">", "&gt;")):
             block = []
             while i < len(lines) and lines[i].strip().startswith((">", "&gt;")):
                 block.append(lines[i].strip().lstrip(">").strip())
                 i += 1
-            output.append(_balise("blockquote", _as_line(" ".join(block))))
+            output.append(_tag("blockquote", _as_line(" ".join(block))))
             continue
 
-        if re.match(r"^[-*+]\s+", nue) or re.match(r"^\d+[.)]\s+", nue):
-            ordonnee = bool(re.match(r"^\d+[.)]\s+", nue))
+        if re.match(r"^[-*+]\s+", bare) or re.match(r"^\d+[.)]\s+", bare):
+            ordered_one = bool(re.match(r"^\d+[.)]\s+", bare))
             items = []
             while i < len(lines):
-                courante = lines[i].strip()
-                if re.match(r"^[-*+]\s+", courante) or re.match(r"^\d+[.)]\s+", courante):
-                    items.append(re.sub(r"^([-*+]|\d+[.)])\s+", "", courante))
+                current = lines[i].strip()
+                if re.match(r"^[-*+]\s+", current) or re.match(r"^\d+[.)]\s+", current):
+                    items.append(re.sub(r"^([-*+]|\d+[.)])\s+", "", current))
                     i += 1
-                elif courante and not courante.startswith("#") and items:
-                    items[-1] += " " + courante
+                elif current and not current.startswith("#") and items:
+                    items[-1] += " " + current
                     i += 1
                 else:
                     break
-            content = "".join(_balise("li", _as_line(t)) for t in items)
-            output.append(_balise("ol" if ordonnee else "ul", content))
+            content = "".join(_tag("li", _as_line(t)) for t in items)
+            output.append(_tag("ol" if ordered_one else "ul", content))
             continue
 
         block = []
@@ -187,7 +187,7 @@ def as_html(markdown: str) -> str:
             block.append(lines[i].strip())
             i += 1
         if block:
-            output.append(_balise("p", _as_line(" ".join(block))))
+            output.append(_tag("p", _as_line(" ".join(block))))
         else:
             i += 1
 
@@ -198,17 +198,17 @@ def _header(minutes: str) -> tuple[str, str]:
     lines = minutes.splitlines()
     title = context = ""
     remaining = 0
-    for indice, line in enumerate(lines):
-        nue = line.strip()
-        if not nue:
+    for index, line in enumerate(lines):
+        bare = line.strip()
+        if not bare:
             continue
-        if not title and nue.startswith("# "):
-            title = nue[2:].strip()
-            remaining = indice + 1
+        if not title and bare.startswith("# "):
+            title = bare[2:].strip()
+            remaining = index + 1
             continue
-        if title and not context and not nue.startswith("#"):
-            context = nue
-            remaining = indice + 1
+        if title and not context and not bare.startswith("#"):
+            context = bare
+            remaining = index + 1
         break
     if not title:
         return "", minutes
@@ -216,7 +216,7 @@ def _header(minutes: str) -> tuple[str, str]:
         f'<h1 style="{_STYLES["h1"]}">{_as_line(title)}</h1>'
         + (
             f'<p style="margin:0 0 24px;font:400 13px/1.5 {_FONT};'
-            f'color:{_ENCRE_PALE}">{_as_line(context)}</p>'
+            f'color:{_PALE_INK}">{_as_line(context)}</p>'
             if context
             else ""
         )
@@ -229,7 +229,7 @@ def email(minutes: str, pied: str = "") -> str:
     corps = header + _summary(minutes) + as_html(suite)
     signature = (
         f'<p style="margin:28px 0 0;padding-top:14px;border-top:1px solid {_FILET};'
-        f'font:400 12px/1.5 {_FONT};color:{_ENCRE_PALE}">{html.escape(pied)}</p>'
+        f'font:400 12px/1.5 {_FONT};color:{_PALE_INK}">{html.escape(pied)}</p>'
         if pied
         else ""
     )

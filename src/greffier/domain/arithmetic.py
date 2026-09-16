@@ -10,10 +10,10 @@ CARD = "cuda"
 
 PROCESSOR = "cpu"
 
-def compute_threads(coeurs: int | None = None) -> int:
+def compute_threads(cores: int | None = None) -> int:
     """Half the cores, at least one."""
-    disponibles = coeurs if coeurs is not None else (os.cpu_count() or 2)
-    return max(1, disponibles // 2)
+    available_ones = cores if cores is not None else (os.cpu_count() or 2)
+    return max(1, available_ones // 2)
 
 def chosen_device(wish: str, a_card_answers: bool) -> str:
     """The device to hand the models: what was asked, or what is there.

@@ -13,7 +13,7 @@ class Disclosure(StrEnum):
     """What was done towards the attendees."""
 
     NOTHING = "rien"
-    ANNONCE = "annoncé"
+    ANNOUNCEMENT = "annoncé"
     AGREEMENT = "accord"
 
 MENTIONS = {
@@ -21,7 +21,7 @@ MENTIONS = {
         "Cette réunion a été enregistrée et transcrite automatiquement. "
         "L'information des participants n'a pas été tracée."
     ),
-    Disclosure.ANNONCE: (
+    Disclosure.ANNOUNCEMENT: (
         "Cette réunion a été enregistrée et transcrite automatiquement, "
         "les participants en ayant été informés."
     ),
@@ -31,7 +31,7 @@ MENTIONS = {
     ),
 }
 
-RAPPEL = (
+REMINDER = (
     "Une voix est une donnée biométrique. Pense à prévenir les participants "
     "que la réunion est enregistrée, et note-le dans « conversation.information » "
     "pour que le compte rendu le dise."

@@ -24,7 +24,7 @@ from greffier.adapters import model_files
 
 
 def answer_with(monkeypatch: pytest.MonkeyPatch, octets: bytes) -> None:
-    class Reponse(BytesIO):
+    class Answer(BytesIO):
         headers = {"Content-Length": str(len(octets))}
 
         def __enter__(self) -> Any:
@@ -34,15 +34,15 @@ def answer_with(monkeypatch: pytest.MonkeyPatch, octets: bytes) -> None:
             return False
 
     monkeypatch.setattr(
-        model_files.urllib.request, "urlopen", lambda *_a, **_k: Reponse(octets)
+        model_files.urllib.request, "urlopen", lambda *_a, **_k: Answer(octets)
     )
 
 
-def fail_to_answer(monkeypatch: pytest.MonkeyPatch, souci: Exception) -> None:
-    def tomber(*_a: Any, **_k: Any) -> Any:
-        raise souci
+def fail_to_answer(monkeypatch: pytest.MonkeyPatch, the_trouble: Exception) -> None:
+    def fall(*_a: Any, **_k: Any) -> Any:
+        raise the_trouble
 
-    monkeypatch.setattr(model_files.urllib.request, "urlopen", tomber)
+    monkeypatch.setattr(model_files.urllib.request, "urlopen", fall)
 
 
 class TestWhatIsMissing:
@@ -67,19 +67,19 @@ class TestWhatIsMissing:
 
     def test_the_engine_decides_what_is_needed(self, tmp_path):
         """faster-whisper does not need whisper.cpp's files."""
-        noms = {m.name for m in model_files.missing(tmp_path, engine="faster-whisper")}
-        assert "ggml-large-v3-turbo.bin" not in noms
-        assert "diarisation/nemo_en_titanet_large.onnx" in noms
+        the_names = {m.name for m in model_files.missing(tmp_path, engine="faster-whisper")}
+        assert "ggml-large-v3-turbo.bin" not in the_names
+        assert "diarisation/nemo_en_titanet_large.onnx" in the_names
 
     def test_the_weight_is_said_in_words(self, tmp_path):
         assert model_files.weight(model_files.missing(tmp_path)).endswith("Go")
-        petits = [m for m in model_files.CATALOGUE if m.minimum < 10_000_000]
-        assert model_files.weight(petits).endswith("Mo")
+        small_ones = [m for m in model_files.CATALOGUE if m.minimum < 10_000_000]
+        assert model_files.weight(small_ones).endswith("Mo")
 
     def test_only_the_live_model_is_optional(self):
         """Without it, the live thread falls back on the large model."""
-        facultatifs = {m.name for m in model_files.CATALOGUE if not m.required}
-        assert facultatifs == {"ggml-small.bin"}
+        optional_ones = {m.name for m in model_files.CATALOGUE if not m.required}
+        assert optional_ones == {"ggml-small.bin"}
 
     def test_the_voice_is_downloaded_everywhere(self):
         """It is the part that is heard: it has to sound the same on all three systems.
@@ -98,19 +98,19 @@ class TestDownloadingAModel:
     def test_the_model_is_written_and_the_progress_told(self, monkeypatch, tmp_path):
         octets = b"y" * 3_000_000
         answer_with(monkeypatch, octets)
-        vus: list[tuple[int, int]] = []
+        seen: list[tuple[int, int]] = []
         pose, where_in = model_files.fetch(
-            self._a_model(), tmp_path, lambda r, t: vus.append((r, t))
+            self._a_model(), tmp_path, lambda r, t: seen.append((r, t))
         )
         assert pose, where_in
         assert (tmp_path / "ggml-silero-v5.1.2.bin").read_bytes() == octets
-        assert vus and vus[-1][0] == len(octets)
+        assert seen and seen[-1][0] == len(octets)
 
     def test_nothing_truncated_is_left_if_the_network_drops(self, monkeypatch, tmp_path):
         """The point that counts: half a model fails at transcription time."""
         fail_to_answer(monkeypatch, urllib.error.URLError("coupé"))
-        pose, souci = model_files.fetch(self._a_model(), tmp_path)
-        assert not pose and souci == "pas de réseau"
+        pose, the_trouble = model_files.fetch(self._a_model(), tmp_path)
+        assert not pose and the_trouble == "pas de réseau"
         assert not list(tmp_path.iterdir()), "aucun fichier partiel ne doit rester"
 
     def test_a_subfolder_is_created_when_needed(self, monkeypatch, tmp_path):
@@ -122,14 +122,14 @@ class TestDownloadingAModel:
 
     def test_an_archive_is_unpacked_under_the_expected_name(self, monkeypatch, tmp_path):
         """The voice arrives in a folder named after the model: it has to be renamed."""
-        boite = BytesIO()
+        box = BytesIO()
         source = tmp_path / "vits-piper-fr_FR-upmc-medium"
         source.mkdir()
         (source / "model.onnx").write_bytes(b"poids")
         (source / "tokens.txt").write_text("a\n", encoding="utf-8")
-        with tarfile.open(fileobj=boite, mode="w:bz2") as a:
+        with tarfile.open(fileobj=box, mode="w:bz2") as a:
             a.add(source, arcname="vits-piper-fr_FR-upmc-medium")
-        answer_with(monkeypatch, boite.getvalue())
+        answer_with(monkeypatch, box.getvalue())
 
         target = tmp_path / "modeles"
         voice = next(m for m in model_files.CATALOGUE if m.name == "voix")
@@ -142,7 +142,7 @@ class TestDownloadingAModel:
     def test_an_unreadable_archive_is_refused(self, monkeypatch, tmp_path):
         answer_with(monkeypatch, b"ceci n'est pas une archive")
         voice = next(m for m in model_files.CATALOGUE if m.name == "voix")
-        pose, _souci = model_files.fetch(voice, tmp_path)
+        pose, _trouble = model_files.fetch(voice, tmp_path)
         assert not pose
         assert not (tmp_path / "voix").exists()
 
@@ -166,7 +166,7 @@ class TestARealDownload:
         silero = next(
             m for m in model_files.CATALOGUE if m.name.endswith("silero-v5.1.2.bin")
         )
-        pose, where_in = model_files.fetch(silero, tmp_path, delai=180.0)
+        pose, where_in = model_files.fetch(silero, tmp_path, delay=180.0)
         if not pose and where_in == "pas de réseau":
             pytest.skip("pas de réseau")
         assert pose, where_in
@@ -207,3 +207,34 @@ class TestOneCatalogueOnly:
     def test_the_installer_reads_this_catalogue(self):
         source = Path("tools/install.py").read_text(encoding="utf-8")
         assert "adapters/model_files.py" in source
+
+
+class TestWhereFasterWhisperKeepsItsModels:
+    """`downloaded` looks in the cache under the repository name. With a name
+    faster-whisper does not use, it looked in the wrong place, said no, and
+    the live thread silently stayed on the large model."""
+
+    def test_the_table_agrees_with_faster_whisper_s_own(self):
+        utils = pytest.importorskip("faster_whisper.utils")
+        theirs = utils._MODELS
+        for name, repository in model_files.DEPOTS.items():
+            if name in theirs:
+                assert repository == theirs[name], name
+
+    def test_a_model_in_the_cache_is_seen(self, monkeypatch, tmp_path):
+        hub = pytest.importorskip("huggingface_hub")
+        asked = []
+
+        def in_cache(repository, filename):
+            asked.append(repository)
+            return "/cache/model.bin"
+
+        monkeypatch.setattr(hub, "try_to_load_from_cache", in_cache)
+        assert model_files.downloaded("large-v3-turbo") is True
+        assert asked == ["mobiuslabsgmbh/faster-whisper-large-v3-turbo"]
+
+    def test_a_folder_given_as_a_model_is_had_by_definition(self, tmp_path):
+        assert model_files.downloaded(str(tmp_path)) is True
+
+    def test_nothing_named_is_nothing_had(self):
+        assert model_files.downloaded("") is False

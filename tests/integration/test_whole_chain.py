@@ -40,18 +40,18 @@ pytestmark = pytest.mark.integration
 @pytest.fixture(scope="session")
 def config() -> Config:
     configuration = Config()
-    hors_de_portee = transcription_is_out_of_reach(configuration)
-    if hors_de_portee:
-        pytest.skip(hors_de_portee)
+    out_of_reach = transcription_is_out_of_reach(configuration)
+    if out_of_reach:
+        pytest.skip(out_of_reach)
     return configuration
 
 
 @pytest.fixture(scope="session")
 def meeting(tmp_path_factory) -> Path:
     """Builds the fake meeting once, reused by every test."""
-    hors_de_portee = voices_are_out_of_reach(2)
-    if hors_de_portee:
-        pytest.skip(hors_de_portee)
+    out_of_reach = voices_are_out_of_reach(2)
+    if out_of_reach:
+        pytest.skip(out_of_reach)
     from make_meeting import make
 
     return make(tmp_path_factory.mktemp("audio") / "reunion.wav")
@@ -73,8 +73,8 @@ def outcome(config: Config, meeting: Path):
     return chain.run_chain(meeting, send=False)
 
 
-class TestChaineReelle:
-    def test_l_audio_synthetise_est_bien_transcrit(self, outcome):
+class TestTheRealChain:
+    def test_the_synthesised_audio_is_transcribed(self, outcome):
         assert outcome.words > 60, "la transcription a perdu l'essentiel du dialogue"
 
     def test_the_two_voices_are_told_apart(self, outcome):
@@ -118,7 +118,7 @@ class TestChaineReelle:
         text = render_transcript(outcome)
         from make_meeting import first_names
 
-        assert all(f"[{prenom}]" in text for prenom in first_names())
+        assert all(f"[{first_name}]" in text for first_name in first_names())
         assert "00:0" in text
         assert "Personne" not in text, "aucune voix ne devrait rester anonyme"
 
@@ -149,16 +149,16 @@ class TestFromTheConversationToTheMinutes:
         conversations_file.add(file, "moi", "Il n'y a pas de sophie dans la réunion")
         conversations_file.add(file, "greffier", "Le compte rendu est prêt.")
 
-        consignes = _instructions_of(config)(identifier)
-        assert consignes == ["Il n'y a pas de sophie dans la réunion"], consignes
+        guidance_ = _instructions_of(config)(identifier)
+        assert guidance_ == ["Il n'y a pas de sophie dans la réunion"], guidance_
 
-        header = instructions_header(consignes)
+        header = instructions_header(guidance_)
         assert "Il n'y a pas de sophie" in header
         assert "ailleurs" not in header, "une note n'est pas une consigne"
         assert "migration" not in header, "une question de l'assistant non plus"
 
     def test_the_order_of_the_instructions_is_the_meeting_s(self, tmp_path):
-        """Une consigne plus tardive corrige une plus ancienne."""
+        """A later instruction corrects an earlier one."""
         from greffier.adapters import conversations_file
         from greffier.adapters.configuration import Config
         from greffier.wiring import _instructions_of
