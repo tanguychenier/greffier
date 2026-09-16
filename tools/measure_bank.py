@@ -13,11 +13,17 @@ named the right person, the wrong one, or nobody.
 
     python3 tools/measure_bank.py
     python3 tools/measure_bank.py --again      # run the chain again rather than reuse
+    python3 tools/measure_bank.py --replay     # the live thread again, without the transcriber
 
 Two figures per person and overall: the share of their sentences carried by
 a voice the bank named right, and the number of voices the tool split them
 into. Everything lives in `corpus/bank/` under the data folder; nothing
 touches the machine's own bank.
+
+`--replay` feeds the live thread the words it showed last time
+(`tools/replay_follower.py`) and measures the attribution alone, in the time the
+voiceprints take: it is how a change to who-said-what is judged without
+the card.
 """
 
 from __future__ import annotations
@@ -146,38 +152,54 @@ def judged(sentences: list[Sentence], names: dict[str, str | None],
 
 
 def through_the_live_thread(
-    config: Any, audio: Path
+    config: Any, audio: Path, replay_from: Path | None = None
 ) -> tuple[list[Sentence], dict[str, str | None], dict[str, str | None]]:
     """The second meeting as the window would have shown it, bank in hand.
 
     Two readings of the names: the ones the thread is sure of (recognised
     with a margin, or given by a person), and every name it shows, the
     probable ones included, which the window paints in the colour of doubt.
+
+    Given a log to replay from, the transcriber stays closed: the follower
+    gets the sentences of that log, slice by slice, and the thread it
+    builds lands in a log of its own.
     """
     import soundfile as sf
 
-    from greffier.application.follow import Position
+    from greffier.application.follow import Position, files
     from greffier.application.watch import Watcher
     from greffier.domain.instructions import WatchRules
     from greffier.wiring import _audio_recorder, follower, light_transcriber
 
     duration = sf.info(str(audio)).duration
     the_follower = follower(config, audio.stem)
-    watcher = Watcher(
-        watch_rules=WatchRules(keyword="greffier"),
-        log=config.paths.propositions / f"{audio.stem}.jsonl",
-        transcriber=light_transcriber(config),
-        follower=the_follower,
-        preparer=_audio_recorder(config),
-        language="fr",
-        slice_period=config.live.period,
-    )
-    with tempfile.TemporaryDirectory() as job:
-        written = config.live.period
-        while written <= duration + config.live.period:
-            where = Position(chunk=audio, written=min(written, duration), offset=0.0)
-            watcher.transcription_turn(where, Path(job), let_speak=False)
-            written += config.live.period
+    if replay_from is not None:
+        from replay_follower import replay_through
+
+        the_follower.log, the_follower.requests = files(
+            config.paths.live, f"{audio.stem}.replayed"
+        )
+        the_follower.log.unlink(missing_ok=True)
+        replay_through(the_follower, replay_from, audio, config.live.period)
+    else:
+        # A fresh thread, or the replay would read two meetings in one log.
+        the_follower.log.unlink(missing_ok=True)
+        the_follower.requests.unlink(missing_ok=True)
+        watcher = Watcher(
+            watch_rules=WatchRules(keyword="greffier"),
+            log=config.paths.propositions / f"{audio.stem}.jsonl",
+            transcriber=light_transcriber(config),
+            follower=the_follower,
+            preparer=_audio_recorder(config),
+            language="fr",
+            slice_period=config.live.period,
+        )
+        with tempfile.TemporaryDirectory() as job:
+            written = config.live.period
+            while written <= duration + config.live.period:
+                where = Position(chunk=audio, written=min(written, duration), offset=0.0)
+                watcher.transcription_turn(where, Path(job), let_speak=False)
+                written += config.live.period
     thread = the_follower.thread
     sentences = [Sentence(t.span.start, t.span.end, t.text, t.voice) for t in thread.turns]
     shown = {voice: thread.voice[voice].name for voice in thread.voice}
@@ -209,6 +231,10 @@ def main() -> int:
     parser.add_argument("--corpus", type=Path, default=data_folder() / "corpus")
     parser.add_argument("--again", action="store_true", help="run the chain again")
     parser.add_argument("--skip-live", action="store_true", help="the chain only")
+    parser.add_argument("--replay", action="store_true",
+                        help="the live thread on the words of its last run, no transcriber")
+    parser.add_argument("--device", default=None,
+                        help="cpu or cuda for the models; the configuration's otherwise")
     options = parser.parse_args()
 
     first, second = options.corpus / f"{FIRST}.wav", options.corpus / f"{SECOND}.wav"
@@ -221,11 +247,21 @@ def main() -> int:
         shutil.rmtree(data)
     data.mkdir(parents=True, exist_ok=True)
     config = _config(data)
+    if options.device:
+        config.hardware.device = options.device
+    last_live = config.paths.live / f"{SECOND}.jsonl"
+    if options.replay and not last_live.exists():
+        print(f"{last_live} missing: run once without --replay first")
+        return 1
 
-    first_outcome = run_the_chain(config, first, options.again)
-    named = name_the_first_meeting(config, first, first_outcome)
-    print(f"{FIRST}: {len(named)} voices named ({', '.join(sorted(set(named.values())))}), "
-          f"bank at {config.paths.voice_bank}")
+    if options.replay:
+        named = {}
+        print(f"{FIRST}: bank kept from the last run, at {config.paths.voice_bank}")
+    else:
+        first_outcome = run_the_chain(config, first, options.again)
+        named = name_the_first_meeting(config, first, first_outcome)
+        print(f"{FIRST}: {len(named)} voices named ({', '.join(sorted(set(named.values())))}), "
+              f"bank at {config.paths.voice_bank}")
 
     second_outcome = run_the_chain(config, second, options.again)
     chain_verdict = judged(_sentences(second_outcome), dict(second_outcome.names), _turns(second))
@@ -233,14 +269,17 @@ def main() -> int:
     result: dict[str, Any] = {"first": FIRST, "second": SECOND, "named": named,
                               "chain": chain_verdict}
     if not options.skip_live:
-        sentences, sure, shown = through_the_live_thread(config, second)
+        sentences, sure, shown = through_the_live_thread(
+            config, second, last_live if options.replay else None
+        )
         sure_verdict = judged(sentences, sure, _turns(second))
         shown_verdict = judged(sentences, shown, _turns(second))
         _print(f"{SECOND}, live thread, the names it is sure of", sure_verdict)
         _print(f"{SECOND}, live thread, every name it shows", shown_verdict)
         result["live_sure"] = sure_verdict
         result["live_shown"] = shown_verdict
-    (options.corpus / f"{SECOND}.bank.json").write_text(
+    kept = "bank.replayed.json" if options.replay else "bank.json"
+    (options.corpus / f"{SECOND}.{kept}").write_text(
         json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8"
     )
     return 0
