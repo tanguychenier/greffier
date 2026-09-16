@@ -344,3 +344,91 @@ with thirty, "sur Oasis" with sixty), which this corpus, a studio
 conversation with few names of its own, cannot measure. The card spends
 half of what it spent, and every second the card is not on a slice is a
 second the assistant's name is heard sooner.
+
+## The same four people, one meeting later (2026-09-16)
+
+The question from use: does the tool keep somebody's voice, so that a
+person named once is named by the tool the next time, whatever their tone
+that day? SUMM-RE 032a and 032b are the same four people, a reporting
+meeting and a decision meeting of the same series. `tools/measure_bank.py`
+names the four voices of 032a after the reference, through the product's
+own gesture (`Naming`, the one behind « greffier nommer »), then puts 032b
+through the chain with that bank and through the live thread with it, and
+checks every sentence the reference attributes: named right, named wrong,
+left to nobody. The names are the reference's people, given first names
+for the bank.
+
+| 032b, 419 to 448 sentences judged | Right | Wrong | Nobody |
+|---|---|---|---|
+| After the meeting, the chain and the bank | **65.6 %** (275) | **6.7 %** (28) | 27.7 % (116) |
+| Live thread, one voice per slice (before) | 71.4 % (320) | **28.3 %** (127) | 0.2 % (1) |
+| Live thread, the slice cut at the changes of speaker, a sentence given from 80 % of its time | 74.5 % (333) | 12.3 % (55) | 13.2 % (59) |
+| … and the scraps under the short threshold with the others | 75.4 % (337) | 11.0 % (49) | 13.6 % (61) |
+| … a sentence given from 70 % of its time | 76.1 % (340) | 9.6 % (43) | 14.3 % (64) |
+| … from 60 % | 76.3 % (341) | 8.5 % (38) | 15.2 % (68) |
+| … **from half of it** (kept) | **80.3 %** (359) | **8.3 %** (37) | 11.4 % (51) |
+
+Per person, after the meeting: Alice 88 right, 21 wrong, 56 to nobody out
+of 165; Bruno 67 / 3 / 17 out of 87; Chloé 105 / 3 / 32 out of 140;
+Diane 15 / 1 / 11 out of 27. Live, the slice cut, from half: Alice 102 /
+21 / 19 out of 142; Bruno 117 / 3 / 5 out of 125; Chloé 121 / 12 / 17 out
+of 150; Diane 19 / 1 / 10 out of 30. The replay is exact: the same
+setting run twice gives the same thread to the byte, so a point between
+two rows is the setting, not the dice.
+
+What it says:
+
+- **The bank recognises the same person a meeting later, every time.**
+  After the meeting the chain finds four voices and the bank puts the four
+  right names on them; live, the thread founds four voices and the bank
+  names them right too, Chloé on the first sentence, Diane at 56 s, Bruno
+  at 78 s, Alice at 161 s. Not one name is wrong. What is wrong is the
+  sentence under the name.
+- **After the meeting, a sentence in four is left to nobody**, by the
+  rule of the minutes (`attribution.MINIMUM_SHARE`): a sentence whose time
+  is not held at 80 % by one speaker turn goes to no one rather than to
+  the most talkative. On a lively meeting where the four cut into each
+  other, that is a quarter of the sentences, and 7 % still land on the
+  wrong person, the boundaries of the transcriber not being the
+  segmenter's. Alice, who carries 40 % of the sentences and changes tone,
+  is held as one voice: 88 of her sentences on it, two scraps of a second
+  each, and the 21 wrong ones on the three others' voices, not on a second
+  Alice.
+- **Live, the slice was one block.** The thread took one print per slice
+  for everything that did not come from the microphone, and gave the ten
+  seconds to whoever that print resembled: **28 % of the sentences under
+  the wrong name**, and everybody named, since nothing was ever left out.
+  A wrong name on screen costs more than no name.
+- **The slice cut at the changes of speaker** brings the wrong ones from
+  127 to 37. The segmentation model the chain uses is run on the slice
+  alone, on the processor, in windows of ten seconds (0.14 s a window under
+  load; the same audio read as one fifteen-second piece cost twelve
+  seconds, the engine joining its windows with the voiceprint model). The
+  labels hold inside the window only; the sentences are grouped by turn
+  with the rule of the minutes, one print per group read where that
+  speaker talks, and the thread joins the groups to its voices by print as
+  it always did. Two more rules came out of the replay: a scrap under two
+  seconds used to join the nearest voice whatever the likeness, and now
+  joins it from the threshold measured for short material (0.45), or goes
+  with the others; and the catch-all of those scraps must never take a
+  print, since the bank then named the mixture of four people (eighty
+  sentences under one name, in the run that showed it).
+- **The share a turn must hold of a sentence is not the minutes' 80 %.**
+  In the minutes the share decides the name, and a straddling sentence
+  goes to nobody. Live, the share only groups the sentences whose audio
+  makes one print, and the print decides the voice: the lower the share,
+  the longer the groups, the better the prints, and the fewer sentences
+  standing alone on a print of mixed audio. From 80 % down to half, the
+  wrong ones go from 49 to 37 and the right ones from 337 to 359, every
+  step in the same direction. `LIVE_MINIMUM_SHARE` is 0.5.
+- **What is left wrong is short**: 25 of the 37 sentences last under two
+  seconds, « Après Noël » said by two people in the same breath, « Arrête »,
+  « Vendredi ! ». The rest sit in the exchanges where the four talk over
+  one another, where the reference itself gives one sentence to one
+  person.
+
+The replay is `tools/measure_bank.py --replay`, through
+`tools/replay_follower.py`: the live thread is fed the very words it
+showed last time, slice by slice, without the transcriber, so a change to
+who-said-what is measured in four minutes on the processor, the card left
+to the words.

@@ -57,6 +57,7 @@ there, and fixed.
 | The learning threshold at 6 s, with no second chance | A correction entered at the second sentence **never** made it into the bank: it was displayed, then served neither the following meeting nor the minutes | fixed |
 | The position tracked on the meeting clock | After a pause, the clock and the audio written to disk diverge by the whole stopped time, and ffmpeg read past the end of the file | fixed |
 | The last seconds never read | You finished your sentence in front of a thread that stopped before it | fixed |
+| One voice per slice | Measured on SUMM-RE 032b, four people who cut into each other: a ten-second slice went whole to whoever its print resembled, **28 % of the sentences under the wrong name**, and the scraps of everybody, poured into the catch-all, got a name from the bank | fixed: the slice is cut at the changes of speaker on the processor, one print per speaker, a scrap joins a voice from the short-material threshold only, the catch-all takes no print; 8 % wrong and 80 % right, `corpus.md` |
 
 ## What direct measurement fixed (2026-09-01)
 

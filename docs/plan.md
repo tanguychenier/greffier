@@ -180,10 +180,21 @@ meeting is never needed to see what a meeting does.
       period of five seconds loses half the rare terms, the turbo model
       reads two points worse than large-v3 at less than half the cost.
       `CONTEXT_S` goes from 50 to 20. The cut on silence is measured below.
-- [ ] The same person across two meetings: named on one SUMM-RE meeting,
+- [x] The same person across two meetings: named on one SUMM-RE meeting,
       recognised on the next of the same series; and one person whose tone
       changes inside a meeting, held as one voice.
       *Proof: the recognition rate across 032a → 032b, the coherence figure per person.*
+      Done on 16/09: `tools/measure_bank.py` names the four voices of 032a
+      through the product's own gesture and judges 032b sentence by
+      sentence. The bank names the four right, after the meeting and live;
+      Alice, who changes tone, is one voice on both sides. What the measure
+      found instead: the live thread gave a whole slice to one voice, 28 %
+      of the sentences under the wrong name. The slice is now cut at the
+      changes of speaker with the segmentation model, on the processor
+      (`SherpaSliceSegmenter`), the wrong ones fall to 8 % and the right
+      ones rise to 80 %, 11 % going with the others; `--replay` measures
+      the attribution without the transcriber. The figures are in
+      `corpus.md`.
 - [x] Lucie's speed, measured end to end on the bench with synthesised
       questions, then cut: the slice ends when the speaker stops rather than
       on the clock, the answer streams to the voice as it comes, a faster
