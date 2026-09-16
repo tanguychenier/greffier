@@ -545,3 +545,159 @@ class TestTheSettingsAreSavedFromTheWindow:
         from greffier.adapters.configuration import Config
 
         assert Config.load(None).live.active is False
+
+
+class TestHandingADocumentToTheWindow:
+    """From the project manager's seat: "voilà le budget, tu peux me dire…"."""
+
+    def _thread_of(self, window) -> str:
+        return window.thread.get("1.0", "end")
+
+    def test_a_document_is_kept_for_the_meeting_and_read_back_to_her(
+        self, window, monkeypatch, tmp_path
+    ):
+        from greffier.adapters import attachments_file
+        from greffier.interface import asking
+
+        name = _a_kept_meeting(window)
+        note = tmp_path / "budget.md"
+        note.write_text("Budget du lot 2 : 42 000 euros hors taxes.\n", encoding="utf-8")
+        monkeypatch.setattr(asking, "files_to_open", lambda *a, **k: (str(note),))
+        monkeypatch.setattr("greffier.wiring.cartographe", lambda config: None)
+        _jobs_run_inline(window)
+        window._supply_a_document()
+        window.root.update()
+        kept = attachments_file.list_(window.config.paths.pieces, name)
+        assert [p.name for p in kept] == ["budget.md"]
+        assert "« budget.md » lu" in self._thread_of(window)
+        assert "42 000" in window._with_the_documents("", name)
+
+    def test_what_a_document_teaches_goes_to_the_context_once_accepted(
+        self, window, monkeypatch, tmp_path
+    ):
+        from greffier.adapters import context_file
+        from greffier.interface import asking
+
+        _a_kept_meeting(window)
+        note = tmp_path / "glossaire.md"
+        note.write_text("CASA : le comité d'architecture. Présidé par Maud Riel.\n",
+                        encoding="utf-8")
+
+        class Reader:
+            own_guidance = ""
+
+            def write_up(self, text):
+                return ('```json\n[{"ecriture": "CASA", "sens": "comité d\'architecture", '
+                        '"genre": "terme"}, {"ecriture": "Maud Riel", "sens": "présidente", '
+                        '"genre": "personne"}]\n```')
+
+        monkeypatch.setattr(asking, "files_to_open", lambda *a, **k: (str(note),))
+        monkeypatch.setattr(asking, "ask_yes_no", lambda *a, **k: True)
+        monkeypatch.setattr("greffier.wiring.cartographe", lambda config: Reader())
+        _jobs_run_inline(window)
+        window._supply_a_document()
+        window.root.update()
+        written = window.config.paths.context.read_text(encoding="utf-8")
+        assert "CASA" in written and "Maud Riel" in written
+        assert "2 entrée(s) ajoutée(s) au contexte" in self._thread_of(window)
+        assert context_file.read(window.config.paths.context) is not None
+
+    def test_what_is_refused_stays_out_of_the_context(self, window, monkeypatch, tmp_path):
+        from greffier.interface import asking
+
+        _a_kept_meeting(window)
+        note = tmp_path / "glossaire.md"
+        note.write_text("CASA : le comité d'architecture.\n", encoding="utf-8")
+
+        class Reader:
+            own_guidance = ""
+
+            def write_up(self, text):
+                return '[{"ecriture": "CASA", "sens": "comité", "genre": "terme"}]'
+
+        monkeypatch.setattr(asking, "files_to_open", lambda *a, **k: (str(note),))
+        monkeypatch.setattr(asking, "ask_yes_no", lambda *a, **k: False)
+        monkeypatch.setattr("greffier.wiring.cartographe", lambda config: Reader())
+        _jobs_run_inline(window)
+        window._supply_a_document()
+        window.root.update()
+        assert not window.config.paths.context.exists() or (
+            "CASA" not in window.config.paths.context.read_text(encoding="utf-8")
+        )
+        assert window.says("conversation.rien_ajoute") in self._thread_of(window)
+
+    def test_a_sound_file_is_sent_to_the_meetings_tab_not_read_as_a_document(
+        self, window, monkeypatch, tmp_path
+    ):
+        from greffier.interface import asking
+
+        _a_kept_meeting(window)
+        sound = tmp_path / "reunion.wav"
+        sound.write_bytes(b"RIFF" + b"\0" * 100)
+        monkeypatch.setattr(asking, "files_to_open", lambda *a, **k: (str(sound),))
+        window._supply_a_document()
+        window.root.update()
+        assert "deviennent des réunions à transcrire" in self._thread_of(window)
+
+    def test_nothing_chosen_changes_nothing(self, window, monkeypatch):
+        from greffier.interface import asking
+
+        monkeypatch.setattr(asking, "files_to_open", lambda *a, **k: ())
+        before = self._thread_of(window)
+        window._supply_a_document()
+        assert self._thread_of(window) == before
+
+
+class TestAskingTheWindowAQuestion:
+    def _thread_of(self, window) -> str:
+        return window.thread.get("1.0", "end")
+
+    def test_without_a_writer_it_says_so(self, window, monkeypatch):
+        _a_kept_meeting(window)
+        monkeypatch.setattr("greffier.wiring.assistant", lambda config: None)
+        window.question.insert(0, "qui relance le partenaire ?")
+        window._ask()
+        assert window.says("commun.aucun_redacteur_configure") in self._thread_of(window)
+
+    def test_with_no_minutes_yet_it_asks_to_process_first(self, window, monkeypatch):
+        _a_kept_meeting(window)
+
+        class Brain:
+            def write_up(self, text):
+                return "Maud."
+
+        monkeypatch.setattr("greffier.wiring.assistant", lambda config: Brain())
+        window.question.insert(0, "qui relance le partenaire ?")
+        window._ask()
+        assert "n'a pas encore de compte rendu" in self._thread_of(window)
+
+    def test_a_question_on_the_minutes_gets_its_answer_in_the_thread(
+        self, window, monkeypatch
+    ):
+        name = _a_kept_meeting(window)
+        minutes = window.config.paths.minutes_folder / f"{name}.md"
+        minutes.parent.mkdir(parents=True, exist_ok=True)
+        minutes.write_text("# Recette\n\n- Maud relance le partenaire lundi.\n", encoding="utf-8")
+        asked = []
+
+        class Brain:
+            def write_up(self, text):
+                asked.append(text)
+                return "C'est Maud, lundi."
+
+        monkeypatch.setattr("greffier.wiring.assistant", lambda config: Brain())
+        _jobs_run_inline(window)
+        window.question.insert(0, "qui relance le partenaire ?")
+        window._ask()
+        window.root.update()
+        assert "C'est Maud, lundi." in self._thread_of(window)
+        assert "qui relance le partenaire ?" in asked[0]
+        assert "Maud relance le partenaire lundi" in asked[0], "the minutes are the material"
+        assert window.question.get() == ""
+
+    def test_an_empty_question_asks_nothing(self, window, monkeypatch):
+        asked = []
+        monkeypatch.setattr("greffier.wiring.assistant", lambda config: asked.append(1))
+        window.question.delete(0, "end")
+        window._ask()
+        assert asked == []

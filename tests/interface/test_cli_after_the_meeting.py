@@ -43,7 +43,8 @@ def _out(answered):
     return answered.stdout + (answered.stderr or "")
 
 
-def a_meeting(data, name="2026-09-12_10h00_recette", days_old=0, with_audio=False):
+def a_meeting(data, name="2026-09-12_10h00_recette", days_old=0, with_audio=False,
+              turn_length=4.0):
     """Written by the store itself, the shape the tool writes."""
     from greffier.adapters.store_files import FileStore
     from greffier.domain.meeting import StoredMeeting
@@ -59,11 +60,13 @@ def a_meeting(data, name="2026-09-12_10h00_recette", days_old=0, with_audio=Fals
         processed_at=datetime.now(UTC) - timedelta(days=days_old),
         duration=42.0,
         utterances=[
-            Utterance(span=Span(0.0, 4.0), text="On décale la recette à jeudi."),
-            Utterance(span=Span(4.0, 8.0), text="Maud relance le partenaire lundi."),
+            Utterance(span=Span(0.0, turn_length), text="On décale la recette à jeudi."),
+            Utterance(span=Span(turn_length, 2 * turn_length),
+                      text="Maud relance le partenaire lundi."),
         ],
-        turns=[SpeakerTurn(voice="1", span=Span(0.0, 4.0), source=Source.MIC),
-               SpeakerTurn(voice="2", span=Span(4.0, 8.0), source=Source.MIC)],
+        turns=[SpeakerTurn(voice="1", span=Span(0.0, turn_length), source=Source.MIC),
+               SpeakerTurn(voice="2", span=Span(turn_length, 2 * turn_length),
+                           source=Source.MIC)],
         names={"1": "Jacques"},
         propositions={"2": "Maud"},
         warnings=[],
@@ -358,3 +361,140 @@ class TestPublishingFilesIntoTheTool:
         answered = _run(settings, "deposer", str(tmp_path / "absent.wav"))
         assert answered.exit_code == 1
         assert "introuvable" in _out(answered)
+
+
+def a_wav(path, seconds=2.0):
+    """A real, silent wav: the command reads its header before anything heavy."""
+    import numpy as np
+    import soundfile as sf
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    sf.write(str(path), np.zeros(int(16000 * seconds), dtype="int16"), 16000)
+    return path
+
+
+class TestProcessingARecording:
+    """The chain is doubled: what is covered is the command around it, what
+    it says of the voices, the names, the files written."""
+
+    def _chain(self, monkeypatch, outcome_of):
+        class Chain:
+            writer = object()
+            sender = None
+            log = None
+
+            def run_chain(self, audio, send=True, hardware_events=None, started_at=None,
+                          ended_at=None):
+                return outcome_of(audio)
+
+        monkeypatch.setattr(cli, "wire_up", lambda config: Chain())
+
+    def test_a_file_that_is_not_sound_is_refused_before_the_models(self, poste, tmp_path):
+        settings, _ = poste
+        not_sound = tmp_path / "notes.wav"
+        not_sound.write_text("ceci n'est pas du son", encoding="utf-8")
+        answered = _run(settings, "traiter", str(not_sound))
+        assert answered.exit_code == 1
+        assert "n'est pas un enregistrement lisible" in _out(answered)
+
+    def test_the_voices_are_named_and_the_files_said(self, poste, tmp_path, monkeypatch):
+        from greffier.application.process import Outcome
+        from greffier.domain.models import Span, SpeakerTurn, Utterance
+
+        settings, data = poste
+        audio = a_wav(tmp_path / "2026-09-12_10h00_recette.wav")
+
+        def outcome_of(path):
+            outcome = Outcome(audio=path)
+            outcome.utterances = [Utterance(Span(0, 30), "on décale la recette à jeudi", "1"),
+                                  Utterance(Span(30, 60), "maud relance lundi", "2")]
+            outcome.turns = [SpeakerTurn(Span(0, 30), "1"), SpeakerTurn(Span(30, 60), "2")]
+            outcome.names = {"1": "Jacques"}
+            outcome.propositions = {"2": "Maud"}
+            outcome.warnings = ["Ton micro est resté muet une minute."]
+            outcome.transcript_written = data / "transcriptions" / "x.txt"
+            outcome.minutes_written = data / "comptes-rendus" / "x.md"
+            return outcome
+
+        self._chain(monkeypatch, outcome_of)
+        answered = _run(settings, "traiter", str(audio), "--sans-envoi")
+        assert answered.exit_code == 0, _out(answered)
+        assert "⚠ Ton micro est resté muet" in answered.stdout
+        assert "9 mots · 2 voix" in answered.stdout
+        assert "Jacques" in answered.stdout
+        assert "≈ Maud (à confirmer)" in answered.stdout
+        assert "greffier voix 2026-09-12_10h00_recette" in answered.stdout
+        assert "Compte rendu  :" in answered.stdout
+
+    def test_a_chain_that_stops_says_why(self, poste, tmp_path, monkeypatch):
+        from greffier.application.process import ChainStopped
+        from greffier.domain.models import Phase
+
+        settings, _ = poste
+        audio = a_wav(tmp_path / "vide.wav")
+
+        def outcome_of(path):
+            raise ChainStopped(Phase.ECHEC, "Transcription quasi vide (3 mots).")
+
+        self._chain(monkeypatch, outcome_of)
+        answered = _run(settings, "traiter", str(audio))
+        assert answered.exit_code == 1
+        assert "Transcription quasi vide" in _out(answered)
+
+    def test_during_a_meeting_it_refuses_unless_told_otherwise(self, poste, tmp_path, monkeypatch):
+        from greffier.application.record import RecorderState
+        from greffier.domain.models import Phase
+
+        settings, data = poste
+        audio = a_wav(tmp_path / "autre.wav")
+        state = RecorderState(phase=Phase.RECORDING, name="reunion", pid=1)
+        monkeypatch.setattr("greffier.application.record.Recording.read", lambda self: state)
+        answered = _run(settings, "traiter", str(audio))
+        assert answered.exit_code == 1
+        assert "quand-meme" in _out(answered) or "en cours" in _out(answered)
+
+
+class TestTheAssemblyOfNotablePassages:
+    def test_with_too_little_speech_there_is_no_assembly(self, poste):
+        settings, data = poste
+        name = a_meeting(data)
+        answered = _run(settings, "montage", name, "--minutes", "0.05")
+        assert answered.exit_code == 1
+        assert "Pas assez de parole" in _out(answered)
+
+    def test_the_passages_are_cut_from_the_recording(self, poste, monkeypatch):
+        settings, data = poste
+        name = a_meeting(data, with_audio=True, turn_length=30.0)
+        cut = []
+        monkeypatch.setattr(
+            "greffier.application.render.assemble",
+            lambda audio, passages, destination: cut.append((audio, passages, destination))
+            or destination,
+        )
+        answered = _run(settings, "montage", name, "--minutes", "1")
+        assert answered.exit_code == 0, _out(answered)
+        assert cut and cut[0][2].name == f"{name}.m4a"
+        assert "passages" in answered.stdout
+
+
+class TestWhatTheToolKnowsOfTheSetting:
+    def test_the_first_call_lays_the_file_and_says_so(self, poste):
+        settings, _ = poste
+        answered = _run(settings, "contexte")
+        assert answered.exit_code == 0, _out(answered)
+        assert "Fichier de contexte créé" in answered.stdout
+        assert "Amorce de transcription" in answered.stdout
+
+    def test_a_term_and_a_person_added_are_shown_with_the_prompt(self, poste):
+        from greffier.adapters import context_file
+        from greffier.adapters.configuration import Config
+
+        settings, _ = poste
+        _run(settings, "contexte")
+        config = Config.load(settings)
+        context_file.add_a_term(config.paths.context, "CASA", "comité d'architecture")
+        context_file.add_a_person(config.paths.context, "Maud Riel", "présidente")
+        answered = _run(settings, "contexte")
+        assert "CASA" in answered.stdout
+        assert "Maud Riel" in answered.stdout
+        assert "2 terme(s), 1 personne(s)" in answered.stdout, "the template's own term counts"
