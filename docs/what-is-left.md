@@ -197,16 +197,18 @@ concrete defects reported (resizing, missing or ugly scrollbars); the austerity
 that remains beyond them is a matter of taste, to be refined point by point
 rather than through endless iteration.
 
-### The assistant's answer is not streamed to the voice
+### The assistant's first word, what is left
 
-Measured on 2026-09-16 (see `corpus.md`): her first word now comes 4.6 to
-6.5 s after the end of the question on a small card, of which the model's
-share is 1.4 to 2.4 s and the first token 0.7 s. Handing each sentence to the
-voice as it arrives would save the time the model takes to write the second
-one, half a second to a second on a two-sentence answer. It needs the answer
-read as a stream (`--include-partial-messages`) and a voice that queues
-sentences rather than refusing while it speaks; not done while the pass that
-spots her name costs more than the model.
+Measured on 2026-09-16 (see `corpus.md`): her first word comes 4 to 6 s
+after the end of the question on a small card. The answer is now spoken
+as the model writes it (`--include-partial-messages`, one sentence at a
+time through the voice's mouth), which moves nothing on a one-sentence
+answer and a second or so on a longer one. What is left is the pass that
+spots her name (1.3 s on this card for eight seconds of audio, 0.8 on the
+MacBook), the model's first token (0.7 s) and its sentence, and the half
+second of quiet before anyone can tell the question is over. A smaller
+model for the pass heard her name half the time; a model reached without
+Claude Code in front of it is the other lever, not tried.
 
 ## Her initiative, replayed on two real meetings (2026-09-16)
 

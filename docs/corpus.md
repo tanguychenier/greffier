@@ -287,8 +287,46 @@ What is left, in order of size: the model's share (1.4 to 2.6 s when it
 answers at its usual pace), then the pass (1.3 s on this card for eight
 seconds of audio, 0.8 s on the MacBook the tool runs on), then the half
 second the room has to keep quiet before anyone can tell the question is
-over. Below that would take the answer streamed to the voice sentence by
-sentence, or a model reached without Claude Code in front of it.
+over.
+
+### The answer spoken as it comes, and two things the bench caught (2026-09-16, later)
+
+The session now asks Claude Code for the partial messages and hands each
+finished sentence to the voice while the model writes the next one.
+Measured on the wire with sonnet, cold, three sentences: the first was
+whole at 2.6 s where the answer came back at 3.7. On the bench the answers
+are one sentence long, and one sentence is whole only when the answer is:
+*ready* stays 0.3 to 0.5 s after *answered*, the time the voice takes to
+render it. The gain is on answers of two sentences or more, which the
+guidance allows and the bench does not ask for.
+
+Two defects the same bench showed, fixed before the run below:
+
+- **A breath in the middle of a question was taken for its end.** The
+  levels prompted a pass 0.4 s before « Lucie, combien d'anomalies
+  bloquantes restent à valider ? » was over; the pass heard the question
+  up to « restent », the model answered « RIEN » to half a question, and
+  the slice answered the whole one ten seconds later. A prompted pass now
+  hands nothing over when the room went on talking while it transcribed.
+- **The words just before the call now travel with it.** The thread the
+  assistant answers from runs a slice behind, and with the slice waiting
+  for a quiet moment it can run three seconds further behind: she answered
+  « ce point n'a pas été mentionné dans la réunion » to a question about
+  the sentence said right before it. The pass that hears the call heard
+  those words too; they go to the model with the question.
+
+The bench again, the same file, two runs, slices cut on silence, the
+answer spoken as it comes:
+
+| | Question 1 | Question 2 | Question 3 |
+|---|---|---|---|
+| Spotted / answered / ready | 4.1 / 5.8 / **6.2** s and 2.9 / 4.7 / **5.0** s | 4.0 / 5.4 / **5.7** s and 2.0 / 3.6 / **4.0** s | 1.9 / 3.5 / **4.1** s and 2.1 / 3.9 / **4.2** s |
+
+4.9 s on average, against 5.4 on the previous bench and 9.5 before the
+day's work; what moves between two runs is the pass and the model, not
+the tool. The second question of the first run is the one answered « ce
+point n'a pas été mentionné », measured before the words just before the
+call travelled with it.
 
 A caveat on the day's benches, and the reason there are two "after"
 rows in `assistant.json`: the first "after" was measured with the large
@@ -317,6 +355,8 @@ thread included (voiceprints, levelling).
 | large-v3-turbo | 10 s | none | yes | 31.5 % | 205 | **3.0** |
 | large-v3-turbo | 10 s | 20 s | no | 32.7 % | 202 | 3.9 |
 | large-v3-turbo | **5 s** | 20 s | yes | **56.5 %** | 126 | 4.7 |
+| large-v3-turbo | 10 s, **cut on silence** | 20 s | yes | **28.8 %** | **221** | 7.0 |
+| large-v3-turbo | 10 s, cut on silence | none | yes | 29.3 % | 205 | 3.9 |
 
 What it says, the same file giving figures two or three points apart from
 one run to the next (the temperature ladder samples where the model is
@@ -336,6 +376,15 @@ unsure):
   same slices, at less than half the cost; the levelling costs a third of
   the slice time for a point that is inside the noise on a studio
   recording, and stays for the rooms it was measured on.
+- **Cutting the slice at a quiet moment rather than on the clock buys
+  three points**, and sixteen rare terms with the context: a slice past
+  its ten seconds waits while somebody talks, up to three seconds, and
+  the sentence under way is heard whole instead of in two pieces that do
+  not add up. 104 slices instead of 119 on the same file, so the card
+  spends less too. The turbo model with twenty seconds of context and the
+  cut on silence reads at 28.8 %, where large-v3 on the clock read at
+  29.6: the live thread is now within four points of the final
+  transcription. It is what the product does (`SLICE_SLACK_S`).
 
 What follows: `CONTEXT_S` goes from 50 to 20, not to none. The words read
 alike either way; twenty keeps what a real meeting showed on 2026-09-09

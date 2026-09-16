@@ -179,7 +179,10 @@ meeting is never needed to see what a meeting does.
       nothing but the cost (and throws the turbo model at fifty seconds), a
       period of five seconds loses half the rare terms, the turbo model
       reads two points worse than large-v3 at less than half the cost.
-      `CONTEXT_S` goes from 50 to 20. The cut on silence is measured below.
+      `CONTEXT_S` goes from 50 to 20. The cut on silence, measured after:
+      28.8 % against 32.0 on the clock, sixteen rare terms back, 104 slices
+      instead of 119; the slice now waits for a quiet moment, up to three
+      seconds (`SLICE_SLACK_S`).
 - [x] The same person across two meetings: named on one SUMM-RE meeting,
       recognised on the next of the same series; and one person whose tone
       changes inside a meeting, held as one voice.
@@ -206,8 +209,11 @@ meeting is never needed to see what a meeting does.
       to 1.4 to 2.4), the listening pass on its own thread and run the moment
       the room goes quiet, the turbo model for the live thread where the card
       takes the large one, the voice and the live model opened before the
-      first word. From 9.5 s to 5.7 s on this card; the streamed answer was
-      not needed to get there and stays on the list below.
+      first word. From 9.5 s to 5.4 s on this card, 4.9 with the slices cut
+      on silence. The answer is spoken as the model writes it, one
+      sentence at a time: measured on the wire, the first of three
+      sentences whole a second before the answer; nothing on the bench's
+      one-sentence answers, by construction.
 - [x] Context, as scenarios on the bench: a document handed over is used in
       an answer; a web search is made and its source named; a company source
       (GitLab, Jira, Trello) is read when its token is there; when it is not,
