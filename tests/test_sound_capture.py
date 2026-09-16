@@ -23,9 +23,9 @@ def session(monkeypatch, tmp_path):
 
 
 def ouvrir_la_prise(session):
-    prise = session / "pulse"
-    prise.mkdir()
-    (prise / "native").touch()
+    take = session / "pulse"
+    take.mkdir()
+    (take / "native").touch()
 
 
 class TestServeurDeSon:
@@ -73,16 +73,16 @@ class TestAFileThatCannotBeARecording:
         assert why_unreadable(son) == ""
 
     def test_something_that_is_not_sound_says_so_in_french(self, tmp_path):
-        faux = tmp_path / "abime.wav"
-        faux.write_bytes(b"\x00\x01\x02\x03" * 5000)
-        dit = why_unreadable(faux)
-        assert "n'est pas un enregistrement lisible" in dit
-        assert faux.name in dit
+        wrong = tmp_path / "abime.wav"
+        wrong.write_bytes(b"\x00\x01\x02\x03" * 5000)
+        said = why_unreadable(wrong)
+        assert "n'est pas un enregistrement lisible" in said
+        assert wrong.name in said
 
     def test_an_empty_file_says_it_is_empty(self, tmp_path):
-        vide = tmp_path / "vide.wav"
-        vide.touch()
-        assert "est vide" in why_unreadable(vide)
+        empty = tmp_path / "vide.wav"
+        empty.touch()
+        assert "est vide" in why_unreadable(empty)
 
     def test_a_file_that_is_not_there_says_that(self, tmp_path):
         assert "n'existe pas" in why_unreadable(tmp_path / "jamais.wav")
@@ -91,6 +91,6 @@ class TestAFileThatCannotBeARecording:
         import numpy as np
         import soundfile
 
-        muet = tmp_path / "muet.wav"
-        soundfile.write(muet, np.zeros(0, dtype="float32"), 16000)
-        assert "aucun son" in why_unreadable(muet)
+        silent = tmp_path / "muet.wav"
+        soundfile.write(silent, np.zeros(0, dtype="float32"), 16000)
+        assert "aucun son" in why_unreadable(silent)

@@ -115,8 +115,8 @@ class TestWhenOutlookDoesNotAnswer:
             stderr = output
             stdout = ""
 
-        def faux_run(commande, **_options):
-            appels.append(commande)
+        def faux_run(command, **_options):
+            appels.append(command)
             return Returned()
 
         monkeypatch.setattr(subprocess, "run", faux_run)

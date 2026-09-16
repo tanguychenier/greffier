@@ -113,6 +113,55 @@ nine.
       `speaker-separation`, `graphics-card`, `retrospective-2026-09-10`
       (done on 15/09).
 
+## Phase 7. A faithful replay, live words, Lucie's speed, the project manager's day
+
+Asked on 2026-09-16, from use: the live words did not match what was said,
+Lucie took one to four seconds to answer, the context did not seem to work,
+and none of it can be reproduced without holding a meeting. Every box below
+is played on a recording replayed as if it were being captured, so that a
+meeting is never needed to see what a meeting does.
+
+- [x] Identifiers in English in `src/`: the last French names
+      (`AVERTISSEMENT_SANS_BOUCLE`, `SEUIL_MUET_DB`, `_preciser_les_canaux`
+      and some sixty others), renamed with the tests as the net.
+      *Proof: no French identifier left by the scan, suite green.*
+- [ ] A replay bench: a recording fed through the live chain as the
+      microphone would feed it, in real time or faster, window and assistant
+      included, so that what happens in a meeting happens on the bench.
+      *Proof: `tools/replay_meeting.py` on the synthetic meeting and on the corpus, and an e2e test that replays one and gets minutes out.*
+- [ ] Live words measured: the live transcript against the reference, next
+      to the post-meeting one, per slice length, cut on silence or on the
+      clock, with and without the previous slice as context.
+      *Proof: the table in `corpus.md`, and only what moves the figure kept.*
+- [ ] The same person across two meetings: named on one SUMM-RE meeting,
+      recognised on the next of the same series; and one person whose tone
+      changes inside a meeting, held as one voice.
+      *Proof: the recognition rate across 032a → 032b, the coherence figure per person.*
+- [ ] Lucie's speed, measured end to end on the bench with synthesised
+      questions, then cut: the slice ends when the speaker stops rather than
+      on the clock, the answer streams to the voice as it comes, a faster
+      model for what is spoken, the process kept warm.
+      *Proof: the time from the end of the question to the first spoken word, before and after, in `corpus.md`.*
+- [ ] Context, as scenarios on the bench: a document handed over is used in
+      an answer; a web search is made and its source named; a company source
+      (GitLab, Jira, Trello) is read when its token is there; when it is not,
+      Lucie asks for the access, gets it from the window, and says what she
+      did with it.
+      *Proof: one e2e test per scenario.*
+- [ ] The project manager's day, listed and covered: before the meeting
+      (documents, agenda, who will be there, what to look up), during
+      (questions, decisions, actions, look-ups), after (minutes, tickets,
+      follow-up), each scenario in `scenarios.md` with its state.
+      *Proof: `scenarios.md` extended, every open line either covered or measured.*
+- [ ] The badge on the Conversation tab counts what has not been seen, not
+      everything Lucie ever said: read her message, switch tab, one more
+      message arrives, the badge said three where one was new.
+      *Proof: a test on the count after a tab is opened, and the badge looked at.*
+- [ ] Test coverage measured per layer and raised where it is thin; the e2e
+      suite around the bench runs where the models are and skips cleanly
+      where they are not.
+      *Proof: the coverage figure before and after in `what-is-left.md`.*
+
 ## Decisions that are his, not tasks
 
 - macOS notarisation: a paid Apple account, otherwise Gatekeeper refuses the

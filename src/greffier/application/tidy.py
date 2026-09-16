@@ -101,7 +101,7 @@ def audio_de(ou: Places, identifier: str) -> Path | None:
 
 def tidy(
     ou: Places,
-    regle: Rule,
+    rule: Rule,
     meetings: Sequence[tuple[str, float, bool]],
     compresser: Callable[[Path], Path],
     for_real: bool = False,
@@ -112,7 +112,7 @@ def tidy(
         audio = audio_de(ou, identifier)
         if audio is None:
             continue
-        geste = regle.decide(jours, transcrite, audio.suffix == ".opus")
+        geste = rule.decide(jours, transcrite, audio.suffix == ".opus")
         if geste is Gesture.NOTHING:
             continue
         avant = audio.stat().st_size if audio.exists() else 0

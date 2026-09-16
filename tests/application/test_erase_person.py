@@ -120,10 +120,10 @@ class TestSayingWhereSomebodyIsBeforeErasingThem:
 class TestErasingThem:
     def test_the_name_is_gone_from_the_minutes(self, data: Everywhere) -> None:
         erase(data, "Sophie")
-        compte_rendu = (data.minutes_folder / "2026-09-10_reunion.md").read_text()
-        assert "Sophie" not in compte_rendu
-        assert UNNAMED in compte_rendu
-        assert "Julien relit." in compte_rendu
+        minutes_text = (data.minutes_folder / "2026-09-10_reunion.md").read_text()
+        assert "Sophie" not in minutes_text
+        assert UNNAMED in minutes_text
+        assert "Julien relit." in minutes_text
 
     def test_the_decision_survives_the_person(self, data: Everywhere) -> None:
         # A meeting is not erased with somebody who attended it: what was
@@ -175,10 +175,10 @@ class TestErasingThem:
     ) -> None:
         erase(data, "Sophie")
         assert data.preparations is not None
-        attendus = json.loads(
+        expected = json.loads(
             (data.preparations / "2026-09-20_point.json").read_text()
         )["attendus"]
-        assert attendus == [UNNAMED, "Julien"]
+        assert expected == [UNNAMED, "Julien"]
 
     def test_a_file_that_does_not_name_them_is_not_rewritten(
         self, data: Everywhere

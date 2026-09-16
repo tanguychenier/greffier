@@ -33,8 +33,8 @@ combler. Pas de préambule : produis directement le document.
 Transcription :
 """
 
-_MENTION_DE_LANGUE = "Attendu, en français,"
-_MENTION_NUE = "Attendu, en"
+_LANGUAGE_MENTION = "Attendu, en français,"
+_BARE_MENTION = "Attendu, en"
 
 def guidance(language: str = "") -> str:
     """The instructions, dictated in the language wanted."""
@@ -46,7 +46,7 @@ def guidance(language: str = "") -> str:
         f"de section, les phrases. La transcription qui suit peut être dans une\n"
         f"autre langue : cela ne change rien à la langue du compte rendu.\n\n"
     )
-    return header + GUIDANCE.replace(_MENTION_DE_LANGUE, f"{_MENTION_NUE} {name}") + (
+    return header + GUIDANCE.replace(_LANGUAGE_MENTION, f"{_BARE_MENTION} {name}") + (
         f"\n\nRappel : le compte rendu s'écrit en {name}.\n"
     )
 

@@ -74,22 +74,22 @@ def do_it(
         raise
 
     effacees: list[str] = []
-    for vieille in to_erase(
+    for old_one in to_erase(
         [path.name.removesuffix(".tar.gz")
          for path in destination.glob("greffier-*.tar.gz")],
         kept,
     ):
-        path = destination / f"{vieille}.tar.gz"
+        path = destination / f"{old_one}.tar.gz"
         try:
             path.unlink()
-            effacees.append(vieille)
+            effacees.append(old_one)
         except OSError:
             continue
 
     return Made(archive, tuple(pris), files,
                  archive.stat().st_size, tuple(effacees), data=data)
 
-def restore(archive: Path, data: Path, ecraser: bool = False) -> list[str]:
+def restore(archive: Path, data: Path, overwrite: bool = False) -> list[str]:
     """Puts a backup back. Returns the folders restored."""
     if not archive.exists():
         raise FileNotFoundError(f"archive introuvable : {archive}")
@@ -98,7 +98,7 @@ def restore(archive: Path, data: Path, ecraser: bool = False) -> list[str]:
             membre.name.split("/")[0] for membre in tar.getmembers()
             if "/" in membre.name or membre.isdir()
         })
-        if not ecraser:
+        if not overwrite:
             already = [name for name in racines if (data / name).exists()]
             if already:
                 raise FileExistsError(
@@ -110,7 +110,7 @@ def restore(archive: Path, data: Path, ecraser: bool = False) -> list[str]:
         tar.extractall(data, filter="data")
     return racines
 
-def lister(destination: Path) -> list[tuple[str, int, datetime]]:
+def list_(destination: Path) -> list[tuple[str, int, datetime]]:
     """The backups present, most recent first."""
     found: list[tuple[str, int, datetime]] = []
     if not destination.exists():

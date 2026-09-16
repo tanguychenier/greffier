@@ -44,8 +44,8 @@ def best_voice() -> str | None:
         return None
     for qualite in QUALITES:
         for language in ("fr_FR", "fr_CA"):
-            for name, cette_langue in voice:
-                if f"({qualite})" in name and cette_langue == language:
+            for name, this_language in voice:
+                if f"({qualite})" in name and this_language == language:
                     return name
     for prefere in COMPACTES_ACCEPTABLES:
         for name, _ in voice:

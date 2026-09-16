@@ -27,8 +27,8 @@ class TestTheCataloguesAgree:
 
     def test_the_sentences_differ_between_languages(self):
         """A catalogue copied and not translated is worse than none."""
-        fr, en = wording_files.read("fr"), wording_files.read("en")
-        identiques = {c for c in fr if fr[c] == en.get(c)}
+        fr, as_ = wording_files.read("fr"), wording_files.read("en")
+        identiques = {c for c in fr if fr[c] == as_.get(c)}
         assert len(identiques) < len(fr) / 3, f"trop de phrases non traduites : {identiques}"
 
 

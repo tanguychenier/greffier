@@ -16,11 +16,11 @@ class CaptureWatch:
 
     still_turns: int = 0
     alertee: bool = False
-    _taille: int | None = None
+    _size: int | None = None
 
     def observe(self, bytes_read: int) -> str:
         """What needs reporting, or an empty string when nothing does."""
-        precedente, self._taille = self._taille, bytes_read
+        precedente, self._size = self._size, bytes_read
         if precedente is None:
             return ""
         if bytes_read > precedente:

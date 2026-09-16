@@ -120,8 +120,8 @@ qu'on ne lit pas ne sert à rien.
 Transcription :
 """
 
-_MENTION_DE_LANGUE = "Structure attendue, en français,"
-_MENTION_NUE = "Structure attendue, en"
+_LANGUAGE_MENTION = "Structure attendue, en français,"
+_BARE_MENTION = "Structure attendue, en"
 
 def guidance(language: str = "") -> str:
     """The instructions, dictated in the language wanted."""
@@ -133,7 +133,7 @@ def guidance(language: str = "") -> str:
         f"de section, les phrases. La transcription qui suit peut être dans une\n"
         f"autre langue : cela ne change rien à la langue du compte rendu.\n\n"
     )
-    return header + GUIDANCE.replace(_MENTION_DE_LANGUE, f"{_MENTION_NUE} {name}") + (
+    return header + GUIDANCE.replace(_LANGUAGE_MENTION, f"{_BARE_MENTION} {name}") + (
         f"\n\nRappel : le compte rendu s'écrit en {name}.\n"
     )
 
@@ -213,14 +213,14 @@ class ClaudeWriter:
 
     def __init__(self, model: str = "", command: str = "claude",
                  timeout: int = 900, language: str = "",
-                 tools: tuple[str, ...] = (), consignes_propres: str = "",
+                 tools: tuple[str, ...] = (), own_guidance: str = "",
                  on_search: Callable[[], None] | None = None) -> None:
         self.model = model
         self.command = command
         self.timeout = timeout
         self.language = language
         self.tools = tools
-        self.consignes_propres = consignes_propres
+        self.own_guidance = own_guidance
         #: Called the moment a search actually starts, never when one merely
         #: might. Without it the call keeps its plain text output, which is
         #: cheaper to read and is all the minutes need.
@@ -235,13 +235,13 @@ class ClaudeWriter:
         # `--strict-mcp-config` keeps the machine's own MCP servers out of the
         # call: this assistant has no business loading them, and measured over
         # seven runs it also takes 0.3 s off a round trip that costs 3.
-        format_de_sortie = ["stream-json", "--verbose"] if self.on_search else ["text"]
-        command = [self.command, "-p", "--output-format", *format_de_sortie,
+        output_format = ["stream-json", "--verbose"] if self.on_search else ["text"]
+        command = [self.command, "-p", "--output-format", *output_format,
                     "--strict-mcp-config",
                     "--allowed-tools", ",".join(self.tools)]
         if self.model:
             command += ["--model", self.model]
-        header = self.consignes_propres or guidance(self.language)
+        header = self.own_guidance or guidance(self.language)
         if self.on_search is not None:
             return self._answer_watching_the_stream(command, header + transcription)
         outcome = subprocess.run(
@@ -272,23 +272,23 @@ class ClaudeWriter:
         """
         with tempfile.NamedTemporaryFile(
             "w", suffix=".txt", encoding="utf-8", delete=False
-        ) as fichier:
-            fichier.write(prompt)
-            question = Path(fichier.name)
-        cherche_deja = False
+        ) as file:
+            file.write(prompt)
+            question = Path(file.name)
+        already_searching = False
         text = ""
         try:
-            with question.open(encoding="utf-8") as entree:
+            with question.open(encoding="utf-8") as input_:
                 process = subprocess.Popen(
-                    command, stdin=entree, stdout=subprocess.PIPE,
+                    command, stdin=input_, stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE, text=True,
                 )
-                for ligne in process.stdout or ():
-                    evenement = _event(ligne)
+                for line in process.stdout or ():
+                    evenement = _event(line)
                     if evenement is None:
                         continue
-                    if not cherche_deja and _is_a_search(evenement, self.SEARCH_TOOLS):
-                        cherche_deja = True
+                    if not already_searching and _is_a_search(evenement, self.SEARCH_TOOLS):
+                        already_searching = True
                         if self.on_search is not None:
                             self.on_search()
                     if evenement.get("type") == "result":

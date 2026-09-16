@@ -47,17 +47,17 @@ def fail_to_answer(monkeypatch: pytest.MonkeyPatch, souci: Exception) -> None:
 
 class TestWhatIsMissing:
     def test_a_fresh_installation_has_everything_to_fetch(self, tmp_path):
-        manquants = model_files.missing(tmp_path)
-        assert len(manquants) == len(model_files.CATALOGUE)
+        missing = model_files.missing(tmp_path)
+        assert len(missing) == len(model_files.CATALOGUE)
 
     def test_the_heaviest_comes_first(self, tmp_path):
         """One wants to see the bar move on the big file, not wait for it."""
-        manquants = model_files.missing(tmp_path)
-        assert manquants[0].name == "ggml-large-v3-turbo.bin"
+        missing = model_files.missing(tmp_path)
+        assert missing[0].name == "ggml-large-v3-turbo.bin"
 
     def test_a_model_already_there_is_not_asked_for(self, tmp_path):
-        cible = tmp_path / "ggml-silero-v5.1.2.bin"
-        cible.write_bytes(b"x" * 600_000)
+        target = tmp_path / "ggml-silero-v5.1.2.bin"
+        target.write_bytes(b"x" * 600_000)
         assert "ggml-silero-v5.1.2.bin" not in {m.name for m in model_files.missing(tmp_path)}
 
     def test_a_truncated_file_counts_as_missing(self, tmp_path):
@@ -86,9 +86,9 @@ class TestWhatIsMissing:
         The fallback, each system's own synthesiser, sounds different on each, does
         not exist on some Linux sessions, and sounds like a machine where it does.
         """
-        voix = next(m for m in model_files.CATALOGUE if m.name == "voix")
-        assert voix.required
-        assert not voix.engine, "aucun système n'en est dispensé"
+        voice = next(m for m in model_files.CATALOGUE if m.name == "voix")
+        assert voice.required
+        assert not voice.engine, "aucun système n'en est dispensé"
 
 
 class TestDownloadingAModel:
@@ -131,25 +131,25 @@ class TestDownloadingAModel:
             a.add(source, arcname="vits-piper-fr_FR-upmc-medium")
         answer_with(monkeypatch, boite.getvalue())
 
-        cible = tmp_path / "modeles"
-        voix = next(m for m in model_files.CATALOGUE if m.name == "voix")
-        pose, where_in = model_files.fetch(voix, cible)
+        target = tmp_path / "modeles"
+        voice = next(m for m in model_files.CATALOGUE if m.name == "voix")
+        pose, where_in = model_files.fetch(voice, target)
         assert pose, where_in
-        assert (cible / "voix" / "model.onnx").exists()
-        assert (cible / "voix" / "tokens.txt").exists()
-        assert voix.present(cible)
+        assert (target / "voix" / "model.onnx").exists()
+        assert (target / "voix" / "tokens.txt").exists()
+        assert voice.present(target)
 
     def test_an_unreadable_archive_is_refused(self, monkeypatch, tmp_path):
         answer_with(monkeypatch, b"ceci n'est pas une archive")
-        voix = next(m for m in model_files.CATALOGUE if m.name == "voix")
-        pose, _souci = model_files.fetch(voix, tmp_path)
+        voice = next(m for m in model_files.CATALOGUE if m.name == "voix")
+        pose, _souci = model_files.fetch(voice, tmp_path)
         assert not pose
         assert not (tmp_path / "voix").exists()
 
     def test_nothing_lingers_after_a_failed_archive(self, monkeypatch, tmp_path):
         answer_with(monkeypatch, b"pas une archive")
-        voix = next(m for m in model_files.CATALOGUE if m.name == "voix")
-        model_files.fetch(voix, tmp_path)
+        voice = next(m for m in model_files.CATALOGUE if m.name == "voix")
+        model_files.fetch(voice, tmp_path)
         assert not [p for p in tmp_path.iterdir() if p.name.startswith(".")]
 
 
@@ -186,17 +186,17 @@ class TestOneCatalogueOnly:
         import importlib.util
         import sys
 
-        nom = "greffier_catalogue_essai"
+        name = "greffier_catalogue_essai"
         path = Path("src/greffier/adapters/model_files.py")
-        specification = importlib.util.spec_from_file_location(nom, path)
+        specification = importlib.util.spec_from_file_location(name, path)
         assert specification is not None and specification.loader is not None
         module = importlib.util.module_from_spec(specification)
-        sys.modules[nom] = module
+        sys.modules[name] = module
         try:
             specification.loader.exec_module(module)
             assert len(module.CATALOGUE) == len(model_files.CATALOGUE)
         finally:
-            del sys.modules[nom]
+            del sys.modules[name]
 
     def test_it_imports_nothing_from_the_project(self):
         """Otherwise it could not load on its own."""

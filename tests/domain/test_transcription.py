@@ -14,8 +14,8 @@ from greffier.domain.transcription import REPEATS_ALLOWED, without_loop
 class TestTheLoopIsCut:
     def test_the_worst_one_measured(self):
         """Eighteen times round, in a real meeting."""
-        boucle = "on est en vacuette de l'année, et " * 18
-        assert without_loop(boucle.strip()) == (
+        loop = "on est en vacuette de l'année, et " * 18
+        assert without_loop(loop.strip()) == (
             "on est en vacuette de l'année, et on est en vacuette de l'année.")
 
     def test_a_single_word_repeated(self):
@@ -40,29 +40,29 @@ class TestWhatIsSaidTwiceIsLeftAlone:
     """People repeat themselves, and that is theirs to do."""
 
     def test_an_ordinary_sentence_is_untouched(self):
-        dit = "On parle du sprint et de la recette de demain matin."
-        assert without_loop(dit) == dit
+        said = "On parle du sprint et de la recette de demain matin."
+        assert without_loop(said) == said
 
     def test_twice_is_emphasis(self):
-        dit = "C'est vrai, c'est vrai."
-        assert without_loop(dit) == dit
+        said = "C'est vrai, c'est vrai."
+        assert without_loop(said) == said
 
     def test_the_allowance_is_what_it_says(self):
         assert without_loop(("oui, " * REPEATS_ALLOWED).strip(", ")) == (
             ", ".join(["oui"] * REPEATS_ALLOWED))
 
     def test_a_word_coming_back_in_a_sentence_is_no_loop(self):
-        dit = "Le sprint de la semaine prochaine porte sur le sprint suivant."
-        assert without_loop(dit) == dit
+        said = "Le sprint de la semaine prochaine porte sur le sprint suivant."
+        assert without_loop(said) == said
 
-    @pytest.mark.parametrize("dit", [
+    @pytest.mark.parametrize("said", [
         "",
         "Oui.",
         "Non, merci.",
         "   ",
     ])
-    def test_what_is_too_short_to_loop(self, dit):
-        assert without_loop(dit) == dit
+    def test_what_is_too_short_to_loop(self, said):
+        assert without_loop(said) == said
 
 
 class TestTheShortestClauseWins:
@@ -80,6 +80,6 @@ class TestItIsRunOnWhatTheModelReturns:
         from pathlib import Path
 
         adapters = Path(__file__).resolve().parents[2] / "src/greffier/adapters"
-        for nom in ("transcription_faster_whisper.py", "transcription_whisper_cpp.py"):
-            code = (adapters / nom).read_text(encoding="utf-8")
-            assert "without_loop(" in code, nom
+        for name in ("transcription_faster_whisper.py", "transcription_whisper_cpp.py"):
+            code = (adapters / name).read_text(encoding="utf-8")
+            assert "without_loop(" in code, name

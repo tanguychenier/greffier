@@ -15,19 +15,19 @@ from greffier.domain.trouble import Trouble, without_traces, worth_keeping
 
 class TestCeQuOnEcrit:
     def test_a_line_carries_the_moment_the_place_and_the_reason(self):
-        ligne = Trouble("transcription", "le modèle a refusé").line()
-        assert "transcription" in ligne and "le modèle a refusé" in ligne
-        assert datetime.now().strftime("%Y-%m-%d") in ligne
+        line = Trouble("transcription", "le modèle a refusé").line()
+        assert "transcription" in line and "le modèle a refusé" in line
+        assert datetime.now().strftime("%Y-%m-%d") in line
 
     def test_the_version_and_the_system_are_carried_when_they_are_known(self):
-        ligne = Trouble("envoi", "serveur muet").line("0.3.22", "Linux x86_64")
-        assert "0.3.22" in ligne and "Linux x86_64" in ligne
+        line = Trouble("envoi", "serveur muet").line("0.3.22", "Linux x86_64")
+        assert "0.3.22" in line and "Linux x86_64" in line
 
     def test_a_line_stays_one_line(self):
         """A twelve-line trace would make the file unreadable."""
-        ligne = Trouble("chaîne", "première ligne\ndeuxième\ttroisième").line()
-        assert "\n" not in ligne
-        assert ligne.count("\t") == 2
+        line = Trouble("chaîne", "première ligne\ndeuxième\ttroisième").line()
+        assert "\n" not in line
+        assert line.count("\t") == 2
 
     def test_an_incident_without_a_place_is_refused(self):
         with pytest.raises(ValueError):
@@ -37,24 +37,24 @@ class TestCeQuOnEcrit:
 class TestCeQuOnNEcritPas:
     def test_a_path_is_taken_out(self):
         """A path carries the account name, and often a meeting's subject."""
-        sans = without_traces("échec sur /home/quelqu-un/reunions/point-budget.wav")
-        assert "quelqu-un" not in sans and "point-budget" not in sans
-        assert "<chemin>" in sans
+        without = without_traces("échec sur /home/quelqu-un/reunions/point-budget.wav")
+        assert "quelqu-un" not in without and "point-budget" not in without
+        assert "<chemin>" in without
 
     def test_a_windows_path_too(self):
-        sans = without_traces(r"échec sur C:\Users\quelqu-un\reunions\point.wav")
-        assert "quelqu-un" not in sans and "<chemin>" in sans
+        without = without_traces(r"échec sur C:\Users\quelqu-un\reunions\point.wav")
+        assert "quelqu-un" not in without and "<chemin>" in without
 
     def test_an_address_is_taken_out(self):
-        sans = without_traces("envoi refusé pour quelqu-un@exemple.fr")
-        assert "quelqu-un@exemple.fr" not in sans and "<adresse>" in sans
+        without = without_traces("envoi refusé pour quelqu-un@exemple.fr")
+        assert "quelqu-un@exemple.fr" not in without and "<adresse>" in without
 
     def test_what_carries_nothing_private_is_kept_whole(self):
         assert without_traces("le modèle a refusé le format") == "le modèle a refusé le format"
 
     def test_the_stripping_happens_on_the_filed_line(self):
-        ligne = Trouble("envoi", "pour quelqu-un@exemple.fr").line()
-        assert "exemple.fr" not in ligne
+        line = Trouble("envoi", "pour quelqu-un@exemple.fr").line()
+        assert "exemple.fr" not in line
 
 
 class TestLeFichierNeGrossitPas:

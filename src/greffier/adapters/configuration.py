@@ -200,7 +200,7 @@ class Speakers(BaseModel):
     )
     people: int | None = Field(default=None, validation_alias=AliasChoices("people", "personnes"))
 
-MODELES_CLAUDE: list[tuple[str, str]] = [
+CLAUDE_MODELS: list[tuple[str, str]] = [
     ("opus", "Opus, recommandé : la synthèse est excellente et le quota tient"),
     ("fable", "Fable : le haut de la gamme, plus coûteux pour un compte rendu identique"),
     ("sonnet", "Sonnet : plus léger et plus rapide, synthèse un peu moins fine"),
@@ -222,8 +222,8 @@ class Minutes(BaseModel):
     recipient: str = Field(default="", validation_alias=AliasChoices("recipient", "destinataire"))
     timeout: int = Field(default=1800, validation_alias=AliasChoices("timeout", "delai"))
 
-    CLAUDE_PAR_DEFAUT: ClassVar[str] = "opus"
-    OLLAMA_PAR_DEFAUT: ClassVar[str] = "qwen3:8b"
+    CLAUDE_DEFAULT: ClassVar[str] = "opus"
+    OLLAMA_DEFAULT: ClassVar[str] = "qwen3:8b"
 
     @property
     def effective_model(self) -> str:
@@ -231,9 +231,9 @@ class Minutes(BaseModel):
         if self.model:
             return self.model
         if self.engine == "claude":
-            return self.CLAUDE_PAR_DEFAUT
+            return self.CLAUDE_DEFAULT
         if self.engine == "ollama":
-            return self.OLLAMA_PAR_DEFAUT
+            return self.OLLAMA_DEFAULT
         return ""
 
 class Backup(BaseModel):
@@ -598,7 +598,7 @@ _HEADER = """# Configuration de Greffier.
 def config_path(folder: Path | None = None) -> Path:
     return (folder or config_folder()) / "config.toml"
 
-SOUS_MODELE: dict[str, str] = {
+SUB_MODEL: dict[str, str] = {
     "chemins": "paths",
     "direct": "live",
     "locuteurs": "speakers",
@@ -615,8 +615,8 @@ def _attribut(model: BaseModel, key: str) -> str:
     English: the validation alias is the link, and reading it here avoids keeping a
     second table up to date by hand.
     """
-    for name, champ in type(model).model_fields.items():
-        if key == name or key in _accepted_names(champ):
+    for name, field in type(model).model_fields.items():
+        if key == name or key in _accepted_names(field):
             return name
     return key
 
@@ -624,16 +624,16 @@ def render(config: Config) -> str:
     """The TOML contents of this configuration. Pure function, testable alone."""
     chunks = [_HEADER]
     for section, champs in SECTIONS.items():
-        model = getattr(config, SOUS_MODELE.get(section, section))
+        model = getattr(config, SUB_MODEL.get(section, section))
         lines = []
         if section in _COMMENTAIRES:
             lines.append(f"# {_COMMENTAIRES[section]}")
         lines.append(f"[{section}]")
-        for champ in champs:
-            value = getattr(model, _attribut(model, champ))
+        for field in champs:
+            value = getattr(model, _attribut(model, field))
             if value is None:
                 continue
-            lines.append(f"{champ} = {_value(value)}")
+            lines.append(f"{field} = {_value(value)}")
         chunks.append("\n".join(lines))
     return "\n\n".join(chunks) + "\n"
 

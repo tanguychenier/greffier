@@ -38,7 +38,7 @@ class HardwareWatch:
     """One watch pass, isolated from the clock and the hardware."""
 
     recorder: Recorder
-    lister: Lister
+    list_: Lister
     watch_rules: WatchRules
     reconstruire: Callable[[str], bool]
     notify_user: Callable[[str], None] = lambda _: None
@@ -66,7 +66,7 @@ class HardwareWatch:
         self._check_the_capture()
         self._check_the_level()
         self._check_the_room_left()
-        current = self.lister.read()
+        current = self.list_.read()
         if not current.devices:
             return
         if self._previous is None:

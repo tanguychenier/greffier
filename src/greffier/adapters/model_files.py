@@ -23,7 +23,7 @@ from pathlib import Path
 TELECHARGEMENT = 1800.0
 """Seconds allowed for one model. A 1.5 GB file on a slow line takes a while."""
 
-MORCEAU = 1 << 20
+CHUNK = 1 << 20
 """Read size. A megabyte keeps the progress smooth without thrashing."""
 
 REQUIS_PARTOUT = "voix"
@@ -59,10 +59,10 @@ class Model:
         Size matters: a download cut halfway leaves a file that exists and
         fails much later, at transcription time.
         """
-        cible = self.target(folder)
+        target = self.target(folder)
         if self.archive:
-            return cible.is_dir() and any(cible.iterdir())
-        return cible.exists() and cible.stat().st_size >= self.minimum
+            return target.is_dir() and any(target.iterdir())
+        return target.exists() and target.stat().st_size >= self.minimum
 
 
 CATALOGUE: tuple[Model, ...] = (
@@ -121,11 +121,11 @@ CATALOGUE: tuple[Model, ...] = (
 
 def missing(folder: Path, engine: str = "whisper.cpp") -> list[Model]:
     """The models this machine still needs, heaviest first."""
-    manquants = [
+    missing = [
         m for m in CATALOGUE
         if (not m.engine or m.engine == engine) and not m.present(folder)
     ]
-    return sorted(manquants, key=lambda m: -m.minimum)
+    return sorted(missing, key=lambda m: -m.minimum)
 
 
 def weight(models: list[Model]) -> str:
@@ -146,18 +146,18 @@ def fetch(
     must not leave a truncated model that fails much later, at transcription
     time.
     """
-    cible = model.target(folder)
-    cible.parent.mkdir(parents=True, exist_ok=True)
-    partiel = cible.with_suffix(cible.suffix + ".partiel")
+    target = model.target(folder)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    partiel = target.with_suffix(target.suffix + ".partiel")
     requete = urllib.request.Request(model.url, headers={"User-Agent": "Greffier"})
     try:
         with urllib.request.urlopen(requete, timeout=delai) as stream:
             total = int(stream.headers.get("Content-Length") or 0)
             recu = 0
             with partiel.open("wb") as output:
-                while morceau := stream.read(MORCEAU):
-                    output.write(morceau)
-                    recu += len(morceau)
+                while chunk := stream.read(CHUNK):
+                    output.write(chunk)
+                    recu += len(chunk)
                     if progress is not None:
                         progress(recu, total)
     except (urllib.error.URLError, TimeoutError):
@@ -168,11 +168,11 @@ def fetch(
         return (False, str(souci))
 
     if not model.archive:
-        partiel.replace(cible)
-        return (True, str(cible))
-    resultat = _deballer(partiel, model, folder)
+        partiel.replace(target)
+        return (True, str(target))
+    result = _deballer(partiel, model, folder)
     partiel.unlink(missing_ok=True)
-    return resultat
+    return result
 
 
 def _deballer(archive: Path, model: Model, folder: Path) -> tuple[bool, str]:
@@ -196,17 +196,17 @@ def _deballer(archive: Path, model: Model, folder: Path) -> tuple[bool, str]:
     if venu is None:
         _effacer(atelier)
         return (False, "archive vide")
-    cible = model.target(folder)
+    target = model.target(folder)
     with contextlib.suppress(OSError):
-        if cible.exists():
-            _effacer(cible)
+        if target.exists():
+            _effacer(target)
     try:
-        venu.replace(cible)
+        venu.replace(target)
     except OSError as souci:
         _effacer(atelier)
         return (False, str(souci))
     _effacer(atelier)
-    return (True, str(cible))
+    return (True, str(target))
 
 
 def _effacer(path: Path) -> None:

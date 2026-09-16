@@ -284,9 +284,9 @@ class TestAQuestionIsPutToTheRoomOnlyOnce:
 
         une = Question(number=1, text="J'ai entendu « merde ».",
                        motif=Reason.NEAR_TERM)
-        autre = Question(number=2, text="J'ai entendu « Spring ».",
+        other = Question(number=2, text="J'ai entendu « Spring ».",
                          motif=Reason.NEAR_TERM)
-        assert already_noted([une, autre], [note(une.text)]) == {1}
+        assert already_noted([une, other], [note(une.text)]) == {1}
 
     def test_an_empty_conversation_holds_nothing_back(self):
         from greffier.domain.questions import Question, Reason, already_noted
@@ -298,7 +298,7 @@ class TestAQuestionIsPutToTheRoomOnlyOnce:
     def test_the_three_of_the_real_meeting(self):
         from greffier.domain.questions import Question, Reason, already_noted, note
 
-        posees = [
+        asked = [
             Question(number=2, text="J'ai entendu « Spring ». Fallait-il "
                                     "comprendre « sprint » ?",
                      motif=Reason.NEAR_TERM, heard="Spring", expected="sprint"),
@@ -309,9 +309,9 @@ class TestAQuestionIsPutToTheRoomOnlyOnce:
                                     "comprendre « cachet » ?",
                      motif=Reason.NEAR_TERM, heard="cacher", expected="cachet"),
         ]
-        conversation = [note(question.text) for question in posees]
+        conversation = [note(question.text) for question in asked]
         conversation.append("[greffier] Le compte rendu est prêt.")
-        assert already_noted(posees, conversation) == {2, 3, 4}
+        assert already_noted(asked, conversation) == {2, 3, 4}
 
     def test_the_note_carries_the_question(self):
         from greffier.domain.questions import note

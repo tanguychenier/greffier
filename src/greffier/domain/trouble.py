@@ -34,12 +34,12 @@ class Trouble:
 
     def line(self, version: str = "", system: str = "") -> str:
         """The line as it is filed, already stripped of what is private."""
-        morceaux = [self.when.isoformat(timespec="seconds"), self.where, without_traces(self.what)]
+        chunks = [self.when.isoformat(timespec="seconds"), self.where, without_traces(self.what)]
         if version:
-            morceaux.insert(1, version)
+            chunks.insert(1, version)
         if system:
-            morceaux.insert(1, system)
-        return "\t".join(m.replace("\t", " ").replace("\n", " ") for m in morceaux if m)
+            chunks.insert(1, system)
+        return "\t".join(m.replace("\t", " ").replace("\n", " ") for m in chunks if m)
 
 def without_traces(what: str) -> str:
     """The sentence, minus the paths and the addresses it may carry.
@@ -47,8 +47,8 @@ def without_traces(what: str) -> str:
     A failure often quotes the file it failed on, and that file sits in
     somebody's account, under their name, next to the subject of a meeting.
     """
-    sans = _A_PATH.sub("<chemin>", what)
-    return _AN_ADDRESS.sub("<adresse>", sans).strip()
+    without = _A_PATH.sub("<chemin>", what)
+    return _AN_ADDRESS.sub("<adresse>", without).strip()
 
 def worth_keeping(lines: list[str], how_many: int = 200) -> list[str]:
     """The last incidents, the file never growing without end."""

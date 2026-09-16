@@ -37,10 +37,10 @@ from greffier.domain.models import (
 from greffier.domain.profiles.neutral import NEUTRAL
 from greffier.ports import outbound
 
-SEUIL_MUET_DB = -70.0
+SILENT_THRESHOLD_DB = -70.0
 
-COUVERTURE_BASSE = 0.80
-MOTS_MINIMUM = 20
+LOW_COVERAGE = 0.80
+MINIMUM_WORDS = 20
 
 #: Under this share of the speaking time, a voice that still passed the ten
 #: second floor is more likely a remnant of somebody else than an attendee.
@@ -48,7 +48,7 @@ MOTS_MINIMUM = 20
 #: (37 s, 25 s and 16 s out of 3 878) that were pieces of the others.
 THIN_VOICE_SHARE = 0.05
 
-AVERTISSEMENT_SANS_BOUCLE = "· boucle système muette, à préciser"
+SILENT_LOOP_MARK = "· boucle système muette, à préciser"
 
 SINGLE_TAKE_NOTE = (
     "Une seule prise de son pour toute la salle : aucun canal ne désigne qui "
@@ -87,9 +87,9 @@ class Outcome:
     propositions: dict[str, str] = field(default_factory=dict)
     minutes: str = ""
     envoye: bool = False
-    fichier_maitre: Path | None = None
+    master_file: Path | None = None
     transcript_written: Path | None = None
-    compte_rendu_ecrit: Path | None = None
+    minutes_written: Path | None = None
     warnings: list[str] = field(default_factory=list)
     hardware_events: list[str] = field(default_factory=list)
     profil: LanguageProfile = NEUTRAL
@@ -111,10 +111,10 @@ class Outcome:
 
     def speaking_time(self) -> dict[str, float]:
         """Seconds spoken per voice, most talkative first."""
-        cumul: dict[str, float] = {}
+        cumulated: dict[str, float] = {}
         for turn in self.turns:
-            cumul[turn.voice] = cumul.get(turn.voice, 0.0) + turn.span.duration
-        return dict(sorted(cumul.items(), key=lambda x: -x[1]))
+            cumulated[turn.voice] = cumulated.get(turn.voice, 0.0) + turn.span.duration
+        return dict(sorted(cumulated.items(), key=lambda x: -x[1]))
 
     @property
     def duration(self) -> float:
@@ -165,8 +165,8 @@ class Chain:
     notificateur: outbound.Notifier | None = None
     store: outbound.MeetingStore | None = None
     memory: outbound.Memory | None = None
-    dossier_transcriptions: Path | None = None
-    dossier_comptes_rendus: Path | None = None
+    transcripts_folder: Path | None = None
+    minutes_folder: Path | None = None
 
     language: str = "fr"
     prompt_seed: str = ""
@@ -183,7 +183,7 @@ class Chain:
     her_name: str = ""
     her_turns_of: Callable[[str], tuple[tuple[float, float], ...]] | None = None
     preparation_taken: Callable[[str], None] | None = None
-    _preparation_prise: bool = field(default=False, repr=False)
+    _preparation_taken: bool = field(default=False, repr=False)
 
     def _phase(self, phase: Phase, message: str = "") -> None:
         if self.log:
@@ -198,7 +198,7 @@ class Chain:
         levels = self.audio_recorder.levels(audio)
         if not levels:
             return
-        if all(level < SEUIL_MUET_DB for level in levels):
+        if all(level < SILENT_THRESHOLD_DB for level in levels):
             raise ChainStopped(
                 Phase.ECHEC,
                 "Enregistrement muet sur tous les canaux. "
@@ -206,22 +206,22 @@ class Chain:
             )
         if len(levels) == 1:
             outcome.one_take = True
-        elif levels[0] < SEUIL_MUET_DB:
+        elif levels[0] < SILENT_THRESHOLD_DB:
             outcome.warnings.append(
                 "Ton micro est resté muet : seuls les autres participants sont transcrits."
             )
-        elif max(levels[1:]) < SEUIL_MUET_DB:
-            outcome.warnings.append(AVERTISSEMENT_SANS_BOUCLE)
+        elif max(levels[1:]) < SILENT_THRESHOLD_DB:
+            outcome.warnings.append(SILENT_LOOP_MARK)
 
-    def _preciser_les_canaux(self, outcome: Outcome) -> None:
+    def _say_what_the_channels_meant(self, outcome: Outcome) -> None:
         """Says what the silence of the system loop meant.
 
         Several voices through the microphone alone is a room: the take was
         single, and the reader is told so. One voice is a video call that may
         have lost everybody else.
         """
-        if AVERTISSEMENT_SANS_BOUCLE in outcome.warnings:
-            outcome.warnings.remove(AVERTISSEMENT_SANS_BOUCLE)
+        if SILENT_LOOP_MARK in outcome.warnings:
+            outcome.warnings.remove(SILENT_LOOP_MARK)
             if len(outcome.significant_voices()) > 1:
                 outcome.one_take = True
             else:
@@ -234,20 +234,20 @@ class Chain:
 
     def _warn_about_coverage(self, outcome: Outcome) -> None:
         """Tells the user what the transcription lost."""
-        from greffier.application.render import COUVERTURE_SUSPECTE, TROU_SIGNIFICATIF
+        from greffier.application.render import SIGNIFICANT_GAP, SUSPECT_COVERAGE
 
         coverage = outcome.coverage
         if coverage <= 0:
             return
-        gaps = [t for t in outcome.gaps(TROU_SIGNIFICATIF) if t.duration >= TROU_SIGNIFICATIF]
+        gaps = [t for t in outcome.gaps(SIGNIFICANT_GAP) if t.duration >= SIGNIFICANT_GAP]
         perdu = sum(t.duration for t in gaps)
-        if coverage < COUVERTURE_SUSPECTE:
+        if coverage < SUSPECT_COVERAGE:
             outcome.warnings.append(
                 f"Couverture de {coverage * 100:.0f} % seulement : le modèle a "
                 "probablement décroché sur une partie de la réunion. Le compte rendu "
                 "en est averti, mais réécoute les passages qui te paraissent absents."
             )
-        elif coverage < COUVERTURE_BASSE:
+        elif coverage < LOW_COVERAGE:
             outcome.warnings.append(
                 f"Couverture de {coverage * 100:.0f} % : "
                 f"{perdu / 60:.0f} min sans aucun texte. Des silences peuvent "
@@ -331,8 +331,8 @@ class Chain:
             return {}
         known = self.bank.people()
         if self.expected_people:
-            attendus = {name.casefold() for name in self.expected_people}
-            known = [person for person in known if person.name.casefold() in attendus]
+            expected = {name.casefold() for name in self.expected_people}
+            known = [person for person in known if person.name.casefold() in expected]
         if not known:
             return {}
         found: dict[str, str] = {}
@@ -345,10 +345,10 @@ class Chain:
                 continue
             if sum(i.duration for i in intervalles) < MATERIAL_TO_RECOGNISE:
                 continue
-            extraits = self.extractor.extract_spans(audio, intervalles)
-            if not extraits:
+            excerpts = self.extractor.extract_spans(audio, intervalles)
+            if not excerpts:
                 continue
-            match = voix_domaine.recognise(voix_domaine.aggregate(extraits), known)
+            match = voix_domaine.recognise(voix_domaine.aggregate(excerpts), known)
             if match and match.sure:
                 found[voice] = match.name
         return found
@@ -357,7 +357,7 @@ class Chain:
         self,
         utterances: list[Utterance],
         turns: list[SpeakerTurn],
-        depuis_banque: dict[str, str],
+        from_bank: dict[str, str],
         outcome: Outcome,
     ) -> None:
         """Crosses the spoken names with the recognised voices.
@@ -374,7 +374,7 @@ class Chain:
         for voice in siennes:
             outcome.names[voice] = self.her_name
 
-        for voice, name in depuis_banque.items():
+        for voice, name in from_bank.items():
             if voice in siennes:
                 continue
             outcome.names[voice] = name
@@ -382,7 +382,7 @@ class Chain:
         for voice, found in attribution.certitudes.items():
             if voice in siennes:
                 continue
-            connu = depuis_banque.get(voice)
+            connu = from_bank.get(voice)
             if connu and connu.lower() != found.name.lower():
                 outcome.warnings.append(
                     f"La voix {voice} est reconnue comme {connu} mais nommée {found.name} "
@@ -414,14 +414,14 @@ class Chain:
         with contextlib.suppress(Exception):
             named = self.named_live(outcome.audio.stem)
         for voice, name in noms_domaine.from_live(named, turns).items():
-            autre = outcome.names.get(voice)
-            if autre is None:
+            other = outcome.names.get(voice)
+            if other is None:
                 outcome.names[voice] = name
                 outcome.propositions.pop(voice, None)
-            elif autre.casefold() != name.casefold():
+            elif other.casefold() != name.casefold():
                 outcome.warnings.append(
-                    f"La voix {voice} est reconnue comme {autre}, mais elle a "
-                    f"été nommée {name} pendant la réunion. C'est {autre} qui "
+                    f"La voix {voice} est reconnue comme {other}, mais elle a "
+                    f"été nommée {name} pendant la réunion. C'est {other} qui "
                     "a été retenu."
                 )
 
@@ -493,7 +493,7 @@ class Chain:
             r for r in brutes
             if not is_boilerplate(r.text, profil) and not is_an_annotation(r.text)
         ])
-        if outcome.words < MOTS_MINIMUM:
+        if outcome.words < MINIMUM_WORDS:
             raise ChainStopped(
                 Phase.ECHEC,
                 f"Transcription quasi vide ({outcome.words} mots) : "
@@ -507,7 +507,7 @@ class Chain:
         self._attach_voices(outcome.utterances, turns)
         self._attribute_names(outcome.utterances, turns, self._recognise(audio, turns), outcome)
         self._join_namesakes(outcome)
-        self._preciser_les_canaux(outcome)
+        self._say_what_the_channels_meant(outcome)
         self._warn_about_coverage(outcome)
         self._warn_about_attendees(outcome)
 
@@ -547,16 +547,16 @@ class Chain:
         outcome.minutes = self.writer.write_up(
             render_transcript(outcome, header)
         )
-        titre_ecrit = titre_du_compte_rendu(outcome.minutes, "")
-        if titre_ecrit:
+        written_title = titre_du_compte_rendu(outcome.minutes, "")
+        if written_title:
             outcome.subject = (
-                titre_ecrit.split(":", 1)[-1].strip() if ":" in titre_ecrit else titre_ecrit
+                written_title.split(":", 1)[-1].strip() if ":" in written_title else written_title
             )
 
         self._keep(audio, outcome)
 
         if send and self.sender and self.recipient:
-            self._phase(Phase.ENVOI, "Envoi du compte rendu…")
+            self._phase(Phase.SENDING, "Envoi du compte rendu…")
             try:
                 self._send(audio, outcome)
             except Exception as trouble:  # noqa: BLE001
@@ -603,28 +603,28 @@ class Chain:
         duration = outcome.turns[-1].span.end if outcome.turns else 0.0
         if self.store is not None:
             with contextlib.suppress(Exception):
-                garde = self.store.read(outcome.audio.stem).subject
-                if garde:
-                    outcome.subject = garde
-            outcome.fichier_maitre = self.store.record(
+                kept = self.store.read(outcome.audio.stem).subject
+                if kept:
+                    outcome.subject = kept
+            outcome.master_file = self.store.record(
                 _as_stored_meeting(outcome, duration))
-        if self.dossier_transcriptions is None:
+        if self.transcripts_folder is None:
             return
-        transcription = self.dossier_transcriptions / f"{audio.stem}.txt"
+        transcription = self.transcripts_folder / f"{audio.stem}.txt"
         transcription.parent.mkdir(parents=True, exist_ok=True)
         transcription.write_text(render_transcript(outcome), encoding="utf-8")
         outcome.transcript_written = transcription
-        if outcome.minutes and self.dossier_comptes_rendus is not None:
-            minutes = self.dossier_comptes_rendus / f"{audio.stem}.md"
+        if outcome.minutes and self.minutes_folder is not None:
+            minutes = self.minutes_folder / f"{audio.stem}.md"
             minutes.parent.mkdir(parents=True, exist_ok=True)
             minutes.write_text(outcome.minutes, encoding="utf-8")
-            outcome.compte_rendu_ecrit = minutes
+            outcome.minutes_written = minutes
         self._leave_a_trace(audio, outcome)
-        if self.preparation_taken is not None and not self._preparation_prise:
+        if self.preparation_taken is not None and not self._preparation_taken:
             # Once, and after the meeting is on disk. `_keep` runs twice -- once
             # before the minutes are written and once after -- and a processing
             # that fails halfway must burn no preparation at all.
-            self._preparation_prise = True
+            self._preparation_taken = True
             with contextlib.suppress(Exception):
                 self.preparation_taken(audio.stem)
 

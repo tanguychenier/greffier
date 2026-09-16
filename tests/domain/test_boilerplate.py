@@ -95,9 +95,9 @@ class TestTheTranscriberLoop:
     thread, sixty-five were repetition. Whisper does this on near-silence.
     """
 
-    def _loop(self, how_many: int, texte: str = "Est-ce que tu entends Lucie ?"):
+    def _loop(self, how_many: int, text: str = "Est-ce que tu entends Lucie ?"):
         return [
-            Utterance(span=Span(30.0 + i, 31.0 + i), text=texte)
+            Utterance(span=Span(30.0 + i, 31.0 + i), text=text)
             for i in range(how_many)
         ]
 
@@ -106,8 +106,8 @@ class TestTheTranscriberLoop:
 
     def test_the_kept_sentence_covers_the_whole_run(self):
         """Le passage a bien duré onze secondes : l'horodatage doit le dire."""
-        gardee = collapse_loops(self._loop(11))[0]
-        assert (gardee.span.start, gardee.span.end) == (30.0, 41.0)
+        kept_one = collapse_loops(self._loop(11))[0]
+        assert (kept_one.span.start, kept_one.span.end) == (30.0, 41.0)
 
     def test_twice_in_a_row_is_a_person(self):
         """Somebody repeats themselves, or two slices overlap. Left untouched."""

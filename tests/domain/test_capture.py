@@ -50,8 +50,8 @@ class TestWhenTheCaptureStops:
             monitoring.observe(5000)
         assert monitoring.observe(9000) == "", "ça repart : plus rien à dire"
         for _ in range(TURNS_BEFORE_ALERT):
-            dernier = monitoring.observe(9000)
-        assert dernier, "une seconde panne doit se dire aussi"
+            last = monitoring.observe(9000)
+        assert last, "une seconde panne doit se dire aussi"
 
     def test_a_file_that_shrinks_counts_as_still(self):
         """It does not happen normally, so it must not pass unnoticed."""

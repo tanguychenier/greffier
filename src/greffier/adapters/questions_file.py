@@ -9,8 +9,8 @@ from pathlib import Path
 
 from greffier.domain.questions import Question, Reason
 
-GENRE_QUESTION = "question"
-GENRE_REPONSE = "reponse"
+KIND_QUESTION = "question"
+KIND_ANSWER = "reponse"
 
 @dataclass(frozen=True, slots=True)
 class Pending:
@@ -29,7 +29,7 @@ def publish(file: Path, question: Question) -> None:
     """Appends a question to the queue. Never overwrites."""
     file.parent.mkdir(parents=True, exist_ok=True)
     line = {
-        "genre": GENRE_QUESTION,
+        "genre": KIND_QUESTION,
         "numero": question.number,
         "texte": question.text,
         "motif": str(question.motif),
@@ -44,7 +44,7 @@ def answer(file: Path, number: int, response: str) -> None:
     file.parent.mkdir(parents=True, exist_ok=True)
     with file.open("a", encoding="utf-8") as stream:
         stream.write(json.dumps(
-            {"genre": GENRE_REPONSE, "numero": number, "reponse": response},
+            {"genre": KIND_ANSWER, "numero": number, "reponse": response},
             ensure_ascii=False,
         ) + "\n")
 
@@ -64,7 +64,7 @@ def read(file: Path) -> tuple[list[Pending], dict[int, str]]:
                 continue
             if not isinstance(line, dict):
                 continue
-            if line.get("genre") == GENRE_QUESTION:
+            if line.get("genre") == KIND_QUESTION:
                 with contextlib.suppress(ValueError, KeyError):
                     questions[int(line["numero"])] = Question(
                         number=int(line["numero"]),
@@ -73,7 +73,7 @@ def read(file: Path) -> tuple[list[Pending], dict[int, str]]:
                         heard=str(line.get("entendu", "")),
                         expected=str(line.get("attendu", "")),
                     )
-            elif line.get("genre") == GENRE_REPONSE:
+            elif line.get("genre") == KIND_ANSWER:
                 with contextlib.suppress(ValueError, KeyError):
                     answers[int(line["numero"])] = str(line.get("reponse", ""))
     awaiting = [
@@ -86,14 +86,14 @@ def read(file: Path) -> tuple[list[Pending], dict[int, str]]:
 def keys_already_placed(file: Path) -> set[str]:
     """What it takes not to ask a question again after a restart."""
     awaiting, _ = read(file)
-    asked = {en_attente.question.key for en_attente in awaiting}
+    asked = {waiting.question.key for waiting in awaiting}
     if not file.exists():
         return asked
     with contextlib.suppress(OSError):
         for brute in file.read_text(encoding="utf-8").splitlines():
             with contextlib.suppress(json.JSONDecodeError, ValueError, KeyError):
                 line = json.loads(brute)
-                if isinstance(line, dict) and line.get("genre") == GENRE_QUESTION:
+                if isinstance(line, dict) and line.get("genre") == KIND_QUESTION:
                     asked.add(Question(
                         number=int(line["numero"]),
                         text=str(line.get("texte", "")),

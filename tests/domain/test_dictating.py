@@ -10,44 +10,44 @@ from __future__ import annotations
 from greffier.domain.dictating import SILENCE_DB, Take
 
 
-def _parle(prise: Take, secondes: float, pas: float = 0.2) -> None:
+def _parle(take: Take, secondes: float, pas: float = 0.2) -> None:
     for _ in range(int(secondes / pas)):
-        prise.heard(-20.0, pas)
+        take.heard(-20.0, pas)
 
 
-def _se_tait(prise: Take, secondes: float, pas: float = 0.2) -> None:
+def _se_tait(take: Take, secondes: float, pas: float = 0.2) -> None:
     for _ in range(int(secondes / pas)):
-        prise.heard(-60.0, pas)
+        take.heard(-60.0, pas)
 
 
 class TestWhenItEnds:
     def test_speech_then_silence_ends_it(self):
-        prise = Take()
-        _parle(prise, 2.0)
-        assert not prise.over
-        _se_tait(prise, 1.6)
-        assert prise.over
+        take = Take()
+        _parle(take, 2.0)
+        assert not take.over
+        _se_tait(take, 1.6)
+        assert take.over
 
     def test_a_pause_inside_a_sentence_does_not(self):
         """French carries pauses of nearly a second between two words."""
-        prise = Take()
-        _parle(prise, 2.0)
-        _se_tait(prise, 0.8)
-        assert not prise.over
-        _parle(prise, 1.0)
-        assert not prise.over
+        take = Take()
+        _parle(take, 2.0)
+        _se_tait(take, 0.8)
+        assert not take.over
+        _parle(take, 1.0)
+        assert not take.over
 
     def test_somebody_who_says_nothing_is_not_finished(self):
         """They are thinking, or the microphone is the wrong one."""
-        prise = Take()
-        _se_tait(prise, 10.0)
-        assert not prise.over
+        take = Take()
+        _se_tait(take, 10.0)
+        assert not take.over
 
     def test_a_first_word_cut_by_its_own_breath_is_not_the_end(self):
-        prise = Take()
-        _parle(prise, 0.4)
-        _se_tait(prise, 2.0)
-        assert not prise.over, "moins d'une seconde de prise : rien à transcrire"
+        take = Take()
+        _parle(take, 0.4)
+        _se_tait(take, 2.0)
+        assert not take.over, "moins d'une seconde de prise : rien à transcrire"
 
     def test_the_floor_is_below_speech_and_above_a_room(self):
         """Measured on the meters: speech -30 to -12, a quiet room -60 to -50."""

@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from greffier.application.follow import TRANCHE_MINIMALE_S, Follower, Position
+from greffier.application.follow import SLICE_MINIMUM_S, Follower, Position
 from greffier.application.take_part import AssistantSettings
 from greffier.domain.instructions import Suggestion, WatchRules
 from greffier.domain.models import Span, Utterance
@@ -25,7 +25,7 @@ from greffier.ports import outbound
 
 SYSTEM = platform.system()
 
-ATTENDENT_UNE_REPONSE = frozenset({
+AWAITING_AN_ANSWER = frozenset({
     Because.INDISTINCT_VOICE,
     Because.DECISION_WITHOUT_FOLLOW_UP,
     Because.QUESTION_WITHOUT_ANSWER,
@@ -33,11 +33,11 @@ ATTENDENT_UNE_REPONSE = frozenset({
     Because.CONTRIBUTION,
 })
 
-PERIODE_PRESSE_PAPIER = 2.0
+CLIPBOARD_PERIOD = 2.0
 SLICE_PERIOD = 30.0
 OVERLAP = 5.0
-TRANCHE_MAXIMALE = 90.0
-CONTEXTE_S = 50.0
+SLICE_MAXIMUM = 90.0
+CONTEXT_S = 50.0
 
 #: How often the watch listens for its own name between two full slices, and how
 #: much audio it reads for it. Measured on a real machine: a full slice carries
@@ -114,7 +114,7 @@ class Watcher:
     language: str = "fr"
     interrogate: Callable[[str], None] | None = None
     prompt_seed: str = ""
-    relire_l_amorce: Callable[[], str] | None = None
+    reread_the_seed: Callable[[], str] | None = None
     assistant_of: AssistantSettings | None = None
     reread_participation: Callable[[], tuple[bool, bool]] | None = None
     give_voice_back: Callable[[], Any] | None = None
@@ -127,10 +127,10 @@ class Watcher:
 
     def _current_prompt_seed(self) -> str:
         """The seed for this slice, context re-read if it changed."""
-        if self.relire_l_amorce is None:
+        if self.reread_the_seed is None:
             return self.prompt_seed
         try:
-            fraiche = self.relire_l_amorce()
+            fraiche = self.reread_the_seed()
         except OSError:
             return self.prompt_seed
         if fraiche and fraiche != self.prompt_seed:
@@ -159,7 +159,7 @@ class Watcher:
         return fresh
 
     def transcription_turn(
-        self, ou: Position, job: Path, laisser_parler: bool = True
+        self, ou: Position, job: Path, let_speak: bool = True
     ) -> list[Suggestion]:
         """Transcribes what has been recorded since the last slice.
 
@@ -171,25 +171,25 @@ class Watcher:
         """
         if self.transcriber is None:
             return []
-        start = max(0.0, self.traite - ou.offset - OVERLAP, ou.written - TRANCHE_MAXIMALE)
-        if ou.written - start < TRANCHE_MINIMALE_S:
+        start = max(0.0, self.traite - ou.offset - OVERLAP, ou.written - SLICE_MAXIMUM)
+        if ou.written - start < SLICE_MINIMUM_S:
             return []
-        slice_ = extract_slice(ou.morceau, start, ou.written, job / "tranche.wav")
+        slice_ = extract_slice(ou.chunk, start, ou.written, job / "tranche.wav")
         if slice_ is None:
             return []
-        depart = max(0.0, start - CONTEXTE_S)
-        avec_contexte = slice_ if depart >= start else (
-            extract_slice(ou.morceau, depart, ou.written, job / "fenetre.wav")
+        depart = max(0.0, start - CONTEXT_S)
+        with_context = slice_ if depart >= start else (
+            extract_slice(ou.chunk, depart, ou.written, job / "fenetre.wav")
             or slice_
         )
-        a_transcrire = avec_contexte
+        to_transcribe = with_context
         if self.preparateur is not None:
-            a_transcrire = self.preparateur.prepare_transcript(
-                avec_contexte, job / "tranche-niveau.wav"
+            to_transcribe = self.preparateur.prepare_transcript(
+                with_context, job / "tranche-niveau.wav"
             )
         try:
             utterances = self.transcriber.transcribe(
-                a_transcrire, self.language, self._current_prompt_seed()
+                to_transcribe, self.language, self._current_prompt_seed()
             )
         except (RuntimeError, OSError):
             return []
@@ -213,7 +213,7 @@ class Watcher:
         self.publish(fresh)
         if self.follower is not None:
             self.follower.take_in(slice_, utterances, offset)
-        if laisser_parler:
+        if let_speak:
             self.assistant_turn(recalees, self.traite)
         return fresh
 
@@ -238,14 +238,14 @@ class Watcher:
             return
         self._last_listened = ou.overall
         start = max(0.0, ou.written - LISTENING_S)
-        if ou.written - start < TRANCHE_MINIMALE_S:
+        if ou.written - start < SLICE_MINIMUM_S:
             return
-        morceau = extract_slice(ou.morceau, start, ou.written, job / "ecoute.wav")
-        if morceau is None:
+        chunk = extract_slice(ou.chunk, start, ou.written, job / "ecoute.wav")
+        if chunk is None:
             return
         try:
-            entendu = self.transcriber.transcribe(
-                morceau, self.language, self._current_prompt_seed()
+            heard = self.transcriber.transcribe(
+                chunk, self.language, self._current_prompt_seed()
             )
         except (RuntimeError, OSError):
             return
@@ -255,7 +255,7 @@ class Watcher:
                 span=Span(r.span.start + offset, r.span.end + offset),
                 text=r.text, voice=r.voice, source=r.source,
             )
-            for r in entendu
+            for r in heard
         ]
         self.assistant_turn(recalees, ou.overall, only_when_called=True)
 
@@ -277,20 +277,20 @@ class Watcher:
         if self.reread_participation is not None:
             with contextlib.suppress(OSError):
                 self._apply_the_buttons(*self.reread_participation())
-        retenue = self.assistant_of.turn(
+        retained = self.assistant_of.turn(
             utterances, now,
             turns=self._turn_bounds(),
             occasions=[] if only_when_called else self._voices_to_ask_about(now),
         )
-        if retenue is None:
+        if retained is None:
             if self.initiative and not only_when_called:
                 self.assistant_of.look_for_a_contribution_aside(now)
             return
-        if retenue.because in ATTENDENT_UNE_REPONSE:
-            self.assistant_of.awaiting = retenue
-        self.assistant_of.answer_aside(retenue, now)
+        if retained.because in AWAITING_AN_ANSWER:
+            self.assistant_of.awaiting = retained
+        self.assistant_of.answer_aside(retained, now)
 
-    def _apply_the_buttons(self, a_voix_haute: bool, de_lui_meme: bool) -> None:
+    def _apply_the_buttons(self, out_loud: bool, de_lui_meme: bool) -> None:
         """Follows the window's two buttons, without restarting anything.
 
         Going quiet is immediate, current sentence included. The initiative is re-read
@@ -301,10 +301,10 @@ class Watcher:
             return
         lui = self.assistant_of
         self.initiative = de_lui_meme
-        if not a_voix_haute and lui.voice is not None:
+        if not out_loud and lui.voice is not None:
             lui.voice.go_quiet()
             lui.voice = None
-        elif a_voix_haute and lui.voice is None and self.give_voice_back is not None:
+        elif out_loud and lui.voice is None and self.give_voice_back is not None:
             lui.voice = self.give_voice_back()
 
     def _turn_bounds(self) -> list[tuple[float, float]]:
@@ -338,7 +338,7 @@ class Watcher:
                 self.transcription_turn(ou, job)
             elif ou is not None:
                 self.listening_turn(ou, job)
-            pause(PERIODE_PRESSE_PAPIER)
+            pause(CLIPBOARD_PERIOD)
         self.last_pass(job)
         if self.assistant_of is not None:
             self.assistant_of.stop()
@@ -347,9 +347,9 @@ class Watcher:
     def last_pass(self, job: Path) -> list[Suggestion]:
         """Transcribes what was left when the meeting stopped."""
         ou = self.situer() if self.situer is not None else None
-        if ou is None or ou.overall - self.traite < TRANCHE_MINIMALE_S:
+        if ou is None or ou.overall - self.traite < SLICE_MINIMUM_S:
             return []
-        return self.transcription_turn(ou, job, laisser_parler=False)
+        return self.transcription_turn(ou, job, let_speak=False)
 
     def _is_time(self, ou: Position) -> bool:
         """Is it time to transcribe?"""
@@ -358,4 +358,4 @@ class Watcher:
         self.vu = ou.written
         if avance >= self.slice_period:
             return True
-        return stagne and avance >= TRANCHE_MINIMALE_S
+        return stagne and avance >= SLICE_MINIMUM_S

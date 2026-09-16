@@ -99,32 +99,32 @@ class StoredMeeting:
         replie = name.casefold()
         return [v for v, porte in self.names.items() if porte.casefold() == replie]
 
-    def join_into(self, absorbee: str, gardee: str) -> int:
+    def join_into(self, absorbed_one: str, kept_one: str) -> int:
         """Pours every turn and utterance of one voice into another.
 
         Records what it takes to undo it: which turns and which utterances
         moved, and what the absorbed voice was called.
         """
-        if absorbee == gardee:
+        if absorbed_one == kept_one:
             return 0
-        rangs = tuple(i for i, t in enumerate(self.turns) if t.voice == absorbee)
+        rangs = tuple(i for i, t in enumerate(self.turns) if t.voice == absorbed_one)
         dits = tuple(
-            i for i, u in enumerate(self.utterances) if u.voice == absorbee
+            i for i, u in enumerate(self.utterances) if u.voice == absorbed_one
         )
         self.joins.append(Join(
-            absorbed=absorbee, kept=gardee, turns=rangs, utterances=dits,
-            name=self.names.get(absorbee),
-            proposition=self.propositions.get(absorbee),
+            absorbed=absorbed_one, kept=kept_one, turns=rangs, utterances=dits,
+            name=self.names.get(absorbed_one),
+            proposition=self.propositions.get(absorbed_one),
         ))
         self.turns = [
-            replace(turn, voice=gardee) if turn.voice == absorbee else turn
+            replace(turn, voice=kept_one) if turn.voice == absorbed_one else turn
             for turn in self.turns
         ]
         for utterance in self.utterances:
-            if utterance.voice == absorbee:
-                utterance.voice = gardee
-        self.names.pop(absorbee, None)
-        self.propositions.pop(absorbee, None)
+            if utterance.voice == absorbed_one:
+                utterance.voice = kept_one
+        self.names.pop(absorbed_one, None)
+        self.propositions.pop(absorbed_one, None)
         return len(rangs)
 
     def can_split(self, kept: str) -> bool:
@@ -189,7 +189,7 @@ class StoredMeeting:
         return [t.span for t in self.turns if t.voice == voice]
 
     def speaking_time(self) -> dict[str, float]:
-        cumul: dict[str, float] = {}
+        cumulated: dict[str, float] = {}
         for turn in self.turns:
-            cumul[turn.voice] = cumul.get(turn.voice, 0.0) + turn.span.duration
-        return dict(sorted(cumul.items(), key=lambda x: -x[1]))
+            cumulated[turn.voice] = cumulated.get(turn.voice, 0.0) + turn.span.duration
+        return dict(sorted(cumulated.items(), key=lambda x: -x[1]))

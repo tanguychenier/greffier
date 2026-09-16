@@ -39,9 +39,9 @@ def fichiers_python() -> list[pathlib.Path]:
 class TestTheStandardLibraryIsCalledByItsRealNames:
     def test_no_call_to_a_function_that_does_not_exist(self):
         charges = {}
-        for nom in STANDARD:
+        for name in STANDARD:
             try:
-                charges[nom] = importlib.import_module(nom)
+                charges[name] = importlib.import_module(name)
             except ImportError:  # pragma: no cover, dépend du système
                 continue
 
@@ -73,20 +73,20 @@ class TestTheCodeQuotedInsideStringsStillResolves:
             arbre = ast.parse(p.read_text(encoding="utf-8"))
             for n in ast.walk(arbre):
                 if isinstance(n, ast.Constant) and isinstance(n.value, str):
-                    for module, nom in self.MOTIF.findall(n.value):
-                        yield p, n.lineno, module, nom
+                    for module, name in self.MOTIF.findall(n.value):
+                        yield p, n.lineno, module, name
 
     def test_every_quoted_import_names_something_that_exists(self):
         fautes = []
-        for p, ligne, module, nom in self._citations():
+        for p, line, module, name in self._citations():
             try:
                 charge = importlib.import_module(module)
             except ImportError as trouble:
-                fautes.append(f"{p.relative_to(RACINE)}:{ligne} {module} : {trouble}")
+                fautes.append(f"{p.relative_to(RACINE)}:{line} {module} : {trouble}")
                 continue
-            if not hasattr(charge, nom):
+            if not hasattr(charge, name):
                 fautes.append(
-                    f"{p.relative_to(RACINE)}:{ligne} {module}.{nom} n'existe pas"
+                    f"{p.relative_to(RACINE)}:{line} {module}.{name} n'existe pas"
                 )
         assert not fautes, "\n".join(fautes)
 

@@ -29,8 +29,8 @@ def _answer(text: str) -> dict:
 
 
 class FakeProcess:
-    def __init__(self, sortie: str, code: int = 0):
-        self.stdout = iter(sortie.splitlines(keepends=True))
+    def __init__(self, output_: str, code: int = 0):
+        self.stdout = iter(output_.splitlines(keepends=True))
         self.stderr = _Err()
         self.returncode = code
 
@@ -51,10 +51,10 @@ def sonne(monkeypatch):
     """A writer whose call is replayed from a recorded stream."""
     sonneries: list[int] = []
 
-    def writer(sortie: str, code: int = 0) -> ClaudeWriter:
+    def writer(output_: str, code: int = 0) -> ClaudeWriter:
         monkeypatch.setattr("shutil.which", lambda _: "/usr/bin/claude")
         monkeypatch.setattr(
-            "subprocess.Popen", lambda *a, **k: FakeProcess(sortie, code)
+            "subprocess.Popen", lambda *a, **k: FakeProcess(output_, code)
         )
         return ClaudeWriter(on_search=lambda: sonneries.append(1))
 

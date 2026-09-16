@@ -24,7 +24,7 @@ Camille : très bien. On enchaîne sur le point suivant.
 Dominique : d'accord.
 """
 
-SANS_RESPONSABLE = """Camille : donc on est d'accord, on migre la base en Symfony 7
+WITHOUT_OWNER = """Camille : donc on est d'accord, on migre la base en Symfony 7
 avant la recette.
 Dominique : oui, c'est acté.
 Camille : parfait. Sujet suivant, les congés d'été.
@@ -55,7 +55,7 @@ def test_an_ordinary_meeting_does_not_get_a_word_out_of_it():
 
 
 def test_a_decision_with_nobody_to_carry_it_makes_it_speak():
-    opening = _assistant(SANS_RESPONSABLE).contribution(now=600.0)
+    opening = _assistant(WITHOUT_OWNER).contribution(now=600.0)
     assert opening is not None
     assert "?" in opening.remark
 
@@ -67,14 +67,14 @@ def test_a_question_left_hanging_makes_it_speak():
 
 def test_it_looks_for_nothing_while_it_rests():
     """One call to the model every ten seconds, for a silence."""
-    lui = _assistant(SANS_RESPONSABLE)
+    lui = _assistant(WITHOUT_OWNER)
     lui.manners.spoke_at = 590.0
     assert lui.contribution(now=600.0) is None
 
 
 def test_what_it_says_is_pronounced(monkeypatch):
     """No title, no list, no address: all of that would be read out loud."""
-    opening = _assistant(SANS_RESPONSABLE).contribution(now=600.0)
+    opening = _assistant(WITHOUT_OWNER).contribution(now=600.0)
     assert opening is not None
     remark = opening.remark
     assert "\n" not in remark.strip()

@@ -47,13 +47,13 @@ def salles(tmp_path_factory, config):
         pytest.skip(hors)
     import make_room_cases
 
-    dossier = tmp_path_factory.mktemp("salles")
+    folder = tmp_path_factory.mktemp("salles")
     from make_meeting import make
 
-    propre = make(dossier / "propre.wav")
-    faites = {"propre": propre}
-    for nom, fabrique in make_room_cases.CAS.items():
-        faites[nom] = fabrique(propre, dossier / f"{nom}.wav")
+    clean = make(folder / "propre.wav")
+    faites = {"propre": clean}
+    for name, fabrique in make_room_cases.CAS.items():
+        faites[name] = fabrique(clean, folder / f"{name}.wav")
     return faites
 
 
@@ -103,7 +103,7 @@ class TestLaSalleNeFabriquePasDeMonde:
     ):
         """It exists as a voice, and is not announced as an identified
         person: under six seconds, nothing allows saying so."""
-        parle = _voices(config, salles["tard"])
-        assert len(parle) == 2
-        montrees = [s for s in parle.values() if s >= IDENTIFIABLE_SECONDS]
+        spoke = _voices(config, salles["tard"])
+        assert len(spoke) == 2
+        montrees = [s for s in spoke.values() if s >= IDENTIFIABLE_SECONDS]
         assert len(montrees) == 1

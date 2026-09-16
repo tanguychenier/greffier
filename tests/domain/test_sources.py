@@ -5,7 +5,7 @@ import pytest
 from greffier.domain.sources import Kind, Registry, Right, Source
 
 
-def gitlab(name: str = "recherche", droit: Right = Right.LECTURE) -> Source:
+def gitlab(name: str = "recherche", droit: Right = Right.READING) -> Source:
     return Source(
         name=name, kind=Kind.GITLAB, adresse="https://gitlab.example.fr",
         project="equipe/outil", droit=droit, token="GREFFIER_GITLAB_JETON",
@@ -33,7 +33,7 @@ class TestASourceThatCannotBe:
 class TestRights:
     def test_read_only_is_the_default(self):
         """The case that helps without risking anything."""
-        assert gitlab().droit is Right.LECTURE
+        assert gitlab().droit is Right.READING
         assert not gitlab().can_write
 
     def test_writing_is_granted_source_by_source(self):
@@ -68,9 +68,9 @@ class TestWhatIsAllowed:
         assert permis
 
     def test_a_source_with_no_token_is_refused(self):
-        sans = Source(name="x", kind=Kind.JIRA, adresse="https://x.fr",
+        without = Source(name="x", kind=Kind.JIRA, adresse="https://x.fr",
                       project="PROJ", token="")
-        permis, because = Registry([sans]).allowed("x", ecriture=False)
+        permis, because = Registry([without]).allowed("x", ecriture=False)
         assert not permis
         assert "jeton" in because
 

@@ -38,7 +38,7 @@ def ffmpeg(monkeypatch):
     processus = FauxProcessus()
     monkeypatch.setattr(
         "subprocess.Popen",
-        lambda commande, **k: lances.append(commande) or processus,
+        lambda command, **k: lances.append(command) or processus,
     )
     return lances, processus
 

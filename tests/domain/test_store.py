@@ -14,24 +14,24 @@ from greffier.domain.store import (
     summarise,
 )
 
-TOUS = frozenset({"ffmpeg", "pdftotext", "textutil"})
+ALL = frozenset({"ffmpeg", "pdftotext", "textutil"})
 
 
 class TestSounds:
     def test_a_recording_becomes_a_meeting(self):
-        propose = offer(Path("reunion.wav"), 50_000_000, TOUS)
+        propose = offer(Path("reunion.wav"), 50_000_000, ALL)
         assert propose.destination is Destination.MEETING
         assert propose.feasible
 
     def test_the_common_formats_are_recognised(self):
         for suffixe in (".wav", ".m4a", ".mp3", ".opus", ".flac"):
             assert offer(
-                Path(f"x{suffixe}"), 50_000_000, TOUS
+                Path(f"x{suffixe}"), 50_000_000, ALL
             ).destination is Destination.MEETING
 
     def test_too_short_a_sound_is_not_a_meeting(self):
         """Une notification système, un bip, un extrait."""
-        propose = offer(Path("bip.wav"), MINIMUM_SOUND_SIZE - 1, TOUS)
+        propose = offer(Path("bip.wav"), MINIMUM_SOUND_SIZE - 1, ALL)
         assert propose.destination is Destination.UNKNOWN
         assert "trop court" in propose.because
 
@@ -42,7 +42,7 @@ class TestSounds:
 
 class TestVideos:
     def test_a_teams_recording_is_recognised(self):
-        propose = offer(Path("Teams-2026-09-09.mp4"), 800_000_000, TOUS)
+        propose = offer(Path("Teams-2026-09-09.mp4"), 800_000_000, ALL)
         assert propose.destination is Destination.VIDEO
         assert propose.feasible
 
@@ -62,7 +62,7 @@ class TestDocumentsToFile:
 
     def test_a_pdf_asks_for_a_tool(self):
         assert offer(Path("x.pdf"), 2_000_000, frozenset()).blocked_by
-        assert offer(Path("x.pdf"), 2_000_000, TOUS).feasible
+        assert offer(Path("x.pdf"), 2_000_000, ALL).feasible
 
     def test_an_office_document_asks_for_textutil(self):
         propose = offer(Path("x.docx"), 40_000, frozenset())
@@ -71,25 +71,25 @@ class TestDocumentsToFile:
 
 class TestWhatCannotBeFiled:
     def test_a_data_export_is_called_unknown(self):
-        propose = offer(Path("export.csv"), 10_000, TOUS)
+        propose = offer(Path("export.csv"), 10_000, ALL)
         assert propose.destination is Destination.UNKNOWN
         assert ".csv" in propose.because
 
     def test_a_file_with_no_extension(self):
-        propose = offer(Path("machin"), 1_000, TOUS)
+        propose = offer(Path("machin"), 1_000, ALL)
         assert propose.destination is Destination.UNKNOWN
         assert "sans extension" in propose.because
 
     def test_the_unknown_is_never_feasible(self):
-        assert not offer(Path("x.zip"), 1_000, TOUS).feasible
+        assert not offer(Path("x.zip"), 1_000, ALL).feasible
 
 
 class TestTheSummaryOfABatch:
     def test_it_says_what_the_batch_will_become(self):
         propositions = [
-            offer(Path("a.wav"), 50_000_000, TOUS),
-            offer(Path("b.mp4"), 50_000_000, TOUS),
-            offer(Path("c.md"), 4_000, TOUS),
+            offer(Path("a.wav"), 50_000_000, ALL),
+            offer(Path("b.mp4"), 50_000_000, ALL),
+            offer(Path("c.md"), 4_000, ALL),
         ]
         sentence = summarise(propositions)
         assert "réunion" in sentence and "vidéo" in sentence and "contexte" in sentence

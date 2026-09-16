@@ -53,8 +53,8 @@ def recorder(tmp_path, monkeypatch, audio_recorder):
     )
     return Recording(
         audio_recorder=audio_recorder,
-        dossier_audio=tmp_path / "enregistrements",
-        fichier_etat=tmp_path / "etat.json",
+        audio_folder=tmp_path / "enregistrements",
+        state_file=tmp_path / "etat.json",
     )
 
 
@@ -121,8 +121,8 @@ class TestTheRecordingCycle:
         recorder.start_recording("copil")
         other = Recording(
             audio_recorder=FakeRecorder(),
-            dossier_audio=tmp_path / "enregistrements",
-            fichier_etat=tmp_path / "etat.json",
+            audio_folder=tmp_path / "enregistrements",
+            state_file=tmp_path / "etat.json",
         )
         assert other.read().name == "copil"
         assert other.read().phase is Phase.RECORDING
@@ -140,8 +140,8 @@ class TestTheRecordingCycle:
         recorder.start_recording("muet")
         state = recorder.read()
         # The captured audio lives in the chunks: that is where to look.
-        for morceau in state.chunks:
-            morceau.write_bytes(b"")
+        for chunk in state.chunks:
+            chunk.write_bytes(b"")
         with pytest.raises(RuntimeError, match="vide"):
             recorder.stop_recording()
 
@@ -222,8 +222,8 @@ class TestWhatMustNotBreak:
         assert "conservé" in state.message
 
     def test_a_damaged_state_file_does_not_block(self, recorder):
-        recorder.fichier_etat.parent.mkdir(parents=True, exist_ok=True)
-        recorder.fichier_etat.write_text("{ pas du json", encoding="utf-8")
+        recorder.state_file.parent.mkdir(parents=True, exist_ok=True)
+        recorder.state_file.write_text("{ pas du json", encoding="utf-8")
         assert recorder.read().phase is Phase.REST
 
     def test_the_chain_publishes_its_progress_in_the_same_file(self, recorder):
@@ -406,8 +406,8 @@ class TestAStateFrozenByADeadProcess:
     def _state_of(self, tmp_path, phase, pid):
         recorder = Recording(
             audio_recorder=FakeRecorder(),
-            dossier_audio=tmp_path / "audio",
-            fichier_etat=tmp_path / "etat.json",
+            audio_folder=tmp_path / "audio",
+            state_file=tmp_path / "etat.json",
         )
         depart = recorder.read()
         depart.phase = Phase(phase)

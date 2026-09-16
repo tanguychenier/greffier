@@ -12,23 +12,23 @@ from pathlib import Path
 
 SYSTEM = platform.system()
 
-SILENCE_NUMERIQUE = -120.0
+DIGITAL_SILENCE = -120.0
 
 _LEVEL = re.compile(r"RMS level dB: (-?[\d.]+|-inf)")
 
 class FfmpegRecorder:
-    def __init__(self, peripherique: str, maximum_length: int = 14_400) -> None:
-        self.peripherique = peripherique
+    def __init__(self, device: str, maximum_length: int = 14_400) -> None:
+        self.device = device
         self.maximum_length = maximum_length
 
     def _input(self) -> list[str]:
         if SYSTEM == "Darwin":
             return ["-f", "avfoundation", "-i", f":{self._avfoundation_index()}"]
         if SYSTEM == "Linux":
-            return ["-f", "pulse", "-i", self.peripherique]
-        return ["-f", "dshow", "-i", f"audio={self.peripherique}"]
+            return ["-f", "pulse", "-i", self.device]
+        return ["-f", "dshow", "-i", f"audio={self.device}"]
 
-    def _index_of(self, peripherique: str) -> str:
+    def _index_of(self, device: str) -> str:
         """The avfoundation index of a named input."""
         output = subprocess.run(
             ["ffmpeg", "-hide_banner", "-f", "avfoundation", "-list_devices", "true", "-i", ""],
@@ -37,9 +37,9 @@ class FfmpegRecorder:
         audio = output.split("AVFoundation audio devices")[-1]
         for line in audio.splitlines():
             found = re.search(r"\[(\d+)\] (.+)$", line)
-            if found and found.group(2).strip() == peripherique:
+            if found and found.group(2).strip() == device:
                 return found.group(1)
-        raise RuntimeError(f"Périphérique « {peripherique} » introuvable.")
+        raise RuntimeError(f"Périphérique « {device} » introuvable.")
 
     def _avfoundation_index(self) -> str:
         """The device's index in avfoundation's list."""
@@ -50,10 +50,10 @@ class FfmpegRecorder:
         audio = output.split("AVFoundation audio devices")[-1]
         for line in audio.splitlines():
             found = re.search(r"\[(\d+)\] (.+)$", line)
-            if found and found.group(2).strip() == self.peripherique:
+            if found and found.group(2).strip() == self.device:
                 return found.group(1)
         raise RuntimeError(
-            f"Périphérique « {self.peripherique} » introuvable. "
+            f"Périphérique « {self.device} » introuvable. "
             "Crée-le dans Configuration audio et MIDI, ou change « audio.entree »."
         )
 
@@ -127,13 +127,13 @@ class FfmpegRecorder:
         with tempfile.TemporaryDirectory() as folder:
             atelier = Path(folder)
             uniformes: list[Path] = []
-            for rank, morceau in enumerate(present_line):
-                if self._channels(morceau) == channels:
-                    uniformes.append(morceau)
+            for rank, chunk in enumerate(present_line):
+                if self._channels(chunk) == channels:
+                    uniformes.append(chunk)
                     continue
                 converti = atelier / f"{rank:02d}.wav"
                 self._run_chain(
-                    ["-i", str(morceau), "-ac", str(channels), "-ar", "16000",
+                    ["-i", str(chunk), "-ac", str(channels), "-ar", "16000",
                      "-c:a", "pcm_s16le", str(converti)],
                     "conversion d'un morceau impossible",
                 )
@@ -172,14 +172,14 @@ class FfmpegRecorder:
         except (ValueError, IndexError):
             return 0
 
-    def try_it(self, peripherique: str, seconds: float = 1.5) -> float:
+    def try_it(self, device: str, seconds: float = 1.5) -> float:
         """Listens briefly to an input and returns its level."""
         if SYSTEM != "Darwin":
             return 0.0
         try:
-            index = self._index_of(peripherique)
+            index = self._index_of(device)
         except RuntimeError:
-            return SILENCE_NUMERIQUE
+            return DIGITAL_SILENCE
         with tempfile.TemporaryDirectory() as folder:
             essai = Path(folder) / "essai.wav"
             done = subprocess.run(
@@ -189,9 +189,9 @@ class FfmpegRecorder:
                 capture_output=True, text=True, check=False,
             )
             if done.returncode != 0 or not essai.exists():
-                return SILENCE_NUMERIQUE
-            mesures = self.levels(essai)
-        return max(mesures) if mesures else SILENCE_NUMERIQUE
+                return DIGITAL_SILENCE
+            measures = self.levels(essai)
+        return max(measures) if measures else DIGITAL_SILENCE
 
     def levels(self, audio: Path) -> list[float]:
         """RMS level of each channel, in dB."""
@@ -201,13 +201,13 @@ class FfmpegRecorder:
              "-f", "null", "-"],
             capture_output=True, text=True, check=False,
         ).stderr
-        mesures = []
+        measures = []
         for value in _LEVEL.findall(output):
-            mesures.append(
-                SILENCE_NUMERIQUE if value == "-inf"
-                else max(float(value), SILENCE_NUMERIQUE)
+            measures.append(
+                DIGITAL_SILENCE if value == "-inf"
+                else max(float(value), DIGITAL_SILENCE)
             )
-        return mesures
+        return measures
 
 def why_unreadable(audio: Path) -> str:
     """Why this file cannot be a recording, in French, or "" if it can.

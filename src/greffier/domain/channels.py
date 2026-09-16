@@ -47,15 +47,15 @@ def over_video(
 ) -> bool:
     """Whether the meeting was held remotely, from the two channels."""
     r = settings or ChannelSettings()
-    utiles = min(len(mic_db), len(system_db))
-    if utiles == 0:
+    useful_ones = min(len(mic_db), len(system_db))
+    if useful_ones == 0:
         return False
     domine = sum(
         1
-        for i in range(utiles)
+        for i in range(useful_ones)
         if system_db[i] > mic_db[i] + r.margin_db and system_db[i] > r.floor_db
     )
-    return domine / utiles >= VIDEO_SHARE
+    return domine / useful_ones >= VIDEO_SHARE
 
 def who_speaks(
     mic_db: float,
@@ -85,10 +85,10 @@ def local_turns(
     if step_s <= 0:
         raise ValueError("le pas des trames doit être positif")
 
-    utiles = min(len(mic_db), len(system_db))
+    useful_ones = min(len(mic_db), len(system_db))
     local_ones = [
         mic_db[i] > system_db[i] + r.margin_db and mic_db[i] > r.floor_db
-        for i in range(utiles)
+        for i in range(useful_ones)
     ]
     return _regroup(local_ones, step_s, r)
 
@@ -96,17 +96,17 @@ def _regroup(local_ones: list[bool], step_s: float, r: ChannelSettings) -> list[
     """Assembles frames into spans, closing the short silences."""
     plages: list[tuple[int, int]] = []
     start: int | None = None
-    dernier = 0
+    last = 0
     for i, active in enumerate(local_ones):
         if active:
             if start is None:
                 start = i
-            dernier = i
-        elif start is not None and (i - dernier) * step_s > r.stitch_s:
-            plages.append((start, dernier + 1))
+            last = i
+        elif start is not None and (i - last) * step_s > r.stitch_s:
+            plages.append((start, last + 1))
             start = None
     if start is not None:
-        plages.append((start, dernier + 1))
+        plages.append((start, last + 1))
 
     return [
         Span(a * step_s, b * step_s)
@@ -134,12 +134,12 @@ def remove(turns: list[Span], local_spans: list[Span]) -> list[Span]:
     """Takes out of the remote turns whatever a local turn covers."""
     if not local_spans:
         return turns
-    restants: list[Span] = []
+    remaining: list[Span] = []
     for turn in turns:
         couvert = sum(
             max(0.0, min(turn.end, local.end) - max(turn.start, local.start))
             for local in local_spans
         )
         if turn.duration <= 0 or couvert / turn.duration < 0.5:
-            restants.append(turn)
-    return restants
+            remaining.append(turn)
+    return remaining

@@ -6,13 +6,13 @@ import re
 
 _GRAS = re.compile(r"\*\*(.+?)\*\*")
 
-def title(minutes: str, defaut: str) -> str:
+def title(minutes: str, defect: str) -> str:
     """Email subject: the title of the minutes, not the name of the file."""
     for line in minutes.splitlines():
         nue = line.strip()
         if nue.startswith("# "):
             title = _GRAS.sub(r"\1", nue[2:].strip())
-            return title or defaut
+            return title or defect
         if nue:
             break
-    return defaut
+    return defect

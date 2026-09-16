@@ -35,8 +35,8 @@ class Ticket:
 
     def say(self) -> str:
         who = f", {self.assigne}" if self.assigne else ""
-        marques = f" [{', '.join(self.etiquettes)}]" if self.etiquettes else ""
-        return f"#{self.number} {self.title}{who}{marques} ({self.state})"
+        marks = f" [{', '.join(self.etiquettes)}]" if self.etiquettes else ""
+        return f"#{self.number} {self.title}{who}{marks} ({self.state})"
 
 def _appeler(
     source: Source, token: str, path: str, methode: str = "GET",

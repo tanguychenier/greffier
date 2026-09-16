@@ -21,7 +21,7 @@ WARNING = (
     "l'enregistrement, s'il existe encore, donnera un bien meilleur résultat."
 )
 
-def depuis_le_fil(
+def from_the_thread(
     identifier: str,
     lines: list[dict[str, Any]],
     audio: Path | None = None,
@@ -79,12 +79,12 @@ def join_spans(turns: list[SpeakerTurn]) -> list[SpeakerTurn]:
         return []
     recolles = [SpeakerTurn(turns[0].span, turns[0].voice, turns[0].source)]
     for turn in turns[1:]:
-        dernier = recolles[-1]
-        if turn.voice == dernier.voice and turn.span.start <= dernier.span.end:
+        last = recolles[-1]
+        if turn.voice == last.voice and turn.span.start <= last.span.end:
             recolles[-1] = SpeakerTurn(
-                Span(dernier.span.start,
-                           max(dernier.span.end, turn.span.end)),
-                dernier.voice, dernier.source,
+                Span(last.span.start,
+                           max(last.span.end, turn.span.end)),
+                last.voice, last.source,
             )
             continue
         recolles.append(SpeakerTurn(turn.span, turn.voice, turn.source))

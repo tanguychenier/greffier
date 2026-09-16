@@ -49,8 +49,8 @@ class Registry:
 
     def subjects_of(self, text: str, minimum: int = MENTIONS_MINIMALES) -> list[str]:
         """The subjects actually discussed, most present first."""
-        comptes = self.count_them(text)
-        retenus = [(name, count) for name, count in comptes.items() if count >= minimum]
+        accounts = self.count_them(text)
+        retenus = [(name, count) for name, count in accounts.items() if count >= minimum]
         return [name for name, _ in sorted(retenus, key=lambda pair: -pair[1])]
 
 def _count_without_overlap(

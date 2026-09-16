@@ -28,9 +28,9 @@ def is_hers(
     if end <= start:
         return False
     return any(
-        min(end, sa_fin + MARGE_S) - max(start, son_debut - MARGE_S)
+        min(end, its_end + MARGE_S) - max(start, its_start - MARGE_S)
         > part * (end - start)
-        for son_debut, sa_fin in intervals
+        for its_start, its_end in intervals
     )
 
 def voices_of(
@@ -47,13 +47,13 @@ def voices_of(
     gardes: dict[str, list[float]] = {}
     for turn in turns:
         span = turn.span  # type: ignore[attr-defined]
-        duree = span.end - span.start
-        if duree <= 0:
+        duration = span.end - span.start
+        if duration <= 0:
             continue
         sien = is_hers(span.start, span.end, intervals, part)
-        compte = gardes.setdefault(turn.voice, [0.0, 0.0])  # type: ignore[attr-defined]
-        compte[0] += duree if sien else 0.0
-        compte[1] += duree
+        account = gardes.setdefault(turn.voice, [0.0, 0.0])  # type: ignore[attr-defined]
+        account[0] += duration if sien else 0.0
+        account[1] += duration
     return {
         voice for voice, (sienne, totale) in gardes.items()
         if totale > 0 and sienne > part * totale

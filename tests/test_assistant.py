@@ -9,23 +9,23 @@ from greffier.adapters import system_diagnostic as diagnostic
 class ScriptedDialogue:
     """Replays a conversation written in advance, and keeps what was said."""
 
-    def __init__(self, answers=None, confirmations=None, choix=None):
+    def __init__(self, answers=None, confirmations=None, choice=None):
         self.answers = list(answers or [])
         self.confirmations = list(confirmations or [])
-        self.choix = list(choix or [])
+        self.choice = list(choice or [])
         self.affiche = []
 
-    def ask(self, question, defaut=""):
-        return self.answers.pop(0) if self.answers else defaut
+    def ask(self, question, defect=""):
+        return self.answers.pop(0) if self.answers else defect
 
-    def confirm(self, question, defaut=True):
-        return self.confirmations.pop(0) if self.confirmations else defaut
+    def confirm(self, question, defect=True):
+        return self.confirmations.pop(0) if self.confirmations else defect
 
     def show(self, text):
         self.affiche.append(text)
 
-    def choose(self, question, options, defaut):
-        return self.choix.pop(0) if self.choix else options[defaut][0]
+    def choose(self, question, options, defect):
+        return self.choice.pop(0) if self.choice else options[defect][0]
 
     def dialogue(self):
         return assistant.Dialogue(
@@ -112,7 +112,7 @@ class TestWhoWritesTheMinutes:
     def test_a_missing_writer_is_offered_for_installation(self, monkeypatch):
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: False)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: False)
-        simule = ScriptedDialogue(confirmations=[False], choix=["aucun"])
+        simule = ScriptedDialogue(confirmations=[False], choice=["aucun"])
         answers = assistant.Answers()
         assistant.writer_step(simule.dialogue(), state(), answers)
         assert any("install" in action for action in answers.to_do)
@@ -123,7 +123,7 @@ class TestWhoWritesTheMinutes:
         """
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: True)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: False)
-        simule = ScriptedDialogue(choix=["claude"])
+        simule = ScriptedDialogue(choice=["claude"])
         answers = assistant.Answers()
         assistant.writer_step(simule.dialogue(), state(), answers)
         assert "aucune session" in simule.everything_said
@@ -148,12 +148,12 @@ class TestWhoWritesTheMinutes:
         answers = assistant.Answers()
         assistant.writer_step(simule.dialogue(), state(), answers)
         assert answers.values["GREFFIER_MINUTES__MODEL"] == "opus"
-        assert assistant.MODELES_CLAUDE[0][0] == "opus", "le défaut est le premier proposé"
+        assert assistant.CLAUDE_MODELS[0][0] == "opus", "le défaut est le premier proposé"
 
     def test_another_model_can_be_chosen(self, monkeypatch):
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: True)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: True)
-        simule = ScriptedDialogue(choix=["claude", "haiku"])
+        simule = ScriptedDialogue(choice=["claude", "haiku"])
         answers = assistant.Answers()
         assistant.writer_step(simule.dialogue(), state(), answers)
         assert answers.values["GREFFIER_MINUTES__MODEL"] == "haiku"
@@ -161,7 +161,7 @@ class TestWhoWritesTheMinutes:
     def test_with_no_writer_no_model_is_written_down(self, monkeypatch):
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: False)
         monkeypatch.setattr(diagnostic, "claude_signed_in", lambda: False)
-        simule = ScriptedDialogue(confirmations=[False], choix=["aucun"])
+        simule = ScriptedDialogue(confirmations=[False], choice=["aucun"])
         answers = assistant.Answers()
         assistant.writer_step(simule.dialogue(), state(), answers)
         assert "GREFFIER_MINUTES__MODEL" not in answers.values
@@ -170,7 +170,7 @@ class TestWhoWritesTheMinutes:
         """`claude --model` expects an alias (fable, opus, sonnet) or a full name; a
         convenience label passed as it is would make the call fail.
         """
-        for key, label_text in assistant.MODELES_CLAUDE:
+        for key, label_text in assistant.CLAUDE_MODELS:
             assert key == key.lower() and " " not in key
             assert label_text.lower().startswith(key)
 

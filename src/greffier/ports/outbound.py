@@ -33,7 +33,7 @@ class AudioRecorder(Protocol):
         """Stops cleanly, leaving the audio file usable."""
         ...
 
-    def try_it(self, peripherique: str, seconds: float = 1.5) -> float:
+    def try_it(self, device: str, seconds: float = 1.5) -> float:
         """Level captured by an input, in decibels. -120 when it does not open.
 
         A mic can be plugged in, recognised, turned up, and still mute: USB headsets

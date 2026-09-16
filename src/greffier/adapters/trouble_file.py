@@ -26,10 +26,10 @@ class TroubleFile:
     def note(self, where: str, what: str) -> None:
         """Writes one incident down. A failure here must cost nothing."""
         with contextlib.suppress(OSError, ValueError):
-            ligne = Trouble(where=where, what=what).line(self.version, self.system)
+            line = Trouble(where=where, what=what).line(self.version, self.system)
             self.file.parent.mkdir(parents=True, exist_ok=True)
-            with self.file.open("a", encoding="utf-8") as journal:
-                journal.write(ligne + "\n")
+            with self.file.open("a", encoding="utf-8") as log:
+                log.write(line + "\n")
             self._hold_it_down()
 
     def read(self, how_many: int = 40) -> list[str]:

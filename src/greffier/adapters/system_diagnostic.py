@@ -125,7 +125,7 @@ def claude_account() -> ClaudeAccount | None:
         formule=str(count.get("seatTier") or count.get("billingType") or ""),
     )
 
-COMMANDE_INSTALLER_CLAUDE = {
+CLAUDE_INSTALL_COMMAND = {
     "Darwin": "curl -fsSL https://claude.ai/install.sh | bash",
     "Linux": "curl -fsSL https://claude.ai/install.sh | bash",
     "Windows": "irm https://claude.ai/install.ps1 | iex",
@@ -186,16 +186,16 @@ def models_present(data_folder: Path | None = None) -> Reading:
 
     folder = (data_folder or ou()) / "modeles"
     engine = "whisper.cpp" if SYSTEM == "Darwin" else "faster-whisper"
-    manquants = missing(folder, engine)
-    if not manquants:
+    absent = missing(folder, engine)
+    if not absent:
         return Reading(name="Modèles", present=True,
                        detail="transcription, voix et diarisation en place")
-    noms = ", ".join(m.role for m in manquants)
+    noms = ", ".join(m.role for m in absent)
     return Reading(
         name="Modèles", present=False,
-        detail=f"{len(manquants)} manquant(s) : {noms}, {weight(manquants)} à télécharger",
+        detail=f"{len(absent)} manquant(s) : {noms}, {weight(absent)} à télécharger",
         remede="python3 tools/install.py",
-        bloquant=any(m.required for m in manquants),
+        bloquant=any(m.required for m in absent),
     )
 
 def known_voices(data_folder: Path | None = None) -> Reading:
@@ -208,15 +208,15 @@ def known_voices(data_folder: Path | None = None) -> Reading:
         return Reading(name="Banque de voix", present=True,
                        detail="vide : les voix se nomment en réunion")
     try:
-        connus = FileVoiceBank(folder).people()
+        known = FileVoiceBank(folder).people()
     except (OSError, ValueError) as trouble:
         return Reading(name="Banque de voix", present=False, detail=str(trouble),
                        remede="vérifie les droits sur le dossier banque-de-voix")
-    if not connus:
+    if not known:
         return Reading(name="Banque de voix", present=True,
                        detail="vide : les voix se nomment en réunion")
     return Reading(name="Banque de voix", present=True,
-                   detail=f"{len(connus)} personne(s) reconnue(s) sans rien dire")
+                   detail=f"{len(known)} personne(s) reconnue(s) sans rien dire")
 
 def examine(data_folder: Path | None = None) -> Diagnostic:
     """Everything worth knowing before configuring the tool."""
@@ -233,7 +233,7 @@ def examine(data_folder: Path | None = None) -> Diagnostic:
         Reading(
             name="Claude Code", present=claude_installed(),
             detail=claude_version() or "absent",
-            remede=COMMANDE_INSTALLER_CLAUDE.get(SYSTEM, ""),
+            remede=CLAUDE_INSTALL_COMMAND.get(SYSTEM, ""),
         ),
         Reading(
             name="Session Claude", present=claude_signed_in(),

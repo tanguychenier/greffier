@@ -52,19 +52,19 @@ class TestOnePassage:
 
 class TestAWholeVoice:
     def test_a_voice_that_is_her_throughout_is_named(self):
-        tours = [_tour("v3", 10.0, 14.0), _tour("v3", 40.0, 44.0)]
-        assert voices_of(tours, [(9.5, 15.0), (39.5, 45.0)]) == {"v3"}
+        turns = [_tour("v3", 10.0, 14.0), _tour("v3", 40.0, 44.0)]
+        assert voices_of(turns, [(9.5, 15.0), (39.5, 45.0)]) == {"v3"}
 
     def test_a_participant_who_once_talked_over_her_keeps_their_voice(self):
         """Judged on the whole of a voice: one overlap is not an identity."""
-        tours = [_tour("v1", 10.0, 14.0)] + [
+        turns = [_tour("v1", 10.0, 14.0)] + [
             _tour("v1", depart, depart + 10.0) for depart in (20.0, 40.0, 60.0)
         ]
-        assert voices_of(tours, [(9.5, 15.0)]) == set()
+        assert voices_of(turns, [(9.5, 15.0)]) == set()
 
     def test_the_room_is_left_alone(self):
-        tours = [_tour("v1", 0.0, 8.0), _tour("v2", 20.0, 28.0)]
-        assert voices_of(tours, [(9.5, 15.0)]) == set()
+        turns = [_tour("v1", 0.0, 8.0), _tour("v2", 20.0, 28.0)]
+        assert voices_of(turns, [(9.5, 15.0)]) == set()
 
     def test_no_turns_no_voices(self):
         assert voices_of([], [(0.0, 10.0)]) == set()

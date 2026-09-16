@@ -104,8 +104,8 @@ end run
             raise RuntimeError(
                 "Outlook n'est pas lancé. Ouvre-le, puis « greffier envoyer »."
             )
-        derniere = output.strip().splitlines()[-1:] or [output.strip()]
-        raise RuntimeError(f"Envoi impossible : {derniere[0]}")
+        last_one = output.strip().splitlines()[-1:] or [output.strip()]
+        raise RuntimeError(f"Envoi impossible : {last_one[0]}")
 
 class SmtpSender:
     """Direct sending, for machines without Outlook."""
@@ -146,9 +146,9 @@ class SmtpSender:
     @contextlib.contextmanager
     def session(self) -> Iterator[smtplib.SMTP]:
         """A session, opened, encrypted and authenticated."""
-        classe = smtplib.SMTP_SSL if self.port == 465 else smtplib.SMTP
-        with classe(self.server, self.port, timeout=60) as session:
-            if classe is smtplib.SMTP:
+        sorted_as = smtplib.SMTP_SSL if self.port == 465 else smtplib.SMTP
+        with sorted_as(self.server, self.port, timeout=60) as session:
+            if sorted_as is smtplib.SMTP:
                 session.starttls()
             session.ehlo()
             if self.user and self.password:

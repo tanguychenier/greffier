@@ -14,11 +14,11 @@ from greffier.domain.transcription import without_loop
 
 _OPENED: dict[tuple[str, str], Any] = {}
 
-_TOUR = threading.Lock()
+_TURN = threading.Lock()
 
 class FasterWhisperTranscriber:
-    def __init__(self, taille: str = "large-v3", device: str = "auto") -> None:
-        self.taille = taille
+    def __init__(self, size: str = "large-v3", device: str = "auto") -> None:
+        self.size = size
         self.device = device
         self._model = None
 
@@ -31,15 +31,15 @@ class FasterWhisperTranscriber:
         serves the chain that comes right after.
         """
         if self._model is None:
-            clef = (self.taille, self.device)
-            with _TOUR:
+            clef = (self.size, self.device)
+            with _TURN:
                 model = _OPENED.get(clef)
                 if model is None:
                     cuda.show_to_the_loader()
                     from faster_whisper import WhisperModel
 
                     model = WhisperModel(
-                        self.taille, device=self.device, compute_type="int8"
+                        self.size, device=self.device, compute_type="int8"
                     )
                     _OPENED[clef] = model
             self._model = model
@@ -61,7 +61,7 @@ class FasterWhisperTranscriber:
         except RuntimeError:
             if self.device == "cpu":
                 raise
-            _OPENED.pop((self.taille, self.device), None)
+            _OPENED.pop((self.size, self.device), None)
             self.device = "cpu"
             self._model = None
             return self._utterances(audio, language, prompt_seed)

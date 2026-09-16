@@ -113,16 +113,16 @@ class FileVoiceBank:
         self._write(person)
         return person
 
-    def join(self, garde: str, absorbe: str) -> Person:
+    def join(self, kept: str, absorbed: str) -> Person:
         """Joins two entries that named the same person."""
-        principal = self.find(garde)
-        secondaire = self.find(absorbe)
+        principal = self.find(kept)
+        secondaire = self.find(absorbed)
         if principal is None or secondaire is None:
             raise KeyError("les deux personnes doivent exister dans la banque")
         for voiceprint in secondaire.voiceprints:
             enrichir(principal, voiceprint, maximum=self.maximum)
         principal.meetings = max(principal.meetings, secondaire.meetings)
-        (self.folder / f"{_file_at(absorbe)}.json").unlink()
+        (self.folder / f"{_file_at(absorbed)}.json").unlink()
         self._write(principal)
         return principal
 

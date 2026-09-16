@@ -57,7 +57,7 @@ class TestPublicationSansReseau:
         """Replaces the API with a stand-in that writes down what it is asked."""
         appels = []
 
-        def faux(path, methode="GET", corps=None):
+        def wrong(path, methode="GET", corps=None):
             appels.append((methode, path, corps))
             if "/items" in path:
                 return {"data": [
@@ -65,7 +65,7 @@ class TestPublicationSansReseau:
                 ]}
             return {"id": f"objet-{len(appels)}"}
 
-        monkeypatch.setattr(board_miro, "_appeler", faux)
+        monkeypatch.setattr(board_miro, "_appeler", wrong)
         monkeypatch.setenv("GREFFIER_MIRO_JETON", "essai")
         return appels
 
@@ -127,13 +127,13 @@ class TestTheLinksBetweenNodes:
     def mark(self, monkeypatch):
         appels = []
 
-        def faux(path, methode="GET", corps=None):
+        def wrong(path, methode="GET", corps=None):
             appels.append((methode, path, corps))
             if "/items" in path:
                 return {"data": []}
             return {"id": "3458764683144805305"}
 
-        monkeypatch.setattr(board_miro, "_appeler", faux)
+        monkeypatch.setattr(board_miro, "_appeler", wrong)
         monkeypatch.setenv("GREFFIER_MIRO_JETON", "essai")
         return appels
 
@@ -145,7 +145,7 @@ class TestTheLinksBetweenNodes:
         join(board, [Contribution("Un point")])
         appels = []
 
-        def faux(path, methode="GET", corps=None):
+        def wrong(path, methode="GET", corps=None):
             appels.append((methode, path, corps))
             if "/items" in path:
                 return {"data": []}
@@ -153,7 +153,7 @@ class TestTheLinksBetweenNodes:
 
         import pytest as _pytest
         monkeypatch = _pytest.MonkeyPatch()
-        monkeypatch.setattr(board_miro, "_appeler", faux)
+        monkeypatch.setattr(board_miro, "_appeler", wrong)
         monkeypatch.setenv("GREFFIER_MIRO_JETON", "essai")
         try:
             board_miro.publish(board, "uXjVtest=")
@@ -180,14 +180,14 @@ class TestTheLinksBetweenNodes:
         board = Board("Oasis")
         join(board, [Contribution("A")])
 
-        def faux(path, methode="GET", corps=None):
+        def wrong(path, methode="GET", corps=None):
             if "/items" in path:
                 return {"data": []}
             if "connectors" in path:
                 raise board_miro.MiroRefused("refusé")
             return {"id": "3458764683144805305"}
 
-        monkeypatch.setattr(board_miro, "_appeler", faux)
+        monkeypatch.setattr(board_miro, "_appeler", wrong)
         monkeypatch.setenv("GREFFIER_MIRO_JETON", "essai")
         written = board_miro.publish(board, "uXjVtest=")
         assert written.liens == 0

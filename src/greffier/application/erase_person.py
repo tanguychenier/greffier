@@ -151,16 +151,16 @@ def _rewrite_json(content: str, name: str, replacement: str) -> tuple[str, int]:
         if isinstance(node, dict):
             fresh: dict[str, object] = {}
             for key, value in node.items():
-                nom_de_cle, replaced = redact(key, name, replacement)
+                key_name, replaced = redact(key, name, replacement)
                 how_many += replaced
-                fresh[nom_de_cle] = walk(value, key)
+                fresh[key_name] = walk(value, key)
             return fresh
         if isinstance(node, list):
             return [walk(value, under) for value in node]
         if isinstance(node, str) and under not in ("audio", "identifiant"):
-            texte, replaced = redact(node, name, replacement)
+            text, replaced = redact(node, name, replacement)
             how_many += replaced
-            return texte
+            return text
         return node
 
     rewritten = walk(document, "")

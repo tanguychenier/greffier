@@ -494,8 +494,8 @@ class TestLeMemeNiveauPourTous:
         """Multiplying a silence by a hundred makes a voice out of room noise."""
         from greffier.domain.voiceprints import at_a_common_level
 
-        presque_rien = [1e-6, -1e-6] * 50
-        assert at_a_common_level(presque_rien) == pytest.approx(presque_rien)
+        almost_nothing = [1e-6, -1e-6] * 50
+        assert at_a_common_level(almost_nothing) == pytest.approx(almost_nothing)
 
     def test_an_empty_excerpt_costs_nothing(self):
         from greffier.domain.voiceprints import at_a_common_level
@@ -566,9 +566,9 @@ class TestLeSeuilSuitLaMatiere:
         one more person."""
         from greffier.domain.voiceprints import join_voices
 
-        etablie = normalise([1.0, 0.0, 0.0], source_duration=60.0)
+        established = normalise([1.0, 0.0, 0.0], source_duration=60.0)
         fragment = normalise([0.60, 0.80, 0.0], source_duration=4.0)
-        membership = join_voices({"etablie": [etablie], "fragment": [fragment]})
+        membership = join_voices({"etablie": [established], "fragment": [fragment]})
         assert membership["fragment"] == membership["etablie"] == "etablie"
 
     def test_two_scraps_still_do_not_join_each_other(self):
@@ -585,6 +585,6 @@ class TestLeSeuilSuitLaMatiere:
         from greffier.domain.voiceprints import join_voices
 
         un = normalise([1.0, 0.0, 0.0], source_duration=60.0)
-        autre = normalise([0.5, 0.87, 0.0], source_duration=60.0)
-        membership = join_voices({"a": [un], "b": [autre]})
+        other = normalise([0.5, 0.87, 0.0], source_duration=60.0)
+        membership = join_voices({"a": [un], "b": [other]})
         assert len(set(membership.values())) == 2

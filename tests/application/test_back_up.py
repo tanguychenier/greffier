@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from greffier.application.back_up import do_it, lister, restore
+from greffier.application.back_up import do_it, list_, restore
 
 
 def lay_out_some_data(root):
@@ -96,7 +96,7 @@ class TestRestoring:
     def test_overwriting_stays_possible_when_asked_for(self, tmp_path):
         data = lay_out_some_data(tmp_path / "donnees")
         faite = do_it(data, None, tmp_path / "copies")
-        assert restore(faite.archive, data, ecraser=True)
+        assert restore(faite.archive, data, overwrite=True)
 
     def test_a_missing_archive_says_so(self, tmp_path):
         with pytest.raises(FileNotFoundError, match="introuvable"):
@@ -110,7 +110,7 @@ class TestKeepingOnlySoMany:
         for jour in range(1, 6):
             do_it(data, None, copies, kept=3,
                   when=datetime(2026, 9, jour, 12, 0, tzinfo=UTC))
-        assert len(lister(copies)) == 3
+        assert len(list_(copies)) == 3
 
     def test_the_most_recent_one_always_survives(self, tmp_path):
         data = lay_out_some_data(tmp_path / "donnees")
@@ -118,7 +118,7 @@ class TestKeepingOnlySoMany:
         for jour in (1, 2):
             do_it(data, None, copies, kept=0,
                   when=datetime(2026, 9, jour, 12, 0, tzinfo=UTC))
-        restantes = lister(copies)
+        restantes = list_(copies)
         assert len(restantes) == 1
         assert "2026-09-02" in restantes[0][0]
 

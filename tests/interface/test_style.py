@@ -156,13 +156,13 @@ class TestTheThemeOfTheSystem:
     def _answer(self, monkeypatch, answers):
         from greffier.interface import style
 
-        def faux(command, **_):
+        def wrong(command, **_):
             for motif, output in answers.items():
                 if motif in " ".join(command):
                     return SimpleNamespace(returncode=0, stdout=output)
             return SimpleNamespace(returncode=1, stdout="")
 
-        monkeypatch.setattr(style.subprocess, "run", faux)
+        monkeypatch.setattr(style.subprocess, "run", wrong)
 
     def test_macos_answers_dark(self, monkeypatch):
         from greffier.interface import style

@@ -57,16 +57,16 @@ class Wording:
 
     def say(self, key: str, **parts: object) -> str:
         """The sentence for this key, filled in, or the key when it is nowhere."""
-        phrase = self.says.get(key) or self.default.get(key) or key
+        sentence = self.says.get(key) or self.default.get(key) or key
         if not parts:
-            return phrase
+            return sentence
         try:
-            return phrase.format(**parts)
+            return sentence.format(**parts)
         except (KeyError, IndexError):
             # A wording whose holes do not match what is handed to it is a
             # translation mistake, and showing the raw sentence is more useful
             # to whoever must fix it than an exception in the middle of a window.
-            return phrase
+            return sentence
 
     def missing(self) -> tuple[str, ...]:
         """The keys this language has not translated yet."""

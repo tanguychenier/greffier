@@ -90,11 +90,11 @@ def aggregate(voiceprints: Iterable[Voiceprint]) -> Voiceprint:
     listing = list(voiceprints)
     if not listing:
         raise ValueError("aucune empreinte à agréger")
-    taille = len(listing[0].vector)
+    size = len(listing[0].vector)
     poids_total = math.fsum(max(e.source_duration, 1e-6) for e in listing)
     somme = [
         math.fsum(e.vector[i] * max(e.source_duration, 1e-6) for e in listing) / poids_total
-        for i in range(taille)
+        for i in range(size)
     ]
     return normalise(somme, source_duration=math.fsum(e.source_duration for e in listing))
 
@@ -202,25 +202,25 @@ def join_voices(
         for i, a in enumerate(names):
             for b in names[i + 1:]:
                 score = similarity(agregats[a], agregats[b])
-                de_chaque = (sum(e.source_duration for e in groups[a]),
+                of_each = (sum(e.source_duration for e in groups[a]),
                              sum(e.source_duration for e in groups[b]))
                 if (
-                    score >= threshold_for(min(de_chaque), threshold)
-                    and max(de_chaque) >= MINIMUM_JOIN_MATERIAL
+                    score >= threshold_for(min(of_each), threshold)
+                    and max(of_each) >= MINIMUM_JOIN_MATERIAL
                     and (best is None or score > best[0])
                 ):
                     best = (score, a, b)
         if best is None:
             break
-        _, garde, absorbe = best
-        if sum(e.source_duration for e in groups[absorbe]) > sum(
-            e.source_duration for e in groups[garde]
+        _, kept, absorbed = best
+        if sum(e.source_duration for e in groups[absorbed]) > sum(
+            e.source_duration for e in groups[kept]
         ):
-            garde, absorbe = absorbe, garde
-        groups[garde].extend(groups.pop(absorbe))
+            kept, absorbed = absorbed, kept
+        groups[kept].extend(groups.pop(absorbed))
         for voice, into in membership.items():
-            if into == absorbe:
-                membership[voice] = garde
+            if into == absorbed:
+                membership[voice] = kept
 
     return membership
 
@@ -243,47 +243,47 @@ def adopt_fragments(
     membership: dict[str, str],
     threshold: float = ADOPTION_THRESHOLD,
     minimum_margin: float = ADOPTION_MARGIN,
-    matiere_etablie: float = ESTABLISHED_MATERIAL,
+    established_material: float = ESTABLISHED_MATERIAL,
 ) -> dict[str, str]:
     """Attaches each fragment to the established group it most resembles."""
     groups = _groups(per_voice, membership)
-    etablis = {g: e for g, e in groups.items() if _material(e) >= matiere_etablie}
-    if not etablis:
+    established_ones = {g: e for g, e in groups.items() if _material(e) >= established_material}
+    if not established_ones:
         return membership
 
     fragments = sorted(
-        (g for g in groups if g not in etablis),
+        (g for g in groups if g not in established_ones),
         key=lambda g: -_material(groups[g]),
     )
-    retenue = dict(membership)
+    retained = dict(membership)
     for fragment in fragments:
         aggregate_of = aggregate(groups[fragment])
         ranking = sorted(
-            ((similarity(aggregate_of, aggregate(e)), g) for g, e in etablis.items()),
+            ((similarity(aggregate_of, aggregate(e)), g) for g, e in established_ones.items()),
             key=lambda x: (-x[0], x[1]),
         )
         best, hote = ranking[0]
         second = ranking[1][0] if len(ranking) > 1 else -1.0
         if best < threshold or best - second < minimum_margin:
             continue
-        etablis[hote] = etablis[hote] + groups[fragment]
-        for voice, into in retenue.items():
+        established_ones[hote] = established_ones[hote] + groups[fragment]
+        for voice, into in retained.items():
             if into == fragment:
-                retenue[voice] = hote
-    return retenue
+                retained[voice] = hote
+    return retained
 
 def consolidate(
     per_voice: dict[str, list[Voiceprint]],
     membership: dict[str, str],
     threshold: float = CONSOLIDATION_THRESHOLD,
-    matiere_etablie: float = ESTABLISHED_MATERIAL,
+    established_material: float = ESTABLISHED_MATERIAL,
 ) -> dict[str, str]:
     """Joins two established groups that are in fact the same person."""
-    retenue = dict(membership)
+    retained = dict(membership)
     while True:
-        groups = _groups(per_voice, retenue)
-        etablis = {g: e for g, e in groups.items() if _material(e) >= matiere_etablie}
-        agregats = {g: aggregate(e) for g, e in etablis.items()}
+        groups = _groups(per_voice, retained)
+        established_ones = {g: e for g, e in groups.items() if _material(e) >= established_material}
+        agregats = {g: aggregate(e) for g, e in established_ones.items()}
         names = sorted(agregats)
         best: tuple[float, str, str] | None = None
         for i, one in enumerate(names):
@@ -292,19 +292,19 @@ def consolidate(
                 if score >= threshold and (best is None or score > best[0]):
                     best = (score, one, other)
         if best is None:
-            return retenue
-        _, garde, absorbe = best
-        if _material(etablis[absorbe]) > _material(etablis[garde]):
-            garde, absorbe = absorbe, garde
-        for voice, into in retenue.items():
-            if into == absorbe:
-                retenue[voice] = garde
+            return retained
+        _, kept, absorbed = best
+        if _material(established_ones[absorbed]) > _material(established_ones[kept]):
+            kept, absorbed = absorbed, kept
+        for voice, into in retained.items():
+            if into == absorbed:
+                retained[voice] = kept
 
 def stitch(
     per_voice: dict[str, list[Voiceprint]],
-    seuil_paires: float = JOIN_THRESHOLD,
-    seuil_adoption: float = ADOPTION_THRESHOLD,
-    seuil_consolidation: float = CONSOLIDATION_THRESHOLD,
+    pairs_threshold: float = JOIN_THRESHOLD,
+    adoption_threshold: float = ADOPTION_THRESHOLD,
+    consolidation_threshold: float = CONSOLIDATION_THRESHOLD,
 ) -> dict[str, str]:
     """Brings the segmenter's groups down to the number of real people.
 
@@ -312,9 +312,9 @@ def stitch(
     consolidation of what has grown. Over-segmenting and stitching back is
     reversible; under-segmenting is not.
     """
-    membership = join_voices(per_voice, threshold=seuil_paires)
-    membership = adopt_fragments(per_voice, membership, threshold=seuil_adoption)
-    return consolidate(per_voice, membership, threshold=seuil_consolidation)
+    membership = join_voices(per_voice, threshold=pairs_threshold)
+    membership = adopt_fragments(per_voice, membership, threshold=adoption_threshold)
+    return consolidate(per_voice, membership, threshold=consolidation_threshold)
 
 def one_person(
     voiceprints: Sequence[Voiceprint],
@@ -340,18 +340,18 @@ def one_person(
 
 
 def doubtful_entry(
-    nouvelle: Voiceprint,
+    new_one: Voiceprint,
     vise: str,
     bank: Iterable[Person],
     margin: float = MINIMUM_MARGIN,
 ) -> str:
     """Does this voiceprint look like it belongs to someone else?"""
     known = {p.name: p for p in bank if p.voiceprints}
-    elsewhere = [(_score(nouvelle, p), name) for name, p in known.items() if name != vise]
+    elsewhere = [(_score(new_one, p), name) for name, p in known.items() if name != vise]
     if not elsewhere:
         return ""
     best, who = max(elsewhere)
-    chez_soi = _score(nouvelle, known[vise]) if vise in known else -1.0
+    chez_soi = _score(new_one, known[vise]) if vise in known else -1.0
     if best < RECOGNITION_THRESHOLD or best - chez_soi < margin:
         return ""
     if chez_soi < 0:
@@ -406,11 +406,11 @@ def intruding_voiceprints(
 
 def enrichir(
     person: Person,
-    nouvelle: Voiceprint,
+    new_one: Voiceprint,
     maximum: int = VOICEPRINTS_PER_PERSON,
 ) -> Person:
     """Adds a voiceprint to a known person, capping how much accumulates."""
-    person.voiceprints.append(nouvelle)
+    person.voiceprints.append(new_one)
     if len(person.voiceprints) > maximum:
         person.voiceprints.sort(key=lambda e: -e.source_duration)
         del person.voiceprints[maximum:]

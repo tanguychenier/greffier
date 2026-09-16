@@ -42,7 +42,7 @@ class Verdict:
     adresse: str = ""
     trouble: str = ""
     artefact: str = ""
-    artefact_nom: str = ""
+    artefact_name: str = ""
 
     @property
     def downloadable(self) -> bool:
@@ -71,8 +71,8 @@ def installed_version() -> str:
         installed = version_du_paquet("greffier")
     except PackageNotFoundError:
         installed = ""
-    depuis_les_sources = _version_du_projet()
-    return depuis_les_sources or installed
+    from_the_sources = _version_du_projet()
+    return from_the_sources or installed
 
 def _version_du_projet() -> str:
     """The version written in pyproject.toml, when it can be reached."""
@@ -180,9 +180,9 @@ def download(
             total = int(response.headers.get("Content-Length") or 0)
             recu = 0
             with target.open("wb") as output:
-                while morceau := response.read(262144):
-                    output.write(morceau)
-                    recu += len(morceau)
+                while chunk := response.read(262144):
+                    output.write(chunk)
+                    recu += len(chunk)
                     if progress is not None:
                         progress(recu, total)
     except (urllib.error.URLError, TimeoutError):
@@ -265,12 +265,12 @@ def install_from_release(
     if not verdict.downloadable:
         return (False, "aucun binaire publié pour ce système")
     atelier = Path(tempfile.mkdtemp(prefix="greffier-maj."))
-    archive = atelier / verdict.artefact_nom
+    archive = atelier / verdict.artefact_name
     recu, ou = download(verdict.artefact, archive, progress=progress)
     if not recu:
         return (False, ou)
-    ouvert, trouble = unpack(archive, atelier / "contenu")
-    if not ouvert:
+    opened, trouble = unpack(archive, atelier / "contenu")
+    if not opened:
         return (False, trouble)
 
     if platform.system() != "Darwin":
@@ -307,11 +307,11 @@ def bundle_is_newer(argv0: str = "") -> bool:
         return False
     try:
         pose = executable.stat().st_mtime
-        return pose > _CHARGE_LE
+        return pose > _LOADED_ON
     except OSError:
         return False
 
-_CHARGE_LE = time.time()
+_LOADED_ON = time.time()
 
 def check(store: str = REPOSITORY, timeout: float = TIMEOUT) -> Verdict:
     """Asks about the latest published release. Never raises."""
@@ -349,7 +349,7 @@ def check(store: str = REPOSITORY, timeout: float = TIMEOUT) -> Verdict:
         available=label.lstrip("v"),
         adresse=str(content.get("html_url", "")),
         artefact=url,
-        artefact_nom=name,
+        artefact_name=name,
     )
 
 def _artifact_for_this_system(publication: dict[str, Any]) -> tuple[str, str]:

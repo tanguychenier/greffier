@@ -68,7 +68,7 @@ class RecorderState:
     suspendu_le: datetime | None = None
     pause_totale: float = 0.0
     ended_at: datetime | None = None
-    sortie_precedente: str = ""
+    previous_output: str = ""
 
     @property
     def seconds(self) -> float:
@@ -102,18 +102,18 @@ class Recording:
     def __init__(
         self,
         audio_recorder: outbound.AudioRecorder,
-        dossier_audio: Path,
-        fichier_etat: Path,
+        audio_folder: Path,
+        state_file: Path,
     ) -> None:
         self.audio_recorder = audio_recorder
-        self.dossier_audio = dossier_audio
-        self.fichier_etat = fichier_etat
+        self.audio_folder = audio_folder
+        self.state_file = state_file
 
     def read(self) -> RecorderState:
-        if not self.fichier_etat.exists():
+        if not self.state_file.exists():
             return RecorderState()
         try:
-            content = json.loads(self.fichier_etat.read_text(encoding="utf-8"))
+            content = json.loads(self.state_file.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             return RecorderState()
         state = RecorderState(
@@ -135,7 +135,7 @@ class Recording:
                 datetime.fromisoformat(content["terminee_le"])
                 if content.get("terminee_le") else None
             ),
-            sortie_precedente=content.get("sortie_precedente", ""),
+            previous_output=content.get("sortie_precedente", ""),
         )
         if state.phase.in_progress and not _alive(state.pid):
             enregistrait = state.phase in (Phase.RECORDING, Phase.PAUSE)
@@ -149,7 +149,7 @@ class Recording:
         return state
 
     def write(self, state: RecorderState) -> None:
-        self.fichier_etat.parent.mkdir(parents=True, exist_ok=True)
+        self.state_file.parent.mkdir(parents=True, exist_ok=True)
         content = {
             "phase": state.phase.value,
             "message": state.message,
@@ -163,11 +163,11 @@ class Recording:
             "suspendu_le": state.suspendu_le.isoformat() if state.suspendu_le else "",
             "pause_totale": state.pause_totale,
             "terminee_le": state.ended_at.isoformat() if state.ended_at else "",
-            "sortie_precedente": state.sortie_precedente,
+            "sortie_precedente": state.previous_output,
         }
-        temporary = self.fichier_etat.with_suffix(".json.partiel")
+        temporary = self.state_file.with_suffix(".json.partiel")
         temporary.write_text(json.dumps(content, ensure_ascii=False), encoding="utf-8")
-        temporary.replace(self.fichier_etat)
+        temporary.replace(self.state_file)
 
     def publish(self, phase: str, message: str = "") -> None:
         """Serves as StateJournal: the processing chain publishes its phases here."""
@@ -218,9 +218,9 @@ class Recording:
         state = self.read()
         if state.phase is not Phase.PAUSE:
             raise RuntimeError("L'enregistrement n'est pas en pause.")
-        suivant = self.dossier_audio / f"{state.identifier}-{len(state.chunks) + 1:02d}.wav"
-        state.pid = self.audio_recorder.start_recording(suivant)
-        state.chunks.append(suivant)
+        following = self.audio_folder / f"{state.identifier}-{len(state.chunks) + 1:02d}.wav"
+        state.pid = self.audio_recorder.start_recording(following)
+        state.chunks.append(following)
         state.phase = Phase.RECORDING
         state.message = "Enregistrement en cours."
         if state.suspendu_le is not None:
@@ -236,9 +236,9 @@ class Recording:
             raise RuntimeError("Aucun enregistrement en cours.")
         if state.pid is not None and _alive(state.pid):
             self.audio_recorder.stop_recording(state.pid)
-        suivant = self.dossier_audio / f"{state.identifier}-{len(state.chunks) + 1:02d}.wav"
-        state.pid = self.audio_recorder.start_recording(suivant)
-        state.chunks.append(suivant)
+        following = self.audio_folder / f"{state.identifier}-{len(state.chunks) + 1:02d}.wav"
+        state.pid = self.audio_recorder.start_recording(following)
+        state.chunks.append(following)
         state.events.append(because)
         state.message = because
         self.write(state)
@@ -252,7 +252,7 @@ class Recording:
         self.write(state)
         return state
 
-    def start_recording(self, name: str = "reunion", sortie_precedente: str = "") -> RecorderState:
+    def start_recording(self, name: str = "reunion", previous_output: str = "") -> RecorderState:
         in_progress = self.read()
         if in_progress.phase is Phase.RECORDING:
             raise RuntimeError(
@@ -261,14 +261,14 @@ class Recording:
             )
         horodatage = datetime.now(UTC).astimezone()
         identifier = _identifier(name, horodatage)
-        audio = self.dossier_audio / f"{identifier}.wav"
-        premier = self.dossier_audio / f"{identifier}-01.wav"
-        pid = self.audio_recorder.start_recording(premier)
+        audio = self.audio_folder / f"{identifier}.wav"
+        first = self.audio_folder / f"{identifier}-01.wav"
+        pid = self.audio_recorder.start_recording(first)
         state = RecorderState(
             phase=Phase.RECORDING, name=name, identifier=identifier,
             audio=audio, start=datetime.now(UTC), pid=pid,
-            chunks=[premier],
-            sortie_precedente=sortie_precedente,
+            chunks=[first],
+            previous_output=previous_output,
             message="Enregistrement en cours.",
         )
         self.write(state)
@@ -295,18 +295,18 @@ class Recording:
         state.message = "Enregistrement arrêté."
         self.write(state)
         chunks = [m for m in (state.chunks or [state.audio]) if m is not None]
-        utiles = [m for m in chunks if m.exists() and m.stat().st_size > 0]
-        if not utiles:
+        useful_ones = [m for m in chunks if m.exists() and m.stat().st_size > 0]
+        if not useful_ones:
             raise RuntimeError(
                 f"{state.audio} est vide. Vérifie l'autorisation micro et le "
                 "périphérique d'entrée."
             )
-        if len(utiles) > 1:
-            state.message = f"Enregistrement arrêté, {len(utiles)} morceaux recollés."
-        self.audio_recorder.wire_up(utiles, state.audio)
-        for morceau in chunks:
-            if morceau != state.audio:
-                morceau.unlink(missing_ok=True)
+        if len(useful_ones) > 1:
+            state.message = f"Enregistrement arrêté, {len(useful_ones)} morceaux recollés."
+        self.audio_recorder.wire_up(useful_ones, state.audio)
+        for chunk in chunks:
+            if chunk != state.audio:
+                chunk.unlink(missing_ok=True)
         state.chunks = [state.audio]
         self.write(state)
         return state

@@ -48,32 +48,32 @@ class TestLAssistantPeutChercher:
         """Answering « qui est Maud ? » does not call for Décisions / Actions."""
         engine = assistant(config())
         assert isinstance(engine, ClaudeWriter)
-        assert engine.consignes_propres
-        assert "Décisions" not in engine.consignes_propres
+        assert engine.own_guidance
+        assert "Décisions" not in engine.own_guidance
 
     def test_it_is_forbidden_to_send_what_was_said_outside(self):
         engine = assistant(config())
         assert isinstance(engine, ClaudeWriter)
         # Flattened: the guidance spans two lines in the source text.
-        aplati = " ".join(engine.consignes_propres.split())
+        aplati = " ".join(engine.own_guidance.split())
         assert "jamais la phrase de la réunion" in aplati
 
     def test_it_must_give_the_address_of_what_it_finds(self):
         """An answer with no source cannot be checked, and in a meeting one wants to open
         the link straight away.
         """
-        aplati = " ".join(assistant(config()).consignes_propres.split())
+        aplati = " ".join(assistant(config()).own_guidance.split())
         assert "donne l'adresse" in aplati
         assert "URL complète" in aplati
 
     def test_it_offers_something_without_inventing_anything(self):
-        aplati = " ".join(assistant(config()).consignes_propres.split())
+        aplati = " ".join(assistant(config()).own_guidance.split())
         assert "À faire :" in aplati
         assert "N'invente rien pour remplir" in aplati
 
     def test_it_may_search_of_its_own_accord(self):
         """« Let it do it itself to give itself context », as asked."""
-        aplati = " ".join(assistant(config()).consignes_propres.split())
+        aplati = " ".join(assistant(config()).own_guidance.split())
         assert "de ton propre chef" in aplati
 
 
@@ -104,8 +104,8 @@ class TestTheAssistantOfAMeetingKeepsThem:
     def test_its_own_guidance_survives_the_change(self):
         lui = self._lui(recherche_web=True)
         assert lui is not None and isinstance(lui.cerveau, ClaudeWriter)
-        assert "Lucie" in lui.cerveau.consignes_propres or lui.name in (
-            lui.cerveau.consignes_propres
+        assert "Lucie" in lui.cerveau.own_guidance or lui.name in (
+            lui.cerveau.own_guidance
         )
 
     def test_what_it_may_do_matches_what_it_is_told(self):

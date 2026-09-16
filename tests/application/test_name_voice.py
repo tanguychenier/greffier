@@ -9,7 +9,7 @@ from greffier.domain.models import Span, SpeakerTurn, Utterance
 
 
 def a_meeting(**overrides) -> StoredMeeting:
-    defauts = dict(
+    defects = dict(
         identifier="2026-08-24_reunion",
         audio=Path("/tmp/r.wav"),
         processed_at=datetime.now(UTC),
@@ -21,8 +21,8 @@ def a_meeting(**overrides) -> StoredMeeting:
         propositions={},
         warnings=[],
     )
-    defauts.update(overrides)
-    return StoredMeeting(**defauts)
+    defects.update(overrides)
+    return StoredMeeting(**defects)
 
 
 class TestTheVoicesOfferedForNaming:

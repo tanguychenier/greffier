@@ -3,9 +3,9 @@
 
 from greffier.application.publish import (
     CONSIGNES_DOCUMENT,
-    LU_AU_PLUS,
+    READ_AT_MOST,
     learn_from_document,
-    lire_le_texte,
+    read_the_text,
     run_chain,
     tools_present,
 )
@@ -26,15 +26,15 @@ class TestReadingTheDocuments:
     def test_a_plain_text_reads(self, tmp_path):
         file = tmp_path / "note.md"
         file.write_text("Le circuit FAST remplace le papier.", encoding="utf-8")
-        assert "FAST" in lire_le_texte(file)
+        assert "FAST" in read_the_text(file)
 
     def test_an_unknown_format_does_not_raise(self, tmp_path):
         file = tmp_path / "x.zip"
         file.write_bytes(b"PK\\x03\\x04")
-        assert lire_le_texte(file) == ""
+        assert read_the_text(file) == ""
 
     def test_a_missing_file_does_not_raise(self, tmp_path):
-        assert lire_le_texte(tmp_path / "jamais.md") == ""
+        assert read_the_text(tmp_path / "jamais.md") == ""
 
 
 class TestLearningFromADocument:
@@ -78,10 +78,10 @@ class TestLearningFromADocument:
     def test_only_the_start_of_the_document_is_read(self, tmp_path):
         """A hundred pages are not read to draw twenty words from them."""
         file = tmp_path / "gros.md"
-        file.write_text("x" * (LU_AU_PLUS * 2), encoding="utf-8")
+        file.write_text("x" * (READ_AT_MOST * 2), encoding="utf-8")
         writer = FakeWriter("[]")
         learn_from_document(file, writer)
-        assert len(writer.recu) <= len(CONSIGNES_DOCUMENT) + LU_AU_PLUS
+        assert len(writer.recu) <= len(CONSIGNES_DOCUMENT) + READ_AT_MOST
 
     def test_the_guidance_rules_out_everyday_words(self):
         aplati = " ".join(CONSIGNES_DOCUMENT.split())

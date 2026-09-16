@@ -75,23 +75,23 @@ class Preparation:
 
     def expecting(self, name: str) -> Preparation:
         """Somebody expected in the room, kept once however often they are named."""
-        propre = " ".join(name.split())
-        if not propre or propre in self.expected:
+        clean = " ".join(name.split())
+        if not clean or clean in self.expected:
             return self
-        return replace(self, expected=(*self.expected, propre))
+        return replace(self, expected=(*self.expected, clean))
 
     def raising(self, point: str) -> Preparation:
         """A point to put to the room, kept once however often it is said."""
-        propre = " ".join(point.split())
-        if not propre or propre in self.to_raise:
+        clean = " ".join(point.split())
+        if not clean or clean in self.to_raise:
             return self
-        return replace(self, to_raise=(*self.to_raise, propre))
+        return replace(self, to_raise=(*self.to_raise, clean))
 
     def with_document(self, name: str) -> Preparation:
-        propre = name.strip()
-        if not propre or propre in self.documents:
+        clean = name.strip()
+        if not clean or clean in self.documents:
             return self
-        return replace(self, documents=(*self.documents, propre))
+        return replace(self, documents=(*self.documents, clean))
 
     def taken(self, identifier: str) -> Preparation:
         """Consumed by a meeting, and no longer offered to the next one."""
@@ -122,14 +122,14 @@ class Preparation:
         if self.documents:
             lignes.append("Documents rassemblés avant la séance : "
                           + ", ".join(self.documents))
-        entete = "\n".join(lignes)
-        echanges = _that_fit(self.exchanges, place - len(entete))
+        header = "\n".join(lignes)
+        echanges = _that_fit(self.exchanges, place - len(header))
         if echanges:
-            entete += (
+            header += (
                 "\n\nCe qui a été demandé avant la réunion, et ce qui a été "
                 "répondu. N'y reviens que si la séance y touche :\n" + echanges
             )
-        return entete + "\n\n"
+        return header + "\n\n"
 
 
 def _that_fit(exchanges: tuple[Exchange, ...], place: int) -> str:
@@ -137,13 +137,13 @@ def _that_fit(exchanges: tuple[Exchange, ...], place: int) -> str:
     retenus: list[str] = []
     longueur = 0
     for exchange in reversed(exchanges):
-        rendu = f"- demandé : {exchange.asked}"
+        rendered = f"- demandé : {exchange.asked}"
         if exchange.answered:
-            rendu += f"\n  répondu : {exchange.answered}"
-        if longueur + len(rendu) + 1 > place:
+            rendered += f"\n  répondu : {exchange.answered}"
+        if longueur + len(rendered) + 1 > place:
             break
-        retenus.append(rendu)
-        longueur += len(rendu) + 1
+        retenus.append(rendered)
+        longueur += len(rendered) + 1
     return "\n".join(reversed(retenus))
 
 

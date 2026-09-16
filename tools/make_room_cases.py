@@ -38,8 +38,8 @@ RECUL_DB = -18.0
 RAPPORT_BRUIT_DB = 20.0
 
 
-def _lire(chemin: Path) -> tuple[np.ndarray, int]:
-    data, hz = sf.read(chemin, dtype="float32", always_2d=True)
+def _lire(path: Path) -> tuple[np.ndarray, int]:
+    data, hz = sf.read(path, dtype="float32", always_2d=True)
     return data, hz
 
 
@@ -47,9 +47,9 @@ def loin(source: Path, destination: Path, db: float = RECUL_DB) -> Path:
     """The second half quieter, as if one voice had moved away."""
     data, hz = _lire(source)
     milieu = len(data) // 2
-    sortie = data.copy()
-    sortie[milieu:] *= 10 ** (db / 20)
-    sf.write(destination, sortie, hz)
+    output_ = data.copy()
+    output_[milieu:] *= 10 ** (db / 20)
+    sf.write(destination, output_, hz)
     return destination
 
 
@@ -59,8 +59,8 @@ def bruit(source: Path, destination: Path, rapport_db: float = RAPPORT_BRUIT_DB)
     puissance = float(np.mean(data ** 2)) or 1e-12
     ampleur = float(np.sqrt(puissance / (10 ** (rapport_db / 10))))
     tirage = np.random.default_rng(11)
-    sortie = data + tirage.normal(0, ampleur, data.shape).astype("float32")
-    sf.write(destination, np.clip(sortie, -1.0, 1.0), hz)
+    output_ = data + tirage.normal(0, ampleur, data.shape).astype("float32")
+    sf.write(destination, np.clip(output_, -1.0, 1.0), hz)
     return destination
 
 
@@ -94,13 +94,13 @@ def tard(source: Path, destination: Path) -> Path:
 def ensemble(source: Path, destination: Path, part: float = 0.3) -> Path:
     """Two people over each other, for a stretch of the meeting."""
     data, hz = _lire(source)
-    debut = int(len(data) * 0.35)
+    start = int(len(data) * 0.35)
     longueur = int(len(data) * part)
-    sortie = data.copy()
-    autre = data[:longueur] * 0.8
-    fin = min(debut + longueur, len(sortie))
-    sortie[debut:fin] += autre[: fin - debut]
-    sf.write(destination, np.clip(sortie, -1.0, 1.0), hz)
+    output_ = data.copy()
+    other = data[:longueur] * 0.8
+    end = min(start + longueur, len(output_))
+    output_[start:end] += other[: end - start]
+    sf.write(destination, np.clip(output_, -1.0, 1.0), hz)
     return destination
 
 
@@ -112,19 +112,19 @@ def main() -> int:
     analyseur.add_argument("sortie", type=Path)
     analyseur.add_argument("--cas", choices=sorted(CAS))
     analyseur.add_argument("--source", type=Path)
-    lu = analyseur.parse_args()
+    read_ = analyseur.parse_args()
 
-    lu.sortie.mkdir(parents=True, exist_ok=True)
-    source = lu.source
+    read_.output_.mkdir(parents=True, exist_ok=True)
+    source = read_.source
     if source is None:
         from make_meeting import make
 
-        source = make(lu.sortie / "propre.wav")
-    for nom, fabrique in sorted(CAS.items()):
-        if lu.cas and nom != lu.cas:
+        source = make(read_.output_ / "propre.wav")
+    for name, fabrique in sorted(CAS.items()):
+        if read_.cas and name != read_.cas:
             continue
-        chemin = fabrique(source, lu.sortie / f"{nom}.wav")
-        print(f"{nom:9} {chemin}")
+        path = fabrique(source, read_.output_ / f"{name}.wav")
+        print(f"{name:9} {path}")
     return 0
 
 

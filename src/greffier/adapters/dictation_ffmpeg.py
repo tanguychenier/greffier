@@ -26,7 +26,7 @@ SYSTEM = platform.system()
 SECONDES_MAXIMUM = 120
 
 
-def _entree(device: str) -> list[str]:
+def _input(device: str) -> list[str]:
     """The input, according to the system."""
     if SYSTEM == "Darwin":
         return ["-f", "avfoundation", "-i", f":{device or 'default'}"]
@@ -56,7 +56,7 @@ class Dictation:
         self._file = destination
         self._process = subprocess.Popen(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-             *_entree(self.device),
+             *_input(self.device),
              "-t", str(self.maximum),
              "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", str(destination)],
             stdin=subprocess.DEVNULL,

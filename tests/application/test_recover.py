@@ -7,7 +7,7 @@ approximate and lost.
 
 from pathlib import Path
 
-from greffier.application.recover import WARNING, depuis_le_fil
+from greffier.application.recover import WARNING, from_the_thread
 from greffier.domain.models import Span, SpeakerTurn
 
 
@@ -27,33 +27,33 @@ THREAD = [
 
 class TestRebuildingAMeeting:
     def test_the_spoken_lines_become_utterances(self):
-        meeting = depuis_le_fil("2026-09-09_10h05_reunion", THREAD)
+        meeting = from_the_thread("2026-09-09_10h05_reunion", THREAD)
         assert [r.text for r in meeting.utterances] == [
             "Bonjour à tous.", "On commence par la recette.", "Elle est décalée à jeudi."
         ]
 
     def test_the_voices_are_kept(self):
-        meeting = depuis_le_fil("2026-09-09_10h05_reunion", THREAD)
+        meeting = from_the_thread("2026-09-09_10h05_reunion", THREAD)
         assert {t.voice for t in meeting.turns} == {"v1", "v2"}
 
     def test_the_length_comes_from_the_last_turn(self):
-        assert depuis_le_fil("2026-09-09_10h05_reunion", THREAD).duration == 18.0
+        assert from_the_thread("2026-09-09_10h05_reunion", THREAD).duration == 18.0
 
     def test_the_date_comes_from_the_identifier(self):
-        meeting = depuis_le_fil("2026-09-09_10h05_reunion", THREAD)
+        meeting = from_the_thread("2026-09-09_10h05_reunion", THREAD)
         assert meeting.started_at is not None
         assert (meeting.started_at.hour, meeting.started_at.minute) == (10, 5)
 
     def test_the_lines_with_no_speech_are_dropped(self):
-        meeting = depuis_le_fil("x", [{"genre": "etat", "message": "actif"}])
+        meeting = from_the_thread("x", [{"genre": "etat", "message": "actif"}])
         assert meeting.utterances == []
 
     def test_an_empty_text_is_not_an_utterance(self):
-        meeting = depuis_le_fil("x", [turn(1, 0.0, 2.0, "   ", "v1")])
+        meeting = from_the_thread("x", [turn(1, 0.0, 2.0, "   ", "v1")])
         assert meeting.utterances == []
 
     def test_the_audio_is_taken_back_when_it_exists(self):
-        meeting = depuis_le_fil("x", THREAD, audio=Path("/tmp/x.wav"))
+        meeting = from_the_thread("x", THREAD, audio=Path("/tmp/x.wav"))
         assert meeting.audio == Path("/tmp/x.wav")
 
 
@@ -61,7 +61,7 @@ class TestBeingHonestAboutIt:
     """A transcript of lesser quality must not pass for an ordinary one."""
 
     def test_the_meeting_carries_its_warning(self):
-        meeting = depuis_le_fil("2026-09-09_10h05_reunion", THREAD)
+        meeting = from_the_thread("2026-09-09_10h05_reunion", THREAD)
         assert meeting.warnings == [WARNING]
 
     def test_the_warning_says_what_is_worse_about_it(self):

@@ -119,8 +119,8 @@ class TestThePackageManager:
 
     def test_ffmpeg_is_known_to_every_manager(self, the_installer):
         """The only tool that is truly indispensable: it has to install everywhere."""
-        attendus = {"brew", "apt-get", "dnf", "pacman", "zypper", "apk", "winget", "scoop"}
-        assert attendus <= set(the_installer.PACKAGES["ffmpeg"])
+        expected = {"brew", "apt-get", "dnf", "pacman", "zypper", "apk", "winget", "scoop"}
+        assert expected <= set(the_installer.PACKAGES["ffmpeg"])
 
 
 class TestFittingIntoTheDesktop:
@@ -308,14 +308,14 @@ class TestAWindowThatDoesNotLookLike1989:
             self, under, monkeypatch):
         module = under("Linux", DISPLAY=":0")
         monkeypatch.setattr(module.shutil, "which",
-                            lambda nom: "/usr/bin/python3.13" if nom == "python3.13" else None)
+                            lambda name: "/usr/bin/python3.13" if name == "python3.13" else None)
         monkeypatch.setattr(module, "antialiases", lambda _: True)
         assert module.a_smoothing_interpreter() == "/usr/bin/python3.13"
 
     def test_one_that_does_not_smooth_is_passed_over(self, under, monkeypatch):
         module = under("Linux", DISPLAY=":0")
         monkeypatch.setattr(module.shutil, "which",
-                            lambda nom: f"/usr/bin/{nom}" if nom == "python3.13" else None)
+                            lambda name: f"/usr/bin/{name}" if name == "python3.13" else None)
         monkeypatch.setattr(module, "antialiases", lambda _: False)
         assert module.a_smoothing_interpreter() is None
 
@@ -707,59 +707,59 @@ class TestRoueCuda:
 
 class TestEtapeCarte:
     @pytest.fixture
-    def travaux(self, the_installer, monkeypatch):
+    def jobs(self, the_installer, monkeypatch):
         faits = []
         monkeypatch.setattr(
             the_installer, "run_job",
-            lambda commande, **_k: faits.append(commande) or _Fini(),
+            lambda command, **_k: faits.append(command) or _Fini(),
         )
         monkeypatch.setattr(the_installer, "_python_tag", lambda _p: ("cp313", "x86_64"))
         return faits
 
     def test_a_machine_without_a_card_installs_nothing(
-        self, the_installer, monkeypatch, travaux
+        self, the_installer, monkeypatch, jobs
     ):
         monkeypatch.setattr(the_installer, "nvidia_card", lambda: False)
         the_installer.card_step(_Demande(), "python")
-        assert travaux == []
+        assert jobs == []
 
-    def test_macos_is_never_asked(self, under, monkeypatch, travaux):
+    def test_macos_is_never_asked(self, under, monkeypatch, jobs):
         """Apple stopped supporting NVIDIA with Mojave: there is nothing to speed up."""
         module = under("Darwin")
         monkeypatch.setattr(module, "shutil", _AvecNvidiaSmi())
         module.card_step(_Demande(), "python")
-        assert travaux == []
+        assert jobs == []
 
-    def test_linux_with_a_card_takes_the_wheel(self, under, monkeypatch, travaux):
+    def test_linux_with_a_card_takes_the_wheel(self, under, monkeypatch, jobs):
         module = under("Linux")
         monkeypatch.setattr(module, "nvidia_card", lambda: True)
         module.card_step(_Demande(), "python")
-        assert len(travaux) == 1
-        assert travaux[0][-1].endswith("linux_x86_64.whl")
+        assert len(jobs) == 1
+        assert jobs[0][-1].endswith("linux_x86_64.whl")
 
-    def test_windows_with_a_card_takes_its_own(self, under, monkeypatch, travaux):
+    def test_windows_with_a_card_takes_its_own(self, under, monkeypatch, jobs):
         module = under("Windows")
         monkeypatch.setattr(module, "nvidia_card", lambda: True)
         module.card_step(_Demande(), "python")
-        assert travaux[0][-1].endswith("win_amd64.whl")
+        assert jobs[0][-1].endswith("win_amd64.whl")
 
     def test_an_interpreter_that_will_not_answer_stops_there(
-        self, under, monkeypatch, travaux
+        self, under, monkeypatch, jobs
     ):
         module = under("Linux")
         monkeypatch.setattr(module, "nvidia_card", lambda: True)
         monkeypatch.setattr(module, "_python_tag", lambda _p: (None, None))
         module.card_step(_Demande(), "python")
-        assert travaux == []
+        assert jobs == []
 
-    def test_a_refusal_leaves_the_command_to_run_later(self, under, monkeypatch, travaux):
+    def test_a_refusal_leaves_the_command_to_run_later(self, under, monkeypatch, jobs):
         module = under("Linux")
         monkeypatch.setattr(module, "nvidia_card", lambda: True)
-        demande = _Demande()
-        demande.reponse = False
-        module.card_step(demande, "python")
-        assert travaux == []
-        assert demande.to_do and demande.to_do[0].startswith("uv pip install")
+        request = _Demande()
+        request.answer = False
+        module.card_step(request, "python")
+        assert jobs == []
+        assert request.to_do and request.to_do[0].startswith("uv pip install")
 
 
 class _Fini:
@@ -782,7 +782,7 @@ class _Demande:
 
     def __init__(self) -> None:
         self.to_do = []
-        self.reponse = True
+        self.answer = True
 
     def ask(self, _question):
-        return self.reponse
+        return self.answer

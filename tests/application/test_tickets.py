@@ -1,6 +1,6 @@
 """The tickets proposed from the minutes."""
 
-from greffier.application.tickets import Ticket, depuis_reponse, extract_json, offer
+from greffier.application.tickets import Ticket, extract_json, from_answer, offer
 
 
 class FakeWriter:
@@ -44,33 +44,33 @@ class TestWhatIsAskedOfTheWriter:
 
 class TestBuildingTheTickets:
     def test_the_fields_are_carried_over(self):
-        proposition = depuis_reponse(RESPONSE)
+        proposition = from_answer(RESPONSE)
         first_call = proposition.tickets[0]
         assert first_call.title == "Décaler la recette à jeudi"
         assert first_call.assigne == "Josiane"
         assert first_call.echeance == "jeudi"
 
     def test_a_ticket_with_no_title_is_dropped(self):
-        assert depuis_reponse('[{"description": "sans titre"}]').tickets == []
+        assert from_answer('[{"description": "sans titre"}]').tickets == []
 
     def test_the_missing_fields_stay_empty(self):
         """N'inventer ni assignation ni échéance : l'absence se voit."""
-        ticket = depuis_reponse('[{"titre": "Faire le point"}]').tickets[0]
+        ticket = from_answer('[{"titre": "Faire le point"}]').tickets[0]
         assert ticket.assigne == "" and ticket.echeance == ""
 
 
 class TestWhatIsWrittenOut:
     def test_the_markdown_carries_the_quote_that_justifies_it(self):
-        rendered = depuis_reponse(RESPONSE).as_markdown("2026-08-25_copil")
+        rendered = from_answer(RESPONSE).as_markdown("2026-08-25_copil")
         assert "> on décale la recette à jeudi" in rendered
         assert "**Pour** Josiane" in rendered
 
     def test_the_document_says_it_creates_nothing(self):
         """A ticket opened wrongly costs more to withdraw than not to create."""
-        assert "pas créés" in depuis_reponse(RESPONSE).as_markdown("x")
+        assert "pas créés" in from_answer(RESPONSE).as_markdown("x")
 
     def test_with_no_decision_it_says_so(self):
-        assert "Aucune action décidée" in depuis_reponse("[]").as_markdown("x")
+        assert "Aucune action décidée" in from_answer("[]").as_markdown("x")
 
 
 class TestTheWholeLoop:

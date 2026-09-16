@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-AMORCE_MAXIMUM = 850
+PROMPT_MAXIMUM = 850
 
 _PREAMBULE = "Réunion de travail."
 
@@ -76,7 +76,7 @@ class Context:
         something it knows.
         """
         retenus = _hold(self._words(heard_before),
-                        AMORCE_MAXIMUM - len(_PREAMBULE) - len(" Vocabulaire : ."))
+                        PROMPT_MAXIMUM - len(_PREAMBULE) - len(" Vocabulaire : ."))
         if not retenus:
             return ""
         return f"{_PREAMBULE} Vocabulaire : " + ", ".join(retenus) + "."
@@ -84,7 +84,7 @@ class Context:
     def ecartes(self, heard_before: Sequence[str] = ()) -> tuple[str, ...]:
         """The terms the seed could not carry, so that it can be said."""
         words = self._words(heard_before)
-        retenus = set(_hold(words, AMORCE_MAXIMUM - len(_PREAMBULE) - len(" Vocabulaire : .")))
+        retenus = set(_hold(words, PROMPT_MAXIMUM - len(_PREAMBULE) - len(" Vocabulaire : .")))
         return tuple(m for m in words if m not in retenus)
 
     def _words(self, heard_before: Sequence[str] = ()) -> list[str]:

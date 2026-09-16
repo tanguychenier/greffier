@@ -44,8 +44,8 @@ def session(request):
     server, port = request.param
     sender = SmtpSender(server=server, port=port)
     try:
-        with sender.session() as ouverte:
-            yield ouverte
+        with sender.session() as opened_one:
+            yield opened_one
     except (TimeoutError, OSError, smtplib.SMTPException, ssl.SSLError) as erreur:
         pytest.skip(f"{server}:{port} injoignable ({type(erreur).__name__}) : {erreur}")
 

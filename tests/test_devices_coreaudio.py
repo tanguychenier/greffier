@@ -112,12 +112,12 @@ class TestDecidingOnRealHardware:
     def test_the_dock_alone_does_not_beat_the_laptop_mic(self) -> None:
         # Dock plugged in, headset not: the Realtek line input is almost always
         # empty, the laptop mic captures at least something.
-        materiel = analyser(BRANCHE)
-        sans_casque = Hardware(
-            tuple(p for p in materiel.devices if not p.name.startswith("Jabra"))
+        hardware = analyser(BRANCHE)
+        without_headset = Hardware(
+            tuple(p for p in hardware.devices if not p.name.startswith("Jabra"))
         )
-        assert sans_casque.by_name("Realtek USB2.0 Audio") is not None
-        assert advised_mic(sans_casque, "Jabra EVOLVE 30 II") == "Micro MacBook Pro"
+        assert without_headset.by_name("Realtek USB2.0 Audio") is not None
+        assert advised_mic(without_headset, "Jabra EVOLVE 30 II") == "Micro MacBook Pro"
 
     def test_the_aggregate_is_never_kept_despite_its_three_inputs(self) -> None:
         assert advised_mic(analyser(SEUL), "Casque absent") == "Micro MacBook Pro"

@@ -38,12 +38,12 @@ def every_path(config: Config) -> dict[str, Path]:
 
 class TestNothingLivesInsideTheBundle:
     def test_no_data_path_falls_where_an_update_replaces_things(self):
-        fautifs = {
+        faulty = {
             name: path
             for name, path in every_path(Config()).items()
-            if any(morceau in str(path) for morceau in REMPLACES)
+            if any(chunk in str(path) for chunk in REMPLACES)
         }
-        assert not fautifs, f"perdu à la prochaine mise à jour : {fautifs}"
+        assert not faulty, f"perdu à la prochaine mise à jour : {faulty}"
 
     def test_the_data_does_not_depend_on_the_working_folder(self):
         """Launching from another folder must not change where things are written.

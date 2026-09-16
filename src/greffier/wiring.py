@@ -71,7 +71,7 @@ def _transcriber(config: Config) -> outbound.Transcriber:
     from greffier.adapters.transcription_faster_whisper import FasterWhisperTranscriber
 
     return FasterWhisperTranscriber(
-        taille=config.transcription.model, device=config.hardware.device
+        size=config.transcription.model, device=config.hardware.device
     )
 
 def _live_model(config: Config) -> str:
@@ -83,10 +83,10 @@ def _live_model(config: Config) -> str:
 def light_transcriber(config: Config) -> outbound.Transcriber | None:
     """The live transcription model: fast rather than precise."""
     _the_card_first(config)
-    taille = config.live.model or _live_model(config)
+    size = config.live.model or _live_model(config)
     if config.transcription.engine == "whisper.cpp":
         models = config.paths.models
-        candidats = [models / f"ggml-{taille}.bin", models / "ggml-large-v3-turbo.bin"]
+        candidats = [models / f"ggml-{size}.bin", models / "ggml-large-v3-turbo.bin"]
         model = next((m for m in candidats if m.exists()), None)
         if model is None:
             return None
@@ -95,7 +95,7 @@ def light_transcriber(config: Config) -> outbound.Transcriber | None:
         return WhisperCppTranscriber(model=model, vad=None)
     from greffier.adapters.transcription_faster_whisper import FasterWhisperTranscriber
 
-    return FasterWhisperTranscriber(taille=taille, device=config.hardware.device)
+    return FasterWhisperTranscriber(size=size, device=config.hardware.device)
 
 #: The model that transcribes a dictated question. Measured on the same
 #: thirty-six seconds: 1.8 s with « base » against 9.4 s with « large-v3 », for
@@ -114,7 +114,7 @@ def dictation_transcriber(config: Config) -> outbound.Transcriber | None:
     from greffier.adapters.transcription_faster_whisper import FasterWhisperTranscriber
 
     return FasterWhisperTranscriber(
-        taille=DICTATION_MODEL, device=config.hardware.device
+        size=DICTATION_MODEL, device=config.hardware.device
     )
 
 
@@ -176,7 +176,7 @@ def assistant(config: Config) -> outbound.Writer | None:
         language=config.minutes.language,
         tools=(ClaudeWriter.SEARCH_TOOLS
                 if config.conversation.recherche_web else ()),
-        consignes_propres=CONSIGNES_CONVERSATION,
+        own_guidance=CONSIGNES_CONVERSATION,
     )
 
 def cartographe(config: Config) -> outbound.Writer | None:
@@ -194,7 +194,7 @@ def cartographe(config: Config) -> outbound.Writer | None:
         config.minutes.effective_model,
         timeout=config.minutes.timeout,
         language=config.minutes.language,
-        consignes_propres=GUIDANCE,
+        own_guidance=GUIDANCE,
     )
 
 def troubles(config: Config) -> outbound.TroubleLog:
@@ -287,9 +287,9 @@ def _index(config: Config, trace: Trace) -> None:
     from greffier.adapters import graph_sqlite
     from greffier.domain.graph import from_trace
 
-    attente = waiting_preparation(config)
-    sujet = attente.subject if attente is not None else ""
-    nodes, edges = from_trace(trace, sujet)
+    pending = waiting_preparation(config)
+    subject = pending.subject if pending is not None else ""
+    nodes, edges = from_trace(trace, subject)
     with contextlib.suppress(Exception):
         graph_sqlite.write(config.paths.graph, nodes, edges)
 
@@ -323,10 +323,10 @@ def take_the_preparation(config: Config, identifier: str) -> None:
     """Marks it as taken by this meeting. Consumed once, never twice."""
     from greffier.adapters import preparations_file
 
-    attente = waiting_preparation(config)
-    if attente is not None:
+    pending = waiting_preparation(config)
+    if pending is not None:
         preparations_file.write(
-            config.paths.preparations, attente.taken(identifier))
+            config.paths.preparations, pending.taken(identifier))
 
 
 def spoken_language(config: Config) -> str:
@@ -357,9 +357,9 @@ def context(config: Config) -> WorkContext:
     fondu = fondu.join(context_file.from_the_bank(names))
     return fondu.join(context_file.read(config.paths.context))
 
-def _sender(config: Config, exiger_destinataire: bool = True) -> outbound.Sender | None:
+def _sender(config: Config, require_recipient: bool = True) -> outbound.Sender | None:
     """How the minutes leave."""
-    if exiger_destinataire and not config.minutes.recipient:
+    if require_recipient and not config.minutes.recipient:
         return None
     if config.email.server:
         return SmtpSender(
@@ -376,7 +376,7 @@ def _audio_recorder(config: Config) -> FfmpegRecorder:
     """Audio capture. One construction, three callers."""
     return FfmpegRecorder(config.audio.input, config.audio.maximum_length)
 
-def lister(config: Config) -> CoreAudioLister:
+def list_(config: Config) -> CoreAudioLister:
     """Reading the audio hardware, for the watch and the diagnostic."""
     source = Path(__file__).resolve().parent.parent.parent / "macos/creer-peripheriques.swift"
     prete = Path(sys.executable).resolve().parent.parent / "Resources/lister-peripheriques"
@@ -388,8 +388,8 @@ def recording(config: Config) -> Recording:
     """The recording state machine, shared by two commands."""
     return Recording(
         audio_recorder=_audio_recorder(config),
-        dossier_audio=config.paths.recordings,
-        fichier_etat=config.paths.data / "etat.json",
+        audio_folder=config.paths.recordings,
+        state_file=config.paths.data / "etat.json",
     )
 
 def wire_up(config: Config) -> Chain:
@@ -398,7 +398,7 @@ def wire_up(config: Config) -> Chain:
     # Read once, here: the chain is built before the meeting and the preparation
     # cannot change under it. Taken -- marked as consumed -- only when a meeting
     # has actually been recorded, which is the chain's business, not ours.
-    _attente = waiting_preparation(config)
+    _pending = waiting_preparation(config)
     models = config.paths.models
     diarisation = models / "diarisation"
     _the_context = context(config)
@@ -419,18 +419,18 @@ def wire_up(config: Config) -> Chain:
         log=None,
         notificateur=SystemNotifier(),
         store=store(config),
-        dossier_transcriptions=config.paths.transcripts,
-        dossier_comptes_rendus=config.paths.minutes_folder,
+        transcripts_folder=config.paths.transcripts,
+        minutes_folder=config.paths.minutes_folder,
         language=config.transcription.language,
         prompt_seed=_the_context.prompt_seed(
-            tuple(_attente.expected) if _attente is not None else ()
+            tuple(_pending.expected) if _pending is not None else ()
         ),
         context_header=(
             _the_context.header()
             + what_earlier_meetings_left(config)
-            + (_attente.header() if _attente is not None else "")
+            + (_pending.header() if _pending is not None else "")
         ),
-        expected_people=tuple(_attente.expected) if _attente is not None else (),
+        expected_people=tuple(_pending.expected) if _pending is not None else (),
         her_name=config.assistant.name,
         her_turns_of=lambda identifier: tuple(
             her_turns_file.read(her_turns_file.file_for(config.paths.live, identifier))
@@ -492,8 +492,8 @@ def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
         setting=lambda: context(config).header() + what_earlier_meetings_left(config),
     )
     cerveau = assistant(config)
-    if cerveau is not None and hasattr(cerveau, "consignes_propres"):
-        cerveau.consignes_propres = lui.guidance()
+    if cerveau is not None and hasattr(cerveau, "own_guidance"):
+        cerveau.own_guidance = lui.guidance()
         # The same setting as the conversation tab, and for the same reason:
         # its guidance tells it that it may look something up and name the
         # source aloud. Handed no tools, it answered "yes I can search" and

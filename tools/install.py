@@ -211,14 +211,14 @@ def sherpa_cuda_wheel(system, marqueur, machine):
     sherpa-onnx project.
     """
     if system == "Linux" and machine == "x86_64":
-        fin = f".onnxruntime1.27.1-{marqueur}-{marqueur}-linux_x86_64.whl"
+        end = f".onnxruntime1.27.1-{marqueur}-{marqueur}-linux_x86_64.whl"
     elif system == "Windows" and machine in ("AMD64", "x86_64"):
-        fin = f"-{marqueur}-{marqueur}-win_amd64.whl"
+        end = f"-{marqueur}-{marqueur}-win_amd64.whl"
     else:
         return None
     return (
         "https://huggingface.co/csukuangfj2/sherpa-onnx-wheels/resolve/main/cuda/"
-        f"{SHERPA_CUDA}/sherpa_onnx-{SHERPA_CUDA}%2Bcuda12.cudnn9{fin}"
+        f"{SHERPA_CUDA}/sherpa_onnx-{SHERPA_CUDA}%2Bcuda12.cudnn9{end}"
     )
 
 
@@ -840,14 +840,14 @@ def antialiases(interpreter: str) -> bool | None:
     """
     if not os.environ.get("DISPLAY") and SYSTEM == "Linux":
         return None
-    demande = (
+    request = (
         "import tkinter;"
         "r = tkinter.Tk(); r.withdraw();"
         "print(r.tk.eval('tk::pkgconfig get fontsystem'))"
     )
     try:
         done = subprocess.run(
-            [interpreter, "-c", demande],
+            [interpreter, "-c", request],
             capture_output=True, text=True, timeout=20, check=False,
         )
     except (OSError, subprocess.TimeoutExpired):

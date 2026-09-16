@@ -38,7 +38,7 @@ COLOURS = {
     Standing.OVERTAKEN: "gray",
 }
 
-COULEUR_SUJET = "light_blue"
+SUBJECT_COLOUR = "light_blue"
 
 class MiroRefused(RuntimeError):
     """The call did not happen, and for a reason worth showing."""
@@ -141,9 +141,9 @@ def objets_presents(board_id: str) -> dict[str, str]:
             content = (objet.get("data") or {}).get("content", "")
             if not content:
                 continue
-            premiere = _without_markup(content.split("</p>")[0])
-            if premiere:
-                found.setdefault(premiere, str(objet.get("id", "")))
+            first_one = _without_markup(content.split("</p>")[0])
+            if first_one:
+                found.setdefault(first_one, str(objet.get("id", "")))
         cursor = str(response.get("cursor", ""))
         if not cursor:
             return found
@@ -167,11 +167,11 @@ def placements_present(board_id: str) -> dict[str, Placement]:
             content = (objet.get("data") or {}).get("content", "")
             if not content:
                 continue
-            premiere = _without_markup(content.split("</p>")[0])
-            if not premiere or premiere in found:
+            first_one = _without_markup(content.split("</p>")[0])
+            if not first_one or first_one in found:
                 continue
             position = objet.get("position") or {}
-            found[premiere] = Placement(
+            found[first_one] = Placement(
                 identifier=str(objet.get("id", "")),
                 x=int(position.get("x", 0) or 0),
                 y=int(position.get("y", 0) or 0),
@@ -192,11 +192,11 @@ def labels_present(board_id: str) -> list[str]:
     """The labels already on the board, in their own wording."""
     return list(placements_present(board_id))
 
-MARQUE_ACTE = "acté"
+SETTLED_MARK = "acté"
 
 BADGE_OFFSET = (150, -60)
 
-TOLERANCE_PASTILLE = 40
+BADGE_TOLERANCE = 40
 
 def _dots_placed(board_id: str) -> set[tuple[int, int]]:
     """The positions of every "settled" dot."""
@@ -215,7 +215,7 @@ def _dots_placed(board_id: str) -> set[tuple[int, int]]:
             return positions
         for forme in response.get("data", []):
             content = _without_markup((forme.get("data") or {}).get("content", ""))
-            if content.strip().casefold() != MARQUE_ACTE:
+            if content.strip().casefold() != SETTLED_MARK:
                 continue
             position = forme.get("position") or {}
             positions.add((
@@ -234,7 +234,7 @@ def mark_actions(
     _keep(board_id)
     present_line = placements_present(board_id)
     already_marked = _dots_placed(board_id)
-    marques: list[str] = []
+    marks: list[str] = []
     for text in texts:
         pose = next(
             (p for label_text, p in present_line.items() if same_point(label_text, text)),
@@ -244,8 +244,8 @@ def mark_actions(
             continue
         attendue = (pose.x + BADGE_OFFSET[0], pose.y + BADGE_OFFSET[1])
         if any(
-            abs(x - attendue[0]) <= TOLERANCE_PASTILLE
-            and abs(y - attendue[1]) <= TOLERANCE_PASTILLE
+            abs(x - attendue[0]) <= BADGE_TOLERANCE
+            and abs(y - attendue[1]) <= BADGE_TOLERANCE
             for x, y in already_marked
         ):
             continue
@@ -255,7 +255,7 @@ def mark_actions(
                 "POST",
                 {
                     "data": {"shape": "round_rectangle",
-                             "content": f"<p>{_echapper(MARQUE_ACTE)}</p>"},
+                             "content": f"<p>{_echapper(SETTLED_MARK)}</p>"},
                     "style": {"fillColor": "#2e6b52", "color": "#ffffff",
                               "fontSize": "12"},
                     "position": {"x": attendue[0], "y": attendue[1],
@@ -263,10 +263,10 @@ def mark_actions(
                     "geometry": {"width": 70, "height": 34},
                 },
             )
-            marques.append(text)
+            marks.append(text)
         except MiroRefused:
             continue
-    return tuple(marques)
+    return tuple(marks)
 
 def textes_presents(board_id: str) -> set[str]:
     """The comparison keys of the points already on the board."""
@@ -300,7 +300,7 @@ def publish(board: Board, board_id: str, meeting: str = "") -> Written:
         from greffier.domain.board import WITHOUT_STANDING
 
         colour = (
-            COULEUR_SUJET if place.noeud.kind in WITHOUT_STANDING
+            SUBJECT_COLOUR if place.noeud.kind in WITHOUT_STANDING
             else COLOURS.get(place.noeud.state, "light_yellow")
         )
         corps = {

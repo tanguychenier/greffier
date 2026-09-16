@@ -72,7 +72,7 @@ def label(settings: dict[str, Any]) -> str:
 def prepared(audio: Path, folder: Path) -> Path:
     from greffier.adapters.audio_ffmpeg import FfmpegRecorder
 
-    recorder = FfmpegRecorder(peripherique="")
+    recorder = FfmpegRecorder(device="")
     return recorder.prepare_transcript(audio, folder / f"{audio.stem}-niveau.wav")
 
 

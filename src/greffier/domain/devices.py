@@ -53,16 +53,16 @@ class Decision:
     mic: str = ""
     audio_suspect: bool = False
 
-def _headset_usable(materiel: Hardware, prefere: str) -> Device | None:
-    expected = materiel.by_name(prefere)
+def _headset_usable(hardware: Hardware, prefere: str) -> Device | None:
+    expected = hardware.by_name(prefere)
     if expected is not None and expected.captured:
         return expected
     return None
 
-def _fallback_mic(materiel: Hardware, excluded: tuple[str, ...]) -> Device | None:
+def _fallback_mic(hardware: Hardware, excluded: tuple[str, ...]) -> Device | None:
     """The best mic available, excluding those to be avoided."""
     candidats = [
-        p for p in materiel.mics
+        p for p in hardware.mics
         if p.name not in excluded and not _is_loopback(p.name) and not _is_aggregated(p)
     ]
     if not candidats:
@@ -71,15 +71,15 @@ def _fallback_mic(materiel: Hardware, excluded: tuple[str, ...]) -> Device | Non
     integres = [p for p in candidats if _is_built_in(p.name)]
     return (casques or integres or candidats)[0]
 
-def _is_aggregated(peripherique: Device) -> bool:
+def _is_aggregated(device: Device) -> bool:
     """The devices the tool builds itself."""
-    return peripherique.uid.startswith("com.reunions.")
+    return device.uid.startswith("com.reunions.")
 
 def _is_loopback(name: str) -> bool:
-    return any(marque in name.lower() for marque in ("blackhole", "loopback", "soundflower"))
+    return any(mark in name.lower() for mark in ("blackhole", "loopback", "soundflower"))
 
 def _is_built_in(name: str) -> bool:
-    return any(marque in name.lower() for marque in ("macbook", "built-in", "intégré", "integre"))
+    return any(mark in name.lower() for mark in ("macbook", "built-in", "intégré", "integre"))
 
 @dataclass
 class WatchRules:
@@ -139,7 +139,7 @@ class WatchRules:
 
         return Decision(Action.NOTHING)
 
-PLANCHER_MUET_DB = -68.0
+SILENT_FLOOR_DB = -68.0
 
 @dataclass(frozen=True)
 class MicChoice:
@@ -167,7 +167,7 @@ def choose_by_listening(
     if casques:
         vivants = [
             (other, db) for other, db in ranking
-            if other in casques and db >= PLANCHER_MUET_DB
+            if other in casques and db >= SILENT_FLOOR_DB
         ]
         if vivants and vivants[0][0] != name:
             name, level = vivants[0]
@@ -178,49 +178,49 @@ def choose_by_listening(
         name=name,
         level_db=level,
         ecartes=tuple(ranking[1:]),
-        all_silent=max(essais.values()) < PLANCHER_MUET_DB,
+        all_silent=max(essais.values()) < SILENT_FLOOR_DB,
         preferred_headset=bool(casques) and name in casques,
     )
 
-def candidates_to_listen_to(materiel: Hardware, prefere: str) -> list[str]:
+def candidates_to_listen_to(hardware: Hardware, prefere: str) -> list[str]:
     """The mics worth a listen, the preferred one first."""
-    utiles = [
-        p.name for p in materiel.mics
+    useful_ones = [
+        p.name for p in hardware.mics
         if not _is_loopback(p.name) and not _is_aggregated(p)
     ]
-    if prefere and prefere in utiles:
-        utiles.remove(prefere)
-        utiles.insert(0, prefere)
+    if prefere and prefere in useful_ones:
+        useful_ones.remove(prefere)
+        useful_ones.insert(0, prefere)
     return sorted(
-        utiles,
+        useful_ones,
         key=lambda name: (
             name != prefere,
             _is_built_in(name),
-            name not in {p.name for p in materiel.mics if p.entrees == 1},
+            name not in {p.name for p in hardware.mics if p.entrees == 1},
         ),
     )
 
-def headset_present(materiel: Hardware, name: str) -> bool:
+def headset_present(hardware: Hardware, name: str) -> bool:
     """Readable shortcut for the pre-recording checks."""
-    return _headset_usable(materiel, name) is not None
+    return _headset_usable(hardware, name) is not None
 
-def headsets_among(materiel: Hardware) -> frozenset[str]:
+def headsets_among(hardware: Hardware) -> frozenset[str]:
     """The mics that are, in all likelihood, headset mics."""
     sorties = {
-        p.name for p in materiel.devices
+        p.name for p in hardware.devices
         if p.sorties > 0 and not _is_loopback(p.name) and not _is_aggregated(p)
     }
     return frozenset(
-        p.name for p in materiel.mics
+        p.name for p in hardware.mics
         if p.name in sorties
         and p.entrees == 1
         and not _is_loopback(p.name) and not _is_aggregated(p)
         and not _is_built_in(p.name)
     )
 
-def advised_mic(materiel: Hardware, prefere: str) -> str:
+def advised_mic(hardware: Hardware, prefere: str) -> str:
     """Mic to put in the aggregate now, given what is plugged in."""
-    if headset_present(materiel, prefere):
+    if headset_present(hardware, prefere):
         return prefere
-    repli = _fallback_mic(materiel, excluded=(prefere,))
+    repli = _fallback_mic(hardware, excluded=(prefere,))
     return repli.name if repli else ""

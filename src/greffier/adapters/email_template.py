@@ -14,7 +14,7 @@ from greffier.domain.texts import short_voiceprint
 _INK = "#24242b"
 _ENCRE_PALE = "#5b5b66"
 _FILET = "#e0e0e6"
-_FOND_ENTETE = "#f6f6f8"
+_HEADER_GROUND = "#f6f6f8"
 _FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
 _POLICE_FIXE = "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
 
@@ -30,7 +30,7 @@ _STYLES = {
     "ul": "margin:0 0 14px;padding-left:22px",
     "ol": "margin:0 0 14px;padding-left:22px",
     "table": f"border-collapse:collapse;width:100%;margin:6px 0 18px;font:400 13px/1.55 {_FONT}",
-    "th": f"background:{_FOND_ENTETE};border:1px solid {_FILET};padding:9px 11px;"
+    "th": f"background:{_HEADER_GROUND};border:1px solid {_FILET};padding:9px 11px;"
           f"text-align:left;font-weight:600;color:{_INK};white-space:nowrap",
     "td": f"border:1px solid {_FILET};padding:9px 11px;vertical-align:top;color:{_INK}",
     "td_premiere": f"border:1px solid {_FILET};padding:9px 11px;vertical-align:top;"
@@ -39,7 +39,8 @@ _STYLES = {
                  f"color:#9a9aa4;font-style:italic",
     "blockquote": f"margin:14px 0;padding:9px 15px;border-left:3px solid {_FILET};"
                   f"color:{_ENCRE_PALE};font-style:italic",
-    "code": f"font:13px {_POLICE_FIXE};background:{_FOND_ENTETE};padding:1px 5px;border-radius:3px",
+    "code": f"font:13px {_POLICE_FIXE};background:{_HEADER_GROUND};"
+            f"padding:1px 5px;border-radius:3px",
     "hr": f"border:0;border-top:1px solid {_FILET};margin:26px 0",
 }
 
@@ -98,7 +99,7 @@ def _summary(minutes: str) -> str:
         for number, title in enumerate(titres, 1)
     )
     return (
-        f'<div style="margin:0 0 30px;padding:13px 17px;background:{_FOND_ENTETE};'
+        f'<div style="margin:0 0 30px;padding:13px 17px;background:{_HEADER_GROUND};'
         f'border-left:3px solid {_INK};border-radius:0 4px 4px 0">'
         f'<div style="font:600 10px/1 {_FONT};letter-spacing:.11em;'
         f'text-transform:uppercase;color:{_ENCRE_PALE};padding-bottom:7px">Sommaire</div>'

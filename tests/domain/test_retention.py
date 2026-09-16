@@ -37,12 +37,12 @@ class TestDeleting:
         assert Rule().decide(9999, True, True) is Gesture.NOTHING
 
     def test_switched_on_it_deletes_past_the_delay(self):
-        regle = Rule(compresser_apres=7, effacer_apres=90)
-        assert regle.decide(91, True, True) is Gesture.EFFACER
+        rule = Rule(compresser_apres=7, effacer_apres=90)
+        assert rule.decide(91, True, True) is Gesture.EFFACER
 
     def test_it_wins_over_compression(self):
-        regle = Rule(compresser_apres=7, effacer_apres=90)
-        assert regle.decide(120, True, False) is Gesture.EFFACER
+        rule = Rule(compresser_apres=7, effacer_apres=90)
+        assert rule.decide(120, True, False) is Gesture.EFFACER
 
 
 class TestAMeetingNotYetTranscribedIsUntouchable:
@@ -52,5 +52,5 @@ class TestAMeetingNotYetTranscribedIsUntouchable:
         assert Rule(compresser_apres=1).decide(365, False, False) is Gesture.NOTHING
 
     def test_never_deleted(self):
-        regle = Rule(compresser_apres=7, effacer_apres=30)
-        assert regle.decide(365, False, True) is Gesture.NOTHING
+        rule = Rule(compresser_apres=7, effacer_apres=30)
+        assert rule.decide(365, False, True) is Gesture.NOTHING

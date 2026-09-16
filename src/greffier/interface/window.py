@@ -28,9 +28,9 @@ from typing import Any
 from greffier.adapters.configuration import Config
 from greffier.adapters.live_levels import LevelReading, read_level
 from greffier.application.follow import (
-    GENRE_CORRECTION,
-    GENRE_ETAT,
-    GENRE_REUNION,
+    KIND_CORRECTION,
+    KIND_MEETING,
+    KIND_STATE,
     ask,
     files,
     read_from,
@@ -58,9 +58,9 @@ from greffier.interface.readable import clock, live_state_line, readable_subject
 from greffier.interface.style import blend, font, palette, title_font
 from greffier.locations import locate_tcl
 
-PERIODE_MS = 250
+PERIOD_MS = 250
 
-PERIODE_MICROS_MS = 1000
+MICROPHONES_PERIOD_MS = 1000
 
 PULSATION_MS = 50
 
@@ -70,7 +70,7 @@ _LABEL_TEXT = 84
 
 _NOMBRES = frozenset({"voix", "mots", "duree", "part"})
 
-_LIBELLES_VOIX = {
+_VOICE_LABELS = {
     WhoSpeaks.NOBODY: "",
     WhoSpeaks.YOU: "tu parles",
     WhoSpeaks.THE_OTHERS: "les autres parlent",
@@ -110,18 +110,18 @@ class Window:
         self.store = store(config)
         self.troubles = troubles(config)
         self.colours = palette(config.appearance.theme)
-        self.travaux: list[Job] = []
+        self.jobs: list[Job] = []
         self._phase_peinte: Phase | None = None
-        self._micros_connus: tuple[tuple[str, str], ...] = ()
+        self._known_microphones: tuple[tuple[str, str], ...] = ()
         self._thread = LiveThread()
         self._questions_seen: set[int] = set()
-        self._questions_attente: list[Any] = []
-        self._apprentissage_attente: Any = None
+        self._pending_questions: list[Any] = []
+        self._learning_pending: Any = None
         self._shown_conversation = ""
         self._apprentissage: Any = None
-        self._fil_reunion = ""
-        self._fil_position = 0
-        self._fil_annonce = ""
+        self._thread_meeting = ""
+        self._thread_position = 0
+        self._thread_announcement = ""
         self._menu: tk.Menu | None = None
 
         locate_tcl()
@@ -184,15 +184,15 @@ class Window:
             with contextlib.suppress(tk.TclError):
                 self.root.option_add(option, value)
 
-    def _text(self, parent: tk.Misc, content: str, taille: int = 13,
+    def _text(self, parent: tk.Misc, content: str, size: int = 13,
                gras: bool = False, pale: bool = False, **options: Any) -> tk.Label:
         return tk.Label(
             parent, text=content, bg=parent.cget("bg"), anchor="w",
             fg=self.colours.ink_pale if pale else self.colours.ink,
-            font=font(taille, gras), **options,
+            font=font(size, gras), **options,
         )
 
-    def _champ(self, parent: tk.Misc, width: int | None = None) -> tk.Entry:
+    def _field(self, parent: tk.Misc, width: int | None = None) -> tk.Entry:
         c = self.colours
         options: dict[str, Any] = {} if width is None else {"width": width}
         return tk.Entry(
@@ -223,12 +223,12 @@ class Window:
         self._build_state(corps)
         self.tabs = Tabs(corps, c)
         self.tabs_shown = {
-            "Préparation": self.dit("onglets.preparation"),
-            "Réunions": self.dit("onglets.reunions"),
-            "En direct": self.dit("onglets.direct"),
-            "Voix": self.dit("onglets.voix"),
-            "Conversation": self.dit("onglets.conversation"),
-            "Réglages": self.dit("onglets.reglages"),
+            "Préparation": self.says("onglets.preparation"),
+            "Réunions": self.says("onglets.reunions"),
+            "En direct": self.says("onglets.direct"),
+            "Voix": self.says("onglets.voix"),
+            "Conversation": self.says("onglets.conversation"),
+            "Réglages": self.says("onglets.reglages"),
         }
         self.tabs.grid(row=1, column=0, sticky="nsew", pady=(22, 0))
         self._preparation_tab()
@@ -237,7 +237,7 @@ class Window:
         self._voices_tab()
         self._conversation_tab()
         self._settings_tab()
-        self.status_line = self._text(corps, "", taille=11, pale=True)
+        self.status_line = self._text(corps, "", size=11, pale=True)
         self.status_line.grid(row=2, column=0, sticky="ew", pady=(14, 0))
         self._report_resumable_meetings()
         self._report_a_newer_bundle()
@@ -264,26 +264,26 @@ class Window:
         line = tk.Frame(inside, bg=c.board)
         line.grid(row=0, column=0, sticky="ew")
         line.columnconfigure(1, weight=1)
-        self.pastille = tk.Canvas(line, width=12, height=12, highlightthickness=0,
+        self.badge = tk.Canvas(line, width=12, height=12, highlightthickness=0,
                                   bg=c.board)
-        self.pastille.grid(row=0, column=0, sticky="w", pady=(8, 0))
-        self._point = self.pastille.create_oval(1, 1, 11, 11, fill=c.calm, outline="")
-        self.title = self._text(line, self.dit("fenetre.pret"), taille=21, gras=True)
+        self.badge.grid(row=0, column=0, sticky="w", pady=(8, 0))
+        self._point = self.badge.create_oval(1, 1, 11, 11, fill=c.calm, outline="")
+        self.title = self._text(line, self.says("fenetre.pret"), size=21, gras=True)
         self.title.configure(font=title_font(21))
         self.title.grid(row=0, column=1, sticky="w", padx=(11, 0))
-        self.chrono = self._text(line, "", taille=27)
+        self.chrono = self._text(line, "", size=27)
         self.chrono.grid(row=0, column=2, sticky="e")
 
-        self.detail = self._text(inside, self.dit("fenetre.aucun_enregistrement"),
-                                  taille=12, pale=True)
+        self.detail = self._text(inside, self.says("fenetre.aucun_enregistrement"),
+                                  size=12, pale=True)
         self.detail.grid(row=1, column=0, sticky="ew", pady=(5, 0))
 
-        self.mesures = mesures = tk.Frame(inside, bg=c.board)
-        mesures.grid(row=2, column=0, sticky="ew", pady=(18, 0))
-        mesures.columnconfigure(1, weight=1)
-        self.vu_toi = self._ligne_vumetre(mesures, "Toi", 0)
-        self.vu_autres = self._ligne_vumetre(mesures, "Les autres", 1)
-        self.who = self._text(mesures, "", taille=11, gras=True)
+        self.measures = measures = tk.Frame(inside, bg=c.board)
+        measures.grid(row=2, column=0, sticky="ew", pady=(18, 0))
+        measures.columnconfigure(1, weight=1)
+        self.seen_you = self._meter_line(measures, "Toi", 0)
+        self.seen_others = self._meter_line(measures, "Les autres", 1)
+        self.who = self._text(measures, "", size=11, gras=True)
         self.who.configure(fg=c.green)
         self.who.grid(row=2, column=1, sticky="w", pady=(7, 0))
 
@@ -292,8 +292,8 @@ class Window:
         self._build_commands()
         self._breathe()
 
-    def _ligne_vumetre(self, parent: tk.Frame, caption: str, rank: int) -> LevelMeter:
-        self._text(parent, caption, taille=11, pale=True).grid(
+    def _meter_line(self, parent: tk.Frame, caption: str, rank: int) -> LevelMeter:
+        self._text(parent, caption, size=11, pale=True).grid(
             row=rank, column=0, sticky="w", pady=3
         )
         parent.columnconfigure(0, minsize=_LABEL_TEXT)
@@ -307,9 +307,9 @@ class Window:
         self.jeux: dict[Phase, tk.Frame] = {}
 
         rest = tk.Frame(self.commands, bg=c.board)
-        Button(rest, self.dit("fenetre.demarrer"), self._start_recording, c,
+        Button(rest, self.says("fenetre.demarrer"), self._start_recording, c,
                principal=True, width=192, height=38).pack(side="left")
-        self._text(rest, self.dit("fenetre.micro"), taille=11, pale=True).pack(
+        self._text(rest, self.says("fenetre.micro"), size=11, pale=True).pack(
             side="left", padx=(20, 8)
         )
         self.mic = Listing(rest, c, width=286, height=36)
@@ -320,14 +320,14 @@ class Window:
         in_progress = tk.Frame(self.commands, bg=c.board)
         Button(in_progress, "Mettre en pause", self._pause, c,
                width=156, height=38).pack(side="left", padx=(0, 10))
-        Button(in_progress, self.dit("fenetre.terminer"), self._terminate, c,
+        Button(in_progress, self.says("fenetre.terminer"), self._terminate, c,
                principal=True, width=192, height=38).pack(side="left")
         self.jeux[Phase.RECORDING] = in_progress
 
         pause = tk.Frame(self.commands, bg=c.board)
         Button(pause, "Reprendre", self._resume, c, principal=True,
                width=136, height=38).pack(side="left", padx=(0, 10))
-        Button(pause, self.dit("fenetre.terminer"), self._terminate, c,
+        Button(pause, self.says("fenetre.terminer"), self._terminate, c,
                width=192, height=38).pack(side="left")
         self.jeux[Phase.PAUSE] = pause
 
@@ -342,7 +342,7 @@ class Window:
             else:
                 jeu.pack_forget()
 
-    def dit(self, key: str, **parts: object) -> str:
+    def says(self, key: str, **parts: object) -> str:
         """What the tool says, in the language it speaks.
 
         Read once at build time: a window does not change language while it is
@@ -396,7 +396,7 @@ class Window:
         In the table's own cell, hidden as long as there is something to show:
         an empty grid says only what the eye has already seen.
         """
-        said = self._text(parent, "", taille=12, pale=True,
+        said = self._text(parent, "", size=12, pale=True,
                           wraplength=700, justify="left")
         said.grid(row=rank, column=0, sticky="nw", pady=(30, 0))
         said.grid_remove()
@@ -409,19 +409,19 @@ class Window:
         """Shows the sentence in place of the table, and holds the buttons."""
         from greffier.domain.emptiness import may_act
 
-        phrases = {
+        sentences = {
             Missing.NO_MEETING_YET: "vide.aucune_reunion",
             Missing.NO_MEETING_CHOSEN: "vide.aucune_reunion_choisie",
             Missing.NO_VOICE_TO_NAME: "vide.aucune_voix",
         }
-        for bouton in buttons:
-            bouton.activer(may_act(missing))
+        for button in buttons:
+            button.activer(may_act(missing))
         if missing is None:
             said.grid_remove()
             table.grid()
             return
         table.grid_remove()
-        said.configure(text=self.dit(phrases[missing]))
+        said.configure(text=self.says(sentences[missing]))
         said.grid()
 
     def _meetings_tab(self) -> None:
@@ -444,13 +444,13 @@ class Window:
             ("Exporter…", self._export_selection, 110, False),
             ("Rafraîchir", self._load_meetings, 116, False),
         ):
-            bouton = Button(actions, caption, action, self.colours,
+            button = Button(actions, caption, action, self.colours,
                             principal=principal, width=width, height=34)
             if caption == "Traiter":
-                bouton._en_avant()
+                button._en_avant()
             if caption != "Rafraîchir":
-                self.meeting_buttons.append(bouton)
-            actions.add(bouton, width)
+                self.meeting_buttons.append(button)
+            actions.add(button, width)
         apart = tk.Frame(inside, bg=self.colours.board)
         apart.grid(row=2, column=0, sticky="e", pady=(10, 0))
         supprimer = Button(apart, "Supprimer", self._forget_selection, self.colours,
@@ -464,30 +464,30 @@ class Window:
         """What is being said, while it is said, and correctable there."""
         c = self.colours
         inside = self._page("En direct")
-        self.direct_etat = self._text(
+        self.live_state = self._text(
             inside,
-            self.dit("direct.mode_emploi"),
-            taille=11, pale=True, wraplength=740, justify="left",
+            self.says("direct.mode_emploi"),
+            size=11, pale=True, wraplength=740, justify="left",
         )
-        self.direct_etat.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        self.live_state.grid(row=0, column=0, sticky="ew", pady=(0, 10))
 
         bar = tk.Frame(inside, bg=c.board)
         bar.grid(row=1, column=0, sticky="ew", pady=(0, 6))
-        self.bouton_voix = Button(
+        self.voice_button = Button(
             bar, self._voice_caption(), self._toggle_the_voice, self.colours,
             width=230, height=34,
             principal=self.config.assistant.voice != "aucun")
-        self.bouton_voix.grid(row=0, column=0, sticky="w")
-        self.bouton_initiative = Button(
+        self.voice_button.grid(row=0, column=0, sticky="w")
+        self.initiative_button = Button(
             bar, self._initiative_caption(), self._toggle_initiative,
             self.colours, width=250, height=34,
             principal=self.config.assistant.initiative)
-        self.bouton_initiative.grid(row=0, column=1, sticky="w", padx=(10, 0))
+        self.initiative_button.grid(row=0, column=1, sticky="w", padx=(10, 0))
         Button(bar, "Fournir un document", self._supply_a_document,
                self.colours, width=190, height=34).grid(
                    row=0, column=2, sticky="w", padx=(10, 0))
         self.participation_line = self._text(
-            inside, "", taille=11, pale=True, wraplength=740, justify="left")
+            inside, "", size=11, pale=True, wraplength=740, justify="left")
         self.participation_line.grid(row=2, column=0, sticky="ew", pady=(0, 12))
         self._say_the_participation()
 
@@ -543,11 +543,11 @@ class Window:
             self.config.assistant.voice = avant
             asking.complain("Greffier", f"Réglage non enregistré : {trouble}")
             return
-        self.bouton_voix.set_caption(self._voice_caption())
-        self.bouton_voix.highlight(self.config.assistant.voice != "aucun")
+        self.voice_button.set_caption(self._voice_caption())
+        self.voice_button.highlight(self.config.assistant.voice != "aucun")
         self._say_the_participation()
-        if hasattr(self, "reglage_voix_assistant"):
-            self.reglage_voix_assistant.choose(self.config.assistant.voice)
+        if hasattr(self, "assistant_voice_setting"):
+            self.assistant_voice_setting.choose(self.config.assistant.voice)
 
     def _initiative_caption(self) -> str:
         name = self.config.assistant.name
@@ -567,8 +567,8 @@ class Window:
             self.config.assistant.initiative = avant
             asking.complain("Greffier", f"Réglage non enregistré : {trouble}")
             return
-        self.bouton_initiative.set_caption(self._initiative_caption())
-        self.bouton_initiative.highlight(self.config.assistant.initiative)
+        self.initiative_button.set_caption(self._initiative_caption())
+        self.initiative_button.highlight(self.config.assistant.initiative)
         self._say_the_participation()
 
     def _say_the_participation(self) -> None:
@@ -587,25 +587,25 @@ class Window:
 
     def _follow_the_live_thread(self, state: Any) -> None:
         """Reads what the listening process published since last time."""
-        if state.identifier != self._fil_reunion:
+        if state.identifier != self._thread_meeting:
             self._forget_the_live_thread(state.identifier)
-        if not self._fil_reunion:
+        if not self._thread_meeting:
             return
-        log, _ = files(self.config.paths.live, self._fil_reunion)
-        lines, self._fil_position = read_from(log, self._fil_position)
+        log, _ = files(self.config.paths.live, self._thread_meeting)
+        lines, self._thread_position = read_from(log, self._thread_position)
         if not lines:
             return
         for line in lines:
-            if line.get("genre") == GENRE_ETAT:
-                self._fil_annonce = str(line.get("message", ""))
+            if line.get("genre") == KIND_STATE:
+                self._thread_announcement = str(line.get("message", ""))
         already = len(self._thread.turns)
-        remaniement = {GENRE_CORRECTION, GENRE_REUNION}
+        remaniement = {KIND_CORRECTION, KIND_MEETING}
         corrige = any(line.get("genre") in remaniement for line in lines)
         replay(lines, self._thread)
         if corrige:
             self._repaint_the_live_tab()
         else:
-            self._ajouter_au_direct(self._thread.turns[already:])
+            self._add_to_live(self._thread.turns[already:])
         self._say_the_live_state()
         self._follow_the_questions()
 
@@ -613,19 +613,19 @@ class Window:
         """Shows what the tool is asking, and puts the count on the tab."""
         from greffier.adapters import questions_file
 
-        if not self._fil_reunion:
+        if not self._thread_meeting:
             return
         file = questions_file.questions_file(
-            self.config.paths.questions, self._fil_reunion
+            self.config.paths.questions, self._thread_meeting
         )
         awaiting, _ = questions_file.read(file)
-        for en_attente in awaiting:
-            if en_attente.number in self._questions_seen:
+        for waiting in awaiting:
+            if waiting.number in self._questions_seen:
                 continue
-            self._questions_seen.add(en_attente.number)
-            self._say("note", note(en_attente.question.text))
-            self._say("note", self.dit("direct.repondre_a_la_question"))
-        self._questions_attente = awaiting
+            self._questions_seen.add(waiting.number)
+            self._say("note", note(waiting.question.text))
+            self._say("note", self.says("direct.repondre_a_la_question"))
+        self._pending_questions = awaiting
         self.tabs.mark("Conversation", len(awaiting))
 
     def _questions_already_noted(self, identifier: str) -> set[int]:
@@ -642,18 +642,18 @@ class Window:
             derniers=0,
         )
         return already_noted(
-            [en_attente.question for en_attente in awaiting],
+            [waiting.question for waiting in awaiting],
             [turn.text for turn in conversation],
         )
 
     def _forget_the_live_thread(self, identifier: str) -> None:
         """Starts over: another meeting, another thread."""
         self._thread = LiveThread()
-        self._fil_reunion = identifier
-        self._fil_position = 0
-        self._fil_annonce = ""
+        self._thread_meeting = identifier
+        self._thread_position = 0
+        self._thread_announcement = ""
         self._questions_seen = self._questions_already_noted(identifier)
-        self._questions_attente = []
+        self._pending_questions = []
         self.tabs.mark("Conversation", 0)
         self._shown_conversation = ""
         self._load_the_conversation()
@@ -661,10 +661,10 @@ class Window:
         self._say_the_live_state()
 
     def _say_the_live_state(self) -> None:
-        self.direct_etat.configure(
+        self.live_state.configure(
             text=live_state_line(
-                in_a_meeting=bool(self._fil_reunion),
-                annonce=self._fil_annonce,
+                in_a_meeting=bool(self._thread_meeting),
+                annonce=self._thread_announcement,
                 sentences=len(self._thread.turns),
             )
         )
@@ -676,20 +676,20 @@ class Window:
 
     def _repaint_the_live_tab(self) -> None:
         self._empty_out(self.thread_widget)
-        self._ajouter_au_direct(self._thread.turns)
+        self._add_to_live(self._thread.turns)
 
-    def _ajouter_au_direct(self, turns: list[LiveTurn]) -> None:
+    def _add_to_live(self, turns: list[LiveTurn]) -> None:
         if not turns:
             return
         suivait = self.thread_widget.yview()[1] > 0.999
         self.thread_widget.configure(state="normal")
         for turn in turns:
-            self._ecrire_un_tour(turn)
+            self._write_a_turn(turn)
         self.thread_widget.configure(state="disabled")
         if suivait:
             self.thread_widget.see("end")
 
-    def _ecrire_un_tour(self, turn: LiveTurn) -> None:
+    def _write_a_turn(self, turn: LiveTurn) -> None:
         voice = self._thread.voice.get(turn.voice)
         firm = voice is not None and voice.certainty.firm
         repere = f"tour{turn.number}"
@@ -784,10 +784,10 @@ class Window:
         defaite = self._thread.split(identifier)
         if defaite is None:
             asking.tell(
-                "Greffier", self.dit("voix.rien_a_separer")
+                "Greffier", self.says("voix.rien_a_separer")
             )
             return
-        _, requests = files(self.config.paths.live, self._fil_reunion)
+        _, requests = files(self.config.paths.live, self._thread_meeting)
         try:
             request_a_split(requests, identifier)
         except OSError as trouble:
@@ -811,7 +811,7 @@ class Window:
         except (KeyError, ValueError) as trouble:
             asking.complain("Greffier", str(trouble))
             return
-        _, requests = files(self.config.paths.live, self._fil_reunion)
+        _, requests = files(self.config.paths.live, self._thread_meeting)
         try:
             ask(requests, number, name, whole_voice)
         except OSError as trouble:
@@ -825,8 +825,8 @@ class Window:
         inside = self._page("Voix")
         self._text(
             inside,
-            self.dit("voix.mode_emploi"),
-            taille=11, pale=True, wraplength=740, justify="left",
+            self.says("voix.mode_emploi"),
+            size=11, pale=True, wraplength=740, justify="left",
         ).grid(row=0, column=0, sticky="ew", pady=(0, 14))
         self.voice = self._listing(inside, (
             ("voix", "Voix", 100), ("duree", "Durée", 90),
@@ -837,12 +837,12 @@ class Window:
         entry = tk.Frame(inside, bg=self.colours.board)
         entry.grid(row=2, column=0, sticky="ew", pady=(16, 0))
         entry.columnconfigure(2, weight=1)
-        self._text(entry, self.dit("voix.prenom"), taille=11, pale=True).grid(
+        self._text(entry, self.says("voix.prenom"), size=11, pale=True).grid(
             row=0, column=0, sticky="w", padx=(0, 9)
         )
-        self.champ_nom = self._champ(entry, width=20)
-        self.champ_nom.grid(row=0, column=1, sticky="w", ipady=7, ipadx=5)
-        self.champ_nom.bind("<Return>", lambda _e: self._name_voice())
+        self.name_field = self._field(entry, width=20)
+        self.name_field.grid(row=0, column=1, sticky="w", ipady=7, ipadx=5)
+        self.name_field.bind("<Return>", lambda _e: self._name_voice())
         # A bar that wraps, not four buttons packed side by side: at 880 px,
         # the narrowest the window can be, « Séparer les deux voix » ran past
         # the edge of the card with its last word cut off, reachable by nobody.
@@ -857,21 +857,21 @@ class Window:
             ("Retirer le nom", self._forget_the_name, 150, False),
             ("Séparer les deux voix", self._split_the_voice, 190, False),
         ):
-            bouton = Button(actions, caption, action, self.colours,
+            button = Button(actions, caption, action, self.colours,
                             principal=principal, width=width, height=34)
-            actions.add(bouton, width)
-            self.voice_buttons.append(bouton)
+            actions.add(button, width)
+            self.voice_buttons.append(button)
 
         # Set apart and a line below, like « Supprimer » in the Réunions tab:
         # this one erases a person from every meeting at once, and a gesture of
         # that weight does not belong in a row with « Écouter 10 s ».
         apart = tk.Frame(inside, bg=self.colours.board)
         apart.grid(row=3, column=0, sticky="e", pady=(10, 0))
-        self.bouton_oublier = Button(
+        self.forget_button = Button(
             apart, "Oublier la personne", self._forget_a_person, self.colours,
             width=180, height=30,
         )._efface()
-        self.bouton_oublier.pack(side="right")
+        self.forget_button.pack(side="right")
 
     def _preparation_tab(self) -> None:
         """Before a meeting: what to raise, who is expected, and Lucie.
@@ -884,32 +884,32 @@ class Window:
         inside = self._page("Préparation")
         inside.rowconfigure(2, weight=1)
 
-        entete = tk.Frame(inside, bg=c.board)
-        entete.grid(row=0, column=0, sticky="ew")
-        entete.columnconfigure(1, weight=1)
-        self.bouton_preparer = Button(
-            entete, self.dit("conversation.preparer"), self._open_a_preparation,
+        header = tk.Frame(inside, bg=c.board)
+        header.grid(row=0, column=0, sticky="ew")
+        header.columnconfigure(1, weight=1)
+        self.prepare_button = Button(
+            header, self.says("conversation.preparer"), self._open_a_preparation,
             self.colours, width=250, height=34)
-        self.bouton_preparer.grid(row=0, column=0)
-        self.ligne_preparation = tk.Label(
-            entete, text="", bg=c.board, fg=c.ink_pale, font=font(11),
+        self.prepare_button.grid(row=0, column=0)
+        self.preparation_line = tk.Label(
+            header, text="", bg=c.board, fg=c.ink_pale, font=font(11),
             anchor="w", justify="left")
-        self.ligne_preparation.grid(row=0, column=1, sticky="w", padx=(12, 0))
+        self.preparation_line.grid(row=0, column=1, sticky="w", padx=(12, 0))
 
         listes = tk.Frame(inside, bg=c.board)
         listes.grid(row=1, column=0, sticky="ew", pady=(12, 0))
         listes.columnconfigure(1, weight=1)
         listes.columnconfigure(3, weight=1)
-        tk.Label(listes, text=self.dit("preparation.attendus"), bg=c.board,
+        tk.Label(listes, text=self.says("preparation.attendus"), bg=c.board,
                  fg=c.ink_pale, font=font(11)).grid(row=0, column=0, sticky="w")
-        self.champ_attendu = self._champ(listes)
-        self.champ_attendu.grid(row=0, column=1, sticky="ew", padx=(8, 8), ipady=5)
-        self.champ_attendu.bind("<Return>", lambda _e: self._expect_someone())
-        tk.Label(listes, text=self.dit("preparation.a_soulever"), bg=c.board,
+        self.expected_field = self._field(listes)
+        self.expected_field.grid(row=0, column=1, sticky="ew", padx=(8, 8), ipady=5)
+        self.expected_field.bind("<Return>", lambda _e: self._expect_someone())
+        tk.Label(listes, text=self.says("preparation.a_soulever"), bg=c.board,
                  fg=c.ink_pale, font=font(11)).grid(row=0, column=2, sticky="w")
-        self.champ_point = self._champ(listes)
-        self.champ_point.grid(row=0, column=3, sticky="ew", padx=(8, 0), ipady=5)
-        self.champ_point.bind("<Return>", lambda _e: self._raise_a_point())
+        self.point_field = self._field(listes)
+        self.point_field.grid(row=0, column=3, sticky="ew", padx=(8, 0), ipady=5)
+        self.point_field.bind("<Return>", lambda _e: self._raise_a_point())
 
         frame = tk.Frame(inside, bg=c.board)
         frame.grid(row=2, column=0, sticky="nsew", pady=(12, 0))
@@ -932,23 +932,23 @@ class Window:
         bas = tk.Frame(inside, bg=c.board)
         bas.grid(row=3, column=0, sticky="ew", pady=(12, 0))
         bas.columnconfigure(0, weight=1)
-        self.question_preparation = self._champ(bas)
+        self.question_preparation = self._field(bas)
         self.question_preparation.grid(row=0, column=0, sticky="ew", ipady=8, ipadx=5)
         self.question_preparation.bind(
             "<Return>", lambda _e: self._ask_while_preparing())
-        Button(bas, self.dit("conversation.demander"), self._ask_while_preparing,
+        Button(bas, self.says("conversation.demander"), self._ask_while_preparing,
                self.colours, principal=True, width=110, height=36).grid(
                    row=0, column=1, padx=(11, 0))
-        self.bouton_parler = Button(
-            bas, self.dit("conversation.parler"), self._speak_or_stop,
+        self.speak_button = Button(
+            bas, self.says("conversation.parler"), self._speak_or_stop,
             self.colours, width=150, height=36)
-        self.bouton_parler.grid(row=0, column=2, padx=(8, 0))
-        Button(bas, self.dit("conversation.fournir_un_document"),
+        self.speak_button.grid(row=0, column=2, padx=(8, 0))
+        Button(bas, self.says("conversation.fournir_un_document"),
                self._supply_a_document, self.colours, width=176, height=36).grid(
                    row=0, column=3, padx=(8, 0))
-        Button(bas, self.dit("commun.vider"), self._clear_the_preparation_thread,
+        Button(bas, self.says("commun.vider"), self._clear_the_preparation_thread,
                self.colours, width=90, height=36).grid(row=0, column=4, padx=(8, 0))
-        self._say_while_preparing("note", self.dit("preparation.mode_emploi"))
+        self._say_while_preparing("note", self.says("preparation.mode_emploi"))
 
     def _ask_while_preparing(self) -> None:
         question = self.question_preparation.get().strip()
@@ -968,30 +968,30 @@ class Window:
         self._paint_the_preparation()
 
     def _expect_someone(self) -> None:
-        name = self.champ_attendu.get().strip()
+        name = self.expected_field.get().strip()
         if not name:
             return
-        self.champ_attendu.delete(0, "end")
+        self.expected_field.delete(0, "end")
         self._ensure_a_preparation()
         preparation = self._preparation
         if preparation is None:
             return
         self._preparation = preparation.expecting(name)
         self._keep_the_preparation()
-        self._say_while_preparing("note", self.dit("preparation.attendu_note", qui=name))
+        self._say_while_preparing("note", self.says("preparation.attendu_note", who=name))
 
     def _raise_a_point(self) -> None:
-        point = self.champ_point.get().strip()
+        point = self.point_field.get().strip()
         if not point:
             return
-        self.champ_point.delete(0, "end")
+        self.point_field.delete(0, "end")
         self._ensure_a_preparation()
         preparation = self._preparation
         if preparation is None:
             return
         self._preparation = preparation.raising(point)
         self._keep_the_preparation()
-        self._say_while_preparing("note", self.dit("preparation.point_note", quoi=point))
+        self._say_while_preparing("note", self.says("preparation.point_note", what=point))
 
     def _say_while_preparing(self, who: str, text: str) -> None:
         fil = getattr(self, "fil_preparation", None)
@@ -1014,7 +1014,7 @@ class Window:
         fil.configure(state="normal")
         fil.delete("1.0", "end")
         fil.configure(state="disabled")
-        self._say_while_preparing("note", self.dit("preparation.mode_emploi"))
+        self._say_while_preparing("note", self.says("preparation.mode_emploi"))
 
     def _conversation_tab(self) -> None:
         c = self.colours
@@ -1041,27 +1041,27 @@ class Window:
         entry = tk.Frame(inside, bg=c.board)
         entry.grid(row=1, column=0, sticky="ew", pady=(14, 0))
         entry.columnconfigure(0, weight=1)
-        self.question = self._champ(entry)
+        self.question = self._field(entry)
         self.question.grid(row=0, column=0, sticky="ew", ipady=8, ipadx=5)
         self.question.bind("<Return>", lambda _e: self._ask())
-        Button(entry, self.dit("conversation.demander"), self._ask, self.colours, principal=True,
+        Button(entry, self.says("conversation.demander"), self._ask, self.colours, principal=True,
                width=124, height=36).grid(row=0, column=1, padx=(11, 0))
-        Button(entry, self.dit("conversation.fournir_un_document"), self._supply_a_document,
+        Button(entry, self.says("conversation.fournir_un_document"), self._supply_a_document,
                self.colours, width=176, height=36).grid(
                    row=0, column=2, padx=(8, 0))
-        Button(entry, self.dit("commun.vider"), self._clear_the_thread,
+        Button(entry, self.says("commun.vider"), self._clear_the_thread,
                self.colours, width=90, height=36).grid(row=0, column=3, padx=(8, 0))
         self._paint_the_turn(
             "note",
-            self.dit("conversation.mode_emploi"),
+            self.says("conversation.mode_emploi"),
         )
-        self._paint_the_turn("note", self.dit("conversation.avant_une_reunion"))
+        self._paint_the_turn("note", self.says("conversation.avant_une_reunion"))
         self._paint_the_turn(
             "note",
-            self.dit("conversation.apprendre"),
+            self.says("conversation.apprendre"),
         )
 
-    MODELES_TRANSCRIPTION = (
+    TRANSCRIPTION_MODELS = (
         ("large-v3-turbo", "large-v3-turbo : le plus juste, conseillé"),
         ("large-v3", "large-v3 : plus lent, sans gain mesuré ici"),
         ("small", "small : rapide, pour les postes modestes"),
@@ -1091,74 +1091,74 @@ class Window:
         header = tk.Frame(page, bg=self.colours.board)
         header.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
         header.columnconfigure(0, weight=1)
-        self.mot_reglages = self._text(
-            header, self.dit("reglages.applique_aussitot"),
-            taille=11, pale=True)
-        self.mot_reglages.grid(row=0, column=0, sticky="w")
+        self.settings_word = self._text(
+            header, self.says("reglages.applique_aussitot"),
+            size=11, pale=True)
+        self.settings_word.grid(row=0, column=0, sticky="w")
         inside = self._scrolling_area(page)
 
         rank = 0
         rank = self._block(inside, rank, "Micro", "Celui que Greffier prend au démarrage.")
-        self.reglage_micro = self._dropdown(inside, rank, "Appareil")
+        self.microphone_setting = self._dropdown(inside, rank, "Appareil")
         rank += 1
 
         rank = self._block(inside, rank, "Participants",
                           "Le nombre de personnes autour de la table, si vous le connaissez.")
-        self.reglage_participants = self._dropdown(inside, rank, "Personnes",
+        self.attendees_setting = self._dropdown(inside, rank, "Personnes",
                                                           width=232)
         rank += 1
 
         rank = self._block(inside, rank, "Transcription",
                           "Le modèle de la transcription définitive, faite après la réunion.")
-        self.reglage_modele = self._dropdown(inside, rank, "Modèle")
+        self.model_setting = self._dropdown(inside, rank, "Modèle")
         rank += 1
-        self.reglage_langue = self._dropdown(inside, rank, "Langue", width=232)
+        self.language_setting = self._dropdown(inside, rank, "Langue", width=232)
         rank += 1
 
         rank = self._block(inside, rank, "Compte Claude",
                           "C'est lui qui rédige : sans session ouverte, tout marche "
                           "sauf le compte rendu.")
-        self.mot_compte = self._text(inside, "", taille=11)
-        self.mot_compte.grid(row=rank, column=0, columnspan=2, sticky="w", pady=(0, 5))
+        self.account_word = self._text(inside, "", size=11)
+        self.account_word.grid(row=rank, column=0, columnspan=2, sticky="w", pady=(0, 5))
         rank += 1
         buttons = tk.Frame(inside, bg=self.colours.board)
         buttons.grid(row=rank, column=0, columnspan=2, sticky="w", pady=(0, 2))
-        self.bouton_session = Button(buttons, "Se connecter", self._claude_session,
+        self.session_button = Button(buttons, "Se connecter", self._claude_session,
                                      self.colours, width=228, height=32)
-        self.bouton_session.pack(side="left", padx=(0, 9))
-        self.bouton_maj = Button(buttons, self.dit("reglages.maj_claude"),
+        self.session_button.pack(side="left", padx=(0, 9))
+        self.update_button = Button(buttons, self.says("reglages.maj_claude"),
                                  self._update_claude,
                                  self.colours, width=228, height=32)
-        self.bouton_maj.pack(side="left")
+        self.update_button.pack(side="left")
         rank += 1
 
         rank = self._block(inside, rank, "Modèles locaux",
                           "Ils vivent hors de l'application : une mise à jour "
                           "ne les redemande pas.")
-        modeles = tk.Frame(inside, bg=self.colours.board)
-        modeles.grid(row=rank, column=0, columnspan=2, sticky="w", pady=(0, 2))
-        Button(modeles, self.dit("reglages.telecharger_modeles"),
+        models = tk.Frame(inside, bg=self.colours.board)
+        models.grid(row=rank, column=0, columnspan=2, sticky="w", pady=(0, 2))
+        Button(models, self.says("reglages.telecharger_modeles"),
                self._offer_the_models, self.colours,
                width=300, height=32).pack(side="left")
-        self.mot_modeles = self._text(modeles, "", taille=11, pale=True)
-        self.mot_modeles.pack(side="left", padx=(12, 0))
+        self.models_word = self._text(models, "", size=11, pale=True)
+        self.models_word.pack(side="left", padx=(12, 0))
         rank += 1
 
         rank = self._block(inside, rank, "Rédaction du compte rendu",
                           "Qui rédige, avec quel modèle, et à qui le document part.")
-        self.reglage_redacteur = self._dropdown(inside, rank, "Rédacteur")
+        self.writer_setting = self._dropdown(inside, rank, "Rédacteur")
         rank += 1
-        self.reglage_modele_redaction = self._dropdown(inside, rank, "Modèle")
+        self.writing_model_setting = self._dropdown(inside, rank, "Modèle")
         rank += 1
-        self.reglage_destinataire = self._entry(inside, rank, "Destinataire", 34)
+        self.recipient_setting = self._entry(inside, rank, "Destinataire", 34)
         rank += 1
 
         rank = self._block(inside, rank, "Pendant la réunion",
                           "Le fil affiché en direct. Un second modèle tourne : c'est son coût.")
-        self.direct_actif = tk.BooleanVar(value=self.config.live.active)
+        self.live_active = tk.BooleanVar(value=self.config.live.active)
         self.case_direct = case = tk.Checkbutton(
             inside, text="Afficher ce qui se dit pendant la réunion",
-            variable=self.direct_actif, bg=self.colours.board, fg=self.colours.ink,
+            variable=self.live_active, bg=self.colours.board, fg=self.colours.ink,
             activebackground=self.colours.board, activeforeground=self.colours.ink,
             selectcolor=self.colours.ground, font=font(12), anchor="w",
             highlightthickness=0, borderwidth=0,
@@ -1166,22 +1166,22 @@ class Window:
         )
         case.grid(row=rank, column=0, columnspan=2, sticky="w", pady=(1, 3))
         rank += 1
-        self.reglage_periode = self._dropdown(inside, rank, "Tranche")
+        self.period_setting = self._dropdown(inside, rank, "Tranche")
         rank += 1
 
         rank = self._block(
             inside, rank, "Assistant",
             "Le prénom auquel il répond pendant la réunion, et sa voix. "
             "Sa participation s'allume dans l'onglet En direct.")
-        self.reglage_nom_assistant = self._dropdown(
+        self.assistant_name_setting = self._dropdown(
             inside, rank, "Prénom", width=392)
         rank += 1
-        self.reglage_voix_assistant = self._dropdown(
+        self.assistant_voice_setting = self._dropdown(
             inside, rank, "Voix", width=392)
         rank += 1
 
         rank = self._block(inside, rank, "Apparence", "")
-        self.reglage_theme = self._dropdown(inside, rank, "Thème")
+        self.theme_setting = self._dropdown(inside, rank, "Thème")
         rank += 1
 
         rank = self._block(inside, rank, "Version",
@@ -1196,27 +1196,27 @@ class Window:
         boutons_version = tk.Frame(inside, bg=self.colours.board)
         boutons_version.grid(row=rank, column=0, columnspan=2, sticky="w",
                              pady=(0, 2))
-        self.bouton_maj_greffier = Button(
-            boutons_version, self.dit("reglages.chercher_maj"),
+        self.update_greffier_button = Button(
+            boutons_version, self.says("reglages.chercher_maj"),
             self._look_for_an_update, self.colours, width=210, height=32,
         )
-        self.bouton_maj_greffier.pack(side="left", padx=(0, 9))
+        self.update_greffier_button.pack(side="left", padx=(0, 9))
         rank += 1
         self._text(
-            inside, self.dit("reglages.incidents", ou=str(self.config.paths.troubles)),
-            taille=11, pale=True, wraplength=700, justify="left",
+            inside, self.says("reglages.incidents", where=str(self.config.paths.troubles)),
+            size=11, pale=True, wraplength=700, justify="left",
         ).grid(row=rank, column=0, columnspan=2, sticky="w", pady=(10, 0))
         rank += 1
 
         self._wire_the_settings()
         page.bind("<Map>", lambda _e: self._say_the_count())
-        self.root.bind("<FocusIn>", self._au_retour, add="+")
+        self.root.bind("<FocusIn>", self._on_return, add="+")
         self._listen_to_the_wheel(inside)
         self._fill_the_settings()
         self._say_the_count()
         self._say_the_version()
 
-    def _au_retour(self, _event: object = None) -> None:
+    def _on_return(self, _event: object = None) -> None:
         """Re-reads what may have changed while we were elsewhere."""
         if self.tabs.current == "Réglages":
             with contextlib.suppress(Exception):
@@ -1229,18 +1229,18 @@ class Window:
         installed = installed_version()
         self.version_line.configure(
             text=f"Version {installed}." if installed
-            else self.dit("reglages.version_inconnue")
+            else self.says("reglages.version_inconnue")
         )
 
     def _look_for_an_update(self) -> None:
         """Asks GitHub whether there is better. Installs nothing."""
         from greffier.adapters.updates import check
 
-        self.bouton_maj_greffier.activer(False)
-        self.version_line.configure(text=self.dit("reglages.verification"))
+        self.update_greffier_button.activer(False)
+        self.version_line.configure(text=self.says("reglages.verification"))
 
         def done(verdict: Any, trouble: Exception | None) -> None:
-            self.bouton_maj_greffier.activer(True)
+            self.update_greffier_button.activer(True)
             if trouble is not None:
                 self.version_line.configure(text=f"Vérification impossible : {trouble}")
                 return
@@ -1259,8 +1259,8 @@ class Window:
         """Offers to install, by whichever way exists on this machine."""
         from greffier.adapters.updates import installable
 
-        depuis_le_depot, because = installable()
-        if depuis_le_depot:
+        from_the_repository, because = installable()
+        if from_the_repository:
             self._install_from_the_repository(verdict)
         elif verdict.downloadable:
             self._install_from_the_binary(verdict)
@@ -1271,7 +1271,7 @@ class Window:
                 + (f" À voir : {verdict.adresse}" if verdict.adresse else "")
             ))
 
-    RIEN_N_EST_PERDU = (
+    NOTHING_IS_LOST = (
         "Les réunions, les comptes rendus, la banque de voix, les "
         "conversations et les réglages ne sont pas touchés : ils vivent hors "
         "de l'application."
@@ -1284,7 +1284,7 @@ class Window:
             "Greffier",
             f"{verdict.say()}\n\nInstaller maintenant ? Greffier va se fermer, "
             f"se reconstruire depuis son dépôt, puis se relancer.\n\n"
-            f"{self.RIEN_N_EST_PERDU}",
+            f"{self.NOTHING_IS_LOST}",
         ):
             return
         launched, ou = install()
@@ -1303,10 +1303,10 @@ class Window:
 
         if not asking.ask_yes_no(
             "Greffier",
-            f"{verdict.say()}\n\nTélécharger « {verdict.artefact_nom} » et "
+            f"{verdict.say()}\n\nTélécharger « {verdict.artefact_name} » et "
             "l'installer ? Greffier va se fermer puis se relancer sur la "
             "nouvelle version.\n\n"
-            f"{self.RIEN_N_EST_PERDU}",
+            f"{self.NOTHING_IS_LOST}",
         ):
             return
 
@@ -1335,7 +1335,7 @@ class Window:
                 self._paint_the_turn("greffier", (
                     f"La version {verdict.available} est téléchargée dans "
                     f"{ou}. Ferme Greffier, remplace le dossier de "
-                    f"l'application par celui-là, et relance. {self.RIEN_N_EST_PERDU}"
+                    f"l'application par celui-là, et relance. {self.NOTHING_IS_LOST}"
                 ))
                 return
             self._close_for_the_update()
@@ -1344,15 +1344,15 @@ class Window:
 
     def _close_for_the_update(self) -> None:
         """The relay waits for this process to end before touching the bundle."""
-        self.version_line.configure(text=self.dit("reglages.maj_en_cours"))
+        self.version_line.configure(text=self.says("reglages.maj_en_cours"))
         self.root.after(400, self.root.destroy)
 
     def _wire_the_settings(self) -> None:
         """Makes every change a save."""
-        self.reglage_redacteur.on_choice = lambda _key: self._chosen_writer()
+        self.writer_setting.on_choice = lambda _key: self._chosen_writer()
         self.case_direct.configure(command=self._save_settings)
-        self.reglage_destinataire.bind("<FocusOut>", lambda _e: self._save_settings())
-        self.reglage_destinataire.bind("<Return>", lambda _e: self._save_settings())
+        self.recipient_setting.bind("<FocusOut>", lambda _e: self._save_settings())
+        self.recipient_setting.bind("<Return>", lambda _e: self._save_settings())
 
     def _chosen_writer(self, _event: Any = None) -> None:
         """Changing writer changes the model list, then saves."""
@@ -1362,7 +1362,7 @@ class Window:
     def _listen_to_the_wheel(self, parent: tk.Misc) -> None:
         for enfant in parent.winfo_children():
             if not isinstance(enfant, ttk.Combobox):
-                enfant.bind("<MouseWheel>", self._molette_reglages)
+                enfant.bind("<MouseWheel>", self._settings_wheel)
             self._listen_to_the_wheel(enfant)
 
     def _scrolling_area(self, page: tk.Frame) -> tk.Frame:
@@ -1400,25 +1400,25 @@ class Window:
 
         for target in (toile, content):
             target.bind("<MouseWheel>", wheel)
-        self._molette_reglages = wheel
-        self.reglages_toile = toile
-        self.reglages_contenu = content
+        self._settings_wheel = wheel
+        self.settings_canvas = toile
+        self.settings_content = content
         return content
 
-    def _block(self, parent: tk.Frame, rank: int, title: str, sous_titre: str) -> int:
+    def _block(self, parent: tk.Frame, rank: int, title: str, subtitle: str) -> int:
         """A block heading. Returns the next row, so as not to count by hand."""
         haut = 0 if rank == 0 else 13
-        self._text(parent, title, taille=12, gras=True).grid(
+        self._text(parent, title, size=12, gras=True).grid(
             row=rank, column=0, columnspan=2, sticky="w", pady=(haut, 1))
-        if not sous_titre:
+        if not subtitle:
             return rank + 1
-        self._text(parent, sous_titre, taille=11, pale=True).grid(
+        self._text(parent, subtitle, size=11, pale=True).grid(
             row=rank + 1, column=0, columnspan=2, sticky="w", pady=(0, 4))
         return rank + 2
 
     def _dropdown(self, parent: tk.Frame, rank: int, caption: str,
                           width: int = 392) -> Listing:
-        self._text(parent, caption, taille=11, pale=True).grid(
+        self._text(parent, caption, size=11, pale=True).grid(
             row=rank, column=0, sticky="w", padx=(0, 12), pady=3)
         listing = Listing(parent, self.colours, width=width,
                       on_choice=lambda _key: self._save_settings())
@@ -1426,22 +1426,22 @@ class Window:
         return listing
 
     def _entry(self, parent: tk.Frame, rank: int, caption: str, width: int) -> tk.Entry:
-        self._text(parent, caption, taille=11, pale=True).grid(
+        self._text(parent, caption, size=11, pale=True).grid(
             row=rank, column=0, sticky="w", padx=(0, 12), pady=2)
-        champ = self._champ(parent, width)
-        champ.grid(row=rank, column=1, sticky="w", ipady=4, ipadx=4, pady=2)
-        return champ
+        field = self._field(parent, width)
+        field.grid(row=rank, column=1, sticky="w", ipady=4, ipadx=4, pady=2)
+        return field
 
     def _settable_first_names(self) -> list[tuple[str, str]]:
         """The tested first names, each with the gender of its voice."""
         from greffier.adapters.configuration import FIRST_NAMES, KINDS
 
-        choix = [(first_name, f"{first_name} : {KINDS[speaker_index]}")
+        choice = [(first_name, f"{first_name} : {KINDS[speaker_index]}")
                  for first_name, speaker_index in FIRST_NAMES.items()]
         actuel = self.config.assistant.name
         if actuel and actuel not in FIRST_NAMES:
-            choix.insert(0, (actuel, f"{actuel} : réglé à la main"))
-        return choix
+            choice.insert(0, (actuel, f"{actuel} : réglé à la main"))
+        return choice
 
     def _settable_voices(self) -> list[tuple[str, str]]:
         """The voices offered, saying which one is installed."""
@@ -1457,46 +1457,46 @@ class Window:
 
     def _fill_the_settings(self) -> None:
         """Fills the form from the configuration in force."""
-        from greffier.adapters.configuration import MODELES_CLAUDE
+        from greffier.adapters.configuration import CLAUDE_MODELS
 
-        self.reglage_micro.fill_menu(list(self._settable_mics()), self.config.audio.mic)
-        self.reglage_modele.fill_menu(list(self._models_present()),
+        self.microphone_setting.fill_menu(list(self._settable_mics()), self.config.audio.mic)
+        self.model_setting.fill_menu(list(self._models_present()),
                                    self.config.transcription.model)
-        self.reglage_langue.fill_menu(list(self.LANGUAGES), self.config.transcription.language)
-        self.reglage_redacteur.fill_menu(list(self.MOTEURS_REDACTION),
+        self.language_setting.fill_menu(list(self.LANGUAGES), self.config.transcription.language)
+        self.writer_setting.fill_menu(list(self.MOTEURS_REDACTION),
                                       self.config.minutes.engine)
-        self._modeles_claude = tuple(MODELES_CLAUDE)
+        self._claude_models = tuple(CLAUDE_MODELS)
         self._match_the_writer_model()
-        self.reglage_destinataire.delete(0, "end")
-        self.reglage_destinataire.insert(0, self.config.minutes.recipient)
-        self.reglage_periode.fill_menu(list(self.PERIODES_DIRECT),
+        self.recipient_setting.delete(0, "end")
+        self.recipient_setting.insert(0, self.config.minutes.recipient)
+        self.period_setting.fill_menu(list(self.PERIODES_DIRECT),
                                     f"{self.config.live.period:.1f}")
-        self.reglage_theme.fill_menu(list(self.THEMES), self.config.appearance.theme)
-        self.reglage_nom_assistant.fill_menu(self._settable_first_names(),
+        self.theme_setting.fill_menu(list(self.THEMES), self.config.appearance.theme)
+        self.assistant_name_setting.fill_menu(self._settable_first_names(),
                                           self.config.assistant.name)
-        self.reglage_voix_assistant.fill_menu(self._settable_voices(),
+        self.assistant_voice_setting.fill_menu(self._settable_voices(),
                                            self.config.assistant.voice)
         people = self.config.speakers.people
-        self.reglage_participants.fill_menu(list(self.ATTENDEES),
+        self.attendees_setting.fill_menu(list(self.ATTENDEES),
                                          str(people) if people else "")
 
     def _settable_mics(self) -> tuple[tuple[str, str], ...]:
         """The mics plugged in, plus automatic mode."""
-        from greffier.wiring import lister
+        from greffier.wiring import list_
 
         names: list[str] = []
         try:
-            materiel = lister(self.config).read()
+            hardware = list_(self.config).read()
         except (OSError, RuntimeError):
-            materiel = None
-        if materiel is not None:
-            names = [p.name for p in materiel.mics
+            hardware = None
+        if hardware is not None:
+            names = [p.name for p in hardware.mics
                     if not p.uid.startswith("com.reunions.")
                     and "blackhole" not in p.name.lower()]
         voulu = self.config.audio.mic
         if voulu and voulu not in names:
             names.append(f"{voulu}")
-        return (("", self.dit("fenetre.micro_automatique")),
+        return (("", self.says("fenetre.micro_automatique")),
                 *((name, name) for name in names))
 
     def _models_present(self) -> tuple[tuple[str, str], ...]:
@@ -1518,7 +1518,7 @@ class Window:
             return downloaded(key)
 
         present_line = tuple(
-            (key, label_text) for key, label_text in self.MODELES_TRANSCRIPTION
+            (key, label_text) for key, label_text in self.TRANSCRIPTION_MODELS
             if present(key)
         )
         if present_line:
@@ -1529,47 +1529,47 @@ class Window:
 
     def _match_the_writer_model(self) -> None:
         """The model list follows the chosen writer."""
-        engine = self.reglage_redacteur.value()
+        engine = self.writer_setting.value()
         if engine == "claude":
-            choix = self._modeles_claude
+            choice = self._claude_models
         elif engine == "ollama":
             from greffier.adapters.writer_ollama import available_models
 
             present_line = available_models()
-            choix = tuple((m, m) for m in present_line) or (
+            choice = tuple((m, m) for m in present_line) or (
                 ("qwen3:8b", "qwen3:8b, à télécharger"),
             )
         else:
-            choix = (("", "Sans objet : aucun rédacteur"),)
-        self.reglage_modele_redaction.fill_menu(
-            list(choix), self.config.minutes.model or (choix[0][0] if choix else ""))
-        self.reglage_modele_redaction.activer(engine != "aucun")
+            choice = (("", "Sans objet : aucun rédacteur"),)
+        self.writing_model_setting.fill_menu(
+            list(choice), self.config.minutes.model or (choice[0][0] if choice else ""))
+        self.writing_model_setting.activer(engine != "aucun")
 
     def _say_the_count(self) -> None:
         """Shows the account state, and matches the buttons to it."""
         from greffier.adapters import system_diagnostic as diagnostic
 
         if not diagnostic.claude_installed():
-            self.mot_compte.configure(
-                text=self.dit("reglages.claude_absent"),
+            self.account_word.configure(
+                text=self.says("reglages.claude_absent"),
                 fg=self.colours.amber)
-            self.bouton_session.set_caption("Installer")
-            self.bouton_maj.activer(False)
+            self.session_button.set_caption("Installer")
+            self.update_button.activer(False)
             return
-        self.bouton_maj.activer(True)
+        self.update_button.activer(True)
         count = diagnostic.claude_account()
         version = diagnostic.claude_version()
         if count is None:
-            self.mot_compte.configure(
+            self.account_word.configure(
                 text=f"Claude Code {version} : aucune session ouverte.",
                 fg=self.colours.amber)
-            self.bouton_session.set_caption("Se connecter")
+            self.session_button.set_caption("Se connecter")
             return
         formule = f" · {count.formule}" if count.formule else ""
-        self.mot_compte.configure(text=f"Connecté · {count}{formule} · "
+        self.account_word.configure(text=f"Connecté · {count}{formule} · "
                                        f"Claude Code {version}",
                                   fg=self.colours.ink)
-        self.bouton_session.set_caption("Changer de compte")
+        self.session_button.set_caption("Changer de compte")
 
     def _claude_session(self) -> None:
         """Opens a terminal on `claude`, where the session is settled."""
@@ -1578,13 +1578,13 @@ class Window:
         from greffier.adapters import system_diagnostic as diagnostic
 
         if not diagnostic.claude_installed():
-            command = diagnostic.COMMANDE_INSTALLER_CLAUDE.get(platform.system(), "")
-            self.mot_compte.configure(text=f"À installer : {command}",
+            command = diagnostic.CLAUDE_INSTALL_COMMAND.get(platform.system(), "")
+            self.account_word.configure(text=f"À installer : {command}",
                                       fg=self.colours.amber)
             return
         if platform.system() != "Darwin":
-            self.mot_compte.configure(
-                text=self.dit("reglages.ouvrir_claude"),
+            self.account_word.configure(
+                text=self.says("reglages.ouvrir_claude"),
                 fg=self.colours.amber)
             return
         already = diagnostic.claude_account() is not None
@@ -1599,8 +1599,8 @@ class Window:
         )
         script.chmod(0o755)
         subprocess.Popen(["open", str(script)])
-        self.mot_compte.configure(
-            text=self.dit("reglages.terminal_ouvert"),
+        self.account_word.configure(
+            text=self.says("reglages.terminal_ouvert"),
             fg=self.colours.ink_pale)
         self._watch_the_session(turns=60)
 
@@ -1617,13 +1617,13 @@ class Window:
 
         avant = signature()
 
-        def look(restants: int) -> None:
-            if restants <= 0:
+        def look(remaining: int) -> None:
+            if remaining <= 0:
                 return
             if signature() != avant:
                 self._say_the_count()
                 return
-            self.root.after(3000, lambda: look(restants - 1))
+            self.root.after(3000, lambda: look(remaining - 1))
 
         self.root.after(3000, lambda: look(turns))
 
@@ -1635,7 +1635,7 @@ class Window:
             self._say_the_count()
             return
         avant = diagnostic.claude_version()
-        self.mot_compte.configure(text=f"Mise à jour depuis {avant}…",
+        self.account_word.configure(text=f"Mise à jour depuis {avant}…",
                                   fg=self.colours.ink_pale)
 
         def do_it(_say: Callable[[str], None]) -> str:
@@ -1647,15 +1647,15 @@ class Window:
 
         def done(outcome: Any, trouble: Exception | None) -> None:
             if trouble is not None:
-                self.mot_compte.configure(text=f"Mise à jour impossible : {trouble}",
+                self.account_word.configure(text=f"Mise à jour impossible : {trouble}",
                                           fg=self.colours.amber)
                 return
             apres = diagnostic.claude_version()
             if apres and apres != avant:
-                self.mot_compte.configure(text=f"Mis à jour : {avant} → {apres}",
+                self.account_word.configure(text=f"Mis à jour : {avant} → {apres}",
                                           fg=self.colours.ink)
             else:
-                self.mot_compte.configure(text=outcome or f"Déjà à jour ({avant}).",
+                self.account_word.configure(text=outcome or f"Déjà à jour ({avant}).",
                                           fg=self.colours.ink_pale)
 
         self._run_job(Job(caption="Mise à jour de Claude Code", do_it=do_it, done=done))
@@ -1668,13 +1668,13 @@ class Window:
         for enfant in self.root.winfo_children():
             enfant.destroy()
         self._phase_peinte = None
-        self._micros_connus = ()
-        self._fil_reunion = ""
-        self._fil_position = 0
+        self._known_microphones = ()
+        self._thread_meeting = ""
+        self._thread_position = 0
         self._construire()
         self.tabs.reveal("Réglages")
         if word:
-            self.mot_reglages.configure(text=word)
+            self.settings_word.configure(text=word)
         with contextlib.suppress(OSError, ValueError, tk.TclError):
             self._paint(self.recorder.read())
 
@@ -1682,33 +1682,33 @@ class Window:
         """Writes config.toml, then applies what can be applied at once."""
         from greffier.adapters import configuration as settings
 
-        engine = self.reglage_redacteur.value()
+        engine = self.writer_setting.value()
         theme_avant = self.config.appearance.theme
         neuf = self.config.model_copy(deep=True)
-        neuf.audio.mic = self.reglage_micro.value()
-        neuf.transcription.model = self.reglage_modele.value()
-        neuf.transcription.language = self.reglage_langue.value()
+        neuf.audio.mic = self.microphone_setting.value()
+        neuf.transcription.model = self.model_setting.value()
+        neuf.transcription.language = self.language_setting.value()
         neuf.minutes.engine = engine
         neuf.minutes.model = ("" if engine == "aucun"
-                                    else self.reglage_modele_redaction.value())
-        neuf.minutes.recipient = self.reglage_destinataire.get().strip()
-        neuf.live.active = bool(self.direct_actif.get())
-        neuf.live.period = float(self.reglage_periode.value())
-        neuf.appearance.theme = self.reglage_theme.value()
+                                    else self.writing_model_setting.value())
+        neuf.minutes.recipient = self.recipient_setting.get().strip()
+        neuf.live.active = bool(self.live_active.get())
+        neuf.live.period = float(self.period_setting.value())
+        neuf.appearance.theme = self.theme_setting.value()
         from greffier.adapters.configuration import FIRST_NAMES
 
-        neuf.assistant.name = (self.reglage_nom_assistant.value()
+        neuf.assistant.name = (self.assistant_name_setting.value()
                               or self.config.assistant.name)
         neuf.assistant.speaker_index = FIRST_NAMES.get(neuf.assistant.name,
                                               self.config.assistant.speaker_index)
-        neuf.assistant.voice = self.reglage_voix_assistant.value()
-        annonce = self.reglage_participants.value()
+        neuf.assistant.voice = self.assistant_voice_setting.value()
+        annonce = self.attendees_setting.value()
         neuf.speakers.people = int(annonce) if annonce else None
 
         try:
             settings.save_settings(neuf)
         except OSError as trouble:
-            self.mot_reglages.configure(text=f"Échec de l'enregistrement : {trouble}")
+            self.settings_word.configure(text=f"Échec de l'enregistrement : {trouble}")
             return
 
         self.config = neuf
@@ -1716,55 +1716,55 @@ class Window:
         if neuf.minutes.engine == "claude":
             words.append(f"rédacteur {neuf.minutes.effective_model}")
         word = " · ".join(words)
-        self.mot_reglages.configure(text=word)
+        self.settings_word.configure(text=word)
         if neuf.appearance.theme != theme_avant:
             self.root.after(0, lambda: self._apply_the_theme(neuf.appearance.theme, word))
 
     def _load_mics(self) -> None:
         """Offers the mics actually plugged in, the configured one first."""
-        from greffier.wiring import lister
+        from greffier.wiring import list_
 
         try:
-            materiel = lister(self.config).read()
+            hardware = list_(self.config).read()
         except (OSError, RuntimeError):
-            materiel = None
+            hardware = None
         names: list[str] = []
-        if materiel is not None:
+        if hardware is not None:
             names = [
-                p.name for p in materiel.mics
+                p.name for p in hardware.mics
                 if not p.uid.startswith("com.reunions.")
                 and "blackhole" not in p.name.lower()
             ]
-        propositions = (("", self.dit("fenetre.micro_automatique")),
+        propositions = (("", self.says("fenetre.micro_automatique")),
                         *((name, name) for name in names))
-        if propositions == self._micros_connus:
+        if propositions == self._known_microphones:
             return
-        self._micros_connus = propositions
-        choisi = self.mic.value()
+        self._known_microphones = propositions
+        chosen = self.mic.value()
         voulu = self.config.audio.mic
         known = [key for key, _ in propositions]
-        garde = choisi if choisi in known else (voulu if voulu in known else "")
-        self.mic.fill_menu(list(propositions), garde)
+        kept = chosen if chosen in known else (voulu if voulu in known else "")
+        self.mic.fill_menu(list(propositions), kept)
 
     def _refresh(self) -> None:
         with contextlib.suppress(OSError, ValueError):
             self._paint(self.recorder.read())
         self._clear_messages()
-        self.root.after(PERIODE_MS, self._refresh)
+        self.root.after(PERIOD_MS, self._refresh)
 
     def _follow_the_mics(self) -> None:
         """Keeps the mic list up to date, without reopening anything."""
         if self._phase_peinte in (None, Phase.REST):
             with contextlib.suppress(OSError, RuntimeError):
                 self._load_mics()
-        self.root.after(PERIODE_MICROS_MS, self._follow_the_mics)
+        self.root.after(MICROPHONES_PERIOD_MS, self._follow_the_mics)
 
     def _breathe(self) -> None:
         """Pulses the red dot while recording."""
         if self._phase_peinte is Phase.RECORDING:
             c = self.colours
             part = (math.sin(2 * math.pi * time.time() / PULSATION_S) + 1) / 2
-            self.pastille.itemconfigure(self._point, fill=blend(c.active, c.board, part * 0.65))
+            self.badge.itemconfigure(self._point, fill=blend(c.active, c.board, part * 0.65))
         self.root.after(PULSATION_MS, self._breathe)
 
     def _paint(self, state: Any) -> None:
@@ -1782,12 +1782,12 @@ class Window:
         en_pause = state.phase is Phase.PAUSE
         self._show_the_meters(active or en_pause)
         if not active:
-            self.pastille.itemconfigure(
+            self.badge.itemconfigure(
                 self._point, fill=c.amber if en_pause else c.calm
             )
-        self.title.configure(text=state.name or self.dit("fenetre.pret"))
+        self.title.configure(text=state.name or self.says("fenetre.pret"))
         self.detail.configure(
-            text=state.message or self.dit("fenetre.aucun_enregistrement")
+            text=state.message or self.says("fenetre.aucun_enregistrement")
         )
         self.chrono.configure(text=clock(state.seconds) if active or en_pause else "")
 
@@ -1796,8 +1796,8 @@ class Window:
         if active and state.chunks:
             self._paint_levels(read_level(state.chunks[-1]))
         else:
-            self.vu_toi.reveal(0)
-            self.vu_autres.reveal(0)
+            self.seen_you.reveal(0)
+            self.seen_others.reveal(0)
             self.who.configure(text="en pause" if en_pause else "",
                                fg=c.amber if en_pause else c.green)
 
@@ -1811,24 +1811,24 @@ class Window:
         if getattr(self, "_meters_shown", None) == wanted:
             return
         self._meters_shown = wanted
-        mesures = getattr(self, "mesures", None)
-        if mesures is None:
+        measures = getattr(self, "measures", None)
+        if measures is None:
             return
         if wanted:
-            mesures.grid()
+            measures.grid()
         else:
-            mesures.grid_remove()
+            measures.grid_remove()
 
     def _paint_levels(self, releve: LevelReading | None) -> None:
         if releve is None:
             self.who.configure(text="en attente du son…", fg=self.colours.ink_pale)
             return
-        self.vu_toi.reveal(releve.mic_share)
-        self.vu_autres.reveal(releve.systeme_part)
-        self.who.configure(text=_LIBELLES_VOIX[releve.who], fg=self.colours.green)
+        self.seen_you.reveal(releve.mic_share)
+        self.seen_others.reveal(releve.systeme_part)
+        self.who.configure(text=_VOICE_LABELS[releve.who], fg=self.colours.green)
 
     def _clear_messages(self) -> None:
-        for job in list(self.travaux):
+        for job in list(self.jobs):
             while not job.messages.empty():
                 self.status_line.configure(text=job.messages.get_nowait())
 
@@ -1839,14 +1839,14 @@ class Window:
         )
         from greffier.cli import _prepare_capture
 
-        choisi = self.mic.value()
-        if choisi:
-            self.config.audio.mic = choisi
+        chosen = self.mic.value()
+        if chosen:
+            self.config.audio.mic = chosen
         if not self._the_disk_can_hold_a_meeting():
             return
         try:
             precedente = _prepare_capture(self.config)
-            self.recorder.start_recording("reunion", sortie_precedente=precedente)
+            self.recorder.start_recording("reunion", previous_output=precedente)
             start_the_watch(self.config.paths.data)
             start_the_live_thread(
                 self.config.paths.data, self.config.live.active)
@@ -1866,22 +1866,22 @@ class Window:
 
         from greffier.domain import space
 
-        cible = self.config.paths.recordings
-        while not cible.exists() and cible.parent != cible:
-            cible = cible.parent
+        target = self.config.paths.recordings
+        while not target.exists() and target.parent != target:
+            target = target.parent
         try:
-            libre = shutil.disk_usage(cible).free
+            libre = shutil.disk_usage(target).free
         except OSError:
             return True
-        reste = space.Room(libre, channels=2 if platform.system() == "Darwin" else 1)
-        dit = space.said_in_french(reste)
-        if not dit:
+        rest = space.Room(libre, channels=2 if platform.system() == "Darwin" else 1)
+        said = space.said_in_french(rest)
+        if not said:
             return True
-        if reste.verdict is space.Verdict.TOO_LITTLE:
+        if rest.verdict is space.Verdict.TOO_LITTLE:
             return asking.ask_yes_no(
-                "Greffier", f"{dit}\n\nDémarrer quand même ?", default="no",
+                "Greffier", f"{said}\n\nDémarrer quand même ?", default="no",
             )
-        self.status_line.configure(text=dit)
+        self.status_line.configure(text=said)
         return True
 
     def _probe_the_send(self) -> None:
@@ -1921,14 +1921,14 @@ class Window:
         if phase in (Phase.RECORDING, Phase.PAUSE):
             if not asking.ask_yes_no(
                 "Greffier",
-                self.dit("fenetre.quitter_pendant"),
+                self.says("fenetre.quitter_pendant"),
             ):
                 return
             from greffier.cli import _restore_the_output
 
             with contextlib.suppress(RuntimeError):
                 state = self.recorder.stop_recording()
-                _restore_the_output(state.sortie_precedente)
+                _restore_the_output(state.previous_output)
         self.root.destroy()
 
     def _terminate(self) -> None:
@@ -1945,25 +1945,25 @@ class Window:
         """
         self._paint_the_end()
         self._open_the_transcription()
-        enregistrement: dict[str, Any] = {}
+        recording: dict[str, Any] = {}
 
-        def arreter_puis_traiter(dire: Callable[[str], None]) -> Any:
+        def stop_then_process(say: Callable[[str], None]) -> Any:
             from greffier.cli import _restore_the_output
 
             state = self.recorder.stop_recording()
-            _restore_the_output(state.sortie_precedente)
+            _restore_the_output(state.previous_output)
             if state.audio is None:
                 return None
-            enregistrement["audio"] = state.audio
-            return self._chaine(
+            recording["audio"] = state.audio
+            return self._chain(
                 state.audio, state.events, state.start, state.ended_at
-            )(dire)
+            )(say)
 
         self._run_job(Job(
             caption="traitement",
-            do_it=arreter_puis_traiter,
+            do_it=stop_then_process,
             done=lambda outcome, trouble: self._processing_done(
-                enregistrement.get("audio"), outcome, trouble
+                recording.get("audio"), outcome, trouble
             ),
         ))
 
@@ -1993,15 +1993,15 @@ class Window:
         """
         self._phase_peinte = Phase.FINALISATION
         self._show_commands(Phase.FINALISATION)
-        self.detail.configure(text=self.dit("fenetre.fin_en_cours"))
+        self.detail.configure(text=self.says("fenetre.fin_en_cours"))
         self.chrono.configure(text="")
-        self.pastille.itemconfigure(self._point, fill=self.colours.amber)
-        self.vu_toi.reveal(0)
-        self.vu_autres.reveal(0)
+        self.badge.itemconfigure(self._point, fill=self.colours.amber)
+        self.seen_you.reveal(0)
+        self.seen_others.reveal(0)
         self.who.configure(text="")
         self.root.update_idletasks()
 
-    def _chaine(
+    def _chain(
         self,
         audio: Path,
         events: list[str] | None = None,
@@ -2013,9 +2013,9 @@ class Window:
         def do_it(say: Callable[[str], None]) -> Any:
             from greffier.wiring import recording, wire_up
 
-            chaine = wire_up(self.config)
-            chaine.log = recording(self.config).pour(audio.stem)
-            publisher = chaine.log
+            chain = wire_up(self.config)
+            chain.log = recording(self.config).pour(audio.stem)
+            publisher = chain.log
 
             def publish(phase: str, message: str = "") -> None:
                 say(message or phase)
@@ -2023,8 +2023,8 @@ class Window:
                     with contextlib.suppress(OSError, ValueError):
                         publisher.publish(phase, message)
 
-            chaine.log = type("Journal", (), {"publish": staticmethod(publish)})()
-            return chaine.run_chain(
+            chain.log = type("Journal", (), {"publish": staticmethod(publish)})()
+            return chain.run_chain(
                 audio,
                 send=bool(self.config.minutes.recipient),
                 hardware_events=events,
@@ -2051,7 +2051,7 @@ class Window:
             return
         for warning in getattr(outcome, "warnings", []):
             self._say("note", warning)
-        self.status_line.configure(text=self.dit("reunions.compte_rendu_pret"))
+        self.status_line.configure(text=self.says("reunions.compte_rendu_pret"))
         self._choose(audio.stem)
         self.tabs.reveal("Conversation")
         self._offer_what_comes_next(audio.stem, outcome)
@@ -2125,14 +2125,14 @@ class Window:
 
         engine = writer(self.config)
         if engine is None:
-            asking.tell("Greffier", self.dit("reunions.aucun_redacteur"))
+            asking.tell("Greffier", self.says("reunions.aucun_redacteur"))
             return
 
         def do_it(say: Callable[[str], None]) -> Any:
             say("rédaction…")
-            gardee = self.store.read(identifier)
+            kept_one = self.store.read(identifier)
             text = regenerate_minutes(
-                gardee, engine, self.config.conversation.disclosure
+                kept_one, engine, self.config.conversation.disclosure
             )
             target = self.config.paths.minutes_folder / f"{identifier}.md"
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -2145,7 +2145,7 @@ class Window:
                 self.status_line.configure(text=f"Rédaction : {trouble}")
                 self._say("note", f"La rédaction a encore échoué : {trouble}")
                 return
-            self.status_line.configure(text=self.dit("reunions.compte_rendu_pret"))
+            self.status_line.configure(text=self.says("reunions.compte_rendu_pret"))
             self._say("greffier", f"Le compte rendu de « {identifier} » est prêt.")
 
         self._run_job(Job(caption=f"rédaction de {identifier}",
@@ -2154,13 +2154,13 @@ class Window:
     def _offer_what_comes_next(self, identifier: str, outcome: Any) -> None:
         """What the tool asks of its own accord, once the minutes are ready."""
         self._say("greffier", f"Le compte rendu de « {identifier} » est prêt.")
-        significatives: dict[str, float] = getattr(outcome, "significant_voices", dict)()
+        significant: dict[str, float] = getattr(outcome, "significant_voices", dict)()
         names: dict[str, str] = getattr(outcome, "names", {})
-        sans_nom = [voice for voice in significatives if voice not in names]
-        if sans_nom:
+        unnamed = [voice for voice in significant if voice not in names]
+        if unnamed:
             self._say(
                 "greffier",
-                f"{len(sans_nom)} voix ne portent pas encore de nom. L'onglet Voix "
+                f"{len(unnamed)} voix ne portent pas encore de nom. L'onglet Voix "
                 "permet d'écouter dix secondes et de les nommer : elles seront "
                 "reconnues seules aux réunions suivantes.",
             )
@@ -2171,10 +2171,10 @@ class Window:
             self._say("greffier", f"L'envoi à {recipient} n'a pas abouti : "
                                    "onglet Réunions, « Envoyer par courriel ».")
         else:
-            self._say("greffier", self.dit("reunions.aucun_destinataire_long"))
+            self._say("greffier", self.says("reunions.aucun_destinataire_long"))
 
     def _run_job(self, job: Job) -> None:
-        self.travaux.append(job)
+        self.jobs.append(job)
         self.status_line.configure(text=f"{job.caption} en cours…")
 
         def courir() -> None:
@@ -2189,16 +2189,16 @@ class Window:
         threading.Thread(target=courir, daemon=True).start()
 
     def _finish(self, job: Job, outcome: Any, trouble: Exception | None) -> None:
-        if job in self.travaux:
-            self.travaux.remove(job)
-        if not self.travaux:
+        if job in self.jobs:
+            self.jobs.remove(job)
+        if not self.jobs:
             self.status_line.configure(text="")
         job.done(outcome, trouble)
 
     def _selection(self) -> str | None:
         """The technical identifier of the chosen meeting."""
-        choix = self.listing.selection()
-        return str(choix[0]) if choix else None
+        choice = self.listing.selection()
+        return str(choice[0]) if choice else None
 
     def _choose(self, identifier: str) -> None:
         """Selects a meeting, so the other tabs follow."""
@@ -2210,10 +2210,10 @@ class Window:
     def _load_meetings(self) -> None:
         from greffier.application.name_voice import voices_to_name
 
-        garde = self._selection()
+        kept = self._selection()
         for line in self.listing.get_children():
             self.listing.delete(line)
-        for identifier in self.store.lister():
+        for identifier in self.store.list_():
             try:
                 detail = self.store.read(identifier)
             except (OSError, ValueError):
@@ -2231,14 +2231,14 @@ class Window:
             emptiness.meetings(len(self.listing.get_children())),
             self.listing, self.meeting_guidance, self.meeting_buttons,
         )
-        if garde:
-            self._choose(garde)
+        if kept:
+            self._choose(kept)
 
     def _load_the_conversation(self) -> None:
         """Shows again what was already said about the chosen meeting."""
         from greffier.adapters import conversations_file
 
-        identifier = self._fil_reunion or self._selection()
+        identifier = self._thread_meeting or self._selection()
         if not identifier or identifier == self._shown_conversation:
             return
         self._shown_conversation = identifier
@@ -2250,7 +2250,7 @@ class Window:
         if not turns:
             self._paint_the_turn(
                 "note",
-                self.dit("conversation.mode_emploi"),
+                self.says("conversation.mode_emploi"),
             )
             return
         self._paint_the_turn("note", f"conversation de « {identifier} »")
@@ -2296,16 +2296,16 @@ class Window:
 
         if detail is None:
             return
-        dit = doubt.said_in_french(doubt.count(detail.utterances))
-        if dit:
-            self.status_line.configure(text=dit)
+        said = doubt.said_in_french(doubt.count(detail.utterances))
+        if said:
+            self.status_line.configure(text=said)
 
     def _process_selection(self) -> None:
         from greffier.adapters.audio_ffmpeg import why_unreadable
 
         identifier = self._selection()
         if identifier is None:
-            self.status_line.configure(text=self.dit("reunions.choisis_une_reunion"))
+            self.status_line.configure(text=self.says("reunions.choisis_une_reunion"))
             return
         try:
             audio = self.store.read(identifier).audio
@@ -2320,7 +2320,7 @@ class Window:
             return
         self._run_job(Job(
             caption=f"traitement de {identifier}",
-            do_it=self._chaine(audio),
+            do_it=self._chain(audio),
             done=lambda outcome, trouble: self._processing_done(audio, outcome, trouble),
         ))
 
@@ -2328,7 +2328,7 @@ class Window:
         """Replays the writing of the chosen meeting, without transcribing."""
         identifier = self._selection()
         if identifier is None:
-            self.status_line.configure(text=self.dit("reunions.choisis_une_reunion"))
+            self.status_line.configure(text=self.says("reunions.choisis_une_reunion"))
             return
         self._write_up_only(identifier)
 
@@ -2361,7 +2361,7 @@ class Window:
         ):
             return
 
-        redacteur_document = self._document_writer(propositions)
+        document_writer = self._document_writer(propositions)
 
         def do_it(say: Callable[[str], None]) -> list:  # type: ignore[type-arg]
             faits = []
@@ -2369,7 +2369,7 @@ class Window:
                 say(f"{proposition.file.name} ({number}/{len(propositions)})…")
                 faits.append(job.run_chain(
                     proposition, self.config.paths.recordings,
-                    redacteur_document,
+                    document_writer,
                 ))
             return faits
 
@@ -2394,12 +2394,12 @@ class Window:
 
         engine = cartographe(self.config)
         if isinstance(engine, ClaudeWriter):
-            engine.consignes_propres = CONSIGNES_DOCUMENT
+            engine.own_guidance = CONSIGNES_DOCUMENT
         return engine
 
     def _report_the_store(self, faits: list) -> None:  # type: ignore[type-arg]
         """Says what the drop produced, and offers what it learned."""
-        a_transcrire: list[str] = []
+        to_transcribe: list[str] = []
         appris: list[tuple[str, str, str]] = []
         for outcome in faits:
             if outcome.trouble:
@@ -2407,15 +2407,15 @@ class Window:
                            f"{outcome.proposition.file.name} : {outcome.trouble}")
                 continue
             if outcome.produit is not None:
-                a_transcrire.append(outcome.produit.stem)
+                to_transcribe.append(outcome.produit.stem)
             appris.extend(outcome.appris)
 
-        if a_transcrire:
+        if to_transcribe:
             self._say("greffier", (
-                f"{len(a_transcrire)} enregistrement(s) prêt(s) : "
-                f"{', '.join(a_transcrire[:3])}"
-                + ("…" if len(a_transcrire) > 3 else "")
-                + self.dit("reunions.aller_traiter")
+                f"{len(to_transcribe)} enregistrement(s) prêt(s) : "
+                f"{', '.join(to_transcribe[:3])}"
+                + ("…" if len(to_transcribe) > 3 else "")
+                + self.says("reunions.aller_traiter")
             ))
         self._offer_to_the_context(appris)
 
@@ -2434,7 +2434,7 @@ class Window:
             f"{len(appris)} entrée(s) trouvée(s) dans les documents :\n\n"
             f"{detail}\n\nLes ajouter au contexte ?",
         ):
-            self._say("note", self.dit("conversation.rien_ajoute"))
+            self._say("note", self.says("conversation.rien_ajoute"))
             return
         poses = 0
         for ecriture, sens, kind in appris:
@@ -2448,43 +2448,43 @@ class Window:
         self._say("greffier", (
             f"{poses} entrée(s) ajoutée(s) au contexte, "
             f"{len(appris) - poses} déjà connue(s)."
-            + (self.dit("conversation.direct_ecrira_juste")
-               if self._fil_reunion and poses else "")
+            + (self.says("conversation.direct_ecrira_juste")
+               if self._thread_meeting and poses else "")
         ))
 
     def _rename_selection(self) -> None:
         """Gives the chosen meeting a readable subject."""
         identifier = self._selection()
         if identifier is None:
-            self.status_line.configure(text=self.dit("reunions.choisis_une_reunion"))
+            self.status_line.configure(text=self.says("reunions.choisis_une_reunion"))
             return
         try:
-            gardee = self.store.read(identifier)
+            kept_one = self.store.read(identifier)
         except (OSError, ValueError) as trouble:
             asking.complain("Greffier", str(trouble))
             return
         from tkinter import simpledialog
 
         propose = simpledialog.askstring(
-            self.dit("reunions.renommer_titre"),
-            self.dit("reunions.sujet_demande"),
-            initialvalue=gardee.subject or readable_subject(
+            self.says("reunions.renommer_titre"),
+            self.says("reunions.sujet_demande"),
+            initialvalue=kept_one.subject or readable_subject(
                 identifier, self.config.paths.minutes_folder / f"{identifier}.md"
             ),
             parent=self.root,
         )
         if propose is None:
             return
-        gardee.subject = propose.strip()
+        kept_one.subject = propose.strip()
         try:
-            self.store.record(gardee)
+            self.store.record(kept_one)
         except OSError as trouble:
             asking.complain("Greffier", str(trouble))
             return
         self._load_meetings()
         self.status_line.configure(
-            text=f"Renommée : {gardee.caption}" if gardee.subject
-            else self.dit("reunions.sujet_efface")
+            text=f"Renommée : {kept_one.caption}" if kept_one.subject
+            else self.says("reunions.sujet_efface")
         )
 
     def _forget_selection(self) -> None:
@@ -2493,12 +2493,12 @@ class Window:
 
         identifier = self._selection()
         if identifier is None:
-            self.status_line.configure(text=self.dit("reunions.choisis_une_reunion"))
+            self.status_line.configure(text=self.says("reunions.choisis_une_reunion"))
             return
         ou = self._locations()
         pieces = tidy.pieces_de(ou, identifier)
         if not pieces:
-            asking.tell("Greffier", self.dit("reunions.rien_a_effacer"))
+            asking.tell("Greffier", self.says("reunions.rien_a_effacer"))
             self._load_meetings()
             return
         detail = "\n".join(
@@ -2542,11 +2542,11 @@ class Window:
 
         identifier = self._selection()
         if identifier is None:
-            self.status_line.configure(text=self.dit("reunions.choisis_une_reunion"))
+            self.status_line.configure(text=self.says("reunions.choisis_une_reunion"))
             return
         path = self.config.paths.minutes_folder / f"{identifier}.md"
         if not path.exists():
-            asking.tell("Greffier", self.dit("reunions.aucun_compte_rendu"))
+            asking.tell("Greffier", self.says("reunions.aucun_compte_rendu"))
             return
         opener = {"darwin": "open", "win32": "start"}.get(sys.platform, "xdg-open")
         subprocess.run([opener, str(path)], check=False)
@@ -2556,11 +2556,11 @@ class Window:
 
         identifier = self._selection()
         if identifier is None:
-            self.status_line.configure(text=self.dit("reunions.choisis_une_reunion"))
+            self.status_line.configure(text=self.says("reunions.choisis_une_reunion"))
             return
         path = self.config.paths.minutes_folder / f"{identifier}.md"
         if not path.exists():
-            asking.tell("Greffier", self.dit("reunions.traiter_d_abord"))
+            asking.tell("Greffier", self.says("reunions.traiter_d_abord"))
             return
         minutes = path.read_text(encoding="utf-8")
         objet = title(minutes, f"Compte rendu : {identifier}")
@@ -2568,14 +2568,14 @@ class Window:
         if not target:
             asking.tell(
                 "Greffier",
-                self.dit("reunions.aucun_destinataire"),
+                self.says("reunions.aucun_destinataire"),
             )
             return
         if not asking.ask_yes_no("Greffier", f"Envoyer à {target} ?\n\n{objet}"):
             return
-        sender = _sender(self.config, exiger_destinataire=False)
+        sender = _sender(self.config, require_recipient=False)
         if sender is None:
-            asking.complain("Greffier", self.dit("reunions.aucun_envoi"))
+            asking.complain("Greffier", self.says("reunions.aucun_envoi"))
             return
 
         def do_it(say: Callable[[str], None]) -> Any:
@@ -2594,16 +2594,16 @@ class Window:
         self._say("greffier", f"Compte rendu envoyé à {target}.")
 
     def _selected_voice(self) -> str | None:
-        choix = self.voice.selection()
-        return str(self.voice.item(choix[0], "values")[0]) if choix else None
+        choice = self.voice.selection()
+        return str(self.voice.item(choice[0], "values")[0]) if choice else None
 
     def _name_voice(self) -> None:
         from greffier.wiring import naming
 
         identifier, voice = self._selection(), self._selected_voice()
-        name = self.champ_nom.get().strip()
+        name = self.name_field.get().strip()
         if not identifier:
-            asking.tell("Greffier", self.dit("voix.choisis_une_reunion"))
+            asking.tell("Greffier", self.says("voix.choisis_une_reunion"))
             return
         if not voice:
             asking.tell("Greffier", "Choisissez une voix dans la liste.")
@@ -2617,7 +2617,7 @@ class Window:
         except (KeyError, RuntimeError, ValueError, OSError) as trouble:
             asking.complain("Greffier", str(trouble))
             return
-        self.champ_nom.delete(0, "end")
+        self.name_field.delete(0, "end")
         self._load_voices()
         self.status_line.configure(text=f"{name} est en banque.")
         self._say("greffier", f"{name} est en banque, et sera reconnue seule aux "
@@ -2646,24 +2646,24 @@ class Window:
         """
         from greffier.adapters import model_files
 
-        dossier = self.config.paths.models
-        manquants = [
-            m for m in model_files.missing(dossier, self.config.transcription.engine)
+        folder = self.config.paths.models
+        missing = [
+            m for m in model_files.missing(folder, self.config.transcription.engine)
             if m.required
         ]
-        if not manquants:
-            if hasattr(self, "mot_modeles"):
-                self.mot_modeles.configure(text=self.dit("modeles.tous_en_place"))
+        if not missing:
+            if hasattr(self, "models_word"):
+                self.models_word.configure(text=self.says("modeles.tous_en_place"))
             return
         if not asking.ask_yes_no(
             "Greffier",
-            self.dit("modeles.manquants", poids=model_files.weight(manquants)),
+            self.says("modeles.manquants", weight=model_files.weight(missing)),
         ):
-            self._paint_the_turn("greffier", self.dit("modeles.refuses"))
+            self._paint_the_turn("greffier", self.says("modeles.refuses"))
             return
-        self._fetch_the_models(manquants)
+        self._fetch_the_models(missing)
 
-    def _fetch_the_models(self, manquants: list[Any]) -> None:
+    def _fetch_the_models(self, missing: list[Any]) -> None:
         """Fetches the models in a thread, saying where it is.
 
         In a thread because this is one and a half gigabytes: a window frozen
@@ -2671,18 +2671,18 @@ class Window:
         """
         from greffier.adapters import model_files
 
-        dossier = self.config.paths.models
+        folder = self.config.paths.models
 
-        def faire(dire: Callable[[str], None]) -> Any:
+        def do_it(say: Callable[[str], None]) -> Any:
             rates: list[str] = []
-            for rang, model in enumerate(manquants, start=1):
+            for rang, model in enumerate(missing, start=1):
                 def avancement(
                     recu: int, total: int, m: Any = model, n: int = rang
                 ) -> None:
                     part = f"{recu * 100 // total} %" if total else f"{recu >> 20} Mo"
-                    dire(f"{m.role} ({n}/{len(manquants)}) : {part}")
+                    say(f"{m.role} ({n}/{len(missing)}) : {part}")
 
-                pose, souci = model_files.fetch(model, dossier, avancement)
+                pose, souci = model_files.fetch(model, folder, avancement)
                 if not pose:
                     rates.append(f"{model.role} : {souci}")
             return rates
@@ -2695,17 +2695,17 @@ class Window:
             if rates:
                 self.troubles.note("modeles", f"non téléchargés : {len(rates)}")
                 self._paint_the_turn("greffier", (
-                    self.dit("modeles.echec_liste")
+                    self.says("modeles.echec_liste")
                     + "\n- ".join(rates)
-                    + self.dit("modeles.reessaie")
+                    + self.says("modeles.reessaie")
                 ))
                 return
             self._paint_the_turn("greffier", (
-                self.dit("modeles.pretes")
+                self.says("modeles.pretes")
             ))
-            self.status_line.configure(text=self.dit("modeles.telecharges"))
+            self.status_line.configure(text=self.says("modeles.telecharges"))
 
-        self._run_job(Job(caption="modèles", do_it=faire, done=fini))
+        self._run_job(Job(caption="modèles", do_it=do_it, done=fini))
 
     def _report_a_newer_bundle(self) -> None:
         """Says when the running application is no longer the installed one."""
@@ -2715,7 +2715,7 @@ class Window:
             return
         self._say(
             "greffier",
-            self.dit("reglages.version_plus_recente"),
+            self.says("reglages.version_plus_recente"),
         )
 
     def _report_resumable_meetings(self) -> None:
@@ -2723,20 +2723,20 @@ class Window:
         from greffier.application.render import to_resume
 
         try:
-            restants = to_resume(self.store, self.config.paths.minutes_folder)
+            remaining = to_resume(self.store, self.config.paths.minutes_folder)
         except OSError:
             return
-        if not restants:
+        if not remaining:
             return
-        how_many = len(restants)
+        how_many = len(remaining)
         pluriel = "s" if how_many > 1 else ""
         self._say(
             "greffier",
             f"{how_many} réunion{pluriel} transcrite{pluriel} sans compte rendu : "
-            f"{', '.join(restants[:3])}"
+            f"{', '.join(remaining[:3])}"
             + (f" et {how_many - 3} autre{'s' if how_many > 4 else ''}"
                if how_many > 3 else "")
-            + self.dit("reunions.reprendre_la_redaction"),
+            + self.says("reunions.reprendre_la_redaction"),
         )
 
     def _split_the_voice(self) -> None:
@@ -2750,7 +2750,7 @@ class Window:
 
         identifier, voice = self._selection(), self._selected_voice()
         if not (identifier and voice):
-            asking.tell("Greffier", self.dit("voix.choisis_une_voix"))
+            asking.tell("Greffier", self.says("voix.choisis_une_voix"))
             return
         try:
             naming(self.config).split(identifier, voice)
@@ -2769,7 +2769,7 @@ class Window:
 
         identifier, voice = self._selection(), self._selected_voice()
         if not (identifier and voice):
-            asking.tell("Greffier", self.dit("voix.choisis_une_voix"))
+            asking.tell("Greffier", self.says("voix.choisis_une_voix"))
             return
         if not asking.ask_yes_no(
             "Greffier",
@@ -2797,17 +2797,17 @@ class Window:
 
         identifier = self._selection()
         if identifier is None:
-            self.status_line.configure(text=self.dit("reunions.choisis_une_reunion"))
+            self.status_line.configure(text=self.says("reunions.choisis_une_reunion"))
             return
         try:
-            gardee = self.store.read(identifier)
+            kept_one = self.store.read(identifier)
         except (OSError, ValueError) as trouble:
             asking.complain("Greffier", str(trouble))
             return
-        if not gardee.utterances:
+        if not kept_one.utterances:
             asking.tell("Greffier", "Cette réunion n'a pas encore été transcrite.")
             return
-        cible = asking.where_to_save(
+        target = asking.where_to_save(
             "Exporter la transcription",
             initialfile=f"{identifier}.srt",
             filetypes=(
@@ -2817,24 +2817,24 @@ class Window:
             ),
             parent=self.root,
         )
-        if not cible:
+        if not target:
             return
-        chemin = Path(cible)
-        shape = chemin.suffix.lstrip(".").lower() or "srt"
+        path = Path(target)
+        shape = path.suffix.lstrip(".").lower() or "srt"
         if shape not in formats.FORMATS:
-            asking.complain("Greffier", f"« {chemin.suffix} » n'est pas un format "
+            asking.complain("Greffier", f"« {path.suffix} » n'est pas un format "
                                          f"connu : {', '.join(formats.FORMATS)}.")
             return
         try:
-            chemin.write_text(
-                formats.rendered(shape, gardee.utterances, gardee.names),
+            path.write_text(
+                formats.rendered(shape, kept_one.utterances, kept_one.names),
                 encoding="utf-8-sig" if shape == "csv" else "utf-8",
             )
         except OSError as trouble:
             asking.complain("Greffier", f"Écriture impossible : {trouble}")
             return
         self.status_line.configure(
-            text=f"{chemin.name} écrit, {len(gardee.utterances)} tour(s) de parole."
+            text=f"{path.name} écrit, {len(kept_one.utterances)} tour(s) de parole."
         )
 
     def _everywhere(self) -> Any:
@@ -2857,7 +2857,7 @@ class Window:
 
     def _person_aimed_at(self) -> str:
         """The first name typed, or the one the selected voice carries."""
-        typed = self.champ_nom.get().strip()
+        typed = self.name_field.get().strip()
         if typed:
             return typed
         chosen = self.voice.selection()
@@ -2887,8 +2887,8 @@ class Window:
         ou = self._everywhere()
         bank = FileVoiceBank(self.config.paths.voice_bank)
         person = bank.find(name)
-        empreintes = len(person.voiceprints) if person else 0
-        traces = erase_person.inventory(ou, name, voiceprints=empreintes)
+        voiceprints = len(person.voiceprints) if person else 0
+        traces = erase_person.inventory(ou, name, voiceprints=voiceprints)
         if not traces:
             asking.tell("Greffier", f"« {name} » n'est écrit nulle part.")
             return
@@ -2961,7 +2961,7 @@ class Window:
             self._say("greffier", f"La régénération du compte rendu a échoué : {trouble}")
             return
         path.write_text(text, encoding="utf-8")
-        self._say("greffier", self.dit("reunions.regenere"))
+        self._say("greffier", self.says("reunions.regenere"))
 
     def _listen(self) -> None:
         import shutil
@@ -2971,7 +2971,7 @@ class Window:
 
         identifier, voice = self._selection(), self._selected_voice()
         if not (identifier and voice):
-            asking.tell("Greffier", self.dit("voix.choisis_une_voix"))
+            asking.tell("Greffier", self.says("voix.choisis_une_voix"))
             return
         player = shutil.which("afplay") or shutil.which("aplay") or shutil.which("ffplay")
         if player is None:
@@ -2980,17 +2980,17 @@ class Window:
         try:
             detail = self.store.read(identifier)
             candidate = next(c for c in voices_to_name(detail) if c.voice == voice)
-            if candidate.extrait is None:
+            if candidate.excerpt is None:
                 asking.tell("Greffier",
                                     "Aucun extrait exploitable pour cette voix.")
                 return
             output = self.config.paths.data / "extraits" / f"{identifier}-{voice}.wav"
-            extrait = extract_audio(detail.audio, candidate.extrait, output)
+            excerpt = extract_audio(detail.audio, candidate.excerpt, output)
         except (StopIteration, RuntimeError, OSError, ValueError) as trouble:
             asking.complain("Greffier", str(trouble))
             return
-        arguments = ([player, "-nodisp", "-autoexit", "-loglevel", "error", str(extrait)]
-                     if player.endswith("ffplay") else [player, str(extrait)])
+        arguments = ([player, "-nodisp", "-autoexit", "-loglevel", "error", str(excerpt)]
+                     if player.endswith("ffplay") else [player, str(excerpt)])
         subprocess.Popen(arguments)
 
     def _say(self, who: str, text: str) -> None:
@@ -3001,7 +3001,7 @@ class Window:
         """Writes the turn under the meeting it is about, if there is one."""
         from greffier.adapters import conversations_file
 
-        identifier = self._fil_reunion or self._selection()
+        identifier = self._thread_meeting or self._selection()
         if not identifier:
             return
         conversations_file.add(
@@ -3030,18 +3030,18 @@ class Window:
         self.thread.configure(state="normal")
         self.thread.delete("1.0", "end")
         self.thread.configure(state="disabled")
-        self._paint_the_turn("note", self.dit("conversation.vide"))
+        self._paint_the_turn("note", self.says("conversation.vide"))
 
     def _answer_the_question(self, response: str) -> bool:
         """Treats the input as an answer to the question awaiting one."""
         from greffier.adapters import context_file, questions_file
         from greffier.domain.intents import agreement
 
-        en_attente = self._questions_attente[0]
-        dit = agreement(response)
-        if dit is True:
-            retenu = en_attente.question.expected
-        elif dit is False:
+        waiting = self._pending_questions[0]
+        said = agreement(response)
+        if said is True:
+            retenu = waiting.question.expected
+        elif said is False:
             retenu = ""
         elif len(response.split()) <= 3:
             retenu = response.strip()
@@ -3051,10 +3051,10 @@ class Window:
         self.question.delete(0, "end")
         self._say("moi", response)
         file = questions_file.questions_file(
-            self.config.paths.questions, self._fil_reunion
+            self.config.paths.questions, self._thread_meeting
         )
         with contextlib.suppress(OSError):
-            questions_file.answer(file, en_attente.number, retenu or "non")
+            questions_file.answer(file, waiting.number, retenu or "non")
         if retenu:
             with contextlib.suppress(OSError):
                 pose = context_file.add_a_term(
@@ -3066,9 +3066,9 @@ class Window:
                 else f"« {retenu} » était déjà connu."
             ))
         else:
-            self._say("note", self.dit("conversation.note_sans_suite"))
-        self._questions_attente = self._questions_attente[1:]
-        self.tabs.mark("Conversation", len(self._questions_attente))
+            self._say("note", self.says("conversation.note_sans_suite"))
+        self._pending_questions = self._pending_questions[1:]
+        self.tabs.mark("Conversation", len(self._pending_questions))
         return True
 
     def _hear_an_intent(self, sentence: str) -> bool:
@@ -3078,7 +3078,7 @@ class Window:
         appris = understand(sentence)
         if appris is None:
             return False
-        self._apprentissage_attente = appris
+        self._learning_pending = appris
         self.question.delete(0, "end")
         self._say("moi", sentence)
         self._say("note", appris.say())
@@ -3089,16 +3089,16 @@ class Window:
         from greffier.adapters import context_file
         from greffier.domain.intents import What, agreement
 
-        dit = agreement(response)
-        if dit is None:
-            self._apprentissage_attente = None
+        said = agreement(response)
+        if said is None:
+            self._learning_pending = None
             return False
-        appris = self._apprentissage_attente
-        self._apprentissage_attente = None
+        appris = self._learning_pending
+        self._learning_pending = None
         self.question.delete(0, "end")
         self._say("moi", response)
-        if not dit:
-            self._say("note", self.dit("conversation.rien_ecrit"))
+        if not said:
+            self._say("note", self.says("conversation.rien_ecrit"))
             return True
 
         ajout = (
@@ -3114,7 +3114,7 @@ class Window:
         self._say("greffier", (
             f"« {appris.subject} » ajouté au contexte. La transcription en cours "
             "l'écrira juste dès la prochaine tranche."
-            if self._fil_reunion else
+            if self._thread_meeting else
             f"« {appris.subject} » ajouté au contexte."
         ))
         return True
@@ -3157,10 +3157,10 @@ class Window:
         if not documents:
             return
 
-        identifier = self._fil_reunion or self._selection() or ""
+        identifier = self._thread_meeting or self._selection() or ""
         if not identifier:
             self._say("note", (
-                self.dit("conversation.document_sans_reunion")
+                self.says("conversation.document_sans_reunion")
             ))
         writer = self._document_writer(documents)
 
@@ -3170,19 +3170,19 @@ class Window:
             troubles: list[str] = []
             for number, proposition in enumerate(documents, start=1):
                 say(f"{proposition.file.name} ({number}/{len(documents)})…")
-                lu = job.lire_le_texte(proposition.file)
-                if not lu.strip():
+                read_ = job.read_the_text(proposition.file)
+                if not read_.strip():
                     troubles.append(proposition.file.name)
                     continue
                 if identifier:
                     piece = attachments_file.write(
                         self.config.paths.pieces, identifier,
-                        proposition.file.name, lu,
+                        proposition.file.name, read_,
                     )
                     if piece is not None:
                         kept.append(piece)
                 if writer is not None:
-                    appris.extend(job.learn_from_text(lu, writer))
+                    appris.extend(job.learn_from_text(read_, writer))
             return (kept, appris, troubles)
 
         def done(rendered: Any, trouble: Exception | None) -> None:
@@ -3219,40 +3219,40 @@ class Window:
 
     def _paint_the_preparation(self) -> None:
         preparation = getattr(self, "_preparation", None)
-        if not hasattr(self, "ligne_preparation"):
+        if not hasattr(self, "preparation_line"):
             return
         if preparation is None:
-            self.ligne_preparation.configure(text="")
-            self.bouton_preparer.set_caption(self.dit("conversation.preparer"))
+            self.preparation_line.configure(text="")
+            self.prepare_button.set_caption(self.says("conversation.preparer"))
             return
-        morceaux = [self.dit("conversation.en_preparation",
-                                 sujet=preparation.subject or "-")]
+        chunks = [self.says("conversation.en_preparation",
+                                 subject=preparation.subject or "-")]
         if preparation.expected:
-            morceaux.append(f"attendus : {', '.join(preparation.expected)}")
+            chunks.append(f"attendus : {', '.join(preparation.expected)}")
         if preparation.to_raise:
-            morceaux.append(f"{len(preparation.to_raise)} point(s) à soulever")
-        self.ligne_preparation.configure(text=" · ".join(morceaux))
-        self.bouton_preparer.set_caption(self.dit("conversation.changer_de_sujet"))
+            chunks.append(f"{len(preparation.to_raise)} point(s) à soulever")
+        self.preparation_line.configure(text=" · ".join(chunks))
+        self.prepare_button.set_caption(self.says("conversation.changer_de_sujet"))
 
     def _open_a_preparation(self) -> None:
         from tkinter import simpledialog
 
         from greffier.adapters import preparations_file
 
-        sujet = simpledialog.askstring(
-            "Greffier", self.dit("conversation.sujet_demande"), parent=self.root)
-        if sujet is None:
+        subject = simpledialog.askstring(
+            "Greffier", self.says("conversation.sujet_demande"), parent=self.root)
+        if subject is None:
             return
-        self._say_what_is_known(sujet.strip())
+        self._say_what_is_known(subject.strip())
         existante = getattr(self, "_preparation", None)
         if existante is not None:
-            self._preparation = replace(existante, subject=sujet.strip())
+            self._preparation = replace(existante, subject=subject.strip())
         else:
             self._preparation = preparations_file.open_one(
-                self._preparations_folder(), sujet)
+                self._preparations_folder(), subject)
         self._keep_the_preparation()
         self.tabs.reveal("Conversation")
-        self._say("note", self.dit("preparation.ouverte"))
+        self._say("note", self.says("preparation.ouverte"))
 
     def _say_what_is_known(self, subject: str) -> None:
         """Opens the preparation on what earlier meetings on this subject left."""
@@ -3289,7 +3289,7 @@ class Window:
         cerveau = assistant(self.config)
         if cerveau is None:
             return None
-        voix = assistant_voice(self.config)
+        voice = assistant_voice(self.config)
         preparation = getattr(self, "_preparation", None)
         return Preparing(
             brain=cerveau,
@@ -3298,7 +3298,7 @@ class Window:
             known=(known_about(self.config, preparation.subject)
                    if preparation is not None else ""),
             heard=cue(HEARD),
-            speak=(voix.say if voix is not None else None),
+            speak=(voice.say if voice is not None else None),
         )
 
     def _open_the_voice(self) -> None:
@@ -3313,13 +3313,13 @@ class Window:
             with contextlib.suppress(Exception):
                 from greffier.wiring import assistant_voice, dictation_transcriber
 
-                voix = assistant_voice(self.config)
-                chauffer = getattr(voix, "warm", None)
+                voice = assistant_voice(self.config)
+                chauffer = getattr(voice, "warm", None)
                 if callable(chauffer):
                     chauffer()
-                ecoute = dictation_transcriber(self.config)
-                if ecoute is not None:
-                    ecoute.warm()
+                listening = dictation_transcriber(self.config)
+                if listening is not None:
+                    listening.warm()
 
         threading.Thread(target=ouvrir, daemon=True).start()
 
@@ -3329,7 +3329,7 @@ class Window:
         preparing = self._preparing()
         if preparing is None:
             self._say_while_preparing(
-                "note", self.dit("commun.aucun_redacteur_configure"))
+                "note", self.says("commun.aucun_redacteur_configure"))
             return
         self._say_while_preparing("moi", question)
 
@@ -3372,16 +3372,16 @@ class Window:
         self._open_the_voice()
 
         dictee = Dictation(self.config.audio.mic or self.config.audio.input)
-        fichier = self.config.paths.data / "dictee.wav"
+        file = self.config.paths.data / "dictee.wav"
         try:
-            dictee.start(fichier)
+            dictee.start(file)
         except OSError as trouble:
             self._say_while_preparing("note", str(trouble))
             return
         self._dictee = dictee
-        self._prise = Take()
-        self._prise_fichier = fichier
-        self.bouton_parler.set_caption(self.dit("conversation.je_ecoute"))
+        self._take = Take()
+        self._file_take = file
+        self.speak_button.set_caption(self.says("conversation.je_ecoute"))
         self.root.after(self.PAS_DICTEE_MS, self._watch_the_dictation)
 
     def _watch_the_dictation(self) -> None:
@@ -3391,10 +3391,10 @@ class Window:
         if getattr(self, "_dictee", None) is None:
             return
         with contextlib.suppress(OSError, ValueError):
-            releve = read_level(self._prise_fichier)
+            releve = read_level(self._file_take)
             if releve is not None:
-                self._prise.heard(releve.mic_db, self.PAS_DICTEE_MS / 1000)
-        if self._prise.over:
+                self._take.heard(releve.mic_db, self.PAS_DICTEE_MS / 1000)
+        if self._take.over:
             self._stop_dictating()
             return
         self.root.after(self.PAS_DICTEE_MS, self._watch_the_dictation)
@@ -3403,14 +3403,14 @@ class Window:
         """Closes the microphone, transcribes what was said, and answers."""
         dictee = getattr(self, "_dictee", None)
         self._dictee = None
-        self.bouton_parler.set_caption(self.dit("conversation.parler"))
+        self.speak_button.set_caption(self.says("conversation.parler"))
         if dictee is None:
             return
-        fichier = dictee.stop()
-        if fichier is None:
-            self._say_while_preparing("note", self.dit("conversation.rien_entendu"))
+        file = dictee.stop()
+        if file is None:
+            self._say_while_preparing("note", self.says("conversation.rien_entendu"))
             return
-        self._transcribe_and_ask(fichier)
+        self._transcribe_and_ask(file)
 
 
     def _transcribe_and_ask(self, audio: Path) -> None:
@@ -3418,7 +3418,7 @@ class Window:
 
         transcripteur = dictation_transcriber(self.config)
         if transcripteur is None:
-            self._say("note", self.dit("modeles.aucun_transcripteur"))
+            self._say("note", self.says("modeles.aucun_transcripteur"))
             return
         preparing = self._preparing()
 
@@ -3434,7 +3434,7 @@ class Window:
             question = (preparing.transcribed(str(said))
                         if preparing is not None else str(said).strip())
             if not question:
-                self._say("note", self.dit("conversation.rien_compris"))
+                self._say("note", self.says("conversation.rien_compris"))
                 return
             self._ask_this(question)
 
@@ -3459,9 +3459,9 @@ class Window:
             self.question.delete(0, "end")
             self._answer_while_preparing(question)
             return
-        if self._questions_attente and self._answer_the_question(question):
+        if self._pending_questions and self._answer_the_question(question):
             return
-        if self._apprentissage_attente is not None and self._confirm_the_learning(
+        if self._learning_pending is not None and self._confirm_the_learning(
             question
         ):
             return
@@ -3470,16 +3470,16 @@ class Window:
 
         engine = assistant(self.config)
         if engine is None:
-            self._say("note", self.dit("commun.aucun_redacteur_configure"))
+            self._say("note", self.says("commun.aucun_redacteur_configure"))
             return
 
-        in_progress = self._thread.rendered() if self._fil_reunion else ""
+        in_progress = self._thread.rendered() if self._thread_meeting else ""
         if in_progress:
-            material, what, sur = in_progress, "la transcription en direct", self._fil_reunion
+            material, what, sur = in_progress, "la transcription en direct", self._thread_meeting
         else:
             identifier = self._selection()
             if identifier is None:
-                self._say("note", self.dit("conversation.choisis_ou_demarre"))
+                self._say("note", self.says("conversation.choisis_ou_demarre"))
                 return
             source = self.config.paths.minutes_folder / f"{identifier}.md"
             if not source.exists():
@@ -3529,7 +3529,7 @@ class Window:
         with contextlib.suppress(OSError, ValueError):
             manquantes = [
                 identifier
-                for identifier in self.store.lister()[:20]
+                for identifier in self.store.list_()[:20]
                 if held_on(identifier) is not None
                 and not (self.config.paths.minutes_folder / f"{identifier}.md").exists()
                 and bool(self.store.read(identifier).utterances)
@@ -3541,7 +3541,7 @@ class Window:
                 f"{len(manquantes)} réunion{pluriel} transcrite{pluriel} sans compte "
                 f"rendu : {', '.join(manquantes[:3])}"
                 + ("…" if len(manquantes) > 3 else "")
-                + self.dit("reunions.rediger_sans_retranscrire")
+                + self.says("reunions.rediger_sans_retranscrire")
             ))
             self.tabs.mark("Conversation", len(manquantes))
 

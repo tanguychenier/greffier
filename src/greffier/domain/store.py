@@ -39,17 +39,17 @@ class Suggestion:
 
 def offer(
     file: Path,
-    taille: int | None = None,
+    size: int | None = None,
     tools: frozenset[str] = frozenset(),
 ) -> Suggestion:
     """What is proposed for this file."""
     suffixe = file.suffix.casefold()
 
     if suffixe in SOUNDS:
-        if taille is not None and taille < MINIMUM_SOUND_SIZE:
+        if size is not None and size < MINIMUM_SOUND_SIZE:
             return Suggestion(
                 file, Destination.UNKNOWN,
-                f"son trop court pour une réunion ({taille / 1024:.0f} Ko)",
+                f"son trop court pour une réunion ({size / 1024:.0f} Ko)",
             )
         return Suggestion(file, Destination.MEETING, "enregistrement sonore")
 

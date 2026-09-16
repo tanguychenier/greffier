@@ -46,13 +46,13 @@ class TestWhatTheToolSays:
         assert self._wording().say("nulle.part") == "nulle.part"
 
     def test_the_holes_are_filled(self):
-        dit = Wording("fr", {"salut": "Bonjour {qui}"}, {})
-        assert dit.say("salut", qui="Sophie") == "Bonjour Sophie"
+        said = Wording("fr", {"salut": "Bonjour {who}"}, {})
+        assert said.say("salut", who="Sophie") == "Bonjour Sophie"
 
     def test_a_wording_whose_holes_do_not_match_shows_the_sentence(self):
         """A translation mistake must not raise in the middle of a window."""
-        dit = Wording("fr", {"salut": "Bonjour {inconnu}"}, {})
-        assert dit.say("salut", qui="Sophie") == "Bonjour {inconnu}"
+        said = Wording("fr", {"salut": "Bonjour {inconnu}"}, {})
+        assert said.say("salut", who="Sophie") == "Bonjour {inconnu}"
 
     def test_what_is_missing_is_knowable(self):
         """So that it can be translated, rather than discovered by a reader."""
