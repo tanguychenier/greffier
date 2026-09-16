@@ -105,6 +105,25 @@ class TestWhoIsSpeaking:
         assert read_level(tmp_path / "jamais-ecrit.wav") is None
 
 
+class TestTheLevelAtAGivenMoment:
+    """A recording replayed from a finished file has its "now" in the middle."""
+
+    def test_the_window_ends_where_it_is_asked_to(self, tmp_path: Path) -> None:
+        # Half a second loud, half a second silent, at 16 kHz.
+        loud_then_quiet = [12000] * 8000 + [0] * 8000
+        audio = wav(tmp_path / "d.wav", [loud_then_quiet])
+        assert read_level(audio, window_s=0.25, up_to=0.5).who is WhoSpeaks.YOU
+        assert read_level(audio, window_s=0.25, up_to=1.0).who is WhoSpeaks.NOBODY
+
+    def test_beyond_the_end_it_reads_the_end(self, tmp_path: Path) -> None:
+        audio = wav(tmp_path / "e.wav", [[12000] * 8000])
+        assert read_level(audio, window_s=0.25, up_to=9.0).who is WhoSpeaks.YOU
+
+    def test_before_the_first_sample_there_is_nothing(self, tmp_path: Path) -> None:
+        audio = wav(tmp_path / "f.wav", [[12000] * 8000])
+        assert read_level(audio, window_s=0.25, up_to=0.0) is None
+
+
 class TestTheLengthWrittenSoFar:
     """How much sound the file carries while ffmpeg is writing it.
 

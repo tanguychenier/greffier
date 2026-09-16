@@ -37,6 +37,7 @@ from greffier.wiring import (
     list_,
     naming,
     recording,
+    somebody_speaking,
     store,
     wire_up,
     writer,
@@ -937,6 +938,7 @@ def assist(
         initiative=config.assistant.initiative,
         reread_participation=_reread_the_buttons,
         give_voice_back=lambda: assistant_voice(Config()),
+        speaking=somebody_speaking,
         slice_period=config.live.period,
     )
     if the_follower is not None:

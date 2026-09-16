@@ -10,6 +10,7 @@ import contextlib
 import json
 import platform
 import subprocess
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -18,6 +19,7 @@ from typing import Any
 
 from greffier.application.follow import SLICE_MINIMUM_S, Follower, Position
 from greffier.application.take_part import AssistantSettings
+from greffier.domain.channels import SpeechEnd
 from greffier.domain.instructions import Suggestion, WatchRules
 from greffier.domain.models import Span, Utterance
 from greffier.domain.participation import Because, Opening, called_by_name
@@ -47,6 +49,17 @@ CONTEXT_S = 50.0
 LISTENING_PERIOD = 3.0
 LISTENING_S = 8.0
 
+#: The listening thread looks at the room's level this often, and listens the
+#: moment somebody has just stopped talking rather than on the clock: measured
+#: on the bench, the clock alone spotted a call 0.8 to 5.9 s after the
+#: question ended. Two passes are never closer than the gap, however prompted.
+LISTENING_POLL = 0.25
+LISTENING_GAP = 1.0
+
+#: A sentence that runs into the end of the window is a sentence still being
+#: said: half a question answered is worse than a question answered late.
+STILL_TALKING_S = 0.4
+
 def _within_the_slice(utterances: list[Utterance], frontiere: float) -> list[Utterance]:
     """Keeps only what spills into the slice, rebased on it."""
     if frontiere <= 0:
@@ -63,6 +76,13 @@ def _within_the_slice(utterances: list[Utterance], frontiere: float) -> list[Utt
             text=utterance.text, voice=utterance.voice, source=utterance.source,
         ))
     return kept
+
+#: What ends a sentence the model has finished writing down.
+_SENTENCE_ENDS = (".", "?", "!", "…", "»")
+
+def _finished(text: str) -> bool:
+    """Whether the transcriber closed the sentence."""
+    return text.rstrip().endswith(_SENTENCE_ENDS)
 
 def read_the_clipboard() -> str:
     """Clipboard contents, or empty when the system will not give them."""
@@ -118,12 +138,16 @@ class Watcher:
     assistant_of: AssistantSettings | None = None
     reread_participation: Callable[[], tuple[bool, bool]] | None = None
     give_voice_back: Callable[[], Any] | None = None
+    #: Whether somebody is talking at this position, None when it cannot be
+    #: told: the levels of the file being written, read by whoever wires it.
+    speaking: Callable[[Position], bool | None] | None = None
     initiative: bool = False
     material_before_asking: float = 30.0
     slice_period: float = SLICE_PERIOD
     traite: float = 0.0
     vu: float | None = None
     _last_listened: float = 0.0
+    _held_call: str | None = None
 
     def _current_prompt_seed(self) -> str:
         """The seed for this slice, context re-read if it changed."""
@@ -217,7 +241,7 @@ class Watcher:
             self.assistant_turn(recalees, self.traite)
         return fresh
 
-    def listening_turn(self, ou: Position, job: Path) -> None:
+    def listening_turn(self, ou: Position, job: Path, prompted: bool = False) -> bool:
         """Answers a call without waiting for the next slice.
 
         A full slice is built for the thread: fifty seconds of context so the
@@ -229,35 +253,66 @@ class Watcher:
         only for the assistant's own name. The remark it hands over carries a
         subject, so the same call arriving again in the full slice is refused as
         already answered rather than answered twice.
+
+        `prompted` when somebody has just stopped talking: the pass then waits
+        for the gap rather than the period. True when something was listened to.
         """
         lui = self.assistant_of
         if (lui is None or lui.cerveau is None or self.transcriber is None
                 or lui.busy or not lui.manners.active):
-            return
-        if ou.overall - self._last_listened < LISTENING_PERIOD:
-            return
+            return False
+        if ou.overall - self._last_listened < (LISTENING_GAP if prompted else LISTENING_PERIOD):
+            return False
         self._last_listened = ou.overall
         start = max(0.0, ou.written - LISTENING_S)
         if ou.written - start < SLICE_MINIMUM_S:
-            return
+            return False
         chunk = extract_slice(ou.chunk, start, ou.written, job / "ecoute.wav")
         if chunk is None:
-            return
+            return False
         try:
             heard = self.transcriber.transcribe(
                 chunk, self.language, self._current_prompt_seed()
             )
         except (RuntimeError, OSError):
-            return
+            return True
         offset = ou.offset + start
+        # A pass on the clock may land in the middle of a sentence, and what
+        # runs into the end of the window waits for the next pass to be whole.
+        # A prompted pass comes half a second after the room went quiet, and
+        # the model's own end stamps overshoot by more than the margin: judged
+        # by the clock, it dropped every question it was prompted for.
+        still_talking = float("inf") if prompted else (ou.written - start) - STILL_TALKING_S
         recalees = [
             Utterance(
                 span=Span(r.span.start + offset, r.span.end + offset),
                 text=r.text, voice=r.voice, source=r.source,
             )
             for r in heard
+            if r.span.end <= still_talking
         ]
-        self.assistant_turn(recalees, ou.overall, only_when_called=True)
+        self.assistant_turn(self._whole_calls(recalees, lui.name), ou.overall,
+                            only_when_called=True)
+        return True
+
+    def _whole_calls(self, utterances: list[Utterance], name: str) -> list[Utterance]:
+        """Holds back a call whose sentence is not finished, once.
+
+        Somebody who pauses half a second in the middle of a question has
+        stopped talking as far as the levels can tell, and the pass then reads
+        "Lucie, à quel jour" with no end to it. A call with no full stop waits
+        for the next pass; the same words again mean the speaker really did
+        stop, and the call goes through as it is.
+        """
+        kept: list[Utterance] = []
+        for utterance in utterances:
+            text = utterance.text.strip()
+            unfinished = called_by_name(text, name) and not _finished(text)
+            if unfinished and text != self._held_call:
+                self._held_call = text
+                continue
+            kept.append(utterance)
+        return kept
 
     def assistant_turn(
         self, utterances: list[Utterance], now: float, only_when_called: bool = False
@@ -331,18 +386,84 @@ class Watcher:
         pause: Callable[[float], None] = time.sleep,
     ) -> list[Suggestion]:
         """Runs until the recording ends."""
-        while still_running():
-            self.clipboard_turn(since())
-            ou = self.situer() if self.situer is not None else None
-            if ou is not None and self._is_time(ou):
-                self.transcription_turn(ou, job)
-            elif ou is not None:
-                self.listening_turn(ou, job)
-            pause(CLIPBOARD_PERIOD)
+        stop = threading.Event()
+        listener = threading.Thread(target=self._listen, args=(job, stop), daemon=True)
+        listener.start()
+        try:
+            while still_running():
+                self.clipboard_turn(since())
+                ou = self.situer() if self.situer is not None else None
+                if ou is not None and self._is_time(ou):
+                    self.transcription_turn(ou, job)
+                pause(CLIPBOARD_PERIOD)
+        finally:
+            stop.set()
+            listener.join(timeout=LISTENING_S * 4)
         self.last_pass(job)
         if self.assistant_of is not None:
             self.assistant_of.stop()
         return self.watch_rules.propositions
+
+    def _listen(self, job: Path, stop: threading.Event) -> None:
+        """The listening pass, on a thread of its own.
+
+        It used to take its turn in the loop above, between two clipboard
+        reads: a call was heard every four seconds at best, and not at all
+        while a full slice was being transcribed. Measured on a loaded
+        machine, the assistant answered a question twenty seconds after the
+        next one had been asked. Here it listens at its own pace whatever the
+        slice is doing; the slice still answers a call the pass missed.
+        """
+        end = SpeechEnd()
+        prompted = False
+        pass_: threading.Thread | None = None
+        while True:
+            ou = self.situer() if self.situer is not None else None
+            if ou is not None:
+                # Whatever it was: the meeting goes on without this pass.
+                with contextlib.suppress(Exception):
+                    prompted = prompted or self._somebody_just_stopped(ou, end)
+                    # The pass runs aside, so that the levels are still watched
+                    # while it does: blocked behind a pass of three seconds, the
+                    # watcher missed the end of every question it was meant to
+                    # catch, and the clock had it back.
+                    if (pass_ is None or not pass_.is_alive()) and self._due(ou, prompted, end):
+                        pass_ = threading.Thread(
+                            target=self._one_listening_pass, args=(ou, job, prompted),
+                            daemon=True,
+                        )
+                        pass_.start()
+                        prompted = False
+            if stop.wait(LISTENING_POLL):
+                if pass_ is not None:
+                    pass_.join(timeout=LISTENING_S * 4)
+                return
+
+    def _due(self, ou: Position, prompted: bool, end: SpeechEnd) -> bool:
+        """Whether the clock, or somebody stopping, calls for a pass now.
+
+        Not on the clock while nobody has spoken since the last pass: the
+        room is quiet, the pass would read the same eight seconds again, and
+        on a small card every pass slows the one that matters.
+        """
+        if prompted:
+            return ou.overall - self._last_listened >= LISTENING_GAP
+        if not end.spoken_since(self._last_listened):
+            return False
+        return ou.overall - self._last_listened >= LISTENING_PERIOD
+
+    def _one_listening_pass(self, ou: Position, job: Path, prompted: bool) -> None:
+        with contextlib.suppress(Exception):
+            self.listening_turn(ou, job, prompted=prompted)
+
+    def _somebody_just_stopped(self, ou: Position, end: SpeechEnd) -> bool:
+        """Whether a speech has just ended at this position, from the levels."""
+        if self.speaking is None:
+            return False
+        talking = self.speaking(ou)
+        if talking is None:
+            return False
+        return end.note(ou.overall, talking)
 
     def last_pass(self, job: Path) -> list[Suggestion]:
         """Transcribes what was left when the meeting stopped."""

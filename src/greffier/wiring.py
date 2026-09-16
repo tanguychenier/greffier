@@ -29,7 +29,7 @@ from greffier.adapters.store_files import FileStore
 from greffier.adapters.voice_bank_files import FileVoiceBank
 from greffier.adapters.voiceprints_titanet import TitaNetExtractor
 from greffier.adapters.writer_ollama import OllamaWriter
-from greffier.application.follow import Follower, files, known_people
+from greffier.application.follow import Follower, Position, files, known_people
 from greffier.application.name_voice import Naming
 from greffier.application.process import Chain
 from greffier.application.record import Recording
@@ -131,6 +131,18 @@ def dictation_transcriber(config: Config) -> outbound.Transcriber | None:
         size=DICTATION_MODEL, device=config.hardware.device
     )
 
+
+def somebody_speaking(ou: Position) -> bool | None:
+    """Whether the file being written carries speech at this position.
+
+    What the listening thread watches to listen the moment somebody stops,
+    rather than on the clock. None when the file cannot be read yet.
+    """
+    from greffier.adapters.live_levels import read_level
+    from greffier.domain.channels import WhoSpeaks
+
+    reading = read_level(ou.chunk, up_to=ou.written)
+    return None if reading is None else reading.who is not WhoSpeaks.NOBODY
 
 def follower(config: Config, identifier: str) -> Follower:
     """The thread shown during the meeting, and what feeds it."""

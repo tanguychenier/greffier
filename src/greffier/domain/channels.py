@@ -143,3 +143,48 @@ def remove(turns: list[Span], local_spans: list[Span]) -> list[Span]:
         if turn.duration <= 0 or couvert / turn.duration < 0.5:
             remaining.append(turn)
     return remaining
+
+#: How long the room has to be quiet before somebody is taken to have finished.
+QUIET_S = 0.5
+
+@dataclass
+class SpeechEnd:
+    """Says, from level snapshots, the moment somebody has just stopped talking.
+
+    The pass that listens for the assistant's name used to run on the clock,
+    every three seconds: a question that ended right after a pass waited for
+    the next one, and a pass that landed in the middle of one read half a
+    question. The moment somebody stops is the moment to listen.
+
+    Snapshots come when whoever watches has time to look, and a pass takes
+    seconds: an end noticed late is still an end, and still the earliest
+    moment there is to listen.
+    """
+
+    quiet_s: float = QUIET_S
+    last_speech_at: float | None = None
+    announced_at: float | None = None
+    noted_at: float | None = None
+
+    def note(self, at: float, speaking: bool) -> bool:
+        """Records one snapshot; True once, when a speech has just ended."""
+        self.noted_at = at
+        if speaking:
+            self.last_speech_at = at
+            return False
+        if self.last_speech_at is None or self.announced_at == self.last_speech_at:
+            return False
+        if at - self.last_speech_at < self.quiet_s:
+            return False
+        self.announced_at = self.last_speech_at
+        return True
+
+    def spoken_since(self, moment: float) -> bool:
+        """Whether anyone spoke after `moment`, as far as the snapshots know.
+
+        True when nothing was ever noted: with no level to read, the caller
+        cannot tell, and must act as if somebody had.
+        """
+        if self.noted_at is None:
+            return True
+        return self.last_speech_at is not None and self.last_speech_at > moment

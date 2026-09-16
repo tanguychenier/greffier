@@ -77,14 +77,24 @@ def lire_forme(audio: Path) -> Shape | None:
         position = corps + size + (size % 2)
     return None
 
-def read_level(audio: Path, window_s: float = WINDOW_S) -> LevelReading | None:
-    """The levels of the last fractions of a second written."""
+def read_level(
+    audio: Path, window_s: float = WINDOW_S, up_to: float | None = None
+) -> LevelReading | None:
+    """The levels of the last fractions of a second written.
+
+    `up_to`, in seconds, reads the window that ends there instead of at the
+    end of the file: a recording replayed from a finished file has its "now"
+    somewhere in the middle.
+    """
     forme = lire_forme(audio)
     if forme is None or forme.bytes_per_sample != 2:
         return None
     voulu = int(forme.frequency * window_s) * forme.bytes_per_frame
     try:
         size = audio.stat().st_size
+        if up_to is not None:
+            frames = int(up_to * forme.frequency)
+            size = min(size, forme.data_start + frames * forme.bytes_per_frame)
         if size <= forme.data_start:
             return None
         with audio.open("rb") as file:

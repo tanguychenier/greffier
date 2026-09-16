@@ -787,3 +787,304 @@ class TestSheAnswersWithoutWaitingForTheSlice:
         instance.loop(still_running=still_running, since=lambda: 8.0, job=tmp_path,
                       pause=lambda _: None)
         assert dits, "elle a répondu sans attendre la tranche de trente secondes"
+
+
+class TestTheListeningPassHasItsOwnThread:
+    """Measured on a loaded machine: the assistant answered a question twenty
+    seconds after the next one had been asked. The pass that spots her name
+    took its turn in the loop, after the full slice, and a slice that takes
+    longer than its period never leaves a turn.
+    """
+
+    class SlowSlice:
+        """Slow on the full slice, immediate on the listening pass."""
+
+        def __init__(self, slice_seconds):
+            self.slice_seconds = slice_seconds
+            self.slice_ended_at = None
+
+        def transcribe(self, audio, language, prompt_seed):
+            import time
+
+            if audio.name != "ecoute.wav":
+                time.sleep(self.slice_seconds)
+                self.slice_ended_at = time.monotonic()
+                return [utterance(0.0, "on continue sur la recette")]
+            return [Utterance(span=Span(0.0, 3.0), text="Lucie, tu en penses quoi ?")]
+
+    def _lui(self):
+        from greffier.application.take_part import AssistantSettings
+        from greffier.domain.participation import Manners
+
+        class Brain:
+            def write_up(self, text):
+                return "Je regarde."
+
+        return AssistantSettings(name="Lucie", cerveau=Brain(),
+                                 manners=Manners(active=True, creux_minimal=0.0))
+
+    def test_a_call_is_heard_while_a_slow_slice_is_transcribed(
+        self, tmp_path, monkeypatch
+    ):
+        import time
+
+        monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
+        monkeypatch.setattr(watch, "extract_slice",
+                            lambda audio, start, end, dest: dest)
+        lui, slow = self._lui(), self.SlowSlice(slice_seconds=0.6)
+        spotted = []
+        lui.answer_aside = lambda opening, now: spotted.append(time.monotonic())
+        instance = watcher(tmp_path, transcriber=slow, assistant_of=lui,
+                           situer=lambda: where_in(tmp_path, written=8.0),
+                           slice_period=1.0)
+        turns = {"n": 0}
+
+        def still_running():
+            turns["n"] += 1
+            return turns["n"] <= 2
+
+        instance.loop(still_running=still_running, since=lambda: 8.0, job=tmp_path,
+                      pause=lambda _: None)
+        assert spotted, "her name was heard"
+        assert slow.slice_ended_at is not None
+        assert spotted[0] < slow.slice_ended_at, (
+            "the call was heard before the slow slice came back"
+        )
+
+    def test_the_thread_stops_with_the_loop(self, tmp_path, monkeypatch):
+        import threading
+
+        monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
+        monkeypatch.setattr(watch, "extract_slice",
+                            lambda audio, start, end, dest: dest)
+        before = threading.active_count()
+        instance = watcher(tmp_path, transcriber=self.SlowSlice(0.0),
+                           assistant_of=self._lui(),
+                           situer=lambda: where_in(tmp_path, written=8.0))
+        instance.loop(still_running=lambda: False, since=lambda: 8.0, job=tmp_path,
+                      pause=lambda _: None)
+        assert threading.active_count() <= before + 1, (
+            "at most the answer's own thread outlives the loop"
+        )
+
+    def test_a_pass_that_breaks_does_not_end_the_listening(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
+        monkeypatch.setattr(watch, "extract_slice",
+                            lambda audio, start, end, dest: dest)
+
+        class Breaks:
+            def __init__(self):
+                self.appels = 0
+
+            def transcribe(self, audio, language, prompt_seed):
+                if audio.name != "ecoute.wav":
+                    return []
+                self.appels += 1
+                raise ValueError("not one of the errors the pass expects")
+
+        breaks = Breaks()
+        lui = self._lui()
+        clock = {"written": 8.0}
+
+        def situer():
+            # The meeting clock moves on, or the pass refuses to listen twice.
+            clock["written"] += 1.0
+            return where_in(tmp_path, written=clock["written"])
+
+        instance = watcher(tmp_path, transcriber=breaks, assistant_of=lui, situer=situer)
+        monkeypatch.setattr(watch, "LISTENING_PERIOD", 0.05)
+        turns = {"n": 0}
+
+        def still_running():
+            turns["n"] += 1
+            return turns["n"] <= 3
+
+        instance.loop(still_running=still_running, since=lambda: 8.0, job=tmp_path,
+                      pause=lambda _: __import__("time").sleep(0.1))
+        assert breaks.appels >= 2, "listened again after the pass broke"
+
+
+class TestItListensTheMomentSomebodyStops:
+    """On the clock alone, the bench spotted a call 0.8 to 5.9 s after the
+    question ended: a question that ended right after a pass waited for the
+    next one. The levels of the file say when somebody stops, and that is the
+    moment to listen.
+    """
+
+    class Ecoute:
+        """Counts the listening passes alone: the last slice of the meeting
+        goes through the same transcriber and must not be mistaken for one."""
+
+        def __init__(self, end=3.0):
+            self.end = end
+            self.appels = 0
+
+        def transcribe(self, audio, language, prompt_seed):
+            if audio.name != "ecoute.wav":
+                return []
+            self.appels += 1
+            return [Utterance(span=Span(0.0, self.end), text="Lucie, tu en penses quoi ?")]
+
+    def _lui(self):
+        from greffier.application.take_part import AssistantSettings
+        from greffier.domain.participation import Manners
+
+        class Brain:
+            def write_up(self, text):
+                return "Je regarde."
+
+        return AssistantSettings(name="Lucie", cerveau=Brain(),
+                                 manners=Manners(active=True, creux_minimal=0.0))
+
+    def _watcher(self, tmp_path, monkeypatch, listening, speaking, clock):
+        monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
+        monkeypatch.setattr(watch, "extract_slice",
+                            lambda audio, start, end, dest: dest)
+        monkeypatch.setattr(watch, "LISTENING_POLL", 0.02)
+        monkeypatch.setattr(watch, "LISTENING_PERIOD", 60.0)
+        lui = self._lui()
+        lui.answer_aside = lambda opening, now: clock.setdefault("spotted", []).append(now)
+
+        def situer():
+            clock["now"] = clock.get("now", 8.0) + 0.1
+            return where_in(tmp_path, written=clock["now"])
+
+        return watcher(tmp_path, transcriber=listening, assistant_of=lui,
+                       situer=situer, speaking=speaking, slice_period=600.0)
+
+    def _run(self, instance, tmp_path, rounds):
+        turns = {"n": 0}
+
+        def still_running():
+            turns["n"] += 1
+            return turns["n"] <= rounds
+
+        instance.loop(still_running=still_running, since=lambda: 8.0, job=tmp_path,
+                      pause=lambda _: __import__("time").sleep(0.05))
+
+    def test_a_pass_runs_when_the_talking_stops_not_on_the_clock(
+        self, tmp_path, monkeypatch
+    ):
+        clock = {}
+        listening = self.Ecoute()
+        # Talking until 9.0 s of meeting, quiet afterwards.
+        instance = self._watcher(tmp_path, monkeypatch, listening,
+                                 speaking=lambda ou: ou.written < 9.0, clock=clock)
+        self._run(instance, tmp_path, rounds=8)
+        assert clock.get("spotted"), "the call was heard"
+        # The clock is a minute away: the only pass is the prompted one, half
+        # a second of quiet after the talking stopped.
+        assert listening.appels == 1
+        assert 9.5 <= clock["spotted"][-1] <= 10.2, clock["spotted"]
+
+    def test_the_clock_does_not_listen_to_a_room_quiet_since_the_last_pass(
+        self, tmp_path, monkeypatch
+    ):
+        """On a small card every pass slows the one that matters."""
+        clock = {}
+        listening = self.Ecoute()
+        instance = self._watcher(tmp_path, monkeypatch, listening,
+                                 speaking=lambda ou: False, clock=clock)
+        monkeypatch.setattr(watch, "LISTENING_PERIOD", 0.1)
+        self._run(instance, tmp_path, rounds=8)
+        assert listening.appels == 0, "nobody spoke: nothing to listen to"
+
+    def test_with_no_level_to_read_the_clock_alone_rules(self, tmp_path, monkeypatch):
+        clock = {}
+        listening = self.Ecoute()
+        instance = self._watcher(tmp_path, monkeypatch, listening,
+                                 speaking=None, clock=clock)
+        monkeypatch.setattr(watch, "LISTENING_PERIOD", 0.3)
+        self._run(instance, tmp_path, rounds=8)
+        assert listening.appels >= 2, "on the clock, quiet room or not"
+
+    def test_a_level_that_cannot_be_told_prompts_nothing(self, tmp_path, monkeypatch):
+        clock = {}
+        listening = self.Ecoute()
+        instance = self._watcher(tmp_path, monkeypatch, listening,
+                                 speaking=lambda ou: None, clock=clock)
+        self._run(instance, tmp_path, rounds=8)
+        assert listening.appels == 0, "nothing prompted, and the clock a minute away"
+
+
+class TestHalfAQuestionIsNotAnswered:
+    """A pass that lands in the middle of a question reads half of it, and
+    half a question answered is worse than a question answered late.
+    """
+
+    def _lui(self):
+        from greffier.application.take_part import AssistantSettings
+        from greffier.domain.participation import Manners
+
+        class Brain:
+            def write_up(self, text):
+                return "Je regarde."
+
+        return AssistantSettings(name="Lucie", cerveau=Brain(),
+                                 manners=Manners(active=True, creux_minimal=0.0))
+
+    def _spotted(self, tmp_path, monkeypatch, end):
+        monkeypatch.setattr(watch, "extract_slice",
+                            lambda audio, start, end, dest: dest)
+
+        class Ecoute:
+            def transcribe(self, audio, language, prompt_seed):
+                return [Utterance(span=Span(0.0, end), text="Lucie, à quel jour est-ce ?")]
+
+        lui = self._lui()
+        spotted = []
+        lui.answer_aside = lambda opening, now: spotted.append(opening.remark)
+        instance = watcher(tmp_path, transcriber=Ecoute(), assistant_of=lui)
+        instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
+        return spotted
+
+    def test_a_sentence_running_into_the_end_of_the_window_waits(
+        self, tmp_path, monkeypatch
+    ):
+        assert self._spotted(tmp_path, monkeypatch, end=7.9) == []
+
+    def test_a_sentence_that_ended_before_the_window_is_answered(
+        self, tmp_path, monkeypatch
+    ):
+        assert self._spotted(tmp_path, monkeypatch, end=7.0) == ["à quel jour est-ce ?"]
+
+
+class TestAPromptedPassTrustsTheRoom:
+    """A prompted pass comes half a second after the room went quiet: what it
+    hears was finished, however late the model stamps its end.
+    """
+
+    def _lui(self):
+        from greffier.application.take_part import AssistantSettings
+        from greffier.domain.participation import Manners
+
+        class Brain:
+            def write_up(self, text):
+                return "Je regarde."
+
+        return AssistantSettings(name="Lucie", cerveau=Brain(),
+                                 manners=Manners(active=True, creux_minimal=0.0))
+
+    def _spotted(self, tmp_path, monkeypatch, prompted):
+        monkeypatch.setattr(watch, "extract_slice",
+                            lambda audio, start, end, dest: dest)
+
+        class Ecoute:
+            def transcribe(self, audio, language, prompt_seed):
+                # Stamped past the end of the window, as the model does.
+                return [Utterance(span=Span(0.0, 8.2), text="Lucie, on décale à jeudi ?")]
+
+        lui = self._lui()
+        spotted = []
+        lui.answer_aside = lambda opening, now: spotted.append(opening.remark)
+        instance = watcher(tmp_path, transcriber=Ecoute(), assistant_of=lui)
+        instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path, prompted=prompted)
+        return spotted
+
+    def test_prompted_it_answers_what_it_heard(self, tmp_path, monkeypatch):
+        assert self._spotted(tmp_path, monkeypatch, prompted=True) == ["on décale à jeudi ?"]
+
+    def test_on_the_clock_it_waits_for_the_next_pass(self, tmp_path, monkeypatch):
+        assert self._spotted(tmp_path, monkeypatch, prompted=False) == []
