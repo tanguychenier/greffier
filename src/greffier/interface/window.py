@@ -446,33 +446,36 @@ class Window:
     def _meetings_tab(self) -> None:
         inside = self._page("Réunions")
         self.listing = self._listing(inside, (
-            ("date", "Réunion", 320), ("voix", "Personnes", 90),
-            ("mots", "Mots", 80), ("compte_rendu", "Compte rendu", 120),
+            ("date", self.says("reunions.colonne_reunion"), 320),
+            ("voix", self.says("reunions.colonne_personnes"), 90),
+            ("mots", self.says("reunions.colonne_mots"), 80),
+            ("compte_rendu", self.says("reunions.colonne_compte_rendu"), 120),
         ))
         self.meeting_guidance = self._guidance(inside, rank=0)
         actions = ButtonBar(inside, self.colours)
         actions.grid(row=1, column=0, sticky="ew", pady=(16, 0))
         self.meeting_buttons = []
-        for caption, action, width, principal in (
-            ("Traiter", self._process_selection, 100, False),
-            ("Rédiger", self._write_up_selection, 100, False),
-            ("Ouvrir", self._open_minutes, 96, False),
-            ("Envoyer par courriel", self._send_selection, 180, False),
-            ("Déposer…", self._drop_files, 116, False),
-            ("Renommer", self._rename_selection, 110, False),
-            ("Exporter…", self._export_selection, 110, False),
-            ("Rafraîchir", self._load_meetings, 116, False),
+        for key, action, width, principal in (
+            ("traiter", self._process_selection, 100, False),
+            ("rediger", self._write_up_selection, 100, False),
+            ("ouvrir", self._open_minutes, 96, False),
+            ("envoyer", self._send_selection, 180, False),
+            ("deposer", self._drop_files, 116, False),
+            ("renommer", self._rename_selection, 110, False),
+            ("exporter", self._export_selection, 110, False),
+            ("rafraichir", self._load_meetings, 116, False),
         ):
-            button = Button(actions, caption, action, self.colours,
+            button = Button(actions, self.says(f"reunions.{key}"), action, self.colours,
                             principal=principal, width=width, height=34)
-            if caption == "Traiter":
+            if key == "traiter":
                 button._in_front()
-            if caption != "Rafraîchir":
+            if key != "rafraichir":
                 self.meeting_buttons.append(button)
             actions.add(button, width)
         apart = tk.Frame(inside, bg=self.colours.board)
         apart.grid(row=2, column=0, sticky="e", pady=(10, 0))
-        delete_one = Button(apart, "Supprimer", self._forget_selection, self.colours,
+        delete_one = Button(apart, self.says("reunions.supprimer"), self._forget_selection,
+                            self.colours,
                            width=110, height=30)._efface()
         delete_one.pack(side="right")
         self.meeting_buttons.append(delete_one)

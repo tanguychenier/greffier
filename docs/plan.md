@@ -362,10 +362,12 @@ print guard would cost the one-person-cut-in-two case it was written for.
       next one, without end; only the window's own resize counts now.
       Seen on the English images, the Meetings tab's buttons and columns
       are still French in an English window; noted below.
-- [ ] The buttons and the columns of the Meetings tab, in the catalogue.
+- [x] The buttons and the columns of the Meetings tab, in the catalogue.
       Seen on the tour's English images, « Traiter », « Rédiger »,
       « Envoyer par courriel » and the column heads stay French when the
-      window speaks English.
+      window speaks English. Done on 16/09, eight buttons and four column
+      heads through the catalogue; the settings tab's own headings are
+      still French, a smaller matter for another day.
 - [x] Connected accounts. A view where the person sees the services
       (Outlook and its calendar, Google's, Trello, GitLab, Jira), clicks
       « Connecter », reads what Claude will be allowed to do and ticks what

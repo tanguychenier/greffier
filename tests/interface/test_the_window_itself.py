@@ -222,7 +222,7 @@ class TestExportingFromTheWindow:
             button.itemcget(button._text, "text")
             for button in window.meeting_buttons
         ]
-        assert "Exporter…" in headings
+        assert window.says("reunions.exporter") in headings
 
     def test_with_no_meeting_chosen_it_says_so_rather_than_writing(
         self, window
