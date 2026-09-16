@@ -8,7 +8,7 @@ from pathlib import Path
 RACINE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RACINE / "tools"))
 
-from measure_bank import judged, person_of_each_voice  # noqa: E402
+from measure_bank import at_the_moment, judged, person_of_each_voice  # noqa: E402
 from measure_corpus import Sentence  # noqa: E402
 
 
@@ -59,3 +59,20 @@ class TestTheVerdictOnTheSecondMeeting:
         sentences = [Sentence(0, 5, "a", "v1")]
         verdict = judged(sentences, {"v1": None}, [turn("084", 0, 5)])
         assert verdict["nobody"] == 1
+
+
+class TestTheNamesAsTheyWereShown:
+    def test_the_name_of_the_moment_is_read_by_the_turn_s_number(self, tmp_path):
+        """By the number and never by the position: a sort or a dropped turn
+        shifts the positions, and the first reading of a real run put 75
+        sentences under a wrong name where there were 37."""
+        import json
+
+        log = tmp_path / "direct.jsonl"
+        log.write_text("".join(json.dumps(line) + "\n" for line in [
+            {"genre": "tour", "numero": 1, "debut": 0.0, "fin": 3.0, "texte": "a", "nom": "Chloé"},
+            {"genre": "reunion", "voix": "v2", "vers": "v1"},
+            {"genre": "tour", "numero": 3, "debut": 3.0, "fin": 6.0, "texte": "c", "nom": None},
+            {"genre": "tour", "numero": 2, "debut": 6.0, "fin": 9.0, "texte": "b", "nom": "Alice"},
+        ]), encoding="utf-8")
+        assert at_the_moment(log) == {"#1": "Chloé", "#3": None, "#2": "Alice"}

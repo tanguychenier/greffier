@@ -283,16 +283,19 @@ not from a journal. Nothing here is started.
       first (the Mac's meeting), then the seed or the tolerance on the name;
       a tolerance widened blind answered to « lui » 113 times on 3 809
       turns.
-- [ ] A voice named on six seconds and renamed once there was more. On
+- [x] A voice named on six seconds and renamed once there was more. On
       032b the voice that ends as Alice was « Diane ? » from 56 s to
-      161 s, and read at the moment it was shown, the full run had 17 %
-      of the sentences under a wrong name where the names the voices end
-      up with give 9 %. Measured the same day on the replay, waiting for
+      161 s. Measured the same day. Read at the moment each sentence was
+      shown, the full run gives 363 right, 37 wrong and 46 to nobody, the
+      same as the names the voices end up with, and the renaming cost one
+      sentence, the voice having said one thing meanwhile. Waiting for
       10, 15 or 20 seconds before naming loses right names at the moment
       (350 to 328 of 447) and brings the wrong ones from 35 to 31 only,
-      and the replay does not reproduce the renaming, so the six seconds
-      stay. The likeness, the gap and the material now travel with every
-      named line of the live log, so the next renaming can be read.
+      so the six seconds stay. The likeness, the gap and the material now
+      travel with every named line of the live log, so the next renaming
+      can be read. A first reading had put 75 sentences under a wrong
+      name, the names read by position in a sorted list rather than by
+      number; corrected the same day.
 - [ ] The sentences still wrong live, 9 % on a four-person meeting, are
       short interjections in the passages where everybody talks at once;
       the minutes leave 28 % of the sentences to nobody on the same file

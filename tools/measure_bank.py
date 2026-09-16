@@ -153,7 +153,7 @@ def judged(sentences: list[Sentence], names: dict[str, str | None],
 
 def through_the_live_thread(
     config: Any, audio: Path, replay_from: Path | None = None
-) -> tuple[list[Sentence], dict[str, str | None], dict[str, str | None]]:
+) -> tuple[list[Sentence], list[Sentence], dict[str, str | None], dict[str, str | None]]:
     """The second meeting as the window would have shown it, bank in hand.
 
     Two readings of the names. The name each sentence carried at the
@@ -204,15 +204,17 @@ def through_the_live_thread(
     thread = the_follower.thread
     sentences = [Sentence(t.span.start, t.span.end, t.text, t.voice) for t in thread.turns]
     at_the_end = {voice: thread.voice[voice].name for voice in thread.voice}
-    return sentences, at_the_moment(the_follower.log), at_the_end
+    numbered = [Sentence(t.span.start, t.span.end, t.text, f"#{t.number}") for t in thread.turns]
+    return sentences, numbered, at_the_moment(the_follower.log), at_the_end
 
 
 def at_the_moment(log: Path) -> dict[str, str | None]:
     """The name each sentence carried when it was shown, keyed « #number ».
 
     The turn lines of the log carry the name at the time of writing. Judged
-    with `by_number`, which gives each sentence a voice of its own, the same
-    verdict counts names that belong to a moment rather than to a voice.
+    on the sentences keyed by their own number, the same verdict counts
+    names that belong to a moment rather than to a voice. By the number,
+    never by the position in a list, which a sort or a dropped turn shifts.
     """
     from greffier.application.follow import KIND_TURN, read_from
 
@@ -221,14 +223,6 @@ def at_the_moment(log: Path) -> dict[str, str | None]:
         f"#{line['numero']}": line.get("nom")
         for line in lines if line.get("genre") == KIND_TURN
     }
-
-
-def by_number(sentences: list[Sentence]) -> list[Sentence]:
-    """The same sentences, each carrying its number as its voice."""
-    return [
-        Sentence(s.start, s.end, s.text, f"#{number}")
-        for number, s in enumerate(sentences, start=1)
-    ]
 
 
 def _print(title: str, verdict: dict[str, Any]) -> None:
@@ -294,10 +288,10 @@ def main() -> int:
     result: dict[str, Any] = {"first": FIRST, "second": SECOND, "named": named,
                               "chain": chain_verdict}
     if not options.skip_live:
-        sentences, shown, at_the_end = through_the_live_thread(
+        sentences, numbered, shown, at_the_end = through_the_live_thread(
             config, second, last_live if options.replay else None
         )
-        shown_verdict = judged(by_number(sentences), shown, _turns(second))
+        shown_verdict = judged(numbered, shown, _turns(second))
         end_verdict = judged(sentences, at_the_end, _turns(second))
         _print(f"{SECOND}, live thread, the names as they were shown", shown_verdict)
         _print(f"{SECOND}, live thread, the names the voices end up with", end_verdict)
