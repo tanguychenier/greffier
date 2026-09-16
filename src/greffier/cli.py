@@ -1088,8 +1088,18 @@ def voice(
     magasin = store(config)
     identifier = _targeted_meeting(config, meeting)
 
+    if accept or split_voice or (name_voice and name):
+        try:
+            gesture = naming(config)
+        except FileNotFoundError as missing:
+            # A traceback, before: the voiceprint model is opened before the
+            # gesture is looked at, and a machine without it got the stack.
+            typer.secho(f"✗ {missing} : « greffier verifier » dit quoi installer.",
+                        fg=typer.colors.RED, err=True)
+            raise typer.Exit(1) from missing
+
     if accept:
-        acceptes = naming(config).accept_proposals(identifier)
+        acceptes = gesture.accept_proposals(identifier)
         for voice_id, accepted_name in acceptes.items():
             typer.secho(f"✓ voix {voice_id} = {accepted_name}", fg=typer.colors.GREEN)
         if not acceptes:
@@ -1100,7 +1110,7 @@ def voice(
 
     if split_voice:
         try:
-            detail = naming(config).split(identifier, split_voice)
+            detail = gesture.split(identifier, split_voice)
         except KeyError as souci:
             typer.secho(str(souci), fg=typer.colors.RED, err=True)
             raise typer.Exit(1) from souci
@@ -1111,7 +1121,7 @@ def voice(
         return
 
     if name_voice and name:
-        naming(config).name_voice(identifier, name_voice, name)
+        gesture.name_voice(identifier, name_voice, name)
         typer.secho(f"✓ voix {name_voice} = {name}, empreinte en banque",
                     fg=typer.colors.GREEN)
         typer.echo("Cette personne sera reconnue aux prochaines réunions.")
