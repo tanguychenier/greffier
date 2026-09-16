@@ -77,27 +77,28 @@ def live_words(
     from greffier.wiring import _audio_recorder, follower, light_transcriber
 
     config = Config()
-    # Its own data folder: the thread's log and the voices it founds belong
-    # to the measurement, not to the machine's meetings.
-    config.paths.data = Path(tempfile.mkdtemp(prefix="measure-live-"))
-    if model:
-        config.live.model = model
     duration = sf.info(str(audio)).duration
-    the_follower = follower(config, audio.stem)
     watch.CONTEXT_S = context_s
     watch.OVERLAP = overlap_s
-    watcher = Watcher(
-        watch_rules=WatchRules(keyword="greffier"),
-        log=config.paths.propositions / f"{audio.stem}.jsonl",
-        transcriber=light_transcriber(config),
-        follower=the_follower,
-        preparer=_audio_recorder(config) if levelled else None,
-        language="fr",
-        slice_period=period,
-    )
     slices = 0
     spent = 0.0
-    with tempfile.TemporaryDirectory() as job:
+    # Its own data folder: the thread's log and the voices it founds belong
+    # to the measurement, not to the machine's meetings, and go with it.
+    with tempfile.TemporaryDirectory(prefix="measure-live-") as data, \
+            tempfile.TemporaryDirectory() as job:
+        config.paths.data = Path(data)
+        if model:
+            config.live.model = model
+        the_follower = follower(config, audio.stem)
+        watcher = Watcher(
+            watch_rules=WatchRules(keyword="greffier"),
+            log=config.paths.propositions / f"{audio.stem}.jsonl",
+            transcriber=light_transcriber(config),
+            follower=the_follower,
+            preparer=_audio_recorder(config) if levelled else None,
+            language="fr",
+            slice_period=period,
+        )
         written = period
         while written <= duration + period:
             cut = min(written, duration)
@@ -109,7 +110,7 @@ def live_words(
             spent += time.monotonic() - started
             slices += 1
             written = cut + period
-    words = [word for turn in the_follower.thread.turns for word in normalise(turn.text)]
+        words = [word for turn in the_follower.thread.turns for word in normalise(turn.text)]
     return words, slices, spent / max(1, slices)
 
 
