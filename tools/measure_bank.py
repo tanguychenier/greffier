@@ -156,9 +156,10 @@ def through_the_live_thread(
 ) -> tuple[list[Sentence], dict[str, str | None], dict[str, str | None]]:
     """The second meeting as the window would have shown it, bank in hand.
 
-    Two readings of the names: the ones the thread is sure of (recognised
-    with a margin, or given by a person), and every name it shows, the
-    probable ones included, which the window paints in the colour of doubt.
+    Two readings of the names. The name each sentence carried at the
+    moment it was shown, read from the log the thread writes, since a name
+    the bank changes its mind about later was on screen meanwhile. And the
+    name each voice ends up with, which is what the minutes will carry.
 
     Given a log to replay from, the transcriber stays closed: the follower
     gets the sentences of that log, slice by slice, and the thread it
@@ -202,15 +203,32 @@ def through_the_live_thread(
                 written += config.live.period
     thread = the_follower.thread
     sentences = [Sentence(t.span.start, t.span.end, t.text, t.voice) for t in thread.turns]
-    shown = {voice: thread.voice[voice].name for voice in thread.voice}
-    from greffier.domain.live import Certainty
+    at_the_end = {voice: thread.voice[voice].name for voice in thread.voice}
+    return sentences, at_the_moment(the_follower.log), at_the_end
 
-    guesses = {Certainty.UNKNOWN, Certainty.PROBABLE}
-    sure = {
-        voice: (known.name if known.certainty not in guesses else None)
-        for voice, known in thread.voice.items()
+
+def at_the_moment(log: Path) -> dict[str, str | None]:
+    """The name each sentence carried when it was shown, keyed « #number ».
+
+    The turn lines of the log carry the name at the time of writing. Judged
+    with `by_number`, which gives each sentence a voice of its own, the same
+    verdict counts names that belong to a moment rather than to a voice.
+    """
+    from greffier.application.follow import KIND_TURN, read_from
+
+    lines, _ = read_from(log, 0)
+    return {
+        f"#{line['numero']}": line.get("nom")
+        for line in lines if line.get("genre") == KIND_TURN
     }
-    return sentences, sure, shown
+
+
+def by_number(sentences: list[Sentence]) -> list[Sentence]:
+    """The same sentences, each carrying its number as its voice."""
+    return [
+        Sentence(s.start, s.end, s.text, f"#{number}")
+        for number, s in enumerate(sentences, start=1)
+    ]
 
 
 def _print(title: str, verdict: dict[str, Any]) -> None:
@@ -235,7 +253,14 @@ def main() -> int:
                         help="the live thread on the words of its last run, no transcriber")
     parser.add_argument("--device", default=None,
                         help="cpu or cuda for the models; the configuration's otherwise")
+    parser.add_argument("--material", type=float, default=None,
+                        help="seconds of speech the bank waits for before naming a voice "
+                             "(the product's MATERIAL_TO_RECOGNISE otherwise)")
     options = parser.parse_args()
+    if options.material is not None:
+        from greffier.domain import live
+
+        live.MATERIAL_TO_RECOGNISE = options.material
 
     first, second = options.corpus / f"{FIRST}.wav", options.corpus / f"{SECOND}.wav"
     for audio in (first, second):
@@ -269,15 +294,15 @@ def main() -> int:
     result: dict[str, Any] = {"first": FIRST, "second": SECOND, "named": named,
                               "chain": chain_verdict}
     if not options.skip_live:
-        sentences, sure, shown = through_the_live_thread(
+        sentences, shown, at_the_end = through_the_live_thread(
             config, second, last_live if options.replay else None
         )
-        sure_verdict = judged(sentences, sure, _turns(second))
-        shown_verdict = judged(sentences, shown, _turns(second))
-        _print(f"{SECOND}, live thread, the names it is sure of", sure_verdict)
-        _print(f"{SECOND}, live thread, every name it shows", shown_verdict)
-        result["live_sure"] = sure_verdict
+        shown_verdict = judged(by_number(sentences), shown, _turns(second))
+        end_verdict = judged(sentences, at_the_end, _turns(second))
+        _print(f"{SECOND}, live thread, the names as they were shown", shown_verdict)
+        _print(f"{SECOND}, live thread, the names the voices end up with", end_verdict)
         result["live_shown"] = shown_verdict
+        result["live_end"] = end_verdict
     kept = "bank.replayed.json" if options.replay else "bank.json"
     (options.corpus / f"{SECOND}.{kept}").write_text(
         json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8"

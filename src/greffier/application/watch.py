@@ -20,7 +20,7 @@ from typing import Any
 from greffier.application.follow import SLICE_MINIMUM_S, Follower, Position
 from greffier.application.take_part import AssistantSettings
 from greffier.domain.channels import SpeechEnd
-from greffier.domain.instructions import Suggestion, WatchRules
+from greffier.domain.instructions import Suggestion, WatchRules, worth_a_look
 from greffier.domain.models import Span, Utterance
 from greffier.domain.participation import Because, Opening, called_by_name
 from greffier.ports import outbound
@@ -383,7 +383,8 @@ class Watcher:
             occasions=[] if only_when_called else self._voices_to_ask_about(now),
         )
         if retained is None:
-            if self.initiative and not only_when_called:
+            if (self.initiative and not only_when_called
+                    and worth_a_look((u.text for u in utterances), self.watch_rules.profile)):
                 self.assistant_of.look_for_a_contribution_aside(now)
             return
         if retained.because in AWAITING_AN_ANSWER:

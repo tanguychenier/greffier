@@ -42,6 +42,9 @@ class Wording:
 
     boilerplate: frozenset[str] = frozenset()
     decision_patterns: tuple[re.Pattern[str], ...] = ()
+    #: Wider than the decisions: the turns of phrase a room settles
+    #: something with, the moment the assistant may have something to add.
+    settling_patterns: tuple[re.Pattern[str], ...] = ()
 
 @dataclass(frozen=True, slots=True)
 class LanguageProfile:

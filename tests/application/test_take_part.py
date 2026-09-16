@@ -935,6 +935,16 @@ class TestTheWordsJustBeforeTheCall:
         assert she.turn([said("Lucie, c'est quoi une pré-production ?", 20.0, 23.0)], 24.0) is None
         assert len(she.brain.requests) == 1
 
+    def test_the_same_question_word_for_word_much_later_is_asked_again(self):
+        she = AssistantSettings(name="Lucie", brain=FakeBrain(),
+                                manners=Manners(creux_minimal=0.0))
+        first = she.turn([said("Lucie, à quel jour est décalée la recette ?")], 13.0)
+        she.answer(first, now=14.0)
+        again = she.turn([said("Lucie, à quel jour est décalée la recette ?", 60.0, 63.0)], 64.0)
+        assert again is not None
+        she.answer(again, now=65.0)
+        assert len(she.brain.requests) == 2
+
     def test_the_same_question_in_other_words_much_later_is_asked_again(self):
         she = AssistantSettings(name="Lucie", brain=FakeBrain())
         first = she.turn([said("Lucie, c'est quoi une pré-production en une phrase ?")], 13.0)

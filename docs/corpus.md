@@ -438,7 +438,13 @@ What it says:
   is the sentence under the name. One thing to know: in the full run, the
   voice that ends up as Alice was called « Diane ? » from 56 s to 161 s,
   named on six seconds of material and renamed once there was more; the
-  question mark next to a name from a print is there for that.
+  question mark next to a name from a print is there for that. Judged at
+  the moment each sentence was shown rather than by the name the voice
+  ends up with, that run reads 322 right, 75 wrong and 49 to nobody,
+  which is what the eye saw; `tools/measure_bank.py` now prints both.
+  Waiting longer before naming was measured on the replay (10, 15, 20
+  seconds instead of 6) and loses more right names at the moment than it
+  spares wrong ones, 350 to 328 against 35 to 31.
 - **After the meeting, a sentence in four is left to nobody**, by the
   rule of the minutes (`attribution.MINIMUM_SHARE`): a sentence whose time
   is not held at 80 % by one speaker turn goes to no one rather than to

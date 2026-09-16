@@ -238,6 +238,28 @@ class TestPublishingWhatWasSaid:
         instance.take_in(tmp_path / "tranche.wav", [utterance(0, 8)], offset=0.0)
         assert lines_of(instance.log)[0]["nom"] == "Marc"
 
+    def test_a_name_from_the_bank_carries_its_likeness_in_the_log(self, tmp_path: Path) -> None:
+        # A voice called « Diane ? » for a hundred seconds before being Alice
+        # could not be explained afterwards: the figures had stayed in the
+        # process. They travel with the line now, and the window ignores them.
+        marc = Person(name="Marc", voiceprints=[voiceprint(1, 0, duration=30)])
+        instance = follower(
+            tmp_path,
+            thread=LiveThread(known=[marc]),
+            extractor=SequenceExtractor([voiceprint(1, 0)]),
+        )
+        instance.take_in(tmp_path / "tranche.wav", [utterance(0, 8)], offset=0.0)
+        line = lines_of(instance.log)[0]
+        assert line["nom"] == "Marc"
+        assert 0 < line["ressemblance"] <= 1 and line["ecart"] >= 0 and line["matiere"] == 8.0
+        replayed = replay(lines_of(instance.log))
+        assert replayed.turns[0].text == "on cale la recette jeudi"
+
+    def test_a_sentence_without_a_name_carries_no_likeness(self, tmp_path: Path) -> None:
+        instance = follower(tmp_path)
+        instance.take_in(tmp_path / "tranche.wav", [utterance(0, 4)], offset=0.0)
+        assert "ressemblance" not in lines_of(instance.log)[0]
+
     def test_a_model_that_falls_over_does_not_stop_the_meeting(self, tmp_path: Path) -> None:
         class Broken:
             def extract_spans(self, audio: Path, the_spans: list[Span]):

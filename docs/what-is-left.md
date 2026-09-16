@@ -226,14 +226,32 @@ reference transcript.
 | 032b, decision, reference | 20 min | 123 | **1**, at 15:20 | "Le premier jeudi de janvier ou un autre, quelqu'un le note quelque part ?", right after the four agreed on "un jeudi juste après les vacances de Noël" | right moment, useful, one sentence; not intrusive |
 
 One remark in forty minutes, on the one decision left without a date, and
-silence on everything else: the guidance holds. What keeps the default at
-**off** is not the behaviour, it is the price of looking: a call to the
+silence on everything else: the guidance holds. What kept the default at
+**off** was not the behaviour, it was the price of looking: a call to the
 model every ten seconds for the whole meeting, 118 and 123 here, 1.6 s of
-model time each, on the account that writes the minutes. The button in the
-**En direct** tab turns it on for a meeting; turning it on by default would
-want the looks made cheaper first, the model asked only after a sentence
-the domain already reads as a decision or a question left open
-(`instructions.decisions_in`), which nobody has measured.
+model time each, on the account that writes the minutes.
+
+**The look made cheaper, measured the same afternoon.** The watch now looks
+only after a slice where somebody settled something or left a question in
+the air (`instructions.worth_a_look`), the room's own turns of phrase
+rather than the decisions the minutes would quote, since on 032b the date
+was fixed with « donc juste après les vacances de noël un jeudi », « c'est
+parfait », « un jeudi c'est bien », none of which `decisions_in` reads.
+The reference transcript carries no punctuation, so a question there is
+only heard through its words; the live thread carries whisper's.
+
+| Meeting | Looks before | Looks after | Interventions |
+|---|---|---|---|
+| 032a, reporting, live thread | 118 | 22 | 0, as before |
+| 032b, decision, reference | 123 | 26 | 1, at 12:10, « Est-ce que quelqu'un répond à Bruno sur les travaux pour la porte, ou on laisse la question de côté ? », a question the room had left in the air |
+| 032b, decision, the tool's own live thread | 123 | 38 | 0 |
+
+The price of looking is divided by four to five, one call every thirty to
+fifty seconds instead of every ten, and she still speaks once or not at
+all in twenty minutes. The model does not answer the same way twice, which
+is why the remark on 032b is not the morning's: both are right moments.
+The default stays off until he says otherwise; the button in the **En
+direct** tab turns it on for a meeting.
 
 ## Test coverage, measured per layer (2026-09-16)
 

@@ -15,6 +15,7 @@ from typing import Any, Protocol
 
 from greffier.domain.models import Utterance
 from greffier.domain.participation import (
+    CALL_SUBJECT,
     MEMORY_OF_ITS_WORDS,
     WORDS_TO_JUDGE,
     Because,
@@ -308,7 +309,7 @@ class AssistantSettings:
                     born_at=utterance.span.end,
                     # A subject, so a question the overlap brings back in the
                     # next slice is not answered a second time.
-                    subject=f"appel:{_fingerprint_of_the_words(request)}",
+                    subject=f"{CALL_SUBJECT}{_fingerprint_of_the_words(request)}",
                     just_before=" ".join([*heard_before, before]).strip(),
                 ))
             heard_before.append(text)
