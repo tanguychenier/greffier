@@ -25,9 +25,11 @@ import shutil
 import subprocess
 import threading
 from collections.abc import Callable
+from pathlib import Path
 from typing import IO, Any
 
-from greffier.adapters.writer_claude import _event, _is_a_search, guidance
+from greffier.adapters.writer_claude import _event, _is_a_search, _tools_used, guidance
+from greffier.domain.accounts import TOOL_PREFIX
 from greffier.domain.as_it_comes import SentencesAsTheyCome
 
 #: A turn that takes longer than this is abandoned, and the session with it:
@@ -58,6 +60,8 @@ class ClaudeSession:
         own_guidance: str = "",
         on_search: Callable[[], None] | None = None,
         timeout: float = TURN_TIMEOUT,
+        servers: Path | None = None,
+        on_tool: Callable[[str], None] | None = None,
     ) -> None:
         self.model = model
         self.command = command
@@ -66,6 +70,10 @@ class ClaudeSession:
         self.own_guidance = own_guidance
         self.on_search = on_search
         self.timeout = timeout
+        #: The connected accounts' tool servers, a file for the command line,
+        #: and whoever keeps the journal of what was done with them.
+        self.servers = servers
+        self.on_tool = on_tool
         self._process: subprocess.Popen[str] | None = None
         #: The guidance the running process was given as its system prompt.
         self._system_prompt = ""
@@ -161,10 +169,14 @@ class ClaudeSession:
             "--strict-mcp-config",
             "--no-session-persistence",
             "--system-prompt", self._system_prompt,
-            # Both: one says which tools exist, the other lets them run unasked.
-            "--tools", ",".join(self.tools),
+            # Both: one says which of its own tools exist, the other lets
+            # every allowed one run unasked, the accounts' tools included;
+            # those exist through the servers file, not through --tools.
+            "--tools", ",".join(t for t in self.tools if not t.startswith(TOOL_PREFIX)),
             "--allowed-tools", ",".join(self.tools),
         ]
+        if self.servers is not None:
+            command += ["--mcp-config", str(self.servers)]
         if self.model:
             command += ["--model", self.model]
         self._process = subprocess.Popen(
@@ -223,6 +235,9 @@ class ClaudeSession:
                 already_searching = True
                 if self.on_search is not None:
                     self.on_search()
+            if self.on_tool is not None:
+                for name in _tools_used(event):
+                    self.on_tool(name)
             if on_sentence is not None:
                 for sentence in cutter.take(_words_of(event)):
                     on_sentence(sentence)

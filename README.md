@@ -363,6 +363,25 @@ search on (`conversation.recherche_web`), a fact outside the meeting is looked
 up and its source named aloud. Each of the four is played end to end against
 the real model in `tests/integration/test_context_scenarios.py`.
 
+**Connected accounts.** The **Comptes** tab lists the services she may use,
+Trello, GitLab, Jira and Microsoft 365 (Outlook, the calendar, the tasks),
+and Google's calendar once an application is declared for it. Connecting is
+one gesture per service, a key pasted where the tab says to get it, or a
+code typed on Microsoft's page, nothing installed by hand. Under each
+account, boxes to tick, one per power, reading and writing apart, and a
+tick is a consent written at once. Behind the tab there is no algorithm
+per service; she reaches the account through its tool server and may run
+only the tools of the ticked powers, the model's command line being told
+exactly those. Nothing she can reach deletes, archives or sends, the person
+does that herself; drafts, yes, and she says so. Everything she did with
+an account is written down and shown in the tab, « Lucie a lu ton agenda »,
+one line per gesture, and she says it aloud too. The secrets stay in
+`jetons.toml`, the person's own; the tool servers run on the machine, on
+Node.js for Trello, GitLab and Microsoft and on `uvx` for Jira, and start
+only for the accounts with a consent.
+
+![The Comptes tab, Trello and GitLab cards with their powers to tick](assets/accounts.png)
+
 ## Does it actually work?
 
 These are not claims: every line below has been run.
@@ -471,7 +490,7 @@ greffier archiver                      # compresses processed recordings
 
 ### The window
 
-![The five views of the window: Meetings, Live, Voices, Conversation, Settings](assets/views.svg)
+![The views of the window: Meetings, Live, Voices, Conversation, Accounts, Settings](assets/views.svg)
 
 ```sh
 greffier fenetre        # or double-click Greffier in the Launchpad
@@ -495,6 +514,8 @@ systems**: Tkinter comes with Python, there is nothing to install.
   up *before* the meeting rather than an hour too late, and who is speaking
   right now. Provenance is enough to say: the microphone on one side, the system
   loopback on the other.
+- **`Comptes` tab**: the accounts she may use, what she is allowed to do
+  with each, and what she did with them.
 - **`En direct` tab**: what is being said, as it comes, with who is speaking.
   The tab opens by itself when the meeting starts.
   - `Toi` comes from the **channel**: the microphone designates the person

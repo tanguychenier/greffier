@@ -244,6 +244,7 @@ class Window:
             "En direct": self.says("onglets.direct"),
             "Voix": self.says("onglets.voix"),
             "Conversation": self.says("onglets.conversation"),
+            "Comptes": self.says("onglets.comptes"),
             "Réglages": self.says("onglets.reglages"),
         }
         self.tabs.grid(row=1, column=0, sticky="nsew", pady=(22, 0))
@@ -252,6 +253,7 @@ class Window:
         self._live_tab()
         self._voices_tab()
         self._conversation_tab()
+        self._accounts_tab()
         self._settings_tab()
         self.status_line = self._text(corps, "", size=11, pale=True)
         self.status_line.grid(row=2, column=0, sticky="ew", pady=(14, 0))
@@ -1126,6 +1128,12 @@ class Window:
     LIVE_PERIODS = (("5.0", "5 s : très réactif, plus de calcul"),
                        ("10.0", "10 s : conseillé"),
                        ("20.0", "20 s : économe, l'affichage suit de loin"))
+
+    def _accounts_tab(self) -> None:
+        """The accounts the person connects, and what she lets the assistant do."""
+        from greffier.interface.accounts_tab import AccountsTab
+
+        self.accounts = AccountsTab(self)
 
     def _settings_tab(self) -> None:
         """The settings people actually change, without opening a file."""
@@ -3683,6 +3691,7 @@ class Window:
                  tab="Réunions"),
             Stop("voix", lambda: segments.get("Voix"), tab="Voix"),
             Stop("conversation", lambda: segments.get("Conversation"), tab="Conversation"),
+            Stop("comptes", lambda: segments.get("Comptes"), tab="Comptes"),
             Stop("reglages", lambda: segments.get("Réglages"), tab="Réglages"),
         ]
         return Tour(self.root, self.colours, self.says, stops, self.tabs.reveal,

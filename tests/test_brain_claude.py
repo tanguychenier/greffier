@@ -30,6 +30,10 @@ for line in sys.stdin:
     if os.environ.get("FAKE_CLAUDE_SEARCH"):
         print(json.dumps({{"type": "assistant", "message": {{"content": [
             {{"type": "tool_use", "name": "WebSearch", "input": {{}}}}]}}}}), flush=True)
+    for tool in os.environ.get("FAKE_CLAUDE_TOOLS", "").split(","):
+        if tool:
+            print(json.dumps({{"type": "assistant", "message": {{"content": [
+                {{"type": "tool_use", "name": tool, "input": {{}}}}]}}}}), flush=True)
     time.sleep(float(os.environ.get("FAKE_CLAUDE_SLEEP", "0")))
     for piece in os.environ.get("FAKE_CLAUDE_PIECES", "").split("|"):
         if piece:
@@ -55,7 +59,8 @@ def fake_claude(tmp_path: Path, monkeypatch) -> Path:
     script.write_text(FAKE.format(python=sys.executable), encoding="utf-8")
     script.chmod(script.stat().st_mode | stat.S_IXUSR)
     for knob in ("FAKE_CLAUDE_SEARCH", "FAKE_CLAUDE_SLEEP", "FAKE_CLAUDE_FAIL",
-                 "FAKE_CLAUDE_DIE_AFTER", "FAKE_CLAUDE_ARGV", "FAKE_CLAUDE_PIECES"):
+                 "FAKE_CLAUDE_DIE_AFTER", "FAKE_CLAUDE_ARGV", "FAKE_CLAUDE_PIECES",
+                 "FAKE_CLAUDE_TOOLS"):
         monkeypatch.delenv(knob, raising=False)
     return script
 
@@ -348,3 +353,47 @@ class TestTheSentencesComeAsTheModelWritesThem:
             assert "turn 1" in session.write_up("Lucie ?")
         finally:
             session.close()
+
+
+class TestTheConnectedAccountsInTheSession:
+    def test_the_servers_file_reaches_the_command_line_and_the_tools_the_allowed_ones(
+        self, fake_claude, tmp_path, monkeypatch
+    ):
+        argv = tmp_path / "argv"
+        monkeypatch.setenv("FAKE_CLAUDE_ARGV", str(argv))
+        session = ClaudeSession(
+            command=str(fake_claude), own_guidance="G. ",
+            tools=("WebSearch", "mcp__trello__get_lists"), servers=tmp_path / "outils.json",
+        )
+        try:
+            session.write_up("Lucie ?")
+        finally:
+            session.close()
+        command = _argv(argv)[0]
+        assert command[command.index("--mcp-config") + 1] == str(tmp_path / "outils.json")
+        # Its own tools go through --tools, the accounts' through the servers file.
+        assert command[command.index("--tools") + 1] == "WebSearch"
+        assert command[command.index("--allowed-tools") + 1] == "WebSearch,mcp__trello__get_lists"
+
+    def test_a_tool_the_model_used_is_reported_by_name(self, fake_claude, monkeypatch):
+        monkeypatch.setenv("FAKE_CLAUDE_TOOLS",
+                           "mcp__trello__get_lists,mcp__trello__add_card_to_list")
+        used: list[str] = []
+        session = ClaudeSession(command=str(fake_claude), own_guidance="G. ", on_tool=used.append)
+        try:
+            assert "turn 1" in session.write_up("Lucie ?")
+        finally:
+            session.close()
+        assert used == ["mcp__trello__get_lists", "mcp__trello__add_card_to_list"]
+
+    def test_without_servers_nothing_is_added_to_the_command_line(
+        self, fake_claude, tmp_path, monkeypatch
+    ):
+        argv = tmp_path / "argv"
+        monkeypatch.setenv("FAKE_CLAUDE_ARGV", str(argv))
+        session = ClaudeSession(command=str(fake_claude), own_guidance="G. ")
+        try:
+            session.write_up("Lucie ?")
+        finally:
+            session.close()
+        assert "--mcp-config" not in _argv(argv)[0]

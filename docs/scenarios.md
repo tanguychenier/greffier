@@ -72,8 +72,8 @@ guidance, her answer.
 | The token pasted into the window, the source read and named | covered | `test_the_window_itself`, then "D'après GitLab, deux tickets sont ouverts sur le projet équipe outil : le numéro 12, facturation en double sur l'avoir" |
 | A fact outside the meeting looked up on the web, the source named | covered | "D'après le site officiel de Python, la dernière version stable est actuellement la 3.14.7" |
 | A Jira project read the same way | partly | the adapter and the material are covered by unit tests, the scenario is not played |
-| Trello, Outlook, a shared drive | open | not registered kinds |
-| She installs an access herself, with consent | open | she asks for the token; the gesture stays a person's |
+| Trello, Outlook, a shared drive | partly | the **Comptes** tab connects Trello, GitLab, Jira and Microsoft 365, powers ticked one by one, `test_the_accounts_tab`; a shared drive is not a kind yet |
+| She installs an access herself, with consent | covered | the person clicks, pastes a key or types a code on the service's page, ticks what she allows; the tools the model may run are exactly those, and what she did is written down |
 
 ## The project manager's day
 
@@ -121,7 +121,7 @@ that holds it, or says what is missing.
 | A meeting that was never processed, rebuilt from its thread | covered | `greffier recuperer`, `test_recover` |
 | The recordings tidied by the retention rule | covered | `greffier ranger`, `test_tidy` |
 | A comment left on an existing ticket after the meeting | open | `gitlab_api.comment` exists, no gesture calls it |
-| A meeting held in Outlook or Teams, joined by the tool | open | the loopback carries the sound; nothing reads the invitation |
+| A meeting held in Outlook or Teams, joined by the tool | partly | the loopback carries the sound; with Microsoft 365 connected she reads the calendar, nothing joins the call |
 
 ## What breaks
 

@@ -227,13 +227,16 @@ def assistant(config: Config) -> outbound.Writer | None:
         ClaudeWriter,
     )
 
+    servers, account_tools, account_words = connected_accounts(config)
     return ClaudeWriter(
         config.minutes.effective_model,
         timeout=config.minutes.timeout,
         language=config.minutes.language,
-        tools=(ClaudeWriter.SEARCH_TOOLS
-                if config.conversation.recherche_web else ()),
-        own_guidance=CONVERSATION_GUIDANCE,
+        tools=((ClaudeWriter.SEARCH_TOOLS
+                if config.conversation.recherche_web else ()) + account_tools),
+        own_guidance=CONVERSATION_GUIDANCE + ("\n" + account_words if account_words else ""),
+        servers=servers,
+        on_tool=deed_keeper(config) if servers is not None else None,
     )
 
 def mapper(config: Config) -> outbound.Writer | None:
@@ -553,6 +556,42 @@ def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
     her.brain = brain
     return her
 
+def connected_accounts(config: Config) -> tuple[Path | None, tuple[str, ...], str]:
+    """What the connected accounts hand the model: the servers file, the tools, the words.
+
+    Nothing when nobody consented to anything. The servers file carries
+    the secrets and is written afresh on every start, for the person
+    alone; the tools are the model-side names of the ticked powers; the
+    words are the paragraph the assistant is told.
+    """
+    from greffier.adapters import accounts_file
+    from greffier.domain.accounts import allowed_tools, guidance_for, servers_to_start
+    from greffier.domain.accounts_catalogue import CATALOGUE
+
+    consents = accounts_file.read_consents()
+    servers = servers_to_start(consents, CATALOGUE, accounts_file.all_secrets(CATALOGUE))
+    file = accounts_file.write_servers(config.paths.data, servers)
+    if file is None:
+        return None, (), ""
+    live = {key: consent for key, consent in consents.items() if key in servers}
+    return file, tuple(allowed_tools(live, CATALOGUE)), guidance_for(live, CATALOGUE)
+
+
+def deed_keeper(config: Config) -> Callable[[str], None]:
+    """Writes down what the model did with the accounts, tool by tool."""
+    from greffier.adapters import accounts_file
+    from greffier.domain.accounts import deed_of
+    from greffier.domain.accounts_catalogue import CATALOGUE
+
+    def keep(tool: str) -> None:
+        deed = deed_of(tool, CATALOGUE)
+        if deed is not None:
+            with contextlib.suppress(OSError):
+                accounts_file.record(config.paths.data, deed)
+
+    return keep
+
+
 def spoken_brain(config: Config, own_guidance: str) -> Any | None:
     """What the assistant thinks with when it answers out loud.
 
@@ -587,12 +626,16 @@ def spoken_brain(config: Config, own_guidance: str) -> Any | None:
     # no access" in turn, four times in one meeting.
     # Built here, warmed up and closed by whoever runs the meeting: a factory
     # that starts a process is a factory no test can call.
+    servers, account_tools, account_words = connected_accounts(config)
     return ClaudeSession(
         model=config.assistant.model,
         language=config.minutes.language,
-        tools=(ClaudeSession.SEARCH_TOOLS if config.conversation.recherche_web else ()),
-        own_guidance=own_guidance,
+        tools=((ClaudeSession.SEARCH_TOOLS if config.conversation.recherche_web else ())
+               + account_tools),
+        own_guidance=own_guidance + ("\n" + account_words if account_words else ""),
         on_search=on_search,
+        servers=servers,
+        on_tool=deed_keeper(config) if servers is not None else None,
     )
 
 

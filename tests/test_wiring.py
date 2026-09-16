@@ -207,6 +207,58 @@ class TestTheLiveThread:
         assert wiring.slice_segmenter(config) is None
 
 
+class TestTheConnectedAccountsReachTheModel:
+    """The servers file, the tools and the words, from the consents and the secrets."""
+
+    def _connected(self, tmp_path, monkeypatch):
+        from greffier.adapters import accounts_file
+        from greffier.domain.accounts import Consent
+        from greffier.domain.accounts_catalogue import TRELLO
+
+        consents = tmp_path / "config" / "comptes.json"
+        tokens = tmp_path / "config" / "jetons.toml"
+        monkeypatch.setattr(accounts_file, "consents_file", lambda: consents)
+        monkeypatch.setattr(accounts_file, "tokens_file", lambda: tokens)
+        accounts_file.write_consent(Consent("trello", frozenset({"lire"})), consents)
+        accounts_file.store_secrets(TRELLO, {"cle": "k", "jeton": "t"}, tokens)
+
+    def test_nothing_consented_hands_the_model_nothing(self, config, tmp_path, monkeypatch):
+        from greffier.adapters import accounts_file
+
+        monkeypatch.setattr(accounts_file, "consents_file", lambda: tmp_path / "none.json")
+        assert wiring.connected_accounts(config) == (None, (), "")
+
+    def test_a_consented_account_gives_a_file_the_tools_and_the_words(
+        self, config, tmp_path, monkeypatch
+    ):
+        self._connected(tmp_path, monkeypatch)
+        file, tools, words = wiring.connected_accounts(config)
+        assert file is not None and file.exists()
+        assert "mcp__trello__get_lists" in tools and "mcp__trello__add_card_to_list" not in tools
+        assert "Trello : lire." in words
+
+    def test_the_spoken_brain_and_the_conversation_carry_them(
+        self, config, tmp_path, monkeypatch
+    ):
+        self._connected(tmp_path, monkeypatch)
+        spoken = wiring.spoken_brain(config, "G. ")
+        written = wiring.assistant(config)
+        for brain in (spoken, written):
+            assert brain.servers is not None
+            assert "mcp__trello__get_lists" in brain.tools
+            assert "Trello : lire." in brain.own_guidance
+            assert brain.on_tool is not None
+
+    def test_a_tool_the_model_used_is_written_down(self, config, tmp_path, monkeypatch):
+        from greffier.adapters import accounts_file
+
+        keep = wiring.deed_keeper(config)
+        keep("mcp__trello__get_lists")
+        keep("WebSearch")
+        read = accounts_file.deeds(config.paths.data)
+        assert [d.tool for d in read] == ["get_lists"]
+
+
 class TestHowTheMinutesLeave:
     def test_no_recipient_means_no_sender_at_all(self, config):
         """Nobody to write to: the chain stops at the minutes on disk."""
