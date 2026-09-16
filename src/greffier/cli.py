@@ -783,6 +783,66 @@ def stop_recording(
         config_file=config_file, events=state.events,
     )
 
+@application.command("rejouer")
+def replay(
+    audio: Path = typer.Argument(..., exists=True, readable=True, help="Enregistrement à rejouer"),
+    without_processing: bool = typer.Option(
+        False, "--sans-traiter", help="Rejouer seulement, sans transcription finale"
+    ),
+    without_sending: bool = typer.Option(
+        False, "--sans-envoi", help="Ne pas envoyer, même si un destinataire est configuré"
+    ),
+    config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),
+) -> None:
+    """Rejoue un enregistrement comme si le micro le captait, puis le traite.
+
+    Tout se passe comme pendant une vraie réunion : le fichier est lu à sa
+    vitesse, le direct affiche ce qui se dit, l'assistante entend son nom et
+    répond, et la transcription finale suit. C'est ce qui permet de vérifier
+    l'outil sans tenir de réunion. « greffier arreter » l'interrompt.
+    """
+    config = Config.load(config_file)
+    config.audio.input = str(audio.resolve())
+    try:
+        state = recording(config).start_recording(f"{audio.stem}-rejeu")
+    except (RuntimeError, FileNotFoundError) as trouble:
+        typer.secho(f"✗ {trouble}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1) from trouble
+    typer.secho(f"▶ Rejeu de « {audio.name} »", fg=typer.colors.RED)
+    typer.echo(f"  {state.audio}")
+    if _launch_live(config, config_file):
+        typer.echo("  Ce qui se dit s'affiche dans la fenêtre, comme en réunion.")
+    _wait_for_the_end_of(state.pid, config)
+    stop_recording(
+        without_processing=without_processing, without_sending=without_sending,
+        config_file=config_file,
+    )
+
+
+def _wait_for_the_end_of(pid: int | None, config: Config) -> None:
+    """Returns when the replay has read its file, or when somebody stopped it.
+
+    The encoder is a child of this process: it is reaped here the moment it
+    exits, so that the state never shows a recording cut short.
+    """
+    import os
+    import time
+
+    from greffier.application.record import _alive
+    from greffier.domain.models import Phase
+
+    while pid is not None and _alive(pid):
+        try:
+            done, _ = os.waitpid(pid, os.WNOHANG)
+        except ChildProcessError:
+            done = pid if not _alive(pid) else 0
+        if done:
+            return
+        if recording(config).read().phase is not Phase.RECORDING:
+            return
+        time.sleep(0.5)
+
+
 @application.command("annuler")
 def cancel(
     config_file: Path = typer.Option(None, "--config", help="Fichier de configuration"),

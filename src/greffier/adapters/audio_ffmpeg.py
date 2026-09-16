@@ -16,17 +16,31 @@ DIGITAL_SILENCE = -120.0
 
 _LEVEL = re.compile(r"RMS level dB: (-?[\d.]+|-inf)")
 
+#: What may stand in for the microphone.
+REPLAYABLE = frozenset({".wav", ".flac", ".mp3", ".m4a", ".ogg", ".opus", ".mp4", ".mkv", ".webm"})
+
+
 class FfmpegRecorder:
     def __init__(self, device: str, maximum_length: int = 14_400) -> None:
         self.device = device
         self.maximum_length = maximum_length
 
     def _input(self) -> list[str]:
+        # A file in place of a device: the recording is played at its own
+        # pace, and everything downstream (the chunks, the watch, the live
+        # thread, the assistant) sees exactly what a microphone would have
+        # given. It is how a meeting is replayed without holding one.
+        if self.replays_a_file():
+            return ["-re", "-i", self.device]
         if SYSTEM == "Darwin":
             return ["-f", "avfoundation", "-i", f":{self._avfoundation_index()}"]
         if SYSTEM == "Linux":
             return ["-f", "pulse", "-i", self.device]
         return ["-f", "dshow", "-i", f"audio={self.device}"]
+
+    def replays_a_file(self) -> bool:
+        """Whether the input names a recording rather than a device."""
+        return Path(self.device).suffix.lower() in REPLAYABLE and Path(self.device).is_file()
 
     def _index_of(self, device: str) -> str:
         """The avfoundation index of a named input."""
