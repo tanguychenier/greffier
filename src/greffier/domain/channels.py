@@ -187,4 +187,12 @@ class SpeechEnd:
         """
         if self.noted_at is None:
             return True
+        return self.resumed_after(moment)
+
+    def resumed_after(self, moment: float) -> bool:
+        """Whether a snapshot heard somebody after `moment`. Nothing known, False.
+
+        The other side of `spoken_since`: here doubt must not hold anything
+        back, since what it would hold is an answer to a question.
+        """
         return self.last_speech_at is not None and self.last_speech_at > moment

@@ -1099,6 +1099,57 @@ class TestAPromptedPassTrustsTheRoom:
         assert self._spotted(tmp_path, monkeypatch, prompted=False) == []
 
 
+class TestABreathInTheMiddleOfAQuestion:
+    """Measured on the bench: the levels called an end on a pause inside
+    « Lucie, combien d'anomalies bloquantes restent à valider ? », the pass
+    heard the question up to « restent », the model answered « RIEN », and the
+    whole question was only answered by the slice, ten seconds later. The
+    room going on talking while the pass transcribes says the end was not one.
+    """
+
+    def _her(self):
+        from greffier.application.take_part import AssistantSettings
+        from greffier.domain.participation import Manners
+
+        class Brain:
+            def write_up(self, text):
+                return "Deux."
+
+        return AssistantSettings(name="Lucie", brain=Brain(),
+                                 manners=Manners(active=True, creux_minimal=0.0))
+
+    def _spotted(self, tmp_path, monkeypatch, resumed):
+        monkeypatch.setattr(watch, "extract_slice",
+                            lambda audio, start, end, dest: dest)
+        instance_holder = {}
+
+        class Listening:
+            def transcribe(self, audio, language, prompt_seed):
+                # While the model reads the window, the room goes on.
+                if resumed:
+                    instance_holder["w"]._speech_end.note(8.4, speaking=True)
+                return [Utterance(span=Span(0.0, 8.0),
+                                  text="Lucie, combien d'anomalies restent ?")]
+
+        her = self._her()
+        spotted = []
+        her.answer_aside = lambda opening, now: spotted.append(opening.remark)
+        instance = watcher(tmp_path, transcriber=Listening(), assistant_of=her)
+        instance_holder["w"] = instance
+        instance._speech_end.note(7.4, speaking=True)
+        assert instance._speech_end.note(8.0, speaking=False)
+        instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path, prompted=True)
+        return spotted
+
+    def test_a_room_that_went_on_talking_hands_nothing_over(self, tmp_path, monkeypatch):
+        assert self._spotted(tmp_path, monkeypatch, resumed=True) == []
+
+    def test_a_room_that_stayed_quiet_is_answered(self, tmp_path, monkeypatch):
+        assert self._spotted(tmp_path, monkeypatch, resumed=False) == [
+            "combien d'anomalies restent ?"
+        ]
+
+
 class TestHerNameIsInTheSeed:
     """Measured on the synthesised voices: « Lucie, où en est la recette ? »
     came back « Ici, où en est la recette » two times in ten; a sentence

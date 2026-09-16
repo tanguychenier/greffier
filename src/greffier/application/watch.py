@@ -13,7 +13,7 @@ import subprocess
 import threading
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -155,6 +155,7 @@ class Watcher:
     #: Whether somebody is talking at this position, None when it cannot be
     #: told: the levels of the file being written, read by whoever wires it.
     speaking: Callable[[Position], bool | None] | None = None
+    _speech_end: SpeechEnd = field(default_factory=SpeechEnd, repr=False)
     initiative: bool = False
     material_before_asking: float = 30.0
     slice_period: float = SLICE_PERIOD
@@ -302,6 +303,13 @@ class Watcher:
             )
         except (RuntimeError, OSError):
             return True
+        if prompted and self._speech_end.resumed_after(where_.overall):
+            # The quiet was a breath in the middle of the question, not its
+            # end: the room went on talking while this pass transcribed. What
+            # it heard is half a question, and the model answers « RIEN » to
+            # half a question (measured on the bench). The real end will
+            # prompt a pass that hears the whole of it.
+            return True
         offset = where_.offset + start
         # A pass on the clock may land in the middle of a sentence, and what
         # runs into the end of the window waits for the next pass to be whole.
@@ -440,7 +448,7 @@ class Watcher:
         next one had been asked. Here it listens at its own pace whatever the
         slice is doing; the slice still answers a call the pass missed.
         """
-        end = SpeechEnd()
+        end = self._speech_end
         prompted = False
         pass_: threading.Thread | None = None
         while True:
