@@ -34,13 +34,9 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from measure_corpus import normalise, rare_terms, terms_found, word_error_rate  # noqa: E402
 
+from greffier.application.watch import SLICE_POLL as STEP_S  # noqa: E402
+from greffier.application.watch import SLICE_SLACK_S as SLACK_S  # noqa: E402
 from greffier.locations import data_folder  # noqa: E402
-
-#: How far past the period a slice may wait for the room to go quiet, when
-#: cutting on silence: a sentence cut in half at the boundary is heard in two
-#: pieces, and the pieces do not always add up to the sentence.
-SLACK_S = 3.0
-STEP_S = 0.25
 
 
 def quiet_moment(audio: Path, from_s: float, until_s: float) -> float:
