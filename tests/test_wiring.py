@@ -189,6 +189,24 @@ class TestTheWholeChain:
         assert "copernic" in wiring.wire_up(config).not_first_names
 
 
+class TestTheLiveThread:
+    """What follows the meeting while it runs, and cuts its slices."""
+
+    def test_the_follower_cuts_its_slices_at_the_changes_of_speaker(
+        self, config, without_loading_the_models
+    ):
+        from greffier.adapters.segmentation_sherpa import SherpaSliceSegmenter
+
+        follower = wiring.follower(config, "2026-09-16_10h00_reunion")
+        assert isinstance(follower.segmenter, SherpaSliceSegmenter)
+
+    def test_without_the_segmentation_model_the_slice_stays_whole(self, config):
+        # Nothing is loaded at wiring: the models are opened on the first slice.
+        (config.paths.models / "diarisation" / "sherpa-onnx-pyannote-segmentation-3-0"
+         / "model.onnx").unlink()
+        assert wiring.slice_segmenter(config) is None
+
+
 class TestHowTheMinutesLeave:
     def test_no_recipient_means_no_sender_at_all(self, config):
         """Nobody to write to: the chain stops at the minutes on disk."""

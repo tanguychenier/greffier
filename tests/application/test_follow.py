@@ -25,7 +25,7 @@ from greffier.application.follow import (
 )
 from greffier.domain.channels import LOCAL_VOICE
 from greffier.domain.live import LOCAL_NAME, Certainty, LiveThread
-from greffier.domain.models import Person, Span, Utterance, Voiceprint
+from greffier.domain.models import Person, Span, SpeakerTurn, Utterance, Voiceprint
 from greffier.domain.voiceprints import normalise
 
 
@@ -59,6 +59,30 @@ class SequenceExtractor:
     ) -> list[Voiceprint]:
         self.requests.append(the_spans)
         return [self.voiceprints.pop(0)] if self.voiceprints else []
+
+
+class StatedSegmenter:
+    """Says in advance where the speakers of the slice change."""
+
+    def __init__(self, turns: list[SpeakerTurn] | None = None) -> None:
+        self.turns_ = turns or []
+        self.asked: list[Path] = []
+
+    def turns(self, audio: Path) -> list[SpeakerTurn]:
+        self.asked.append(audio)
+        return self.turns_
+
+
+class TogetherExtractor(SequenceExtractor):
+    """Also reads several passages as one, and keeps what it was asked."""
+
+    def __init__(self, voiceprints: list[Voiceprint] | None = None) -> None:
+        super().__init__(voiceprints)
+        self.together: list[list[Span]] = []
+
+    def extract_together(self, audio: Path, the_spans: list[Span]) -> Voiceprint | None:
+        self.together.append(the_spans)
+        return self.voiceprints.pop(0) if self.voiceprints else None
 
 
 class InMemoryBank:
@@ -223,6 +247,67 @@ class TestPublishingWhatWasSaid:
         instance.take_in(tmp_path / "tranche.wav", [utterance(0, 8)], offset=0.0)
         # The sentence shows without a name, and is corrected in one click.
         assert len(instance.thread.turns) == 1
+
+
+class TestASliceCutAtTheChangesOfSpeaker:
+    """Two people in one slice used to come out as one voice, the one whose
+    print dominated the ten seconds. With the turns of the slice, each gets
+    a print of their own, read where they talk."""
+
+    def test_each_speaker_of_the_slice_gets_a_voice(self, tmp_path: Path) -> None:
+        extractor = TogetherExtractor([voiceprint(1, 0), voiceprint(0, 1)])
+        instance = follower(
+            tmp_path,
+            extractor=extractor,
+            segmenter=StatedSegmenter([
+                SpeakerTurn(Span(0, 5), "0:0"), SpeakerTurn(Span(5, 10), "0:1"),
+            ]),
+        )
+        instance.take_in(tmp_path / "tranche.wav", [utterance(0, 5), utterance(5, 10)], offset=0.0)
+        voices = [t.voice for t in instance.thread.turns]
+        assert len(set(voices)) == 2
+        assert extractor.together == [[Span(0, 5)], [Span(5, 10)]]
+
+    def test_the_turns_are_read_on_the_slice_and_kept_on_the_meeting_clock(
+        self, tmp_path: Path
+    ) -> None:
+        # The segmenter sees a file that starts at zero; the thread shows the
+        # meeting's own clock. One offset, applied once.
+        extractor = TogetherExtractor([voiceprint(1, 0)])
+        segmenter = StatedSegmenter([SpeakerTurn(Span(2, 9), "0:0")])
+        instance = follower(tmp_path, extractor=extractor, segmenter=segmenter)
+        instance.take_in(tmp_path / "tranche.wav", [utterance(2, 9)], offset=1800.0)
+        assert segmenter.asked == [tmp_path / "tranche.wav"]
+        assert extractor.together == [[Span(2, 9)]]
+        assert instance.thread.turns[0].span.start == 1802.0
+
+    def test_the_print_leaves_out_what_the_mic_captured(self, tmp_path: Path) -> None:
+        extractor = TogetherExtractor([voiceprint(1, 0)])
+        instance = follower(
+            tmp_path,
+            channels=StatedChannels([Span(0, 2)]),
+            extractor=extractor,
+            segmenter=StatedSegmenter([SpeakerTurn(Span(0, 10), "0:0")]),
+        )
+        instance.take_in(tmp_path / "tranche.wav", [utterance(1.9, 10)], offset=0.0)
+        assert extractor.together == [[Span(2, 10)]]
+
+    def test_a_segmenter_that_falls_over_leaves_the_slice_whole(self, tmp_path: Path) -> None:
+        class Broken:
+            def turns(self, audio: Path) -> list[SpeakerTurn]:
+                raise RuntimeError("onnxruntime")
+
+        extractor = TogetherExtractor([voiceprint(1, 0)])
+        instance = follower(tmp_path, extractor=extractor, segmenter=Broken())
+        instance.take_in(tmp_path / "tranche.wav", [utterance(0, 5), utterance(5, 10)], offset=0.0)
+        assert len({t.voice for t in instance.thread.turns}) == 1
+        assert extractor.requests == [[Span(0, 10)]]
+
+    def test_without_a_segmenter_nothing_changes(self, tmp_path: Path) -> None:
+        extractor = TogetherExtractor([voiceprint(1, 0)])
+        instance = follower(tmp_path, extractor=extractor)
+        instance.take_in(tmp_path / "tranche.wav", [utterance(0, 5), utterance(5, 10)], offset=0.0)
+        assert extractor.together == [] and extractor.requests == [[Span(0, 10)]]
 
 
 class TestCorrectionsComingIn:

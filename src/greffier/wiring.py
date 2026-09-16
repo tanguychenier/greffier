@@ -181,8 +181,22 @@ def follower(config: Config, identifier: str) -> Follower:
         channels=FileChannelReader(),
         extractor=extractor,
         bank=bank,
+        segmenter=slice_segmenter(config),
         identifier=identifier,
     )
+
+def slice_segmenter(config: Config) -> outbound.SliceSegmenter | None:
+    """What cuts a live slice at the changes of speaker; nothing without the models."""
+    from greffier.adapters.segmentation_sherpa import SherpaSliceSegmenter
+
+    diarisation = config.paths.models / "diarisation"
+    try:
+        return SherpaSliceSegmenter(
+            segmentation=diarisation / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx",
+            voiceprints=diarisation / "nemo_en_titanet_large.onnx",
+        )
+    except FileNotFoundError:
+        return None
 
 def writer(config: Config) -> outbound.Writer | None:
     """The writer alone, to regenerate a set of minutes."""

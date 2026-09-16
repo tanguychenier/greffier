@@ -495,6 +495,10 @@ systems**: Tkinter comes with Python, there is nothing to install.
     recording, without consulting any model, and without ever being wrong.
   - A name followed by a **`?`** comes from the voice print: it is a proposal,
     not an assertion.
+  - Each slice of ten seconds is cut at the changes of speaker before a print
+    is taken, so two people in the same ten seconds are two lines. A sentence
+    astride two speakers, or a scrap too short to resemble anybody, is shown
+    with `Les autres` rather than under a name that might be wrong.
   - **Clicking the name corrects it.** By default the correction covers the
     whole voice: when the tool gets the person wrong, it gets them wrong for
     every passage; "only this sentence" is there for overlaps. The correction

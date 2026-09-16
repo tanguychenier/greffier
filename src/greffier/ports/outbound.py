@@ -84,6 +84,18 @@ class Diariser(Protocol):
 
 
 @runtime_checkable
+class SliceSegmenter(Protocol):
+    """Cuts a slice of the meeting under way at the changes of speaker.
+
+    The labels hold within the slice only: the live thread joins the turns of
+    one slice to those of the next by voiceprint, not by label.
+    """
+
+    def turns(self, audio: Path) -> list[SpeakerTurn]:
+        ...
+
+
+@runtime_checkable
 class ChannelReader(Protocol):
     """Says which passages of a recording came from the mic.
 

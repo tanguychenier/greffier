@@ -24,7 +24,7 @@ from greffier.domain.live import (
     blocks,
     drop_repetition,
 )
-from greffier.domain.models import Person, Span, Utterance, Voiceprint
+from greffier.domain.models import Person, Span, SpeakerTurn, Utterance, Voiceprint
 from greffier.domain.voiceprints import normalise
 
 
@@ -86,6 +86,30 @@ class TestWhoIsSpeakingLive:
             assert thread.attach(voiceprint=None, local=False) == UNDETERMINED_VOICE
         assert thread.label(UNDETERMINED_VOICE) == UNDETERMINED_NAME
         assert [v for v in thread.voice if v.startswith("v")] == []
+
+    def test_a_scrap_that_resembles_nobody_goes_with_the_others(self) -> None:
+        # A print of a second and a half used to join the nearest voice
+        # whatever the likeness: measured on four people, it lent one
+        # person's « oui » to another. Under the threshold for short
+        # material it is announced with the others.
+        thread = LiveThread()
+        settled = thread.attach(SAME_VOICE[0], local=False)
+        near = normalise([0.9, 0.1, 0.0], source_duration=1.5)
+        far = normalise([0.1, 0.9, 0.0], source_duration=1.5)
+        assert thread.attach(near, local=False) == settled
+        assert thread.attach(far, local=False) == UNDETERMINED_VOICE
+
+    def test_the_catch_all_never_takes_a_name_from_the_bank(self) -> None:
+        # The scraps of everybody land there: a print of the mixture is
+        # nobody's, and the bank must not be asked about it. Measured on
+        # SUMM-RE 032b: eighty sentences of four people shown under one name.
+        marc = Person(name="Marc", voiceprints=[voiceprint(0, 1, duration=30)])
+        thread = LiveThread(known=[marc])
+        thread.attach(SAME_VOICE[0], local=False)
+        for _ in range(6):
+            assert thread.attach(voiceprint(0, 1, duration=1.5), local=False) == UNDETERMINED_VOICE
+        assert thread.voice[UNDETERMINED_VOICE].name is None
+        assert thread.voice[UNDETERMINED_VOICE].voiceprints == []
 
 
 class TestRecognisedByTheBank:
@@ -182,6 +206,62 @@ class TestCuttingIntoBlocks:
         assert groups[0].local
         groups = blocks([utterance(0, 4)], local_spans=[Span(0, 1.9)])
         assert not groups[0].local
+
+
+def turn(start: float, end: float, voice: str) -> SpeakerTurn:
+    return SpeakerTurn(span=Span(start, end), voice=voice)
+
+
+class TestCuttingTheSliceAtTheChangesOfSpeaker:
+    """Measured on SUMM-RE 032b, four people: a ten-second slice where two of
+    them talk went to one voice as a whole, and a sentence in four was shown
+    under somebody else's name. With the speaker turns of the slice, the
+    block stops where the speaker changes."""
+
+    TURNS = [turn(0, 6, "0:1"), turn(6, 10, "0:2")]
+
+    def test_a_change_of_speaker_cuts_the_block(self) -> None:
+        groups = blocks(
+            [utterance(0, 3), utterance(3, 6), utterance(6, 9)], [], turns=self.TURNS
+        )
+        assert [g.speaker for g in groups] == ["0:1", "0:2"]
+        assert groups[0].span == Span(0, 6) and groups[1].span == Span(6, 9)
+
+    def test_a_sentence_held_by_no_turn_stands_alone(self) -> None:
+        # Three voices over one sentence, none holding half of it: it is a
+        # block of its own, and its own print decides, or the others get it.
+        turns = [turn(0, 6, "0:1"), turn(5, 7, "0:3"), turn(6, 10, "0:2")]
+        groups = blocks([utterance(0, 4), utterance(4, 8), utterance(8, 10)], [], turns=turns)
+        assert [g.speaker for g in groups] == ["0:1", None, "0:2"]
+
+    def test_a_sentence_goes_with_the_turn_that_holds_the_most_of_it(self) -> None:
+        # From half of it: measured on four people, 80 % of the sentences
+        # right against 75 % when the turn had to hold 80 % of the sentence.
+        astride = [utterance(0, 4), utterance(4.5, 8), utterance(8, 10)]
+        groups = blocks(astride, [], turns=self.TURNS)
+        assert [g.speaker for g in groups] == ["0:1", "0:2"]
+        assert groups[1].span == Span(4.5, 10)
+        groups = blocks(astride, [], turns=self.TURNS, minimum_share=0.8)
+        assert [g.speaker for g in groups] == ["0:1", None, "0:2"]
+
+    def test_without_turns_the_blocks_are_what_they_were(self) -> None:
+        groups = blocks([utterance(0, 3), utterance(6, 9)], [])
+        assert len(groups) == 1 and groups[0].speaker is None
+
+    def test_the_mic_wins_over_the_turns(self) -> None:
+        # What the wiring establishes is never re-decided by a model.
+        groups = blocks([utterance(0, 3), utterance(3, 6)], [Span(0, 3)], turns=self.TURNS)
+        assert [(g.local, g.speaker) for g in groups] == [(True, None), (False, "0:1")]
+
+    def test_the_print_is_read_where_the_speaker_talks(self) -> None:
+        # An interjection of the other voice inside the block is left out of
+        # the excerpt; the whole block is read when nothing cut the slice.
+        turns = [turn(0, 4, "0:1"), turn(4, 5, "0:2"), turn(5, 9, "0:1")]
+        [group] = blocks([utterance(0, 4.4), utterance(4.6, 9)], [], turns=turns)
+        assert group.speaker == "0:1"
+        assert group.spans_of_the_speaker(turns) == [Span(0, 4), Span(5, 9)]
+        [whole] = blocks([utterance(0, 4.4), utterance(4.6, 9)], [])
+        assert whole.spans_of_the_speaker(turns) == [Span(0, 9)]
 
 
 class TestNeverTheSameSentenceTwice:

@@ -30,7 +30,7 @@ from greffier.domain.live import (
     LiveVoice,
     blocks,
 )
-from greffier.domain.models import Person, Span, Utterance, Voiceprint
+from greffier.domain.models import Person, Span, SpeakerTurn, Utterance, Voiceprint
 from greffier.domain.voiceprints import aggregate
 from greffier.ports import outbound
 
@@ -297,6 +297,7 @@ class Follower:
     channels: outbound.ChannelReader | None = None
     extractor: outbound.VoiceprintExtractor | None = None
     bank: outbound.VoiceBank | None = None
+    segmenter: outbound.SliceSegmenter | None = None
     identifier: str = ""
     _read_ones: int = field(default=0, repr=False)
     _learned: dict[str, str] = field(default_factory=dict, repr=False)
@@ -326,10 +327,11 @@ class Follower:
         if not kept:
             return []
 
+        turns = self._turns(slice_, offset)
         new_ones: list[LiveTurn] = []
         lines: list[dict[str, Any]] = []
-        for block in blocks(kept, global_ones):
-            voiceprint = self._voiceprint(slice_, block, local_spans, offset)
+        for block in blocks(kept, global_ones, turns):
+            voiceprint = self._voiceprint(slice_, block, local_spans, offset, turns)
             voice = self.thread.attach(voiceprint, block.local)
             for turn in self.thread.record_turn(block, voice):
                 new_ones.append(turn)
@@ -340,20 +342,52 @@ class Follower:
         self.learn_named_voices()
         return new_ones
 
+    def _turns(self, slice_: Path, offset: float) -> list[SpeakerTurn]:
+        """The speaker turns of the slice, on the meeting clock."""
+        if self.segmenter is None:
+            return []
+        try:
+            found = self.segmenter.turns(slice_)
+        except (RuntimeError, OSError, ValueError):
+            return []
+        return [
+            SpeakerTurn(
+                span=Span(turn.span.start + offset, turn.span.end + offset),
+                voice=turn.voice, source=turn.source,
+            )
+            for turn in found
+        ]
+
     def _voiceprint(
-        self, slice_: Path, block: Block, local_spans: list[Span], offset: float
+        self,
+        slice_: Path,
+        block: Block,
+        local_spans: list[Span],
+        offset: float,
+        turns: list[SpeakerTurn] | None = None,
     ) -> Voiceprint | None:
-        """The voiceprint of a remote passage, taken from what is not local."""
+        """The voiceprint of a remote passage, taken from what is not local.
+
+        A block cut at the changes of speaker is read where its speaker talks,
+        the interjections of the others left out, and read as one excerpt:
+        the turns of a lively meeting are short, and a print asks for more
+        than most of them hold.
+        """
         if block.local or self.extractor is None:
             return None
-        within_the_slice = Span(
-            max(0.0, block.span.start - offset),
-            max(0.0, block.span.end - offset),
-        )
-        chunks = subtract(within_the_slice, local_spans)
+        chunks = [
+            piece
+            for span in block.spans_of_the_speaker(turns or [])
+            for piece in subtract(
+                Span(max(0.0, span.start - offset), max(0.0, span.end - offset)),
+                local_spans,
+            )
+        ]
         if not chunks:
             return None
         try:
+            if block.speaker is not None:
+                return self.extractor.extract_together(slice_, chunks)
             found = self.extractor.extract_spans(slice_, chunks)
         except (RuntimeError, OSError, ValueError):
             return None

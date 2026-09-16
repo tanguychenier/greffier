@@ -19,15 +19,17 @@ import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from greffier.domain.attribution import voice_of
 from greffier.domain.boilerplate import is_an_annotation, is_boilerplate
 from greffier.domain.channels import LOCAL_VOICE
 from greffier.domain.language import LanguageProfile
-from greffier.domain.models import Person, Span, Utterance, Voiceprint
+from greffier.domain.models import Person, Span, SpeakerTurn, Utterance, Voiceprint
 from greffier.domain.profiles.neutral import NEUTRAL
 from greffier.domain.questions import distance
 from greffier.domain.voiceprints import (
     ADOPTION_THRESHOLD,
     ESTABLISHED_MATERIAL,
+    THRESHOLD_ON_SHORT,
     aggregate,
     join_voices,
     recognise,
@@ -78,6 +80,29 @@ CRUMB_SECONDS = 15.0
 RESEMBLES_NOBODY = 0.25
 
 IDENTICAL_SHARE = 0.5
+
+#: A scrap, under `MINIMUM_VOICE_MATERIAL`, joins the nearest voice only from
+#: this likeness up, the threshold measured for short material; under it, it
+#: is announced with the others. It used to join the nearest voice whatever
+#: the likeness, which was harmless while a slice was one block, and lends
+#: somebody's « oui » to somebody else once the slice is cut at the changes
+#: of speaker.
+SCRAP_FLOOR = THRESHOLD_ON_SHORT
+
+#: A sentence goes with the speaker turn of the slice that holds the most of
+#: it, from this share up; under it, it stands alone and its own print
+#: decides. Not the 0.80 of the minutes (`attribution.MINIMUM_SHARE`): here
+#: the share only groups the sentences whose audio makes one print, and the
+#: print decides the voice. Measured on SUMM-RE 032b, four people, the thread
+#: fed with the words it had shown (`tools/measure_bank.py --replay`):
+#:
+#: | share | right | wrong | with the others |
+#: |---|---|---|---|
+#: | 0.8 | 75.4 % | 11.0 % | 13.6 % |
+#: | 0.7 | 76.1 % | 9.6 % | 14.3 % |
+#: | 0.6 | 76.3 % | 8.5 % | 15.2 % |
+#: | 0.5 | **80.3 %** | **8.3 %** | 11.4 % |
+LIVE_MINIMUM_SHARE = 0.5
 
 _LIVE_WORD = re.compile(r"\S+")
 _WORD_PUNCTUATION = ".,;:!?…\"'«»()[]-–—"
@@ -163,12 +188,33 @@ class Block:
 
     utterances: tuple[Utterance, ...]
     local: bool
+    #: The speaker turn of the slice these sentences fall in, when the slice
+    #: was cut at the changes of speaker. The label holds within the slice
+    #: only; None when no turn holds enough of the sentence, or when nothing
+    #: cut the slice.
+    speaker: str | None = None
 
     @property
     def span(self) -> Span:
         return Span(
             self.utterances[0].span.start, self.utterances[-1].span.end
         )
+
+    def spans_of_the_speaker(self, turns: list[SpeakerTurn]) -> list[Span]:
+        """Where its speaker talks inside the block: the other voices left out.
+
+        With no speaker the whole block is the answer, as before the slices
+        were cut.
+        """
+        if self.speaker is None:
+            return [self.span]
+        inside = self.span
+        found = [
+            Span(max(inside.start, turn.span.start), min(inside.end, turn.span.end))
+            for turn in turns
+            if turn.voice == self.speaker and inside.overlap(turn.span) > 0
+        ]
+        return found or [inside]
 
 @dataclass(slots=True)
 class LiveVoice:
@@ -270,20 +316,37 @@ class Correction:
     voiceprint: Voiceprint | None = None
     whole_voice: bool = True
 
-def blocks(utterances: list[Utterance], local_spans: list[Span]) -> list[Block]:
-    """Groups utterances into passages from one source."""
+def blocks(
+    utterances: list[Utterance],
+    local_spans: list[Span],
+    turns: list[SpeakerTurn] | None = None,
+    minimum_share: float = LIVE_MINIMUM_SHARE,
+) -> list[Block]:
+    """Groups utterances into passages from one source.
+
+    The source is the mic or the rest; and, when the slice was cut at the
+    changes of speaker, one speaker turn of the slice. Without the cut a
+    ten-second slice where two people talk went to one voice as a whole,
+    the one whose print dominated the slice: on SUMM-RE 032b, four people,
+    a sentence in four was shown under somebody else's name.
+    """
     groups: list[Block] = []
     current: list[Utterance] = []
-    local_current = False
+    current_key: tuple[bool, str | None] = (False, None)
     for utterance in sorted(utterances, key=lambda r: r.span.start):
         local = _is_local(utterance.span, local_spans)
-        if current and local != local_current:
-            groups.append(Block(tuple(current), local_current))
+        speaker = (
+            voice_of(utterance.span, turns, minimum_share)
+            if turns and not local else None
+        )
+        key = (local, speaker)
+        if current and key != current_key:
+            groups.append(Block(tuple(current), *current_key))
             current = []
         current.append(utterance)
-        local_current = local
+        current_key = key
     if current:
-        groups.append(Block(tuple(current), local_current))
+        groups.append(Block(tuple(current), *current_key))
     return groups
 
 def _is_local(span: Span, local_spans: list[Span]) -> bool:
@@ -398,7 +461,7 @@ class LiveThread:
 
         closest = self._closest_voice(voiceprint)
         if closest is None and voiceprint.source_duration < MINIMUM_VOICE_MATERIAL:
-            closest = self._the_least_distant(voiceprint) or UNDETERMINED_VOICE
+            closest = self._the_least_distant(voiceprint, SCRAP_FLOOR) or UNDETERMINED_VOICE
         if closest is None:
             closest = self._nearby_established_voice(voiceprint)
         # No room left, by the hard ceiling or by the number announced: the
@@ -410,8 +473,13 @@ class LiveThread:
                       or UNDETERMINED_VOICE)
         if closest is not None:
             known_one = self.voice[closest]
-            known_one.add(voiceprint)
-            self._try_the_name_again(known_one)
+            # The catch-all mixes several people: a print poured into it
+            # would make a voice of the mixture, and the bank would put a
+            # name on it. Measured on SUMM-RE 032b, four people: the scraps
+            # of all four came out under one of the names, eighty sentences.
+            if known_one.nameable:
+                known_one.add(voiceprint)
+                self._try_the_name_again(known_one)
             return closest
 
         # No number at birth: it is earned by holding a share of the meeting,
