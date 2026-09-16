@@ -1477,7 +1477,7 @@ class Window:
     def _scrolling_area(self, page: tk.Frame) -> tk.Frame:
         """A scrolling area, returning the frame to put content in."""
         c = self.colours
-        page.rowconfigure(0, weight=0)   # la ligne d'état, en tête
+        page.rowconfigure(0, weight=0)   # the status line, on top
         page.rowconfigure(1, weight=1)   # the scrolling area
         page.columnconfigure(0, weight=1)
         canvas = tk.Canvas(page, bg=c.board, highlightthickness=0, borderwidth=0)

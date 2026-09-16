@@ -1,4 +1,4 @@
-"""Reconnaître de quel sujet on parle, la difficulté réelle."""
+"""Recognising which subject is being talked about, the real difficulty."""
 
 import pytest
 

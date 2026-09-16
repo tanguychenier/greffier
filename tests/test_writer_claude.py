@@ -46,7 +46,7 @@ class TestTheModel:
         assert not any("Sandy" in chunk for chunk in spy["commande"])
 
     def test_no_tool_is_allowed(self, spy):
-        """Le rédacteur écrit un document, il n'a rien à lire ni à exécuter."""
+        """The writer writes a document; it has nothing to read nor to run."""
         command = spy if False else None
         ClaudeWriter("opus").write_up("x")
         assert "--allowed-tools" in spy["commande"]

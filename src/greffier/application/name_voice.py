@@ -23,7 +23,7 @@ class VoiceToName:
     voice: str
     duration: float
     part: float
-    name: str | None = None          # déjà nommée
+    name: str | None = None          # already named
     proposition: str | None = None  # name guessed, to be confirmed
     excerpt: Span | None = None
 

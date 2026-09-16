@@ -136,9 +136,9 @@ class Certainty(StrEnum):
 
     HUMAN = "humaine"        # somebody corrected it by hand
     CANAL = "canal"            # the microphone says it: it is you
-    RECOGNISED = "reconnue"      # la banque de voix reconnaît, marge suffisante
+    RECOGNISED = "reconnue"      # the voice bank recognises it, with a margin
     PROBABLE = "probable"      # above the threshold, but little material
-    UNKNOWN = "inconnue"      # aucune idée, et on le dit
+    UNKNOWN = "inconnue"      # no idea, and said as such
 
     @property
     def firm(self) -> bool:

@@ -46,7 +46,7 @@ class TestTheKeyword:
             "note cette décision"
 
     def test_the_instruction_stops_at_the_end_of_the_sentence(self):
-        """Au-delà, la personne est passée à autre chose."""
+        """Beyond that, the person has moved on to something else."""
         text = "Greffier, note ça. Sinon, on parle du budget maintenant."
         assert instruction_after(text, "greffier") == "note ça"
 

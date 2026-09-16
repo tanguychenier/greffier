@@ -165,7 +165,7 @@ class TestCuttingTheSoundFromAnotherProcess:
         assert not gag.exists()
 
     def test_with_no_gag_nothing_is_written(self, tmp_path):
-        """La ligne de commande n'a personne à qui parler."""
+        """The command line has nobody to talk to."""
         from greffier.adapters.voice_neural import NeuralVoice
 
         NeuralVoice(tmp_path)._publish_the_gag(4242)
@@ -189,7 +189,7 @@ class TestCuttingTheSoundFromAnotherProcess:
         assert not gag.exists()
 
     def test_going_quiet_with_nothing_to_kill_does_not_raise(self, tmp_path):
-        """Le cas courant : personne ne parle."""
+        """The usual case: nobody is speaking."""
         from greffier.adapters.voice_neural import silence
 
         assert not silence(tmp_path / "absent.pid")

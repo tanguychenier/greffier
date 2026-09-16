@@ -482,7 +482,7 @@ class ButtonBar(tk.Frame):
 
     def add(self, button: Button, width: int) -> None:
         self._buttons.append((button, width))
-        self._grille = (0, 0)  # forcer un replacement au prochain <Configure>
+        self._grille = (0, 0)  # forces a new layout at the next <Configure>
 
     def _replace(self, _event: object = None) -> None:
         offered = self.winfo_width()

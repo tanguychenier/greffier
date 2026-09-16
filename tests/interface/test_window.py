@@ -109,7 +109,7 @@ class TestTheBadgeOnATab:
         assert _mark(9) == "9"
 
     def test_past_nine_the_exact_number_helps_nobody(self) -> None:
-        """Deux chiffres déborderaient du disque, et « beaucoup » suffit."""
+        """Two digits would spill out of the disc, and « many » is enough."""
         assert _mark(10) == "9+"
         assert _mark(42) == "9+"
 

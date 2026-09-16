@@ -37,7 +37,7 @@ class TestWhatTheMinutesSay:
             assert mention(state)
 
     def test_nothing_said_is_said_plainly(self):
-        """Prétendre le contraire serait pire que de l'avouer."""
+        """Claiming otherwise would be worse than admitting it."""
         assert "n'a pas été tracée" in mention(Disclosure.NOTHING)
 
     def test_telling_them_does_not_claim_consent(self):

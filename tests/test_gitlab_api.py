@@ -1,4 +1,4 @@
-"""Lire et écrire sur un GitLab inscrit, et refuser le reste."""
+"""Reading and writing on a registered GitLab, and refusing the rest."""
 
 import json
 import urllib.error
@@ -27,7 +27,7 @@ class Response(BytesIO):
 
 
 class FakeGitLab:
-    """Un GitLab qui garde ce qu'on lui envoie : l'adresse et le corps comptent."""
+    """A GitLab that keeps what it is sent: the address and the body matter."""
 
     def __init__(self) -> None:
         self.calls: list = []

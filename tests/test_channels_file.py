@@ -41,7 +41,7 @@ class TestVisioOuPresentiel:
         assert float(abs(channels.system).max()) > 0.1
 
     def test_a_silent_loopback_means_in_the_room(self) -> None:
-        # Le portable posé au milieu d'une table.
+        # The laptop set in the middle of a table.
         channels = split_channels(signal([[0.1] * 16000, [0.0] * 16000, [0.0] * 16000]))
         assert not channels.remote
         assert float(abs(channels.system).max()) > 0

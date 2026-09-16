@@ -236,7 +236,7 @@ class TestEverythingThatBelongsToTheMeeting:
         assert not (tmp_path / "questions" / "reunion-1.jsonl").exists()
 
     def test_the_optional_places_stay_optional(self, tmp_path):
-        """Les appels existants construisent six champs, pas neuf."""
+        """The existing calls build six fields, not nine."""
         from greffier.application.tidy import Places, pieces_de
 
         where_in = Places(

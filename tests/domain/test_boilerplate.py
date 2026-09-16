@@ -105,7 +105,7 @@ class TestTheTranscriberLoop:
         assert len(collapse_loops(self._loop(11))) == 1
 
     def test_the_kept_sentence_covers_the_whole_run(self):
-        """Le passage a bien duré onze secondes : l'horodatage doit le dire."""
+        """The passage did last eleven seconds: the timestamp must say so."""
         kept_one = collapse_loops(self._loop(11))[0]
         assert (kept_one.span.start, kept_one.span.end) == (30.0, 41.0)
 

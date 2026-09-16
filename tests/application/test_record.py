@@ -169,8 +169,8 @@ class TestHardwareThatChanges:
     def test_the_old_capture_is_stopped_before_the_new_one(self, recorder, audio_recorder):
         recorder.start_recording("point")
         recorder.resume_("changement")
-        # Un ffmpeg laissé vivant tiendrait le périphérique et empêcherait
-        # le suivant de l'ouvrir.
+        # An ffmpeg left alive would hold the device and keep the next one
+        # from opening it.
         assert len(audio_recorder.stopped) == 1
         assert len(audio_recorder.started) == 2
 
@@ -293,12 +293,12 @@ class TestPausing:
 
         recorder.start_recording("point")
         state = recorder.pause()
-        # Cinq minutes plus tard, on repart.
+        # Five minutes later, off again.
         state.suspended_at = datetime.now(UTC) - timedelta(minutes=5)
         recorder.write(state)
         resumed = recorder.resume()
         assert resumed.total_pause >= 300
-        # Le chronomètre montre le temps enregistré, pas le temps écoulé.
+        # The stopwatch shows the time recorded, not the time elapsed.
         assert resumed.seconds < 60
 
     def test_stopping_from_a_pause_stitches_everything(self, recorder, audio_recorder):
@@ -432,6 +432,6 @@ class TestAStateFrozenByADeadProcess:
         assert state.phase is Phase.WRITING
 
     def test_a_finished_phase_is_untouched(self, tmp_path):
-        """« Terminé » n'attend aucun processus : il n'y a rien à vérifier."""
+        """« Terminé » waits for no process: there is nothing to check."""
         state = self._state_of(tmp_path, "termine", 999_999)
         assert state.phase is Phase.DONE

@@ -15,9 +15,9 @@ from pathlib import Path
 class MentionKind(StrEnum):
     """Who the mention points at, relative to whoever speaks it."""
 
-    AUTO_PRESENTATION = "auto_presentation"   # le locuteur courant
-    ADDRESSING = "interpellation"         # le locuteur suivant
-    REFERRAL = "renvoi"                         # le locuteur précédent
+    AUTO_PRESENTATION = "auto_presentation"   # the current speaker
+    ADDRESSING = "interpellation"         # the next speaker
+    REFERRAL = "renvoi"                         # the previous speaker
 
 class Phase(StrEnum):
     """The states a meeting goes through, from recording to sending."""
@@ -50,7 +50,7 @@ class Source(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class Span:
-    start: float   # secondes depuis le début de l'enregistrement
+    start: float   # seconds since the start of the recording
     end: float
 
     def __post_init__(self) -> None:

@@ -596,7 +596,7 @@ class TestTheContextHeader:
         # UTC, and the header brings them back.
         header = context_header(
             "2026-09-09_10h05_reunion",
-            1620.0,  # la transcription s'arrête à 10 h 32
+            1620.0,  # the transcription stops at 10:32
             started_at=datetime(2026, 9, 9, 10, 5).astimezone(),
             ended_at=datetime(2026, 9, 9, 10, 37).astimezone(),
         )

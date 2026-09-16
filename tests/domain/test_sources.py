@@ -1,4 +1,4 @@
-"""Ce que l'outil a le droit de consulter, et d'écrire."""
+"""What the tool may consult, and write to."""
 
 import pytest
 

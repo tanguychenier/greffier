@@ -136,7 +136,7 @@ class TestTheExpectedPeople:
         assert seed == Context(terms=(Term("OTP"),)).prompt_seed()
 
     def test_the_glossary_is_served_first(self):
-        """La banque se remplit seule et pousserait dehors ce qu'on a choisi."""
+        """The bank fills up on its own and would push out what was chosen."""
         expected = [f"Personne{n:03}" for n in range(200)]
         seed = Context(terms=(Term("Copernic"),)).prompt_seed(expected)
         assert "Copernic" in seed

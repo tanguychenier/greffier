@@ -61,7 +61,7 @@ class TestFallingBackToTheProcessor:
         assert requests == ["auto", "cpu"]
 
     def test_the_model_is_reloaded_for_the_processor(self, monkeypatch):
-        """Le modèle chargé porte la carte : le garder rejouerait la panne."""
+        """The loaded model carries the card: keeping it would replay the failure."""
         transcriber, _ = self._transcriber(monkeypatch, refuse={"auto"})
 
         transcriber.transcribe(Path("reunion.wav"), "fr", "")
@@ -140,7 +140,7 @@ class TestTheModelOpenedOnce:
         FasterWhisperTranscriber(size="large-v3", device="cuda").warm()
 
     def test_a_model_that_failed_is_not_handed_out_again(self, monkeypatch, openings):
-        """Celui qui a cassé portait la carte : le rendre rejouerait la panne."""
+        """The one that broke carried the card: handing it out again would replay the failure."""
         from greffier.adapters import transcription_faster_whisper as adapter
 
         transcriber = FasterWhisperTranscriber(size="large-v3", device="cuda")

@@ -112,11 +112,11 @@ class TestGivingAVoiceAName:
         assert outcome.propositions == []
 
     def test_one_name_cannot_point_at_two_voices(self):
-        """Deux voix revendiquant « Marc » : la mieux étayée le garde."""
+        """Two voices claiming « Marc »: the better supported keeps it."""
         utterances = [
-            utterance(1, 3, "Moi c'est Marc."),        # v1, poids 3
-            utterance(11, 12, "Merci Marc."),          # renvoie vers v1 aussi
-            utterance(31, 32, "Merci Marc."),          # renvoie vers v3
+            utterance(1, 3, "Moi c'est Marc."),        # v1, weight 3
+            utterance(11, 12, "Merci Marc."),          # points back to v1 as well
+            utterance(31, 32, "Merci Marc."),          # points back to v3
         ]
         turns = [turn(0, 5, "v1"), turn(5, 10, "v2"), turn(10, 15, "v2"),
                  turn(20, 30, "v3"), turn(30, 35, "v2")]
@@ -180,7 +180,7 @@ class TestWordingsHeardInRealMeetings:
         assert [(x.name, x.type) for x in m] == [("Josiane", MentionKind.REFERRAL)]
 
     def test_an_opening_of_a_sentence_is_not_a_first_name(self):
-        """« Bref, tu vois… », « Après, on verra… » : rien à retenir."""
+        """« Bref, tu vois… », « Après, on verra… »: nothing to keep."""
         texts = ["Bref, tu vois ce que je veux dire.", "Après, on verra bien.",
                   "Donc, vous avez compris.", "Mais, tu sais bien."]
         assert _mentions_in([utterance(0, 2, t) for t in texts]) == []
@@ -228,7 +228,7 @@ class TestBeingAddressedWithNoAnswer:
 
     def test_but_the_name_is_still_offered(self):
         # Proposing keeps the information without presenting it as settled: it is
-        # à l'utilisateur de trancher, en écoutant dix secondes.
+        # for the user to settle, by listening ten seconds.
         utterances = [
             utterance(10, 12, "Tanguy, tu peux nous sortir les horaires ?"),
             utterance(40, 42, "Tanguy, tu me confirmes le déploiement ?"),

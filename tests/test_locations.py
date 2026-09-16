@@ -37,7 +37,7 @@ class TestMacOS:
         assert locations.data_folder("Darwin") == a_clean_home / "xdg-donnees/greffier"
 
     def test_an_old_configuration_is_still_served(self, a_clean_home):
-        """Un poste installé avant continue de lire sa configuration."""
+        """A machine installed before goes on reading its configuration."""
         former = a_clean_home / ".config/greffier"
         former.mkdir(parents=True)
         (former / "config.toml").write_text("", encoding="utf-8")

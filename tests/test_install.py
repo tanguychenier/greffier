@@ -609,8 +609,8 @@ class TestAnEnvironmentInheritedFromBefore:
 
     def test_a_venv_with_no_interpreter_is_remade(self, the_installer, tmp_path, monkeypatch):
         launched = self._prepare(the_installer, tmp_path, monkeypatch, with_uv=True)
-        # Le dossier existe, l'interpréteur non : exactement l'état d'un venv
-        # copié d'une machine à l'autre.
+        # The folder exists, the interpreter does not: exactly the state of a
+        # venv copied from one machine to another.
         (tmp_path / ".venv" / "bin").mkdir(parents=True)
 
         context = type("Ctx", (), {"check_only": False, "to_do": [],

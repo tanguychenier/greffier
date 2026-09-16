@@ -145,7 +145,7 @@ class TestWhenOutlookDoesNotAnswer:
         self._send(monkeypatch, "", code=0)
 
     def test_the_timeout_wraps_the_send_order(self):
-        """La cause : AppleScript abandonne au bout de soixante secondes."""
+        """The cause: AppleScript gives up after sixty seconds."""
         source = OutlookSender.SOURCE
         assert "with timeout of 600 seconds" in source
         assert source.index("with timeout") < source.index("send m")

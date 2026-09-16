@@ -26,7 +26,7 @@ class TestLocatingTcl:
         assert env["TK_LIBRARY"] == str(tmp_path / "lib" / "tk9.0")
 
     def test_a_setting_already_there_is_honoured(self, tmp_path):
-        """Un poste qui a son propre Tcl garde le sien."""
+        """A machine with a Tcl of its own keeps it."""
         env = {"TCL_LIBRARY": "/usr/share/tcl9.0"}
         locate_tcl(env, prefix_with_tcl(tmp_path))
         assert env["TCL_LIBRARY"] == "/usr/share/tcl9.0"
@@ -45,7 +45,7 @@ class TestLocatingTcl:
         assert env == {}
 
     def test_the_most_recent_version_is_chosen(self, tmp_path):
-        """Deux Tcl côte à côte : on prend le plus récent, pas le premier lu."""
+        """Two Tcl side by side: the most recent is taken, not the first read."""
         for version in ("8.6", "9.0"):
             (tmp_path / "lib" / f"tcl{version}").mkdir(parents=True)
             (tmp_path / "lib" / f"tk{version}").mkdir()

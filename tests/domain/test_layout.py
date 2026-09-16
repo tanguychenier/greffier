@@ -48,7 +48,7 @@ class TestLayingOutTheBoard:
         assert BETWEEN_COLUMNS > WIDTH
 
     def test_a_parent_is_centred_on_its_children(self):
-        """Sinon la carte penche vers le haut à chaque branche chargée."""
+        """Otherwise the board leans upwards at every loaded branch."""
         places = {place.node.text: place for place in lay_out(a_board())}
         children = [places["Piste A1"].y, places["Piste A2"].y]
         assert places["Problème A"].y == sum(children) / 2

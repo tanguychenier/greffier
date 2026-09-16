@@ -1,4 +1,4 @@
-"""`voix_a_nommer` : quelles voix proposer à l'utilisateur, et lesquelles taire."""
+"""`voices_to_name`: which voices to offer the user, and which to keep quiet about."""
 
 from datetime import UTC, datetime
 from pathlib import Path

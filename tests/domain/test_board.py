@@ -17,7 +17,7 @@ class TestRecognisingTheSamePoint:
         assert key("L'accès au SI") == key("acces au si")
 
     def test_word_order_does_not_count(self):
-        """« recette externalisée » et « externalisée, la recette » : un point."""
+        """« recette externalisée » and « externalisée, la recette »: one point."""
         assert key("recette externalisée") == key("externalisée recette")
 
     def test_two_distinct_points_stay_distinct(self):
@@ -155,7 +155,7 @@ class TestStandings:
 
 
 class TestNothingEverDisappears:
-    """Une carte partagée porte le travail de plusieurs personnes."""
+    """A shared board carries the work of several people."""
 
     def test_marking_it_overtaken_keeps_the_node(self):
         board = Board("Oasis")

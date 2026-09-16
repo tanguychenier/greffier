@@ -38,7 +38,7 @@ def utterance(start: float, end: float, text: str = "on cale la recette jeudi") 
 
 
 class StatedChannels:
-    """Dit d'avance quels passages viennent du micro."""
+    """Says in advance which passages come from the mic."""
 
     def __init__(self, local_spans: list[Span] | None = None) -> None:
         self.local_spans = local_spans or []

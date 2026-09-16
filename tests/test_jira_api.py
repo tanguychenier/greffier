@@ -1,4 +1,4 @@
-"""Lire et écrire sur un Jira inscrit, et refuser le reste."""
+"""Reading and writing on a registered Jira, and refusing the rest."""
 
 import base64
 import json

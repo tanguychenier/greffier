@@ -25,7 +25,7 @@ class TestWhatIsUnderstood:
         assert "plateforme" in learned.precision
 
     def test_a_term_without_a_meaning(self):
-        """« retiens le sigle FAST » : l'orthographe seule sert la transcription."""
+        """« retiens le sigle FAST »: the spelling alone serves the transcription."""
         learned = understand("retiens le sigle FAST")
         assert learned is not None
         assert learned.subject == "FAST"

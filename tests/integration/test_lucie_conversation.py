@@ -104,7 +104,7 @@ class HautParleur:
 
 @dataclass
 class CerveauDeTest:
-    """Répond de façon déterministe, et compte combien de fois on l'appelle."""
+    """Answers deterministically, and counts how many times it is called."""
 
     answers: list[str] = field(default_factory=list)
     requests: list[str] = field(default_factory=list)

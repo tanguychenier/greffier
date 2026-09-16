@@ -54,7 +54,7 @@ class Attribution:
     name: str
     score: int
     indices: list[Mention] = field(default_factory=list)
-    concurrent: str | None = None      # deuxième nom le mieux placé, s'il existe
+    concurrent: str | None = None      # the second best placed name, if any
     score_concurrent: int = 0
 
     @property

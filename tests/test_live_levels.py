@@ -133,7 +133,7 @@ class TestTheLengthWrittenSoFar:
 
     def test_the_length_is_counted_in_bytes_not_in_the_header(self, tmp_path: Path) -> None:
         # The header announces 0xFFFFFFFF as long as the file is open: trusting it
-        # donnerait une durée absurde.
+        # would give an absurd length.
         file = wav(tmp_path / "en-cours.wav", [FORT, SILENT], with_list=True,
                       extended_fmt=True)
         assert written_duration(file) == 8000 / 16000

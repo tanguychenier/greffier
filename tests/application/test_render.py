@@ -103,7 +103,7 @@ class TestTheInstructionsGivenDuringTheMeeting:
         assert "blue team" in header
 
     def test_the_header_says_they_win(self):
-        """Sans cela le rédacteur arbitre entre la consigne et la transcription."""
+        """Without it the writer arbitrates between the instruction and the transcription."""
         header = render.instructions_header(["Il n'y a pas de sophie"])
         assert "l'emportent" in header
         assert "Applique-les" in header

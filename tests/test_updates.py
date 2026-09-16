@@ -145,7 +145,7 @@ class TestInstallingFromTheSources:
         assert where_in == str(store)
 
     def test_a_modified_repository_is_refused(self, monkeypatch, tmp_path):
-        """« git pull » sur un arbre sale échoue à moitié : mieux vaut refuser avant."""
+        """« git pull » on a dirty tree half fails: better refuse beforehand."""
         store = self.a_git_repository(tmp_path, clean=False)
         monkeypatch.setenv("GREFFIER_DEPOT_SOURCE", str(store))
         possible, because = updates.installable()
@@ -182,7 +182,7 @@ class TestABundleNewerThanTheProcess:
     """
 
     def test_outside_a_bundle_the_question_does_not_arise(self):
-        """Depuis la ligne de commande, le code suit le dépôt."""
+        """From the command line, the code follows the repository."""
         from greffier.adapters.updates import bundle_is_newer
 
         assert not bundle_is_newer("/usr/bin/python3")

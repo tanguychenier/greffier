@@ -10,7 +10,7 @@ from __future__ import annotations
 from greffier.adapters.devices_coreaudio import analyser
 from greffier.domain.devices import Hardware, WatchRules, advised_mic
 
-# Relevé réel, casque et station débranchés.
+# A real reading, headset and dock unplugged.
 ALONE = """Périphériques audio :
 
   BlackHole 2ch  [entrée 2ch, sortie 2ch]
@@ -25,7 +25,7 @@ ALONE = """Périphériques audio :
     uid: com.reunions.sortie
 """
 
-# Le même poste, casque Jabra et station branchés.
+# The same machine, Jabra headset and dock plugged in.
 PLUGGED = """Périphériques audio :
 
   BlackHole 2ch  [entrée 2ch, sortie 2ch]
@@ -72,7 +72,7 @@ class TestReadingWhatTheWriterReturned:
         assert jabra.uid.endswith(":1")
 
     def test_a_name_carried_by_two_devices_is_not_lost(self) -> None:
-        # Le Jabra expose micro et écouteurs sous le même nom, uid différents.
+        # The Jabra exposes mic and earphones under the same name, different uids.
         jabras = [p for p in analyser(PLUGGED).devices if p.name.startswith("Jabra")]
         assert len(jabras) == 2
         assert {p.entries for p in jabras} == {0, 1}

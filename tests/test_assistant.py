@@ -194,7 +194,7 @@ class TestTheVocabularyAsked:
 
 class TestWritingTheSettingsFile:
     def test_the_file_produced_is_readable_by_the_settings(self, tmp_path, monkeypatch):
-        """La boucle complète : l'assistant écrit, la configuration relit."""
+        """The whole loop: the assistant writes, the configuration reads back."""
         from greffier.adapters.configuration import Config
 
         answers = assistant.Answers()

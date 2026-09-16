@@ -238,7 +238,7 @@ class TestItMustNotHearItself:
         assert not is_own(self.SAID, [])
 
     def test_several_of_its_remarks_are_kept(self):
-        """Elle parle plusieurs fois : chacun doit rester reconnaissable."""
+        """She speaks several times: each must stay recognisable."""
         mes = self._its_own_words(
             self.SAID,
             "Il reste la signature, et la recette à caler.",

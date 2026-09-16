@@ -42,7 +42,7 @@ def watch_rules() -> WatchRules:
 
 
 class TestTheHeadsetUnpluggedMidMeeting:
-    """Le casque est branché après le début de l'enregistrement."""
+    """The headset is plugged in after the recording has started."""
 
     def test_the_tool_rebuilds_and_takes_the_capture_back(self, watch_rules: WatchRules) -> None:
         decision = watch_rules.examine(WITHOUT_HEADSET, WITH_HEADSET)

@@ -69,8 +69,8 @@ class TestThePalettes:
 
     @pytest.mark.parametrize("palette", [CLAIR, SOMBRE], ids=["clair", "sombre"])
     def test_the_states_can_be_told_apart(self, palette: Palette) -> None:
-        # Rouge d'enregistrement, ambre de pause, gris de repos : trois états
-        # qu'on doit pouvoir séparer d'un coup d'œil.
+        # Recording red, pause amber, rest grey: three states that must be
+        # told apart at a glance.
         states = {palette.active, palette.amber, palette.calm}
         assert len(states) == 3
 

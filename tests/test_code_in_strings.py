@@ -42,7 +42,7 @@ class TestTheStandardLibraryIsCalledByItsRealNames:
         for name in STANDARD:
             try:
                 charges[name] = importlib.import_module(name)
-            except ImportError:  # pragma: no cover, dépend du système
+            except ImportError:  # pragma: no cover, depends on the system
                 continue
 
         faults = []

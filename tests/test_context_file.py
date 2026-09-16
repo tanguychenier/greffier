@@ -66,7 +66,7 @@ class TestTheTemplateFile:
 
 
 class TestAddingFromTheConversation:
-    """Alimenter le contexte demandait d'ouvrir un fichier."""
+    """Feeding the context used to mean opening a file."""
 
     def test_a_term_is_added_with_its_meaning(self, tmp_path):
         from greffier.adapters.context_file import add_a_term

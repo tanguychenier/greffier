@@ -61,7 +61,7 @@ class TestWhichModelWritesTheMinutes:
         assert config.minutes.effective_model == "fable"
 
     def test_ollama_has_its_own_default(self):
-        """Un alias Claude Code n'a aucun sens pour Ollama, et l'inverse non plus."""
+        """A Claude Code alias means nothing to Ollama, nor the other way round."""
         assert Config(minutes={"moteur": "ollama"}).minutes.effective_model == "qwen3:8b"
 
     def test_with_no_writer_there_is_no_model(self):
@@ -297,7 +297,7 @@ class TestTheKeysOfTheFileNeverMove:
     there is no reason to put anybody through that.
     """
 
-    #: Un fichier tel qu'un poste en porte aujourd'hui.
+    #: A file as a machine carries one today.
     EXISTING = """
 [audio]
 micro = "Micro MacBook Pro"

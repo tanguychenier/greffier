@@ -1,4 +1,4 @@
-"""Ce qu'on garde, et pendant combien de temps."""
+"""What is kept, and for how long."""
 
 import pytest
 
@@ -11,7 +11,7 @@ class TestRulesThatCannotHold:
             Rule(compress_after=-1)
 
     def test_deleting_before_compressing_is_refused(self):
-        """Le second geste englobe le premier : l'ordre inverse se contredit."""
+        """The second gesture includes the first: the other order contradicts itself."""
         with pytest.raises(ValueError, match="doit venir après"):
             Rule(compress_after=30, erase_after=7)
 
