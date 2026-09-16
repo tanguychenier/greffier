@@ -367,6 +367,7 @@ for the bank.
 | … a sentence given from 70 % of its time | 76.1 % (340) | 9.6 % (43) | 14.3 % (64) |
 | … from 60 % | 76.3 % (341) | 8.5 % (38) | 15.2 % (68) |
 | … **from half of it** (kept) | **80.3 %** (359) | **8.3 %** (37) | 11.4 % (51) |
+| Live thread again, the transcriber in the loop, with all of the above | **82.1 %** (368) | **8.7 %** (39) | 9.2 % (41) |
 
 Per person, after the meeting: Alice 88 right, 21 wrong, 56 to nobody out
 of 165; Bruno 67 / 3 / 17 out of 87; Chloé 105 / 3 / 32 out of 140;
@@ -374,7 +375,9 @@ Diane 15 / 1 / 11 out of 27. Live, the slice cut, from half: Alice 102 /
 21 / 19 out of 142; Bruno 117 / 3 / 5 out of 125; Chloé 121 / 12 / 17 out
 of 150; Diane 19 / 1 / 10 out of 30. The replay is exact: the same
 setting run twice gives the same thread to the byte, so a point between
-two rows is the setting, not the dice.
+two rows is the setting, not the dice. The last row is the live thread
+run again in full, words transcribed on the card and slices cut: what the
+replay promised, with the transcriber back in the loop.
 
 What it says:
 
@@ -382,8 +385,11 @@ What it says:
   After the meeting the chain finds four voices and the bank puts the four
   right names on them; live, the thread founds four voices and the bank
   names them right too, Chloé on the first sentence, Diane at 56 s, Bruno
-  at 78 s, Alice at 161 s. Not one name is wrong. What is wrong is the
-  sentence under the name.
+  at 78 s, Alice at 161 s. Not one name is wrong at the end. What is wrong
+  is the sentence under the name. One thing to know: in the full run, the
+  voice that ends up as Alice was called « Diane ? » from 56 s to 161 s,
+  named on six seconds of material and renamed once there was more; the
+  question mark next to a name from a print is there for that.
 - **After the meeting, a sentence in four is left to nobody**, by the
   rule of the minutes (`attribution.MINIMUM_SHARE`): a sentence whose time
   is not held at 80 % by one speaker turn goes to no one rather than to

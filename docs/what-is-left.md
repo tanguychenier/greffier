@@ -57,7 +57,7 @@ there, and fixed.
 | The learning threshold at 6 s, with no second chance | A correction entered at the second sentence **never** made it into the bank: it was displayed, then served neither the following meeting nor the minutes | fixed |
 | The position tracked on the meeting clock | After a pause, the clock and the audio written to disk diverge by the whole stopped time, and ffmpeg read past the end of the file | fixed |
 | The last seconds never read | You finished your sentence in front of a thread that stopped before it | fixed |
-| One voice per slice | Measured on SUMM-RE 032b, four people who cut into each other: a ten-second slice went whole to whoever its print resembled, **28 % of the sentences under the wrong name**, and the scraps of everybody, poured into the catch-all, got a name from the bank | fixed: the slice is cut at the changes of speaker on the processor, one print per speaker, a scrap joins a voice from the short-material threshold only, the catch-all takes no print; 8 % wrong and 80 % right, `corpus.md` |
+| One voice per slice | Measured on SUMM-RE 032b, four people who cut into each other: a ten-second slice went whole to whoever its print resembled, **28 % of the sentences under the wrong name**, and the scraps of everybody, poured into the catch-all, got a name from the bank | fixed: the slice is cut at the changes of speaker on the processor, one print per speaker, a scrap joins a voice from the short-material threshold only, the catch-all takes no print; 9 % wrong and 82 % right on the same meeting, `corpus.md` |
 
 ## What direct measurement fixed (2026-09-01)
 
@@ -241,12 +241,12 @@ the tests written on 16/09:
 
 | Layer | Before | After | What was added |
 |---|---|---|---|
-| `domain` | 96.6 % | 96.7 % | the end of a speech, the verdict of the bank measure |
-| `application` | 85.3 % | 90.3 % | the company sources, the voice review, the passages worth hearing again, her own contributions, the sound out of a video |
-| `adapters` | 82.3 % | 84.8 % | the kept Claude session through real pipes, the recorder's ffmpeg gestures on real files, the system voice in motion, the tokens file |
-| `interface` (window, API) | 52.5 % | 60.7 % | the Meetings tab and the settings on the real window, documents and questions from the window, the token pasted |
-| `cli.py`, `wiring.py` | 40.2 % | 53.6 % | the commands after the meeting driven as a person would, the writer and the sender doubled |
-| **all** | **74.4 %** | **79.3 %** | 2 343 to 2 532 tests |
+| `domain` | 96.6 % | 96.8 % | the end of a speech, the verdict of the bank measure, the slice cut at the changes of speaker |
+| `application` | 85.3 % | 90.6 % | the company sources, the voice review, the passages worth hearing again, her own contributions, the sound out of a video, the follower with a segmenter |
+| `adapters` | 82.3 % | 84.8 % | the kept Claude session through real pipes, the recorder's ffmpeg gestures on real files, the system voice in motion, the tokens file, the segmenter's windows |
+| `interface` (window, API) | 52.5 % | 61.6 % | the Meetings tab and the settings on the real window, documents and questions from the window, the token pasted |
+| `cli.py`, `wiring.py` | 40.2 % | 56.2 % | the commands after the meeting driven as a person would, the writer and the sender doubled, the segmenter wired or not |
+| **all** | **74.4 %** | **80.1 %** | 2 343 to 2 618 tests |
 
 What stays thin, and why: `cli.py` (46 %) and `window.py` (55 %) hold the
 gestures that need a microphone, a running meeting or a person answering a

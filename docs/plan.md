@@ -191,9 +191,9 @@ meeting is never needed to see what a meeting does.
       found instead: the live thread gave a whole slice to one voice, 28 %
       of the sentences under the wrong name. The slice is now cut at the
       changes of speaker with the segmentation model, on the processor
-      (`SherpaSliceSegmenter`), the wrong ones fall to 8 % and the right
-      ones rise to 80 %, 11 % going with the others; `--replay` measures
-      the attribution without the transcriber. The figures are in
+      (`SherpaSliceSegmenter`), the wrong ones fall to 9 % and the right
+      ones rise to 82 %, 9 % going with the others; `--replay` measures
+      the attribution without the transcriber, exactly. The figures are in
       `corpus.md`.
 - [x] Lucie's speed, measured end to end on the bench with synthesised
       questions, then cut: the slice ends when the speaker stops rather than
