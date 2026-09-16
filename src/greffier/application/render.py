@@ -463,7 +463,14 @@ def review_voices(
     for voice, name in sorted(meeting.names.items(), key=lambda x: -temps.get(x[0], 0.0)):
         into = membership.get(voice, voice)
         if into in names and names[into].casefold() != name.casefold():
-            meeting.propositions.setdefault(into, name)
+            # Two names on what is now one voice: the one who spoke longer
+            # keeps it, and the other is said rather than silently dropped. A
+            # proposition would go nowhere, a named voice taking none.
+            meeting.warnings.append(
+                f"Les voix {into} ({names[into]}) et {voice} ({name}) ont été "
+                f"recollées en une seule : le nom {name} a été écarté. "
+                "« greffier voix --separer » les distingue à nouveau."
+            )
             continue
         names[into] = name
     meeting.names = names
