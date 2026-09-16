@@ -176,13 +176,23 @@ class TestTheGuardRails:
         assert not any("voix entendues" in a for a in outcome.warnings)
 
     def test_a_count_given_takes_the_suggestion_s_place(self):
+        """With the count given, the thin voice is grouped under « Les autres »
+        and three voices for three people contradict nothing."""
         turns = [turn(0, 600, "1"), turn(600, 1200, "2"), turn(1200, 1800, "3"),
                  turn(1800, 1812, "4")]
         processing = chain(diariser=FakeDiariser(turns))
         processing.people = 3
         outcome = processing.run_chain(AUDIO)
         assert not any("voix entendues" in a for a in outcome.warnings)
-        assert any("3 participants sont annoncés" in a for a in outcome.warnings)
+        assert not any("participants sont annoncés" in a for a in outcome.warnings)
+        assert outcome.name_of("4") == "Les autres"
+
+    def test_a_count_that_contradicts_the_voices_heard_is_said(self):
+        turns = [turn(0, 600, "1"), turn(600, 1200, "2"), turn(1200, 1800, "3")]
+        processing = chain(diariser=FakeDiariser(turns))
+        processing.people = 2
+        outcome = processing.run_chain(AUDIO)
+        assert any("2 participants sont annoncés" in a for a in outcome.warnings)
 
     def test_the_word_threshold_stays_low_but_not_zero(self):
         assert 0 < MINIMUM_WORDS <= 50

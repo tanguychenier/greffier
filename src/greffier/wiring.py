@@ -534,9 +534,9 @@ def assistant_of(config: Config, identifier: str) -> AssistantSettings | None:
         tracer=tracer,
         setting=lambda: context(config).header() + what_earlier_meetings_left(config),
     )
-    the_brain = spoken_brain(config, her.guidance())
+    brain = spoken_brain(config, her.guidance())
     her.keep_its_turn = _keep_her_turn(config, identifier)
-    her.the_brain = the_brain
+    her.brain = brain
     return her
 
 def spoken_brain(config: Config, own_guidance: str) -> Any | None:
@@ -550,10 +550,10 @@ def spoken_brain(config: Config, own_guidance: str) -> Any | None:
     """
     engine = config.minutes.engine
     if engine == "ollama":
-        the_brain: Any = OllamaWriter(config.minutes.effective_model,
+        brain: Any = OllamaWriter(config.minutes.effective_model,
                                     language=config.minutes.language,
                                     own_guidance=own_guidance)
-        return the_brain
+        return brain
     if engine != "claude":
         return None
     from greffier.adapters.brain_claude import ClaudeSession

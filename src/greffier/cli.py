@@ -934,11 +934,11 @@ def assist(
     if her is not None and the_follower is not None:
         her.name_voice = _namer(the_follower, config, state.identifier)
         her.context = _live_material(config, state.identifier, the_follower)
-    the_brain = her.the_brain if her is not None else None
-    if the_brain is not None and hasattr(the_brain, "warm_up"):
+    brain = her.brain if her is not None else None
+    if brain is not None and hasattr(brain, "warm_up"):
         # Now, not at the first question: the first answer of a cold process
         # was measured at five seconds, the next ones at two.
-        the_brain.warm_up()
+        brain.warm_up()
     _warm_up_aside(her.voice if her is not None else None, transcriber)
     watcher = Watcher(
         watch_rules=WatchRules(keyword=keyword),
@@ -985,8 +985,8 @@ def assist(
         except KeyboardInterrupt:
             typer.echo("")
         finally:
-            if the_brain is not None and hasattr(the_brain, "close"):
-                the_brain.close()
+            if brain is not None and hasattr(brain, "close"):
+                brain.close()
     total = len(watcher.watch_rules.propositions)
     turns = len(the_follower.thread.turns) if the_follower else 0
     typer.secho(

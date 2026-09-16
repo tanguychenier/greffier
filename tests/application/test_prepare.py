@@ -61,9 +61,9 @@ class TestAnsweringOutLoud:
         assert answered == "Elle a été décalée à jeudi."
 
     def test_an_empty_question_asks_nothing(self):
-        the_brain = TheBrain()
-        preparation, answered = Preparing(the_brain).answer(_one(), "   ")
-        assert answered == "" and the_brain.received == []
+        brain = TheBrain()
+        preparation, answered = Preparing(brain).answer(_one(), "   ")
+        assert answered == "" and brain.received == []
         assert preparation.exchanges == ()
 
 

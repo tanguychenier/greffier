@@ -81,9 +81,9 @@ def test_called_during_the_meeting_it_answers(called_by_its_name, meeting, tmp_p
     if transcriber is None:
         pytest.skip("aucun modèle de transcription installé")
 
-    voice, the_brain = FakeVoiceAdapter(), FakeBrain()
+    voice, brain = FakeVoiceAdapter(), FakeBrain()
     assistant = AssistantSettings(
-        name="Lucie", voice=voice, the_brain=the_brain,
+        name="Lucie", voice=voice, brain=brain,
         # A wide lull: the file stops on the sentence, so the end of the last
         # utterance falls near "now".
         manners=Manners(creux_minimal=0.0),
@@ -131,7 +131,7 @@ def test_the_transcription_does_not_wait_for_the_answer(meeting, tmp_path):
             return "…"
 
     assistant = AssistantSettings(
-        name="Lucie", voice=FakeVoiceAdapter(), the_brain=SlowBrain(),
+        name="Lucie", voice=FakeVoiceAdapter(), brain=SlowBrain(),
         manners=Manners(creux_minimal=0.0),
         context=lambda: "Réunion.",
     )
@@ -335,9 +335,9 @@ initiative = false
             pytest.skip("aucun modèle de transcription installé")
         import soundfile
 
-        voice, the_brain = FakeVoiceAdapter(), FakeBrain()
+        voice, brain = FakeVoiceAdapter(), FakeBrain()
         assistant = AssistantSettings(
-            name="Lucie", voice=voice, the_brain=the_brain,
+            name="Lucie", voice=voice, brain=brain,
             manners=Manners(creux_minimal=0.0),
             context=lambda: "Réunion d'équipe sur la recette.",
         )

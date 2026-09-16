@@ -3386,13 +3386,13 @@ class Window:
             what_earlier_meetings_left,
         )
 
-        the_brain = assistant(self.config)
-        if the_brain is None:
+        brain = assistant(self.config)
+        if brain is None:
             return None
         voice = assistant_voice(self.config)
         preparation = getattr(self, "_preparation", None)
         return Preparing(
-            brain=the_brain,
+            brain=brain,
             setting=(context(self.config).header()
                      + what_earlier_meetings_left(self.config)),
             known=(known_about(self.config, preparation.subject)

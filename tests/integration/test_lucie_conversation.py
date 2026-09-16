@@ -193,9 +193,9 @@ def _watcher(meeting: Reunion, the_assistant: AssistantSettings,
     )
 
 
-def _the_assistant(the_brain: CerveauDeTest, voice: HautParleur) -> AssistantSettings:
+def _the_assistant(brain: CerveauDeTest, voice: HautParleur) -> AssistantSettings:
     return AssistantSettings(
-        name=NAME, the_brain=the_brain, voice=voice,
+        name=NAME, brain=brain, voice=voice,
         manners=Manners(creux_minimal=0.0),
         context=lambda: "Réunion d'équipe sur la recette et la migration.",
     )
@@ -227,11 +227,11 @@ class TestAWholeConversation:
         meeting = Reunion(tmp_path)
         meeting.say(ROOM_VOICE,
                      f"{NAME}, est-ce que tu peux faire des recherches sur Internet ?")
-        the_brain = CerveauDeTest(answers=[
+        brain = CerveauDeTest(answers=[
             "Je peux chercher, d'après la documentation de l'éditeur."
         ])
         voice = HautParleur()
-        the_assistant = _the_assistant(the_brain, voice)
+        the_assistant = _the_assistant(brain, voice)
         watcher = _watcher(meeting, the_assistant, transcriber, tmp_path)
 
         _a_turn(watcher, the_assistant, tmp_path)
@@ -251,12 +251,12 @@ class TestAWholeConversation:
         """The other half: the guard must not make it deaf."""
         meeting = Reunion(tmp_path)
         meeting.say(ROOM_VOICE, f"{NAME}, où en est la recette ?")
-        the_brain = CerveauDeTest(answers=[
+        brain = CerveauDeTest(answers=[
             "La recette est décalée à jeudi.",
             "Il reste deux anomalies bloquantes.",
         ])
         voice = HautParleur()
-        the_assistant = _the_assistant(the_brain, voice)
+        the_assistant = _the_assistant(brain, voice)
         watcher = _watcher(meeting, the_assistant, transcriber, tmp_path)
 
         _a_turn(watcher, the_assistant, tmp_path)
@@ -277,14 +277,14 @@ class TestAWholeConversation:
         meeting = Reunion(tmp_path)
         meeting.say(ROOM_VOICE,
                      "On passe au point suivant, la recette est calée pour jeudi.")
-        the_brain = CerveauDeTest()
+        brain = CerveauDeTest()
         voice = HautParleur()
-        the_assistant = _the_assistant(the_brain, voice)
+        the_assistant = _the_assistant(brain, voice)
         watcher = _watcher(meeting, the_assistant, transcriber, tmp_path)
 
         _a_turn(watcher, the_assistant, tmp_path)
         assert voice.said_ones == [], voice.said_ones
-        assert the_brain.requests == [], "le modèle n'a même pas à être appelé"
+        assert brain.requests == [], "le modèle n'a même pas à être appelé"
 
     def test_it_does_not_cut_itself_off_while_still_speaking(
         self, transcriber, tmp_path
@@ -295,9 +295,9 @@ class TestAWholeConversation:
         """
         meeting = Reunion(tmp_path)
         meeting.say(ROOM_VOICE, f"{NAME}, tu nous entends ?")
-        the_brain = CerveauDeTest(answers=["Oui, je vous entends très bien."])
+        brain = CerveauDeTest(answers=["Oui, je vous entends très bien."])
         voice = HautParleur()
-        the_assistant = _the_assistant(the_brain, voice)
+        the_assistant = _the_assistant(brain, voice)
         watcher = _watcher(meeting, the_assistant, transcriber, tmp_path)
 
         _a_turn(watcher, the_assistant, tmp_path)
@@ -320,9 +320,9 @@ class TestAWholeConversation:
         for _ in range(3):
             meeting.say(ROOM_VOICE, f"{NAME}, tu peux nous rappeler la date ?",
                          earlier=0.15)
-        the_brain = CerveauDeTest(answers=["C'est jeudi."])
+        brain = CerveauDeTest(answers=["C'est jeudi."])
         voice = HautParleur()
-        the_assistant = _the_assistant(the_brain, voice)
+        the_assistant = _the_assistant(brain, voice)
         watcher = _watcher(meeting, the_assistant, transcriber, tmp_path)
 
         _a_turn(watcher, the_assistant, tmp_path)

@@ -110,7 +110,7 @@ def _her(config: Config):
     from greffier.wiring import assistant_of
 
     her = assistant_of(config, MEETING)
-    assert her is not None and her.the_brain is not None
+    assert her is not None and her.brain is not None
     her.voice = Voice()
     her.context = _live_material(config, MEETING, Follower())
     her.manners.creux_minimal = 0.0
@@ -141,7 +141,7 @@ class TestADocumentHandedOverIsUsed:
         try:
             answer = _asked(her, "quel est le budget du lot 2 ?")
         finally:
-            her.the_brain.close()
+            her.brain.close()
         lowered = answer.lower()
         assert "42" in lowered or "quarante-deux" in lowered, answer
         assert "budget" in lowered or "document" in lowered, answer
@@ -158,7 +158,7 @@ class TestTheCompanySources:
         try:
             answer = _asked(her, "quels tickets sont ouverts sur GitLab ?")
         finally:
-            her.the_brain.close()
+            her.brain.close()
         lowered = answer.lower()
         assert "jeton" in lowered or "accès" in lowered, answer
         assert "facturation" not in lowered, "no ticket invented"
@@ -173,7 +173,7 @@ class TestTheCompanySources:
         try:
             answer = _asked(her, "quels tickets sont ouverts sur GitLab ?")
         finally:
-            her.the_brain.close()
+            her.brain.close()
         lowered = answer.lower()
         assert "facturation" in lowered or "export" in lowered, answer
         assert "gitlab" in lowered, answer
@@ -186,13 +186,13 @@ class TestTheWeb:
         config = _config(home, monkeypatch, web=True)
         her = _her(config)
         searched: list[int] = []
-        her.the_brain.on_search = lambda: searched.append(1)
+        her.brain.on_search = lambda: searched.append(1)
         try:
             answer = _asked(
                 her, "quelle est la dernière version stable de Python à ce jour ?"
             )
         finally:
-            her.the_brain.close()
+            her.brain.close()
         assert searched, f"no search was made: {answer!r}"
         lowered = answer.lower()
         marks = ("d'après", "selon", "site", "documentation")

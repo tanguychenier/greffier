@@ -43,7 +43,7 @@ def _assistant(material: str):
     # No voice: what is covered is what it decides to say, not the speech.
     config.assistant.voice = "aucun"
     her = assistant_of(config, "essai-proactif")
-    if her is None or her.the_brain is None:
+    if her is None or her.brain is None:
         pytest.skip("aucun rédacteur configuré")
     her.context = lambda: material
     return her

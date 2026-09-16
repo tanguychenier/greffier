@@ -46,7 +46,7 @@ MINIMUM_WORDS = 20
 #: second floor is more likely a remnant of somebody else than an attendee.
 #: Measured on the meeting of 2026-09-10: six people, and three such voices
 #: (37 s, 25 s and 16 s out of 3 878) that were pieces of the others.
-THIN_VOICE_SHARE = 0.05
+THIN_VOICE_SHARE = 0.05  # the same figure as the domain's THIN_SHARE, said in a warning
 
 SILENT_LOOP_MARK = "· boucle système muette, à préciser"
 
@@ -146,9 +146,18 @@ class Outcome:
         """Voices that spoke enough to be an attendee.
 
         Segmentation always leaves a trail of one-second fragments. Counting them as
-        attendees would announce 22 people in a meeting of five.
+        attendees would announce 22 people in a meeting of five. The thin
+        ones, unnamed and under a twentieth of the time once three voices
+        carry the meeting, are grouped under « Les autres » and not counted.
         """
-        return {v: d for v, d in self.speaking_time().items() if d >= minimum}
+        from greffier.domain.meeting import thin_voices
+
+        speaking = self.speaking_time()
+        thin = thin_voices(self.names, speaking)
+        return {
+            v: d for v, d in speaking.items()
+            if d >= minimum and (v not in thin or v in self.names)
+        }
 
 @dataclass
 class Chain:
@@ -280,16 +289,23 @@ class Chain:
         )
 
     def _suggest_the_count(self, outcome: Outcome) -> None:
+        """The thin voices are grouped under « Les autres »; the count regroups them better."""
+        from greffier.domain.meeting import IDENTIFIABLE_SECONDS, thin_voices
+
+        speaking = outcome.speaking_time()
         significant = outcome.significant_voices()
-        total = sum(significant.values())
-        thin = [v for v, seconds in significant.items() if seconds < THIN_VOICE_SHARE * total]
+        thin = [
+            v for v in thin_voices(outcome.names, speaking)
+            if speaking[v] >= IDENTIFIABLE_SECONDS
+        ]
         if len(significant) < 3 or not thin:
             return
         outcome.warnings.append(
-            f"{len(significant)} voix entendues, dont {len(thin)} qui parlent moins de "
-            f"{THIN_VOICE_SHARE:.0%} du temps : peut-être des restes d'une autre voix. "
-            "Si tu connais le nombre de participants, renseigne « participants » puis "
-            "relance « Traiter » : les voix seront regroupées à ce nombre."
+            f"{len(significant) + len(thin)} voix entendues, dont {len(thin)} qui parlent "
+            f"moins de {THIN_VOICE_SHARE:.0%} du temps, regroupées sous « Les autres » : "
+            "peut-être des restes d'une autre voix. Si tu connais le nombre de "
+            "participants, renseigne « participants » puis relance « Traiter » : les "
+            "voix seront regroupées à ce nombre."
         )
 
     def _identify_voices(self, audio: Path, turns: list[SpeakerTurn]) -> list[SpeakerTurn]:

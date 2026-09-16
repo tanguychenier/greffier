@@ -21,20 +21,56 @@ def held_on(identifier: str) -> tuple[int, int, int, int, int] | None:
 
 IDENTIFIABLE_SECONDS = 6.0
 
+#: An unnamed voice carrying less than this share of the speaking time, in a
+#: meeting that already has this many voices above the floor, is a piece of
+#: somebody else rather than somebody. Measured on the meeting of 2026-09-10,
+#: six people: the chain announced twelve voices, six of them holding 4 to
+#: 37 seconds of the 3 878, and 2.3 % of the time between them.
+THIN_SHARE = 0.05
+VOICES_BEFORE_THINNING = 3
+
+THE_OTHERS = "Les autres"
+
+def thin_voices(
+    names: dict[str, str],
+    speaking: dict[str, float],
+    floor: float = IDENTIFIABLE_SECONDS,
+    share: float = THIN_SHARE,
+    minimum_voices: int = VOICES_BEFORE_THINNING,
+) -> set[str]:
+    """The unnamed voices to group under « Les autres »: too short, or too thin.
+
+    Too short is the floor below which a voiceprint means nothing; too thin
+    is a share of the meeting that no attendee holds once three or more
+    voices carry it. A named voice is never thin: the human correction is
+    the one thing nothing argues with.
+    """
+    total = sum(speaking.values())
+    above_the_floor = [v for v, seconds in speaking.items() if seconds >= floor]
+    thin = {v for v, seconds in speaking.items() if v not in names and seconds < floor}
+    if len(above_the_floor) >= minimum_voices and total > 0:
+        thin |= {
+            v for v, seconds in speaking.items()
+            if v not in names and seconds < share * total
+        }
+    return thin
+
 def named_or_unknown(
     voice: str | None,
     names: dict[str, str],
     speaking: dict[str, float],
     floor: float = IDENTIFIABLE_SECONDS,
 ) -> str:
-    """What a voice is called, and « Indéterminé » when it cannot be anybody.
+    """What a voice is called, and « Les autres » when it cannot be anybody.
 
     Measured on four AMI meetings against their manual annotations, through the
     microphone in the middle of the table: above six seconds of speech the chain
     finds exactly one voice per person, four for four, none split and none
     confused. Below it, the scraps -- a « oui », a « hmm », a crossing of two
     people -- were each given a number of their own, and a meeting of four came
-    out announcing eleven and twenty people.
+    out announcing eleven and twenty people. The thin voices join them: on
+    a real meeting of six, six more voices of a few seconds each were
+    announced as people.
 
     A voice somebody has named keeps its name whatever it holds: the human
     correction is the one thing nothing argues with.
@@ -43,8 +79,8 @@ def named_or_unknown(
         return "Indéterminé"
     if voice in names:
         return names[voice]
-    if speaking.get(voice, 0.0) < floor:
-        return "Indéterminé"
+    if voice in thin_voices(names, speaking, floor):
+        return THE_OTHERS
     return f"Personne {voice}"
 
 @dataclass(frozen=True, slots=True)
@@ -87,11 +123,16 @@ class StoredMeeting:
     """One sound take for the whole room: no channel says who is speaking."""
 
     def attendees(self, minimum: float = 10.0) -> list[str]:
-        """The voices that carried the meeting, most talkative first."""
+        """The voices that carried the meeting, most talkative first.
+
+        Named, or above the minimum and not thin: the ones grouped under
+        « Les autres » are not announced as people.
+        """
         temps = self.speaking_time()
+        thin = thin_voices(self.names, temps)
         return [
             voice for voice, duration in temps.items()
-            if duration >= minimum or voice in self.names
+            if voice in self.names or (duration >= minimum and voice not in thin)
         ]
 
     def voice_named(self, name: str) -> list[str]:

@@ -99,33 +99,33 @@ class TestTheAssistantOfAMeetingKeepsThem:
 
     def test_the_meeting_assistant_can_search(self):
         her = self._her(recherche_web=True)
-        assert her is not None and isinstance(her.the_brain, ClaudeSession)
-        assert her.the_brain.tools == ClaudeSession.SEARCH_TOOLS
+        assert her is not None and isinstance(her.brain, ClaudeSession)
+        assert her.brain.tools == ClaudeSession.SEARCH_TOOLS
 
     def test_the_setting_still_switches_it_off(self):
         her = self._her(recherche_web=False)
-        assert her is not None and isinstance(her.the_brain, ClaudeSession)
-        assert her.the_brain.tools == ()
+        assert her is not None and isinstance(her.brain, ClaudeSession)
+        assert her.brain.tools == ()
 
     def test_its_own_guidance_survives_the_change(self):
         her = self._her(recherche_web=True)
-        assert her is not None and isinstance(her.the_brain, ClaudeSession)
-        assert "Lucie" in her.the_brain.own_guidance or her.name in (
-            her.the_brain.own_guidance
+        assert her is not None and isinstance(her.brain, ClaudeSession)
+        assert "Lucie" in her.brain.own_guidance or her.name in (
+            her.brain.own_guidance
         )
 
     def test_what_it_may_do_matches_what_it_is_told(self):
         """The guidance says it can search; the tools must say the same."""
         her = self._her(recherche_web=True)
-        assert her is not None and isinstance(her.the_brain, ClaudeSession)
+        assert her is not None and isinstance(her.brain, ClaudeSession)
         assert "chercher en ligne" in her.guidance()
-        assert her.the_brain.tools, "dire qu'elle peut chercher sans pouvoir le faire"
+        assert her.brain.tools, "dire qu'elle peut chercher sans pouvoir le faire"
 
     def test_the_search_cue_comes_with_the_tools(self):
         her = self._her(recherche_web=True)
-        assert her is not None and isinstance(her.the_brain, ClaudeSession)
-        assert her.the_brain.on_search is not None
-        assert self._her(recherche_web=False).the_brain.on_search is None
+        assert her is not None and isinstance(her.brain, ClaudeSession)
+        assert her.brain.on_search is not None
+        assert self._her(recherche_web=False).brain.on_search is None
 
 
 class TestTheMeetingAssistantThinksWithAKeptSession:
@@ -141,21 +141,21 @@ class TestTheMeetingAssistantThinksWithAKeptSession:
 
     def test_it_is_a_kept_session_and_not_the_writer(self):
         her = self._her()
-        assert her is not None and isinstance(her.the_brain, ClaudeSession)
-        assert her.the_brain._process is None, "built, not started"
+        assert her is not None and isinstance(her.brain, ClaudeSession)
+        assert her.brain._process is None, "built, not started"
 
     def test_it_answers_with_the_spoken_model_not_the_writer_s(self):
         her = self._her()
-        assert her is not None and isinstance(her.the_brain, ClaudeSession)
-        assert her.the_brain.model == "sonnet"
-        assert her.the_brain.model != Minutes.CLAUDE_DEFAULT
+        assert her is not None and isinstance(her.brain, ClaudeSession)
+        assert her.brain.model == "sonnet"
+        assert her.brain.model != Minutes.CLAUDE_DEFAULT
 
     def test_the_spoken_model_can_be_chosen(self):
         her = self._her(assistant={"modele": "opus"})
-        assert her is not None and isinstance(her.the_brain, ClaudeSession)
-        assert her.the_brain.model == "opus"
+        assert her is not None and isinstance(her.brain, ClaudeSession)
+        assert her.brain.model == "opus"
 
     def test_with_ollama_the_writer_serves_with_the_spoken_guidance(self):
         her = self._her(minutes_text={"moteur": "ollama"})
-        assert her is not None and isinstance(her.the_brain, OllamaWriter)
-        assert "prononcé tel" in her.the_brain.own_guidance
+        assert her is not None and isinstance(her.brain, OllamaWriter)
+        assert "prononcé tel" in her.brain.own_guidance

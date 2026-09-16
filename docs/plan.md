@@ -100,9 +100,14 @@ nine.
 
 - [ ] Say it doubts at the moment it doubts.
 - [ ] A first launch that takes you by the hand when nothing is configured.
-- [ ] Group the stray voices under "Les autres".
-- [ ] The GitLab, Jira and Trello sources for a spoken question (waits for
-      a real configuration).
+- [x] Group the stray voices under "Les autres". Done on 16/09: an unnamed
+      voice under a twentieth of the speaking time, once three voices carry
+      the meeting, is « Les autres » in the transcript and not counted as
+      an attendee; the warning that suggests giving the count says so.
+- [x] The GitLab, Jira and Trello sources for a spoken question (waits for
+      a real configuration). Done on 16/09 for GitLab and Jira, read for
+      her the way the documents are, the token pasted in the window; Trello
+      is not a registered kind.
 - [ ] An AppImage for Linux.
 - [ ] The 22 skips of the integration suite: the table meeting with three
       timbres, and "Lucie" heard as "UCI".

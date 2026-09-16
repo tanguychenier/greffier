@@ -59,8 +59,8 @@ class TestBeingCalledByName:
 
     def test_it_answers_with_its_voice_and_leaves_a_trace(self):
         traces = []
-        voice, the_brain = FakeVoiceAdapter(), FakeBrain()
-        assistant = AssistantSettings(name="Lucie", voice=voice, the_brain=the_brain,
+        voice, brain = FakeVoiceAdapter(), FakeBrain()
+        assistant = AssistantSettings(name="Lucie", voice=voice, brain=brain,
                                 tracer=lambda who, what: traces.append((who, what)))
         opening = Opening(because=Because.CALLED, remark="tu nous entends ?", born_at=10.0)
         rendered = assistant.answer(opening, now=13.0)
@@ -71,7 +71,7 @@ class TestBeingCalledByName:
     def test_with_no_voice_it_still_takes_part_in_writing(self):
         """Not everybody wants a voice in the room."""
         traces = []
-        assistant = AssistantSettings(name="Lucie", the_brain=FakeBrain(),
+        assistant = AssistantSettings(name="Lucie", brain=FakeBrain(),
                                 tracer=lambda who, what: traces.append(what))
         rendered = assistant.answer(
             Opening(because=Because.CALLED, remark="?", born_at=1.0), now=2.0)
@@ -163,7 +163,7 @@ class TestTheCycleThatEarnsItsPlace:
         assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter())
         question = assistant.ask_who_is_speaking("7", now=50.0)
         rendered = assistant.answer(question, now=50.0)
-        assert "prénom" in rendered.remark and assistant.the_brain is None
+        assert "prénom" in rendered.remark and assistant.brain is None
 
 
 class TestManners:
@@ -201,7 +201,7 @@ class TestWhenThingsFail:
                 raise RuntimeError("modèle absent")
 
         voice = FakeVoiceAdapter()
-        assistant = AssistantSettings(name="Lucie", voice=voice, the_brain=Broken())
+        assistant = AssistantSettings(name="Lucie", voice=voice, brain=Broken())
         rendered = assistant.answer(
             Opening(because=Because.CALLED, remark="?", born_at=1.0), now=2.0)
         assert rendered == Remark(remark="", because=Because.CALLED, a=2.0)
@@ -211,7 +211,7 @@ class TestWhenThingsFail:
         """What it had to say is not lost because the sound failed."""
         traces = []
         assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(works=False),
-                                the_brain=FakeBrain(),
+                                brain=FakeBrain(),
                                 tracer=lambda who, what: traces.append(what))
         rendered = assistant.answer(
             Opening(because=Because.CALLED, remark="?", born_at=1.0), now=2.0)
@@ -227,9 +227,9 @@ class TestARemarkAlreadyWrittenGoesThroughNobody:
     """
 
     def test_the_thanks_are_pronounced_word_for_word(self):
-        voice, the_brain = FakeVoiceAdapter(), FakeBrain("Parfait, je vous laisse.")
+        voice, brain = FakeVoiceAdapter(), FakeBrain("Parfait, je vous laisse.")
         assistant = AssistantSettings(
-            name="Lucie", voice=voice, the_brain=the_brain,
+            name="Lucie", voice=voice, brain=brain,
             name_voice=lambda _v, _p: True,
         )
         assistant.awaiting = assistant.ask_who_is_speaking("12", now=100.0)
@@ -237,24 +237,24 @@ class TestARemarkAlreadyWrittenGoesThroughNobody:
         assert suite is not None
         rendered = assistant.answer(suite, now=108.0)
         assert rendered.remark == "Merci, c'est noté : je mets Hubert sur cette voix."
-        assert the_brain.requests == [], "le modèle a été appelé pour rien"
+        assert brain.requests == [], "le modèle a été appelé pour rien"
 
     def test_the_question_about_a_voice_does_not_go_through_either(self):
         """It has to be immediate: nothing remote phrases it."""
-        the_brain = FakeBrain("autre chose")
-        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), the_brain=the_brain)
+        brain = FakeBrain("autre chose")
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), brain=brain)
         question = assistant.ask_who_is_speaking("7", now=50.0)
         rendered = assistant.answer(question, now=50.0)
-        assert "prénom" in rendered.remark and the_brain.requests == []
+        assert "prénom" in rendered.remark and brain.requests == []
 
     def test_a_real_question_always_goes_through_the_model(self):
-        the_brain = FakeBrain("Oui, je vous entends.")
-        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), the_brain=the_brain,
+        brain = FakeBrain("Oui, je vous entends.")
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), brain=brain,
                                 context=lambda: "réunion")
         rendered = assistant.answer(
             Opening(because=Because.CALLED, remark="tu nous entends ?", born_at=1.0),
             now=2.0)
-        assert rendered.remark == "Oui, je vous entends." and len(the_brain.requests) == 1
+        assert rendered.remark == "Oui, je vous entends." and len(brain.requests) == 1
 
 
 class TestTheExchangeGoesOn:
@@ -263,8 +263,8 @@ class TestTheExchangeGoesOn:
     """
 
     def test_it_reacts_to_the_answer_it_is_given(self):
-        the_brain = FakeBrain("Très bien, donc c'est Hubert qui s'en occupe.")
-        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), the_brain=the_brain)
+        brain = FakeBrain("Très bien, donc c'est Hubert qui s'en occupe.")
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), brain=brain)
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte la migration ?", born_at=100.0)
         suite = assistant.turn([said("c'est Hubert qui prend", 104.0, 106.0)],
@@ -275,17 +275,17 @@ class TestTheExchangeGoesOn:
 
     def test_the_question_asked_is_given_to_the_model(self):
         """Without it, it would react to an answer whose question it does not know."""
-        the_brain = FakeBrain("…")
-        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), the_brain=the_brain)
+        brain = FakeBrain("…")
+        assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(), brain=brain)
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte la migration ?", born_at=100.0)
         assistant.turn([said("Hubert", 104.0, 106.0)], now=109.0)
-        assert any("Qui porte la migration ?" in c for c in the_brain.guidance_seen)
+        assert any("Qui porte la migration ?" in c for c in brain.guidance_seen)
 
     def test_a_nothing_makes_it_go_quiet(self):
         """Two more remarks would make it one participant too many."""
         assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(),
-                                the_brain=FakeBrain("RIEN"))
+                                brain=FakeBrain("RIEN"))
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte la migration ?", born_at=100.0)
         assert assistant.turn([said("bon, on passe", 104.0, 106.0)],
@@ -300,7 +300,7 @@ class TestTheExchangeGoesOn:
     def test_it_does_not_wait_for_ever(self):
         """Any sentence closes the wait: nothing watches for ever."""
         assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(),
-                                the_brain=FakeBrain("RIEN"))
+                                brain=FakeBrain("RIEN"))
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte ça ?", born_at=100.0)
         assistant.turn([said("autre chose", 104.0, 106.0)], now=109.0)
@@ -317,7 +317,7 @@ class TestItGoesOnWhileItHasQuestions:
     def test_a_follow_up_question_keeps_the_exchange_open(self):
         assistant = AssistantSettings(
             name="Lucie", voice=FakeVoiceAdapter(),
-            the_brain=FakeBrain("Et qui valide, une fois que c'est fait ?"))
+            brain=FakeBrain("Et qui valide, une fois que c'est fait ?"))
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte la migration ?", born_at=100.0)
         suite = assistant.turn([said("Hubert s'en charge", 104.0, 106.0)],
@@ -328,7 +328,7 @@ class TestItGoesOnWhileItHasQuestions:
     def test_a_conclusion_closes_the_exchange(self):
         assistant = AssistantSettings(
             name="Lucie", voice=FakeVoiceAdapter(),
-            the_brain=FakeBrain("Très bien, c'est noté."))
+            brain=FakeBrain("Très bien, c'est noté."))
         assistant.awaiting = Opening(
             because=Because.CONTRIBUTION, remark="Qui porte la migration ?", born_at=100.0)
         assistant.turn([said("Hubert s'en charge", 104.0, 106.0)], now=109.0)
@@ -342,7 +342,7 @@ class TestItGoesOnWhileItHasQuestions:
         """
         assistant = AssistantSettings(
             name="Lucie", voice=FakeVoiceAdapter(),
-            the_brain=FakeBrain("Et pour quand ?"))
+            brain=FakeBrain("Et pour quand ?"))
         assistant.manners.has_spoken(
             Opening(because=Because.CONTRIBUTION, remark="Qui porte ça ?", born_at=100.0),
             now=100.0)
@@ -363,9 +363,9 @@ class TestTheLoopCannotHappen:
 
     QUESTION = "Lucie, est-ce que tu peux faire des recherches sur Internet ?"
 
-    def _her(self, the_brain=None, voice=None):
+    def _her(self, brain=None, voice=None):
         return AssistantSettings(
-            name="Lucie", the_brain=the_brain, voice=voice,
+            name="Lucie", brain=brain, voice=voice,
             manners=Manners(creux_minimal=0.0),
         )
 
@@ -383,7 +383,7 @@ class TestTheLoopCannotHappen:
                 return "Lucie ne peut pas chercher sur Internet."
 
         voice = FakeVoiceAdapter()
-        she = self._her(the_brain=CerveauQuiRepete(), voice=voice)
+        she = self._her(brain=CerveauQuiRepete(), voice=voice)
         rendered = she.answer(
             Opening(because=Because.CALLED, remark=self.QUESTION, born_at=1.0), 2.0
         )
@@ -396,7 +396,7 @@ class TestTheLoopCannotHappen:
             def write_up(self, _request):
                 return "Je n'ai pas accès à Internet depuis cette réunion."
 
-        she = self._her(the_brain=TheBrain(), voice=FakeVoiceAdapter())
+        she = self._her(brain=TheBrain(), voice=FakeVoiceAdapter())
         she.answer(
             Opening(because=Because.CALLED, remark=self.QUESTION, born_at=1.0), 2.0
         )
@@ -408,7 +408,7 @@ class TestTheLoopCannotHappen:
             def write_up(self, _request):
                 return "Je n'ai pas accès à Internet depuis cette réunion."
 
-        she = self._her(the_brain=TheBrain(), voice=FakeVoiceAdapter())
+        she = self._her(brain=TheBrain(), voice=FakeVoiceAdapter())
         she.answer(
             Opening(because=Because.CALLED, remark=self.QUESTION, born_at=1.0), 2.0
         )
@@ -421,7 +421,7 @@ class TestTheLoopCannotHappen:
             def write_up(self, _request):
                 return "Je n'ai pas accès à Internet."
 
-        she = self._her(the_brain=TheBrain(), voice=FakeVoiceAdapter())
+        she = self._her(brain=TheBrain(), voice=FakeVoiceAdapter())
         she.answer(
             Opening(because=Because.CALLED, remark=self.QUESTION, born_at=1.0), 2.0
         )
@@ -435,7 +435,7 @@ class TestTheLoopCannotHappen:
             def write_up(self, _request):
                 return "La migration en Symfony sept reste à confier à quelqu'un."
 
-        she = self._her(the_brain=TheBrain(), voice=FakeVoiceAdapter())
+        she = self._her(brain=TheBrain(), voice=FakeVoiceAdapter())
         she.answer(
             Opening(because=Because.CALLED, remark="Lucie, où en est la migration ?",
                     born_at=1.0),
@@ -480,9 +480,9 @@ class TestItMaySearch:
         from greffier.adapters.writer_claude import ClaudeWriter
         from greffier.wiring import assistant
 
-        the_brain = assistant(Config(conversation={"recherche_web": True}))
-        assert isinstance(the_brain, ClaudeWriter)
-        assert the_brain.tools == ClaudeWriter.SEARCH_TOOLS
+        brain = assistant(Config(conversation={"recherche_web": True}))
+        assert isinstance(brain, ClaudeWriter)
+        assert brain.tools == ClaudeWriter.SEARCH_TOOLS
 
     def test_the_setting_really_takes_them_away(self):
         """Whoever wants nothing to leave the machine must be able to have that."""
@@ -490,9 +490,9 @@ class TestItMaySearch:
         from greffier.adapters.writer_claude import ClaudeWriter
         from greffier.wiring import assistant
 
-        the_brain = assistant(Config(conversation={"recherche_web": False}))
-        assert isinstance(the_brain, ClaudeWriter)
-        assert the_brain.tools == ()
+        brain = assistant(Config(conversation={"recherche_web": False}))
+        assert isinstance(brain, ClaudeWriter)
+        assert brain.tools == ()
 
 
 class TestStoppedForGood:
@@ -503,9 +503,9 @@ class TestStoppedForGood:
     into a room where the meeting is over.
     """
 
-    def _her(self, the_brain=None):
+    def _her(self, brain=None):
         return AssistantSettings(
-            name="Lucie", voice=FakeVoiceAdapter(), the_brain=the_brain or FakeBrain(),
+            name="Lucie", voice=FakeVoiceAdapter(), brain=brain or FakeBrain(),
             manners=Manners(active=True),
         )
 
@@ -534,7 +534,7 @@ class TestStoppedForGood:
                 she.stop()
                 return super().write_up(text)
 
-        she.the_brain = BrainThatEnds()
+        she.brain = BrainThatEnds()
         assert she.answer(self._a_call(), now=12.0).remark == ""
         assert she.voice.remark == []
 
@@ -572,7 +572,7 @@ class TestSheKnowsTheSetting:
 
     def _her(self, milieu=None):
         return AssistantSettings(
-            name="Lucie", the_brain=FakeBrain(), manners=Manners(active=True),
+            name="Lucie", brain=FakeBrain(), manners=Manners(active=True),
             setting=milieu,
         )
 
@@ -628,7 +628,7 @@ class TestNothingToAnswerIsSilence:
                 return answer
 
         return AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(),
-                                 the_brain=Brain(), manners=Manners(active=True))
+                                 brain=Brain(), manners=Manners(active=True))
 
     def _call(self):
         return Opening(because=Because.CALLED, remark="Lucie, une idée ?", born_at=1.0)
@@ -673,7 +673,7 @@ class TestSpeakingOfHerOwnAccord:
     def _her(self, response, spoke_at=None, rest=180.0):
         brain = FakeBrain(response)
         her = AssistantSettings(
-            name="Lucie", the_brain=brain, voice=FakeVoiceAdapter(),
+            name="Lucie", brain=brain, voice=FakeVoiceAdapter(),
             manners=Manners(active=True, creux_minimal=0.0, rest=rest, spoke_at=spoke_at),
             context=lambda: "Jacques : on n'a pas fixé qui relance le partenaire.",
         )
@@ -710,7 +710,7 @@ class TestSpeakingOfHerOwnAccord:
                 raise RuntimeError("quota")
 
         her, _ = self._her("x")
-        her.the_brain = Broken()
+        her.brain = Broken()
         assert her.contribution(now=100.0) is None
 
     def test_looked_for_aside_the_result_serves_the_next_slice(self):

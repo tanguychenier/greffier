@@ -148,7 +148,7 @@ class AssistantSettings:
     name: str = "Greffier"
     manners: Manners = field(default_factory=Manners)
     voice: Speaker | None = None
-    the_brain: Any | None = None
+    brain: Any | None = None
     context: Callable[[], str] | None = None
     setting: Callable[[], str] | None = None
     tracer: Callable[[str, str], None] | None = None
@@ -306,7 +306,7 @@ class AssistantSettings:
         self, expected: Opening, text: str, a: float
     ) -> Opening | None:
         """Reacts to the answer just given, or keeps quiet."""
-        if self.the_brain is None:
+        if self.brain is None:
             return None
         guidance = FOLLOW_UP_GUIDANCE.format(
             name=self.name, nothing=NOTHING, question=expected.remark, example="Hubert")
@@ -374,7 +374,7 @@ class AssistantSettings:
         """
         if opening.as_is or opening.because is not Because.CALLED:
             return opening.remark
-        if self.the_brain is None:
+        if self.brain is None:
             return ""
         material = ""
         if self.context is not None:
@@ -385,7 +385,7 @@ class AssistantSettings:
             f"On vient de te dire : « {opening.remark} »\n\nRéponds."
         )
         try:
-            remark = str(self.the_brain.write_up(request)).strip()
+            remark = str(self.brain.write_up(request)).strip()
         except (RuntimeError, OSError):
             return ""
         # Nothing to answer is an answer, and it is silence. Read back from a
@@ -397,7 +397,7 @@ class AssistantSettings:
 
     def contribution(self, now: float) -> Opening | None:
         """What the assistant would have to add of its own, or nothing."""
-        if self.the_brain is None or self.context is None:
+        if self.brain is None or self.context is None:
             return None
         if self.manners.spoke_at is not None and (
                 now - self.manners.spoke_at < self.manners.rest):
@@ -424,18 +424,18 @@ class AssistantSettings:
 
     def _interrogate(self, guidance: str, material: str) -> str:
         """A call to the brain, with guidance that is not the writer's."""
-        the_brain = self.the_brain
-        if the_brain is None:
+        brain = self.brain
+        if brain is None:
             return ""
-        earlier = getattr(the_brain, "own_guidance", None)
+        earlier = getattr(brain, "own_guidance", None)
         try:
             if earlier is not None:
-                the_brain.own_guidance = guidance
-                return str(the_brain.write_up(material)).strip()
-            return str(the_brain.write_up(guidance + material)).strip()
+                brain.own_guidance = guidance
+                return str(brain.write_up(material)).strip()
+            return str(brain.write_up(guidance + material)).strip()
         finally:
             if earlier is not None:
-                the_brain.own_guidance = earlier
+                brain.own_guidance = earlier
 
     def ask_who_is_speaking(self, voice: str, now: float) -> Opening:
         """The question that settles the tool's most expensive problem.
