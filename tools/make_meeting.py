@@ -132,9 +132,21 @@ PAUSE = None
 
 
 #: The speaker ids of the French VITS voice, for machines without « say ».
-#: Two timbres and not three: the network carries two (`num_speakers = 2`),
-#: which is what the two-voice dialogue needs and what the round table does not.
+#: The network carries two timbres (`num_speakers = 2`), which is what the
+#: two-voice dialogue needs and what the round table does not.
 SID_VITS = {"Thomas": 0, "Amélie": 1}
+
+#: The third timbre the round table needs, made from the first by lowering
+#: its pitch, the tempo kept. Measured with TitaNet on 2026-09-16 on the
+#: same sentence: at 0.82 the shifted voice sits at 0.30 to 0.38 of
+#: similarity with the voice it comes from and under 0.10 with the other,
+#: below every threshold the chain joins voices at (0.45 and 0.75). For the
+#: chain it is somebody else, which is all a test set asks of it.
+SHIFTED_VITS = {"Rocko": ("Thomas", 0.82)}
+
+def vits_timbres() -> int:
+    """How many distinct voices the installed network can lend a meeting."""
+    return len(SID_VITS) + len(SHIFTED_VITS)
 
 _LOADED: dict[int, object] = {}
 
@@ -177,7 +189,8 @@ def _speak(engine: str, voice: str, text: str, folder: Path, index: int) -> Path
         return raw
     from greffier.adapters.voice_neural import NeuralVoice
 
-    sid = SID_VITS[voice]
+    base, factor = SHIFTED_VITS.get(voice, (voice, 1.0))
+    sid = SID_VITS[base]
     if sid not in _LOADED:
         # One instance per timbre, kept: the network is loaded on first use and
         # reloading it for every line would cost more than the meeting itself.
@@ -185,7 +198,16 @@ def _speak(engine: str, voice: str, text: str, folder: Path, index: int) -> Path
     raw = folder / f"{index:02d}-brut.wav"
     if _LOADED[sid].build_one(text, raw) is None:
         raise RuntimeError(f"la synthèse n'a rien produit pour « {text[:40]}… »")
-    return raw
+    if factor == 1.0:
+        return raw
+    shifted = folder / f"{index:02d}-brut-{voice}.wav"
+    subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(raw),
+         "-af", f"asetrate=16000*{factor},aresample=16000,atempo={1 / factor:.4f}",
+         "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", str(shifted)],
+        check=True,
+    )
+    return shifted
 
 
 def speak(text: str, voice: str, destination: Path) -> Path | None:
@@ -198,7 +220,7 @@ def speak(text: str, voice: str, destination: Path) -> Path | None:
     engine = synthesis_engine()
     if engine is None:
         return None
-    if engine != "say" and voice not in SID_VITS:
+    if engine != "say" and voice not in SID_VITS and voice not in SHIFTED_VITS:
         return None
     with tempfile.TemporaryDirectory() as folder:
         raw = _speak(engine, voice, text, Path(folder), 0)
@@ -224,10 +246,13 @@ def make(destination: Path, voice: dict | None = None, dialogue=None) -> Path:
     voice = voice or VOICE
     lines = dialogue if dialogue is not None else two_voice_dialogue()
     if engine == "vits":
-        unknown_ones = sorted({name for name in voice.values() if name not in SID_VITS})
+        unknown_ones = sorted({
+            name for name in voice.values()
+            if name not in SID_VITS and name not in SHIFTED_VITS
+        })
         if unknown_ones:
             raise RuntimeError(
-                f"la voix installée porte {len(SID_VITS)} timbres ; "
+                f"la voix installée porte {vits_timbres()} timbres ; "
                 f"{', '.join(unknown_ones)} demande « say »"
             )
     with tempfile.TemporaryDirectory() as folder:

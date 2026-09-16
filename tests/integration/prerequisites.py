@@ -23,15 +23,15 @@ if str(RACINE / "tools") not in sys.path:
 
 def voices_are_out_of_reach(timbres: int = 2) -> str | None:
     """The reason to skip, or None when this machine can synthesise a meeting."""
-    from make_meeting import SID_VITS, synthesis_engine
+    from make_meeting import synthesis_engine, vits_timbres
 
     engine = synthesis_engine()
     if engine is None:
         return ("aucune synthèse vocale : « say » sur macOS, sinon la voix de "
                 "l'assistant (« python3 tools/install.py »), et ffmpeg dans les deux cas")
-    if engine == "vits" and timbres > len(SID_VITS):
+    if engine == "vits" and timbres > vits_timbres():
         return (f"{timbres} timbres demandés, la voix installée en porte "
-                f"{len(SID_VITS)} : cette réunion-là demande « say »")
+                f"{vits_timbres()} : cette réunion-là demande « say »")
     return None
 
 

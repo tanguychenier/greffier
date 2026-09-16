@@ -120,8 +120,14 @@ nine.
       appimagetool), a job in `release.yml` that runs it on `--version`;
       built here and opened on a virtual screen, 382 MB, the window with its
       French sentences on a fresh home.
-- [ ] The 22 skips of the integration suite: the table meeting with three
-      timbres, and "Lucie" heard as "UCI".
+- [x] The 22 skips of the integration suite: the table meeting with three
+      timbres, and "Lucie" heard as "UCI". Done on 16/09: her name in the
+      transcriber's seed brought « Lucie » back whole on the VITS voices
+      (eighteen tests run on Linux now), and a third timbre made from the
+      first by lowering its pitch (0.82, measured under every join threshold
+      with TitaNet) opens the round table and the three-voice cases (eleven
+      more). Two stay on « say »: the brief proposal, which the VITS voices
+      give one run in two, for a cause not settled.
 - [x] An up-to-date survey of speaker separation; any candidate has to beat
       +0.099 of margin at 14.6 ms. Done on 16/09, section 4 of
       `speaker-separation.md`: within the tool's constraints (ONNX, no

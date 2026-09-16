@@ -28,12 +28,14 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from make_meeting import make  # noqa: E402
+from make_meeting import IN_ROOM_VOICE, VOICE, make  # noqa: E402
 
 # Clearly distinct voices, so that the test measures the chain and not the
-# ability of the speech synthesis to make two different timbres.
-THREE_VOICES = {"A": "Jacques", "B": "Amélie", "C": "Grandpa (Français (France))"}
-TWO_VOICES = {"A": "Jacques", "B": "Amélie"}
+# ability of the speech synthesis to make two different timbres: the same
+# three the round table uses, which both « say » and the installed VITS
+# voice can lend (the third, on VITS, is the first lowered in pitch).
+THREE_VOICES = IN_ROOM_VOICE
+TWO_VOICES = VOICE
 
 # Every line lasts more than three seconds: under that, a voiceprint does not
 # carry enough voice to be usable.
