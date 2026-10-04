@@ -359,6 +359,15 @@ class TestChoosingByListening:
             "Micro MacBook Pro"
         )
 
+    @given(order=st.permutations([BLACKHOLE, REALTEK, BUILT_IN_MIC, POLY, JABRA_MIC, AGGREGATED]))
+    def test_the_preferred_mic_is_listened_to_first_wherever_the_system_lists_it(
+        self, order: list[Device]
+    ) -> None:
+        # Where the system lists it must not matter: the sort alone decides.
+        candidates_ = candidates_to_listen_to(Hardware(tuple(order)), "Micro MacBook Pro")
+        assert candidates_[0] == "Micro MacBook Pro"
+        assert candidates_.count("Micro MacBook Pro") == 1
+
     def test_a_preferred_mic_that_is_unplugged_is_simply_not_listened_to(self) -> None:
         assert candidates_to_listen_to(WITHOUT_HEADSET, "Jabra EVOLVE 30 II") == [
             "Micro MacBook Pro"
