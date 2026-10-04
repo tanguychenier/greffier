@@ -351,6 +351,7 @@ def check(store: str = REPOSITORY, timeout: float = TIMEOUT) -> Verdict:
         with urllib.request.urlopen(the_request, timeout=timeout) as response:  # noqa: S310  # literal https
             content = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as trouble:
+        trouble.close()
         if trouble.code == 404:
             return Verdict(installed=installed, trouble="aucune version publiée")
         return Verdict(installed=installed, trouble=f"réponse {trouble.code} de GitHub")

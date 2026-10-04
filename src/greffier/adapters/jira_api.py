@@ -65,6 +65,7 @@ def _call(
             return json.loads(brut) if brut.strip() else {}
     except urllib.error.HTTPError as trouble:
         detail = trouble.read().decode("utf-8", "replace")[:200]
+        trouble.close()
         if trouble.code in (401, 403):
             raise JiraRefused(
                 f"identifiants refusés sur « {source.name} » ({trouble.code}). "

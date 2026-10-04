@@ -87,6 +87,7 @@ def _call(path: str, http_method: str = "GET",
             return json.loads(brut) if brut.strip() else {}
     except urllib.error.HTTPError as trouble:
         detail = trouble.read().decode("utf-8", "replace")[:200]
+        trouble.close()
         raise MiroRefused(f"Miro a répondu {trouble.code} : {detail}") from trouble
     except (urllib.error.URLError, TimeoutError) as trouble:
         raise MiroRefused(f"Miro est injoignable : {trouble}") from trouble
