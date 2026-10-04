@@ -64,6 +64,10 @@ class OllamaWriter:
     def __init__(self, model: str, host: str = "http://127.0.0.1:11434",
                  language: str = "", own_guidance: str = "") -> None:
         self.model = model
+        # Ollama listens in plain http on the loopback; any other scheme would
+        # make urlopen read whatever the address names.
+        if not host.startswith(("http://", "https://")):
+            raise ValueError(f"« {host} » n'est pas une adresse : il faut http(s)://")
         self.host = host.rstrip("/")
         self.language = language
         #: Given, the writer's own instructions give way: the assistant
