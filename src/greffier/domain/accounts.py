@@ -22,7 +22,7 @@ TOOL_PREFIX = "mcp__"
 class Manner(StrEnum):
     """How an account gets connected."""
 
-    TOKEN = "jeton"                # the person pastes a key from the service
+    TOKEN = "jeton"  # noqa: S105  # the name of a manner, not a key
     DEVICE = "code"                # the service shows a code, the person signs in
     APPLICATION = "application"    # waits for an application Tansoftware declares
 

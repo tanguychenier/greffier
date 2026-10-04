@@ -448,7 +448,9 @@ class Config(BaseSettings):
         init_settings: PydanticBaseSettingsSource,
         env_settings: PydanticBaseSettingsSource,
         dotenv_settings: PydanticBaseSettingsSource,
-        file_secret_settings: PydanticBaseSettingsSource,
+        # pydantic-settings hands the four sources over by keyword: the name
+        # is the contract, even for the one left unread.
+        file_secret_settings: PydanticBaseSettingsSource,  # noqa: ARG003
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         # Every source goes through the same translation: one speaking French
         # and another English would lay two keys for a single setting, and
@@ -533,7 +535,7 @@ class _Canonical(PydanticBaseSettingsSource):
         self._source = source
 
     def get_field_value(  # pragma: no cover - the source never reads field by field
-        self, field: object, field_name: str
+        self, _field: object, field_name: str
     ) -> tuple[object, str, bool]:
         return None, field_name, False
 
@@ -545,7 +547,7 @@ class _TomlSource(PydanticBaseSettingsSource):
     """Reads config.toml when it exists, as a last resort."""
 
     def get_field_value(  # pragma: no cover - the source never reads field by field
-        self, field: object, field_name: str
+        self, _field: object, field_name: str
     ) -> tuple[object, str, bool]:
         return None, field_name, False
 

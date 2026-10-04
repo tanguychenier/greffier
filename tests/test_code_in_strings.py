@@ -52,14 +52,13 @@ class TestTheStandardLibraryIsCalledByItsRealNames:
                 a.name for n in ast.walk(tree) if isinstance(n, ast.Import)
                 for a in n.names if a.asname is None and a.name in charges
             }
-            for n in ast.walk(tree):
-                if (isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name)
-                        and n.value.id in imported
-                        and not hasattr(charges[n.value.id], n.attr)):
-                    faults.append(
-                        f"{p.relative_to(RACINE)}:{n.lineno} "
-                        f"{n.value.id}.{n.attr} n'existe pas"
-                    )
+            faults.extend(
+                f"{p.relative_to(RACINE)}:{n.lineno} {n.value.id}.{n.attr} n'existe pas"
+                for n in ast.walk(tree)
+                if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name)
+                and n.value.id in imported
+                and not hasattr(charges[n.value.id], n.attr)
+            )
         assert not faults, "\n".join(faults)
 
 

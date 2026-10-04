@@ -48,7 +48,7 @@ def _call(
 ) -> object:
     address, secret = _identifiers(token)
     authorisation = base64.b64encode(f"{address}:{secret}".encode()).decode()
-    the_request = urllib.request.Request(
+    the_request = urllib.request.Request(  # noqa: S310  # Source refuses non-http(s)
         f"{source.address}/rest/api/3{path}",
         method=http_method,
         data=json.dumps(corps).encode("utf-8") if corps is not None else None,
@@ -59,7 +59,8 @@ def _call(
         },
     )
     try:
-        with urllib.request.urlopen(the_request, timeout=TIMEOUT) as response:
+        # Source.__post_init__ refuses any address that is not http(s)://.
+        with urllib.request.urlopen(the_request, timeout=TIMEOUT) as response:  # noqa: S310
             brut = response.read().decode("utf-8")
             return json.loads(brut) if brut.strip() else {}
     except urllib.error.HTTPError as trouble:

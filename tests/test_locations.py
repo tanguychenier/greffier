@@ -18,7 +18,7 @@ NATIVE = "Library/Application Support/Greffier"
 @pytest.fixture
 def a_clean_home(monkeypatch, tmp_path):
     """A clean account, with no XDG variable inherited from the machine."""
-    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
     for key in ("XDG_CONFIG_HOME", "XDG_DATA_HOME", "APPDATA", "LOCALAPPDATA"):
         monkeypatch.delenv(key, raising=False)
     return tmp_path
@@ -82,7 +82,8 @@ class TestElsewhere:
         assert locations.config_folder("Windows") == a_clean_home / "Roaming/greffier"
         assert locations.data_folder("Windows") == a_clean_home / "Local/greffier"
 
-    def test_with_no_argument_it_is_the_current_system(self, a_clean_home):
+    @pytest.mark.usefixtures("a_clean_home")
+    def test_with_no_argument_it_is_the_current_system(self):
         expected = locations.config_folder(platform.system())
         assert locations.config_folder() == expected
 

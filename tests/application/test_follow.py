@@ -43,7 +43,7 @@ class StatedChannels:
     def __init__(self, local_spans: list[Span] | None = None) -> None:
         self.local_spans = local_spans or []
 
-    def local_passages(self, audio: Path) -> list[Span]:
+    def local_passages(self, _audio: Path) -> list[Span]:
         return self.local_spans
 
 
@@ -55,7 +55,7 @@ class SequenceExtractor:
         self.requests: list[list[Span]] = []
 
     def extract_spans(
-        self, audio: Path, the_spans: list[Span]
+        self, _audio: Path, the_spans: list[Span]
     ) -> list[Voiceprint]:
         self.requests.append(the_spans)
         return [self.voiceprints.pop(0)] if self.voiceprints else []
@@ -80,7 +80,7 @@ class TogetherExtractor(SequenceExtractor):
         super().__init__(voiceprints)
         self.together: list[list[Span]] = []
 
-    def extract_together(self, audio: Path, the_spans: list[Span]) -> Voiceprint | None:
+    def extract_together(self, _audio: Path, the_spans: list[Span]) -> Voiceprint | None:
         self.together.append(the_spans)
         return self.voiceprints.pop(0) if self.voiceprints else None
 
@@ -262,7 +262,7 @@ class TestPublishingWhatWasSaid:
 
     def test_a_model_that_falls_over_does_not_stop_the_meeting(self, tmp_path: Path) -> None:
         class Broken:
-            def extract_spans(self, audio: Path, the_spans: list[Span]):
+            def extract_spans(self, _audio: Path, _the_spans: list[Span]):
                 raise RuntimeError("BroadcastIterator::Init")
 
         instance = follower(tmp_path, extractor=Broken())
@@ -338,7 +338,7 @@ class TestASliceCutAtTheChangesOfSpeaker:
 
     def test_a_segmenter_that_falls_over_leaves_the_slice_whole(self, tmp_path: Path) -> None:
         class Broken:
-            def turns(self, audio: Path) -> list[SpeakerTurn]:
+            def turns(self, _audio: Path) -> list[SpeakerTurn]:
                 raise RuntimeError("onnxruntime")
 
         extractor = TogetherExtractor([voiceprint(1, 0)])

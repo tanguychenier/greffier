@@ -80,7 +80,7 @@ def run_the_chain(config: Any, audio: Path, again: bool) -> Any:
     if cache.exists() and not again:
         import pickle
 
-        return pickle.loads(cache.read_bytes())
+        return pickle.loads(cache.read_bytes())  # noqa: S301  # written below by this tool
     chain = wire_up(config)
     chain.writer = None
     chain.sender = None

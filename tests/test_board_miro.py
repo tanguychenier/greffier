@@ -53,7 +53,7 @@ class TestWhereTheTokenComesFrom:
 
 
 class TestPublishingWithoutNetwork:
-    def mark(self, monkeypatch, present_line=(), poses=None):
+    def mark(self, monkeypatch, present_line=(), _poses=None):
         """Replaces the API with a stand-in that writes down what it is asked."""
         calls = []
 
@@ -151,8 +151,7 @@ class TestTheLinksBetweenNodes:
                 return {"data": []}
             return {"id": "3458764683144805305"}
 
-        import pytest as _pytest
-        monkeypatch = _pytest.MonkeyPatch()
+        monkeypatch = pytest.MonkeyPatch()
         monkeypatch.setattr(board_miro, "_call", wrong)
         monkeypatch.setenv("GREFFIER_MIRO_JETON", "essai")
         try:
@@ -180,7 +179,7 @@ class TestTheLinksBetweenNodes:
         board = Board("Oasis")
         join(board, [Contribution("A")])
 
-        def wrong(path, http_method="GET", corps=None):
+        def wrong(path, _http_method="GET", _corps=None):
             if "/items" in path:
                 return {"data": []}
             if "connectors" in path:

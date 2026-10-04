@@ -21,7 +21,8 @@ TABS = ("Préparation", "Réunions", "En direct", "Voix", "Conversation", "Compt
 
 
 class TestOpeningBeforeAsking:
-    def test_building_the_window_asks_nothing(self, test_screen) -> None:
+    @pytest.mark.usefixtures("test_screen")
+    def test_building_the_window_asks_nothing(self) -> None:
         # The question about the missing models is owed -- this machine has
         # none -- and it is owed *after* there is a window behind it.
         from greffier.adapters.configuration import Config
@@ -34,7 +35,8 @@ class TestOpeningBeforeAsking:
         finally:
             built.root.destroy()
 
-    def test_the_question_comes_once_the_window_is_painted(self, test_screen) -> None:
+    @pytest.mark.usefixtures("test_screen")
+    def test_the_question_comes_once_the_window_is_painted(self) -> None:
         from greffier.adapters.configuration import Config
         from greffier.interface.window import Window
 
@@ -58,7 +60,8 @@ class TestOpeningBeforeAsking:
         finally:
             built.root.destroy()
 
-    def test_the_question_waits_for_the_window_to_be_seen(self, test_screen, monkeypatch) -> None:
+    @pytest.mark.usefixtures("test_screen")
+    def test_the_question_waits_for_the_window_to_be_seen(self, monkeypatch) -> None:
         """On Windows, idle came before the window was on screen: the question
         stood alone on the desktop. It now waits until the window is viewable."""
         from greffier.adapters.configuration import Config
@@ -88,8 +91,9 @@ class TestOpeningBeforeAsking:
         finally:
             built.root.destroy()
 
+    @pytest.mark.usefixtures("test_screen")
     def test_a_window_that_never_shows_still_gets_its_question(
-        self, test_screen, monkeypatch
+        self, monkeypatch
     ) -> None:
         from greffier.adapters.configuration import Config
         from greffier.interface import window as module
@@ -107,7 +111,8 @@ class TestOpeningBeforeAsking:
         finally:
             built.root.destroy()
 
-    def test_nothing_is_fetched_when_nobody_answered(self, test_screen) -> None:
+    @pytest.mark.usefixtures("test_screen")
+    def test_nothing_is_fetched_when_nobody_answered(self) -> None:
         # No answer means no: a gigabyte and a half is not something to start
         # on a machine where nobody said yes.
         from greffier.adapters.configuration import Config
@@ -244,7 +249,7 @@ class TestWhatAProcessedMeetingTellsOnScreen:
     def test_the_chain_s_warnings_are_said_in_the_thread(self, window) -> None:
         from greffier.application.process import Outcome
 
-        outcome = Outcome(audio=Path("/tmp/2026-09-15_10h00_reunion.wav"))
+        outcome = Outcome(audio=Path("/enregistrements/2026-09-15_10h00_reunion.wav"))
         outcome.warnings.append("Ton micro est resté muet : seuls les autres sont transcrits.")
         window._processing_done(outcome.audio, outcome, None)
         window.root.update()
@@ -254,7 +259,7 @@ class TestWhatAProcessedMeetingTellsOnScreen:
         from greffier.application.process import Outcome
         from greffier.domain.models import Span, SpeakerTurn
 
-        outcome = Outcome(audio=Path("/tmp/2026-09-15_10h00_reunion.wav"))
+        outcome = Outcome(audio=Path("/enregistrements/2026-09-15_10h00_reunion.wav"))
         outcome.turns = [SpeakerTurn(Span(0, 40), "1"), SpeakerTurn(Span(40, 90), "2")]
         outcome.names = {"1": "Josiane"}
         window._processing_done(outcome.audio, outcome, None)
@@ -335,7 +340,8 @@ class TestATokenPastedIntoTheWindow:
     def test_with_no_registry_the_block_says_so(self, window):
         assert window.sources_word.cget("text") == window.says("reglages.sources_aucune")
 
-    def test_a_source_without_a_token_is_named_as_such(self, test_screen, monkeypatch):
+    @pytest.mark.usefixtures("test_screen")
+    def test_a_source_without_a_token_is_named_as_such(self, monkeypatch):
         from greffier.adapters.configuration import Config
         from greffier.interface.window import Window
 
@@ -352,7 +358,8 @@ class TestATokenPastedIntoTheWindow:
         finally:
             opened.root.destroy()
 
-    def test_the_token_pasted_is_stored_and_the_line_changes(self, test_screen, monkeypatch):
+    @pytest.mark.usefixtures("test_screen")
+    def test_the_token_pasted_is_stored_and_the_line_changes(self, monkeypatch):
         from greffier.adapters import sources_file
         from greffier.adapters.configuration import Config
         from greffier.interface.window import Window
@@ -378,8 +385,9 @@ class TestATokenPastedIntoTheWindow:
         finally:
             opened.root.destroy()
 
+    @pytest.mark.usefixtures("test_screen")
     def test_the_assistant_reads_the_source_from_the_next_question(
-        self, test_screen, monkeypatch
+        self, monkeypatch
     ):
         """The Conversation tab keeps a reading of the sources: it is dropped."""
         from greffier.adapters.configuration import Config
@@ -451,7 +459,7 @@ class TestTheMeetingsTabOnAKeptMeeting:
 
     def test_renaming_gives_a_subject_and_keeps_the_identifier(self, window, monkeypatch):
         name = _a_kept_meeting(window)
-        monkeypatch.setattr("tkinter.simpledialog.askstring", lambda *a, **k: "point recette")
+        monkeypatch.setattr("tkinter.simpledialog.askstring", lambda *_a, **_k: "point recette")
         window._rename_selection()
         window.root.update()
         assert window.store.read(name).subject == "point recette"
@@ -460,7 +468,7 @@ class TestTheMeetingsTabOnAKeptMeeting:
 
     def test_a_rename_given_up_changes_nothing(self, window, monkeypatch):
         name = _a_kept_meeting(window)
-        monkeypatch.setattr("tkinter.simpledialog.askstring", lambda *a, **k: None)
+        monkeypatch.setattr("tkinter.simpledialog.askstring", lambda *_a, **_k: None)
         window._rename_selection()
         assert window.store.read(name).subject == ""
 
@@ -468,7 +476,7 @@ class TestTheMeetingsTabOnAKeptMeeting:
         from greffier.interface import asking
 
         name = _a_kept_meeting(window)
-        monkeypatch.setattr(asking, "ask_yes_no", lambda *a, **k: True)
+        monkeypatch.setattr(asking, "ask_yes_no", lambda *_a, **_k: True)
         window._forget_selection()
         window.root.update()
         assert name not in window.store.list_()
@@ -478,7 +486,7 @@ class TestTheMeetingsTabOnAKeptMeeting:
         from greffier.interface import asking
 
         name = _a_kept_meeting(window)
-        monkeypatch.setattr(asking, "ask_yes_no", lambda *a, **k: False)
+        monkeypatch.setattr(asking, "ask_yes_no", lambda *_a, **_k: False)
         window._forget_selection()
         assert name in window.store.list_()
 
@@ -487,7 +495,7 @@ class TestTheMeetingsTabOnAKeptMeeting:
 
         name = _a_kept_meeting(window)
         target = tmp_path / f"{name}.csv"
-        monkeypatch.setattr(asking, "where_to_save", lambda *a, **k: str(target))
+        monkeypatch.setattr(asking, "where_to_save", lambda *_a, **_k: str(target))
         window._export_selection()
         written = target.read_text(encoding="utf-8-sig")
         assert "Jacques" in written and "recette" in written
@@ -498,8 +506,8 @@ class TestTheMeetingsTabOnAKeptMeeting:
 
         _a_kept_meeting(window)
         complaints = []
-        monkeypatch.setattr(asking, "where_to_save", lambda *a, **k: str(tmp_path / "x.doc"))
-        monkeypatch.setattr(asking, "complain", lambda title, text: complaints.append(text))
+        monkeypatch.setattr(asking, "where_to_save", lambda *_a, **_k: str(tmp_path / "x.doc"))
+        monkeypatch.setattr(asking, "complain", lambda _title, text: complaints.append(text))
         window._export_selection()
         assert complaints and "« .doc » n'est pas un format connu" in complaints[0]
 
@@ -507,10 +515,10 @@ class TestTheMeetingsTabOnAKeptMeeting:
         name = _a_kept_meeting(window)
 
         class Writer:
-            def write_up(self, text):
+            def write_up(self, _text):
                 return "# Compte rendu : recette\n\n## Décisions\n\n- Jeudi.\n"
 
-        monkeypatch.setattr("greffier.wiring.writer", lambda config: Writer())
+        monkeypatch.setattr("greffier.wiring.writer", lambda _config: Writer())
         _jobs_run_inline(window)
         window._write_up_only(name)
         window.root.update()
@@ -523,8 +531,8 @@ class TestTheMeetingsTabOnAKeptMeeting:
 
         name = _a_kept_meeting(window)
         told = []
-        monkeypatch.setattr("greffier.wiring.writer", lambda config: None)
-        monkeypatch.setattr(asking, "tell", lambda title, text: told.append(text))
+        monkeypatch.setattr("greffier.wiring.writer", lambda _config: None)
+        monkeypatch.setattr(asking, "tell", lambda _title, text: told.append(text))
         window._write_up_only(name)
         assert told == [window.says("reunions.aucun_redacteur")]
         assert not window.jobs
@@ -562,8 +570,8 @@ class TestHandingADocumentToTheWindow:
         name = _a_kept_meeting(window)
         note = tmp_path / "budget.md"
         note.write_text("Budget du lot 2 : 42 000 euros hors taxes.\n", encoding="utf-8")
-        monkeypatch.setattr(asking, "files_to_open", lambda *a, **k: (str(note),))
-        monkeypatch.setattr("greffier.wiring.mapper", lambda config: None)
+        monkeypatch.setattr(asking, "files_to_open", lambda *_a, **_k: (str(note),))
+        monkeypatch.setattr("greffier.wiring.mapper", lambda _config: None)
         _jobs_run_inline(window)
         window._supply_a_document()
         window.root.update()
@@ -586,14 +594,14 @@ class TestHandingADocumentToTheWindow:
         class Reader:
             own_guidance = ""
 
-            def write_up(self, text):
+            def write_up(self, _text):
                 return ('```json\n[{"ecriture": "CASA", "sens": "comité d\'architecture", '
                         '"genre": "terme"}, {"ecriture": "Maud Riel", "sens": "présidente", '
                         '"genre": "personne"}]\n```')
 
-        monkeypatch.setattr(asking, "files_to_open", lambda *a, **k: (str(note),))
-        monkeypatch.setattr(asking, "ask_yes_no", lambda *a, **k: True)
-        monkeypatch.setattr("greffier.wiring.mapper", lambda config: Reader())
+        monkeypatch.setattr(asking, "files_to_open", lambda *_a, **_k: (str(note),))
+        monkeypatch.setattr(asking, "ask_yes_no", lambda *_a, **_k: True)
+        monkeypatch.setattr("greffier.wiring.mapper", lambda _config: Reader())
         _jobs_run_inline(window)
         window._supply_a_document()
         window.root.update()
@@ -612,12 +620,12 @@ class TestHandingADocumentToTheWindow:
         class Reader:
             own_guidance = ""
 
-            def write_up(self, text):
+            def write_up(self, _text):
                 return '[{"ecriture": "CASA", "sens": "comité", "genre": "terme"}]'
 
-        monkeypatch.setattr(asking, "files_to_open", lambda *a, **k: (str(note),))
-        monkeypatch.setattr(asking, "ask_yes_no", lambda *a, **k: False)
-        monkeypatch.setattr("greffier.wiring.mapper", lambda config: Reader())
+        monkeypatch.setattr(asking, "files_to_open", lambda *_a, **_k: (str(note),))
+        monkeypatch.setattr(asking, "ask_yes_no", lambda *_a, **_k: False)
+        monkeypatch.setattr("greffier.wiring.mapper", lambda _config: Reader())
         _jobs_run_inline(window)
         window._supply_a_document()
         window.root.update()
@@ -634,7 +642,7 @@ class TestHandingADocumentToTheWindow:
         _a_kept_meeting(window)
         sound = tmp_path / "reunion.wav"
         sound.write_bytes(b"RIFF" + b"\0" * 100)
-        monkeypatch.setattr(asking, "files_to_open", lambda *a, **k: (str(sound),))
+        monkeypatch.setattr(asking, "files_to_open", lambda *_a, **_k: (str(sound),))
         window._supply_a_document()
         window.root.update()
         assert "deviennent des réunions à transcrire" in self._thread_of(window)
@@ -642,7 +650,7 @@ class TestHandingADocumentToTheWindow:
     def test_nothing_chosen_changes_nothing(self, window, monkeypatch):
         from greffier.interface import asking
 
-        monkeypatch.setattr(asking, "files_to_open", lambda *a, **k: ())
+        monkeypatch.setattr(asking, "files_to_open", lambda *_a, **_k: ())
         before = self._thread_of(window)
         window._supply_a_document()
         assert self._thread_of(window) == before
@@ -654,7 +662,7 @@ class TestAskingTheWindowAQuestion:
 
     def test_without_a_writer_it_says_so(self, window, monkeypatch):
         _a_kept_meeting(window)
-        monkeypatch.setattr("greffier.wiring.assistant", lambda config: None)
+        monkeypatch.setattr("greffier.wiring.assistant", lambda _config: None)
         window.question.insert(0, "qui relance le partenaire ?")
         window._ask()
         assert window.says("commun.aucun_redacteur_configure") in self._thread_of(window)
@@ -663,10 +671,10 @@ class TestAskingTheWindowAQuestion:
         _a_kept_meeting(window)
 
         class Brain:
-            def write_up(self, text):
+            def write_up(self, _text):
                 return "Maud."
 
-        monkeypatch.setattr("greffier.wiring.assistant", lambda config: Brain())
+        monkeypatch.setattr("greffier.wiring.assistant", lambda _config: Brain())
         window.question.insert(0, "qui relance le partenaire ?")
         window._ask()
         assert "n'a pas encore de compte rendu" in self._thread_of(window)
@@ -685,7 +693,7 @@ class TestAskingTheWindowAQuestion:
                 asked.append(text)
                 return "C'est Maud, lundi."
 
-        monkeypatch.setattr("greffier.wiring.assistant", lambda config: Brain())
+        monkeypatch.setattr("greffier.wiring.assistant", lambda _config: Brain())
         _jobs_run_inline(window)
         window.question.insert(0, "qui relance le partenaire ?")
         window._ask()
@@ -697,7 +705,7 @@ class TestAskingTheWindowAQuestion:
 
     def test_an_empty_question_asks_nothing(self, window, monkeypatch):
         asked = []
-        monkeypatch.setattr("greffier.wiring.assistant", lambda config: asked.append(1))
+        monkeypatch.setattr("greffier.wiring.assistant", lambda _config: asked.append(1))
         window.question.delete(0, "end")
         window._ask()
         assert asked == []
@@ -749,7 +757,7 @@ class TestTheFirstLaunchTakesYouByTheHand:
             role = "transcription"
 
         monkeypatch.setattr(model_files, "missing",
-                            lambda folder, engine: [] if models else [Missing()])
+                            lambda _folder, _engine: [] if models else [Missing()])
         monkeypatch.setattr(diagnostic, "claude_installed", lambda: account)
         monkeypatch.setattr(diagnostic, "claude_account", lambda: object() if account else None)
         monkeypatch.setattr(window, "_settable_mics",

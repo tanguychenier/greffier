@@ -59,7 +59,7 @@ class Follower:
 class GitLab(BaseHTTPRequestHandler):
     """A GitLab that knows one project and two open tickets."""
 
-    def do_GET(self) -> None:  # noqa: N802 -- the name is the protocol's
+    def do_GET(self) -> None:
         if self.headers.get("PRIVATE-TOKEN") != "secret-d-essai":
             self.send_response(401)
             self.end_headers()

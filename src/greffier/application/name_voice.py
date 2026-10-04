@@ -135,13 +135,12 @@ class Naming:
         looks doubtful.
         """
         meeting = self.store.read(identifier)
-        if not meeting.can_split(voice):
+        undone = meeting.split(voice)
+        if undone is None:
             raise KeyError(
                 f"La voix « {voice} » n'a absorbé aucune autre voix : "
                 "il n'y a rien à séparer."
             )
-        returned = meeting.split(voice)
-        assert returned is not None
         self.store.record(meeting)
         return meeting
 

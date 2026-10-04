@@ -176,31 +176,31 @@ class TestReadingThroughATool:
     def test_a_pdf_is_read_through_pdftotext_when_it_is_there(self, tmp_path, monkeypatch):
         from greffier.application import publish
 
-        monkeypatch.setattr(publish.shutil, "which", lambda name: "/usr/bin/pdftotext")
+        monkeypatch.setattr(publish.shutil, "which", lambda _name: "/usr/bin/pdftotext")
 
         class Done:
             returncode = 0
             stdout = "Budget du lot 2 : 42 000 euros."
 
-        monkeypatch.setattr(publish.subprocess, "run", lambda *a, **k: Done())
+        monkeypatch.setattr(publish.subprocess, "run", lambda *_a, **_k: Done())
         assert read_the_text(tmp_path / "budget.pdf") == "Budget du lot 2 : 42 000 euros."
 
     def test_a_pdf_without_pdftotext_reads_empty(self, tmp_path, monkeypatch):
         from greffier.application import publish
 
-        monkeypatch.setattr(publish.shutil, "which", lambda name: None)
+        monkeypatch.setattr(publish.shutil, "which", lambda _name: None)
         assert read_the_text(tmp_path / "budget.pdf") == ""
 
     def test_a_tool_that_fails_reads_empty(self, tmp_path, monkeypatch):
         from greffier.application import publish
 
-        monkeypatch.setattr(publish.shutil, "which", lambda name: "/usr/bin/pdftotext")
+        monkeypatch.setattr(publish.shutil, "which", lambda _name: "/usr/bin/pdftotext")
 
         class Failed:
             returncode = 1
             stdout = "garbage"
 
-        monkeypatch.setattr(publish.subprocess, "run", lambda *a, **k: Failed())
+        monkeypatch.setattr(publish.subprocess, "run", lambda *_a, **_k: Failed())
         assert read_the_text(tmp_path / "budget.pdf") == ""
 
     def test_a_document_read_through_the_chain_teaches_the_context(self, tmp_path):

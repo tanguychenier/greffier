@@ -11,7 +11,7 @@ from greffier.domain.models import Span, SpeakerTurn, Utterance
 def meeting(identifier: str) -> StoredMeeting:
     return StoredMeeting(
         identifier=identifier,
-        audio=Path(f"/tmp/{identifier}.wav"),
+        audio=Path(f"/enregistrements/{identifier}.wav"),
         processed_at=datetime.now(UTC),
         duration=60.0,
         utterances=[Utterance(Span(0, 5), "Bonjour.")],
@@ -132,7 +132,7 @@ def joined_meeting(identifier: str = "2026-09-10_10h10_reunion") -> StoredMeetin
     """A meeting where two voices were joined under the same name."""
     detail = StoredMeeting(
         identifier=identifier,
-        audio=Path(f"/tmp/{identifier}.wav"),
+        audio=Path(f"/enregistrements/{identifier}.wav"),
         processed_at=datetime.now(UTC),
         duration=60.0,
         utterances=[

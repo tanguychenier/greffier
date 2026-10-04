@@ -76,7 +76,7 @@ def voiceprints_of(audio: Path, turns: list[SpeakerTurn]) -> dict[str, list[Any]
     cache = audio.with_suffix(".voiceprints.pickle")
     if cache.exists():
         try:
-            kept: dict[str, list[Any]] = pickle.loads(cache.read_bytes())
+            kept: dict[str, list[Any]] = pickle.loads(cache.read_bytes())  # noqa: S301  # own cache
             return kept
         except (pickle.UnpicklingError, ModuleNotFoundError, AttributeError, EOFError):
             cache.unlink()
@@ -178,23 +178,25 @@ def strategies(
     """Each pass alone, then the product's three passes at every threshold asked."""
     none = {voice: voice for voice in voiceprints}
     kept: list[tuple[str, dict[str, str]]] = [("segmenter alone", none)]
-    for threshold in pairs:
-        kept.append((f"pairs {threshold:.2f}", domain.join_voices(voiceprints, threshold)))
+    kept.extend(
+        (f"pairs {threshold:.2f}", domain.join_voices(voiceprints, threshold))
+        for threshold in pairs
+    )
     product = domain.join_voices(voiceprints)
-    for threshold in adoptions:
-        kept.append(
-            (
-                f"pairs {domain.JOIN_THRESHOLD:.2f} + adoption {threshold:.2f}",
-                domain.adopt_fragments(voiceprints, product, threshold=threshold),
-            )
+    kept.extend(
+        (
+            f"pairs {domain.JOIN_THRESHOLD:.2f} + adoption {threshold:.2f}",
+            domain.adopt_fragments(voiceprints, product, threshold=threshold),
         )
-    for threshold in consolidations:
-        kept.append(
-            (
-                f"pairs + adoption + consolidation {threshold:.2f}",
-                domain.stitch(voiceprints, consolidation_threshold=threshold),
-            )
+        for threshold in adoptions
+    )
+    kept.extend(
+        (
+            f"pairs + adoption + consolidation {threshold:.2f}",
+            domain.stitch(voiceprints, consolidation_threshold=threshold),
         )
+        for threshold in consolidations
+    )
     kept.append(("product (0.75 / 0.45 / 0.70)", domain.stitch(voiceprints)))
     return kept
 

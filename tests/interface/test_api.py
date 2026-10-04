@@ -71,7 +71,7 @@ def without_the_chain(monkeypatch):
     handed_over = []
     monkeypatch.setattr(
         "greffier.interface.api._process",
-        lambda config, audio, identifier, jobs: handed_over.append(identifier),
+        lambda _config, _audio, identifier, _jobs: handed_over.append(identifier),
     )
     return handed_over
 
@@ -163,10 +163,10 @@ def a_chain_that_notes(handed_over):
     class Chain:
         log = None
 
-        def run_chain(self, audio, send):
+        def run_chain(self, audio, send):  # noqa: ARG002  # the door passes send= by keyword
             handed_over.append(audio)
 
-    return lambda config: Chain()
+    return lambda _config: Chain()
 
 
 class TestTheDoorIsShutWithoutAToken:
@@ -237,7 +237,7 @@ class TestWhatItServes:
 
 
 class TestWhatItRefusesToServe:
-    def test_the_voice_bank_has_no_route(self, client, bearer):
+    def test_the_voice_bank_has_no_route(self, client):
         """Voice prints are biometric data: they stay on the machine."""
         routes = {getattr(r, "path", "") for r in client.app.routes}
         assert not any("voix" in r or "banque" in r or "empreinte" in r for r in routes)
@@ -250,15 +250,16 @@ class TestWhatItRefusesToServe:
 
 class TestARecordingHandedOver:
     def test_it_answers_at_once_rather_than_in_an_hour(
-            self, config, client, bearer, without_the_chain):
+            self, client, bearer, without_the_chain):
         """An hour of transcription is not a request: 202 and an identifier."""
         answered = deposit(client, bearer, "point.wav")
         assert answered.status_code == 202
         assert answered.json()["identifiant"] == "point"
         assert until(lambda: without_the_chain == ["point"]), "the processing must start"
 
+    @pytest.mark.usefixtures("without_the_chain")
     def test_the_phases_are_readable_while_it_runs(
-            self, config, client, bearer, without_the_chain):
+            self, client, bearer):
         deposit(client, bearer, "point.wav", b"RIFF")
         answered = client.get("/travaux/point", headers=bearer)
         assert answered.status_code == 200
@@ -274,7 +275,7 @@ class TestOneChainAtATime:
         """Two chains do not fit in the graphics memory: the second queues."""
         gate, running = threading.Event(), threading.Event()
 
-        def blocking_chain(config, audio, identifier, jobs):
+        def blocking_chain(_config, _audio, identifier, jobs):
             jobs.publish(identifier, "transcription", "Transcription…")
             running.set()
             gate.wait(timeout=5)
@@ -313,7 +314,7 @@ class TestOneChainAtATime:
         """A job put behind the stop order would wait for a thread that is not
         coming back: refused aloud rather than left in the queue."""
         seen = []
-        worker = Worker(lambda audio, identifier: seen.append(identifier))
+        worker = Worker(lambda _audio, identifier: seen.append(identifier))
         worker.enqueue(Path("premier.wav"), "premier")
         worker.stop(timeout=5)
         with pytest.raises(RuntimeError):
@@ -323,7 +324,7 @@ class TestOneChainAtATime:
     def test_a_stop_before_any_work_is_a_stop_all_the_same(self):
         """An idle worker has no thread to end, and takes nothing afterwards either."""
         before = workers_alive()
-        worker = Worker(lambda audio, identifier: None)
+        worker = Worker(lambda _audio, _identifier: None)
         worker.stop()
         with pytest.raises(RuntimeError):
             worker.enqueue(Path("point.wav"), "point")
@@ -380,13 +381,13 @@ class TestTheChainBehindTheDoor:
                 self.log.publish("transcription", "Transcription…")
                 seen.append((jobs.get("point")["phase"], audio, send))
 
-        monkeypatch.setattr("greffier.wiring.wire_up", lambda config: Chain())
+        monkeypatch.setattr("greffier.wiring.wire_up", lambda _config: Chain())
         _process(config, Path("point.wav"), "point", jobs)
         assert seen == [("transcription", Path("point.wav"), False)]
         assert jobs.get("point") == {"phase": "termine", "message": "Compte rendu prêt."}
 
     def test_a_failure_is_handed_to_the_client_never_raised(self, config, monkeypatch):
-        def failing(config):
+        def failing(_config):
             raise RuntimeError("ffmpeg introuvable")
 
         monkeypatch.setattr("greffier.wiring.wire_up", failing)
@@ -434,7 +435,7 @@ class TestWhatTheChainIsHanded:
         jobs = Jobs()
         monkeypatch.setattr(
             "greffier.application.publish.extract_sound",
-            lambda video, destination: seen.append(jobs.get("point")) or destination,
+            lambda _video, destination: seen.append(jobs.get("point")) or destination,
         )
         monkeypatch.setattr("greffier.wiring.wire_up", a_chain_that_notes([]))
         _process(config, tmp_path / "point.mp4", "point", jobs)
@@ -473,8 +474,9 @@ class TestWhatNameARecordingMayHave:
         assert left_in(config.paths.recordings) == []
         assert not without_the_chain
 
+    @pytest.mark.usefixtures("without_the_chain")
     def test_a_part_without_a_name_is_not_a_recording(
-            self, config, client, bearer, without_the_chain):
+            self, config, client, bearer):
         """A nameless part arrives as a plain field, and is refused as one."""
         assert deposit(client, bearer, "").status_code == 422
         assert left_in(config.paths.recordings) == []
@@ -488,15 +490,17 @@ class TestWhatNameARecordingMayHave:
         assert left_in(config.paths.recordings) == []
         assert not without_the_chain
 
+    @pytest.mark.usefixtures("without_the_chain")
     def test_the_handwritten_part_is_the_one_the_door_takes_plainly(
-            self, config, client, bearer, without_the_chain):
+            self, config, client, bearer):
         """So that the refusal above is the name's doing, not the body's."""
         assert deposit_a_handwritten_part(client, bearer, "point.wav").status_code == 202
         assert left_in(config.paths.recordings) == ["point.wav"]
 
     @pytest.mark.parametrize("name", ["point.exe", "point.txt", "point"])
+    @pytest.mark.usefixtures("without_the_chain")
     def test_a_format_the_chain_cannot_read_is_refused_at_the_door(
-            self, client, bearer, without_the_chain, name):
+            self, client, bearer, name):
         """Refused in a 422 now, not in a job's failure an hour later."""
         answered = deposit(client, bearer, name)
         assert answered.status_code == 422, name
@@ -505,8 +509,9 @@ class TestWhatNameARecordingMayHave:
     @pytest.mark.parametrize("name", [
         "point.WAV", "point.m4a", "a.b-c_d.webm", "2026-09-12_point.mp4",
     ])
+    @pytest.mark.usefixtures("without_the_chain")
     def test_a_plain_name_in_an_accepted_format_is_taken(
-            self, config, client, bearer, without_the_chain, name):
+            self, config, client, bearer, name):
         answered = deposit(client, bearer, name)
         assert answered.status_code == 202, name
         assert answered.json()["identifiant"] == name.rpartition(".")[0]
@@ -539,16 +544,18 @@ class TestARecordingWhoseNameIsTaken:
         assert (config.paths.recordings / "point.wav").read_bytes() == b"premier"
         assert until(lambda: without_the_chain == ["point"])
 
+    @pytest.mark.usefixtures("without_the_chain")
     def test_the_same_name_in_another_format_is_the_same_name(
-            self, config, client, bearer, without_the_chain):
+            self, config, client, bearer):
         """The minutes and the transcript are keyed by the stem, not the file."""
         assert deposit(client, bearer, "point.wav").status_code == 202
         assert deposit(client, bearer, "point.m4a").status_code == 409
         assert left_in(config.paths.recordings) == ["point.wav"]
 
-    @pytest.mark.parametrize("first, second", [("a.b.wav", "a.wav"), ("a.wav", "a.b.wav")])
+    @pytest.mark.parametrize(("first", "second"), [("a.b.wav", "a.wav"), ("a.wav", "a.b.wav")])
+    @pytest.mark.usefixtures("without_the_chain")
     def test_a_name_that_only_begins_like_another_is_another_name(
-            self, config, client, bearer, without_the_chain, first, second):
+            self, config, client, bearer, first, second):
         """A dot may sit inside a name: "a.b" does not take "a", in either order."""
         assert deposit(client, bearer, first).status_code == 202
         assert deposit(client, bearer, second).status_code == 202
@@ -556,8 +563,9 @@ class TestARecordingWhoseNameIsTaken:
 
 
 class TestANameIsTakenFromTheFirstByte:
+    @pytest.mark.usefixtures("without_the_chain")
     def test_two_deposits_of_one_name_at_once_end_202_and_409_never_one_on_the_other(
-            self, config, client, bearer, monkeypatch, without_the_chain):
+            self, config, client, bearer, monkeypatch):
         """The handler yields to the loop while it copies the body: both deposits
         passed the duplicate check, and the second's move erased the first's file."""
         first_is_reading, let_it_finish = asyncio.Event(), asyncio.Event()
@@ -599,8 +607,9 @@ class TestANameIsTakenFromTheFirstByte:
         assert refused.value.status_code == 409
         assert (tmp_path / "point.wav").read_bytes() == b""
 
+    @pytest.mark.usefixtures("without_the_chain")
     def test_a_refused_upload_gives_the_name_back(
-            self, config, client, bearer, without_the_chain):
+            self, config, client, bearer):
         """413, then the same name again: nothing of the first attempt holds it."""
         config.api.max_upload_mb = 1
         heavy = b"x" * (1 << 20) + b"!"
@@ -621,8 +630,9 @@ class TestHowMuchTheDoorTakesIn:
         assert left_in(config.paths.recordings) == []
         assert not without_the_chain, "nothing to process when nothing was kept"
 
+    @pytest.mark.usefixtures("without_the_chain")
     def test_a_body_at_the_limit_is_taken_whole(
-            self, config, client, bearer, without_the_chain):
+            self, config, client, bearer):
         """Its Content-Length is past the limit by the multipart framing: the
         header cut leaves that margin, and the handler draws the exact line."""
         config.api.max_upload_mb = 1
@@ -643,8 +653,9 @@ class TestHowMuchTheDoorTakesIn:
         assert left_in(config.paths.recordings) == []
         assert not without_the_chain
 
+    @pytest.mark.usefixtures("without_the_chain")
     def test_a_declared_length_within_one_chunk_of_the_limit_reaches_the_handler(
-            self, config, client, bearer, without_the_chain):
+            self, config, client, bearer):
         config.api.max_upload_mb = 1
         assert deposit_declaring(client, bearer, 2 * self.ONE_MIB).status_code == 202
 
@@ -653,8 +664,9 @@ class TestHowMuchTheDoorTakesIn:
         config.api.max_upload_mb = 1
         assert deposit_declaring(client, {}, 3 * self.ONE_MIB).status_code == 401
 
+    @pytest.mark.usefixtures("without_the_chain")
     def test_a_deposited_recording_is_readable_like_any_file_the_tool_writes(
-            self, config, client, bearer, without_the_chain):
+            self, config, client, bearer):
         """`tempfile` would have made it 0600: another tool a site points at the
         folder, under another user, could not have read it."""
         deposit(client, bearer, "point.wav")

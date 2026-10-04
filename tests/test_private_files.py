@@ -33,14 +33,16 @@ def mode_of(path: Path) -> int:
 
 class TestTheFileIsTheOwnerSAlone:
     @posix_only
-    def test_whatever_the_umask_says(self, tmp_path: Path, permissive_umask: None) -> None:
+    @pytest.mark.usefixtures("permissive_umask")
+    def test_whatever_the_umask_says(self, tmp_path: Path) -> None:
         target = tmp_path / "jetons.toml"
         write_private_text(target, "secret")
         assert mode_of(target) == 0o600
 
     @posix_only
+    @pytest.mark.usefixtures("permissive_umask")
     def test_already_before_it_takes_the_target_s_place(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, permissive_umask: None
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """The old writer left a 0644 file for the time of the write; the temporary
         is private before a single byte goes into it, so no instant is exposed."""
@@ -56,8 +58,9 @@ class TestTheFileIsTheOwnerSAlone:
         assert seen == [0o600]
 
     @posix_only
+    @pytest.mark.usefixtures("permissive_umask")
     def test_a_file_readable_by_all_becomes_private_on_the_next_write(
-        self, tmp_path: Path, permissive_umask: None
+        self, tmp_path: Path
     ) -> None:
         """What an earlier version left at 0644 is repaired the first time it is rewritten."""
         target = tmp_path / "jetons.toml"
@@ -67,16 +70,18 @@ class TestTheFileIsTheOwnerSAlone:
         assert mode_of(target) == 0o600
 
     @posix_only
+    @pytest.mark.usefixtures("permissive_umask")
     def test_a_missing_folder_is_created_for_the_owner_alone(
-        self, tmp_path: Path, permissive_umask: None
+        self, tmp_path: Path
     ) -> None:
         target = tmp_path / "greffier" / "jetons.toml"
         write_private_text(target, "secret")
         assert mode_of(target.parent) == 0o700
 
     @posix_only
+    @pytest.mark.usefixtures("permissive_umask")
     def test_a_folder_that_exists_keeps_its_mode(
-        self, tmp_path: Path, permissive_umask: None
+        self, tmp_path: Path
     ) -> None:
         """The data folder is shared with the meetings: it is not ours to lock."""
         folder = tmp_path / "donnees"
@@ -142,6 +147,6 @@ class TestWhenTheWriteFails:
         with pytest.raises(OSError, match="chmod refusé"):
             write_private_text(tmp_path / "jetons.toml", "secret")
         assert len(descriptors) == 1
-        with pytest.raises(OSError):
+        with pytest.raises(OSError, match=r"\[Errno 9\]"):  # EBADF: the descriptor was closed
             os.fstat(descriptors[0])
         assert list(tmp_path.iterdir()) == []

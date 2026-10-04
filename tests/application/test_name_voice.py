@@ -11,7 +11,7 @@ from greffier.domain.models import Span, SpeakerTurn, Utterance
 def a_meeting(**overrides) -> StoredMeeting:
     defects = dict(
         identifier="2026-08-24_reunion",
-        audio=Path("/tmp/r.wav"),
+        audio=Path("/enregistrements/r.wav"),
         processed_at=datetime.now(UTC),
         duration=100.0,
         utterances=[Utterance(Span(0, 40), "bonjour à tous", "1"),
@@ -81,7 +81,7 @@ class FakeBank:
     def people(self):
         return []
 
-    def record(self, name, voiceprint):
+    def record(self, name, _voiceprint):
         self.additions.append(name)
 
 
@@ -157,7 +157,7 @@ class TestNamingRefusesWhatIsNotAName:
 
         meeting = a_meeting()
         naming = a_naming_setup(meeting)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="au moins deux lettres"):
             naming.name_voice("2026-08-24_reunion", "1", "?")
         assert naming.bank.additions == []
 

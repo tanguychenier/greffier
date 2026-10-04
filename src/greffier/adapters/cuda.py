@@ -135,7 +135,7 @@ def keep_the_place(model: Path) -> None:
     it leaves the driver context alone on the card -- 85 MB, freed with the
     process.
     """
-    global _place_kept
+    global _place_kept  # noqa: PLW0603  # a once-per-process latch, nothing else owns it
     if _place_kept or not a_card_is_usable() or not model.exists():
         return
     _place_kept = True

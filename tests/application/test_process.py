@@ -8,6 +8,7 @@ rails, not whisper. The doubles hold in a few lines because the ports are
 import contextlib
 import subprocess
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -18,7 +19,7 @@ from greffier.application.process import (
 )
 from greffier.domain.models import Person, Phase, Span, SpeakerTurn, Utterance
 
-AUDIO = Path("/tmp/reunion.wav")
+AUDIO = Path("/enregistrements/reunion.wav")
 
 
 class FakeRecorder:
@@ -26,22 +27,22 @@ class FakeRecorder:
         self._levels = list(levels)
         self.prepares = []
 
-    def start_recording(self, destination):
+    def start_recording(self, _destination):
         return 4242
 
     def stop_recording(self, process_id):
         pass
 
-    def prepare_transcript(self, audio, destination):
+    def prepare_transcript(self, audio, _destination):
         # The double normalises nothing: it returns the audio as it is, which
         # is enough to check that the chain transcribes what was prepared.
         self.prepares.append(audio)
         return audio
 
-    def wire_up(self, chunks, destination):
+    def wire_up(self, _chunks, destination):
         return destination
 
-    def levels(self, audio):
+    def levels(self, _audio):
         return self._levels
 
 
@@ -50,7 +51,7 @@ class FakeTranscriber:
         self.utterances = utterances
         self.seed_received = None
 
-    def transcribe(self, audio, language, prompt_seed):
+    def transcribe(self, _audio, _language, prompt_seed):
         self.seed_received = prompt_seed
         return list(self.utterances)
 
@@ -59,7 +60,7 @@ class FakeDiariser:
     def __init__(self, turns):
         self._turns = turns
 
-    def segment(self, audio, people):
+    def segment(self, _audio, _people):
         return list(self._turns)
 
 
@@ -76,7 +77,7 @@ class FakeSender:
     def __init__(self):
         self.sendings = []
 
-    def send(self, recipient, subject, corps, pieces):
+    def send(self, recipient, subject, corps, _pieces):
         self.sendings.append((recipient, subject, corps))
 
 
@@ -84,7 +85,7 @@ class FakeStateLog:
     def __init__(self):
         self.phases = []
 
-    def publish(self, phase, message=""):
+    def publish(self, phase, _message=""):
         self.phases.append(phase)
 
 
@@ -330,7 +331,7 @@ class FakeExtractor:
         self.vectors = vectors
         self.calls = []
 
-    def extract_spans(self, audio, the_spans):
+    def extract_spans(self, _audio, the_spans):
         from greffier.domain.voiceprints import normalise
 
         self.calls.append(list(the_spans))
@@ -342,7 +343,7 @@ class FakeExtractor:
             for i in the_spans
         ]
 
-    def extract_together(self, audio, the_spans):
+    def extract_together(self, _audio, _the_spans):
         """Nothing for a run of short turns: here every span has a vector of its own."""
         return None
 
@@ -355,7 +356,7 @@ class FakeBank:
     def people(self):
         return list(self._people)
 
-    def record(self, name, voiceprint):
+    def record(self, name, _voiceprint):
         self.additions.append(name)
 
 
@@ -476,7 +477,7 @@ class TestThePreparationIsConsumed:
         processing.run_chain(AUDIO)
         assert takes == [AUDIO.stem]
 
-    def test_a_meeting_that_fails_takes_nothing(self, tmp_path):
+    def test_a_meeting_that_fails_takes_nothing(self):
         takes: list[str] = []
         processing = chain(transcriber=FakeTranscriber([]))
         processing.preparation_taken = takes.append
@@ -489,7 +490,7 @@ class TestReadingTheOutcome:
     def test_fragments_are_not_participants(self):
         """The segmentation leaves a trail of one-second fragments."""
         outcome = chain().run_chain(AUDIO)
-        outcome.turns = outcome.turns + [turn(29, 29.5, "bruit")]
+        outcome.turns = [*outcome.turns, turn(29, 29.5, "bruit")]
         assert "bruit" in outcome.speaking_time()
         assert "bruit" not in outcome.significant_voices()
 
@@ -812,7 +813,7 @@ class TestTheChainKeepsTheMeeting:
         """
 
         class TimingOutWriter:
-            def write_up(self, transcription):
+            def write_up(self, _transcription):
                 raise subprocess.TimeoutExpired(cmd="redacteur", timeout=900)
 
         deposited = []
@@ -845,7 +846,7 @@ class TestTheChainKeepsTheMeeting:
         better placed to name the meeting.
         """
         class TitlingWriter:
-            def write_up(self, transcription):
+            def write_up(self, _transcription):
                 return "# Compte rendu : point d'avancement des projets\n\nTexte."
 
         deposited = []
@@ -868,7 +869,7 @@ class TestTheChainKeepsTheMeeting:
         from greffier.domain.meeting import StoredMeeting
 
         class TitlingWriter:
-            def write_up(self, transcription):
+            def write_up(self, _transcription):
                 return "# Compte rendu : titre automatique\n\nTexte."
 
         deposited = []
@@ -1048,7 +1049,7 @@ class TestNamesakesAfterTheMeeting:
     """
 
     #: 0.700 from each other, 0.92 from Josiane each.
-    VECTORS = {
+    VECTORS: ClassVar[dict[tuple[float, float], list[float]]] = {
         (0.0, 12.0): [1.0, 0.0, 0.0],
         (21.0, 28.0): [1.0, 0.0, 0.0],
         (13.0, 20.0): [0.7, 0.714, 0.0],
@@ -1105,7 +1106,7 @@ class TestWhenTheSendingFails:
     """
 
     class FallingSender:
-        def send(self, recipient, subject, corps, pieces):
+        def send(self, _recipient, _subject, _corps, _pieces):
             raise PermissionError("macOS refuse de piloter Outlook.")
 
     def _outcome(self, log):
@@ -1240,7 +1241,7 @@ class TestTheInstructionsReachTheWriter:
     among them "Il n'y a pas de sophie dans la réunion".
     """
 
-    GUIDANCE = [
+    GUIDANCE: ClassVar[list[str]] = [
         "Il n'y a pas de sophie dans la réunion",
         "Pascal n'a pas dit booting, mais blue team",
     ]

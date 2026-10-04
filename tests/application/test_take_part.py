@@ -80,7 +80,7 @@ class TestBeingCalledByName:
         """Not everybody wants a voice in the room."""
         traces = []
         assistant = AssistantSettings(name="Lucie", brain=FakeBrain(),
-                                tracer=lambda who, what: traces.append(what))
+                                tracer=lambda _who, what: traces.append(what))
         rendered = assistant.answer(
             Opening(because=Because.CALLED, remark="?", born_at=1.0), now=2.0)
         assert not rendered.pronounced and traces == ["Oui, je vous entends très bien."]
@@ -161,7 +161,7 @@ class TestTheCycleThatEarnsItsPlace:
 
     def test_the_question_does_not_wait_for_ever(self):
         """Any sentence closes the wait: nothing watches for ever."""
-        assistant = AssistantSettings(name="Lucie", name_voice=lambda v, p: True)
+        assistant = AssistantSettings(name="Lucie", name_voice=lambda _v, _p: True)
         assistant.awaiting = assistant.ask_who_is_speaking("12", now=100.0)
         assistant.turn([said("bon, on reprend", 104.0, 106.0)], now=108.0)
         assert assistant.awaiting is None
@@ -222,7 +222,7 @@ class TestWhenThingsFail:
         traces = []
         assistant = AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(works=False),
                                 brain=FakeBrain(),
-                                tracer=lambda who, what: traces.append(what))
+                                tracer=lambda _who, what: traces.append(what))
         rendered = assistant.answer(
             Opening(because=Because.CALLED, remark="?", born_at=1.0), now=2.0)
         assert not rendered.pronounced and traces == ["Oui, je vous entends très bien."]
@@ -644,7 +644,7 @@ class TestNothingToAnswerIsSilence:
             def __init__(self):
                 self.own_guidance = ""
 
-            def write_up(self, text):
+            def write_up(self, _text):
                 return answer
 
         return AssistantSettings(name="Lucie", voice=FakeVoiceAdapter(),
@@ -726,7 +726,7 @@ class TestSpeakingOfHerOwnAccord:
         class Broken:
             own_guidance = ""
 
-            def write_up(self, text):
+            def write_up(self, _text):
                 raise RuntimeError("quota")
 
         her, _ = self._her("x")
@@ -803,8 +803,8 @@ class StreamingBrain(FakeBrain):
 
     def write_up_as_it_comes(self, text, on_sentence):
         self.requests.append(text)
-        for sentence in self.response.split(". "):
-            sentence = sentence if sentence.endswith((".", "!", "?")) else sentence + "."
+        for piece in self.response.split(". "):
+            sentence = piece if piece.endswith((".", "!", "?")) else piece + "."
             self.streamed.append(sentence)
             on_sentence(sentence)
         return self.response
@@ -875,7 +875,7 @@ class TestTheAnswerIsSpokenAsItComes:
     def test_a_busy_voice_keeps_the_remark_for_the_trace(self):
         traces = []
         she = self._her(voice=VoiceThatTakesPieces(busy=True),
-                        tracer=lambda who, what: traces.append(what))
+                        tracer=lambda _who, what: traces.append(what))
         rendered = she.answer(self._called(), now=13.0)
         assert not rendered.pronounced
         assert traces == [she.brain.response]

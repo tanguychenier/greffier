@@ -103,7 +103,7 @@ class TestAPluralIsNotAMangling:
     is that people stop reading the others.
     """
 
-    @pytest.mark.parametrize("heard,known_one", [
+    @pytest.mark.parametrize(("heard", "known_one"), [
         ("bailleurs", "bailleur"),
         ("serveurs", "serveur"),
         ("recettes", "recette"),
@@ -117,7 +117,7 @@ class TestAPluralIsNotAMangling:
 
         assert Questioner(known=[known_one]).examine(f"on parle du {heard}") == []
 
-    @pytest.mark.parametrize("heard,known_one", [
+    @pytest.mark.parametrize(("heard", "known_one"), [
         ("Ouasis", "Oasis"),
         ("bakclog", "backlog"),
         ("Coppernic", "Copernic"),
@@ -186,7 +186,7 @@ class TestWhatRecursIsNoAccident:
 class TestADerivedWord:
     """A term with a prefix in front is another word, not a mistake."""
 
-    @pytest.mark.parametrize("heard,known_one", [
+    @pytest.mark.parametrize(("heard", "known_one"), [
         ("rétablissements", "établissement"),
         ("reprod", "prod"),
         ("déploiement", "ploiement"),
@@ -205,7 +205,7 @@ class TestADerivedWord:
 
         assert derived_word("rétablissement", "établissement")
 
-    @pytest.mark.parametrize("heard,known_one", [
+    @pytest.mark.parametrize(("heard", "known_one"), [
         ("Ouasis", "Oasis"),
         ("merde", "merge"),
         ("bakclog", "backlog"),

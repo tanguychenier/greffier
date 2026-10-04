@@ -33,7 +33,7 @@ class FakeJira:
         self.calls: list = []
         self.charge: object = {"issues": []}
 
-    def __call__(self, the_request, timeout=None):
+    def __call__(self, the_request, timeout=None):  # noqa: ARG002  # urlopen's keyword
         self.calls.append(the_request)
         return Response(json.dumps(self.charge).encode("utf-8"))
 
@@ -74,8 +74,9 @@ class TestTheCredentials:
         expected = base64.b64encode(SECRET.encode()).decode()
         assert jira.first_call.get_header("Authorization") == f"Basic {expected}"
 
-    def test_a_secret_with_no_address_is_reported_plainly(self, silent_server):
-        with pytest.raises(jira_api.JiraRefused, match="adresse@exemple.fr"):
+    @pytest.mark.usefixtures("silent_server")
+    def test_a_secret_with_no_address_is_reported_plainly(self):
+        with pytest.raises(jira_api.JiraRefused, match=r"adresse@exemple\.fr"):
             jira_api.requests(source(), "jeton-tout-seul")
 
     def test_the_account_address_is_not_in_the_register(self):
@@ -120,11 +121,13 @@ class TestReadingFromJira:
 
 
 class TestWritingToJira:
-    def test_a_read_only_source_does_not_even_call(self, silent_server):
+    @pytest.mark.usefixtures("silent_server")
+    def test_a_read_only_source_does_not_even_call(self):
         with pytest.raises(jira_api.JiraRefused, match="lecture seule"):
             jira_api.create_a_request(source(), SECRET, "Faire la chose")
 
-    def test_an_empty_title_is_refused(self, silent_server):
+    @pytest.mark.usefixtures("silent_server")
+    def test_an_empty_title_is_refused(self):
         with pytest.raises(jira_api.JiraRefused):
             jira_api.create_a_request(source(Right.WRITING), SECRET, " ")
 

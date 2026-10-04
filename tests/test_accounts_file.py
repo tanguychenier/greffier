@@ -118,7 +118,7 @@ class TestTheServersForTheModel:
 
 
 class TestSigningInByCode:
-    def test_the_address_and_the_code_are_read_off_the_server_s_words(self, tmp_path, monkeypatch):
+    def test_the_address_and_the_code_are_read_off_the_server_s_words(self, tmp_path):
         script = tmp_path / "server"
         script.write_text(
             "#!/bin/sh\necho 'To sign in, use a web browser to open the page "
@@ -139,5 +139,5 @@ class TestSigningInByCode:
             key="microsoft", name="M", manner=MICROSOFT.manner, powers=MICROSOFT.powers,
             server=MICROSOFT.server.__class__(command="no-such-command-here", args=()),
         )
-        assert not accounts_file.sign_in(service, lambda url, code: None)
+        assert not accounts_file.sign_in(service, lambda _url, _code: None)
         assert not accounts_file.signed_in(service)

@@ -10,6 +10,8 @@ which makes every threshold checkable by hand.
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import pytest
 
 from greffier.domain.channels import LOCAL_VOICE
@@ -218,7 +220,7 @@ class TestCuttingTheSliceAtTheChangesOfSpeaker:
     under somebody else's name. With the speaker turns of the slice, the
     block stops where the speaker changes."""
 
-    TURNS = [turn(0, 6, "0:1"), turn(6, 10, "0:2")]
+    TURNS: ClassVar[list[SpeakerTurn]] = [turn(0, 6, "0:1"), turn(6, 10, "0:2")]
 
     def test_a_change_of_speaker_cuts_the_block(self) -> None:
         groups = blocks(

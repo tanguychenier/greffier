@@ -135,7 +135,40 @@ line-length = 100
 target-version = "py313"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM"]
+# Not adopted, on purpose: D (docstrings are read, not counted), CPY, COM812,
+# FBT, PLR2004 (a threshold is a number), TRY003/EM, PLC0415 (a late import
+# is the pattern here, measured against the start-up time of a window that
+# must not load whisper), PLR0913 (injected dependencies make long
+# signatures in this architecture).
+select = [
+    "E", "F", "I", "UP", "B", "SIM",
+    "ARG", "BLE", "DTZ", "PERF", "PLW", "RUF", "PTH", "PT", "S", "C901", "PLR0915",
+]
+ignore = [
+    # PT018, « composite assertion »: 175 lines of `assert a and b` that read
+    # fine as they are. Splitting each in two would churn the whole suite to
+    # say the same thing.
+    "PT018",
+    # S603/S607, « subprocess without a shell » and « a command found on
+    # PATH »: driving ffmpeg, osascript, pactl, git and friends is this
+    # program's job, and its subprocess calls fire them 86 and 68 times.
+    # None of them opens a shell, so none of them can be injected; the one
+    # that does (assistant_terminal.py) is justified on its own line.
+    "S603", "S607",
+]
+# French typography: the apostrophe « ’ », the dash « – » in a sentence and
+# « × » in a measurement are the characters meant, not misspellings of ASCII.
+allowed-confusables = ["’", "–", "×"]
+
+[tool.ruff.lint.mccabe]
+# A ratchet, not a target: the highest complexity measured on 2026-10-04 is
+# cli.process at 18. The number only goes down, when that function is split.
+max-complexity = 18
+
+[tool.ruff.lint.pylint]
+# The same ratchet for the statement count: Window's longest builder measured
+# 83 on 2026-10-04 (window.py:1141).
+max-statements = 83
 
 [tool.ruff.lint.per-file-ignores]
 # Typer déclare les options dans les valeurs par défaut : c'est sa signature,
@@ -145,6 +178,9 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 # beaucoup de postes, alors que le paquet, lui, exige 3.13. Ses gardes de
 # version ne sont donc pas obsolètes.
 "tools/install.py" = ["UP036"]
+# A test asserts (S101): that is what it is for. A test's token is its
+# fixture and nothing in it is secret (S105, S106, S107).
+"tests/**" = ["S101", "S105", "S106", "S107"]
 
 [tool.mypy]
 python_version = "3.13"

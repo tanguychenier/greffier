@@ -37,30 +37,30 @@ class TestReadingEverySource:
             asked.append(("jira", source.name, token))
             return ["PROJ-7 Recette (À faire)"]
 
-        readings = read_all(Registry([gitlab(), jira()]), lambda s: "secret", tickets, requests)
+        readings = read_all(Registry([gitlab(), jira()]), lambda _s: "secret", tickets, requests)
         assert [r.lines for r in readings] == [
             ("#12 Facturation en double, Maud (opened)",), ("PROJ-7 Recette (À faire)",)
         ]
         assert asked == [("gitlab", "recherche", "secret"), ("jira", "suivi", "secret")]
 
     def test_a_source_without_a_token_is_named_and_not_called(self):
-        readings = read_all(Registry([gitlab()]), lambda s: "",
-                            lambda s, t: pytest.fail("called without a token"),
-                            lambda s, t: [])
+        readings = read_all(Registry([gitlab()]), lambda _s: "",
+                            lambda _s, _t: pytest.fail("called without a token"),
+                            lambda _s, _t: [])
         assert readings[0].readable is False
         assert readings[0].trouble == NO_TOKEN
 
     def test_a_source_that_refuses_says_so_without_stopping_the_others(self):
-        def refuses(source, token):
+        def refuses(_source, _token):
             raise RuntimeError("jeton refusé sur « recherche » (401)")
 
-        readings = read_all(Registry([gitlab(), jira()]), lambda s: "x", refuses,
-                            lambda s, t: ["PROJ-7 Recette (À faire)"])
+        readings = read_all(Registry([gitlab(), jira()]), lambda _s: "x", refuses,
+                            lambda _s, _t: ["PROJ-7 Recette (À faire)"])
         assert "jeton refusé" in readings[0].trouble
         assert readings[1].lines == ("PROJ-7 Recette (À faire)",)
 
     def test_no_source_registered_gives_nothing(self):
-        assert read_all(Registry([]), lambda s: "x", lambda s, t: [], lambda s, t: []) == []
+        assert read_all(Registry([]), lambda _s: "x", lambda _s, _t: [], lambda _s, _t: []) == []
 
 
 class TestWhatTheAssistantReads:

@@ -44,7 +44,9 @@ class BackupName:
         if not name.startswith("greffier-"):
             return None
         try:
-            return datetime.strptime(name[len("greffier-"):], "%Y-%m-%d_%Hh%M")
+            # Naive on purpose: __str__ above writes the local wall-clock, and
+            # what is read back is only ever ordered against other backups.
+            return datetime.strptime(name[len("greffier-"):], "%Y-%m-%d_%Hh%M")  # noqa: DTZ007
         except ValueError:
             return None
 

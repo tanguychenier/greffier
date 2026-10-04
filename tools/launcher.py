@@ -57,7 +57,7 @@ def main() -> int:
 
         locate_tcl()
         Window(Config()).spin()
-    except Exception:  # noqa: BLE001, dernier recours avant l'écran noir
+    except Exception:  # noqa: BLE001 - the last resort before a black screen
         trace = traceback.format_exc()
         target = log()
         with contextlib.suppress(OSError):
@@ -99,7 +99,7 @@ def _say_on_screen(message: str) -> None:
         root.withdraw()
         messagebox.showerror("Greffier", message)
         root.destroy()
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 - no Tk at all: the message goes to stderr
         print(message, file=sys.stderr)
 
 

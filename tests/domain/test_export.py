@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+from itertools import pairwise
 
 import pytest
 
@@ -57,7 +58,7 @@ class TestSharingATurnBetweenBlocks:
         chunks = blocks_of([said(10, 40, " ".join(["mot"] * 60))])
         assert chunks[0].start == 10
         assert chunks[-1].end == pytest.approx(40, abs=0.01)
-        for one, other in zip(chunks, chunks[1:], strict=False):
+        for one, other in pairwise(chunks):
             assert one.end == pytest.approx(other.start)
 
     def test_a_turn_too_short_for_its_blocks_overruns_rather_than_flashes(self) -> None:
@@ -121,7 +122,7 @@ class TestOneLinePerTurnForASpreadsheet:
 
 
 class TestAskingForAShape:
-    @pytest.mark.parametrize("shape", ("srt", "vtt", "csv"))
+    @pytest.mark.parametrize("shape", ["srt", "vtt", "csv"])
     def test_each_known_shape_produces_something(self, shape: str) -> None:
         assert rendered(shape, [said(0, 1, "oui")], NAMES).strip()
 

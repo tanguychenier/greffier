@@ -48,7 +48,7 @@ def silent_shell(monkeypatch):
 
 
 @pytest.fixture
-def windows(monkeypatch, silent_shell):
+def windows(monkeypatch, silent_shell):  # noqa: ARG001  # pytest wires fixtures by name
     """A Windows whose kernel32 answers what the test tells it to."""
     monkeypatch.setattr(locale_system, "SYSTEM", "Windows")
 
@@ -65,23 +65,27 @@ def _never_asked(*_):
 
 
 class TestTheShellIsBelievedFirst:
-    def test_lc_all_wins_over_lang(self, monkeypatch, silent_shell):
+    @pytest.mark.usefixtures("silent_shell")
+    def test_lc_all_wins_over_lang(self, monkeypatch):
         monkeypatch.setenv("LC_ALL", "de_DE.UTF-8")
         monkeypatch.setenv("LANG", "fr_FR.UTF-8")
         assert locale_system.read() == "de_DE.UTF-8"
 
-    def test_a_list_of_languages_gives_its_first(self, monkeypatch, silent_shell):
+    @pytest.mark.usefixtures("silent_shell")
+    def test_a_list_of_languages_gives_its_first(self, monkeypatch):
         monkeypatch.setenv("LANGUAGE", "fr_FR:en_GB")
         assert locale_system.read() == "fr_FR"
 
-    def test_c_and_posix_are_not_languages(self, monkeypatch, silent_shell):
+    @pytest.mark.usefixtures("silent_shell")
+    def test_c_and_posix_are_not_languages(self, monkeypatch):
         monkeypatch.setattr(locale_system, "SYSTEM", "Linux")
         monkeypatch.setenv("LC_ALL", "C")
         monkeypatch.setenv("LANG", "POSIX")
         assert locale_system.read() == ""
 
     @pytest.mark.parametrize("system", ["Linux", "Darwin", "Windows"])
-    def test_the_shell_beats_every_system(self, monkeypatch, silent_shell, system):
+    @pytest.mark.usefixtures("silent_shell")
+    def test_the_shell_beats_every_system(self, monkeypatch, system):
         monkeypatch.setattr(locale_system, "SYSTEM", system)
         monkeypatch.setattr(locale_system, "_from_macos", _never_asked)
         monkeypatch.setattr(locale_system, "_windows_user_locale_name", _never_asked)
@@ -123,13 +127,15 @@ class TestWindowsIsAskedThroughKernel32:
         monkeypatch.setattr(kernel32, "GetUserDefaultLocaleName", broken)
         assert locale_system.read() == ""
 
-    def test_a_python_without_windll_has_no_windows_to_ask(self, monkeypatch, silent_shell):
+    @pytest.mark.usefixtures("silent_shell")
+    def test_a_python_without_windll_has_no_windows_to_ask(self, monkeypatch):
         """Everywhere but Windows `ctypes.windll` does not exist; nothing is invented."""
         monkeypatch.setattr(locale_system, "SYSTEM", "Windows")
         monkeypatch.delattr(ctypes, "windll", raising=False)
         assert locale_system.read() == ""
 
-    def test_whatever_the_reader_answers_is_normalised(self, monkeypatch, silent_shell):
+    @pytest.mark.usefixtures("silent_shell")
+    def test_whatever_the_reader_answers_is_normalised(self, monkeypatch):
         monkeypatch.setattr(locale_system, "SYSTEM", "Windows")
         monkeypatch.setattr(locale_system, "_windows_user_locale_name", lambda: "de-AT")
         assert locale_system.read() == "de_AT"
@@ -137,7 +143,7 @@ class TestWindowsIsAskedThroughKernel32:
 
 class TestMacosIsAskedThroughDefaults:
     @pytest.fixture
-    def macos(self, monkeypatch, silent_shell):
+    def macos(self, monkeypatch, silent_shell):  # noqa: ARG002  # wired by name
         monkeypatch.setattr(locale_system, "SYSTEM", "Darwin")
 
         def whose_defaults(answer):
@@ -161,7 +167,7 @@ class TestMacosIsAskedThroughDefaults:
         assert locale_system.read() == ""
 
     def test_a_machine_without_defaults_gives_an_empty_string(self, macos):
-        def defaults(command, **_):
+        def defaults(_command, **_):
             raise FileNotFoundError("defaults")
 
         macos(defaults)
@@ -176,7 +182,8 @@ class TestMacosIsAskedThroughDefaults:
 
 
 class TestPosixHasNothingElseToRead:
-    def test_a_silent_shell_is_an_empty_answer(self, monkeypatch, silent_shell):
+    @pytest.mark.usefixtures("silent_shell")
+    def test_a_silent_shell_is_an_empty_answer(self, monkeypatch):
         """The C library reads the same variables: when they say nothing, nothing does."""
         monkeypatch.setattr(locale_system, "SYSTEM", "Linux")
         assert locale_system.read() == ""
@@ -184,7 +191,8 @@ class TestPosixHasNothingElseToRead:
 
 class TestNothingDeprecatedIsCalled:
     @pytest.mark.parametrize("system", ["Linux", "Darwin", "Windows"])
-    def test_reading_emits_no_warning_on_any_system(self, monkeypatch, silent_shell, system):
+    @pytest.mark.usefixtures("silent_shell")
+    def test_reading_emits_no_warning_on_any_system(self, monkeypatch, system):
         """`locale.getdefaultlocale` warned 86 times a run; here a warning is an error."""
         monkeypatch.setattr(locale_system, "SYSTEM", system)
         monkeypatch.setattr(locale_system, "_from_macos", lambda: "")

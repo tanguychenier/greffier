@@ -144,9 +144,11 @@ def fetch(
     target = model.target(folder)
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_suffix(target.suffix + ".partiel")
-    the_request = urllib.request.Request(model.url, headers={"User-Agent": "Greffier"})
+    the_request = urllib.request.Request(  # noqa: S310  # an https constant
+        model.url, headers={"User-Agent": "Greffier"})
     try:
-        with urllib.request.urlopen(the_request, timeout=delay) as stream:
+        # model.url is one of the https constants of the catalogue above.
+        with urllib.request.urlopen(the_request, timeout=delay) as stream:  # noqa: S310
             total = int(stream.headers.get("Content-Length") or 0)
             received = 0
             with partial.open("wb") as output:

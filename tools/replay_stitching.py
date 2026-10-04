@@ -25,9 +25,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from greffier.domain import voiceprints as domain  # noqa: E402
-from greffier.domain.models import Span, Voiceprint  # noqa: E402
-from greffier.locations import data_folder  # noqa: E402
+from greffier.domain import voiceprints as domain
+from greffier.domain.models import Span, Voiceprint
+from greffier.locations import data_folder
 
 
 def voiceprints_per_voice(meeting: dict, cache: Path) -> dict[str, list[Voiceprint]]:
@@ -39,7 +39,7 @@ def voiceprints_per_voice(meeting: dict, cache: Path) -> dict[str, list[Voicepri
     """
     if cache.exists():
         try:
-            return pickle.loads(cache.read_bytes())
+            return pickle.loads(cache.read_bytes())  # noqa: S301  # written below by this tool
         except (pickle.UnpicklingError, ModuleNotFoundError, AttributeError, EOFError):
             print(f"Cache illisible ({cache.name}), il est refait.", file=sys.stderr)
             cache.unlink(missing_ok=True)

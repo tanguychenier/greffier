@@ -582,7 +582,7 @@ class Chain:
             self._phase(Phase.SENDING, "Envoi du compte rendu…")
             try:
                 self._send(self.sender, audio, outcome)
-            except Exception as trouble:  # noqa: BLE001
+            except Exception as trouble:  # noqa: BLE001 - the minutes are kept and the warning says so; « greffier envoyer » retries
                 outcome.warnings.append(
                     f"Compte rendu NON envoyé : {trouble} "
                     "Le compte rendu est gardé ; « greffier envoyer » réessaie."
@@ -662,7 +662,9 @@ class Chain:
         if outcome.started_at is not None:
             return outcome.started_at.date().isoformat()
         with contextlib.suppress(OSError):
-            return datetime.fromtimestamp(audio.stat().st_mtime).date().isoformat()
+            # The day in the person's own zone, the one the recording's name
+            # carries too; compared with nothing from another zone.
+            return datetime.fromtimestamp(audio.stat().st_mtime).date().isoformat()  # noqa: DTZ006
         return ""
 
     def _leave_a_trace(self, audio: Path, outcome: Outcome) -> None:

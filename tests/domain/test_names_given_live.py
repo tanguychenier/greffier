@@ -66,7 +66,7 @@ class TestWhatIsNotCarriedOver:
         )
         assert found == {"26": "Kilian"}
 
-    @pytest.mark.parametrize("named_spans,turns", [
+    @pytest.mark.parametrize(("named_spans", "turns"), [
         ([], [turn(0, 100, "26")]),
         ([named(0, 100, "Kilian")], []),
         ([], []),

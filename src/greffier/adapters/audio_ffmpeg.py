@@ -215,13 +215,10 @@ class FfmpegRecorder:
              "-f", "null", "-"],
             capture_output=True, text=True, check=False,
         ).stderr
-        measures = []
-        for value in _LEVEL.findall(output):
-            measures.append(
-                DIGITAL_SILENCE if value == "-inf"
-                else max(float(value), DIGITAL_SILENCE)
-            )
-        return measures
+        return [
+            DIGITAL_SILENCE if value == "-inf" else max(float(value), DIGITAL_SILENCE)
+            for value in _LEVEL.findall(output)
+        ]
 
 def why_unreadable(audio: Path) -> str:
     """Why this file cannot be a recording, in French, or "" if it can.

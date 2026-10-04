@@ -1743,7 +1743,7 @@ def publish(
             else (typer.colors.YELLOW if proposition.blocked_by else typer.colors.BRIGHT_BLACK)
         )
         typer.secho(
-            f"  {str(proposition.destination):9} {proposition.file.name}",
+            f"  {proposition.destination!s:9} {proposition.file.name}",
             fg=colour,
         )
         typer.echo(f"            {proposition.because}")

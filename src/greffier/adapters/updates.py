@@ -177,10 +177,11 @@ def download(
     # a tampered answer cannot make urlopen read a local file.
     if not url.startswith("https://"):
         return (False, f"adresse refusée, https attendu : {url}")
-    the_request = urllib.request.Request(url, headers={"User-Agent": "Greffier"})
+    the_request = urllib.request.Request(  # noqa: S310  # https checked above
+        url, headers={"User-Agent": "Greffier"})
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        with urllib.request.urlopen(the_request, timeout=timeout) as response:
+        with urllib.request.urlopen(the_request, timeout=timeout) as response:  # noqa: S310
             total = int(response.headers.get("Content-Length") or 0)
             received = 0
             with target.open("wb") as output:
@@ -209,7 +210,7 @@ def unpack(archive: Path, folder: Path) -> tuple[bool, str]:
                 escaping = next((m for m in z.namelist() if _escapes(folder, m)), "")
                 if escaping:
                     return (False, f"l'archive écrit hors du dossier : {escaping}")
-                z.extractall(folder)
+                z.extractall(folder)  # noqa: S202  # every name was checked by _escapes
         elif archive.name.endswith((".tar.gz", ".tgz")):
             with tarfile.open(archive) as a:
                 a.extractall(folder, filter="data")
@@ -347,7 +348,7 @@ def check(store: str = REPOSITORY, timeout: float = TIMEOUT) -> Verdict:
         headers={"Accept": "application/vnd.github+json", "User-Agent": "Greffier"},
     )
     try:
-        with urllib.request.urlopen(the_request, timeout=timeout) as response:
+        with urllib.request.urlopen(the_request, timeout=timeout) as response:  # noqa: S310  # literal https
             content = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as trouble:
         if trouble.code == 404:

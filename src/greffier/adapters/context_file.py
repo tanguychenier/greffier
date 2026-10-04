@@ -42,16 +42,16 @@ def read(file: Path) -> Context:
     except (OSError, tomllib.TOMLDecodeError):
         return Context()
 
-    terms = []
-    for input in content.get("termes", []):
-        if isinstance(input, dict) and str(input.get("ecriture", "")).strip():
-            terms.append(Term(str(input["ecriture"]).strip(),
-                                str(input.get("sens", "")).strip()))
-    gens = []
-    for input in content.get("personnes", []):
-        if isinstance(input, dict) and str(input.get("nom", "")).strip():
-            gens.append(Speaker_(str(input["nom"]).strip(),
-                                    str(input.get("role", "")).strip()))
+    terms = [
+        Term(str(entry["ecriture"]).strip(), str(entry.get("sens", "")).strip())
+        for entry in content.get("termes", [])
+        if isinstance(entry, dict) and str(entry.get("ecriture", "")).strip()
+    ]
+    gens = [
+        Speaker_(str(entry["nom"]).strip(), str(entry.get("role", "")).strip())
+        for entry in content.get("personnes", [])
+        if isinstance(entry, dict) and str(entry.get("nom", "")).strip()
+    ]
     return Context(tuple(terms), tuple(gens))
 
 

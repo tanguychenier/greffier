@@ -58,7 +58,7 @@ class TestTheModelsAreLookedAt:
 
         seen = []
         monkeypatch.setattr(model_files, "missing",
-                            lambda folder, engine="": seen.append(engine) or [])
+                            lambda _folder, engine="": seen.append(engine) or [])
         monkeypatch.setattr(diagnostic, "SYSTEM", "Linux")
         diagnostic.models_present(data)
         assert seen == ["faster-whisper"]

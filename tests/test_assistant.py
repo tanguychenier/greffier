@@ -15,16 +15,16 @@ class ScriptedDialogue:
         self.choice = list(choice or [])
         self.displayed = []
 
-    def ask(self, question, defect=""):
+    def ask(self, _question, defect=""):
         return self.answers.pop(0) if self.answers else defect
 
-    def confirm(self, question, defect=True):
+    def confirm(self, _question, defect=True):
         return self.confirmations.pop(0) if self.confirmations else defect
 
     def show(self, text):
         self.displayed.append(text)
 
-    def choose(self, question, options, defect):
+    def choose(self, _question, options, defect):
         return self.choice.pop(0) if self.choice else options[defect][0]
 
     def dialogue(self):

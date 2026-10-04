@@ -56,13 +56,15 @@ def wheels_under_windows(monkeypatch, tmp_path):
 
 
 class TestLibrariesFound:
-    def test_every_library_is_returned(self, wheels_in):
+    @pytest.mark.usefixtures("wheels_in")
+    def test_every_library_is_returned(self):
         names = [path.name for path in adapter.libraries()]
         assert set(names) == {"libcublasLt.so.12", "libcublas.so.12", "libcudnn.so.9",
                              "libcudnn_graph.so.9", "libnvrtc.so.12", "libcudart.so.12",
                              "libcufft.so.11", "libcurand.so.10"}
 
-    def test_cublaslt_comes_before_cublas(self, wheels_in):
+    @pytest.mark.usefixtures("wheels_in")
+    def test_cublaslt_comes_before_cublas(self):
         """cuBLAS depends on it: loaded first, it would not find it."""
         names = [path.name for path in adapter.libraries()]
         assert names.index("libcublasLt.so.12") < names.index("libcublas.so.12")
@@ -81,7 +83,8 @@ class TestLibrariesFound:
 
 
 class TestLoading:
-    def test_an_unreadable_library_does_not_stop_the_transcription(self, wheels_in):
+    @pytest.mark.usefixtures("wheels_in")
+    def test_an_unreadable_library_does_not_stop_the_transcription(self):
         """The card will be unusable, and falling back on the processor is enough:
         giving up transcribing for that would be worse than slow."""
         trials = []
@@ -156,10 +159,10 @@ class _Driver:
         self._init = init
         self._count = count
 
-    def cuInit(self, _flags):  # noqa: N802, it is the name in the library
+    def cuInit(self, _flags):
         return self._init
 
-    def cuDeviceGetCount(self, pointer):  # noqa: N802, idem
+    def cuDeviceGetCount(self, pointer):
         pointer._obj.value = self._cards
         return self._count
 
@@ -188,17 +191,20 @@ class TestTwoOnnxEngines:
     def le_rival(self, monkeypatch):
         monkeypatch.setitem(sys.modules, "onnxruntime", object())
 
-    def test_the_rival_is_seen_when_it_is_loaded(self, le_rival):
+    @pytest.mark.usefixtures("le_rival")
+    def test_the_rival_is_seen_when_it_is_loaded(self):
         assert adapter.another_runtime_is_open() is True
 
     def test_no_rival_before_anything_transcribes(self, monkeypatch):
         monkeypatch.delitem(sys.modules, "onnxruntime", raising=False)
         assert adapter.another_runtime_is_open() is False
 
-    def test_the_card_is_lost_to_whoever_came_first(self, with_card, le_rival):
+    @pytest.mark.usefixtures("with_card", "le_rival")
+    def test_the_card_is_lost_to_whoever_came_first(self, ):
         assert adapter.a_card_is_usable() is False
 
-    def test_keeping_the_place_holds_the_card(self, with_card, le_rival, monkeypatch):
+    @pytest.mark.usefixtures("with_card", "le_rival")
+    def test_keeping_the_place_holds_the_card(self, monkeypatch):
         """The rival may load afterwards: the seat is taken."""
         monkeypatch.setattr(adapter, "_place_kept", True)
         assert adapter.a_card_is_usable() is True
@@ -223,7 +229,7 @@ class TestKeepingThePlace:
             sys.modules, "sherpa_onnx",
             SimpleNamespace(
                 SpeakerEmbeddingExtractorConfig=lambda **o: o,
-                SpeakerEmbeddingExtractor=lambda config: openings.append(config),
+                SpeakerEmbeddingExtractor=openings.append,
             ),
         )
         monkeypatch.setattr(adapter, "show_to_the_loader", lambda: None)
@@ -253,8 +259,9 @@ class TestKeepingThePlace:
         adapter.keep_the_place(tmp_path / "absent.onnx")
         assert silent_sherpa == []
 
+    @pytest.mark.usefixtures("silent_sherpa")
     def test_a_model_that_refuses_does_not_stop_the_meeting(
-        self, monkeypatch, tmp_path, silent_sherpa
+        self, monkeypatch, tmp_path
     ):
         monkeypatch.setattr(adapter, "a_card_answers", lambda: True)
         monkeypatch.delitem(sys.modules, "onnxruntime", raising=False)
@@ -282,17 +289,20 @@ class TestTheThreeSystems:
     everything stays on the processor there, where whisper.cpp has Metal anyway.
     """
 
-    def test_windows_looks_for_its_dll(self, wheels_under_windows):
+    @pytest.mark.usefixtures("wheels_under_windows")
+    def test_windows_looks_for_its_dll(self):
         the_names = [path.name for path in adapter.libraries("Windows")]
         assert set(the_names) == {"cublas64_12.dll", "cublasLt64_12.dll", "cudnn64_9.dll",
                              "cudnn_graph64_9.dll", "nvrtc64_120_0.dll",
                              "cudart64_12.dll", "cufft64_11.dll", "curand64_10.dll"}
 
-    def test_windows_loads_cublaslt_before_cublas(self, wheels_under_windows):
+    @pytest.mark.usefixtures("wheels_under_windows")
+    def test_windows_loads_cublaslt_before_cublas(self):
         the_names = [path.name for path in adapter.libraries("Windows")]
         assert the_names.index("cublasLt64_12.dll") < the_names.index("cublas64_12.dll")
 
-    def test_macos_has_nothing_to_load(self, wheels_in):
+    @pytest.mark.usefixtures("wheels_in")
+    def test_macos_has_nothing_to_load(self):
         """The files are there -- an untidy machine -- and still nothing."""
         assert adapter.libraries("Darwin") == []
 
@@ -300,7 +310,7 @@ class TestTheThreeSystems:
         """And without even trying to open a driver that does not exist."""
         trials = []
         monkeypatch.setattr(adapter, "SYSTEM", "Darwin")
-        monkeypatch.setattr(adapter.ctypes, "CDLL", lambda *a, **k: trials.append(a))
+        monkeypatch.setattr(adapter.ctypes, "CDLL", lambda *a, **_k: trials.append(a))
         adapter.a_card_answers.cache_clear()
         assert adapter.a_card_answers() is False
         assert trials == []
@@ -321,7 +331,8 @@ class TestTheThreeSystems:
         assert requests == [the_driver]
         adapter.a_card_answers.cache_clear()
 
-    def test_windows_declares_the_folder_to_the_loader(self, monkeypatch, wheels_under_windows):
+    @pytest.mark.usefixtures("wheels_under_windows")
+    def test_windows_declares_the_folder_to_the_loader(self, monkeypatch):
         """Without it, a DLL loaded from here does not find those it depends on."""
         declares = []
         monkeypatch.setattr(adapter.os, "add_dll_directory", declares.append, raising=False)

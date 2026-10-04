@@ -53,8 +53,8 @@ class TestRebuildingAMeeting:
         assert meeting.utterances == []
 
     def test_the_audio_is_taken_back_when_it_exists(self):
-        meeting = from_the_thread("x", THREAD, audio=Path("/tmp/x.wav"))
-        assert meeting.audio == Path("/tmp/x.wav")
+        meeting = from_the_thread("x", THREAD, audio=Path("/enregistrements/x.wav"))
+        assert meeting.audio == Path("/enregistrements/x.wav")
 
 
 class TestBeingHonestAboutIt:

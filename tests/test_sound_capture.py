@@ -33,10 +33,12 @@ class TestTheSoundServer:
         open_the_take(session)
         assert diagnostic.sound_server_present()
 
-    def test_with_neither_socket_nor_server_there_is_nothing_to_capture(self, session):
+    @pytest.mark.usefixtures("session")
+    def test_with_neither_socket_nor_server_there_is_nothing_to_capture(self):
         assert not diagnostic.sound_server_present()
 
-    def test_a_declared_server_is_believed(self, session, monkeypatch):
+    @pytest.mark.usefixtures("session")
+    def test_a_declared_server_is_believed(self, monkeypatch):
         """A remote server or one over a named socket puts no socket here."""
         monkeypatch.setenv("PULSE_SERVER", "tcp:192.168.1.10:4713")
         assert diagnostic.sound_server_present()
@@ -49,9 +51,10 @@ class TestTheCaptureReading:
         assert the_reading.present
         assert "pactl" not in the_reading.detail
 
-    def test_the_mic_is_still_found_through_the_sound_server(self, session, monkeypatch):
+    @pytest.mark.usefixtures("session")
+    def test_the_mic_is_still_found_through_the_sound_server(self, monkeypatch):
         """A machine without /proc/asound, a container, but with a server."""
-        monkeypatch.setattr(diagnostic.Path, "exists", lambda self: False)
+        monkeypatch.setattr(diagnostic.Path, "exists", lambda _self: False)
         monkeypatch.setattr(diagnostic, "sound_server_present", lambda: True)
         assert diagnostic.mic_present().present
 

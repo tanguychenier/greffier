@@ -82,12 +82,12 @@ class OllamaWriter:
             "stream": False,
             "options": {"temperature": 0.2},
         }).encode("utf-8")
-        the_request = urllib.request.Request(
+        the_request = urllib.request.Request(  # noqa: S310  # scheme checked in __init__
             f"{self.host}/api/generate", data=corps,
             headers={"Content-Type": "application/json"}, method="POST",
         )
         try:
-            with urllib.request.urlopen(the_request, timeout=900) as response:
+            with urllib.request.urlopen(the_request, timeout=900) as response:  # noqa: S310
                 text = str(json.load(response).get("response", "")).strip()
         except urllib.error.URLError as the_error:
             raise RuntimeError(

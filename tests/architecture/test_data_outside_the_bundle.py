@@ -85,7 +85,7 @@ class TestAnOlderFileStaysReadable:
         minimal = {
             "format": 1,
             "identifiant": "2026-08-01_09h00_ancienne",
-            "audio": "/tmp/ancienne.wav",
+            "audio": "/enregistrements/ancienne.wav",
             "traitee_le": datetime.now(UTC).isoformat(),
             "duree": 60.0,
             "repliques": [{"debut": 0.0, "fin": 5.0, "texte": "Bonjour."}],

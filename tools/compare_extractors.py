@@ -37,8 +37,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from greffier.domain.voiceprints import aggregate, similarity, stitch  # noqa: E402
-from greffier.locations import data_folder  # noqa: E402
+from greffier.domain.voiceprints import aggregate, similarity, stitch
+from greffier.locations import data_folder
 
 CATALOGUE = ("https://github.com/k2-fsa/sherpa-onnx/releases/download/"
              "speaker-recongition-models/")
@@ -68,7 +68,8 @@ def download(name: str, target: Path) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     print(f"  downloading {name}…", file=sys.stderr)
     partial = target.with_suffix(".partial")
-    with urllib.request.urlopen(CATALOGUE + name) as stream, partial.open("wb") as output:
+    with (urllib.request.urlopen(CATALOGUE + name) as stream,  # noqa: S310  # https constant
+          partial.open("wb") as output):
         while chunk := stream.read(1 << 20):
             output.write(chunk)
     partial.replace(target)
@@ -79,7 +80,7 @@ def voiceprints(model: Path, meeting: dict, key: str) -> list:
     """One voiceprint per window, in the order of time. Cached."""
     file = CACHE / f"{key}.pickle"
     if file.exists():
-        return pickle.loads(file.read_bytes())
+        return pickle.loads(file.read_bytes())  # noqa: S301  # written below by this tool
 
     import numpy as np
     import soundfile as sf
@@ -116,7 +117,7 @@ def truth(meeting: dict) -> list:
             "meeting first."
         )
     try:
-        per_voice = pickle.loads(cache.read_bytes())
+        per_voice = pickle.loads(cache.read_bytes())  # noqa: S301  # replay_stitching wrote it
     except (pickle.UnpicklingError, ModuleNotFoundError, AttributeError, EOFError):
         print("Unreadable cache: run tools/replay_stitching.py on this meeting "
               "again, it will rebuild it.", file=sys.stderr)

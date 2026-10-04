@@ -35,7 +35,7 @@ class FakeProcess:
         self.stderr = _Err()
         self.returncode = code
 
-    def wait(self, timeout=None):
+    def wait(self, timeout=None):  # noqa: ARG002  # Popen.wait is called with timeout=
         return self.returncode
 
     def kill(self):
@@ -55,7 +55,7 @@ def rings(monkeypatch):
     def writer(output_: str, code: int = 0) -> ClaudeWriter:
         monkeypatch.setattr("shutil.which", lambda _: "/usr/bin/claude")
         monkeypatch.setattr(
-            "subprocess.Popen", lambda *a, **k: FakeProcess(output_, code)
+            "subprocess.Popen", lambda *_a, **_k: FakeProcess(output_, code)
         )
         return ClaudeWriter(on_search=lambda: rings_heard.append(1))
 
@@ -105,7 +105,7 @@ class TestWithoutTheCue:
         monkeypatch.setattr("shutil.which", lambda _: "/usr/bin/claude")
         monkeypatch.setattr(
             "subprocess.run",
-            lambda command, **k: vu.setdefault("command", command) and None or Outcome(),
+            lambda command, **_k: (vu.setdefault("command", command) and None) or Outcome(),
         )
         assert ClaudeWriter().write_up("...") == "Le compte rendu."
         assert "text" in vu["command"] and "stream-json" not in vu["command"]
@@ -158,9 +158,9 @@ class TestTheAccountsToolsAreWrittenDown:
                                        _answer("Carte créée.")))
 
         monkeypatch.setattr("subprocess.Popen", popen)
-        writer = ClaudeWriter(servers=Path("/tmp/outils.json"), on_tool=used.append)
+        writer = ClaudeWriter(servers=Path("/config/outils.json"), on_tool=used.append)
         assert writer.write_up("...") == "Carte créée."
         assert used == ["mcp__trello__get_lists", "mcp__trello__add_card_to_list"]
         command = seen["command"]
-        assert command[command.index("--mcp-config") + 1] == "/tmp/outils.json"
+        assert command[command.index("--mcp-config") + 1] == "/config/outils.json"
         assert "stream-json" in command, "watching the tools needs the stream"

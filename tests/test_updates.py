@@ -3,6 +3,7 @@
 import json
 import urllib.error
 from io import BytesIO
+from typing import ClassVar
 
 import pytest
 
@@ -31,7 +32,7 @@ def answer(monkeypatch, content: dict) -> None:
 def answer_bytes(monkeypatch, bytes_read: bytes) -> None:
     """A binary answer with its length: the length is what makes the progress."""
     class Response(BytesIO):
-        headers = {"Content-Length": str(len(bytes_read))}
+        headers: ClassVar[dict[str, str]] = {"Content-Length": str(len(bytes_read))}
 
         def __enter__(self):
             return self
@@ -52,25 +53,29 @@ def fail_to_answer(monkeypatch, trouble: Exception) -> None:
 
 
 class TestWhenThereIsSomethingBetter:
-    def test_a_later_version_is_offered(self, monkeypatch, installed_0_2_0):
+    @pytest.mark.usefixtures("installed_0_2_0")
+    def test_a_later_version_is_offered(self, monkeypatch):
         answer(monkeypatch, {"tag_name": "v0.3.0", "html_url": "https://exemple/0.3.0"})
         verdict = updates.check()
         assert verdict.update
         assert verdict.available == "0.3.0"
         assert verdict.address == "https://exemple/0.3.0"
 
-    def test_the_sentence_says_both_versions(self, monkeypatch, installed_0_2_0):
+    @pytest.mark.usefixtures("installed_0_2_0")
+    def test_the_sentence_says_both_versions(self, monkeypatch):
         answer(monkeypatch, {"tag_name": "v0.3.0"})
         said = updates.check().say()
         assert "0.3.0" in said and "0.2.0" in said
 
 
 class TestWhenThereIsNothingBetter:
-    def test_the_same_version_offers_nothing(self, monkeypatch, installed_0_2_0):
+    @pytest.mark.usefixtures("installed_0_2_0")
+    def test_the_same_version_offers_nothing(self, monkeypatch):
         answer(monkeypatch, {"tag_name": "v0.2.0"})
         assert updates.check().up_to_date
 
-    def test_an_earlier_version_offers_nothing(self, monkeypatch, installed_0_2_0):
+    @pytest.mark.usefixtures("installed_0_2_0")
+    def test_an_earlier_version_offers_nothing(self, monkeypatch):
         """A release older than the installed one must trigger nothing."""
         answer(monkeypatch, {"tag_name": "v0.1.0"})
         assert updates.check().up_to_date
@@ -79,22 +84,26 @@ class TestWhenThereIsNothingBetter:
 class TestWhenNothingAnswers:
     """A check that brought the window down would be a very poor trade."""
 
-    def test_with_no_network_the_trouble_is_reported(self, monkeypatch, installed_0_2_0):
+    @pytest.mark.usefixtures("installed_0_2_0")
+    def test_with_no_network_the_trouble_is_reported(self, monkeypatch):
         fail_to_answer(monkeypatch, urllib.error.URLError("injoignable"))
         verdict = updates.check()
         assert "réseau" in verdict.trouble
         assert not verdict.update
 
-    def test_no_published_version_is_not_a_failure(self, monkeypatch, installed_0_2_0):
+    @pytest.mark.usefixtures("installed_0_2_0")
+    def test_no_published_version_is_not_a_failure(self, monkeypatch):
         fail_to_answer(monkeypatch, urllib.error.HTTPError("u", 404, "absent", {}, None))  # type: ignore[arg-type]
         assert "aucune version publiée" in updates.check().trouble
 
-    def test_an_unreadable_answer_raises_nothing(self, monkeypatch, installed_0_2_0):
+    @pytest.mark.usefixtures("installed_0_2_0")
+    def test_an_unreadable_answer_raises_nothing(self, monkeypatch):
         monkeypatch.setattr(updates.urllib.request, "urlopen",
                             lambda *_a, **_k: (_ for _ in ()).throw(ValueError("cassé")))
         assert updates.check().trouble
 
-    def test_a_release_with_no_tag_is_refused(self, monkeypatch, installed_0_2_0):
+    @pytest.mark.usefixtures("installed_0_2_0")
+    def test_a_release_with_no_tag_is_refused(self, monkeypatch):
         answer(monkeypatch, {"html_url": "https://exemple"})
         assert "étiquette" in updates.check().trouble
 
@@ -226,7 +235,7 @@ class TestTheArtefactForThisSystem:
     archive on a Mac would produce nothing that launches.
     """
 
-    PUBLICATION = {
+    PUBLICATION: ClassVar[dict[str, object]] = {
         "tag_name": "v0.3.0",
         "html_url": "https://exemple/0.3.0",
         "assets": [
@@ -239,13 +248,14 @@ class TestTheArtefactForThisSystem:
         ],
     }
 
-    @pytest.mark.parametrize("system,expected", [
+    @pytest.mark.parametrize(("system", "expected"), [
         ("Darwin", "Greffier-macos.zip"),
         ("Windows", "Greffier-windows.zip"),
         ("Linux", "Greffier-linux.tar.gz"),
     ])
+    @pytest.mark.usefixtures("installed_0_2_0")
     def test_every_system_takes_its_own(
-        self, monkeypatch, installed_0_2_0, system, expected
+        self, monkeypatch, system, expected
     ):
         monkeypatch.setattr(updates.platform, "system", lambda: system)
         answer(monkeypatch, self.PUBLICATION)
@@ -254,8 +264,9 @@ class TestTheArtefactForThisSystem:
         assert verdict.artefact.endswith(expected)
         assert verdict.downloadable
 
+    @pytest.mark.usefixtures("installed_0_2_0")
     def test_an_unknown_system_offers_nothing(
-        self, monkeypatch, installed_0_2_0
+        self, monkeypatch
     ):
         monkeypatch.setattr(updates.platform, "system", lambda: "Haiku")
         answer(monkeypatch, self.PUBLICATION)
@@ -263,8 +274,9 @@ class TestTheArtefactForThisSystem:
         assert not verdict.downloadable
         assert verdict.update, "la version reste annoncée, seule l'archive manque"
 
+    @pytest.mark.usefixtures("installed_0_2_0")
     def test_a_release_with_no_archive_says_so(
-        self, monkeypatch, installed_0_2_0
+        self, monkeypatch
     ):
         """Happens when the build failed for one system: it has to be said."""
         monkeypatch.setattr(updates.platform, "system", lambda: "Darwin")

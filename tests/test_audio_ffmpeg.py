@@ -126,7 +126,7 @@ class TestStoppingTheEncoder:
             import time
 
             time.sleep(0.3)
-            monkeypatch.setattr(time, "sleep", lambda s: None)
+            monkeypatch.setattr(time, "sleep", lambda _s: None)
             FfmpegRecorder("default", 60).stop_recording(child.pid)
             assert child.wait(timeout=5) == -signal.SIGKILL
         finally:

@@ -66,7 +66,7 @@ class TestWhenThingsFail:
                             lambda _name: "/usr/local/bin/claude")
         monkeypatch.setattr(
             "greffier.adapters.writer_claude.subprocess.run",
-            lambda command, **o: subprocess.CompletedProcess(command, 0, "", "quota atteint"),
+            lambda command, **_o: subprocess.CompletedProcess(command, 0, "", "quota atteint"),
         )
         with pytest.raises(RuntimeError, match="quota atteint"):
             ClaudeWriter("opus").write_up("x")

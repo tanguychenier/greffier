@@ -17,7 +17,8 @@ class TestWhatIsWritten:
     def test_a_line_carries_the_moment_the_place_and_the_reason(self):
         line = Trouble("transcription", "le modèle a refusé").line()
         assert "transcription" in line and "le modèle a refusé" in line
-        assert datetime.now().strftime("%Y-%m-%d") in line
+        # Trouble stamps the local wall-clock; the test reads the same clock.
+        assert datetime.now().strftime("%Y-%m-%d") in line  # noqa: DTZ005
 
     def test_the_version_and_the_system_are_carried_when_they_are_known(self):
         line = Trouble("envoi", "serveur muet").line("0.3.22", "Linux x86_64")
@@ -30,7 +31,7 @@ class TestWhatIsWritten:
         assert line.count("\t") == 2
 
     def test_an_incident_without_a_place_is_refused(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="sans lieu"):
             Trouble("   ", "quelque chose")
 
 

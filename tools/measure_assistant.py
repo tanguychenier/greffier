@@ -179,7 +179,7 @@ def delays(timeline: list[dict[str, Any]], clock: Clock, name: str) -> list[dict
     """
     rows = []
     questions = [line for line in timeline if str(line["text"]).startswith(name)]
-    for question, following in zip(questions, questions[1:] + [None], strict=True):
+    for question, following in zip(questions, [*questions[1:], None], strict=True):
         begun, end = float(question["start"]), float(question["end"])
         limit = float(following["start"]) if following else float("inf")
         window = [(what, at, detail) for what, at, detail in clock.events if begun <= at < limit]

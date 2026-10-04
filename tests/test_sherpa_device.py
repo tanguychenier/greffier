@@ -50,21 +50,24 @@ def loader(monkeypatch):
 
 
 class TestTheSegmentation:
-    def test_the_card_is_taken_when_there_is_one(self, models, with_card, loader):
+    @pytest.mark.usefixtures("with_card")
+    def test_the_card_is_taken_when_there_is_one(self, models, loader):
         tool = cutting.SherpaDiariser(
             models / "segmentation.onnx", models / "empreintes.onnx"
         )
         assert tool._device() == "cuda"
         assert loader == [1], "les bibliothèques doivent être chargées avant le modèle"
 
-    def test_the_processor_when_no_card_answers(self, models, without_card, loader):
+    @pytest.mark.usefixtures("without_card")
+    def test_the_processor_when_no_card_answers(self, models, loader):
         tool = cutting.SherpaDiariser(
             models / "segmentation.onnx", models / "empreintes.onnx"
         )
         assert tool._device() == "cpu"
         assert loader == [], "rien à charger sans carte"
 
-    def test_the_setting_wins_over_the_card(self, models, with_card, loader):
+    @pytest.mark.usefixtures("with_card")
+    def test_the_setting_wins_over_the_card(self, models, loader):
         """A card taken by something else is refused in the settings file."""
         tool = cutting.SherpaDiariser(
             models / "segmentation.onnx", models / "empreintes.onnx", device="cpu"
@@ -94,32 +97,37 @@ class TestTheVoiceprints:
         )
         return received_ones
 
-    def test_the_card_reaches_the_model(self, models, with_card, loader, silent_sherpa):
+    @pytest.mark.usefixtures("with_card")
+    def test_the_card_reaches_the_model(self, models, loader, silent_sherpa):
         tool = voiceprints.TitaNetExtractor(models / "empreintes.onnx")
         assert tool.device == "cuda"
         assert tool._extractor is not None
         assert silent_sherpa[0]["provider"] == "cuda"
         assert loader == [1]
 
-    def test_the_processor_reaches_the_model(self, models, without_card, loader, silent_sherpa):
+    @pytest.mark.usefixtures("without_card")
+    def test_the_processor_reaches_the_model(self, models, loader, silent_sherpa):
         tool = voiceprints.TitaNetExtractor(models / "empreintes.onnx")
         assert tool._extractor is not None
         assert silent_sherpa[0]["provider"] == "cpu"
         assert tool.device == "cpu"
         assert loader == []
 
-    def test_the_setting_wins_over_the_card(self, models, with_card, loader, silent_sherpa):
+    @pytest.mark.usefixtures("with_card", "loader")
+    def test_the_setting_wins_over_the_card(self, models, silent_sherpa):
         tool = voiceprints.TitaNetExtractor(models / "empreintes.onnx", device="cpu")
         assert tool._extractor is not None
         assert silent_sherpa[0]["provider"] == "cpu"
 
-    def test_the_model_keeps_its_threads(self, models, without_card, loader, silent_sherpa):
+    @pytest.mark.usefixtures("without_card", "loader")
+    def test_the_model_keeps_its_threads(self, models, silent_sherpa):
         """Choosing the card must not lose the choice of threads."""
         tool = voiceprints.TitaNetExtractor(models / "empreintes.onnx")
         assert tool._extractor is not None
         assert silent_sherpa[0]["num_threads"] >= 1
 
-    def test_naming_a_second_voice_opens_nothing(self, models, without_card, silent_sherpa):
+    @pytest.mark.usefixtures("without_card")
+    def test_naming_a_second_voice_opens_nothing(self, models, silent_sherpa):
         """A hundred megabytes per click on « nommer », that was the previous price."""
         first = voiceprints.TitaNetExtractor(models / "empreintes.onnx")
         second = voiceprints.TitaNetExtractor(models / "empreintes.onnx")
@@ -148,8 +156,8 @@ class LaVoix:
 
         return SimpleNamespace(
             OfflineTtsModelConfig=model,
-            OfflineTtsVitsModelConfig=lambda **o: SimpleNamespace(**o),
-            OfflineTtsKokoroModelConfig=lambda **o: SimpleNamespace(**o),
+            OfflineTtsVitsModelConfig=SimpleNamespace,
+            OfflineTtsKokoroModelConfig=SimpleNamespace,
             OfflineTtsConfig=lambda model: SimpleNamespace(
                 model=model, validate=lambda: True
             ),
@@ -158,26 +166,30 @@ class LaVoix:
 
 
 class TestTheVoice:
-    def test_the_card_reaches_the_voice(self, tmp_path, monkeypatch, with_card, loader):
+    @pytest.mark.usefixtures("with_card")
+    def test_the_card_reaches_the_voice(self, tmp_path, monkeypatch, loader):
         bench = LaVoix(monkeypatch, tmp_path)
         voice.NeuralVoice(bench.folder)._load()
         assert bench.received_ones["provider"] == "cuda"
         assert loader == [1]
 
+    @pytest.mark.usefixtures("without_card")
     def test_the_processor_when_no_card_answers(
-        self, tmp_path, monkeypatch, without_card, loader
+        self, tmp_path, monkeypatch, loader
     ):
         bench = LaVoix(monkeypatch, tmp_path)
         voice.NeuralVoice(bench.folder)._load()
         assert bench.received_ones["provider"] == "cpu"
         assert loader == []
 
-    def test_the_setting_wins_over_the_card(self, tmp_path, monkeypatch, with_card, loader):
+    @pytest.mark.usefixtures("with_card", "loader")
+    def test_the_setting_wins_over_the_card(self, tmp_path, monkeypatch, ):
         bench = LaVoix(monkeypatch, tmp_path)
         voice.NeuralVoice(bench.folder, device="cpu")._load()
         assert bench.received_ones["provider"] == "cpu"
 
-    def test_the_model_is_opened_once(self, tmp_path, monkeypatch, with_card, loader):
+    @pytest.mark.usefixtures("with_card", "loader")
+    def test_the_model_is_opened_once(self, tmp_path, monkeypatch, ):
         """Ouvrir le modèle coûte cinq secondes : deux fois serait dix."""
         bench = LaVoix(monkeypatch, tmp_path)
         speaking_one = voice.NeuralVoice(bench.folder)

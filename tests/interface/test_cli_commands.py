@@ -173,8 +173,9 @@ class TestTheChecksItRuns:
         assert _run(settings, "diagnostic").exit_code == 0
         assert examined == [data]
 
+    @pytest.mark.usefixtures("machine")
     def test_without_a_profile_the_diagnostic_looks_at_the_default_data_folder(
-        self, machine, monkeypatch
+        self, monkeypatch
     ):
         from greffier.adapters.configuration import Config
 
@@ -207,10 +208,10 @@ class TestTheContextItKeeps:
         assert answered.exit_code in (0, 1)
         assert answered.stdout.strip()
 
-    def test_a_term_added_is_read_back(self, machine, tmp_path):
+    @pytest.mark.usefixtures("machine")
+    def test_a_term_added_is_read_back(self, tmp_path):
         from greffier.adapters import context_file
 
-        settings, _ = machine
         file = tmp_path / "config" / "greffier" / "contexte.toml"
         file.parent.mkdir(parents=True, exist_ok=True)
         context_file.lay_the_template(file)
@@ -236,7 +237,7 @@ class TestKeepingAndRecovering:
         answered = _run(settings, "archiver")
         assert answered.exit_code in (0, 1)
 
-    def test_a_backup_is_written_where_it_is_asked_for(self, machine, tmp_path):
+    def test_a_backup_is_written_where_it_is_asked_for(self, machine):
         settings, data = machine
         (data / "reunions").mkdir(parents=True, exist_ok=True)
         (data / "reunions" / "une.json").write_text("{}", encoding="utf-8")

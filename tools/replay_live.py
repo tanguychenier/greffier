@@ -27,10 +27,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from greffier.domain.live import Block, LiveThread  # noqa: E402
-from greffier.domain.models import Span, Utterance, Voiceprint  # noqa: E402
-from greffier.domain.names import join_namesakes  # noqa: E402
-from greffier.locations import data_folder  # noqa: E402
+from greffier.domain.live import Block, LiveThread
+from greffier.domain.models import Span, Utterance, Voiceprint
+from greffier.domain.names import join_namesakes
+from greffier.locations import data_folder
 
 #: Every how many sentences the thread stitches its voices, as in a sitting.
 STITCH_EVERY = 40
@@ -121,7 +121,7 @@ def main() -> int:
         return 1
     meeting = json.loads(path.read_text())
     try:
-        per_voice = pickle.loads(cache.read_bytes())
+        per_voice = pickle.loads(cache.read_bytes())  # noqa: S301  # replay_stitching wrote it
     except (pickle.UnpicklingError, ModuleNotFoundError, AttributeError, EOFError):
         print("Unreadable cache: run tools/replay_stitching.py on this meeting "
               "again, it will rebuild it.", file=sys.stderr)

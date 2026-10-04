@@ -42,8 +42,8 @@ def clean(text: str) -> str:
 def sentences(text: str, maximum: int = 240) -> list[str]:
     """Cuts into pronounceable pieces, earliest first."""
     chunks: list[str] = []
-    for sentence in SENTENCE_ENDS.split(clean(text)):
-        sentence = sentence.strip()
+    for piece in SENTENCE_ENDS.split(clean(text)):
+        sentence = piece.strip()
         if not sentence:
             continue
         if len(sentence) <= maximum:
@@ -107,7 +107,7 @@ def _without_chatter() -> Iterator[None]:
         yield
         return
     try:
-        with open(os.devnull, "w") as sink:
+        with Path(os.devnull).open("w") as sink:
             os.dup2(sink.fileno(), 2)
         yield
     finally:

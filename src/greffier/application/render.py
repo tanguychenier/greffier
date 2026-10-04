@@ -224,12 +224,12 @@ def reliability_header(meeting: Transcribed) -> str:
         )
     if gaps:
         lines.append(f"{len(gaps)} passage(s) sans aucun texte :")
-        for gap in gaps[:10]:
-            lines.append(
-                f"  {int(gap.start) // 60:02d}:{int(gap.start) % 60:02d}"
-                f" → {int(gap.end) // 60:02d}:{int(gap.end) % 60:02d}"
-                f" ({gap.duration:.0f} s)"
-            )
+        lines.extend(
+            f"  {int(gap.start) // 60:02d}:{int(gap.start) % 60:02d}"
+            f" → {int(gap.end) // 60:02d}:{int(gap.end) % 60:02d}"
+            f" ({gap.duration:.0f} s)"
+            for gap in gaps[:10]
+        )
         if len(gaps) > 10:
             lines.append(f"  … et {len(gaps) - 10} autres")
         lines.append(
