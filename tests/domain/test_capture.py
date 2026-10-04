@@ -42,6 +42,19 @@ class TestWhenTheCaptureStops:
         said_ones = [r for _ in range(10) if (r := monitoring.observe(5000))]
         assert len(said_ones) == 1, "répéter à chaque tour noierait le message"
 
+    def test_the_alarm_says_how_long_and_what_to_check(self):
+        """The watch passes every four seconds: three still turns are twelve
+        seconds, the figure the person has just lived through."""
+        monitoring = CaptureWatch()
+        monitoring.observe(5000)
+        for _ in range(TURNS_BEFORE_ALERT - 1):
+            assert monitoring.observe(5000) == ""
+        assert monitoring.observe(5000) == (
+            "L'enregistrement n'avance plus : aucun son n'a été écrit depuis "
+            "12 secondes. Vérifie le micro et l'autorisation d'accès, puis "
+            "relance la réunion."
+        )
+
     def test_starting_again_rearms_the_watch(self):
         """A change of hardware can interrupt the capture for the length of one piece."""
         monitoring = CaptureWatch()
@@ -52,6 +65,15 @@ class TestWhenTheCaptureStops:
         for _ in range(TURNS_BEFORE_ALERT):
             last = monitoring.observe(9000)
         assert last, "une seconde panne doit se dire aussi"
+
+    def test_once_the_file_grows_the_watch_has_forgotten_the_alarm(self):
+        """Nothing still, nothing said: the state a fresh watch is in."""
+        monitoring = CaptureWatch()
+        monitoring.observe(5000)
+        for _ in range(TURNS_BEFORE_ALERT):
+            monitoring.observe(5000)
+        monitoring.observe(9000)
+        assert (monitoring.still_turns, monitoring.alerted) == (0, False)
 
     def test_a_file_that_shrinks_counts_as_still(self):
         """It does not happen normally, so it must not pass unnoticed."""
