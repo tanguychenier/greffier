@@ -11,11 +11,11 @@ from __future__ import annotations
 import os
 import platform
 import shutil
-import stat
 import subprocess
 import tomllib
 from pathlib import Path
 
+from greffier.adapters.private_files import write_private_text
 from greffier.domain.sources import Kind, Registry, Right, Source
 from greffier.locations import config_folder
 
@@ -134,10 +134,7 @@ def store_token(file: Path, name: str, secret: str) -> None:
     for key, value in sorted(kept.items()):
         escaped = value.replace("\\", "\\\\").replace('"', '\\"')
         lines.append(f'{key} = "{escaped}"')
-    file.parent.mkdir(parents=True, exist_ok=True)
-    file.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    if os.name == "posix":
-        file.chmod(stat.S_IRUSR | stat.S_IWUSR)
+    write_private_text(file, "\n".join(lines) + "\n")
 
 def _from_the_keychain(service: str) -> str:
     """The generic password from the macOS keychain."""

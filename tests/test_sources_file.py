@@ -1,5 +1,7 @@
 """The registry of sources in a file, and the tokens out of that file."""
 
+import os
+import stat
 from pathlib import Path
 
 import pytest
@@ -202,14 +204,21 @@ class TestTheTokensTheWindowStores:
         assert sources_file.token_for(self._source(), file) == "glpat-terminal"
 
     def test_the_file_belongs_to_the_user_alone(self, tmp_path):
-        import os
-        import stat
-
+        """Checked once `store_token` returns, under the desktop's usual umask of 022.
+        The instant of the write itself is proven on the helper, in tests/test_private_files.py."""
         if os.name != "posix":
             pytest.skip("file modes are a posix thing")
         file = tmp_path / "jetons.toml"
-        sources_file.store_token(file, "A", "secret")
+        previous = os.umask(0o022)
+        try:
+            sources_file.store_token(file, "A", "secret")
+        finally:
+            os.umask(previous)
         assert stat.S_IMODE(file.stat().st_mode) == 0o600
+
+    def test_nothing_but_the_file_is_left_in_the_folder(self, tmp_path):
+        sources_file.store_token(tmp_path / "jetons.toml", "A", "secret")
+        assert [p.name for p in tmp_path.iterdir()] == ["jetons.toml"]
 
     def test_several_tokens_live_side_by_side(self, tmp_path):
         file = tmp_path / "jetons.toml"
