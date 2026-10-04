@@ -99,7 +99,7 @@ and proves nothing. Which is what mutation testing is for.
 `pyproject.toml` and takes no argument:
 
 ```sh
-mutmut run          # the domain, against tests/domain and tests/domaine
+mutmut run          # the whole domain, against tests/domain: three minutes
 mutmut results      # what survived
 mutmut show <id>    # the line it changed, and to what
 ```
@@ -114,6 +114,16 @@ does in some containers) and one from a real division read as an integer one.
 Three tests killed them. The last survivor replaces `or 2` with `or 3`, which
 this function cannot tell apart since both halve to one thread: an equivalent
 mutant, and the honest ceiling here is 32 out of 33.
+
+Run on the whole domain on 2026-10-03 (mutmut 3.8, 2 min 59 s on 4 cores):
+**5 090 mutants, 3 629 killed, 1 100 survived**, 348 in functions no domain
+test reaches, 13 timeouts. mutmut counts a timeout as a kill and the untested as
+survivors, which gives a score of **71 %**; counted on the mutants a test does
+reach, 77 %. Neither is the figure the coverage table aims at, and the gap is
+concentrated: `live.py` (184 survivors), `graph.py` (118), `names.py` (103) and
+`voiceprints.py` (78) hold almost half of them, and `meeting.py` alone has 125
+mutants no test touches. Raising that score is the standing job, one module at
+a time; `mutmut results` filtered on the module's name is where it starts.
 
 ## Before sending
 

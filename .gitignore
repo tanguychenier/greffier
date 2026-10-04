@@ -27,4 +27,5 @@ modeles/
 # Artefacts de mesure, réécrits à chaque exécution.
 .coverage
 coverage.xml
+mutants/
 contexte/

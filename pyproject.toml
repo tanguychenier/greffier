@@ -111,5 +111,9 @@ ignore_missing_imports = true
 # pas. Seul le domaine est muté, parce que lui seul se teste en millisecondes.
 [tool.mutmut]
 source_paths = ["src/greffier/domain/"]
-pytest_add_cli_args_test_selection = ["tests/domain/", "tests/domaine/"]
-also_copy = ["src/", "tests/", "pyproject.toml"]
+pytest_add_cli_args_test_selection = ["tests/domain/"]
+# mutmut copies the mutated tree into mutants/ and takes the original src/ off
+# sys.path, so the rest of the package has to travel with the domain or the
+# tests cannot import greffier at all. tests/, pyproject.toml and uv.lock are
+# copied without being asked (mutmut 3.8, configuration.py).
+also_copy = ["src/"]
