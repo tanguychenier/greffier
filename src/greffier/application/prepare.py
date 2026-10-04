@@ -31,8 +31,9 @@ class Preparing:
     #: a machine, hearing nothing at all is indistinguishable from a microphone
     #: that is off.
     heard: Callable[[], None] | None = None
-    #: Says the answer out loud. Absent, the answer is only written.
-    speak: Callable[[str], None] | None = None
+    #: Says the answer out loud. Absent, the answer is only written. A
+    #: Speaker's say() tells whether it spoke; nothing here reads that.
+    speak: Callable[[str], object] | None = None
 
     def transcribed(self, said: str) -> str:
         """Acknowledges a sentence taken in, and hands it back cleaned."""

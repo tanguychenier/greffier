@@ -7,6 +7,7 @@ what is covered is the command, its refusals and its messages, not the model.
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -21,7 +22,7 @@ runner = CliRunner()
 @pytest.fixture
 def machine(tmp_path, monkeypatch):
     """A machine of its own: settings, data folder, nothing inherited."""
-    for the_key in [c for c in __import__("os").environ if c.startswith("GREFFIER_")]:
+    for the_key in [c for c in os.environ if c.startswith("GREFFIER_")]:
         monkeypatch.delenv(the_key)
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     data = tmp_path / "donnees"

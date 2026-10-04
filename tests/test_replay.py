@@ -9,6 +9,7 @@ thread and the assistant see what a microphone would have given them.
 
 from __future__ import annotations
 
+import os
 import shutil
 import wave
 from pathlib import Path
@@ -54,7 +55,7 @@ class TestTheInputOfTheRecorder:
 class TestReplayingFromTheCommandLine:
     @pytest.fixture
     def machine(self, tmp_path, monkeypatch):
-        for key in [c for c in __import__("os").environ if c.startswith("GREFFIER_")]:
+        for key in [c for c in os.environ if c.startswith("GREFFIER_")]:
             monkeypatch.delenv(key)
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
         data = tmp_path / "donnees"

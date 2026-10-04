@@ -12,7 +12,6 @@ import platform
 import sys
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
 
 from greffier.adapters.audio_ffmpeg import FfmpegRecorder
 from greffier.adapters.channels_file import FileChannelReader
@@ -506,7 +505,7 @@ def wire_up(config: Config) -> Chain:
         disclosure=config.conversation.disclosure,
     )
 
-def assistant_voice(config: Config) -> Any | None:
+def assistant_voice(config: Config) -> outbound.Speaker | None:
     """Whatever pronounces, or nothing when the assistant takes part in writing."""
     wanted_one = config.assistant.voice
     if wanted_one == "aucun":
@@ -593,7 +592,7 @@ def deed_keeper(config: Config) -> Callable[[str], None]:
     return keep
 
 
-def spoken_brain(config: Config, own_guidance: str) -> Any | None:
+def spoken_brain(config: Config, own_guidance: str) -> outbound.Brain | None:
     """What the assistant thinks with when it answers out loud.
 
     Not the writer of the minutes: that one starts a process per call, which
@@ -604,10 +603,9 @@ def spoken_brain(config: Config, own_guidance: str) -> Any | None:
     """
     engine = config.minutes.engine
     if engine == "ollama":
-        brain: Any = OllamaWriter(config.minutes.effective_model,
-                                    language=config.minutes.language,
-                                    own_guidance=own_guidance)
-        return brain
+        return OllamaWriter(config.minutes.effective_model,
+                            language=config.minutes.language,
+                            own_guidance=own_guidance)
     if engine != "claude":
         return None
     from greffier.adapters.brain_claude import ClaudeSession

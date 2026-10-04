@@ -8,6 +8,8 @@ meeting, on a machine where nothing else went wrong.
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from greffier import wiring
@@ -17,7 +19,7 @@ from greffier.adapters.configuration import Config
 @pytest.fixture
 def config(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-    for the_key in [c for c in __import__("os").environ if c.startswith("GREFFIER_")]:
+    for the_key in [c for c in os.environ if c.startswith("GREFFIER_")]:
         monkeypatch.delenv(the_key)
     config = Config()
     config.paths.data = tmp_path / "donnees"
