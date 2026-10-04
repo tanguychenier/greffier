@@ -13,15 +13,19 @@ needs; the voices stay here.
 
 Shut unless started, bound to the loopback unless told otherwise, and refusing
 to bind anything else without a token. What comes in is bounded as well: a
-recording is streamed to disk and refused past a configured size.
+recording is streamed to disk and refused past a configured size, its name has
+to be one the file system and the chain can take, and a name already taken is
+refused rather than overwritten.
 """
 
 from __future__ import annotations
 
 import contextlib
 import os
+import re
 import secrets
 import threading
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, BinaryIO
 
@@ -49,6 +53,32 @@ _JOBS: dict[str, dict[str, str]] = {}
 #: single byte reaches the disk.
 _CHUNK = 1 << 20
 
+#: The shape of a recording's name without its extension, which is also the
+#: identifier every other route takes in its path. The client chooses it, and
+#: it becomes a file name in three folders: a letter or digit first, then
+#: letters, digits, dot, dash and underscore, 121 characters at most. Starlette
+#: already keeps "/" out of a path segment; checking the identifier again is
+#: defence in depth for the paths built from it. Matched with `fullmatch`: `$`
+#: alone also matches before a trailing newline, the multipart parser accepts a
+#: bare line feed inside a quoted file name, and "point\n.wav" reached the disk.
+_STEM = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$")
+
+#: What the door takes in: the formats `adapters.audio_ffmpeg.REPLAYABLE` lets
+#: stand in for the microphone. Kept here rather than imported, so that the
+#: door's contract is read in the door's file and in the README, and a format
+#: the recorder learns to replay reaches the door by decision, not by side
+#: effect.
+_ACCEPTED = frozenset({".wav", ".flac", ".mp3", ".m4a", ".ogg", ".opus", ".mp4", ".mkv", ".webm"})
+
+#: What the chain opens as it is. ffmpeg decodes all nine, but the voice
+#: separation reads the recording itself through libsndfile
+#: (`adapters/diarisation_sherpa.py`, `sf.read`), and libsndfile 1.2.2 answers
+#: "Format not recognised" to the four containers: .m4a, .mp4, .mkv and .webm
+#: would transcribe for an hour, then fail at the speakers. The processing
+#: extracts their sound track to a .wav first, as the window does for a dropped
+#: video.
+_READ_AS_IS = frozenset({".wav", ".flac", ".mp3", ".ogg", ".opus"})
+
 
 def _unauthorized() -> HTTPException:
     return HTTPException(status_code=401, detail="jeton absent ou invalide")
@@ -59,6 +89,35 @@ def _holds_the_token(headers: Headers, expected: str) -> bool:
     setting is a shut door, not an open one."""
     given = headers.get("authorization", "")
     return bool(expected) and secrets.compare_digest(given, f"Bearer {expected}")
+
+
+def _invalid_name() -> HTTPException:
+    return HTTPException(
+        status_code=422,
+        detail="nom d'enregistrement invalide : une lettre ou un chiffre d'abord, puis "
+               "lettres, chiffres, « . », « - » et « _ », 121 caractères au plus",
+    )
+
+
+def _unsupported_format() -> HTTPException:
+    accepted = ", ".join(sorted(_ACCEPTED))
+    return HTTPException(
+        status_code=422, detail=f"format non pris en charge ; acceptés : {accepted}"
+    )
+
+
+def _already_taken() -> HTTPException:
+    return HTTPException(status_code=409, detail="un enregistrement porte déjà ce nom")
+
+
+def _identifier(identifier: str) -> str:
+    """The path parameter, checked before it becomes part of a file path."""
+    if not _STEM.fullmatch(identifier):
+        raise HTTPException(status_code=422, detail="identifiant invalide")
+    return identifier
+
+
+Identifier = Annotated[str, Depends(_identifier)]
 
 
 def _too_large(limit_mb: int) -> HTTPException:
@@ -133,7 +192,7 @@ def build(config: Config) -> Any:
         return [_resume(store, identifier) for identifier in store.list_()]
 
     @api.get("/reunions/{identifier}", dependencies=kept_one)
-    def meeting_route(identifier: str) -> dict[str, object]:
+    def meeting_route(identifier: Identifier) -> dict[str, object]:
         store = _store(config)
         if identifier not in store.list_():
             raise HTTPException(status_code=404, detail="réunion inconnue")
@@ -141,12 +200,12 @@ def build(config: Config) -> Any:
 
     @api.get("/reunions/{identifier}/compte-rendu", dependencies=kept_one,
              response_class=PlainTextResponse)
-    def minutes_route(identifier: str) -> str:
+    def minutes_route(identifier: Identifier) -> str:
         return _read(config.paths.minutes_folder / f"{identifier}.md", "compte rendu")
 
     @api.get("/reunions/{identifier}/transcription", dependencies=kept_one,
              response_class=PlainTextResponse)
-    def transcription(identifier: str) -> str:
+    def transcription(identifier: Identifier) -> str:
         return _read(config.paths.transcripts / f"{identifier}.txt", "transcription")
 
     @api.get("/memoire", dependencies=kept_one)
@@ -167,10 +226,11 @@ def build(config: Config) -> Any:
         202 and an identifier. The phases are read back from /travaux, the same
         ones the window paints.
         """
-        name = Path(recording.filename or "reunion.wav").name
+        identifier, name = _checked_name(recording.filename or "")
         target = config.paths.recordings / name
+        _refuse_duplicates(config.paths.recordings, identifier)
+        _claim(target)
         await _stream_to(recording, target, config.api.max_upload_mb)
-        identifier = target.stem
         _JOBS[identifier] = {"phase": "attente", "message": "En file."}
         threading.Thread(
             target=_process, args=(config, target, identifier), daemon=True
@@ -178,7 +238,7 @@ def build(config: Config) -> Any:
         return {"identifiant": identifier}
 
     @api.get("/travaux/{identifier}", dependencies=kept_one)
-    def travail(identifier: str) -> dict[str, str]:
+    def travail(identifier: Identifier) -> dict[str, str]:
         if identifier not in _JOBS:
             raise HTTPException(status_code=404, detail="aucun traitement pour ce nom")
         return _JOBS[identifier]
@@ -186,23 +246,72 @@ def build(config: Config) -> Any:
     return api
 
 
-async def _stream_to(recording: UploadFile, target: Path, limit_mb: int) -> None:
-    """Writes the upload beside its target, then puts it in place in one move.
+def _checked_name(filename: str) -> tuple[str, str]:
+    """The identifier and the file name a deposit gets, or 422.
 
-    A half-written file under its final name would be picked up by whoever
-    lists the folder. The limit bounds what reaches this folder, not what the
-    server receives: Starlette has parsed the whole multipart body into a
+    Checked on the name as the client sent it, never on `Path(...).name`: taking
+    the last component of "../x.wav" would quietly accept a name that was
+    trying something.
+    """
+    stem, suffix = _split(filename)
+    if not _STEM.fullmatch(stem):
+        raise _invalid_name()
+    if suffix not in _ACCEPTED:
+        raise _unsupported_format()
+    return stem, filename
+
+
+def _split(filename: str) -> tuple[str, str]:
+    """The stem and the lower-cased suffix, dot included, of a plain name."""
+    if "." not in filename:
+        return filename, ""
+    stem, _, extension = filename.rpartition(".")
+    return stem, f".{extension.lower()}"
+
+
+def _refuse_duplicates(recordings: Path, identifier: str) -> None:
+    """A name taken in any format is taken: the minutes and the transcript are
+    keyed by the stem, and a second processing would overwrite the first's.
+
+    The stem is compared whole, since a dot may sit inside it: "a.b.wav" does
+    not take the name "a".
+    """
+    if any(found.stem == identifier for found in recordings.glob(f"{identifier}.*")):
+        raise _already_taken()
+
+
+def _claim(target: Path) -> None:
+    """The name, taken before a byte of the body is read.
+
+    The handler yields to the event loop while the body is copied, and two
+    deposits of one name at once both passed the duplicate check: the second's
+    move then erased the first's file. The empty file created here is what the
+    next deposit's duplicate check finds, and its exclusive creation lets the
+    file system arbitrate should two handlers ever run side by side.
+    """
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.close(os.open(target, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666))
+    except FileExistsError:
+        raise _already_taken() from None
+
+
+async def _stream_to(recording: UploadFile, target: Path, limit_mb: int) -> None:
+    """Writes the upload beside its claimed name, then puts it in place in one move.
+
+    Whoever reads the folder meets the empty claim or the whole recording,
+    never a truncated one. The limit bounds what reaches this folder, not what
+    the server receives: Starlette has parsed the whole multipart body into a
     spooled temporary file, 1 MiB in memory and the rest in the system's temp
     folder, before the handler runs (measured: a 3 MiB body against a 1 MiB
     limit arrived with recording.size == 3145728, then got its 413). Copying it
     in chunks keeps it out of this process's memory, and the count stops at the
-    limit, so a refused upload leaves no temporary behind to fill the disk one
-    failed upload at a time. The temporary is opened like any file the tool
-    writes, so a deposited recording gets the mode the umask gives; `tempfile`
-    would have made it 0600, unreadable by another tool a site points at the
-    folder under another user.
+    limit, so a refused upload leaves neither a temporary nor the claim behind.
+    The temporary is opened like any file the tool writes, so a deposited
+    recording gets the mode the umask gives; `tempfile` would have made it
+    0600, unreadable by another tool a site points at the folder under another
+    user.
     """
-    target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(f".depot-{secrets.token_hex(8)}.partiel")
     try:
         with temporary.open("xb") as stream:
@@ -210,6 +319,7 @@ async def _stream_to(recording: UploadFile, target: Path, limit_mb: int) -> None
         os.replace(temporary, target)
     except BaseException:
         temporary.unlink(missing_ok=True)
+        target.unlink(missing_ok=True)
         raise
 
 
@@ -230,12 +340,29 @@ def _process(config: Config, audio: Path, identifier: str) -> None:
         _JOBS[identifier] = {"phase": phase, "message": message}
 
     try:
+        readable = _as_the_chain_reads_it(audio, say)
         chain = wire_up(config)
         chain.log = type("Journal", (), {"publish": staticmethod(say)})()
-        chain.run_chain(audio, send=False)
+        chain.run_chain(readable, send=False)
         say("termine", "Compte rendu prêt.")
     except Exception as trouble:  # noqa: BLE001 - handed to the client, never swallowed
         say("echec", str(trouble))
+
+
+def _as_the_chain_reads_it(audio: Path, publish: Callable[[str, str], None]) -> Path:
+    """The recording as deposited, or its sound track in a .wav beside it when
+    the chain cannot open the container.
+
+    Done in the processing thread and not in the handler: decoding a two-hour
+    video takes a while, and the deposit answers at once. The deposit itself
+    stays as it came, the way the window leaves a dropped video where it was.
+    """
+    if audio.suffix.lower() in _READ_AS_IS:
+        return audio
+    from greffier.application.publish import extract_sound
+
+    publish("conversion", "Extraction de la piste sonore…")
+    return extract_sound(audio, audio.with_suffix(".wav"))
 
 
 def _version() -> str:

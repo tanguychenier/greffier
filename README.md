@@ -680,6 +680,23 @@ the limit is refused before a byte of its body is read, but one that declares
 no length is received in full, into a temporary file of the framework's, before
 the count refuses it.
 
+The file's name becomes the identifier, and a file name in three folders, so it
+is checked before anything is written: a letter or digit first, then letters,
+digits, `.`, `-` and `_`, 121 characters at most, with one of nine extensions:
+`.wav`, `.flac`, `.mp3`, `.ogg` and `.opus`, which the chain opens as they are,
+and `.m4a`, `.mp4`, `.mkv` and `.webm`, containers the worker first converts to
+a `.wav` beside the deposit, in the phase `conversion`, as the window does for a
+dropped video (the voice separation reads the recording through libsndfile,
+which does not open them). Anything else is **422**, and so is an identifier of
+another shape in a path. That shape is the door's: a meeting the window made from a
+dropped file keeps the file's own stem as its identifier, so one named with a
+space or an accent is listed by `GET /reunions` but refused on `/reunions/{id}`;
+the window's own recordings are always of the right shape. A name already
+taken, in any format, is **409** rather than an overwrite: the minutes and the
+transcript are keyed by that name, and the name is taken from the first byte of
+its upload, so two deposits of one name at once end **202** and **409**, never
+one on top of the other.
+
 Every route but `/sante` wants `Authorization: Bearer <token>`. The token is
 written into `config.toml` the first time the door is opened, so a site is
 configured once; **an empty setting does not mean an open door**, it means no
