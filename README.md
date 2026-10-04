@@ -297,6 +297,7 @@ stay in the file: they are lists, and a form would truncate them.
 | `GREFFIER_LIVE__ACTIVE` | `false` turns off live transcription, and its compute cost |
 | `GREFFIER_LIVE__PERIOD` | seconds between two transcribed slices (10 by default) |
 | `GREFFIER_APPEARANCE__THEME` | `systeme`, `clair` or `sombre` |
+| `GREFFIER_EMAIL__CERTIFICATE` | a PEM file holding the authority that signed the mail server's certificate, for an in-house server the system does not know; empty, the system's trust store decides. The certificate is always checked: a server that cannot prove who it is never receives the password |
 
 The double underscore separates the section from the field. None of this lives
 in the repository: mail address, domain vocabulary and project names belong to
