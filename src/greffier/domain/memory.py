@@ -85,7 +85,7 @@ def _bullets_under(minutes: str, which: str) -> tuple[str, ...]:
         if title.strip().lower().rstrip(" :") not in _TITLES[which]:
             continue
         points = [
-            re.sub(r"\s+", " ", line.lstrip("-*").strip())
+            re.sub(r"\s+", " ", line.lstrip().lstrip("-*").strip())
             for line in corps.splitlines()
             if line.lstrip().startswith(("-", "*"))
         ]

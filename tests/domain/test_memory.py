@@ -95,6 +95,14 @@ class TestReadingWhatTheMinutesLeft:
         )
         assert decisions == ("Xavier valide les écarts.", "Xavier prévient Sophie.")
 
+    def test_an_indented_bullet_loses_its_mark_like_the_others(self):
+        """A sub-list under a decision: the model indents it, and the writer must not
+        read « - » as the first word of the point.
+        """
+        minutes = "## Décisions\n\n- On garde jeudi.\n  - Les utilisateurs sont prévenus.\n"
+        decisions, _ = what_the_minutes_left(minutes)
+        assert decisions == ("On garde jeudi.", "Les utilisateurs sont prévenus.")
+
 
 class TestTheTitleOfARecalledMeeting:
     """Recalled as they come, every meeting starts with the same three words."""
