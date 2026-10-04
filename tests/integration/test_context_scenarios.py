@@ -46,6 +46,14 @@ class Voice:
     def go_quiet(self) -> None:
         pass
 
+    def begin(self) -> None:
+        """No mouth to speak as it comes: the answer is said whole, through say().
+
+        Missing, the Speaker port's call raised in brain_claude's reader thread,
+        which pytest only warned about until warnings became errors.
+        """
+        return None
+
 
 class Thread:
     def rendered(self) -> str:
@@ -86,6 +94,9 @@ def gitlab():
     threading.Thread(target=server.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{server.server_port}"
     server.shutdown()
+    # shutdown() stops the loop and leaves the listening socket to the
+    # collector, a ResourceWarning at teardown; server_close() closes it.
+    server.server_close()
 
 
 @pytest.fixture(scope="module")
