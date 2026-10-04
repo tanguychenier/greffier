@@ -1085,6 +1085,16 @@ class TestNamingAVoiceThatLooksLikeSomeoneElse:
         said = doubtful_entry(at_cosines(0.0, 0.8), "Josiane", self.BANK)
         assert said.startswith("Cette voix ressemble davantage à Marc (0.80) qu'à Josiane (0.00).")
 
+    def test_a_known_name_at_a_negative_cosine_is_compared_not_told_it_is_new(self):
+        """The sentence follows the bank, not the sign of the score: Josiane is
+        in it, so the voice is weighed against her, however far it sits."""
+        said = doubtful_entry(at_cosines(-0.3, 0.8), "Josiane", self.BANK)
+        assert said == (
+            "Cette voix ressemble davantage à Marc (0.80) qu'à Josiane (-0.30). Si "
+            "c'est une erreur, retire le nom : une empreinte fausse est reconnue à "
+            "chaque réunion suivante."
+        )
+
     def test_the_recognition_threshold_itself_is_enough_to_doubt(self):
         said = doubtful_entry(at_cosines(0.0, RECOGNITION_THRESHOLD), "Sophie", self.BANK)
         assert said.startswith("Cette voix ressemble à Marc (0.45), déjà en banque.")
