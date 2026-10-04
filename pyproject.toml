@@ -83,7 +83,10 @@ dev = [
     "ruff>=0.8",
     "mypy>=1.13",
     "mutmut>=3.2",
-    "httpx>=0.27",   # the test client behind fastapi's TestClient
+    # The client behind fastapi's TestClient. starlette 1.x asks for httpx2 and
+    # only falls back on httpx with a StarletteDeprecationWarning, which the
+    # suite now treats as an error (filterwarnings below).
+    "httpx2>=2.13",
 ]
 
 # sherpa-onnx ships its native libraries in a second wheel, sherpa-onnx-core,
@@ -125,6 +128,12 @@ testpaths = ["tests"]
 # passes is reported, instead of being forgotten under its xfail.
 addopts = "-q -m 'not integration and not lent' --strict-markers --strict-config"
 xfail_strict = true
+# A warning is a defect that has not happened yet: a deprecation names the
+# release that will break the suite, a ResourceWarning a file left open. As
+# an error it is fixed at its source the day it appears, not the day it
+# bites. Measured on 2026-10-04: the suite ended on exactly one warning,
+# starlette's about httpx, cured by httpx2 above rather than filtered.
+filterwarnings = ["error"]
 markers = [
     "integration: chaîne réelle, avec les modèles et un fichier audio synthétisé",
     "lent: appelle le rédacteur, donc le réseau et le quota",

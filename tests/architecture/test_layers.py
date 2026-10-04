@@ -35,7 +35,7 @@ PACKAGE = SOURCES / "greffier"
 #: touch it. `pathlib` is tolerated for typing a path; what is forbidden are the
 #: libraries that READ the world.
 FORBIDDEN_TO_THE_DOMAIN = frozenset({
-    "subprocess", "socket", "urllib", "requests", "httpx", "smtplib",
+    "subprocess", "socket", "urllib", "requests", "httpx", "httpx2", "smtplib",
     "pydantic", "pydantic_settings", "tkinter", "typer", "sherpa_onnx",
     "soundfile", "numpy", "faster_whisper", "tomllib",
 })

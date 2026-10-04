@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 fastapi = pytest.importorskip("fastapi")
-import httpx  # noqa: E402
+import httpx2  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from greffier.adapters.configuration import Config  # noqa: E402
@@ -586,8 +586,8 @@ class TestANameIsTakenFromTheFirstByte:
                                    files={"enregistrement": ("point.wav", body, "audio/wav")})
 
         async def race():
-            transport = httpx.ASGITransport(app=client.app)
-            async with httpx.AsyncClient(transport=transport, base_url="http://porte") as http:
+            transport = httpx2.ASGITransport(app=client.app)
+            async with httpx2.AsyncClient(transport=transport, base_url="http://porte") as http:
                 first = asyncio.ensure_future(post(http, b"premier"))
                 await within_seconds(first_is_reading.wait(), unless=first)
                 second = await asyncio.wait_for(post(http, b"second"), timeout=5)
