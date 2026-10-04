@@ -669,7 +669,11 @@ arrives to the same chain, and returns what comes back.
 | `GET /travaux/{id}` | the phases of that processing, the ones the window paints |
 
 An hour of transcription is not a request: handing over a recording answers at
-once with an identifier, and the phases are read back.
+once with an identifier, and the phases are read back. The chains run **one at
+a time**: the models and the graphics memory they take do not fit twice, so a
+second recording waits in the phase `attente` until the first is done. The last
+200 finished jobs stay readable on `/travaux/{id}`; a queued or running one is
+never forgotten.
 
 A recording is copied to disk in chunks, never held in memory, and refused with
 **413** past `taille_max_mo` in the `[api]` section: 4096 MiB by default, where

@@ -14,14 +14,15 @@ needs; the voices stay here.
 Shut unless started, bound to the loopback unless told otherwise, and refusing
 to bind anything else without a token. What comes in is bounded as well: a
 recording is streamed to disk and refused past a configured size, its name has
-to be one the file system and the chain can take, and a name already taken is
-refused rather than overwritten.
+to be one the file system and the chain can take, a name already taken is
+refused rather than overwritten, and the chains run one at a time.
 """
 
 from __future__ import annotations
 
 import contextlib
 import os
+import queue
 import re
 import secrets
 import threading
@@ -42,11 +43,6 @@ if TYPE_CHECKING:  # pragma: no cover - imported for typing only
     from starlette.types import ASGIApp, Receive, Scope, Send
 
     from greffier.adapters.configuration import Config
-
-#: The phases a meeting handed over through the door goes through, kept in
-#: memory: the state file belongs to the meeting being recorded, and two
-#: processings answering into the same file would each erase the other.
-_JOBS: dict[str, dict[str, str]] = {}
 
 #: How much of an upload is read at a time. A two-hour WAV is 1.4 GB: read in
 #: one go, as `UploadFile.read()` does, it sits in memory in full before a
@@ -74,9 +70,8 @@ _ACCEPTED = frozenset({".wav", ".flac", ".mp3", ".m4a", ".ogg", ".opus", ".mp4",
 #: separation reads the recording itself through libsndfile
 #: (`adapters/diarisation_sherpa.py`, `sf.read`), and libsndfile 1.2.2 answers
 #: "Format not recognised" to the four containers: .m4a, .mp4, .mkv and .webm
-#: would transcribe for an hour, then fail at the speakers. The processing
-#: extracts their sound track to a .wav first, as the window does for a dropped
-#: video.
+#: would transcribe for an hour, then fail at the speakers. The worker extracts
+#: their sound track to a .wav first, as the window does for a dropped video.
 _READ_AS_IS = frozenset({".wav", ".flac", ".mp3", ".ogg", ".opus"})
 
 
@@ -166,6 +161,105 @@ class RefusedFromTheHeader:
         return _too_large(limit_mb)
 
 
+class Jobs:
+    """The phases of the meetings handed over through the door, in memory.
+
+    The state file belongs to the meeting being recorded, and two processings
+    answering into the same file would each erase the other. Kept here, and
+    bounded: a door left open for months must not grow an entry for every
+    meeting it ever took. The last `kept` finished jobs stay readable, the
+    oldest finished one goes first, and a job queued or running is never
+    dropped, however old.
+    """
+
+    FINISHED = frozenset({"termine", "echec"})
+
+    def __init__(self, kept: int = 200) -> None:
+        self._kept = kept
+        self._phases: dict[str, dict[str, str]] = {}
+        self._lock = threading.Lock()
+
+    def publish(self, identifier: str, phase: str, message: str = "") -> None:
+        """The job's latest phase. Re-inserted, so the dict stays ordered by last
+        publication and a job that finishes takes its turn at the end."""
+        with self._lock:
+            self._phases.pop(identifier, None)
+            self._phases[identifier] = {"phase": phase, "message": message}
+            self._forget_the_oldest_finished()
+
+    def get(self, identifier: str) -> dict[str, str] | None:
+        with self._lock:
+            found = self._phases.get(identifier)
+            return dict(found) if found else None
+
+    def _forget_the_oldest_finished(self) -> None:
+        finished = [i for i, p in self._phases.items() if p["phase"] in self.FINISHED]
+        excess = len(finished) - self._kept
+        for identifier in finished[:excess] if excess > 0 else ():
+            del self._phases[identifier]
+
+
+class Worker:
+    """One chain at a time.
+
+    A chain loads the models and takes the graphics memory; two of them do not
+    fit, and a thread per upload meant a burst of uploads could exhaust the
+    machine. The jobs wait in a queue, in the phase "attente", and one daemon
+    thread takes them in order, started the first time there is something to do.
+    """
+
+    def __init__(self, run: Callable[[Path, str], None]) -> None:
+        self._run = run
+        self._waiting: queue.Queue[tuple[Path, str] | None] = queue.Queue()
+        self._thread: threading.Thread | None = None
+        self._stopped = False
+        self._lock = threading.Lock()
+
+    def enqueue(self, audio: Path, identifier: str) -> None:
+        """Puts the job behind the others, and starts the thread if none runs.
+
+        Refused once stopped: a job put behind the stop order would sit behind
+        the sentinel, waiting for a thread that is not coming back, and nobody
+        would be told.
+        """
+        with self._lock:
+            if self._stopped:
+                raise RuntimeError("Le travailleur est arrêté : plus rien n'est mis en file.")
+            self._waiting.put((audio, identifier))
+            if self._thread is None or not self._thread.is_alive():
+                self._thread = self._started()
+
+    def stop(self, timeout: float | None = None) -> None:
+        """Lets the thread finish what is queued, then end; takes nothing after."""
+        with self._lock:
+            self._stopped = True
+            thread = self._thread
+            if thread is None or not thread.is_alive():
+                return
+            self._waiting.put(None)
+        thread.join(timeout)
+
+    def _started(self) -> threading.Thread:
+        thread = threading.Thread(target=self._drain, daemon=True, name="greffier-api-worker")
+        thread.start()
+        return thread
+
+    def _drain(self) -> None:
+        while (job := self._waiting.get()) is not None:
+            self._run(*job)
+
+
+class _Journal:
+    """What the chain publishes its phases into: one job's entry."""
+
+    def __init__(self, jobs: Jobs, identifier: str) -> None:
+        self._jobs = jobs
+        self._identifier = identifier
+
+    def publish(self, phase: str, message: str = "") -> None:
+        self._jobs.publish(self._identifier, phase, message)
+
+
 def build(config: Config) -> Any:
     """The application, wired to this configuration."""
     api = FastAPI(
@@ -174,6 +268,11 @@ def build(config: Config) -> Any:
         version=_version(),
     )
     api.add_middleware(RefusedFromTheHeader, config=config)
+    jobs = Jobs()
+    worker = Worker(lambda audio, identifier: _process(config, audio, identifier, jobs))
+    #: The one worker the application owns, holding its single chain thread,
+    #: reachable from outside the handlers for whoever closes the door.
+    api.state.worker = worker
 
     def authorised(request: Request) -> None:
         if not _holds_the_token(request.headers, config.api.token):
@@ -231,17 +330,16 @@ def build(config: Config) -> Any:
         _refuse_duplicates(config.paths.recordings, identifier)
         _claim(target)
         await _stream_to(recording, target, config.api.max_upload_mb)
-        _JOBS[identifier] = {"phase": "attente", "message": "En file."}
-        threading.Thread(
-            target=_process, args=(config, target, identifier), daemon=True
-        ).start()
+        jobs.publish(identifier, "attente", "En file.")
+        worker.enqueue(target, identifier)
         return {"identifiant": identifier}
 
     @api.get("/travaux/{identifier}", dependencies=kept_one)
     def travail(identifier: Identifier) -> dict[str, str]:
-        if identifier not in _JOBS:
+        found = jobs.get(identifier)
+        if found is None:
             raise HTTPException(status_code=404, detail="aucun traitement pour ce nom")
-        return _JOBS[identifier]
+        return found
 
     return api
 
@@ -332,30 +430,28 @@ async def _copy_bounded(recording: UploadFile, stream: BinaryIO, limit_mb: int) 
         stream.write(chunk)
 
 
-def _process(config: Config, audio: Path, identifier: str) -> None:
+def _process(config: Config, audio: Path, identifier: str, jobs: Jobs) -> None:
     """Runs the chain and publishes its phases, without ever raising."""
     from greffier.wiring import wire_up
 
-    def say(phase: str, message: str = "") -> None:
-        _JOBS[identifier] = {"phase": phase, "message": message}
-
+    journal = _Journal(jobs, identifier)
     try:
-        readable = _as_the_chain_reads_it(audio, say)
+        readable = _as_the_chain_reads_it(audio, journal.publish)
         chain = wire_up(config)
-        chain.log = type("Journal", (), {"publish": staticmethod(say)})()
+        chain.log = journal
         chain.run_chain(readable, send=False)
-        say("termine", "Compte rendu prêt.")
+        jobs.publish(identifier, "termine", "Compte rendu prêt.")
     except Exception as trouble:  # noqa: BLE001 - handed to the client, never swallowed
-        say("echec", str(trouble))
+        jobs.publish(identifier, "echec", str(trouble))
 
 
 def _as_the_chain_reads_it(audio: Path, publish: Callable[[str, str], None]) -> Path:
     """The recording as deposited, or its sound track in a .wav beside it when
     the chain cannot open the container.
 
-    Done in the processing thread and not in the handler: decoding a two-hour
-    video takes a while, and the deposit answers at once. The deposit itself
-    stays as it came, the way the window leaves a dropped video where it was.
+    Done in the worker and not in the handler: decoding a two-hour video takes
+    a while, and the deposit answers at once. The deposit itself stays as it
+    came, the way the window leaves a dropped video where it was.
     """
     if audio.suffix.lower() in _READ_AS_IS:
         return audio

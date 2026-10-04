@@ -11,6 +11,8 @@ import asyncio
 import json
 import shutil
 import subprocess
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -22,8 +24,9 @@ from fastapi.testclient import TestClient  # noqa: E402
 from greffier.adapters.configuration import Config  # noqa: E402
 from greffier.interface.api import (  # noqa: E402
     _ACCEPTED,
-    _JOBS,
     _READ_AS_IS,
+    Jobs,
+    Worker,
     _claim,
     _copy_bounded,
     _process,
@@ -48,7 +51,9 @@ def config(tmp_path, monkeypatch):
 
 @pytest.fixture
 def client(config):
-    return TestClient(build(config))
+    door = TestClient(build(config))
+    yield door
+    door.app.state.worker.stop(timeout=5)
 
 
 @pytest.fixture
@@ -58,14 +63,17 @@ def bearer():
 
 @pytest.fixture
 def without_the_chain(monkeypatch):
-    """The processing never starts: what is checked here is the door."""
-    launched = []
+    """The chain never runs: the worker hands it the identifier, and that is all.
+
+    What is checked here is the door. The list fills from the worker's thread,
+    so a test reads it through `until`.
+    """
+    handed_over = []
     monkeypatch.setattr(
-        "greffier.interface.api.threading.Thread",
-        lambda target, args, daemon: type(
-            "Faux", (), {"start": lambda self: launched.append(args)})(),
+        "greffier.interface.api._process",
+        lambda config, audio, identifier, jobs: handed_over.append(identifier),
     )
-    return launched
+    return handed_over
 
 
 def deposit(client, bearer, name, body=b"RIFF----WAVEfmt "):
@@ -100,6 +108,20 @@ def mode_of(file):
     return file.stat().st_mode & 0o777
 
 
+def until(condition, timeout=5.0):
+    """Whether the worker's thread made the condition true within the delay."""
+    deadline = time.monotonic() + timeout
+    while not condition():
+        if time.monotonic() > deadline:
+            return False
+        time.sleep(0.005)
+    return True
+
+
+def phase_of(client, bearer, identifier):
+    return client.get(f"/travaux/{identifier}", headers=bearer).json()["phase"]
+
+
 async def within_seconds(awaitable, *, unless):
     """Fails rather than waits forever: with the outcome of `unless`, a request
     in flight, should it end before the awaited point, else after five seconds.
@@ -114,6 +136,11 @@ async def within_seconds(awaitable, *, unless):
     waited.cancel()
     assert unless.done(), "nothing happened in 5 s"
     raise AssertionError(f"the request ended before the awaited point: {unless.result()}")
+
+
+def workers_alive():
+    """How many of the door's workers are running; a stopped client leaves none."""
+    return sum(t.name == "greffier-api-worker" for t in threading.enumerate())
 
 
 def a_second_of_sound(target):
@@ -201,37 +228,149 @@ class TestWhatItRefusesToServe:
 
 class TestARecordingHandedOver:
     def test_it_answers_at_once_rather_than_in_an_hour(
-            self, config, client, bearer, monkeypatch):
+            self, config, client, bearer, without_the_chain):
         """An hour of transcription is not a request: 202 and an identifier."""
-        lances = []
-        monkeypatch.setattr(
-            "greffier.interface.api.threading.Thread",
-            lambda target, args, daemon: type(
-                "Faux", (), {"start": lambda self: lances.append(args)})(),
-        )
-        answered = client.post(
-            "/reunions", headers=bearer,
-            files={"enregistrement": ("point.wav", b"RIFF----WAVEfmt ", "audio/wav")},
-        )
+        answered = deposit(client, bearer, "point.wav")
         assert answered.status_code == 202
         assert answered.json()["identifiant"] == "point"
-        assert lances, "le traitement doit partir dans un fil"
+        assert until(lambda: without_the_chain == ["point"]), "the processing must start"
 
     def test_the_phases_are_readable_while_it_runs(
-            self, config, client, bearer, monkeypatch):
-        monkeypatch.setattr(
-            "greffier.interface.api.threading.Thread",
-            lambda target, args, daemon: type(
-                "Faux", (), {"start": lambda self: None})(),
-        )
-        client.post("/reunions", headers=bearer,
-                    files={"enregistrement": ("point.wav", b"RIFF", "audio/wav")})
+            self, config, client, bearer, without_the_chain):
+        deposit(client, bearer, "point.wav", b"RIFF")
         answered = client.get("/travaux/point", headers=bearer)
         assert answered.status_code == 200
         assert answered.json()["phase"] == "attente"
 
     def test_an_unknown_job_says_so(self, client, bearer):
         assert client.get("/travaux/jamais", headers=bearer).status_code == 404
+
+
+class TestOneChainAtATime:
+    def test_the_second_deposit_waits_for_the_first_to_finish(
+            self, client, bearer, monkeypatch):
+        """Two chains do not fit in the graphics memory: the second queues."""
+        gate, running = threading.Event(), threading.Event()
+
+        def blocking_chain(config, audio, identifier, jobs):
+            jobs.publish(identifier, "transcription", "Transcription…")
+            running.set()
+            gate.wait(timeout=5)
+            jobs.publish(identifier, "termine", "Compte rendu prêt.")
+
+        monkeypatch.setattr("greffier.interface.api._process", blocking_chain)
+        assert deposit(client, bearer, "premier.wav").status_code == 202
+        assert deposit(client, bearer, "second.wav").status_code == 202
+        assert running.wait(timeout=5)
+        assert phase_of(client, bearer, "premier") == "transcription"
+        assert phase_of(client, bearer, "second") == "attente"
+        gate.set()
+        assert until(lambda: phase_of(client, bearer, "premier") == "termine")
+        assert until(lambda: phase_of(client, bearer, "second") == "termine")
+
+    def test_the_worker_is_one_thread_started_when_there_is_work(
+            self, client, bearer, without_the_chain):
+        """A thread per upload is what let a burst exhaust the machine."""
+        before = workers_alive()
+        deposit(client, bearer, "premier.wav")
+        deposit(client, bearer, "second.wav")
+        assert until(lambda: without_the_chain == ["premier", "second"])
+        assert workers_alive() == before + 1
+
+    def test_a_stopped_worker_finishes_what_is_queued_and_leaves_no_thread(
+            self, client, bearer, without_the_chain):
+        """Whoever closes the door leaves the process as it found it."""
+        before = workers_alive()
+        deposit(client, bearer, "premier.wav")
+        deposit(client, bearer, "second.wav")
+        client.app.state.worker.stop(timeout=5)
+        assert without_the_chain == ["premier", "second"]
+        assert workers_alive() == before
+
+    def test_nothing_is_enqueued_after_a_stop(self):
+        """A job put behind the stop order would wait for a thread that is not
+        coming back: refused aloud rather than left in the queue."""
+        seen = []
+        worker = Worker(lambda audio, identifier: seen.append(identifier))
+        worker.enqueue(Path("premier.wav"), "premier")
+        worker.stop(timeout=5)
+        with pytest.raises(RuntimeError):
+            worker.enqueue(Path("second.wav"), "second")
+        assert seen == ["premier"]
+
+    def test_a_stop_before_any_work_is_a_stop_all_the_same(self):
+        """An idle worker has no thread to end, and takes nothing afterwards either."""
+        before = workers_alive()
+        worker = Worker(lambda audio, identifier: None)
+        worker.stop()
+        with pytest.raises(RuntimeError):
+            worker.enqueue(Path("point.wav"), "point")
+        assert workers_alive() == before
+
+
+class TestTheListOfJobsIsBounded:
+    def test_after_two_hundred_finished_and_one_more_the_oldest_finished_is_gone(self):
+        jobs = Jobs()
+        jobs.publish("en-file", "attente", "En file.")
+        for rank in range(200):
+            jobs.publish(f"r{rank:03d}", "termine", "Compte rendu prêt.")
+        assert jobs.get("r000") == {"phase": "termine", "message": "Compte rendu prêt."}
+        jobs.publish("r200", "echec", "plus de son")
+        assert jobs.get("r000") is None
+        assert jobs.get("r001") is not None
+        assert jobs.get("r200") == {"phase": "echec", "message": "plus de son"}
+        assert jobs.get("en-file") == {"phase": "attente", "message": "En file."}
+
+    def test_a_job_queued_or_running_is_never_dropped_however_old(self):
+        jobs = Jobs(kept=1)
+        jobs.publish("vieux-en-file", "attente")
+        jobs.publish("vieux-en-cours", "transcription")
+        for rank in range(3):
+            jobs.publish(f"r{rank}", "termine")
+        assert jobs.get("vieux-en-file") is not None
+        assert jobs.get("vieux-en-cours") is not None
+        assert [jobs.get(f"r{rank}") is None for rank in range(3)] == [True, True, False]
+
+    def test_the_oldest_is_the_one_that_finished_first_not_the_one_that_arrived_first(self):
+        jobs = Jobs(kept=1)
+        jobs.publish("arrive-premier", "attente")
+        jobs.publish("arrive-second", "attente")
+        jobs.publish("arrive-second", "termine")
+        jobs.publish("arrive-premier", "termine")
+        assert jobs.get("arrive-second") is None
+        assert jobs.get("arrive-premier") is not None
+
+    def test_a_job_never_published_is_not_there(self):
+        assert Jobs().get("jamais") is None
+
+
+class TestTheChainBehindTheDoor:
+    """`_process` is the door's side of the chain: its phases reach the job,
+    and nothing it raises reaches the worker."""
+
+    def test_its_phases_reach_the_job_and_end_in_termine(self, config, monkeypatch):
+        jobs, seen = Jobs(), []
+
+        class Chain:
+            log = None
+
+            def run_chain(self, audio, send):
+                self.log.publish("transcription", "Transcription…")
+                seen.append((jobs.get("point")["phase"], audio, send))
+
+        monkeypatch.setattr("greffier.wiring.wire_up", lambda config: Chain())
+        _process(config, Path("point.wav"), "point", jobs)
+        assert seen == [("transcription", Path("point.wav"), False)]
+        assert jobs.get("point") == {"phase": "termine", "message": "Compte rendu prêt."}
+
+    def test_a_failure_is_handed_to_the_client_never_raised(self, config, monkeypatch):
+        def failing(config):
+            raise RuntimeError("ffmpeg introuvable")
+
+        monkeypatch.setattr("greffier.wiring.wire_up", failing)
+        jobs = Jobs()
+        _process(config, Path("point.wav"), "point", jobs)
+        assert jobs.get("point") == {"phase": "echec", "message": "ffmpeg introuvable"}
 
 
 class TestWhatTheChainIsHanded:
@@ -252,38 +391,39 @@ class TestWhatTheChainIsHanded:
 
         assert {s for s in _ACCEPTED if readable(s)} == _READ_AS_IS
 
-    def test_a_deposited_webm_reaches_the_chain_as_a_wav_beside_it(self, config, monkeypatch):
-        """Converted in the processing thread, not the handler: decoding takes
-        time, and the deposit answers at once. The deposit stays as it came."""
+    def test_a_deposited_webm_reaches_the_chain_as_a_wav_beside_it(
+            self, config, client, bearer, monkeypatch, tmp_path):
+        """Converted by the worker, not the handler: decoding takes time, and
+        the deposit answers at once. The deposit stays as it came."""
         import soundfile
 
         handed_over = []
         monkeypatch.setattr("greffier.wiring.wire_up", a_chain_that_notes(handed_over))
-        config.paths.recordings.mkdir()
-        webm = a_second_of_sound(config.paths.recordings / "point.webm")
-        _process(config, webm, "point")
+        webm = a_second_of_sound(tmp_path / "point.webm").read_bytes()
+        assert deposit(client, bearer, "point.webm", webm).status_code == 202
+        assert until(lambda: phase_of(client, bearer, "point") == "termine")
         assert handed_over == [config.paths.recordings / "point.wav"]
         details = soundfile.info(str(handed_over[0]))
         assert (details.channels, details.samplerate) == (1, 16000)
         assert left_in(config.paths.recordings) == ["point.wav", "point.webm"]
-        assert _JOBS["point"] == {"phase": "termine", "message": "Compte rendu prêt."}
 
     def test_the_conversion_is_a_phase_the_client_reads(self, config, monkeypatch, tmp_path):
         seen = []
+        jobs = Jobs()
         monkeypatch.setattr(
             "greffier.application.publish.extract_sound",
-            lambda video, destination: seen.append(dict(_JOBS["point"])) or destination,
+            lambda video, destination: seen.append(jobs.get("point")) or destination,
         )
         monkeypatch.setattr("greffier.wiring.wire_up", a_chain_that_notes([]))
-        _process(config, tmp_path / "point.mp4", "point")
+        _process(config, tmp_path / "point.mp4", "point", jobs)
         assert seen == [{"phase": "conversion", "message": "Extraction de la piste sonore…"}]
 
     def test_a_wav_is_handed_over_untouched(self, config, monkeypatch):
-        handed_over = []
+        handed_over, jobs = [], Jobs()
         monkeypatch.setattr("greffier.wiring.wire_up", a_chain_that_notes(handed_over))
-        _process(config, Path("point.wav"), "point")
+        _process(config, Path("point.wav"), "point", jobs)
         assert handed_over == [Path("point.wav")]
-        assert _JOBS["point"] == {"phase": "termine", "message": "Compte rendu prêt."}
+        assert jobs.get("point") == {"phase": "termine", "message": "Compte rendu prêt."}
 
     def test_a_container_ffmpeg_cannot_open_ends_in_echec(self, config, monkeypatch, tmp_path):
         if shutil.which("ffmpeg") is None:
@@ -291,9 +431,10 @@ class TestWhatTheChainIsHanded:
         monkeypatch.setattr("greffier.wiring.wire_up", a_chain_that_notes([]))
         fake = tmp_path / "point.mkv"
         fake.write_bytes(b"not a video")
-        _process(config, fake, "point")
-        assert _JOBS["point"]["phase"] == "echec"
-        assert "extraction du son impossible" in _JOBS["point"]["message"]
+        jobs = Jobs()
+        _process(config, fake, "point", jobs)
+        assert jobs.get("point")["phase"] == "echec"
+        assert "extraction du son impossible" in jobs.get("point")["message"]
 
 
 class TestWhatNameARecordingMayHave:
@@ -374,7 +515,7 @@ class TestARecordingWhoseNameIsTaken:
         assert answered.status_code == 409
         assert "nom" in answered.json()["detail"]
         assert (config.paths.recordings / "point.wav").read_bytes() == b"premier"
-        assert len(without_the_chain) == 1
+        assert until(lambda: without_the_chain == ["point"])
 
     def test_the_same_name_in_another_format_is_the_same_name(
             self, config, client, bearer, without_the_chain):
