@@ -10,11 +10,17 @@ from __future__ import annotations
 import platform
 import shutil
 import tomllib
+from collections.abc import Mapping
 from pathlib import Path
 from typing import ClassVar
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
-from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    EnvSettingsSource,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
 
 from greffier.adapters.private_files import write_private_text
 from greffier.domain.arithmetic import AUTO
@@ -452,6 +458,13 @@ class Config(BaseSettings):
         # is the contract, even for the one left unread.
         file_secret_settings: PydanticBaseSettingsSource,  # noqa: ARG003
     ) -> tuple[PydanticBaseSettingsSource, ...]:
+        # Under the prefix, the environment and the .env file are looked up
+        # by field name alone, GREFFIER_MINUTES__… and never
+        # GREFFIER_COMPTE_RENDU__… (see _english_variables): their French
+        # spellings are translated before either source reads them.
+        for source in (env_settings, dotenv_settings):
+            if isinstance(source, EnvSettingsSource):
+                source.env_vars = _english_variables(source.env_vars, settings_cls)
         # Every source goes through the same translation: one speaking French
         # and another English would lay two keys for a single setting, and
         # precedence would then be decided by spelling.
@@ -504,18 +517,83 @@ def _canonical(data: dict[str, object], model: type[BaseModel]) -> dict[str, obj
     """
     translated: dict[str, object] = {}
     for key, value in data.items():
-        name, nested = key, None
-        for candidate, field in model.model_fields.items():
-            if key == candidate or key in _accepted_names(field):
-                name = candidate
-                annotation = field.annotation
-                if isinstance(annotation, type) and issubclass(annotation, BaseModel):
-                    nested = annotation
-                break
-        if nested is not None and isinstance(value, dict):
+        name, nested, _ = _field_of(model, key)
+        if name is None:
+            translated[key] = value
+        elif nested is not None and isinstance(value, dict):
             translated[name] = _canonical(value, nested)
         else:
             translated[name] = value
+    return translated
+
+
+def _field_of(
+    model: type[BaseModel], spelling: str
+) -> tuple[str | None, type[BaseModel] | None, int]:
+    """The field this spelling names, the model it holds when it holds one, and
+    how far the spelling stands from the field's own name: 0 for the name
+    itself, then its aliases in the order they are declared.
+
+    (None, None, 0) when it names no field: the caller leaves the key as it
+    is, for the validation to report rather than swallow.
+    """
+    for name, field in model.model_fields.items():
+        accepted = _accepted_names(field)
+        if spelling != name and spelling not in accepted:
+            continue
+        distance = 0 if spelling == name else 1 + accepted.index(spelling)
+        annotation = field.annotation
+        if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+            return name, annotation, distance
+        return name, None, distance
+    return None, None, 0
+
+
+def _english_variables(
+    variables: Mapping[str, str | None], settings_cls: type[BaseSettings]
+) -> dict[str, str | None]:
+    """The environment's variables, section and key spelt as the fields are.
+
+    pydantic-settings honours a field's aliases in the environment, but puts
+    env_prefix on the field's own name alone (its env_prefix_target is
+    « variable » by default): GREFFIER_MINUTES__ENGINE was read, and so was
+    the bare COMPTE_RENDU__MOTEUR, while GREFFIER_COMPTE_RENDU__MOTEUR, the
+    spelling .env.exemple documents, was not, and said nothing (measured on
+    2026-10-04: minutes.engine stayed « claude »). Translated here, before
+    the source reads them, every prefixed spelling lands on
+    `greffier_minutes__engine`.
+
+    Given under several spellings in one source, the one nearest the field
+    names wins, the section deciding before the key: GREFFIER_MINUTES__ENGINE
+    over GREFFIER_MINUTES__MOTEUR over GREFFIER_COMPTE_RENDU__ENGINE over
+    GREFFIER_COMPTE_RENDU__MOTEUR, whatever the order of the environment. The
+    field's own name is the original and the French ones its translations,
+    and a translation never overrides the original. Between sources, the
+    rank decides as before. A variable naming no section is left as it is.
+    """
+    prefix = str(settings_cls.model_config.get("env_prefix") or "").lower()
+    delimiter = str(settings_cls.model_config.get("env_nested_delimiter") or "__")
+    translated: dict[str, str | None] = dict(variables)
+    nearest: dict[str, tuple[int, int]] = {}
+    for name, value in variables.items():
+        if not name.startswith(prefix) or delimiter not in name:
+            continue
+        section, _, key = name[len(prefix):].partition(delimiter)
+        field_name, nested, section_distance = _field_of(settings_cls, section)
+        if field_name is None:
+            continue
+        key_distance = 0
+        if nested is not None:
+            key_name, _, key_distance = _field_of(nested, key)
+            key = key_name or key
+        distance = (section_distance, key_distance)
+        english = f"{prefix}{field_name}{delimiter}{key}"
+        if english != name:
+            del translated[name]
+        if english in nearest and nearest[english] <= distance:
+            continue
+        nearest[english] = distance
+        translated[english] = value
     return translated
 
 
