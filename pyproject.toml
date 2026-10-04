@@ -83,6 +83,10 @@ dev = [
     "ruff>=0.8",
     "mypy>=1.13",
     "mutmut>=3.2",
+    # Property-based tests of the domain: the rules about spans, overlaps and
+    # names are algebraic, and a generated counter-example beats a hand-picked
+    # one. Dev only: nothing installed runs them.
+    "hypothesis>=6.100",
     # The client behind fastapi's TestClient. starlette 1.x asks for httpx2 and
     # only falls back on httpx with a StarletteDeprecationWarning, which the
     # suite now treats as an error (filterwarnings below).
