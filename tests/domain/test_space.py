@@ -30,7 +30,7 @@ class TestTurningBytesIntoMeeting:
         assert Room(0).seconds == 0.0
 
     def test_a_recording_has_at_least_one_channel(self) -> None:
-        with pytest.raises(ValueError, match="voie"):
+        with pytest.raises(ValueError, match=r"^un enregistrement a au moins une voie$"):
             Room(1000, channels=0)
 
 
@@ -51,6 +51,18 @@ class TestTheVerdict:
         nothing_left = room_for(3)
         assert nothing_left.verdict is Verdict.TOO_LITTLE
         assert "ne se refait pas" in said_in_french(nothing_left)
+
+    def test_what_is_said_before_starting_in_full(self) -> None:
+        # The sentence is the whole of what the person gets: the figure, the
+        # consequence, and what to do about it.
+        assert said_in_french(room_for(3)) == (
+            "Il ne reste de la place que pour 3 min d'enregistrement. Un enregistrement "
+            "interrompu ne se refait pas : libérez de la place avant de commencer."
+        )
+        assert said_in_french(room_for(90)) == (
+            "Il reste de la place pour 1 h 30 d'enregistrement. Au-delà, la capture "
+            "s'arrête et ce qui n'a pas été écrit est perdu."
+        )
 
     def test_the_line_shown_during_a_meeting_is_shorter(self) -> None:
         said = said_during_the_meeting(room_for(20))
