@@ -173,6 +173,10 @@ def download(
     In chunks, reporting progress: this is a hundred and fifty megabytes, and a
     window that froze silently for two minutes passed for broken.
     """
+    # The address comes out of the release's JSON: https or nothing, so that
+    # a tampered answer cannot make urlopen read a local file.
+    if not url.startswith("https://"):
+        return (False, f"adresse refusée, https attendu : {url}")
     the_request = urllib.request.Request(url, headers={"User-Agent": "Greffier"})
     try:
         target.parent.mkdir(parents=True, exist_ok=True)

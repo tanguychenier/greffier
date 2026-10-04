@@ -307,6 +307,15 @@ class TestDownloadingAndUnpacking:
         )
         assert not received and trouble == "pas de réseau"
 
+    def test_an_address_that_is_not_https_is_refused_before_any_call(
+            self, monkeypatch, tmp_path):
+        """The address comes out of the release's JSON: tampered into a file://
+        or an http:// one, it must not make urlopen read what it names."""
+        fail_to_answer(monkeypatch, AssertionError("aucun appel ne devait partir"))
+        received, trouble = updates.download("file:///etc/passwd", tmp_path / "a.zip")
+        assert not received and "https" in trouble
+        assert not (tmp_path / "a.zip").exists()
+
     def test_a_zip_opens(self, tmp_path):
         import zipfile
 
