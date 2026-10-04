@@ -226,6 +226,41 @@ class TestTheTokensTheWindowStores:
         sources_file.store_token(file, "B", 'deux "avec" guillemets')
         assert sources_file.stored_tokens(file) == {"A": "un", "B": 'deux "avec" guillemets'}
 
+    def test_a_token_with_control_characters_reads_back_whole(self, tmp_path):
+        """A key pasted with its line breaks, CRLF from a Windows clipboard included,
+        used to leave a file tomllib refused: every token in it was then lost at
+        once, and silently, since a damaged file reads as nothing."""
+        file = tmp_path / "jetons.toml"
+        awkward = 'ligne 1\r\nligne\t2 "citée" \\ anti-slash\x01\x7f\b\f fin'
+        sources_file.store_token(file, "A", awkward)
+        sources_file.store_token(file, "B", "simple")
+        assert sources_file.stored_tokens(file) == {"A": awkward, "B": "simple"}
+
+    def test_the_file_stays_one_line_per_token(self, tmp_path):
+        """Control characters are written escaped, so the file reads line by line."""
+        file = tmp_path / "jetons.toml"
+        sources_file.store_token(file, "A", "a\nb\x01c")
+        written = file.read_text(encoding="utf-8")
+        assert all(c == "\n" or ord(c) >= 0x20 for c in written)
+        assert written.count("\n") == 3
+
+    def test_a_name_that_is_not_a_bare_key_reads_back_under_the_same_name(self, tmp_path):
+        """« jeton.gitlab » bare would be a table, and « clé » is not allowed bare;
+        quoting them loses nothing where refusing them would crash the window."""
+        file = tmp_path / "jetons.toml"
+        sources_file.store_token(file, "jeton.gitlab", "un")
+        sources_file.store_token(file, "clé « à moi »", "deux")
+        sources_file.store_token(file, "GREFFIER_JETON-2", "trois")
+        assert sources_file.stored_tokens(file) == {
+            "jeton.gitlab": "un", "clé « à moi »": "deux", "GREFFIER_JETON-2": "trois",
+        }
+
+    def test_a_bare_name_is_written_as_it_is(self, tmp_path):
+        """The file is the person's to read: a name TOML allows bare stays bare."""
+        file = tmp_path / "jetons.toml"
+        sources_file.store_token(file, "compte-gitlab-jeton", "glpat")
+        assert 'compte-gitlab-jeton = "glpat"' in file.read_text(encoding="utf-8")
+
     def test_an_empty_secret_removes_the_token(self, tmp_path):
         file = tmp_path / "jetons.toml"
         sources_file.store_token(file, "A", "un")
