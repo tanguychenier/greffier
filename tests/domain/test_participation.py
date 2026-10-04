@@ -523,6 +523,12 @@ class TestTheQuestionIsWhatFollowsTheName:
     def test_without_the_name_the_whole_sentence_is_the_question(self):
         assert split_at_the_name("on décale ?", "Lucie") == ("", "on décale ?")
 
+    def test_an_empty_name_cuts_nowhere(self):
+        """Every one-letter word is one edit from nothing: « il y a un souci »
+        was cut at its « a », and « il y » given as context."""
+        for name in ("", "   "):
+            assert split_at_the_name("il y a un souci", name) == ("", "il y a un souci")
+
     def test_the_mark_that_opens_the_question_is_not_lost_with_the_name(self):
         # Guillemets are not among the marks the tidying strips: dropped with
         # the name, the opening one would leave its closing one alone.
@@ -615,6 +621,11 @@ class TestWhatIsAskedOnceTheNameIsOut:
 
     def test_without_the_name_the_sentence_is_the_question(self):
         assert question_asked("on décale ?", "Lucie") == "on décale ?"
+
+    def test_an_empty_name_takes_nothing_out(self):
+        """Same cause as the cut: « il y a un souci » came back « il un souci »."""
+        for name in ("", "   "):
+            assert question_asked("il y a un souci", name) == "il y a un souci"
 
     def test_it_agrees_with_the_split_when_the_name_opens_the_sentence(self):
         for text in ("Lucie, à quel jour est décalée la recette ?", "Lucy, on décale ?"):
