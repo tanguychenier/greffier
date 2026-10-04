@@ -134,7 +134,8 @@ a time; `mutmut results` filtered on the module's name is where it starts.
 The hook then refuses a commit that does not pass `ruff`, `mypy` and the tests.
 The same three run in the CI and block the pull request. Running them "on the
 side" is not enough: three quality remarks reached commits before that guard
-existed.
+existed. Without a `.venv` the hook refuses the commit too, and prints the one
+command that creates it: nothing checked is not the same as nothing wrong.
 
 A pull request says what it fixes, how it was measured, and what remains open.
 The ones already merged are the model.
