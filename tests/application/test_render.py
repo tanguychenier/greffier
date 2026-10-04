@@ -6,7 +6,7 @@ from pathlib import Path
 from greffier.application import render
 from greffier.application.render import regenerate_minutes, render_transcript
 from greffier.domain.meeting import StoredMeeting
-from greffier.domain.models import Span, SpeakerTurn, Utterance
+from greffier.domain.models import Span, SpeakerTurn, Utterance, Voiceprint
 
 
 def a_meeting(**overrides) -> StoredMeeting:
@@ -181,6 +181,10 @@ class FakeExtractor:
     def extract_spans(self, audio, spans):
         return [self.vectors[span.start] for span in spans if span.start in self.vectors]
 
+    def extract_together(self, audio, spans):
+        """Nothing for a run of short turns: these tests give every turn its own."""
+        return None
+
 
 class TestReviewingTheVoices:
     def _voiceprint(self, *vector):
@@ -235,3 +239,113 @@ class TestReviewingTheVoices:
         assert list(meeting.names.values()) == ["Josiane"]
         assert meeting.propositions == {}
         assert any("le nom Marc a été écarté" in w for w in meeting.warnings), meeting.warnings
+
+
+class TestNamesakesAfterTheReview:
+    """Two voices under one name are one person, here as after a run.
+
+    The review used to carry its own copy of the rule, folding by case alone
+    where the domain also folds accents, and ending on an assignment that put
+    a name back where it already was. One rule now, the domain's.
+    """
+
+    def _apart(self):
+        from greffier.domain.models import Voiceprint
+
+        return (Voiceprint(vector=(1.0, 0.0, 0.0), source_duration=20.0),
+                Voiceprint(vector=(0.0, 1.0, 0.0), source_duration=20.0))
+
+    def test_the_voice_that_spoke_longer_keeps_the_name_and_the_turns(self):
+        one, other = self._apart()
+        meeting = a_meeting(names={"1": "Josiane", "2": "josiane"})
+        render.review_voices(meeting, FakeExtractor({0: one, 60: other}))
+        assert meeting.names == {"1": "Josiane"}
+        assert {t.voice for t in meeting.turns} == {"1"}
+        assert {u.voice for u in meeting.utterances} == {"1"}
+
+    def test_accents_do_not_make_two_people_here_either(self):
+        one, other = self._apart()
+        meeting = a_meeting(names={"1": "Hélène", "2": "helene"})
+        render.review_voices(meeting, FakeExtractor({0: one, 60: other}))
+        assert list(meeting.names) == ["1"]
+
+    def test_the_join_can_be_taken_back(self):
+        """What `join_into` records is what « greffier voix --separer » undoes."""
+        one, other = self._apart()
+        meeting = a_meeting(names={"1": "Josiane", "2": "Josiane"})
+        render.review_voices(meeting, FakeExtractor({0: one, 60: other}))
+        assert meeting.split("1") is not None
+        assert meeting.names == {"1": "Josiane", "2": "Josiane"}
+        assert {t.voice for t in meeting.turns} == {"1", "2"}
+
+    def test_two_different_names_are_left_alone(self):
+        one, other = self._apart()
+        meeting = a_meeting(names={"1": "Josiane", "2": "Marc"})
+        render.review_voices(meeting, FakeExtractor({0: one, 60: other}))
+        assert meeting.names == {"1": "Josiane", "2": "Marc"}
+        assert meeting.joins == []
+
+
+class TestTheVoiceprintsOfEachVoice:
+    """One reading of the recording, and a signature for the voices of short turns.
+
+    Measured on a meeting round a table: forty-five of the hundred and
+    twenty-one voices held no signature, every passage being shorter than the
+    model accepts, so each stayed a separate person. Read together, their
+    passages make one excerpt the model does accept.
+    """
+
+    LONG = Voiceprint(vector=(1.0, 0.0, 0.0), source_duration=20.0)
+    TOGETHER = Voiceprint(vector=(0.0, 1.0, 0.0), source_duration=6.0)
+    PER_VOICE = {"1": [Span(0, 40)], "2": [Span(60, 62), Span(70, 73)]}
+
+    def test_a_voice_made_of_short_turns_gets_the_signature_of_its_turns_read_together(self):
+        together = self.TOGETHER
+
+        class ReadsTogether(FakeExtractor):
+            def extract_together(self, audio, spans):
+                return together
+
+        found = render.voiceprints_per_voice(
+            ReadsTogether({0: self.LONG}), Path("/tmp/r.wav"), self.PER_VOICE)
+        assert found == {"1": [self.LONG], "2": [self.TOGETHER]}
+
+    def test_a_voice_too_short_even_read_together_stays_without_one(self):
+        found = render.voiceprints_per_voice(
+            FakeExtractor({0: self.LONG}), Path("/tmp/r.wav"), self.PER_VOICE)
+        assert found == {"1": [self.LONG], "2": []}
+
+    def test_a_voice_that_already_has_one_is_not_read_again(self):
+        class Counting(FakeExtractor):
+            together = 0
+
+            def extract_together(self, audio, spans):
+                self.together += 1
+                return None
+
+        extractor = Counting({0: self.LONG, 60: self.LONG})
+        render.voiceprints_per_voice(
+            extractor, Path("/tmp/r.wav"), {"1": [Span(0, 40)], "2": [Span(60, 95)]})
+        assert extractor.together == 0
+
+
+class TestTheMeetingsStillWaitingForTheirMinutes:
+    class FakeStore:
+        def __init__(self, identifiers):
+            self.identifiers = identifiers
+
+        def list_(self):
+            return self.identifiers
+
+    def test_a_meeting_without_its_minutes_file_is_to_resume(self, tmp_path):
+        store = self.FakeStore(["2026-09-10_10h10_reunion", "2026-09-09_14h00_point"])
+        (tmp_path / "2026-09-09_14h00_point.md").write_text("# fait", encoding="utf-8")
+        assert render.to_resume(store, tmp_path) == ["2026-09-10_10h10_reunion"]
+
+    def test_what_is_not_dated_like_a_meeting_is_left_alone(self, tmp_path):
+        store = self.FakeStore(["essai", "2026-09-10_10h10_reunion"])
+        assert render.to_resume(store, tmp_path) == ["2026-09-10_10h10_reunion"]
+
+    def test_only_the_most_recent_ones_are_looked_at(self, tmp_path):
+        store = self.FakeStore([f"2026-09-{d:02d}_10h00_reunion" for d in range(30, 0, -1)])
+        assert len(render.to_resume(store, tmp_path, how_many=3)) == 3

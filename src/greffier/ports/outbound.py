@@ -8,9 +8,11 @@ rewritten for Windows, or the day the transcription model changes.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
+from greffier.domain.devices import Hardware
 from greffier.domain.meeting import StoredMeeting
 from greffier.domain.memory import Trace
 from greffier.domain.models import Person, Span, SpeakerTurn, Utterance, Voiceprint
@@ -60,6 +62,18 @@ class AudioRecorder(Protocol):
 
     def levels(self, audio: Path) -> list[float]:
         """Mean level of each channel, in dB. -120 for a mute channel."""
+        ...
+
+
+@runtime_checkable
+class Lister(Protocol):
+    """Reads the audio hardware on demand: what is plugged in right now.
+
+    The watch compares two readings to see a mic come or go; the diagnostic
+    reads once to say what it found.
+    """
+
+    def read(self) -> Hardware:
         ...
 
 
@@ -176,6 +190,10 @@ class MeetingStore(Protocol):
         """Reads back a processed meeting, to name it or resume it."""
         ...
 
+    def list_(self) -> list[str]:
+        """The identifiers of the kept meetings, the most recently held first."""
+        ...
+
 
 @runtime_checkable
 class Notifier(Protocol):
@@ -199,4 +217,64 @@ class StateJournal(Protocol):
     """Publishes progress, so the interface knows where the chain is."""
 
     def publish(self, phase: str, message: str = "") -> None:
+        ...
+
+
+@runtime_checkable
+class Mouth(Protocol):
+    """One remark under way: its sentences go in as the model finishes them."""
+
+    def add(self, text: str) -> None:
+        ...
+
+    def close(self) -> None:
+        ...
+
+
+@runtime_checkable
+class Speaker(Protocol):
+    """Whatever pronounces. NeuralVoice and SystemVoice both fit."""
+
+    def say(self, text: str) -> bool:
+        ...
+
+    def begin(self) -> Mouth | None:
+        """A remark said as it comes, or None when the voice is busy or absent."""
+        ...
+
+    def go_quiet(self) -> None:
+        ...
+
+    def is_speaking(self) -> bool:
+        ...
+
+
+@runtime_checkable
+class Brain(Protocol):
+    """Answers in the room: the writer's model, under the assistant's guidance.
+
+    `own_guidance` is what the assistant swaps for the length of one call, a
+    contribution or a follow-up wanting other instructions than the minutes
+    do. ClaudeSession, ClaudeWriter and OllamaWriter all carry it, so the
+    assistant sets it rather than probing for it.
+    """
+
+    own_guidance: str
+
+    def write_up(self, transcription: str) -> str:
+        ...
+
+
+@runtime_checkable
+class BrainAsItComes(Brain, Protocol):
+    """A brain that hands each sentence over the moment it is finished.
+
+    The voice starts on the first while the model writes the rest: measured
+    on 2026-09-16, the first of three sentences was whole a second before
+    the answer was.
+    """
+
+    def write_up_as_it_comes(
+        self, transcription: str, on_sentence: Callable[[str], None] | None
+    ) -> str:
         ...

@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from pathlib import Path
 
 
 class MentionKind(StrEnum):
@@ -108,38 +107,3 @@ class Person:
     voiceprints: list[Voiceprint] = field(default_factory=list)
     seen_at: datetime | None = None
     meetings: int = 0
-
-@dataclass(slots=True)
-class Meeting:
-    """The central object: what was recorded and what is known of it."""
-
-    identifier: str
-    title: str
-    start: datetime
-    audio: Path
-    duration: float = 0.0
-    phase: Phase = Phase.REST
-    utterances: list[Utterance] = field(default_factory=list)
-    turns: list[SpeakerTurn] = field(default_factory=list)
-    names: dict[str, str] = field(default_factory=dict)
-    people_in_the_room: int | None = None
-
-    def name_of(self, voice: str | None) -> str:
-        if voice is None:
-            return "Indéterminé"
-        return self.names.get(voice, voice)
-
-    @property
-    def speaking_time(self) -> dict[str, float]:
-        """Seconds spoken per voice, silences excluded."""
-        cumulated: dict[str, float] = {}
-        for turn in self.turns:
-            cumulated[turn.voice] = cumulated.get(turn.voice, 0.0) + turn.span.duration
-        return cumulated
-
-    def coverage(self) -> float:
-        """Share of the audio actually covered by transcribed text."""
-        if self.duration <= 0:
-            return 0.0
-        spoken = sum(r.span.duration for r in self.utterances)
-        return min(1.0, spoken / self.duration)
