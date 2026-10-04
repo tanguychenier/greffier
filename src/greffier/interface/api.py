@@ -15,7 +15,8 @@ Shut unless started, bound to the loopback unless told otherwise, and refusing
 to bind anything else without a token. What comes in is bounded as well: a
 recording is streamed to disk and refused past a configured size, its name has
 to be one the file system and the chain can take, a name already taken is
-refused rather than overwritten, and the chains run one at a time.
+refused rather than overwritten, and the chains run one at a time. The
+documentation wants the token too: a map of the door is not for whoever knocks.
 """
 
 from __future__ import annotations
@@ -37,7 +38,8 @@ from typing import TYPE_CHECKING, Annotated, Any, BinaryIO
 # command that opens the door, which says what to install when it is missing.
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.datastructures import Headers
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
     from starlette.types import ASGIApp, Receive, Scope, Send
@@ -266,6 +268,7 @@ def build(config: Config) -> Any:
         title="Greffier",
         summary="Enregistre une réunion, identifie qui parle, en rédige le compte rendu.",
         version=_version(),
+        docs_url=None, redoc_url=None, openapi_url=None,
     )
     api.add_middleware(RefusedFromTheHeader, config=config)
     jobs = Jobs()
@@ -279,6 +282,7 @@ def build(config: Config) -> Any:
             raise _unauthorized()
 
     kept_one = [Depends(authorised)]
+    _describe_behind(api, kept_one)
 
     @api.get("/sante")
     def health() -> dict[str, object]:
@@ -342,6 +346,28 @@ def build(config: Config) -> Any:
         return found
 
     return api
+
+
+def _describe_behind(api: FastAPI, guard: list[Any]) -> None:
+    """The schema and its two viewers, served to the token holder only.
+
+    FastAPI registers them open by default. The schema lists every route and
+    every field a client may send: a map of the door, which is exactly what
+    somebody probing the port wants first.
+    """
+    schema_url, title = "/openapi.json", "Greffier – documentation"
+
+    @api.get(schema_url, dependencies=guard, include_in_schema=False)
+    def openapi_route() -> dict[str, Any]:
+        return api.openapi()
+
+    @api.get("/docs", dependencies=guard, include_in_schema=False)
+    def docs_route() -> HTMLResponse:
+        return get_swagger_ui_html(openapi_url=schema_url, title=title)
+
+    @api.get("/redoc", dependencies=guard, include_in_schema=False)
+    def redoc_route() -> HTMLResponse:
+        return get_redoc_html(openapi_url=schema_url, title=title)
 
 
 def _checked_name(filename: str) -> tuple[str, str]:

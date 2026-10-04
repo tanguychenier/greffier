@@ -701,10 +701,13 @@ transcript are keyed by that name, and the name is taken from the first byte of
 its upload, so two deposits of one name at once end **202** and **409**, never
 one on top of the other.
 
-Every route but `/sante` wants `Authorization: Bearer <token>`. The token is
-written into `config.toml` the first time the door is opened, so a site is
-configured once; **an empty setting does not mean an open door**, it means no
-answer at all.
+Every route but `/sante` wants `Authorization: Bearer <token>`, the
+documentation included: `/openapi.json`, `/docs` and `/redoc` answer **401**
+without it, since the schema is a map of the door and the first thing anyone
+probing the port would want. A client carrying the token reads them; a browser
+alone does not. The token is written into `config.toml` the first time the door
+is opened, so a site is configured once; **an empty setting does not mean an
+open door**, it means no answer at all.
 
 **What it does not serve, deliberately: the voice bank.** Voice prints are
 biometric data within the meaning of Article 9, and a door that serves them

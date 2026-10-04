@@ -191,6 +191,28 @@ class TestTheDoorIsShutWithoutAToken:
         assert without.get("/reunions").status_code == 401
 
 
+class TestTheDocumentationWantsTheTokenToo:
+    @pytest.mark.parametrize("route", ["/docs", "/redoc", "/openapi.json"])
+    def test_without_the_token_the_door_is_not_described(self, client, route):
+        """The schema is a map of the door: not for whoever knocks."""
+        assert client.get(route).status_code == 401
+
+    def test_with_the_token_the_schema_describes_the_routes(self, client, bearer):
+        answered = client.get("/openapi.json", headers=bearer)
+        assert answered.status_code == 200
+        paths = answered.json()["paths"]
+        assert {"/reunions", "/travaux/{identifier}", "/memoire"} <= set(paths)
+        assert "/openapi.json" not in paths
+
+    @pytest.mark.parametrize("route", ["/docs", "/redoc"])
+    def test_with_the_token_the_viewers_point_at_the_guarded_schema(
+            self, client, bearer, route):
+        answered = client.get(route, headers=bearer)
+        assert answered.status_code == 200
+        assert answered.headers["content-type"].startswith("text/html")
+        assert "/openapi.json" in answered.text
+
+
 class TestWhatItServes:
     def test_the_minutes_come_back_as_they_were_written(self, config, client, bearer):
         (config.paths.minutes_folder / "reunion.md").write_text(
