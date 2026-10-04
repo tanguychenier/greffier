@@ -1,6 +1,10 @@
 # One job rather than three: the three checks take a few seconds each, and three
 # jobs would pay for three machine startups for the same result. Whichever step
 # fails shows up in the log.
+#
+# Every action is pinned to a commit, with the release it stands for in the
+# comment next to it: a tag can be moved after the fact, a commit cannot.
+# Dependabot (.github/dependabot.yml) moves the commit and the comment together.
 name: CI
 
 on:
@@ -8,26 +12,42 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Mondays, 06:17 UTC, for the audit job and it alone. A vulnerability
+    # published on a Tuesday must not block an unrelated pull request, so the
+    # dependencies are audited on a clock rather than on every push.
+    - cron: '17 6 * * 1'
 
 permissions:
   contents: read
 
 jobs:
   checks:
-    name: ruff, mypy and the tests
+    name: ruff, mypy and the tests, Python ${{ matrix.python }}
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    strategy:
+      # One version failing must not hide what the other has to say.
+      fail-fast: false
+      matrix:
+        # 3.14 measured on 2026-10-03 with 3.14.8: every dependency has a wheel
+        # for it, sherpa-onnx included, and the suite passes at the same 81 %.
+        python: ['3.13', '3.14']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-python@v5
+      # uv rather than pip, for the lockfile: `--locked` refuses a resolution
+      # that differs from uv.lock, so the CI tests the versions a developer
+      # has and not whatever PyPI served that morning. The cache is keyed on
+      # uv.lock. The interpreter is a uv-managed build, which carries its own
+      # Tk: the window's tests need no python3-tk from the runner.
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
-          python-version: '3.13'
-          cache: pip
+          enable-cache: true
+          python-version: ${{ matrix.python }}
 
-      # The dev tools are a PEP 735 dependency group, which pip reads since 25.1,
-      # the pip Python 3.13.4 and newer ship with.
       - name: Dependencies
-        run: pip install -q -e ".[api]" --group dev
+        run: uv sync --locked --group dev --extra api
 
       # Sans écran virtuel, Tk ne démarre pas et toute l'interface reste hors
       # des tests : la moitié de l'outil que les gens touchent.
@@ -37,20 +57,50 @@ jobs:
       # Blocking, not "tolerated": a quality remark let through ends up hiding a
       # real regression.
       - name: ruff
-        run: ruff check src tests tools
+        run: uv run ruff check src tests tools
 
       - name: mypy
-        run: mypy
+        run: uv run mypy
 
+      # The floor sits one point under the measure, 81 % on 2026-10-03 with the
+      # unit tests alone, so that a patch cannot lower it unnoticed. It follows
+      # the measure upwards; it is not a target.
       - name: Tests
-        run: xvfb-run -a python -m pytest tests/ -v --cov=greffier --cov-report=term
+        run: >
+          xvfb-run -a uv run pytest tests/ -v
+          --cov=greffier --cov-report=term --cov-fail-under=80
         env:
           GREFFIER_ECRAN_D_ESSAI: "1"
 
       # The integration tests must skip cleanly where the models are absent
       # rather than fail: no runner carries 1.7 GB of models.
       - name: Integration tests skip without models
-        run: python -m pytest -m integration -v
+        run: uv run pytest -m integration -v
+
+  audit:
+    name: Known vulnerabilities in the dependencies
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: true
+      # pip-audit reads a requirements file, so the lockfile is exported to one
+      # first. `--locked` refuses a stale uv.lock instead of resolving afresh.
+      # `--all-extras --group dev` exports every package the lock pins, the
+      # transcription, cuda, api and corpus extras and the dev group included:
+      # 79 of its 80 packages, the project itself being the eightieth. Without
+      # them only the 55 of the default group come out, and faster-whisper,
+      # ctranslate2 or huggingface-hub, which release.yml ships, go unaudited.
+      # `--strict` fails on a dependency it could not look up rather than
+      # passing over it in silence.
+      - name: The locked dependencies, as pip-audit reads them
+        run: >-
+          uv export --locked --all-extras --group dev
+          --format requirements-txt --no-emit-project > requirements.txt
+      - name: pip-audit
+        run: uvx pip-audit -r requirements.txt --disable-pip --strict
 
   linux-install:
     name: Install on a bare image
@@ -58,7 +108,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Proof of installation
         run: |
           mkdir -p contexte && cp -r . contexte/greffier
