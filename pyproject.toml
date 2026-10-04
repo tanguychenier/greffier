@@ -83,7 +83,6 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 # beaucoup de postes, alors que le paquet, lui, exige 3.13. Ses gardes de
 # version ne sont donc pas obsolètes.
 "tools/install.py" = ["UP036"]
-"src/greffier/adaptateurs/configuration.py" = ["UP036"]
 
 [tool.mypy]
 python_version = "3.13"
