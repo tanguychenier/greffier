@@ -7,10 +7,8 @@ be in English without a single machine's settings breaking.
 
 from __future__ import annotations
 
-import os
 import platform
 import shutil
-import tempfile
 import tomllib
 from pathlib import Path
 from typing import ClassVar
@@ -18,6 +16,7 @@ from typing import ClassVar
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
+from greffier.adapters.private_files import write_private_text
 from greffier.domain.arithmetic import AUTO
 from greffier.locations import config_folder, data_folder
 
@@ -667,16 +666,7 @@ def save_settings(config: Config, folder: Path | None = None) -> Path:
     stop on a syntax error.
     """
     target = config_path(folder)
-    target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
         shutil.copy2(target, target.with_suffix(".toml.precedent"))
-    descriptor, temporary = tempfile.mkstemp(dir=target.parent, prefix=".config-",
-                                               suffix=".toml")
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-            stream.write(render(config))
-        os.replace(temporary, target)
-    except BaseException:
-        Path(temporary).unlink(missing_ok=True)
-        raise
+    write_private_text(target, render(config))
     return target

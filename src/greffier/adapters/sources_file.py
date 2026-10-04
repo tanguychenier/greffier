@@ -10,12 +10,13 @@ from __future__ import annotations
 
 import os
 import platform
+import re
 import shutil
-import stat
 import subprocess
 import tomllib
 from pathlib import Path
 
+from greffier.adapters.private_files import write_private_text
 from greffier.domain.sources import Kind, Registry, Right, Source
 from greffier.locations import config_folder
 
@@ -54,6 +55,16 @@ TEMPLATE = '''# Les sources extérieures que Greffier a le droit de consulter.
 '''
 
 KEYCHAIN_PREFIX = "trousseau:"
+
+#: What a TOML key may be written bare; anything else is quoted.
+_BARE_KEY = re.compile(r"[A-Za-z0-9_-]+")
+
+#: The characters a TOML basic string escapes by a letter; every other control
+#: character, U+0000..U+001F and U+007F, goes as \uXXXX.
+_SHORT_ESCAPES = {
+    "\\": "\\\\", '"': '\\"', "\b": "\\b", "\t": "\\t",
+    "\n": "\\n", "\f": "\\f", "\r": "\\r",
+}
 
 def read(file: Path) -> Registry:
     """The registered sources. Empty when the file does not exist."""
@@ -123,7 +134,17 @@ def stored_tokens(file: Path) -> dict[str, str]:
     return {str(k): str(v).strip() for k, v in kept.items() if str(v).strip()}
 
 def store_token(file: Path, name: str, secret: str) -> None:
-    """Keeps a token under the name the registry gives it, for this user only."""
+    """Keeps a token under the name the registry gives it, for this user only.
+
+    The value goes in as a TOML basic string, control characters included: a
+    key pasted with its line breaks, CRLF from a Windows clipboard included,
+    used to leave a file tomllib refused, and `stored_tokens` then gave back
+    nothing at all, every token lost at once. The name is quoted when TOML
+    does not allow it bare rather than refused: it comes from the registry the
+    person wrote by hand, and a refusal here would surface as a crash in the
+    window long after the registry was written, while a quoted key reads back
+    under the very same name.
+    """
     kept = stored_tokens(file)
     if secret.strip():
         kept[name] = secret.strip()
@@ -132,12 +153,23 @@ def store_token(file: Path, name: str, secret: str) -> None:
     lines = ["# Les jetons déposés depuis la fenêtre. Ce fichier n'appartient qu'à vous.",
              "[jetons]"]
     for key, value in sorted(kept.items()):
-        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-        lines.append(f'{key} = "{escaped}"')
-    file.parent.mkdir(parents=True, exist_ok=True)
-    file.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    if os.name == "posix":
-        file.chmod(stat.S_IRUSR | stat.S_IWUSR)
+        lines.append(f"{_toml_key(key)} = {_basic_string(value)}")
+    write_private_text(file, "\n".join(lines) + "\n")
+
+def _toml_key(name: str) -> str:
+    """`name` as it is when TOML allows it bare, as a quoted key otherwise."""
+    return name if _BARE_KEY.fullmatch(name) else _basic_string(name)
+
+def _basic_string(text: str) -> str:
+    """`text` as a TOML basic string, every control character escaped."""
+    return '"' + "".join(_escaped(character) for character in text) + '"'
+
+def _escaped(character: str) -> str:
+    if character in _SHORT_ESCAPES:
+        return _SHORT_ESCAPES[character]
+    if ord(character) < 0x20 or ord(character) == 0x7F:
+        return f"\\u{ord(character):04X}"
+    return character
 
 def _from_the_keychain(service: str) -> str:
     """The generic password from the macOS keychain."""

@@ -12,15 +12,14 @@ from __future__ import annotations
 
 import contextlib
 import json
-import os
 import re
 import shutil
-import stat
 import subprocess
 from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
 
+from greffier.adapters.private_files import write_private_text
 from greffier.adapters.sources_file import store_token, stored_tokens, tokens_file
 from greffier.domain.accounts import Consent, Deed, Service, now_iso
 from greffier.locations import config_folder
@@ -138,10 +137,7 @@ def write_servers(data: Path, servers: dict[str, dict[str, object]]) -> Path | N
     if not servers:
         file.unlink(missing_ok=True)
         return None
-    file.parent.mkdir(parents=True, exist_ok=True)
-    file.write_text(json.dumps({"mcpServers": servers}, indent=1), encoding="utf-8")
-    if os.name == "posix":
-        file.chmod(stat.S_IRUSR | stat.S_IWUSR)
+    write_private_text(file, json.dumps({"mcpServers": servers}, indent=1))
     return file
 
 
