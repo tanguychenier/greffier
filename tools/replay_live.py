@@ -21,6 +21,7 @@ import argparse
 import json
 import pickle
 import sys
+import tempfile
 from collections import Counter
 from pathlib import Path
 
@@ -113,7 +114,7 @@ def main() -> int:
     arguments = parser.parse_args()
 
     path = data_folder() / "reunions" / f"{arguments.meeting}.json"
-    cache = Path("/tmp/greffier-empreintes") / f"{arguments.meeting}.pickle"
+    cache = Path(tempfile.gettempdir()) / "greffier-empreintes" / f"{arguments.meeting}.pickle"
     if not cache.exists():
         print("The voiceprints are missing: run tools/replay_stitching.py on this "
               "meeting first.", file=sys.stderr)

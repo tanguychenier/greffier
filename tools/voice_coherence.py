@@ -22,6 +22,7 @@ import argparse
 import pickle
 import statistics as stat
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -37,7 +38,7 @@ ENOUGH_EXCERPTS = 12
 
 
 def cache_of(meeting: str) -> Path:
-    return Path("/tmp/greffier-empreintes") / f"{meeting}.pickle"
+    return Path(tempfile.gettempdir()) / "greffier-empreintes" / f"{meeting}.pickle"
 
 
 def coherence(voiceprints: list[Voiceprint]) -> list[float]:

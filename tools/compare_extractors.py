@@ -29,6 +29,7 @@ import json
 import pickle
 import statistics as stat
 import sys
+import tempfile
 import time
 import urllib.request
 from collections import defaultdict
@@ -58,7 +59,7 @@ CANDIDATES = {
 #: The length of the excerpts measured. It is that of a live slice block,
 #: hence the one where the choice of model is decided.
 WINDOW = 2.5
-CACHE = Path("/tmp/greffier-extracteurs")
+CACHE = Path(tempfile.gettempdir()) / "greffier-extracteurs"
 
 
 def download(name: str, target: Path) -> Path:
@@ -108,7 +109,7 @@ def voiceprints(model: Path, meeting: dict, key: str) -> list:
 
 def truth(meeting: dict) -> list:
     """Who spoke when, according to the final stitching of the meeting."""
-    cache = Path("/tmp/greffier-empreintes") / f"{meeting['identifiant']}.pickle"
+    cache = Path(tempfile.gettempdir()) / "greffier-empreintes" / f"{meeting['identifiant']}.pickle"
     if not cache.exists():
         raise SystemExit(
             "The ground truth is missing: run tools/replay_stitching.py on this "

@@ -19,6 +19,7 @@ import argparse
 import json
 import pickle
 import sys
+import tempfile
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -204,7 +205,7 @@ def main() -> int:
 
     path = data_folder() / "reunions" / f"{arguments.meeting}.json"
     meeting = json.loads(path.read_text())
-    cache = Path("/tmp/greffier-empreintes") / f"{arguments.meeting}.pickle"
+    cache = Path(tempfile.gettempdir()) / "greffier-empreintes" / f"{arguments.meeting}.pickle"
     print(f"Voiceprints of {arguments.meeting}…", file=sys.stderr)
     per_voice = voiceprints_per_voice(meeting, cache)
     print(f"{len(per_voice)} voices carry at least one voiceprint.\n")

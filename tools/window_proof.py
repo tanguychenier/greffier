@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -192,7 +193,7 @@ def main() -> int:
         folder = Path(
             sys.argv[sys.argv.index("--capture") + 1]
             if len(sys.argv) > sys.argv.index("--capture") + 1
-            else "/tmp/greffier-captures"
+            else Path(tempfile.gettempdir()) / "greffier-captures"
         )
         for width, name in ((880, "narrow"), (1280, "wide")):
             for caption in captions:
@@ -222,7 +223,7 @@ def main() -> int:
         folder = Path(
             sys.argv[sys.argv.index("--tour") + 1]
             if len(sys.argv) > sys.argv.index("--tour") + 1
-            else "/tmp/greffier-captures"
+            else Path(tempfile.gettempdir()) / "greffier-captures"
         )
         for width, name in ((880, "narrow"), (1280, "wide")):
             window.root.geometry(f"{width}x760")
