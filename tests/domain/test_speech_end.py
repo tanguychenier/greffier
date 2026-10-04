@@ -89,3 +89,10 @@ class TestWhetherTheRoomWentOnTalking:
         end.note(1.6, speaking=False)
         end.note(3.0, speaking=False)
         assert end.resumed_after(1.6) is False
+
+    def test_a_word_said_at_the_very_moment_is_not_after_it(self):
+        # The moment asked about is the one the question ended on: the speech
+        # that ended there is the question itself, not an answer to it.
+        end = SpeechEnd()
+        end.note(1.0, speaking=True)
+        assert end.resumed_after(1.0) is False

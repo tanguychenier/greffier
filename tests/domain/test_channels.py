@@ -8,10 +8,35 @@ minutes of speech missing from the minutes.
 
 from __future__ import annotations
 
-from greffier.domain.channels import ChannelSettings, local_turns, remove, subtract
+from itertools import pairwise
+
+from hypothesis import given
+from hypothesis import strategies as st
+
+from greffier.domain.channels import (
+    MINIMUM_LENGTH_S,
+    ChannelSettings,
+    WhoSpeaks,
+    local_turns,
+    over_video,
+    remove,
+    subtract,
+    who_speaks,
+)
 from greffier.domain.models import Span
 
 PAS = 0.025  # 25 ms, comme l'adaptateur
+
+#: Spans on a grid of whole seconds, so that two of them touch or coincide often
+#: enough for the boundaries to be exercised, not only the general case.
+SPANS = st.tuples(st.integers(0, 30), st.integers(0, 30)).map(
+    lambda bounds: Span(float(min(bounds)), float(max(bounds)))
+)
+NON_EMPTY_SPANS = st.integers(0, 29).flatmap(
+    lambda start: st.integers(start + 1, 30).map(lambda end: Span(float(start), float(end)))
+)
+#: A level a channel can read in a meeting, from a quiet room to a loud voice.
+LEVELS = st.floats(min_value=-80.0, max_value=-20.0, allow_nan=False, allow_infinity=False)
 
 
 def levels(motif: list[tuple[float, float, int]]) -> tuple[list[float], list[float]]:
@@ -48,12 +73,24 @@ class TestAQuietVoiceThatIsStillYours:
         flexible = ChannelSettings(margin_db=0.0)
         assert local_turns(mic, system, PAS, flexible) != []
 
+    def test_a_mic_exactly_the_margin_above_the_loopback_is_not_yet_yours(self) -> None:
+        # The margin is strict: 6 dB above is the loudspeakers at their worst,
+        # one more decibel is a voice.
+        mic, system = levels([(-27, -33, 200)])
+        assert local_turns(mic, system, PAS) == []
+        mic, system = levels([(-26, -33, 200)])
+        assert local_turns(mic, system, PAS) != []
+
 
 class TestBackgroundNoise:
     def test_the_silence_of_a_meeting_is_not_speech(self) -> None:
         # Nobody is speaking: the loopback is silent and the noise of the room
         # dominates. With no floor every silence would become a turn.
         mic, system = levels([(-52, -75, 400)])
+        assert local_turns(mic, system, PAS) == []
+
+    def test_a_mic_exactly_at_the_floor_is_still_noise(self) -> None:
+        mic, system = levels([(-45, -240, 200)])
         assert local_turns(mic, system, PAS) == []
 
     def test_the_floor_is_a_setting(self) -> None:
@@ -87,6 +124,29 @@ class TestCuttingIntoTurns:
         mic, system = levels([(-60, -60, 40), (-30, -60, 40), (-60, -60, 40)])
         assert len(local_turns(mic, system, PAS)) == 1
 
+    def test_a_sentence_exactly_the_minimum_length_is_kept(self) -> None:
+        # 32 frames of 25 ms: 0.8 s, the shortest sentence that counts.
+        mic, system = levels([(-60, -60, 40), (-30, -60, 32), (-60, -60, 40)])
+        assert len(local_turns(mic, system, PAS)) == 1
+
+    def test_a_silence_exactly_the_stitch_length_does_not_cut(self) -> None:
+        # Half a second of silence against a stitch set to half a second: the
+        # pause a sentence takes, not the end of one.
+        mic, system = levels([(-30, -60, 40), (-60, -60, 20), (-30, -60, 40)])
+        half_a_second = ChannelSettings(stitch_s=0.5)
+        assert len(local_turns(mic, system, PAS, half_a_second)) == 1
+
+    @given(runs=st.lists(st.tuples(LEVELS, LEVELS, st.integers(1, 50)), max_size=8))
+    def test_turns_are_long_enough_in_order_and_inside_the_recording(
+        self, runs: list[tuple[float, float, int]]
+    ) -> None:
+        mic, system = levels(runs)
+        turns = local_turns(mic, system, PAS)
+        frames_of_a_turn = [round(turn.duration / PAS) for turn in turns]
+        assert all(frames >= round(MINIMUM_LENGTH_S / PAS) for frames in frames_of_a_turn)
+        assert all(a.end <= b.start for a, b in pairwise(turns))
+        assert all(turn.start >= 0 and turn.end <= len(mic) * PAS for turn in turns)
+
 
 class TestWhatMustNotBreak:
     def test_series_of_different_lengths_do_not_crash(self) -> None:
@@ -101,7 +161,7 @@ class TestWhatMustNotBreak:
     def test_a_step_of_zero_is_refused(self) -> None:
         import pytest
 
-        with pytest.raises(ValueError, match="pas"):
+        with pytest.raises(ValueError, match=r"^le pas des trames doit être positif$"):
             local_turns([-30.0], [-60.0], 0.0)
 
     def test_speech_running_to_the_end_is_closed(self) -> None:
@@ -135,6 +195,39 @@ class TestDroppingTheDuplicates:
         remote_ones = [Span(1.0, 2.0), Span(3.0, 4.0)]
         assert remove(remote_ones, []) == remote_ones
 
+    def test_a_remote_turn_covered_exactly_half_disappears(self) -> None:
+        # Half is the line: at half, the local voice holds the floor.
+        assert remove([Span(10.0, 20.0)], [Span(15.0, 25.0)]) == []
+
+    def test_a_short_remote_turn_far_from_any_local_one_is_kept(self) -> None:
+        # A second and a half, on its own: nothing local overlaps it, and its
+        # shortness is no reason to lose it.
+        remote_ones = [Span(30.0, 31.5)]
+        assert remove(remote_ones, [Span(9.0, 15.0)]) == remote_ones
+
+    def test_a_one_second_remote_turn_under_a_local_one_disappears(self) -> None:
+        assert remove([Span(10.0, 11.0)], [Span(9.0, 15.0)]) == []
+
+    def test_a_turn_without_duration_is_left_alone(self) -> None:
+        # Diarisation does produce them; dividing by their length would stop
+        # the processing of the whole meeting.
+        remote_ones = [Span(5.0, 5.0)]
+        assert remove(remote_ones, [Span(4.0, 6.0)]) == remote_ones
+
+    @given(turns=st.lists(SPANS, max_size=8), local_spans=st.lists(SPANS, max_size=4))
+    def test_what_is_kept_keeps_its_order_and_nothing_untouched_is_lost(
+        self, turns: list[Span], local_spans: list[Span]
+    ) -> None:
+        kept = remove(turns, local_spans)
+        remaining = list(turns)
+        for turn in kept:
+            assert turn in remaining
+            del remaining[: remaining.index(turn) + 1]
+        untouched = [
+            turn for turn in turns if all(turn.overlap(local) == 0 for local in local_spans)
+        ]
+        assert all(turn in kept for turn in untouched)
+
 
 class TestWhoIsSpeaking:
     """What the window shows during the meeting, without asking any model."""
@@ -166,6 +259,14 @@ class TestWhoIsSpeaking:
         from greffier.domain.channels import WhoSpeaks, who_speaks
 
         assert who_speaks(-28, -25) is WhoSpeaks.THE_OTHERS
+
+    def test_a_channel_exactly_at_the_floor_is_silence(self) -> None:
+        assert who_speaks(-45.0, -70) is WhoSpeaks.NOBODY
+        assert who_speaks(-70, -45.0) is WhoSpeaks.NOBODY
+
+    def test_a_mic_exactly_the_margin_above_the_others_is_not_yet_both(self) -> None:
+        assert who_speaks(-24.0, -30.0) is WhoSpeaks.THE_OTHERS
+        assert who_speaks(-23.0, -30.0) is WhoSpeaks.BOTH
 
 
 class TestInTheRoomAgainstOnACall:
@@ -240,6 +341,29 @@ class TestACallOrATable:
 
         assert not over_video([], [])
 
+    def test_one_frame_in_twenty_is_enough_and_one_fewer_is_not(self) -> None:
+        # 5 % of the frames: ten of two hundred make a call, nine do not.
+        mic, system = levels([(-35, -240, 190), (-50, -30, 10)])
+        assert over_video(mic, system)
+        mic, system = levels([(-35, -240, 191), (-50, -30, 9)])
+        assert not over_video(mic, system)
+
+    def test_a_loopback_a_little_under_the_voices_does_not_dominate(self) -> None:
+        # Loudspeakers in the room: the loopback is alive, but the mic hears
+        # the room louder than the loopback hears the others.
+        mic, system = levels([(-30, -33, 200)])
+        assert not over_video(mic, system)
+
+    def test_a_loopback_exactly_the_margin_above_the_mic_does_not_dominate_yet(self) -> None:
+        mic, system = levels([(-36, -30, 200)])
+        assert not over_video(mic, system)
+        mic, system = levels([(-37, -30, 200)])
+        assert over_video(mic, system)
+
+    def test_a_loopback_exactly_at_the_floor_does_not_count(self) -> None:
+        mic, system = levels([(-70, -45, 200)])
+        assert not over_video(mic, system)
+
 
 class TestSubtractingSpans:
     """Taking out of a passage what the channel attributes to the person at the mic.
@@ -270,3 +394,42 @@ class TestSubtractingSpans:
 
     def test_with_nothing_to_remove_the_span_is_unchanged(self) -> None:
         assert subtract(Span(0, 5), []) == [Span(0, 5)]
+
+    def test_a_slice_starting_at_the_head_leaves_no_empty_remainder(self) -> None:
+        # An empty remainder would be an extract of nothing handed to the
+        # voiceprint.
+        assert subtract(Span(2, 10), [Span(2, 5)]) == [Span(5, 10)]
+
+    def test_a_slice_ending_at_the_tail_leaves_no_empty_remainder(self) -> None:
+        assert subtract(Span(2, 10), [Span(5, 10)]) == [Span(2, 5)]
+
+    def test_a_passage_without_duration_that_touches_a_slice_is_left_alone(self) -> None:
+        # Diarisation does produce them, and a speaker span that ends before
+        # the slice begins is clamped to one at its start. A slice that ends
+        # or begins at that instant covers none of it: the passage comes back
+        # as it went in, the way remove() leaves a turn without duration alone.
+        instant = Span(5.0, 5.0)
+        assert subtract(instant, [Span(3.0, 5.0)]) == [instant]
+        assert subtract(instant, [Span(5.0, 8.0)]) == [instant]
+
+    def test_a_passage_without_duration_inside_a_slice_disappears(self) -> None:
+        # The other side of the line: the instant belongs to the local voice.
+        assert subtract(Span(5.0, 5.0), [Span(3.0, 8.0)]) == []
+
+    @given(span=NON_EMPTY_SPANS, others=st.lists(SPANS, max_size=5))
+    def test_the_remainders_are_the_span_less_the_others_and_never_empty(
+        self, span: Span, others: list[Span]
+    ) -> None:
+        remainders = subtract(span, others)
+        for remaining in remainders:
+            assert span.start <= remaining.start < remaining.end <= span.end
+            assert all(remaining.overlap(other) == 0 for other in others)
+        assert all(a.end <= b.start for a, b in pairwise(remainders))
+        # What was taken out, counted second by second on the grid: the
+        # remainders must add up to the rest, whatever the others' overlaps.
+        covered = sum(
+            1
+            for second in range(int(span.start), int(span.end))
+            if any(other.start <= second < other.end for other in others)
+        )
+        assert sum(remaining.duration for remaining in remainders) == span.duration - covered
