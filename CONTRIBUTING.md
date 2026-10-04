@@ -57,11 +57,24 @@ below it. A comment earns its place by saying what the code cannot: the
 measurement, the alternative that was tried, the reason for the odd-looking
 choice.
 
+## The environment
+
+```sh
+uv sync --group dev --extra api   # .venv from uv.lock: the package, the HTTP door, the tools
+uv run ruff check src tests tools
+uv run mypy
+uv run pytest                     # GREFFIER_ECRAN_D_ESSAI=1 xvfb-run -a uv run pytest without a screen
+```
+
+`uv.lock` pins what everyone gets, the CI included, which runs the same three
+commands on it with `--locked`. Moving a version is `uv lock --upgrade-package
+<name>`, on purpose and in a commit of its own; Dependabot opens one a week.
+
 ## Tests
 
 Four kinds, all in `tests/`:
 
-- **Unit**, by default. `pytest`. Fast, no model, no network.
+- **Unit**, by default. `uv run pytest`. Fast, no model, no network.
 - **Architecture**, the layer rules above.
 - **Integration**, `pytest -m integration`: the real chain on a synthesised
   meeting: transcription, voice separation, first names, minutes. It needs the
@@ -75,22 +88,27 @@ window, paints every tab and photographs it, because a test that says a tab
 paints without exception will never notice a button sitting outside the frame.
 
 **Coverage. The standard is 100 %**, and the figure is given as it is rather
-than as it should be. Measured with `pytest --cov=greffier`, unit tests alone:
+than as it should be. Measured on 2026-10-03 with `uv run pytest
+--cov=greffier`, unit tests alone, 2 752 tests:
 
 | Layer | Covered | Statements |
 |---|---|---|
-| `ports/` | **100 %** | 41 |
-| `domain/` | 96 % | 2 485 |
-| `application/` | 84 % | 2 072 |
-| `adapters/` | 79 % | 2 910 |
-| `interface/` | 19 % | 2 234 |
-| `cli.py`, `wiring.py` | 19 % | 1 594 |
-| **total** | **63 %** | 11 336 |
+| `ports/` | **100 %** | 48 |
+| `domain/` | 97 % | 3 280 |
+| `application/` | 91 % | 2 554 |
+| `adapters/` | 86 % | 3 785 |
+| `interface/` | 65 % | 3 258 |
+| `cli.py`, `wiring.py` | 57 % | 1 802 |
+| `locations.py`, `__main__.py` | 96 % | 76 |
+| **total** | **81 %** | 14 803 |
 
 The gap is not in the rules: it is in the window and in the command line, the
 two places a test has to drive something that draws or that reads a terminal.
-Closing it is the standing job, and a patch is expected to leave its own layer
-no lower than it found it.
+`cli.py` alone is 1 508 statements at 51 %, `window.py` 2 291 at 57 %. Closing
+it is the standing job, and a patch is expected to leave its own layer no lower
+than it found it. The CI holds a floor of 80 % on the total, one point under
+the measure so that a patch cannot lower it unnoticed; it follows the measure
+upwards and is not a target.
 
 Coverage is a floor and never a goal: a test that asserts nothing covers lines
 and proves nothing. Which is what mutation testing is for.
@@ -99,9 +117,9 @@ and proves nothing. Which is what mutation testing is for.
 `pyproject.toml` and takes no argument:
 
 ```sh
-mutmut run          # the whole domain, against tests/domain: three minutes
-mutmut results      # what survived
-mutmut show <id>    # the line it changed, and to what
+uv run mutmut run          # the whole domain, against tests/domain: three minutes
+uv run mutmut results      # what survived
+uv run mutmut show <id>    # the line it changed, and to what
 ```
 
 A surviving mutant means the test suite accepts a code that is wrong. Either the

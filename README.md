@@ -603,12 +603,19 @@ on first launch, which is what the first-launch guide says to do).
 
 ## Development
 
-The installer already does everything needed. To recalibrate the voice
-recognition thresholds on a recording of your own:
+The installer already does everything needed to run the tool. To work on it,
+the environment comes from the lockfile, and the checks run through it:
 
 ```sh
-.venv/bin/python tools/calibrate_thresholds.py <recording.wav>
-.venv/bin/python tools/check_joins.py <recording.wav>
+uv sync --group dev --extra api      # .venv from uv.lock: the package, the HTTP door, the tools
+uv run pytest                        # likewise uv run ruff check src tests tools, uv run mypy
+```
+
+To recalibrate the voice recognition thresholds on a recording of your own:
+
+```sh
+uv run tools/calibrate_thresholds.py <recording.wav>
+uv run tools/check_joins.py <recording.wav>
 ```
 
 The method and the thresholds in force are in
@@ -618,7 +625,7 @@ To check that the assistant hears her name in your voice, no meeting
 needed, ten questions into the microphone:
 
 ```sh
-.venv/bin/python tools/measure_the_name.py --record 10
+uv run tools/measure_the_name.py --record 10
 ```
 
 It says what the live model heard on each take, with the seed the watch
