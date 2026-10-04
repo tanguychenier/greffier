@@ -32,6 +32,14 @@ class TestTheLoopIsCut:
         assert without_loop("je suis là, je suis là, je suis là, je suis") == (
             "je suis là, je suis là.")
 
+    def test_a_loop_after_an_opening_word_is_cut_to_twice_as_well(self):
+        """Measured before the fix: with « Bon, » in front the clause stayed
+        three times. The scan moved on by whole clauses from the first word and
+        met the loop out of phase, one clause kept before the cut, two after."""
+        said = "Bon, " + "on est en vacuette de l'année, " * 4 + "voilà."
+        assert without_loop(said) == (
+            "Bon, on est en vacuette de l'année, on est en vacuette de l'année, voilà.")
+
     def test_a_collapsed_clause_is_not_left_hanging(self):
         assert not without_loop(("bon et " * 9).strip()).endswith("et.")
 

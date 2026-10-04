@@ -72,8 +72,8 @@ def without_loop(text: str) -> str:
                 position += _tail_of_the_loop(words, position, position - width,
                                               width)
             else:
-                kept += words[position:position + width]
-                position += width
+                kept.append(words[position])
+                position += 1
         if found:
             return _closed(" ".join(kept))
     return text
