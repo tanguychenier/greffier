@@ -42,6 +42,37 @@ def bearer():
     return {"Authorization": f"Bearer {TOKEN}"}
 
 
+@pytest.fixture
+def without_the_chain(monkeypatch):
+    """The processing never starts: what is checked here is the door."""
+    launched = []
+    monkeypatch.setattr(
+        "greffier.interface.api.threading.Thread",
+        lambda target, args, daemon: type(
+            "Faux", (), {"start": lambda self: launched.append(args)})(),
+    )
+    return launched
+
+
+def deposit(client, bearer, name, body=b"RIFF----WAVEfmt "):
+    return client.post("/reunions", headers=bearer,
+                       files={"enregistrement": (name, body, "audio/wav")})
+
+
+def deposit_declaring(client, bearer, content_length):
+    """A tiny deposit behind a forged Content-Length; httpx keeps a header given."""
+    return client.post("/reunions", headers={**bearer, "Content-Length": str(content_length)},
+                       files={"enregistrement": ("point.wav", b"RIFF", "audio/wav")})
+
+
+def left_in(folder):
+    return sorted(p.name for p in folder.iterdir()) if folder.exists() else []
+
+
+def mode_of(file):
+    return file.stat().st_mode & 0o777
+
+
 class TestTheDoorIsShutWithoutAToken:
     def test_health_is_open(self, client):
         """Enough to know the door answers, and no more."""
@@ -132,6 +163,68 @@ class TestARecordingHandedOver:
 
     def test_an_unknown_job_says_so(self, client, bearer):
         assert client.get("/travaux/jamais", headers=bearer).status_code == 404
+
+
+class TestHowMuchTheDoorTakesIn:
+    ONE_MIB = 1 << 20
+
+    def test_a_body_one_byte_over_the_limit_is_refused_and_leaves_nothing(
+            self, config, client, bearer, without_the_chain):
+        """A refused upload must not fill the disk one temporary at a time."""
+        config.api.max_upload_mb = 1
+        answered = deposit(client, bearer, "lourd.wav", b"x" * self.ONE_MIB + b"!")
+        assert answered.status_code == 413
+        assert "1 Mio" in answered.json()["detail"]
+        assert left_in(config.paths.recordings) == []
+        assert not without_the_chain, "nothing to process when nothing was kept"
+
+    def test_a_body_at_the_limit_is_taken_whole(
+            self, config, client, bearer, without_the_chain):
+        """Its Content-Length is past the limit by the multipart framing: the
+        header cut leaves that margin, and the handler draws the exact line."""
+        config.api.max_upload_mb = 1
+        answered = deposit(client, bearer, "plein.wav", b"x" * self.ONE_MIB)
+        assert answered.status_code == 202
+        assert left_in(config.paths.recordings) == ["plein.wav"]
+        assert (config.paths.recordings / "plein.wav").stat().st_size == self.ONE_MIB
+
+    def test_a_declared_length_past_the_limit_is_refused_with_nothing_read(
+            self, config, client, bearer, without_the_chain):
+        """The body is parsed before any route code runs, so the first cut is
+        on the header: a tiny body behind a forged length never reaches the
+        handler, which would have taken it."""
+        config.api.max_upload_mb = 1
+        answered = deposit_declaring(client, bearer, 3 * self.ONE_MIB)
+        assert answered.status_code == 413
+        assert "1 Mio" in answered.json()["detail"]
+        assert left_in(config.paths.recordings) == []
+        assert not without_the_chain
+
+    def test_a_declared_length_within_one_chunk_of_the_limit_reaches_the_handler(
+            self, config, client, bearer, without_the_chain):
+        config.api.max_upload_mb = 1
+        assert deposit_declaring(client, bearer, 2 * self.ONE_MIB).status_code == 202
+
+    def test_without_the_token_a_declared_length_is_told_nothing(self, config, client):
+        """401 before 413: the limit is not for whoever knocks."""
+        config.api.max_upload_mb = 1
+        assert deposit_declaring(client, {}, 3 * self.ONE_MIB).status_code == 401
+
+    def test_a_deposited_recording_is_readable_like_any_file_the_tool_writes(
+            self, config, client, bearer, without_the_chain):
+        """`tempfile` would have made it 0600: another tool a site points at the
+        folder, under another user, could not have read it."""
+        deposit(client, bearer, "point.wav")
+        plainly_written = config.paths.recordings / "temoin.wav"
+        plainly_written.write_bytes(b"RIFF")
+        assert mode_of(config.paths.recordings / "point.wav") == mode_of(plainly_written)
+
+    def test_the_limit_is_a_setting_with_a_french_key(self):
+        from greffier.adapters.configuration import SECTIONS
+
+        assert Config(api={"taille_max_mo": 12}).api.max_upload_mb == 12
+        assert Config().api.max_upload_mb == 4096
+        assert "taille_max_mo" in SECTIONS["api"]
 
 
 class TestTheToken:

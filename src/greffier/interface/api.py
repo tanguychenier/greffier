@@ -12,16 +12,18 @@ Minutes, transcripts and what earlier meetings left are the material a site
 needs; the voices stay here.
 
 Shut unless started, bound to the loopback unless told otherwise, and refusing
-to bind anything else without a token.
+to bind anything else without a token. What comes in is bounded as well: a
+recording is streamed to disk and refused past a configured size.
 """
 
 from __future__ import annotations
 
 import contextlib
+import os
 import secrets
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any, BinaryIO
 
 # Imported here and not inside the builder: FastAPI resolves the annotations of
 # a handler at runtime, and a name that only exists inside a function cannot be
@@ -29,9 +31,12 @@ from typing import TYPE_CHECKING, Annotated, Any
 # guarded route answered 422 rather than 401. The module is only imported by the
 # command that opens the door, which says what to install when it is missing.
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import PlainTextResponse
+from fastapi.datastructures import Headers
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+    from starlette.types import ASGIApp, Receive, Scope, Send
+
     from greffier.adapters.configuration import Config
 
 #: The phases a meeting handed over through the door goes through, kept in
@@ -39,9 +44,67 @@ if TYPE_CHECKING:  # pragma: no cover - imported for typing only
 #: processings answering into the same file would each erase the other.
 _JOBS: dict[str, dict[str, str]] = {}
 
+#: How much of an upload is read at a time. A two-hour WAV is 1.4 GB: read in
+#: one go, as `UploadFile.read()` does, it sits in memory in full before a
+#: single byte reaches the disk.
+_CHUNK = 1 << 20
+
 
 def _unauthorized() -> HTTPException:
     return HTTPException(status_code=401, detail="jeton absent ou invalide")
+
+
+def _holds_the_token(headers: Headers, expected: str) -> bool:
+    """Compared in constant time, and false when no token is configured: an empty
+    setting is a shut door, not an open one."""
+    given = headers.get("authorization", "")
+    return bool(expected) and secrets.compare_digest(given, f"Bearer {expected}")
+
+
+def _too_large(limit_mb: int) -> HTTPException:
+    return HTTPException(
+        status_code=413,
+        detail=f"enregistrement trop volumineux : la limite est de {limit_mb} Mio",
+    )
+
+
+class RefusedFromTheHeader:
+    """A request declaring more than the limit is refused with nothing read.
+
+    FastAPI parses a multipart body into a spooled temporary file before it
+    resolves a route's dependencies, so nothing hung on the route runs first:
+    measured, a dependency on the deposit found `request._form` already filled,
+    and a 3 MiB body against a 1 MiB limit reached the handler whole,
+    `recording.size == 3145728`, before its 413. This runs ahead of the router,
+    on the Content-Length header alone. The header counts the multipart framing
+    as well, a few hundred bytes the handler's count leaves out, so the cut is
+    one chunk past the limit and the handler draws the exact line. Without the
+    token the answer is 401, as on every route: the limit is not for whoever
+    knocks. A client that declares no length is received in full and refused by
+    the handler.
+    """
+
+    def __init__(self, app: ASGIApp, config: Config) -> None:
+        self._app = app
+        self._config = config
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        refusal = self._refusal(Headers(scope=scope)) if scope["type"] == "http" else None
+        if refusal is None:
+            await self._app(scope, receive, send)
+            return
+        response = JSONResponse({"detail": refusal.detail}, status_code=refusal.status_code)
+        await response(scope, receive, send)
+
+    def _refusal(self, headers: Headers) -> HTTPException | None:
+        """413 past the limit with the token, 401 without it, nothing otherwise."""
+        declared = headers.get("content-length", "")
+        limit_mb = self._config.api.max_upload_mb
+        if not declared.isdigit() or int(declared) <= (limit_mb << 20) + _CHUNK:
+            return None
+        if not _holds_the_token(headers, self._config.api.token):
+            return _unauthorized()
+        return _too_large(limit_mb)
 
 
 def build(config: Config) -> Any:
@@ -51,13 +114,10 @@ def build(config: Config) -> Any:
         summary="Enregistre une réunion, identifie qui parle, en rédige le compte rendu.",
         version=_version(),
     )
+    api.add_middleware(RefusedFromTheHeader, config=config)
 
     def authorised(request: Request) -> None:
-        expected = config.api.token
-        if not expected:
-            raise _unauthorized()
-        given = request.headers.get("authorization", "")
-        if not secrets.compare_digest(given, f"Bearer {expected}"):
+        if not _holds_the_token(request.headers, config.api.token):
             raise _unauthorized()
 
     kept_one = [Depends(authorised)]
@@ -109,8 +169,7 @@ def build(config: Config) -> Any:
         """
         name = Path(recording.filename or "reunion.wav").name
         target = config.paths.recordings / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(await recording.read())
+        await _stream_to(recording, target, config.api.max_upload_mb)
         identifier = target.stem
         _JOBS[identifier] = {"phase": "attente", "message": "En file."}
         threading.Thread(
@@ -125,6 +184,42 @@ def build(config: Config) -> Any:
         return _JOBS[identifier]
 
     return api
+
+
+async def _stream_to(recording: UploadFile, target: Path, limit_mb: int) -> None:
+    """Writes the upload beside its target, then puts it in place in one move.
+
+    A half-written file under its final name would be picked up by whoever
+    lists the folder. The limit bounds what reaches this folder, not what the
+    server receives: Starlette has parsed the whole multipart body into a
+    spooled temporary file, 1 MiB in memory and the rest in the system's temp
+    folder, before the handler runs (measured: a 3 MiB body against a 1 MiB
+    limit arrived with recording.size == 3145728, then got its 413). Copying it
+    in chunks keeps it out of this process's memory, and the count stops at the
+    limit, so a refused upload leaves no temporary behind to fill the disk one
+    failed upload at a time. The temporary is opened like any file the tool
+    writes, so a deposited recording gets the mode the umask gives; `tempfile`
+    would have made it 0600, unreadable by another tool a site points at the
+    folder under another user.
+    """
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_name(f".depot-{secrets.token_hex(8)}.partiel")
+    try:
+        with temporary.open("xb") as stream:
+            await _copy_bounded(recording, stream, limit_mb)
+        os.replace(temporary, target)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+async def _copy_bounded(recording: UploadFile, stream: BinaryIO, limit_mb: int) -> None:
+    allowed, written = limit_mb << 20, 0
+    while chunk := await recording.read(_CHUNK):
+        written += len(chunk)
+        if written > allowed:
+            raise _too_large(limit_mb)
+        stream.write(chunk)
 
 
 def _process(config: Config, audio: Path, identifier: str) -> None:

@@ -671,6 +671,15 @@ arrives to the same chain, and returns what comes back.
 An hour of transcription is not a request: handing over a recording answers at
 once with an identifier, and the phases are read back.
 
+A recording is copied to disk in chunks, never held in memory, and refused with
+**413** past `taille_max_mo` in the `[api]` section: 4096 MiB by default, where
+two hours of 48 kHz stereo 16-bit WAV weigh about 1.4 GB. A refused upload
+leaves nothing behind. The limit bounds what reaches the recordings folder, not
+what the server receives: a request whose `Content-Length` declares more than
+the limit is refused before a byte of its body is read, but one that declares
+no length is received in full, into a temporary file of the framework's, before
+the count refuses it.
+
 Every route but `/sante` wants `Authorization: Bearer <token>`. The token is
 written into `config.toml` the first time the door is opened, so a site is
 configured once; **an empty setting does not mean an open door**, it means no
