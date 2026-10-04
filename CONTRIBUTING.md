@@ -117,7 +117,7 @@ and proves nothing. Which is what mutation testing is for.
 `pyproject.toml` and takes no argument:
 
 ```sh
-uv run mutmut run          # the whole domain, against tests/domain: three minutes
+uv run mutmut run          # the whole domain, against tests/domain: six to seven minutes
 uv run mutmut results      # what survived
 uv run mutmut show <id>    # the line it changed, and to what
 ```
@@ -134,14 +134,47 @@ this function cannot tell apart since both halve to one thread: an equivalent
 mutant, and the honest ceiling here is 32 out of 33.
 
 Run on the whole domain on 2026-10-03 (mutmut 3.8, 2 min 59 s on 4 cores):
-**5 090 mutants, 3 629 killed, 1 100 survived**, 348 in functions no domain
-test reaches, 13 timeouts. mutmut counts a timeout as a kill and the untested as
-survivors, which gives a score of **71 %**; counted on the mutants a test does
-reach, 77 %. Neither is the figure the coverage table aims at, and the gap is
-concentrated: `live.py` (184 survivors), `graph.py` (118), `names.py` (103) and
-`voiceprints.py` (78) hold almost half of them, and `meeting.py` alone has 125
-mutants no test touches. Raising that score is the standing job, one module at
-a time; `mutmut results` filtered on the module's name is where it starts.
+5 090 mutants, 3 629 killed, 1 100 survived, 348 in functions no domain test
+reaches, 13 timeouts: a score of 71 %, concentrated in `live.py` (184
+survivors), `graph.py` (118), `names.py` (103) and `voiceprints.py` (78), with
+`meeting.py` alone holding 125 mutants no test touched.
+
+Run again on 2026-10-04, after one commit per module (mutmut 3.8, 6 min 25 s
+on 4 cores, judged by `tests/domain` alone): **5 031 mutants, 4 919 killed,
+97 survived**, 0 in functions no domain test reaches, 15 timeouts. mutmut
+counts a timeout as a kill, which gives a score of **98 %**. The figure is
+given as it is, and what the 97 survivors are is said in the commits rather
+than hidden in the score. Seventy-five sit in eight modules, `live.py` (17),
+`voiceprints.py` (16), `participation.py` (10), `export.py` (10),
+`transcription.py` (9), `questions.py` (5), `names.py` (5) and `subjects.py`
+(3), whose commits name most of them equivalent; the claim is re-read module
+by module before it is believed, and a few of them are distinguishable only
+by inputs outside the module's contract. The 22 others, one to three per
+module across fifteen modules, `intents.py` (3), `first_names.py` (3),
+`board.py` (2), `channels.py` (2), `her_voice.py` (2) and one each in
+`arithmetic.py`, `backup.py`, `devices.py`, `instructions.py`, `meeting.py`,
+`memory.py`, `profiles/__init__.py`, `store.py`, `texts.py` and `tongue.py`,
+are the honest ceiling: mutants no test can tell apart from the code, each
+named with its reason in the commit that examined its module, `or 2` to
+`or 3` where both halve to one thread, a strip set gaining an upper-case X
+after a `lower()`, `flags=re.UNICODE` dropped where it is the default for a
+`str` pattern, a sentinel assigned and never read. The claim is held
+strictly, since most « equivalent » survivors turn out to be untested
+behaviour: on this branch, reading the survivors one by one gave ten
+`fix(domain)` commits, defects and dead guards both, each with the test that
+proves it, and re-reading a claim of equivalence gave one more test,
+`collapse_loops` at a threshold of one. The timeouts are loops a mutation
+made endless, a position set back instead of advanced; they stay. A few
+of them loop for ever on one test's input and raise on another's, and
+mutmut hands pytest, with `-x`, the tests that reach a mutant in the
+order of a set of their names, which changes from one process to the
+next: `without_loop` mutants 54 and 69 and `collapse_loops` mutants 8
+and 21 have each been reported killed on one run and timed out on
+another, so the count reads as 14 to 18 rather than as one number, 15
+on this run and 17 on an earlier run of the same day, which the
+count tolerates since neither is a survivor. Raising the score is the standing
+job, one module at a time; `mutmut results` filtered on the module's name is
+where it starts.
 
 ## Before sending
 
