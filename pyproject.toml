@@ -2,8 +2,34 @@
 name = "greffier"
 version = "0.3.25"
 description = "Enregistre une réunion, identifie qui parle, en rédige le compte rendu, sans rien envoyer ailleurs."
+readme = "README.md"
 requires-python = ">=3.13"
-license = { text = "PolyForm-Noncommercial-1.0.0" }
+# PEP 639: an SPDX expression and the file it stands for, which hatchling 1.27
+# and newer write as License-Expression and License-File. The « License :: »
+# classifier is deprecated by the same PEP, hence none below.
+license = "PolyForm-Noncommercial-1.0.0"
+license-files = ["LICENCE"]
+authors = [{ name = "Tanguy Chenier" }]
+keywords = [
+    "réunion", "compte rendu", "transcription", "diarisation", "meeting",
+    "minutes", "speaker diarization", "whisper", "sherpa-onnx", "offline",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: French",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    # Measured on 2026-10-03 with Python 3.14.8: every dependency has a wheel,
+    # sherpa-onnx included, and the suite passes, 2 752 tests, 81 % covered.
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Office/Business",
+    "Typing :: Typed",
+]
 dependencies = [
     "pydantic>=2.9",          # modèles et validation, plutôt qu'un parsing maison
     "pydantic-settings>=2.6", # configuration TOML + variables d'environnement
@@ -28,24 +54,41 @@ transcription = ["faster-whisper>=1.1"]
 cuda = ["nvidia-cublas-cu12>=12.4", "nvidia-cudnn-cu12>=9.1",
         "nvidia-cuda-runtime-cu12>=12.4", "nvidia-cufft-cu12>=11.2",
         "nvidia-curand-cu12>=10.3"]
-# Icône de zone de notification pour Linux et Windows. macOS a son app native :
 # La porte HTTP, pour un site qui pilote l'outil. Optionnelle : une installation
 # de bureau n'a rien à écouter, et fastapi tire uvicorn et starlette avec lui.
 api = ["fastapi>=0.115", "uvicorn>=0.30", "python-multipart>=0.0.9"]
 # Lecture des corpus publics par `tools/fetch_corpus.py` : SUMM-RE est servi en
 # parquet sur Hugging Face. Un outil de mesure, jamais le logiciel installé.
 corpus = ["pyarrow>=17", "huggingface_hub>=0.25"]
-# uvicorn est là pour mypy autant que pour l'usage : sans lui, la vérification
-# de types échoue sur un import qu'elle ne peut pas suivre.
-dev = ["pytest>=8.3", "pytest-cov>=6.0", "ruff>=0.8", "mypy>=1.13",
-       "mutmut>=3.2", "fastapi>=0.115", "httpx>=0.27", "python-multipart>=0.0.9",
-       "uvicorn>=0.30"]
+
+[project.urls]
+Homepage = "https://github.com/tanguychenier/greffier"
+Repository = "https://github.com/tanguychenier/greffier"
+Changelog = "https://github.com/tanguychenier/greffier/blob/main/CHANGELOG.md"
+Issues = "https://github.com/tanguychenier/greffier/issues"
 
 [project.scripts]
 greffier = "greffier.cli:application"
 
+# PEP 735: what a developer needs on top of the package, and never ships with
+# it. `uv sync --group dev --extra api` installs it, `uv run <tool>` uses it.
+[dependency-groups]
+dev = [
+    # The HTTP door's dependencies, for mypy as much as for the tests: it
+    # follows the fastapi and uvicorn imports and fails on one it cannot find.
+    # Named through the extra rather than copied, so the two lists cannot drift.
+    "greffier[api]",
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "mutmut>=3.2",
+    "httpx>=0.27",   # the test client behind fastapi's TestClient
+]
+
 [build-system]
-requires = ["hatchling"]
+# 1.27 is the first hatchling to read the PEP 639 fields above.
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
@@ -62,7 +105,13 @@ testpaths = ["tests"]
 # Ces cas-là mesurent ce qu'aucune doublure ne peut mesurer, qu'un modèle se
 # taise quand il n'a rien à dire, et se passent à la main avant une
 # démonstration. « pytest -m lent ».
-addopts = "-q -m 'not integration and not lent'"
+#
+# `--strict-markers`: a misspelt marker is an error, where by default it is a
+# test that silently stops being selected. `--strict-config`: the same for a
+# misspelt key in this section. `xfail_strict`: a test expected to fail that
+# passes is reported, instead of being forgotten under its xfail.
+addopts = "-q -m 'not integration and not lent' --strict-markers --strict-config"
+xfail_strict = true
 markers = [
     "integration: chaîne réelle, avec les modèles et un fichier audio synthétisé",
     "lent: appelle le rédacteur, donc le réseau et le quota",

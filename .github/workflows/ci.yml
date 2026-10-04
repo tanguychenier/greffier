@@ -24,8 +24,10 @@ jobs:
           python-version: '3.13'
           cache: pip
 
+      # The dev tools are a PEP 735 dependency group, which pip reads since 25.1,
+      # the pip Python 3.13.4 and newer ship with.
       - name: Dependencies
-        run: pip install -q -e ".[dev]"
+        run: pip install -q -e ".[api]" --group dev
 
       # Sans écran virtuel, Tk ne démarre pas et toute l'interface reste hors
       # des tests : la moitié de l'outil que les gens touchent.
