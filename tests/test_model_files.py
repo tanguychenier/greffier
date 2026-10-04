@@ -113,6 +113,17 @@ class TestDownloadingAModel:
         assert not pose and the_trouble == "pas de réseau"
         assert not list(tmp_path.iterdir()), "aucun fichier partiel ne doit rester"
 
+    def test_a_connection_reset_leaves_nothing_and_says_what_happened(
+        self, monkeypatch, tmp_path
+    ):
+        """Not every failure is a `URLError`: a reset arrives as a bare `OSError`, and
+        saying "pas de réseau" for it would send the person checking a cable.
+        """
+        fail_to_answer(monkeypatch, ConnectionResetError("connexion réinitialisée"))
+        pose, the_trouble = model_files.fetch(self._a_model(), tmp_path)
+        assert not pose and "réinitialisée" in the_trouble
+        assert not list(tmp_path.iterdir()), "aucun fichier partiel ne doit rester"
+
     def test_a_subfolder_is_created_when_needed(self, monkeypatch, tmp_path):
         answer_with(monkeypatch, b"z" * 21_000_000)
         titanet = next(m for m in model_files.CATALOGUE if "titanet" in m.name)
