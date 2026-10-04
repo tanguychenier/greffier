@@ -771,6 +771,18 @@ class TestAdoptingTheFragments:
         identity = {"a": "a", "b": "b", "fragment": "fragment"}
         assert adopt_fragments(per_voice, identity, minimum_margin=0.31)["fragment"] == "fragment"
 
+    def test_alone_the_host_is_measured_against_an_opposite_voice(self):
+        """As recognise does with one person in the bank: with no second host the
+        stand-in is a cosine of -1, so the gap is best + 1, and only a margin
+        asking more than that refuses a lone host."""
+        per_voice = {
+            "etablie": [voice(1.0, 0.0, 0.0, duration=512.0)],
+            "fragment": [at_cosines(0.8, duration=16.0)],
+        }
+        identity = {"etablie": "etablie", "fragment": "fragment"}
+        assert adopt_fragments(per_voice, identity, minimum_margin=1.8)["fragment"] == "etablie"
+        assert adopt_fragments(per_voice, identity, minimum_margin=1.81)["fragment"] == "fragment"
+
     def test_equally_close_to_two_hosts_the_fragment_goes_to_the_first_by_name(self):
         """What a margin of 0.0, the measured default, means: a tie still adopts."""
         per_voice = {
@@ -1110,6 +1122,13 @@ class TestNamingAVoiceThatLooksLikeSomeoneElse:
         between = at_cosines(0.45, 0.60)
         assert doubtful_entry(between, "Josiane", self.BANK) != ""
         assert doubtful_entry(between, "Josiane", self.BANK, margin=0.20) == ""
+
+    def test_a_name_new_to_the_bank_is_held_at_the_opposite_of_every_voice(self):
+        """Its own score stands in at -1, the stand-in recognise uses for a bank
+        of one: the gap to the closest name is best + 1, and the margin handed
+        in is read against that."""
+        assert doubtful_entry(at_cosines(0.8), "Sophie", self.BANK, margin=1.8) != ""
+        assert doubtful_entry(at_cosines(0.8), "Sophie", self.BANK, margin=1.81) == ""
 
     @given(new_one=_VOICEPRINTS)
     def test_naming_a_voice_after_the_person_it_matches_best_raises_no_doubt(self, new_one):
