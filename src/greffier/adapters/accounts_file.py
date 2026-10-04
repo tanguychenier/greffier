@@ -182,6 +182,10 @@ def sign_in(service: Service, show: Callable[[str, str], None], timeout: float =
         process.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         process.kill()
+        process.wait()
         return False
+    finally:
+        if process.stdout is not None:
+            process.stdout.close()
     return process.returncode == 0
 
