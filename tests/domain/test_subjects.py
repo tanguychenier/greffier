@@ -7,7 +7,7 @@ from greffier.domain.subjects import MINIMUM_MENTIONS, Registry, Subject
 
 class TestASubjectAndTheNamesItGoesBy:
     def test_a_subject_with_no_name_is_refused(self):
-        with pytest.raises(ValueError, match="sans nom"):
+        with pytest.raises(ValueError, match=r"^un sujet sans nom ne se retrouve pas$"):
             Subject("  ")
 
     def test_it_is_recognised_under_its_name(self):
@@ -53,12 +53,25 @@ class TestCountingTheMentions:
         the_registry = Registry([Subject("Oasis", ("esup-oasis",))])
         assert the_registry.count_them("On parle d'esup-oasis") == {"Oasis": 1}
 
+    def test_an_alias_that_opens_another_alias_counts_once(self):
+        """« esup-oasis » said once is one mention, even when « esup » is a name too."""
+        the_registry = Registry([Subject("Oasis", ("esup", "esup-oasis"))])
+        assert the_registry.count_them("On parle d'esup-oasis.") == {"Oasis": 1}
+
+    def test_a_name_that_holds_no_word_is_never_counted(self):
+        assert Registry([Subject("…")]).count_them("on parle de tout") == {}
+
 
 class TestTheSubjectsKept:
     def test_the_subjects_come_out_most_present_first(self):
         the_registry = Registry([Subject("Oasis"), Subject("recette")])
         text = "Oasis " * 10 + "recette " * 4
         assert the_registry.subjects_of(text) == ["Oasis", "recette"]
+
+    def test_the_most_present_comes_first_whatever_the_alphabet_says(self):
+        the_registry = Registry([Subject("Oasis"), Subject("recette")])
+        text = "recette " * 10 + "Oasis " * 4
+        assert the_registry.subjects_of(text) == ["recette", "Oasis"]
 
     def test_a_passing_mention_is_not_a_subject(self):
         """Opening a map for every allusion would fill it with noise."""
