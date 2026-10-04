@@ -176,6 +176,12 @@ count tolerates since neither is a survivor. Raising the score is the standing
 job, one module at a time; `mutmut results` filtered on the module's name is
 where it starts.
 
+The CI holds the measure as a budget: the `mutants` job runs the whole domain
+and fails when more than 97 lines of `mutmut results` end in `: survived`,
+the number counted on 2026-10-04. Like the coverage floor it is a ratchet, it
+follows the measure downwards each time a commit kills survivors and says so,
+and it is never a target.
+
 ## Before sending
 
 ```sh
