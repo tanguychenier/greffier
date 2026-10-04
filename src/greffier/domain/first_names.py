@@ -40,9 +40,9 @@ def refusal(name: str) -> str:
             "reconnue à chaque réunion suivante."
         )
     if not re.search(r"[^\W\d_]", clean, flags=re.UNICODE):
+        if re.search(r"\d", clean):
+            return "Un numéro de voix n'est pas un prénom."
         return "Un prénom porte des lettres."
-    if re.fullmatch(r"[\d\W_]+", folded.replace(" ", "")):
-        return "Un numéro de voix n'est pas un prénom."
     if folded.startswith("voix ") or folded.startswith("personne "):
         return f"« {clean} » est une étiquette de Greffier, pas un prénom."
     return ""

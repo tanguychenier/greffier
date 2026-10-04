@@ -39,6 +39,17 @@ class TestWhatIsRefused:
         """A refusal without a reason has the same entry typed again."""
         assert refusal("") and refusal("M") and refusal("Voix 12")
 
+    @pytest.mark.parametrize("number", ["12", "#3", "4.", "007"])
+    def test_a_bare_number_is_called_a_voice_number(self, number):
+        """The sentence was written for this case and nobody ever read it: a
+        name without a letter was refused one test earlier, with the generic
+        reason, and the check for a voice number came after, unreachable."""
+        assert refusal(number) == "Un numéro de voix n'est pas un prénom."
+
+    def test_punctuation_alone_is_short_of_letters_not_a_number(self):
+        assert refusal("...") == "Un prénom porte des lettres."
+        assert refusal("---") == "Un prénom porte des lettres."
+
 
 class TestTidyingAName:
     def test_the_case_is_made_uniform(self):
