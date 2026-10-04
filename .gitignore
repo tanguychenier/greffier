@@ -29,3 +29,6 @@ modeles/
 coverage.xml
 mutants/
 contexte/
+
+# Hypothesis keeps its example database here; it is a cache, not a result.
+.hypothesis/
