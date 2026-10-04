@@ -129,14 +129,14 @@ class TestFittingIntoTheDesktop:
     def test_macos_gets_a_launch_agent(self, under, monkeypatch, tmp_path):
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         module = under("Darwin")
-        file = module.integrate_with_desktop(None, "/Applications/Greffier.app")
+        file = module.integrate_with_desktop("/Applications/Greffier.app")
         assert file.parent == tmp_path / "Library/LaunchAgents"
         content = file.read_text(encoding="utf-8")
         assert "com.reunions.greffier" in content and "RunAtLoad" in content
 
     def test_linux_gets_a_desktop_entry(self, under, monkeypatch, tmp_path):
         module = under("Linux", XDG_CONFIG_HOME=str(tmp_path / "config"))
-        file = module.integrate_with_desktop(None, "/usr/local/bin/greffier")
+        file = module.integrate_with_desktop("/usr/local/bin/greffier")
         assert file == tmp_path / "config/autostart/greffier.desktop"
         content = file.read_text(encoding="utf-8")
         assert content.startswith("[Desktop Entry]")
@@ -144,7 +144,7 @@ class TestFittingIntoTheDesktop:
 
     def test_windows_gets_a_startup_script(self, under, tmp_path):
         module = under("Windows", APPDATA=str(tmp_path / "Roaming"))
-        file = module.integrate_with_desktop(None, r"C:\\Greffier\\greffier.exe")
+        file = module.integrate_with_desktop(r"C:\\Greffier\\greffier.exe")
         assert file.parent.name == "Startup"
         content = file.read_text(encoding="utf-8")
         # A .cmd and not a .lnk: a Windows shortcut is a binary format that
@@ -153,7 +153,7 @@ class TestFittingIntoTheDesktop:
 
     def test_an_unknown_system_does_not_crash(self, under):
         module = under("Haiku")
-        assert module.integrate_with_desktop(None, "/quelque/part") is None
+        assert module.integrate_with_desktop("/quelque/part") is None
 
 
 class TestTheRepairSkill:

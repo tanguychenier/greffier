@@ -201,9 +201,7 @@ def _dots_placed(board_id: str) -> set[tuple[int, int]]:
         if not cursor:
             return positions
 
-def mark_actions(
-    board_id: str, texts: list[str], meeting: str = ""
-) -> tuple[str, ...]:
+def mark_actions(board_id: str, texts: list[str]) -> tuple[str, ...]:
     """Places a "settled" dot next to the points that are settled."""
     from greffier.domain.board import same_point
 

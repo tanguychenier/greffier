@@ -1093,7 +1093,7 @@ start "" /min {target}
 """
 
 
-def integrate_with_desktop(ctx, target, write=True):
+def integrate_with_desktop(target, write=True):
     """Puts the icon in the bar and the launch at session opening.
 
     Returns the file written, or None when the system is not recognised. The

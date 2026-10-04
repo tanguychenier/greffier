@@ -581,7 +581,7 @@ class Chain:
         if send and self.sender and self.recipient:
             self._phase(Phase.SENDING, "Envoi du compte rendu…")
             try:
-                self._send(audio, outcome)
+                self._send(self.sender, audio, outcome)
             except Exception as trouble:  # noqa: BLE001
                 outcome.warnings.append(
                     f"Compte rendu NON envoyé : {trouble} "
@@ -691,10 +691,9 @@ class Chain:
                 documents=tuple(self.documents_supplied),
             ))
 
-    def _send(self, audio: Path, outcome: Outcome) -> None:
+    def _send(self, sender: outbound.Sender, audio: Path, outcome: Outcome) -> None:
         """Sends the minutes, with no attachment."""
-        assert self.sender is not None
-        self.sender.send(
+        sender.send(
             self.recipient,
             title_of_the_minutes(
                 outcome.minutes, f"Compte rendu de réunion : {audio.stem}"
