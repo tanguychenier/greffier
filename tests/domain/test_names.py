@@ -304,3 +304,15 @@ class TestJoiningNamesakesAfterTheMeeting:
         names = {"v1": "Lise", "v2": "Lise", "v3": "Pascal"}
         membership = join_namesakes(names, {"v1": 1.0, "v2": 2.0, "v3": 3.0})
         assert set(membership) == {"v1", "v2", "v3"}
+
+    def test_an_exact_tie_goes_the_same_way_whatever_the_order(self) -> None:
+        """Equal weights settle on the greater identifier, not on dict order.
+
+        Two callers apply this rule, the chain after a run and the review of a
+        kept meeting; they must agree on who keeps the name without either
+        having to know how the other orders its voices.
+        """
+        forwards = join_namesakes({"v1": "Lise", "v2": "Lise"}, {"v1": 7.0, "v2": 7.0})
+        backwards = join_namesakes({"v2": "Lise", "v1": "Lise"}, {"v2": 7.0, "v1": 7.0})
+        assert set(forwards.values()) == {"v2"}
+        assert backwards == forwards

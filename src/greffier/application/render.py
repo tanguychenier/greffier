@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from greffier.domain import doubt
+from greffier.domain import names as names_domain
 from greffier.domain.meeting import HORODATAGE, StoredMeeting
 from greffier.domain.models import Span, SpeakerTurn, Utterance
 from greffier.ports import outbound
@@ -83,7 +84,7 @@ def _context_line(
 ) -> str:
     chunks: list[str] = []
     if found:
-        year, month, day, the_hour, minute = found.groups()
+        year, month, day = found.group(1, 2, 3)
         chunks.append(f"{int(day)} {_MONTHS[int(month) - 1]} {year}")
     if started_at is not None and ended_at is not None:
         local_start, local_end = started_at.astimezone(), ended_at.astimezone()
@@ -483,21 +484,17 @@ def review_voices(
     _join_namesakes(meeting)
     return len(earlier), len({t.voice for t in meeting.turns if t.voice})
 
-def _join_namesakes(meeting: Any) -> None:
-    """Two voices carrying the same name are one person."""
-    temps = meeting.speaking_time()
-    for name in {n.casefold() for n in meeting.names.values()}:
-        carrying = sorted(
-            (v for v, carries in meeting.names.items() if carries.casefold() == name),
-            key=lambda v: -temps.get(v, 0.0),
-        )
-        kept_one = carrying[0]
-        for absorbed_one in carrying[1:]:
+def _join_namesakes(meeting: StoredMeeting) -> None:
+    """Two voices carrying the same name are one person.
+
+    The rule is the domain's, the one the chain applies after a run; what is
+    this module's is applying it through `join_into`, which records each join
+    so that « greffier voix --separer » can take it back.
+    """
+    membership = names_domain.join_namesakes(meeting.names, meeting.speaking_time())
+    for absorbed_one, kept_one in membership.items():
+        if absorbed_one != kept_one:
             meeting.join_into(absorbed_one, kept_one)
-        if carrying[1:]:
-            meeting.names[kept_one] = next(
-                n for n in meeting.names.values() if n.casefold() == name
-            ) if kept_one in meeting.names else meeting.names.get(kept_one, "")
 
 def _recognise_again(
     meeting: Any,

@@ -235,3 +235,48 @@ class TestReviewingTheVoices:
         assert list(meeting.names.values()) == ["Josiane"]
         assert meeting.propositions == {}
         assert any("le nom Marc a été écarté" in w for w in meeting.warnings), meeting.warnings
+
+
+class TestNamesakesAfterTheReview:
+    """Two voices under one name are one person, here as after a run.
+
+    The review used to carry its own copy of the rule, folding by case alone
+    where the domain also folds accents, and ending on an assignment that put
+    a name back where it already was. One rule now, the domain's.
+    """
+
+    def _apart(self):
+        from greffier.domain.models import Voiceprint
+
+        return (Voiceprint(vector=(1.0, 0.0, 0.0), source_duration=20.0),
+                Voiceprint(vector=(0.0, 1.0, 0.0), source_duration=20.0))
+
+    def test_the_voice_that_spoke_longer_keeps_the_name_and_the_turns(self):
+        one, other = self._apart()
+        meeting = a_meeting(names={"1": "Josiane", "2": "josiane"})
+        render.review_voices(meeting, FakeExtractor({0: one, 60: other}))
+        assert meeting.names == {"1": "Josiane"}
+        assert {t.voice for t in meeting.turns} == {"1"}
+        assert {u.voice for u in meeting.utterances} == {"1"}
+
+    def test_accents_do_not_make_two_people_here_either(self):
+        one, other = self._apart()
+        meeting = a_meeting(names={"1": "Hélène", "2": "helene"})
+        render.review_voices(meeting, FakeExtractor({0: one, 60: other}))
+        assert list(meeting.names) == ["1"]
+
+    def test_the_join_can_be_taken_back(self):
+        """What `join_into` records is what « greffier voix --separer » undoes."""
+        one, other = self._apart()
+        meeting = a_meeting(names={"1": "Josiane", "2": "Josiane"})
+        render.review_voices(meeting, FakeExtractor({0: one, 60: other}))
+        assert meeting.split("1") is not None
+        assert meeting.names == {"1": "Josiane", "2": "Josiane"}
+        assert {t.voice for t in meeting.turns} == {"1", "2"}
+
+    def test_two_different_names_are_left_alone(self):
+        one, other = self._apart()
+        meeting = a_meeting(names={"1": "Josiane", "2": "Marc"})
+        render.review_voices(meeting, FakeExtractor({0: one, 60: other}))
+        assert meeting.names == {"1": "Josiane", "2": "Marc"}
+        assert meeting.joins == []
