@@ -34,6 +34,6 @@ def voice_of(
         return None
     total = sum(totals.values())
     leader = max(totals, key=lambda voice: totals[voice])
-    if total <= 0 or totals[leader] / total < minimum_share:
+    if totals[leader] / total < minimum_share:
         return None
     return leader
