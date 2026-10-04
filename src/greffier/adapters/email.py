@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import os
 import smtplib
+import ssl
 import subprocess
 import tempfile
 from collections.abc import Iterator
@@ -108,7 +109,16 @@ end run
         raise RuntimeError(f"Envoi impossible : {last_one[0]}")
 
 class SmtpSender:
-    """Direct sending, for machines without Outlook."""
+    """Direct sending, for machines without Outlook.
+
+    `certificate` is a PEM file holding the authority that signed the server's
+    certificate, for an in-house server. Empty, the system's trust store decides.
+    There is deliberately no way to skip the check.
+    """
+
+    #: Implicit TLS: the connection is encrypted from the first byte. Every other
+    #: port starts in clear and upgrades with STARTTLS.
+    IMPLICIT_TLS_PORT = 465
 
     def __init__(
         self,
@@ -117,12 +127,14 @@ class SmtpSender:
         user: str = "",
         sender: str = "",
         password: str = "",
+        certificate: str = "",
     ) -> None:
         self.server = server
         self.port = port
         self.user = user
         self.sender = sender or user
         self.password = password or os.environ.get("GREFFIER_SMTP_MOT_DE_PASSE", "")
+        self.certificate = certificate
 
     def message(
         self, recipient: str, subject: str, corps: str, pieces: list[Path]
@@ -143,13 +155,29 @@ class SmtpSender:
             )
         return message
 
+    def tls_context(self) -> ssl.SSLContext:
+        """The context that checks who answers before anything is sent.
+
+        Left to `smtplib`, the context verifies nothing: the connection is
+        encrypted but any certificate is accepted, and a self-signed server
+        standing between the laptop and the real one received the user name and
+        the password in a trial run. This one refuses it.
+        """
+        return ssl.create_default_context(cafile=self.certificate or None)
+
+    def _open(self, context: ssl.SSLContext) -> smtplib.SMTP:
+        """The connection as the port dictates, encrypted at once or upgraded later."""
+        if self.port == self.IMPLICIT_TLS_PORT:
+            return smtplib.SMTP_SSL(self.server, self.port, timeout=60, context=context)
+        return smtplib.SMTP(self.server, self.port, timeout=60)
+
     @contextlib.contextmanager
     def session(self) -> Iterator[smtplib.SMTP]:
-        """A session, opened, encrypted and authenticated."""
-        sorted_as = smtplib.SMTP_SSL if self.port == 465 else smtplib.SMTP
-        with sorted_as(self.server, self.port, timeout=60) as session:
-            if sorted_as is smtplib.SMTP:
-                session.starttls()
+        """A session, opened, encrypted, checked and authenticated."""
+        context = self.tls_context()
+        with self._open(context) as session:
+            if self.port != self.IMPLICIT_TLS_PORT:
+                session.starttls(context=context)
             session.ehlo()
             if self.user and self.password:
                 session.login(self.user, self.password)

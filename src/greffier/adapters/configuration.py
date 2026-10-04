@@ -367,6 +367,12 @@ class Email(BaseModel):
     port: int = Field(default=587, validation_alias=AliasChoices("port", "port"))
     user: str = Field(default="", validation_alias=AliasChoices("user", "utilisateur"))
     sender: str = Field(default="", validation_alias=AliasChoices("sender", "expediteur"))
+    #: A PEM file holding the authority that signed the server's certificate, for
+    #: an in-house server the system does not know. Empty: the system's trust
+    #: store. The certificate is always checked; this only says against what.
+    certificate: str = Field(
+        default="", validation_alias=AliasChoices("certificate", "certificat")
+    )
 
 class Api(BaseModel):
     """The HTTP door, for a site that wants to drive the tool.
@@ -547,7 +553,7 @@ SECTIONS: dict[str, tuple[str, ...]] = {
     "compte_rendu": ("moteur", "modele", "langue", "destinataire", "delai"),
     "api": ("hote", "port", "jeton"),
     "interface": ("langue",),
-    "courriel": ("serveur", "port", "utilisateur", "expediteur"),
+    "courriel": ("serveur", "port", "utilisateur", "expediteur", "certificat"),
     "sauvegarde": ("dossier", "apres_chaque_reunion", "gardees"),
     "retention": ("compresser_apres_jours", "effacer_apres_jours"),
     "conversation": ("recherche_web", "information"),

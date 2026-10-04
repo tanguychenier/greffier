@@ -427,6 +427,7 @@ def _sender(config: Config, require_recipient: bool = True) -> outbound.Sender |
             port=config.email.port,
             user=config.email.user,
             sender=config.email.sender,
+            certificate=config.email.certificate,
         )
     if platform.system() == "Darwin":
         return OutlookSender()

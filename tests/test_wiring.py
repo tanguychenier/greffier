@@ -273,6 +273,13 @@ class TestHowTheMinutesLeave:
         assert type(sending).__name__ == "SmtpSender"
         assert sending.port == 587
 
+    def test_the_authority_file_reaches_the_sender(self, config):
+        """An in-house certificate left in the settings would fail on the first send."""
+        config.minutes.recipient = "equipe@exemple.fr"
+        config.email.server = "smtp.exemple.fr"
+        config.email.certificate = "/etc/ssl/entreprise.pem"
+        assert wiring._sender(config).certificate == "/etc/ssl/entreprise.pem"
+
     def test_with_no_server_the_minutes_land_in_a_folder(self, config, monkeypatch):
         """Linux and Windows: a folder is an honest way of not sending."""
         monkeypatch.setattr(wiring.platform, "system", lambda: "Linux")
