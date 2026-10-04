@@ -670,12 +670,45 @@ arrives to the same chain, and returns what comes back.
 | `GET /travaux/{id}` | the phases of that processing, the ones the window paints |
 
 An hour of transcription is not a request: handing over a recording answers at
-once with an identifier, and the phases are read back.
+once with an identifier, and the phases are read back. The chains run **one at
+a time**: the models and the graphics memory they take do not fit twice, so a
+second recording waits in the phase `attente` until the first is done. The last
+200 finished jobs stay readable on `/travaux/{id}`; a queued or running one is
+never forgotten.
 
-Every route but `/sante` wants `Authorization: Bearer <token>`. The token is
-written into `config.toml` the first time the door is opened, so a site is
-configured once; **an empty setting does not mean an open door**, it means no
-answer at all.
+A recording is copied to disk in chunks, never held in memory, and refused with
+**413** past `taille_max_mo` in the `[api]` section: 4096 MiB by default, where
+two hours of 48 kHz stereo 16-bit WAV weigh about 1.4 GB. A refused upload
+leaves nothing behind. The limit bounds what reaches the recordings folder, not
+what the server receives: a request whose `Content-Length` declares more than
+the limit is refused before a byte of its body is read, but one that declares
+no length is received in full, into a temporary file of the framework's, before
+the count refuses it.
+
+The file's name becomes the identifier, and a file name in three folders, so it
+is checked before anything is written: a letter or digit first, then letters,
+digits, `.`, `-` and `_`, 121 characters at most, with one of nine extensions:
+`.wav`, `.flac`, `.mp3`, `.ogg` and `.opus`, which the chain opens as they are,
+and `.m4a`, `.mp4`, `.mkv` and `.webm`, containers the worker first converts to
+a `.wav` beside the deposit, in the phase `conversion`, as the window does for a
+dropped video (the voice separation reads the recording through libsndfile,
+which does not open them). Anything else is **422**, and so is an identifier of
+another shape in a path. That shape is the door's: a meeting the window made from a
+dropped file keeps the file's own stem as its identifier, so one named with a
+space or an accent is listed by `GET /reunions` but refused on `/reunions/{id}`;
+the window's own recordings are always of the right shape. A name already
+taken, in any format, is **409** rather than an overwrite: the minutes and the
+transcript are keyed by that name, and the name is taken from the first byte of
+its upload, so two deposits of one name at once end **202** and **409**, never
+one on top of the other.
+
+Every route but `/sante` wants `Authorization: Bearer <token>`, the
+documentation included: `/openapi.json`, `/docs` and `/redoc` answer **401**
+without it, since the schema is a map of the door and the first thing anyone
+probing the port would want. A client carrying the token reads them; a browser
+alone does not. The token is written into `config.toml` the first time the door
+is opened, so a site is configured once; **an empty setting does not mean an
+open door**, it means no answer at all.
 
 **What it does not serve, deliberately: the voice bank.** Voice prints are
 biometric data within the meaning of Article 9, and a door that serves them
