@@ -351,7 +351,10 @@ def blocks(
 
 def _is_local(span: Span, local_spans: list[Span]) -> bool:
     if span.duration <= 0:
-        return any(local.overlap(span) > 0 for local in local_spans)
+        # A span of no length overlaps nothing, so the share below would
+        # divide by zero and an overlap test could never be true: the
+        # instant is on the mic when a local span holds it, edges included.
+        return any(local.start <= span.start <= local.end for local in local_spans)
     covered = sum(local.overlap(span) for local in local_spans)
     return covered / span.duration >= 0.5
 

@@ -209,6 +209,20 @@ class TestCuttingIntoBlocks:
         groups = blocks([utterance(0, 4)], local_spans=[Span(0, 1.9)])
         assert not groups[0].local
 
+    def test_a_sentence_dated_at_one_instant_is_local_when_the_mic_holds_it(self) -> None:
+        # Start and end alike: there is no length to take a share of, and
+        # nothing overlaps an instant, so the overlap test said "remote"
+        # whatever the channel. The instant is on the mic when a local span
+        # holds it.
+        assert blocks([utterance(3, 3)], local_spans=[Span(0, 5)])[0].local
+        assert not blocks([utterance(7, 7)], local_spans=[Span(0, 5)])[0].local
+        assert not blocks([utterance(3, 3)], local_spans=[])[0].local
+
+    def test_the_edges_of_the_mic_s_span_hold_the_instant(self) -> None:
+        assert blocks([utterance(0, 0)], local_spans=[Span(0, 5)])[0].local
+        assert blocks([utterance(5, 5)], local_spans=[Span(0, 5)])[0].local
+        assert not blocks([utterance(5.1, 5.1)], local_spans=[Span(0, 5)])[0].local
+
 
 def turn(start: float, end: float, voice: str) -> SpeakerTurn:
     return SpeakerTurn(span=Span(start, end), voice=voice)
