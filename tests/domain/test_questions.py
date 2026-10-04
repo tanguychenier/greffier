@@ -43,6 +43,13 @@ class TestHowMuchIsTolerated:
     def test_a_long_term_accepts_two(self):
         assert tolerance("infrastructure") == 2
 
+    def test_eight_letters_is_where_the_second_difference_is_allowed(self):
+        assert tolerance("frontend") == DISTANCE_MAXIMUM
+        assert tolerance("backend") == 1
+
+
+_TWENTY_ONE_TERMS = tuple(f"terme{a}{b}" for a in "abcdefg" for b in "abc")
+
 
 class TestWhatRaisesAQuestion:
     def test_a_mangled_term_is_picked_up(self):
@@ -62,6 +69,26 @@ class TestWhatRaisesAQuestion:
         question = Questioner(known=("Oasis",)).examine("Point sur Ouasis.")[0]
         assert "Ouasis" in question.text
         assert "Oasis" in question.text
+
+    def test_a_short_term_in_the_list_does_not_hide_the_ones_after_it(self):
+        questions = Questioner(known=("prod", "backlog")).examine("Le bakclog est plein.")
+        assert [q.expected for q in questions] == ["backlog"]
+
+    def test_on_a_tie_the_term_declared_first_is_the_one_proposed(self):
+        """"Spring" is one letter from "sprint" and one from "string": the order of the
+        context file decides, so that the same meeting asks the same question."""
+        questions = Questioner(known=("sprint", "string")).examine("on parle de Spring")
+        assert [q.expected for q in questions] == ["sprint"]
+
+    def test_questions_are_numbered_in_the_order_they_are_asked(self):
+        questioner = Questioner(known=("backlog", "Oasis", "sprint"))
+        first = questioner.examine("Le bakclog et Ouasis.")
+        second = questioner.examine("Et le sprnit.")
+        assert [q.number for q in first + second] == [1, 2, 3]
+
+    def test_a_version_number_is_part_of_the_term(self):
+        """"Python3" is one term, not "Python3" and "Python"."""
+        assert Questioner(known=("Python3",)).known == ("Python3",)
 
 
 class TestWhatMustRaiseNothing:
@@ -86,11 +113,21 @@ class TestWhatMustRaiseNothing:
         assert questioner.examine("Le bakclog encore.") == []
 
     def test_the_tool_ends_up_going_quiet(self):
-        """Past a certain number it would drown whoever is working."""
-        known = tuple(f"terme{n:03d}" for n in range(40))
-        questioner = Questioner(known=known)
-        sentence = " ".join(f"terme{n:03d}x" for n in range(40))
-        assert len(questioner.examine(sentence)) <= QUESTIONS_MAXIMUM
+        """Past a certain number it would drown whoever is working.
+
+        Terms of letters alone, mangled by a letter that is not a plural mark: the
+        word pattern drops digits and the canonical form drops a final x, so an
+        earlier form of this test, on "terme007" heard as "terme007x", asked no
+        question at all and its ceiling held for nothing.
+        """
+        questioner = Questioner(known=_TWENTY_ONE_TERMS)
+        sentence = " ".join(f"{term}z" for term in _TWENTY_ONE_TERMS[:20])
+        assert len(questioner.examine(sentence)) == QUESTIONS_MAXIMUM
+
+    def test_once_quiet_a_fresh_mangling_raises_nothing(self):
+        questioner = Questioner(known=_TWENTY_ONE_TERMS)
+        questioner.examine(" ".join(f"{term}z" for term in _TWENTY_ONE_TERMS[:20]))
+        assert questioner.examine(f"{_TWENTY_ONE_TERMS[20]}z") == []
 
 
 class TestAPluralIsNotAMangling:
@@ -134,6 +171,13 @@ class TestAPluralIsNotAMangling:
 
         assert Questioner(known=["Oasis"]).examine("on parle d'Oasis") == []
 
+    def test_a_plural_raises_nothing_even_when_another_term_is_as_close(self):
+        """"clients" is the plural of "client"; "cliente" being one letter away changes
+        nothing, whatever its place in the list."""
+        from greffier.domain.questions import Questioner
+
+        assert Questioner(known=["cliente", "client"]).examine("on livre aux clients") == []
+
 
 class TestTheCanonicalForm:
     """It serves only to keep quiet, never to identify."""
@@ -147,6 +191,11 @@ class TestTheCanonicalForm:
         from greffier.domain.questions import canonical_form
 
         assert canonical_form("Oasis") != canonical_form("Ouasis")
+
+    def test_a_hyphen_does_not_make_another_word(self):
+        from greffier.domain.questions import canonical_form
+
+        assert canonical_form("pré-prod") == canonical_form("preprod")
 
 
 class TestWhatRecursIsNoAccident:
@@ -182,6 +231,19 @@ class TestWhatRecursIsNoAccident:
             "la s'enature n'est pas passée")
         assert len(asked) == 1 and asked[0].expected == "signature"
 
+    def test_a_word_said_twice_in_one_sentence_was_meant(self):
+        from greffier.domain.questions import Questioner
+
+        assert Questioner(known=["merge"]).examine("la marge, encore la marge") == []
+
+    def test_a_word_that_recurs_does_not_silence_the_mangling_beside_it(self):
+        from greffier.domain.questions import Questioner
+
+        questioner = Questioner(known=["merge", "backlog"])
+        questioner.examine("il reste de la marge")
+        asked = questioner.examine("la marge et le bakclog")
+        assert [q.expected for q in asked] == ["backlog"]
+
 
 class TestADerivedWord:
     """A term with a prefix in front is another word, not a mistake."""
@@ -214,6 +276,18 @@ class TestADerivedWord:
         from greffier.domain.questions import derived_word
 
         assert not derived_word(heard, known_one)
+
+    def test_a_prefix_in_front_of_another_word_is_no_derivation(self):
+        """"récolte" is not "ré" + "école": what follows the prefix has to be the term."""
+        from greffier.domain.questions import derived_word
+
+        assert not derived_word("récolte", "école")
+
+    @pytest.mark.parametrize("word", ["retour", "import", "oasis"])
+    def test_nothing_derives_from_an_empty_term(self, word):
+        from greffier.domain.questions import derived_word
+
+        assert not derived_word(word, "")
 
     def test_a_false_positive_costs_only_a_silence(self):
         """"recette" passes for "re" + "cette", and that is owned.
@@ -317,3 +391,17 @@ class TestAQuestionIsPutToTheRoomOnlyOnce:
         from greffier.domain.questions import note
 
         assert "Fallait-il" in note("Fallait-il comprendre « merge » ?")
+
+    def test_the_keys_of_what_was_asked_survive_a_restart(self):
+        """The window comes back with the keys read from the questions file and no
+        memory of what was heard: the same mangling must not come back with it."""
+        before = Questioner(known=["backlog"])
+        assert len(before.examine("Le bakclog est plein.")) == 1
+        after = Questioner(known=["backlog"], asked=set(before.asked))
+        assert after.examine("Le bakclog est plein.") == []
+
+    def test_a_question_already_placed_does_not_hold_back_the_next_one(self):
+        before = Questioner(known=["backlog", "Oasis"])
+        before.examine("Le bakclog est plein.")
+        after = Questioner(known=["backlog", "Oasis"], asked=set(before.asked))
+        assert [q.expected for q in after.examine("Le bakclog et Ouasis.")] == ["Oasis"]
