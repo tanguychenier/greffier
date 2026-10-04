@@ -187,6 +187,14 @@ class TestTheTranscriberLoop:
         assert collapse_loops([]) == []
         assert len(collapse_loops(self._loop(1))) == 1
 
+    def test_a_threshold_of_one_keeps_a_sentence_said_once_as_it_is(self):
+        """With repeats=1 every sentence is a run on its own, and a run folds to
+        itself over its own span: the list comes back as it went in. The scan has
+        to stop on the last sentence to say so; one step further reads past the end.
+        """
+        said_once = self._loop(1)
+        assert collapse_loops(said_once, repeats=1) == said_once
+
     def test_a_silence_exactly_at_the_tolerance_still_glues_the_run(self):
         said_ones = [
             Utterance(span=Span(0.0, 1.0), text="tu m'entends ?"),
