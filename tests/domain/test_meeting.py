@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from greffier.domain.meeting import StoredMeeting
-from greffier.domain.models import Span, SpeakerTurn
+from greffier.domain.models import Span, SpeakerTurn, Utterance
 
 
 def a_meeting(**overrides) -> StoredMeeting:
@@ -62,3 +62,17 @@ class TestTheThinVoicesAreTheOthers:
             names={},
         )
         assert meeting.attendees() == ["1", "2", "3"]
+
+
+class TestTheHolesInTheTranscription:
+    def test_a_hole_of_exactly_the_minimum_counts(self):
+        meeting = a_meeting(
+            duration=20.0,
+            utterances=[Utterance(Span(0, 10), "…"), Utterance(Span(15, 20), "…")],
+        )
+        assert meeting.gaps(minimum=5.0) == [Span(10.0, 15.0)]
+
+    def test_an_empty_transcription_as_long_as_the_minimum_is_one_hole(self):
+        """Five seconds nobody transcribed are a hole when a sentence follows
+        them; alone, with nothing said in the whole recording, they were not."""
+        assert a_meeting(duration=5.0).gaps(minimum=5.0) == [Span(0.0, 5.0)]
