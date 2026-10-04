@@ -26,16 +26,6 @@ DOWNLOAD = 1800.0
 CHUNK = 1 << 20
 """Read size. A megabyte keeps the progress smooth without thrashing."""
 
-REQUIRED_EVERYWHERE = "voix"
-"""The voice is fetched on every system, and that is a decision.
-
-It is the part people hear, and it has to sound the same on macOS, Linux and
-Windows. The fallback, each system's own synthesiser, sounds different on
-each, does not exist at all on some Linux sessions, and sounds like a machine
-where it does. Eighty megabytes next to one and a half gigabytes buys one voice
-everywhere.
-"""
-
 
 @dataclass(frozen=True, slots=True)
 class Model:
@@ -107,6 +97,11 @@ CATALOGUE: tuple[Model, ...] = (
         role="découpage en tours de parole",
         archive=True,
     ),
+    # No engine, so fetched on every system, and that is a decision: the
+    # voice is the part people hear and has to sound the same on macOS, Linux
+    # and Windows. The fallback, each system's own synthesiser, differs on
+    # each, is missing from some Linux sessions and sounds like a machine where
+    # it exists. Eighty megabytes next to one and a half gigabytes.
     Model(
         name="voix",
         url="https://github.com/k2-fsa/sherpa-onnx/releases/download/"
