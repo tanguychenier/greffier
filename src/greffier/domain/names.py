@@ -303,9 +303,9 @@ def from_live(named: list[NamedSpan], turns: list[SpeakerTurn]) -> dict[str, str
                 par[named_one.name] = par.get(named_one.name, 0.0) + common
     found: dict[str, str] = {}
     for voice, shares in per_name.items():
-        total = held.get(voice, 0.0)
-        if total <= 0:
-            continue
+        # A voice is here through a positive overlap, which its own turn's
+        # duration bounds: its total is positive and the division is safe.
+        total = held[voice]
         sorting = sorted(shares.items(), key=lambda x: (-x[1], x[0]))
         name, best = sorting[0]
         second = sorting[1][1] if len(sorting) > 1 else 0.0

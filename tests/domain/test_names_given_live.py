@@ -155,3 +155,25 @@ class TestWhatIsNotCarriedOver:
         found = from_live([named(0, 15, "Kilian")], [turn(0, 50, "26"), turn(50, 100, "26")])
         assert found == {}
 
+
+class TestWhatHoldsWhateverTheCuts:
+    def test_an_empty_turn_beside_a_name_breaks_nothing(self):
+        """Diarisers do emit zero-length turns; one under a name is not named by it."""
+        found = from_live([named(0, 10, "Kilian")], [turn(5, 5, "26"), turn(0, 10, "33")])
+        assert found == {"33": "Kilian"}
+
+    @given(
+        st.lists(st.builds(NamedSpan, name=st.sampled_from(["Kilian", "Cédric"]),
+                           span=some_spans()), max_size=5),
+        st.lists(st.builds(SpeakerTurn, span=some_spans(),
+                           voice=st.sampled_from(["26", "33", "4"])), max_size=6),
+    )
+    def test_a_voice_is_named_only_from_a_span_it_was_heard_under(self, named_spans, turns):
+        """Whatever the two cuts, empty turns included, the result never invents."""
+        found = from_live(named_spans, turns)
+        for voice, name in found.items():
+            assert any(
+                one.voice == voice and one.span.overlap(span.span) > 0 and span.name == name
+                for one in turns for span in named_spans
+            )
+
