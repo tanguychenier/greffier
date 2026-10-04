@@ -9,36 +9,38 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Protocol
 
+from greffier.application.record import RecorderState
 from greffier.domain import space
 from greffier.domain.capture import CaptureWatch
 from greffier.domain.devices import Action, Hardware, WatchRules
 from greffier.domain.level import LevelWatch
 from greffier.domain.models import Phase
+from greffier.ports import outbound
 
 SPAN = 4.0
 
-class Lister(Protocol):
-    """What is expected of reading the hardware."""
-
-    def read(self) -> Hardware: ...  # pragma: no cover
-
 class Recorder(Protocol):
-    """What is expected of the recording state machine."""
+    """What is expected of the recording state machine.
 
-    def read(self) -> Any: ...  # pragma: no cover
+    Not a port: what satisfies it is `record.Recording`, the application's
+    own, and what it hands back is a `RecorderState`, which the ports could
+    not name without importing the application.
+    """
 
-    def resume_(self, because: str) -> Any: ...  # pragma: no cover
+    def read(self) -> RecorderState: ...  # pragma: no cover
 
-    def report(self, warning: str) -> Any: ...  # pragma: no cover
+    def resume_(self, because: str) -> RecorderState: ...  # pragma: no cover
+
+    def report(self, warning: str) -> RecorderState: ...  # pragma: no cover
 
 @dataclass
 class HardwareWatch:
     """One watch pass, isolated from the clock and the hardware."""
 
     recorder: Recorder
-    list_: Lister
+    list_: outbound.Lister
     watch_rules: WatchRules
     rebuild: Callable[[str], bool]
     notify_user: Callable[[str], None] = lambda _: None

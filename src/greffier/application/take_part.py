@@ -11,7 +11,6 @@ import contextlib
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Protocol
 
 from greffier.domain.models import Utterance
 from greffier.domain.participation import (
@@ -30,6 +29,7 @@ from greffier.domain.participation import (
     split_at_the_name,
     without_own_name,
 )
+from greffier.ports import outbound
 
 SPOKEN_GUIDANCE = """Tu t'appelles {name} et tu participes à une réunion de
 travail. On t'entend par un haut-parleur : ce que tu écris sera prononcé tel
@@ -123,32 +123,6 @@ fais pas la leçon. N'emploie ni tiret cadratin ni demi-cadratin.
 Ce qui vient de se dire :
 """
 
-class Mouth(Protocol):
-    """One remark under way: its sentences go in as the model finishes them."""
-
-    def add(self, text: str) -> None:
-        ...
-
-    def close(self) -> None:
-        ...
-
-
-class Speaker(Protocol):
-    """Whatever pronounces. NeuralVoice and SystemVoice both fit."""
-
-    def say(self, text: str) -> bool:
-        ...
-
-    def begin(self) -> Mouth | None:
-        """A remark said as it comes, or None when the voice is busy or absent."""
-        ...
-
-    def go_quiet(self) -> None:
-        ...
-
-    def is_speaking(self) -> bool:
-        ...
-
 class _AsItComes:
     """The sentences of one answer, handed to the voice as the model ends them.
 
@@ -161,7 +135,7 @@ class _AsItComes:
     def __init__(self, assistant: AssistantSettings, opening: Opening, now: float) -> None:
         self._assistant = assistant
         self._now = now
-        self._mouth: Mouth | None = None
+        self._mouth: outbound.Mouth | None = None
         self._nothing = False
         self.started = False
         self.spoke_at = now
@@ -179,7 +153,8 @@ class _AsItComes:
         if not self.started:
             self.started = True
             self.spoke_at = assistant._the_time(self._now)
-            self._mouth = self._open_the_mouth(assistant.voice)
+            if assistant.voice is not None:
+                self._mouth = assistant.voice.begin()
         assistant.its_own_words.append((self.spoke_at, own_words(words)))
         if self._mouth is not None:
             self._mouth.add(words)
@@ -191,37 +166,6 @@ class _AsItComes:
             return False
         mouth.close()
         return True
-
-    @staticmethod
-    def _open_the_mouth(voice: Speaker | None) -> Mouth | None:
-        """A voice that takes the sentences as they come, or nothing.
-
-        A voice with `say` alone gets the whole remark at the end, as before:
-        the sentences are gathered here and said together.
-        """
-        if voice is None:
-            return None
-        begin = getattr(voice, "begin", None)
-        if begin is None:
-            return _WholeRemark(voice)
-        mouth: Mouth | None = begin()
-        return mouth
-
-
-class _WholeRemark:
-    """The mouth of a voice that only takes a whole text."""
-
-    def __init__(self, voice: Speaker) -> None:
-        self._voice = voice
-        self._parts: list[str] = []
-
-    def add(self, text: str) -> None:
-        self._parts.append(text.strip())
-
-    def close(self) -> None:
-        remark = " ".join(part for part in self._parts if part)
-        if remark:
-            self._voice.say(remark)
 
 
 @dataclass(frozen=True, slots=True)
@@ -239,8 +183,8 @@ class AssistantSettings:
 
     name: str = "Greffier"
     manners: Manners = field(default_factory=Manners)
-    voice: Speaker | None = None
-    brain: Any | None = None
+    voice: outbound.Speaker | None = None
+    brain: outbound.Brain | None = None
     context: Callable[[], str] | None = None
     setting: Callable[[], str] | None = None
     tracer: Callable[[str, str], None] | None = None
@@ -522,10 +466,9 @@ class AssistantSettings:
             f"Voici ce qui s'est dit jusqu'ici dans la réunion :\n\n{material}\n\n"
             f"{just_before}On vient de te dire : « {opening.remark} »\n\nRéponds."
         )
-        as_it_comes = getattr(self.brain, "write_up_as_it_comes", None)
         try:
-            if spoken is not None and as_it_comes is not None:
-                remark = str(as_it_comes(request, spoken.take)).strip()
+            if spoken is not None and isinstance(self.brain, outbound.BrainAsItComes):
+                remark = str(self.brain.write_up_as_it_comes(request, spoken.take)).strip()
             else:
                 remark = str(self.brain.write_up(request)).strip()
         except (RuntimeError, OSError):
@@ -569,15 +512,11 @@ class AssistantSettings:
         brain = self.brain
         if brain is None:
             return ""
-        earlier = getattr(brain, "own_guidance", None)
+        earlier, brain.own_guidance = brain.own_guidance, guidance
         try:
-            if earlier is not None:
-                brain.own_guidance = guidance
-                return str(brain.write_up(material)).strip()
-            return str(brain.write_up(guidance + material)).strip()
+            return str(brain.write_up(material)).strip()
         finally:
-            if earlier is not None:
-                brain.own_guidance = earlier
+            brain.own_guidance = earlier
 
     def ask_who_is_speaking(self, voice: str, now: float) -> Opening:
         """The question that settles the tool's most expensive problem.

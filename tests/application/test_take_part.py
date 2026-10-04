@@ -1,5 +1,7 @@
 """How the assistant behaves in a meeting, with no sound and no model."""
 
+from types import SimpleNamespace
+
 from greffier.application.take_part import NOTHING, AssistantSettings, Remark
 from greffier.domain.models import Span, Utterance
 from greffier.domain.participation import Because, Manners, Opening, own_words
@@ -10,6 +12,9 @@ def said(text, start=10.0, end=12.0):
 
 
 class FakeVoiceAdapter:
+    """Like `SystemVoice`: it takes a whole text, and a remark that comes in
+    sentences is gathered and said together at the end."""
+
     def __init__(self, works=True):
         self.works = works
         self.remark = []
@@ -17,6 +22,10 @@ class FakeVoiceAdapter:
     def say(self, text):
         self.remark.append(text)
         return self.works
+
+    def begin(self):
+        parts = []
+        return SimpleNamespace(add=parts.append, close=lambda: self.say(" ".join(parts)))
 
     def go_quiet(self):
         ...
@@ -28,9 +37,8 @@ class FakeVoiceAdapter:
 class FakeBrain:
     """Like `ClaudeWriter`: it carries guidance that gets replaced.
 
-    The attribute matters: `_interrogate` uses it to set guidance for the length of
-    one call, and falls back to a prefix when it does not exist. A double without
-    it would not exercise the real path.
+    The attribute is part of the `Brain` port: `_interrogate` sets it for the
+    length of one call and puts it back, without probing for it first.
     """
 
     def __init__(self, response="Oui, je vous entends très bien."):
@@ -197,6 +205,8 @@ class TestManners:
 class TestWhenThingsFail:
     def test_a_silent_brain_makes_it_pronounce_nothing(self):
         class Broken:
+            own_guidance = ""
+
             def write_up(self, _):
                 raise RuntimeError("modèle absent")
 
@@ -379,6 +389,8 @@ class TestTheLoopCannotHappen:
 
     def test_what_it_says_never_carries_its_own_name(self):
         class CerveauQuiRepete:
+            own_guidance = ""
+
             def write_up(self, _request):
                 return "Lucie ne peut pas chercher sur Internet."
 
@@ -393,6 +405,8 @@ class TestTheLoopCannotHappen:
     def test_it_does_not_react_to_its_own_words(self):
         """The exact case: its sentence comes back through the capture loop."""
         class TheBrain:
+            own_guidance = ""
+
             def write_up(self, _request):
                 return "Je n'ai pas accès à Internet depuis cette réunion."
 
@@ -405,6 +419,8 @@ class TestTheLoopCannotHappen:
 
     def test_a_mangled_transcription_of_its_words_does_not_call_it(self):
         class TheBrain:
+            own_guidance = ""
+
             def write_up(self, _request):
                 return "Je n'ai pas accès à Internet depuis cette réunion."
 
@@ -418,6 +434,8 @@ class TestTheLoopCannotHappen:
     def test_the_room_is_still_heard(self):
         """The guard must not make it deaf: that is the whole difficulty."""
         class TheBrain:
+            own_guidance = ""
+
             def write_up(self, _request):
                 return "Je n'ai pas accès à Internet."
 
@@ -432,6 +450,8 @@ class TestTheLoopCannotHappen:
     def test_it_forgets_its_words_after_a_while(self):
         """Otherwise a participant restating their idea would be taken for it."""
         class TheBrain:
+            own_guidance = ""
+
             def write_up(self, _request):
                 return "La migration en Symfony sept reste à confier à quelqu'un."
 
@@ -859,13 +879,6 @@ class TestTheAnswerIsSpokenAsItComes:
         rendered = she.answer(self._called(), now=13.0)
         assert not rendered.pronounced
         assert traces == [she.brain.response]
-
-    def test_a_voice_that_only_takes_a_whole_text_gets_it_at_the_end(self):
-        # A speaker with `say` alone: the sentences are gathered for it.
-        she = self._her(voice=FakeVoiceAdapter())
-        rendered = she.answer(self._called(), now=13.0)
-        assert she.voice.remark == [she.brain.response]
-        assert rendered.pronounced
 
     def test_a_brain_that_cannot_stream_is_answered_as_before(self):
         she = self._her(brain=FakeBrain())

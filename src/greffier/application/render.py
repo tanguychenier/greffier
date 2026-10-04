@@ -10,17 +10,22 @@ import tempfile
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
 from greffier.domain import doubt
 from greffier.domain import names as names_domain
 from greffier.domain.meeting import HORODATAGE, StoredMeeting
-from greffier.domain.models import Span, SpeakerTurn, Utterance
+from greffier.domain.models import Span, SpeakerTurn, Utterance, Voiceprint
 from greffier.ports import outbound
 
 
 class Transcribed(Protocol):
-    """What has to be known about a meeting in order to render it."""
+    """What has to be known about a meeting in order to render it.
+
+    Not a port: what satisfies it is the chain's `Outcome` and the domain's
+    `StoredMeeting`, so that the writing can be replayed from a master file
+    with no conversion. Nothing outside the package implements it.
+    """
 
     @property
     def coverage(self) -> float: ...
@@ -252,7 +257,9 @@ def render_transcript(meeting: Transcribed, header: str = "") -> str:
         lines.append(f"{start // 60:02d}:{start % 60:02d}  {mark}{utterance.text}")
     return header + "\n".join(lines).strip() + "\n"
 
-def to_resume(store: Any, minutes_folder: Path, how_many: int = 20) -> list[str]:
+def to_resume(
+    store: outbound.MeetingStore, minutes_folder: Path, how_many: int = 20
+) -> list[str]:
     """The transcribed meetings whose minutes are still missing."""
     missing = []
     for identifier in store.list_()[:how_many]:
@@ -394,15 +401,15 @@ def archive(audio: Path, keep_original: bool = False) -> Path:
     return destination
 
 def voiceprints_per_voice(
-    extractor: Any, audio: Path, per_voice: dict[str, list[Any]]
-) -> dict[str, list[Any]]:
+    extractor: outbound.VoiceprintExtractor, audio: Path, per_voice: dict[str, list[Span]]
+) -> dict[str, list[Voiceprint]]:
     """The voiceprints of each voice, reading the recording only once."""
     all_of_them = [(voice, i) for voice, the_spans in per_voice.items() for i in the_spans]
     voiceprints = extractor.extract_spans(audio, [i for _, i in all_of_them])
     if len(voiceprints) != len(all_of_them):
         # The usual case, not the exception: a span shorter than the model
         # accepts is dropped, so the two lists rarely match.
-        grouped: dict[str, list[Any]] = {
+        grouped: dict[str, list[Voiceprint]] = {
             voice: extractor.extract_spans(audio, the_spans)
             for voice, the_spans in per_voice.items()
         }
@@ -414,9 +421,9 @@ def voiceprints_per_voice(
 
 
 def _gathered(
-    extractor: Any, audio: Path, per_voice: dict[str, list[Any]],
-    grouped: dict[str, list[Any]],
-) -> dict[str, list[Any]]:
+    extractor: outbound.VoiceprintExtractor, audio: Path, per_voice: dict[str, list[Span]],
+    grouped: dict[str, list[Voiceprint]],
+) -> dict[str, list[Voiceprint]]:
     """Gives a voice made only of short turns the signature it lacked.
 
     Measured on a meeting round a table: forty-five of the hundred and
@@ -425,21 +432,18 @@ def _gathered(
     join them to anybody, so each stayed a separate person, one per « oui ».
     Read together, their passages make one excerpt the model does accept.
     """
-    ensemble = getattr(extractor, "extract_together", None)
-    if not callable(ensemble):
-        return grouped
     for voice, already in grouped.items():
         if already or not per_voice.get(voice):
             continue
-        alone = ensemble(audio, per_voice[voice])
+        alone = extractor.extract_together(audio, per_voice[voice])
         if alone is not None:
             grouped[voice] = [alone]
     return grouped
 
 def review_voices(
-    meeting: Any,
-    extractor: Any,
-    bank: Any = None,
+    meeting: StoredMeeting,
+    extractor: outbound.VoiceprintExtractor,
+    bank: outbound.VoiceBank | None = None,
 ) -> tuple[int, int]:
     """Replays voice stitching on an already processed meeting."""
     from dataclasses import replace as _replace
@@ -447,7 +451,7 @@ def review_voices(
     from greffier.domain import voiceprints as voice_domain
 
     earlier = {t.voice for t in meeting.turns if t.voice}
-    per_voice: dict[str, list[Any]] = {}
+    per_voice: dict[str, list[Span]] = {}
     for turn in meeting.turns:
         per_voice.setdefault(turn.voice, []).append(turn.span)
     voiceprints = voiceprints_per_voice(extractor, meeting.audio, per_voice)
@@ -497,10 +501,10 @@ def _join_namesakes(meeting: StoredMeeting) -> None:
             meeting.join_into(absorbed_one, kept_one)
 
 def _recognise_again(
-    meeting: Any,
-    voiceprints: dict[str, list[Any]],
+    meeting: StoredMeeting,
+    voiceprints: dict[str, list[Voiceprint]],
     membership: dict[str, str],
-    bank: Any,
+    bank: outbound.VoiceBank,
 ) -> None:
     """Asks the bank again who the voices are, once stitched."""
     from greffier.domain import voiceprints as voice_domain
@@ -508,7 +512,7 @@ def _recognise_again(
     known = bank.people()
     if not known:
         return
-    groups: dict[str, list[Any]] = {}
+    groups: dict[str, list[Voiceprint]] = {}
     for voice, listing in voiceprints.items():
         groups.setdefault(membership.get(voice, voice), []).extend(listing)
     for voice, listing in groups.items():

@@ -342,6 +342,10 @@ class FakeExtractor:
             for i in the_spans
         ]
 
+    def extract_together(self, audio, the_spans):
+        """Nothing for a run of short turns: here every span has a vector of its own."""
+        return None
+
 
 class FakeBank:
     def __init__(self, people):

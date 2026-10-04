@@ -61,6 +61,8 @@ class TestTheHooks:
         from measure_assistant import _instrumented
 
         class Session:
+            own_guidance = ""
+
             def write_up_as_it_comes(self, text, on_sentence):
                 if on_sentence is not None:
                     on_sentence("Deux.")
@@ -84,8 +86,8 @@ class TestTheHooks:
         from measure_assistant import _instrumented
 
         clock = Clock()
-        her = SimpleNamespace(brain=SimpleNamespace(write_up=lambda text: "Deux."),
-                              answer_aside=lambda o, n: None, voice=None)
+        brain = SimpleNamespace(own_guidance="", write_up=lambda text: "Deux.")
+        her = SimpleNamespace(brain=brain, answer_aside=lambda o, n: None, voice=None)
         _instrumented(her, clock)
         assert her.brain.write_up("Lucie ?") == "Deux."
         assert [what for what, _, _ in clock.events] == ["asked", "answered"]
