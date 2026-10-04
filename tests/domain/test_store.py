@@ -8,7 +8,7 @@ a document sorted as a meeting produces minutes of a text nobody spoke.
 import re
 from pathlib import Path
 
-from hypothesis import HealthCheck, given, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from greffier.domain.store import (
@@ -35,12 +35,6 @@ any_file = st.builds(
 )
 some_tools = st.frozensets(st.sampled_from(sorted(ALL)))
 a_size = st.one_of(st.none(), st.integers(min_value=0, max_value=10**9))
-
-#: mutmut 3 runs pytest twice in one process, the coverage pass then the
-#: mutant, so a test method meets two `self` instances. Hypothesis fails it
-#: for that alone, in 0.05 s, and the mutant dies of the health check rather
-#: than of the rule: 49 false kills on this module before this line.
-in_one_process = settings(suppress_health_check=[HealthCheck.differing_executors])
 
 
 class TestSounds:
@@ -135,7 +129,6 @@ class TestWhatCannotBeFiled:
 
 
 class TestWhateverTheFile:
-    @in_one_process
     @given(file=any_file, size=a_size, tools=some_tools)
     def test_the_suggestion_is_about_the_file_handed_over(self, file, size, tools):
         """The window drops several files at once: each verdict has to name
@@ -176,7 +169,6 @@ class TestTheSummaryOfABatch:
     def test_an_empty_batch_says_so(self):
         assert summarise([]) == "Aucun fichier."
 
-    @in_one_process
     @given(files=st.lists(any_file, min_size=1, max_size=12), tools=some_tools)
     def test_the_counts_add_up_to_the_batch(self, files, tools):
         """The sentence is read before approving: every file has to be in
@@ -191,7 +183,6 @@ class TestTheSummaryOfABatch:
         else:
             assert "dont" not in sentence
 
-    @in_one_process
     @given(how_many=st.integers(min_value=2, max_value=40))
     def test_the_plural_mark_appears_from_two_on(self, how_many):
         propositions = [offer(Path(f"{i}.wav"), 50_000_000, ALL) for i in range(how_many)]

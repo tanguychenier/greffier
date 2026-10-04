@@ -3,16 +3,10 @@
 import unicodedata
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from greffier.domain.first_names import LABELS, LENGTH, acceptable, normalise, refusal
-
-#: mutmut 3.8 runs pytest several times in one process, so Hypothesis sees the
-#: second run's class instance as another executor and fails the health check
-#: before any example runs. The profile's other settings are kept.
-in_one_process = settings(suppress_health_check=[*settings.default.suppress_health_check,
-                                                 HealthCheck.differing_executors])
 
 #: What a first name is spelt with: letters, accented or not, nothing else.
 LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZéèêëàâîïôûùçÉÀÇñõøå"
@@ -39,7 +33,6 @@ class TestWhatIsAccepted:
     def test_a_first_name_is_accepted(self, name):
         assert acceptable(name), refusal(name)
 
-    @in_one_process
     @given(first_names)
     def test_any_word_of_letters_within_the_lengths_is_accepted(self, name):
         assert refusal(name) == ""
@@ -128,7 +121,6 @@ class TestHowLongAFirstNameIs:
         assert acceptable("  Li  ")
         assert acceptable("  " + "Marie-Antoinette-Joséphine-Lou" + "  ")
 
-    @in_one_process
     @given(st.text(LETTERS, min_size=LENGTH[1] + 1, max_size=2 * LENGTH[1]))
     def test_past_the_longest_it_is_too_long_whatever_it_spells(self, name):
         assert refusal(name) == "C'est trop long pour un prénom."
@@ -153,20 +145,17 @@ class TestTidyingAName:
         assert normalise("") == ""
         assert normalise("   ") == ""
 
-    @in_one_process
     @given(first_names)
     def test_only_the_first_letter_moves(self, name):
         tidy = normalise(name)
         assert tidy[0] == name[0].upper()
         assert tidy[1:] == name[1:]
 
-    @in_one_process
     @given(first_names)
     def test_tidying_twice_is_tidying_once(self, name):
         """The bank reads names back and tidies them again on every save."""
         assert normalise(normalise(name)) == normalise(name)
 
-    @in_one_process
     @given(first_names)
     def test_a_name_accepted_is_still_accepted_once_tidied(self, name):
         assert acceptable(normalise(name))

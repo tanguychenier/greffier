@@ -7,16 +7,10 @@ meetings: 23 loop, the worst being the same eight words eighteen times over,
 """
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from greffier.domain.transcription import LONGEST_LOOP, REPEATS_ALLOWED, without_loop
-
-#: mutmut 3.8 runs pytest several times in one process, so Hypothesis sees the
-#: second run's class instance as another executor and fails the health check
-#: before any example runs. The profile's other settings are kept.
-in_one_process = settings(suppress_health_check=[*settings.default.suppress_health_check,
-                                                 HealthCheck.differing_executors])
 
 #: Twenty words of a meeting, all different, none of them a conjunction a cut
 #: must not end on: a clause made of them is kept whole and closed as it is.
@@ -95,7 +89,6 @@ class TestTheLoopIsCut:
 class TestWhateverSurroundsTheLoop:
     """The words before and after a loop are what the person actually said."""
 
-    @in_one_process
     @given(a_loop_in_a_sentence())
     def test_the_clause_is_said_twice_and_the_rest_stays(self, sentence):
         prefix, clause, repeats, fragment, suffix = sentence
@@ -103,7 +96,6 @@ class TestWhateverSurroundsTheLoop:
         assert without_loop(said) == (
             " ".join(prefix + clause * REPEATS_ALLOWED + suffix) + ".")
 
-    @in_one_process
     @given(st.integers(1, LONGEST_LOOP), st.permutations(WORDS))
     def test_a_clause_said_twice_is_emphasis_whatever_its_length(self, width, words):
         """Followed by the rest of the sentence, so that a clause of that
@@ -111,7 +103,6 @@ class TestWhateverSurroundsTheLoop:
         said = " ".join(words[:width] * REPEATS_ALLOWED + words[width:])
         assert without_loop(said) == said
 
-    @in_one_process
     @given(st.lists(st.sampled_from(WORDS), unique=True))
     def test_a_sentence_that_repeats_nothing_is_untouched(self, words):
         said = " ".join(words)

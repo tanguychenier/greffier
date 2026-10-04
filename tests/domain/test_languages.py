@@ -9,16 +9,10 @@ into a meeting expecting names that never come.
 import string
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from greffier.domain.languages import LANGUAGES, label_text, name_of, proven
-
-#: mutmut 3.8 runs pytest several times in one process, so Hypothesis sees the
-#: second run's class instance as another executor and fails the health check
-#: before any example runs. The profile's other settings are kept.
-in_one_process = settings(suppress_health_check=[*settings.default.suppress_health_check,
-                                                 HealthCheck.differing_executors])
 
 CODES = [code for code, _ in LANGUAGES]
 
@@ -42,7 +36,6 @@ class TestTheNameOfALanguage:
     def test_leaving_the_language_to_the_model_has_a_name_too(self):
         assert name_of("") == "Détection automatique"
 
-    @in_one_process
     @given(unknown_codes)
     def test_an_unknown_code_is_shown_as_it_is(self, code):
         """Better a bare « xx » in the dropdown than a crash or another language."""
@@ -63,7 +56,6 @@ class TestWhatIsProven:
         """A settings file typed by hand says « FR » as often as « fr »."""
         assert proven("FR")
 
-    @in_one_process
     @given(unknown_codes)
     def test_nothing_is_promised_in_a_language_nobody_declared(self, code):
         assert not proven(code)
@@ -91,7 +83,6 @@ class TestTheLabelNextToALanguage:
         if warned:
             assert label_text(code).endswith(" : voix à nommer à la main")
 
-    @in_one_process
     @given(unknown_codes)
     def test_an_unknown_language_is_warned_about_as_well(self, code):
         assert label_text(code) == f"{code} : voix à nommer à la main"

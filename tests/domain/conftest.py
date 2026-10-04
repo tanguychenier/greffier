@@ -13,6 +13,10 @@ settings.register_profile(
     deadline=None,
     derandomize=True,
     max_examples=200,
-    suppress_health_check=[HealthCheck.too_slow],
+    # differing_executors: mutmut runs the suite in its own process, for stats
+    # then clean, and forks that process for every mutant, so a @given method
+    # runs on a second instance of its class and Hypothesis fails it before any
+    # example: a kill the mutant did not earn. Plain pytest never does this.
+    suppress_health_check=[HealthCheck.too_slow, HealthCheck.differing_executors],
 )
 settings.load_profile("greffier")

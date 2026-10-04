@@ -5,16 +5,10 @@ meetings all want the title the writer gave, not the name of the file. The
 symptom this answers: a subject line reduced to « 2026-09-09_10h05_reunion ».
 """
 
-from hypothesis import HealthCheck, given, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from greffier.domain.minutes import title
-
-#: mutmut 3 runs pytest twice in one process, the coverage pass then the
-#: mutant, so a test method meets two `self` instances. Hypothesis fails it
-#: for that alone, in 0.05 s, and the mutant dies of the health check rather
-#: than of the rule.
-in_one_process = settings(suppress_health_check=[HealthCheck.differing_executors])
 
 #: The words of a title: no « # » that would make a heading, no « * » that
 #: would make bold, no line break.
@@ -58,18 +52,15 @@ class TestReadingTheTitle:
 
 
 class TestWhateverTheMinutesSay:
-    @in_one_process
     @given(heading=words, body=st.text(max_size=60), default=words)
     def test_the_heading_comes_back_as_written(self, heading, body, default):
         assert title(f"# {heading}\n{body}", default) == (heading.strip() or default)
 
-    @in_one_process
     @given(blanks=blank_lines, heading=words, default=words)
     def test_blank_lines_above_the_heading_change_nothing(self, blanks, heading, default):
         with_blanks = "\n".join([*blanks, f"# {heading}"])
         assert title(with_blanks, default) == title(f"# {heading}", default)
 
-    @in_one_process
     @given(opening=words, rest=st.text(max_size=60), default=words)
     def test_a_document_opening_with_prose_keeps_the_default(self, opening, rest, default):
         assert title(f"{opening}\n{rest}", default) == default

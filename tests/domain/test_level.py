@@ -1,6 +1,6 @@
 """Juger un niveau de parole, pas un niveau de silence."""
 
-from hypothesis import HealthCheck, given, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from greffier.domain.level import (
@@ -21,15 +21,6 @@ levels = st.floats(min_value=-200.0, max_value=0.0, allow_nan=False, allow_infin
 
 #: The verdicts from the worst to the best, to compare two of them.
 FROM_WORST_TO_BEST = (Verdict.SILENT, Verdict.INSUFFICIENT, Verdict.WEAK, Verdict.GOOD)
-
-#: For the properties written as methods. mutmut runs the suite several times
-#: in one process, so a method runs on several instances of its class, which
-#: Hypothesis takes for different executors and refuses; a refused property
-#: then counts as a kill for every mutant it touches. The profile's own
-#: suppression stays alongside.
-PROPERTY = settings(
-    suppress_health_check=[HealthCheck.too_slow, HealthCheck.differing_executors]
-)
 
 
 class TestTheThresholds:
@@ -66,7 +57,6 @@ class TestJudgingALevel:
         assert judge(INSUFFICIENT_DB) is Verdict.WEAK
         assert judge(SILENT_DB) is Verdict.INSUFFICIENT
 
-    @PROPERTY
     @given(levels, st.floats(min_value=0.0, max_value=100.0))
     def test_turning_the_gain_up_never_worsens_the_verdict(self, db, gain):
         """Four verdicts, one ordering: a louder capture is never judged worse."""
@@ -119,7 +109,6 @@ class TestWhatIsSaidAboutIt:
         for db in (-90.0, -50.0, -35.0, -20.0):
             assert f"{db:.0f} dB" in say(db)
 
-    @PROPERTY
     @given(levels)
     def test_the_figure_is_the_level_rounded_to_the_decibel(self, db):
         """A tenth of a decibel means nothing to anybody; the whole figure does."""
@@ -135,7 +124,6 @@ class TestStartingAMeeting:
         assert sufficient(-50.0) is False
         assert sufficient(-90.0) is False
 
-    @PROPERTY
     @given(levels)
     def test_recording_starts_exactly_where_the_model_stops_inventing(self, db):
         """One threshold decides both: the verdict and whether to start."""
@@ -215,7 +203,6 @@ class TestWatchingDuringTheMeeting:
             "début). " + say(-55.0)
         )
 
-    @PROPERTY
     @given(st.lists(levels, min_size=READINGS_BEFORE_ALERT, max_size=3 * READINGS_BEFORE_ALERT))
     def test_it_warns_once_at_the_eighth_reading_or_never(self, readings):
         """What the first readings reached decides everything: the best level

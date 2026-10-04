@@ -2,7 +2,7 @@
 
 from typing import ClassVar
 
-from hypothesis import HealthCheck, given, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from greffier.domain.participation import (
@@ -32,14 +32,6 @@ def opening(because=Because.CONTRIBUTION, remark="…", born_at=0.0, subject="")
 MOMENTS = st.floats(min_value=0.0, max_value=7200.0, allow_nan=False, allow_infinity=False)
 TURNS = st.lists(
     st.tuples(MOMENTS, MOMENTS).map(lambda pair: (min(pair), max(pair))), max_size=20
-)
-
-# mutmut's fork server runs each test a second time in the interpreter that
-# already ran it once, on a fresh instance of its class. Hypothesis reads the
-# two instances as two executors and fails the test, and that failure is booked
-# as a kill the mutant did not earn.
-UNDER_MUTMUT = settings(
-    suppress_health_check=[HealthCheck.too_slow, HealthCheck.differing_executors]
 )
 
 
@@ -95,7 +87,6 @@ class TestNeverComingBackTooOften:
         the_call = opening(because=Because.CALLED, born_at=10.0)
         assert manners.refusal(the_call, now=10.0, lull=0.0, density=1.0) is None
 
-    @UNDER_MUTMUT
     @given(spoke_at=st.integers(min_value=0, max_value=36_000),
            elapsed=st.integers(min_value=0, max_value=179))
     def test_the_refusal_counts_the_rest_down_to_the_second(self, spoke_at, elapsed):
@@ -273,7 +264,6 @@ class TestHowDenseTheTalkIs:
     def test_two_voices_at_once_do_not_make_more_than_a_full_minute(self):
         assert speech_density([(0.0, 60.0), (0.0, 60.0)], now=60.0) == 1.0
 
-    @UNDER_MUTMUT
     @given(turns=TURNS, now=MOMENTS)
     def test_the_density_is_a_share_between_nothing_and_everything(self, turns, now):
         assert 0.0 <= speech_density(turns, now) <= 1.0
@@ -576,7 +566,6 @@ class TestTheSameQuestionHeardTwice:
         assert is_the_same_call("c'est quoi une pré-production ?", self.RECENT,
                                 now=10.0 + MEMORY_OF_A_CALL)
 
-    @UNDER_MUTMUT
     @given(asked_at=st.integers(min_value=0, max_value=36_000),
            delay=st.integers(min_value=0, max_value=30))
     def test_only_the_delay_counts_not_the_hour_of_the_meeting(self, asked_at, delay):

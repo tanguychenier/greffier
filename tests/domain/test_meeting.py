@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from hypothesis import HealthCheck, example, given, settings
+from hypothesis import example, given
 from hypothesis import strategies as st
 
 from greffier.domain.meeting import (
@@ -18,12 +18,6 @@ from greffier.domain.meeting import (
     thin_voices,
 )
 from greffier.domain.models import Span, SpeakerTurn, Utterance
-
-#: mutmut 3 runs pytest twice in one process, the coverage pass then the
-#: mutant, so a test method meets two `self` instances. Hypothesis fails it
-#: for that alone, in 0.05 s, and the mutant dies of the health check rather
-#: than of the rule.
-in_one_process = settings(suppress_health_check=[HealthCheck.differing_executors])
 
 VOICES = ["1", "2", "3", "4", "5", "6"]
 #: Seconds of speech: nothing, or at least a thousandth, so that scaling by a
@@ -139,7 +133,6 @@ class TestTheThinVoicesAreTheOthers:
         still below what a voiceprint can be trusted on."""
         assert thin_voices({}, {"1": 50.0, "2": 30.0, "3": 20.0, "4": 5.5}) == {"4"}
 
-    @in_one_process
     @given(names=some_names, speaking=speaking_times, needed=st.integers(min_value=1, max_value=6))
     @example(names={}, speaking={"1": 50.0, "2": 30.0, "3": 20.0, "4": 5.5}, needed=3)
     def test_asking_for_more_voices_never_makes_a_voice_thin(self, names, speaking, needed):
@@ -149,7 +142,6 @@ class TestTheThinVoicesAreTheOthers:
         without = thin_voices(names, speaking, minimum_voices=needed + 1)
         assert without <= with_the_rule
 
-    @in_one_process
     @given(
         names=some_names, speaking=speaking_times, power=st.integers(min_value=-12, max_value=12)
     )
@@ -221,7 +213,6 @@ class TestWhatAVoiceIsCalled:
 
 
 class TestSpeakingTime:
-    @in_one_process
     @given(turns=turns)
     def test_each_voice_gets_the_sum_of_its_turns(self, turns):
         meeting = a_meeting(turns=turns)
@@ -232,7 +223,6 @@ class TestSpeakingTime:
                 sum(turn.span.duration for turn in turns if turn.voice == voice)
             )
 
-    @in_one_process
     @given(turns=turns)
     @example(turns=[SpeakerTurn(Span(0, 10), "1"), SpeakerTurn(Span(10, 100), "2")])
     def test_the_most_talkative_comes_first(self, turns):
@@ -257,7 +247,6 @@ class TestWhenTheMeetingWasHeld:
         assert held_on("fausse-reunion") is None
         assert held_on("reunion_2026-09-09") is None
 
-    @in_one_process
     @given(
         when=st.datetimes(
             min_value=datetime(1000, 1, 1),  # noqa: DTZ001  # st.datetimes takes naive bounds
@@ -368,7 +357,6 @@ class TestSplittingTwoVoices:
         assert [turn.voice for turn in meeting.turns] == ["v1", "v2"]
         assert meeting.names["v3"] == "Sophie"
 
-    @in_one_process
     @given(
         turns=turns,
         names=some_names,
@@ -432,7 +420,6 @@ class TestTheHolesInTheTranscription:
         )
         assert meeting.gaps(minimum=5.0) == []
 
-    @in_one_process
     @given(
         utterances=grid_utterances,
         slack=st.integers(min_value=0, max_value=20),

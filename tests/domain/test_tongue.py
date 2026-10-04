@@ -10,16 +10,10 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from greffier.domain.tongue import FALLBACK, SPOKEN, Wording, choose, voice_for
-
-#: mutmut 3.8 runs pytest several times in one process, so Hypothesis sees the
-#: second run's class instance as another executor and fails the health check
-#: before any example runs. The profile's other settings are kept.
-in_one_process = settings(suppress_health_check=[*settings.default.suppress_health_check,
-                                                 HealthCheck.differing_executors])
 
 #: What a machine wraps around the language itself: a region or none, an
 #: encoding or none, either separator, any case.
@@ -54,13 +48,11 @@ class TestWhichLanguageToSpeak:
         """A French window is unreadable to somebody who did not ask for it."""
         assert choose(said) == "en" == FALLBACK
 
-    @in_one_process
     @given(st.sampled_from(SPOKEN), regions, encodings, cases)
     def test_neither_region_nor_encoding_nor_case_changes_the_answer(
             self, code, region, encoding, case):
         assert choose(as_a_machine_says_it(code, region, encoding, case)) == code
 
-    @in_one_process
     @given(other_codes, regions, encodings, cases)
     def test_a_language_not_spoken_falls_back_however_it_is_dressed(
             self, code, region, encoding, case):

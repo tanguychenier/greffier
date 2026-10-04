@@ -4,7 +4,7 @@ import math
 from typing import ClassVar
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from greffier.domain.models import Person, Voiceprint
@@ -40,14 +40,6 @@ from greffier.domain.voiceprints import (
     stitch,
     threshold_for,
 )
-
-# mutmut forks every mutant run from the process that already ran the suite,
-# so a @given method is called on a new instance of its class each time, which
-# Hypothesis reports as « differing executors » and fails whatever the code
-# does. Measured on 2026-10-04: a fresh « mutmut run » stopped at its clean
-# step on the first property test. The profile's other settings are kept.
-mutmut_safe = settings(suppress_health_check=[*settings.default.suppress_health_check,
-                                              HealthCheck.differing_executors])
 
 
 def voice(*components: float, duration: float = 10.0):
@@ -117,7 +109,6 @@ class TestNormalisingAVoiceprint:
         """It then weighs next to nothing in an aggregate, rather than a second."""
         assert normalise([1.0, 0.0]).source_duration == 0.0
 
-    @mutmut_safe
     @given(vector=_VECTORS, gain=st.floats(min_value=0.01, max_value=100.0))
     def test_whatever_the_voice_its_loudness_leaves_the_voiceprint_unchanged(self, vector, gain):
         quiet = normalise(vector)
@@ -134,7 +125,6 @@ class TestAggregating:
         average = aggregate([long_one, brief])
         assert similarity(average, long_one) > similarity(average, brief)
 
-    @mutmut_safe
     @given(shorter=st.floats(min_value=0.0, max_value=0.5),
            extra=st.floats(min_value=0.01, max_value=0.5))
     def test_the_longer_extract_weighs_more_even_under_a_second(self, shorter, extra):
@@ -144,7 +134,6 @@ class TestAggregating:
         average = aggregate([brief, longer])
         assert similarity(average, longer) > similarity(average, brief)
 
-    @mutmut_safe
     @given(voiceprints=st.lists(_VOICEPRINTS, min_size=1, max_size=5))
     def test_the_aggregate_lasts_as_long_as_everything_it_gathered(self, voiceprints):
         """Its duration is the material the stitching then weighs groups by."""
@@ -226,7 +215,6 @@ class TestRecognising:
         assert found is not None
         assert found.margin == pytest.approx(found.similarity + 1.0)
 
-    @mutmut_safe
     @given(coordinates=st.tuples(_AWAY_FROM_ZERO.map(abs), st.floats(min_value=0.0, max_value=1.0),
                                  st.floats(min_value=0.0, max_value=1.0)))
     def test_whoever_is_named_is_the_closest_and_the_match_says_how_firmly(self, coordinates):
@@ -263,7 +251,6 @@ class TestFeedingTheBank:
         enrich(josiane, voice(1.0, 0.0, duration=3.0), maximum=3)
         assert [e.source_duration for e in josiane.voiceprints] == [1.0, 5.0, 3.0]
 
-    @mutmut_safe
     @given(durations=st.lists(_DURATIONS, min_size=1, max_size=12),
            maximum=st.integers(min_value=1, max_value=8))
     def test_whatever_arrives_the_entry_holds_at_most_the_cap_and_the_longest(
@@ -435,7 +422,6 @@ class TestJoiningVoices:
         }
         assert join_voices(per_voice) == {"a": "a", "b": "a", "c": "c"}
 
-    @mutmut_safe
     @given(per_voice=some_groups())
     def test_every_voice_ends_up_in_a_group_that_stands_on_its_own(self, per_voice):
         """Whatever the stitching did, following the map once is following it
@@ -511,7 +497,6 @@ class TestABankThatContradictsItself:
                 Person(name="Tanguy", voiceprints=[at_cosines(CONFLICT_THRESHOLD)])]
         assert conflicting_names(bank) == {"Cédric": {"Tanguy"}, "Tanguy": {"Cédric"}}
 
-    @mutmut_safe
     @given(bank=some_people())
     def test_a_conflict_is_always_mutual_and_never_with_oneself(self, bank):
         conflicts = conflicting_names(bank)
@@ -869,7 +854,6 @@ class TestAVoiceThatHoldsSeveralPeople:
     def test_the_threshold_itself_is_enough(self):
         assert one_person([voice(1.0, 0.0, 0.0), at_cosines(JOIN_THRESHOLD)])
 
-    @mutmut_safe
     @given(voiceprints=st.lists(_VOICEPRINTS, min_size=2, max_size=5), threshold=_COORDINATE)
     def test_the_answer_does_not_depend_on_the_order_of_the_voiceprints(self, voiceprints,
                                                                        threshold):
@@ -935,7 +919,6 @@ class TestTheSameLevelForEverybody:
     def test_a_flat_silence_comes_back_as_it_is(self):
         assert at_a_common_level([0.0, 0.0, 0.0]) == [0.0, 0.0, 0.0]
 
-    @mutmut_safe
     @given(samples=_SAMPLES)
     def test_whatever_the_excerpt_it_comes_out_at_the_common_level_or_at_full_scale(
             self, samples):
@@ -1011,7 +994,6 @@ class TestTheThresholdFollowsTheMaterial:
         halfway = (SHORT_MATERIAL + AMPLE_MATERIAL) / 2
         assert threshold_for(halfway) == pytest.approx((THRESHOLD_ON_SHORT + JOIN_THRESHOLD) / 2)
 
-    @mutmut_safe
     @given(material=st.floats(min_value=0.0, max_value=100.0),
            more=st.floats(min_value=0.0, max_value=10.0),
            ceiling=st.floats(min_value=THRESHOLD_ON_SHORT, max_value=1.0))
@@ -1119,7 +1101,6 @@ class TestNamingAVoiceThatLooksLikeSomeoneElse:
         assert doubtful_entry(between, "Josiane", self.BANK) != ""
         assert doubtful_entry(between, "Josiane", self.BANK, margin=0.20) == ""
 
-    @mutmut_safe
     @given(new_one=_VOICEPRINTS)
     def test_naming_a_voice_after_the_person_it_matches_best_raises_no_doubt(self, new_one):
         closest = max(_AXIS_BANK, key=lambda p: (similarity(new_one, p.voiceprints[0]), p.name))
@@ -1184,14 +1165,12 @@ class TestVoiceprintsThatBelongToSomeoneElse:
         assert [(i.rank, i.who) for i in found] == [(2, "Sophie"), (1, "Marc")]
         assert found[0].gap == pytest.approx(0.6)
 
-    @mutmut_safe
     @given(copies=st.integers(min_value=2, max_value=4), bank=some_people())
     def test_an_entry_whose_voiceprints_all_agree_has_no_intruder(self, copies, bank):
         """Each one reaches another of hers at 1.0: nobody can beat that."""
         josiane = Person("Josiane", [voice(0.6, 0.8, 0.0)] * copies)
         assert intruding_voiceprints(josiane, bank) == []
 
-    @mutmut_safe
     @given(hers=st.lists(_VOICEPRINTS, min_size=2, max_size=4), bank=some_people(min_size=1),
            minimum_gap=st.floats(min_value=0.0, max_value=0.5))
     def test_each_suspect_is_reported_once_worst_first_with_the_scores_the_bank_shows(

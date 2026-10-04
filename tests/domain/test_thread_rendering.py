@@ -1,19 +1,10 @@
 """The live thread, rendered as text so that it can be queried."""
 
-from hypothesis import HealthCheck, given, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from greffier.domain.live import LiveThread, LiveTurn
 from greffier.domain.models import Span
-
-#: For the properties written as methods. mutmut runs the suite several times
-#: in one process, so a method runs on several instances of its class, which
-#: Hypothesis takes for different executors and refuses; a refused property
-#: then counts as a kill for every mutant it touches. The profile's own
-#: suppression stays alongside.
-PROPERTY = settings(
-    suppress_health_check=[HealthCheck.too_slow, HealthCheck.differing_executors]
-)
 
 
 def thread_with(*turns: tuple[int, float, float, str, str]) -> LiveThread:
@@ -89,7 +80,6 @@ class TestRenderingTheThread:
             "[Voix v1]\n00:00  Bonjour à tous.\n00:05  On commence.\n\n[Voix v2]\n00:09  Allons-y."
         )
 
-    @PROPERTY
     @given(st.lists(
         st.tuples(st.sampled_from(["v1", "v2", "v3"]),
                   st.sampled_from(["", "  ", "Oui.", "Non.", "Peut-être."])),

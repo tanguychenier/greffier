@@ -7,7 +7,7 @@ import io
 from itertools import pairwise
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from greffier.domain.export import (
@@ -38,15 +38,6 @@ WORDS = st.lists(
 )
 WIDTHS = st.integers(min_value=12, max_value=60)
 
-# mutmut's fork server runs each test a second time in the interpreter that
-# already ran it once, on a fresh instance of its class. Hypothesis reads the
-# two instances as two executors and fails the test, and that failure is booked
-# as a kill the mutant did not earn: five equivalent mutants of this module
-# were reported killed that way before the check was suppressed here.
-UNDER_MUTMUT = settings(
-    suppress_health_check=[HealthCheck.too_slow, HealthCheck.differing_executors]
-)
-
 
 class TestCuttingALineForAScreen:
     def test_a_short_turn_stays_one_line(self) -> None:
@@ -67,7 +58,6 @@ class TestCuttingALineForAScreen:
     def test_nothing_said_is_no_block(self) -> None:
         assert blocks_of([said(0, 1, "   ")]) == []
 
-    @UNDER_MUTMUT
     @given(words=WORDS, width=WIDTHS)
     def test_a_line_takes_every_word_that_fits_and_not_one_more(
         self, words: list[str], width: int
@@ -105,7 +95,6 @@ class TestSharingATurnBetweenBlocks:
         chunks = blocks_of([said(9, 10, "après"), said(1, 2, "avant")])
         assert [b.text for b in chunks] == ["avant", "après"]
 
-    @UNDER_MUTMUT
     @given(words=WORDS, width=WIDTHS)
     def test_the_blocks_carry_each_wrapped_line_once_two_at_a_time(
         self, words: list[str], width: int
@@ -137,7 +126,6 @@ class TestSubtitlesAPlayerReads:
     def test_past_an_hour_the_clock_still_holds(self) -> None:
         assert "01:00:01,000 --> 01:00:02,000" in srt([said(3601, 3602, "encore")], NAMES)
 
-    @UNDER_MUTMUT
     @given(
         hours=st.integers(min_value=0, max_value=99),
         minutes=st.integers(min_value=0, max_value=59),

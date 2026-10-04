@@ -5,19 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 
-from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import assume, given
 from hypothesis import strategies as st
 
 from greffier.domain.graph import Edge, Kind, Known, Link, Node, from_trace, people_of
-
-# mutmut forks every mutant run from the process that has already run the suite
-# twice, once to see which test reaches which function and once clean. A @given
-# method is then called on a new instance of its class each time, which
-# Hypothesis reports as « differing executors » and fails whatever the code
-# does. Measured on 2026-10-04: a fresh « mutmut run » stopped at its clean step
-# on the first property test below. The profile's other settings are kept.
-mutmut_safe = settings(suppress_health_check=[*settings.default.suppress_health_check,
-                                              HealthCheck.differing_executors])
 
 
 @dataclass
@@ -149,7 +140,6 @@ class TestWhatAMeetingAddsToTheIndex:
         assert edges == [Edge(Link.ATTENDED, (Kind.PERSON, "Jacques"),
                               (Kind.MEETING, "2026-09-12_recette"), "")]
 
-    @mutmut_safe
     @given(trace=TRACES, subject=WORD)
     def test_everything_the_trace_says_is_indexed_once_and_dated(self, trace, subject):
         nodes, edges = from_trace(trace, subject)
@@ -175,7 +165,6 @@ class TestWhatAMeetingAddsToTheIndex:
         assert len(nodes) == 2 + said
         assert len(edges) == 1 + said
 
-    @mutmut_safe
     @given(trace=TRACES)
     def test_the_people_it_records_are_the_people_read_back(self, trace):
         """The index is written by from_trace and read by people_of: they agree."""
@@ -225,7 +214,6 @@ class TestWhoUsuallyAttends:
         ]
         assert people_of(edges, ["recente"]) == ("Jacques",)
 
-    @mutmut_safe
     @given(edges=EDGES, meetings=WANTED_MEETINGS)
     def test_each_attendee_once_most_recent_first_whatever_the_order_of_the_edges(
             self, edges, meetings):
@@ -270,12 +258,10 @@ class TestWhatAPreparationOpensOn:
             "\n"
         )
 
-    @mutmut_safe
     @given(KNOWN)
     def test_nothing_is_said_exactly_when_nothing_is_known(self, known):
         assert (known.header() == "") == known.empty
 
-    @mutmut_safe
     @given(KNOWN)
     def test_each_part_is_mentioned_exactly_when_something_is_known_about_it(self, known):
         header = known.header()
@@ -285,7 +271,6 @@ class TestWhatAPreparationOpensOn:
         assert ("Documents qui ont servi" in header) == bool(known.documents)
         assert ("Sources suivies" in header) == bool(known.sources)
 
-    @mutmut_safe
     @given(KNOWN)
     def test_the_subject_opens_and_a_blank_line_closes_whatever_is_known(self, known):
         assume(not known.empty)
@@ -294,7 +279,6 @@ class TestWhatAPreparationOpensOn:
         assert lines[-2:] == ["", ""]
         assert all(lines[1:-2])
 
-    @mutmut_safe
     @given(KNOWN)
     def test_the_parts_keep_their_order_and_name_everything_known(self, known):
         assume(not known.empty)

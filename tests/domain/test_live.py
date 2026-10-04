@@ -14,7 +14,7 @@ from itertools import pairwise
 from typing import ClassVar
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from greffier.domain.channels import LOCAL_VOICE
@@ -55,15 +55,6 @@ SET_ASIDE_ONES = (normalise([1.0, 0.0, 0.0], source_duration=4.0),
             normalise([0.0, 0.0, 1.0], source_duration=4.0))
 #: At a negative cosine from all three: a fourth person, never attached.
 LOIN = normalise([0.0, 0.0, -1.0], source_duration=4.0)
-
-#: For the properties written as methods. mutmut runs the suite several times
-#: in one process, so a method runs on several instances of its class, which
-#: Hypothesis takes for different executors and refuses; a refused property
-#: then counts as a kill for every mutant it touches. The profile's own
-#: suppression stays alongside.
-PROPERTY = settings(
-    suppress_health_check=[HealthCheck.too_slow, HealthCheck.differing_executors]
-)
 
 
 def utterance(start: float, end: float, text: str = "on cale la recette jeudi") -> Utterance:
@@ -304,7 +295,6 @@ class TestCuttingIntoBlocks:
         assert not blocks([utterance(0, 1)], local_spans=[Span(0, 0.3)])[0].local
         assert blocks([utterance(0, 1)], local_spans=[Span(0, 0.6)])[0].local
 
-    @PROPERTY
     @given(
         st.lists(st.tuples(st.floats(0, 600), st.floats(0, 30)), max_size=8),
         st.lists(st.tuples(st.floats(0, 600), st.floats(0, 30)), max_size=4),
@@ -398,7 +388,6 @@ class TestCuttingTheSliceAtTheChangesOfSpeaker:
         block = Block((utterance(3.5, 9),), local=False, speaker="0:1")
         assert block.spans_of_the_speaker(turns) == [Span(3.5, 4), Span(5, 9)]
 
-    @PROPERTY
     @given(
         st.floats(0, 100),
         st.floats(0.1, 30),
@@ -505,7 +494,6 @@ class TestNeverTheSameSentenceTwice:
         ])
         assert [r.span for r in kept] == [Span(2, 6)]
 
-    @PROPERTY
     @given(
         st.lists(st.floats(0, 600), min_size=2, max_size=12, unique=True),
         st.floats(2, 60),
@@ -675,7 +663,6 @@ class TestOverlappingText:
         previous = "On y arrive tout doucement mais sûrement"
         assert drop_repetition(previous, "mais sûrement Xavier reprend.") == "Xavier reprend."
 
-    @PROPERTY
     @given(a_repetition())
     def test_an_exact_repetition_is_removed_whatever_the_words(self, case) -> None:
         previous, fresh, rest = case
