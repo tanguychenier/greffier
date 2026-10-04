@@ -34,8 +34,8 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
       - name: Relocatable interpreter
         # `only-managed` is the heart of the matter, not a precaution.
         # `construire.sh` copies the .venv interpreter into the bundle, which
@@ -61,7 +61,7 @@ jobs:
           cd "$RUNNER_TEMP"
           ditto -c -k --sequesterRsrc --keepParent Greffier.app \
             "$GITHUB_WORKSPACE/Greffier-macos.zip"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Greffier-macos
           path: Greffier-macos.zip
@@ -76,8 +76,8 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.13'
       - name: Dependencies
@@ -107,7 +107,7 @@ jobs:
           }
       - name: Zip it
         run: Compress-Archive -Path dist\Greffier -DestinationPath Greffier-windows.zip
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Greffier-windows
           path: Greffier-windows.zip
@@ -122,11 +122,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Archive the sources and their installer
         run: |
           git archive --format=tar.gz --prefix=greffier/ -o Greffier-linux.tar.gz HEAD
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Greffier-linux
           path: Greffier-linux.tar.gz
@@ -141,8 +141,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.13'
       - name: Dependencies
@@ -155,7 +155,7 @@ jobs:
         # appimagetool; `--check` runs the result, the only check a runner
         # without a screen allows. Opened on a virtual screen on 2026-09-16.
         run: python3 tools/build_appimage.py --check
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Greffier-appimage
           path: dist/Greffier-x86_64.AppImage
