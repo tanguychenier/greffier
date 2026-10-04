@@ -507,7 +507,13 @@ def diagnostic_(
     """Constate ce qui est en place et ce qui manque, sans rien modifier."""
     from greffier.adapters import system_diagnostic as checker
 
-    state = checker.examine()
+    try:
+        config = Config.load(config_file)
+    except ValueError as unreadable:
+        # The command that says what is missing must not end in a traceback.
+        typer.secho(f"  ✗ {'Configuration':<38} {unreadable}", fg=typer.colors.RED)
+        raise typer.Exit(1) from unreadable
+    state = checker.examine(config.paths.data)
     recorder = state.recorder
     typer.echo(
         f"{recorder.system} {recorder.architecture} · {recorder.memory_gb:.0f} Go · "

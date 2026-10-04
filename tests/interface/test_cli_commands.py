@@ -36,6 +36,21 @@ def _run(settings, *arguments):
     return runner.invoke(application, [*arguments, "--config", str(settings)])
 
 
+def _record_what_the_diagnostic_examines(monkeypatch):
+    """A diagnostic that notes the data folder it is pointed at and finds all in place."""
+    from greffier.adapters import system_diagnostic
+    from greffier.domain.recorder import Diagnostic, Recorder
+
+    examined = []
+
+    def examine(data_folder=None):
+        examined.append(data_folder)
+        return Diagnostic(recorder=Recorder(system="Linux", architecture="x86_64", memory_gb=16.0))
+
+    monkeypatch.setattr(system_diagnostic, "examine", examine)
+    return examined
+
+
 class TestSayingWhereThingsStand:
     def test_at_rest_it_says_so(self, machine):
         settings, _ = machine
@@ -150,6 +165,32 @@ class TestTheChecksItRuns:
         answered = _run(settings, "diagnostic")
         assert answered.exit_code in (0, 1)
         assert sorted(p.name for p in data.iterdir()) == earlier
+
+    def test_the_diagnostic_looks_at_the_profile_it_is_given(self, machine, monkeypatch):
+        """« --config » was accepted and ignored: another profile got the default's verdict."""
+        settings, data = machine
+        examined = _record_what_the_diagnostic_examines(monkeypatch)
+        assert _run(settings, "diagnostic").exit_code == 0
+        assert examined == [data]
+
+    def test_without_a_profile_the_diagnostic_looks_at_the_default_data_folder(
+        self, machine, monkeypatch
+    ):
+        from greffier.adapters.configuration import Config
+
+        examined = _record_what_the_diagnostic_examines(monkeypatch)
+        assert runner.invoke(application, ["diagnostic"]).exit_code == 0
+        assert examined == [Config().paths.data]
+
+    def test_a_configuration_it_cannot_read_is_one_more_thing_missing(self, machine):
+        """A malformed config.toml ended the one command meant to say what is wrong
+        with a ValueError traceback; it is reported like any other missing piece."""
+        settings, _ = machine
+        settings.write_text('[chemins\ndonnees = "x"\n', encoding="utf-8")
+        answered = _run(settings, "diagnostic")
+        assert answered.exit_code == 1
+        assert "✗" in answered.stdout and str(settings) in answered.stdout
+        assert isinstance(answered.exception, SystemExit)
 
     def test_verifier_says_what_is_missing(self, machine):
         settings, _ = machine
