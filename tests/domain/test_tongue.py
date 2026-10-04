@@ -7,9 +7,32 @@ the tool says about itself.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from greffier.domain.tongue import FALLBACK, SPOKEN, Wording, choose, voice_for
+
+#: mutmut 3.8 runs pytest several times in one process, so Hypothesis sees the
+#: second run's class instance as another executor and fails the health check
+#: before any example runs. The profile's other settings are kept.
+in_one_process = settings(suppress_health_check=[*settings.default.suppress_health_check,
+                                                 HealthCheck.differing_executors])
+
+#: What a machine wraps around the language itself: a region or none, an
+#: encoding or none, either separator, any case.
+regions = st.sampled_from(["", "_FR", "_CA", "-BE", "_us", "-gb"])
+encodings = st.sampled_from(["", ".UTF-8", ".utf8", ".ISO8859-1"])
+cases = st.sampled_from([str.lower, str.upper, str.title])
+#: Two letters of a language the tool does not speak.
+other_codes = st.sampled_from(["de", "ja", "es", "it", "pt", "zz"])
+
+
+def as_a_machine_says_it(code: str, region: str, encoding: str,
+                         case: Callable[[str], str]) -> str:
+    return case(f"{code}{region}{encoding}")
 
 
 class TestWhichLanguageToSpeak:
@@ -22,13 +45,44 @@ class TestWhichLanguageToSpeak:
     def test_an_english_one_in_english(self, said):
         assert choose(said) == "en"
 
+    def test_an_encoding_without_a_region_goes_as_well(self):
+        """`LANG=fr.UTF-8` is rare but legal, and must not read as unknown."""
+        assert choose("fr.UTF-8") == "fr"
+
     @pytest.mark.parametrize("said", ["de_DE.UTF-8", "ja_JP", "C", "POSIX", "", "  "])
     def test_anything_else_falls_back_to_english_not_to_french(self, said):
         """A French window is unreadable to somebody who did not ask for it."""
         assert choose(said) == "en" == FALLBACK
 
+    @in_one_process
+    @given(st.sampled_from(SPOKEN), regions, encodings, cases)
+    def test_neither_region_nor_encoding_nor_case_changes_the_answer(
+            self, code, region, encoding, case):
+        assert choose(as_a_machine_says_it(code, region, encoding, case)) == code
+
+    @in_one_process
+    @given(other_codes, regions, encodings, cases)
+    def test_a_language_not_spoken_falls_back_however_it_is_dressed(
+            self, code, region, encoding, case):
+        assert choose(as_a_machine_says_it(code, region, encoding, case)) == FALLBACK
+
     def test_the_languages_spoken_are_declared(self):
         assert "fr" in SPOKEN and FALLBACK in SPOKEN
+
+
+class TestWhenEnglishIsNotSpoken:
+    """English is the fallback for being spoken, not by decree: a build
+    translated into French and Italian only must still answer somebody."""
+
+    def test_the_first_language_spoken_takes_its_place(self):
+        assert choose("de", spoken=("fr", "it")) == "fr"
+
+    def test_what_is_asked_for_still_wins_when_spoken(self):
+        assert choose("it_IT.UTF-8", spoken=("fr", "it")) == "it"
+
+    def test_a_tool_that_speaks_nothing_still_answers_in_english(self):
+        """Rather than fall over an empty table before the first window."""
+        assert choose("de", spoken=()) == FALLBACK
 
 
 class TestWhatTheToolSays:
@@ -57,7 +111,7 @@ class TestWhatTheToolSays:
     def test_what_is_missing_is_knowable(self):
         """So that it can be translated, rather than discovered by a reader."""
         assert self._wording({"bonjour": "Bonjour"}).missing() == ("adieu",)
-        assert not self._wording({"bonjour": "B", "adieu": "A"}).missing() 
+        assert not self._wording({"bonjour": "B", "adieu": "A"}).missing()
         assert self._wording({"bonjour": "B", "adieu": "A"}).complete
 
 
