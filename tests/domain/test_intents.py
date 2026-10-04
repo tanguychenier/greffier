@@ -112,6 +112,16 @@ class TestWhatMustNotBeUnderstood:
     def test_a_sentence_with_no_verb_of_learning(self):
         assert understand("OTP veut dire mot de passe à usage unique") is None
 
+    def test_a_term_made_of_quotes_alone_teaches_nothing(self):
+        """Read under the looser motifs, the sentence taught « que »."""
+        assert understand("retiens que « » veut dire rien") is None
+
+    def test_a_term_that_is_only_blank_between_its_punctuation_teaches_nothing(self):
+        """A tab or a no-break space, as French types before « ? », survives the
+        cleaning; the looser motifs then taught « que » the same way."""
+        assert understand("retiens que .\t. veut dire rien") is None
+        assert understand("retiens que ?\xa0? veut dire rien") is None
+
 
 class TestTheConfirmation:
     """It offers and does not write: the sentence has to show what will be written."""

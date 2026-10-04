@@ -104,13 +104,13 @@ def understand(sentence: str) -> Learning | None:
         precision = _clean(
             found.groupdict().get("precision") or ""
         )
-        if not subject or len(subject.split()) > 5:
-            continue
+        if not subject.strip() or len(subject.split()) > 5:
+            # The motifs that follow start their subject at « que »: once one
+            # has matched the sentence's shape, re-reading it under a looser
+            # one can only learn that word.
+            break
         what = What.NOBODY if _is_a_role(precision) else What.TERM
-        try:
-            return Learning(what, subject, precision)
-        except ValueError:
-            continue
+        return Learning(what, subject, precision)
     return None
 
 def _clean(brut: str) -> str:
