@@ -1,6 +1,8 @@
 """Knowing whether a later version exists, without ever bringing the window down."""
 
 import json
+import os
+import subprocess
 import urllib.error
 from io import BytesIO
 from typing import ClassVar
@@ -116,21 +118,54 @@ class TestInstallingFromTheSources:
     """An update must never carry away the work of whoever is developing."""
 
     def a_git_repository(self, tmp_path, clean: bool = True):
-        import subprocess
-
         store = tmp_path / "greffier"
         (store / "macos").mkdir(parents=True)
         (store / "macos" / "construire.sh").write_text("#!/bin/bash\n", encoding="utf-8")
-        subprocess.run(["git", "-C", str(store), "init", "-q"], check=True)
-        subprocess.run(["git", "-C", str(store), "add", "-A"], check=True)
-        subprocess.run(
-            ["git", "-C", str(store), "-c", "user.email=e@x", "-c", "user.name=n",
-             "commit", "-qm", "socle"],
-            check=True,
-        )
+        self._git(store, "init", "-q")
+        self._git(store, "add", "-A")
+        self._git(store, "commit", "-qm", "socle")
         if not clean:
             (store / "macos" / "construire.sh").write_text("modifié\n", encoding="utf-8")
         return store
+
+    @staticmethod
+    def _git(store, *arguments: str) -> str:
+        """git on the test's repository, and on it alone.
+
+        Under `git rebase --exec` the inherited environment carries GIT_DIR and
+        GIT_WORK_TREE, which git obeys over -C: the fixture then committed into
+        the repository running the test (seen: a stray commit, a moved HEAD).
+        Nothing GIT_* gets through. The identity is given here; HOME is the
+        test's folder and GIT_CONFIG_NOSYSTEM is set, so that neither the
+        global config (a signing key, a hook) nor the system one
+        (core.hooksPath, init.defaultBranch in /etc/gitconfig) has a say.
+        """
+        environment = {
+            "PATH": os.environ.get("PATH", ""),
+            "HOME": str(store.parent),
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_AUTHOR_NAME": "n", "GIT_AUTHOR_EMAIL": "e@x",
+            "GIT_COMMITTER_NAME": "n", "GIT_COMMITTER_EMAIL": "e@x",
+        }
+        # On Windows, git does not start without SYSTEMROOT in its environment.
+        if "SYSTEMROOT" in os.environ:
+            environment["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
+        done = subprocess.run(
+            ["git", "-C", str(store), *arguments],
+            check=True, env=environment, capture_output=True, text=True,
+        )
+        return done.stdout
+
+    def test_the_fixture_ignores_the_git_variables_of_its_caller(self, monkeypatch, tmp_path):
+        """A bogus GIT_DIR around the fixture: the repository is still built in
+        its own folder, with its one commit, and nothing lands where GIT_DIR says."""
+        elsewhere = tmp_path / "nowhere"
+        monkeypatch.setenv("GIT_DIR", str(elsewhere / ".git"))
+        monkeypatch.setenv("GIT_WORK_TREE", str(elsewhere))
+        store = self.a_git_repository(tmp_path)
+        assert (store / ".git").is_dir()
+        assert self._git(store, "log", "--format=%s").split() == ["socle"]
+        assert not elsewhere.exists()
 
     def test_with_no_repository_recorded_installing_is_refused(self, monkeypatch):
         monkeypatch.delenv("GREFFIER_DEPOT_SOURCE", raising=False)
