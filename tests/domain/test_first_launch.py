@@ -18,3 +18,13 @@ class TestTheThreeSteps:
         the_steps = steps(models_present=True, claude_signed_in=True, microphone_chosen=True)
         assert not is_a_first_launch(the_steps)
         assert next_to_do(the_steps) is None
+
+    def test_the_steps_are_named_in_the_order_they_are_needed(self):
+        """The window reads the keys to show each step; a misspelt one shows nothing."""
+        the_steps = steps(models_present=False, claude_signed_in=False, microphone_chosen=False)
+        assert [s.key for s in the_steps] == ["modeles", "compte", "micro"]
+
+    def test_with_only_the_microphone_left_it_is_what_comes_next(self):
+        the_steps = steps(models_present=True, claude_signed_in=True, microphone_chosen=False)
+        assert is_a_first_launch(the_steps)
+        assert next_to_do(the_steps).key == "micro"
