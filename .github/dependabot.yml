@@ -1,0 +1,25 @@
+# Weekly, grouped and capped: one pull request a week per ecosystem for the
+# minor and patch bumps rather than one per dependency, and never more than
+# five open at once. A major bump stays on its own, being the one that needs
+# reading. The actions are pinned to commits in the workflows; Dependabot moves
+# the commit and the version comment next to it together.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      actions-minor-and-patch:
+        update-types: [minor, patch]
+
+  # uv.lock: the Python dependencies, the dev group with them.
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      python-minor-and-patch:
+        update-types: [minor, patch]
