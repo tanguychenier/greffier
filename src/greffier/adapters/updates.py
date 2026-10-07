@@ -16,7 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
 from greffier.domain.version import is_newer
@@ -202,6 +202,9 @@ def unpack(archive: Path, folder: Path) -> tuple[bool, str]:
         folder.mkdir(parents=True, exist_ok=True)
         if archive.name.endswith(".zip"):
             with zipfile.ZipFile(archive) as z:
+                escaping = next((m for m in z.namelist() if _escapes(folder, m)), "")
+                if escaping:
+                    return (False, f"l'archive écrit hors du dossier : {escaping}")
                 z.extractall(folder)
         elif archive.name.endswith((".tar.gz", ".tgz")):
             with tarfile.open(archive) as a:
@@ -211,6 +214,21 @@ def unpack(archive: Path, folder: Path) -> tuple[bool, str]:
     except (OSError, ValueError, zipfile.BadZipFile, tarfile.TarError) as trouble:
         return (False, str(trouble))
     return (True, str(folder))
+
+def _escapes(folder: Path, member: str) -> bool:
+    """Would this zip member land outside the folder once extracted?
+
+    The release is downloaded without a checksum, so the archive is trusted only
+    once every member has passed here. `ZipFile.extractall` does strip a leading
+    slash and the ".." components, but silently, and it knows nothing of a symbolic
+    link already sitting in the folder. The name is read in both spellings because
+    a zip written on Windows may carry a drive letter or backslashes that a POSIX
+    path would take for one plain file name.
+    """
+    for shape in (PurePosixPath(member), PureWindowsPath(member)):
+        if shape.drive or shape.root or ".." in shape.parts:
+            return True
+    return not (folder / member).resolve().is_relative_to(folder.resolve())
 
 _BINARY_RELAY = """#!/bin/bash
 set -u

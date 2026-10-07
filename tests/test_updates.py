@@ -337,6 +337,82 @@ class TestDownloadingAndUnpacking:
         assert not opened and "format inconnu" in trouble
 
 
+class TestAZipThatWritesOutsideItsFolder:
+    """The release is downloaded without a checksum or a signature.
+
+    A tampered archive could carry a member named "../../Library/LaunchAgents/x.plist"
+    and have the updater write it for whoever forged it. The tar branch already
+    refuses such members through `filter="data"`; the zip branch now does the same,
+    and extracts nothing until every member has passed.
+    """
+
+    def a_zip_with(self, tmp_path, *names: str):
+        import zipfile
+
+        archive = tmp_path / "Greffier-macos.zip"
+        with zipfile.ZipFile(archive, "w") as z:
+            z.writestr("Greffier.app/Contents/Info.plist", "<plist/>")
+            for name in names:
+                # zipfile stores a name as given and sanitises on extraction only,
+                # silently: a forged archive is as easy to write as an honest one.
+                z.writestr(name, "piégé")
+        return archive
+
+    def test_a_member_climbing_out_is_refused_and_named(self, tmp_path):
+        archive = self.a_zip_with(tmp_path, "../evil.txt")
+        opened, trouble = updates.unpack(archive, tmp_path / "dedans")
+        assert not opened
+        assert "hors du dossier" in trouble and "../evil.txt" in trouble
+
+    def test_nothing_is_written_when_one_member_is_refused(self, tmp_path):
+        """Neither the trapped member nor the honest ones beside it."""
+        archive = self.a_zip_with(tmp_path, "../evil.txt")
+        updates.unpack(archive, tmp_path / "dedans")
+        assert not (tmp_path / "evil.txt").exists()
+        assert not (tmp_path / "dedans" / "evil.txt").exists()
+        assert not (tmp_path / "dedans" / "Greffier.app").exists()
+
+    @pytest.mark.parametrize("name", [
+        "/etc/evil.txt",
+        "C:\\evil.txt",
+        "C:evil.txt",
+        "\\\\serveur\\partage\\evil.txt",
+        "Greffier.app\\..\\..\\evil.txt",
+        "Greffier.app/../../evil.txt",
+    ])
+    def test_an_absolute_lettered_or_climbing_name_is_refused(self, tmp_path, name):
+        archive = self.a_zip_with(tmp_path, name)
+        opened, trouble = updates.unpack(archive, tmp_path / "dedans")
+        assert not opened and name in trouble
+
+    def test_a_member_leading_through_a_link_is_refused(self, tmp_path):
+        """The name looks honest; it is the folder that leads outside."""
+        elsewhere = tmp_path / "ailleurs"
+        elsewhere.mkdir()
+        folder = tmp_path / "dedans"
+        folder.mkdir()
+        (folder / "lien").symlink_to(elsewhere)
+        archive = self.a_zip_with(tmp_path, "lien/evil.txt")
+        opened, trouble = updates.unpack(archive, folder)
+        assert not opened and "lien/evil.txt" in trouble
+        assert not (elsewhere / "evil.txt").exists()
+
+    def test_an_honest_bundle_with_folders_and_dot_files_opens(self, tmp_path):
+        """The shape of a real release: folder entries, nested files, dot-files."""
+        import zipfile
+
+        archive = tmp_path / "Greffier-macos.zip"
+        with zipfile.ZipFile(archive, "w") as z:
+            z.writestr("Greffier.app/", "")
+            z.writestr("Greffier.app/Contents/MacOS/Greffier", "binaire")
+            z.writestr("Greffier.app/Contents/Resources/.DS_Store", "")
+            z.writestr("./Greffier.app/Contents/Info.plist", "<plist/>")
+        opened, where_in = updates.unpack(archive, tmp_path / "dedans")
+        assert opened, where_in
+        assert (tmp_path / "dedans" / "Greffier.app" / "Contents" / "MacOS" / "Greffier").exists()
+        assert (tmp_path / "dedans" / "Greffier.app" / "Contents" / "Info.plist").exists()
+
+
 class TestAnUpdateLosesNothing:
     """The only question whoever presses that button has.
 
