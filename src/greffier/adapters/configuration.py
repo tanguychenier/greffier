@@ -390,6 +390,13 @@ class Api(BaseModel):
     #: once. No token, no answer -- even on the loopback, where any process of
     #: the machine could otherwise read every meeting.
     token: str = Field(default="", validation_alias=AliasChoices("token", "jeton"))
+    #: The largest recording the door takes in, in MiB. Two hours of 48 kHz
+    #: stereo 16-bit WAV weigh about 1.4 GB; 4 GiB leaves room for a longer
+    #: meeting or a video. A site whose meetings weigh more raises the figure
+    #: here: it is a setting, not a guess frozen in the code.
+    max_upload_mb: int = Field(
+        default=4096, validation_alias=AliasChoices("max_upload_mb", "taille_max_mo")
+    )
 
 
 class Config(BaseSettings):
@@ -551,7 +558,7 @@ SECTIONS: dict[str, tuple[str, ...]] = {
     "direct": ("actif", "periode", "modele"),
     "locuteurs": ("pas_des_prenoms", "personnes"),
     "compte_rendu": ("moteur", "modele", "langue", "destinataire", "delai"),
-    "api": ("hote", "port", "jeton"),
+    "api": ("hote", "port", "jeton", "taille_max_mo"),
     "interface": ("langue",),
     "courriel": ("serveur", "port", "utilisateur", "expediteur", "certificat"),
     "sauvegarde": ("dossier", "apres_chaque_reunion", "gardees"),
