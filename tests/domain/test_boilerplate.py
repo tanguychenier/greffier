@@ -5,7 +5,11 @@ turn of speech. Whisper was trained on subtitled videos and fills silences with
 what it has seen most.
 """
 
+from itertools import groupby
+
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from greffier.domain.boilerplate import collapse_loops, is_an_annotation, is_boilerplate
 from greffier.domain.models import Span, Utterance
@@ -84,6 +88,27 @@ class TestAnnotations:
     def test_a_text_too_short_triggers_nothing(self):
         assert not is_an_annotation("**")
 
+    def test_three_characters_are_enough_for_an_annotation(self):
+        """The shortest ones the model writes: notes alone, a silence between brackets."""
+        assert is_an_annotation("♪♪♪")
+        assert is_an_annotation("(…)")
+
+    def test_a_bracket_opened_or_closed_alone_is_speech(self):
+        """The transcriber sometimes loses one half of a pair; the words are still words."""
+        assert not is_an_annotation("(inaudible, il reprend le sujet lundi")
+        assert not is_an_annotation("il reprend le sujet lundi)")
+
+    def test_a_word_between_two_annotations_keeps_the_line(self):
+        assert not is_an_annotation("(inaudible) oui (rires)")
+
+
+
+@st.composite
+def abutting_utterances(draw) -> list[Utterance]:
+    """Up to twelve one-second turns, each starting where the last one ended."""
+    texts = draw(st.lists(st.sampled_from(["oui", "tu m'entends ?", "voilà"]), max_size=12))
+    return [Utterance(span=Span(float(i), float(i + 1)), text=text)
+            for i, text in enumerate(texts)]
 
 
 class TestTheTranscriberLoop:
@@ -161,3 +186,52 @@ class TestTheTranscriberLoop:
     def test_an_empty_or_short_list_breaks_nothing(self):
         assert collapse_loops([]) == []
         assert len(collapse_loops(self._loop(1))) == 1
+
+    def test_a_threshold_of_one_keeps_a_sentence_said_once_as_it_is(self):
+        """With repeats=1 every sentence is a run on its own, and a run folds to
+        itself over its own span: the list comes back as it went in. The scan has
+        to stop on the last sentence to say so; one step further reads past the end.
+        """
+        said_once = self._loop(1)
+        assert collapse_loops(said_once, repeats=1) == said_once
+
+    def test_a_silence_exactly_at_the_tolerance_still_glues_the_run(self):
+        said_ones = [
+            Utterance(span=Span(0.0, 1.0), text="tu m'entends ?"),
+            Utterance(span=Span(1.5, 2.5), text="tu m'entends ?"),
+            Utterance(span=Span(3.0, 4.0), text="tu m'entends ?"),
+        ]
+        assert len(collapse_loops(said_ones, gap=0.5)) == 1
+        assert len(collapse_loops(said_ones, gap=0.49)) == 3
+
+    def test_twice_in_a_row_after_another_sentence_is_still_a_person(self):
+        said_ones = [
+            Utterance(span=Span(0.0, 1.0), text="on commence ?"),
+            Utterance(span=Span(1.0, 2.0), text="tu m'entends ?"),
+            Utterance(span=Span(2.0, 3.0), text="tu m'entends ?"),
+        ]
+        assert collapse_loops(said_ones) == said_ones
+
+    def test_a_sentence_in_between_breaks_the_run(self):
+        """A question, an answer, the question twice more: four sentences, no loop."""
+        said_ones = [
+            Utterance(span=Span(0.0, 1.0), text="tu m'entends ?"),
+            Utterance(span=Span(1.0, 2.0), text="oui"),
+            Utterance(span=Span(2.0, 3.0), text="tu m'entends ?"),
+            Utterance(span=Span(3.0, 4.0), text="tu m'entends ?"),
+        ]
+        assert collapse_loops(said_ones) == said_ones
+
+    @given(abutting_utterances(), st.integers(min_value=2, max_value=5))
+    def test_a_run_long_enough_folds_over_its_span_and_a_shorter_one_stays_whole(
+        self, said_ones, repeats,
+    ):
+        expected: list[Utterance] = []
+        for _, same in groupby(said_ones, key=lambda u: u.text):
+            run = list(same)
+            if len(run) >= repeats:
+                expected.append(Utterance(span=Span(run[0].span.start, run[-1].span.end),
+                                          text=run[0].text))
+            else:
+                expected.extend(run)
+        assert collapse_loops(said_ones, repeats) == expected

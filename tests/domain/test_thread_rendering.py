@@ -1,5 +1,8 @@
 """The live thread, rendered as text so that it can be queried."""
 
+from hypothesis import given
+from hypothesis import strategies as st
+
 from greffier.domain.live import LiveThread, LiveTurn
 from greffier.domain.models import Span
 
@@ -57,3 +60,43 @@ class TestRenderingTheThread:
     def test_the_timestamp_passes_the_minute(self):
         rendered = thread_with((1, 125.0, 130.0, "Deux minutes cinq.", "v1")).rendered()
         assert "02:05" in rendered
+
+    def test_the_first_second_of_the_meeting_is_shown_as_well(self):
+        assert "Oui." in thread_with((1, 0.0, 0.5, "Oui.", "v1")).rendered()
+
+    def test_a_turn_ending_on_the_instant_asked_for_is_still_shown(self):
+        rendered = thread_with((1, 0.0, 10.0, "Jusqu'ici.", "v1")).rendered(since=10.0)
+        assert "Jusqu'ici." in rendered
+
+    def test_the_text_reads_as_a_script(self):
+        """One label per block, one timestamped line per sentence, a blank line
+        between two speakers: what the writer is handed."""
+        rendered = thread_with(
+            (1, 0.0, 5.0, "Bonjour à tous.", "v1"),
+            (2, 5.0, 9.0, "On commence.", "v1"),
+            (3, 9.0, 12.0, "Allons-y.", "v2"),
+        ).rendered()
+        assert rendered == (
+            "[Voix v1]\n00:00  Bonjour à tous.\n00:05  On commence.\n\n[Voix v2]\n00:09  Allons-y."
+        )
+
+    @given(st.lists(
+        st.tuples(st.sampled_from(["v1", "v2", "v3"]),
+                  st.sampled_from(["", "  ", "Oui.", "Non.", "Peut-être."])),
+        max_size=10,
+    ))
+    def test_one_label_per_run_of_the_same_voice(self, said):
+        """Whatever is said, the labels count the changes of voice among the
+        sentences that have words, and the words come out in order."""
+        thread = LiveThread()
+        for number, (voice, text) in enumerate(said, start=1):
+            thread.turns.append(LiveTurn(number, Span(float(number), number + 1.0), text, voice))
+        spoken = [(voice, text) for voice, text in said if text.strip()]
+        runs = sum(
+            1 for i, (voice, _) in enumerate(spoken) if i == 0 or voice != spoken[i - 1][0]
+        )
+        lines = thread.rendered().splitlines()
+        assert sum(1 for line in lines if line.startswith("[")) == runs
+        assert [line.split("  ", 1)[1] for line in lines if line and not line.startswith("[")] == [
+            text for _, text in spoken
+        ]

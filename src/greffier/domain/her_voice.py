@@ -56,5 +56,5 @@ def voices_of(
         account[1] += duration
     return {
         voice for voice, (hers_one, total) in guards.items()
-        if total > 0 and hers_one > part * total
+        if hers_one > part * total
     }

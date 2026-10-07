@@ -31,8 +31,20 @@ class TestWhatIsWritten:
         assert line.count("\t") == 2
 
     def test_an_incident_without_a_place_is_refused(self):
-        with pytest.raises(ValueError, match="sans lieu"):
+        with pytest.raises(ValueError, match=r"^un incident sans lieu ne se retrouve pas$"):
             Trouble("   ", "quelque chose")
+
+    def test_the_columns_come_in_a_fixed_order(self):
+        """Whoever sorts the file relies on it: moment, system, version, place, reason."""
+        when = datetime(2026, 9, 9, 14, 5, 0)  # noqa: DTZ001  # naive, as Trouble's default
+        line = Trouble("envoi", "serveur muet", when).line("0.3.22", "Linux x86_64")
+        assert line.split("\t") == [
+            "2026-09-09T14:05:00", "Linux x86_64", "0.3.22", "envoi", "serveur muet"]
+
+    def test_a_break_or_a_tab_in_the_reason_becomes_one_space(self):
+        when = datetime(2026, 9, 9, 14, 5, 0)  # noqa: DTZ001  # naive, as Trouble's default
+        line = Trouble("chaîne", "première ligne\ndeuxième\ttroisième", when).line()
+        assert line == "2026-09-09T14:05:00\tchaîne\tpremière ligne deuxième troisième"
 
 
 class TestWhatIsNotWritten:
@@ -49,6 +61,13 @@ class TestWhatIsNotWritten:
     def test_an_address_is_taken_out(self):
         without = without_traces("envoi refusé pour quelqu-un@exemple.fr")
         assert "quelqu-un@exemple.fr" not in without and "<adresse>" in without
+
+    def test_what_was_taken_out_is_named_in_its_place(self):
+        """Whoever reads the line knows a path or an address stood there."""
+        assert without_traces("échec sur /home/quelqu-un/reunions/point-budget.wav") == (
+            "échec sur <chemin>")
+        assert without_traces("envoi refusé pour quelqu-un@exemple.fr") == (
+            "envoi refusé pour <adresse>")
 
     def test_what_carries_nothing_private_is_kept_whole(self):
         assert without_traces("le modèle a refusé le format") == "le modèle a refusé le format"
@@ -70,3 +89,9 @@ class TestTheFileDoesNotGrow:
 
     def test_keeping_nothing_is_allowed(self):
         assert worth_keeping(["une"], 0) == []
+
+    def test_keeping_one_keeps_the_last(self):
+        assert worth_keeping(["une", "deux"], 1) == ["deux"]
+
+    def test_two_hundred_are_kept_when_nobody_says_how_many(self):
+        assert len(worth_keeping([f"ligne {n}" for n in range(500)])) == 200

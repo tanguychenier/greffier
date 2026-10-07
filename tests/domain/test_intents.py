@@ -47,6 +47,41 @@ class TestWhatIsUnderstood:
         for verb in ("retiens", "note", "apprends", "garde"):
             assert understand(f"{verb} que XYZ signifie quelque chose") is not None
 
+    def test_a_term_of_five_words_is_still_a_term(self):
+        """Five words pass and six do not: the cut is on the term's length."""
+        learned = understand(
+            "retiens que mise en production de nuit signifie le déploiement du soir"
+        )
+        assert learned is not None
+        assert learned.subject == "mise en production de nuit"
+
+    def test_the_quotes_around_a_term_are_not_part_of_it(self):
+        learned = understand("retiens que « OTP » veut dire mot de passe à usage unique")
+        assert learned is not None
+        assert learned.subject == "OTP"
+
+    def test_an_acronym_ending_in_x_keeps_its_last_letter(self):
+        learned = understand("retiens que UX veut dire expérience utilisateur")
+        assert learned is not None
+        assert learned.subject == "UX"
+
+    def test_the_article_before_a_term_goes_whatever_its_case(self):
+        learned = understand("retiens : Les ANO = les anomalies remontées par le client")
+        assert learned is not None
+        assert learned.subject == "ANO"
+        assert learned.precision == "anomalies remontées par le client"
+
+    def test_a_question_mark_after_the_term_is_not_part_of_it(self):
+        """The transcriber hears a rising voice and writes one."""
+        learned = understand("retiens le sigle FAST ?")
+        assert learned is not None
+        assert learned.subject == "FAST"
+
+    def test_a_person_given_with_an_equals_sign_is_still_a_person(self):
+        learned = understand("retiens : Maud = cheffe de projet Oasis")
+        assert learned is not None
+        assert learned.what is What.NOBODY
+
 
 class TestWhatMustNotBeUnderstood:
     """A false positive costs a question, but a shaky entry in the context pollutes
@@ -77,6 +112,16 @@ class TestWhatMustNotBeUnderstood:
     def test_a_sentence_with_no_verb_of_learning(self):
         assert understand("OTP veut dire mot de passe à usage unique") is None
 
+    def test_a_term_made_of_quotes_alone_teaches_nothing(self):
+        """Read under the looser motifs, the sentence taught « que »."""
+        assert understand("retiens que « » veut dire rien") is None
+
+    def test_a_term_that_is_only_blank_between_its_punctuation_teaches_nothing(self):
+        """A tab or a no-break space, as French types before « ? », survives the
+        cleaning; the looser motifs then taught « que » the same way."""
+        assert understand("retiens que .\t. veut dire rien") is None
+        assert understand("retiens que ?\xa0? veut dire rien") is None
+
 
 class TestTheConfirmation:
     """It offers and does not write: the sentence has to show what will be written."""
@@ -92,8 +137,26 @@ class TestTheConfirmation:
         assert "personnes du contexte" in sentence
 
     def test_learning_with_no_subject_is_refused(self):
-        with pytest.raises(ValueError, match="sans sujet"):
+        with pytest.raises(ValueError, match=r"^un apprentissage sans sujet ne sert à rien$"):
             Learning(What.TERM, "   ")
+
+    def test_a_term_and_its_meaning_are_spelled_out_as_they_will_be_written(self):
+        assert Learning(What.TERM, "OTP", "mot de passe à usage unique").say() == (
+            "J'ajoute « OTP » (mot de passe à usage unique) au contexte. Confirme ?"
+        )
+
+    def test_a_term_without_a_meaning_is_offered_bare(self):
+        assert Learning(What.TERM, "FAST").say() == "J'ajoute « FAST » au contexte. Confirme ?"
+
+    def test_a_person_and_their_role_are_spelled_out(self):
+        assert Learning(What.NOBODY, "Maud", "cheffe de projet").say() == (
+            "J'ajoute « Maud », cheffe de projet aux personnes du contexte. Confirme ?"
+        )
+
+    def test_a_person_without_a_role_is_offered_by_name_alone(self):
+        assert Learning(What.NOBODY, "Maud").say() == (
+            "J'ajoute « Maud » aux personnes du contexte. Confirme ?"
+        )
 
 
 class TestYesOrNo:

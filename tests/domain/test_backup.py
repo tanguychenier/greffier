@@ -2,6 +2,9 @@
 
 from datetime import datetime
 
+from hypothesis import given
+from hypothesis import strategies as st
+
 from greffier.domain.backup import (
     CONTENT,
     KEPT,
@@ -73,6 +76,17 @@ class TestKeepingOnlySoMany:
         starting_from = to_erase(names, kept=0)
         assert "greffier-2026-09-05_12h00" not in starting_from
         assert len(starting_from) == 4
+
+    def test_with_two_backups_and_none_to_keep_the_older_one_goes(self):
+        """The rotation keeps one whatever it is told; the second is the excess."""
+        assert to_erase(self.names(2), kept=0) == ["greffier-2026-09-01_12h00"]
+        assert to_erase(self.names(2), kept=1) == ["greffier-2026-09-01_12h00"]
+
+    @given(st.integers(min_value=0, max_value=12), st.integers(min_value=0, max_value=10))
+    def test_what_goes_is_the_excess_over_the_count_kept_and_the_oldest_ones(self, how_many, kept):
+        names = self.names(how_many)
+        excess = max(0, how_many - max(1, kept))
+        assert sorted(to_erase(names, kept)) == names[:excess]
 
     def test_what_is_not_a_backup_is_left_alone(self):
         """Erasing happens in a folder that may hold something else."""

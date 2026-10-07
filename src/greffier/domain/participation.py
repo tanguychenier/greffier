@@ -184,7 +184,9 @@ def _is_the_name(word: str, searched: str) -> bool:
     what it is about to say costs nothing when the word was not its name, and
     leaving a mangled one in is what made it call itself.
     """
-    if not word.strip():
+    # With no name there is nothing to be near, and every one-letter word is
+    # one edit from nothing: « il y a un souci » was cut at its « a ».
+    if not word.strip() or not searched:
         return False
     ceiling = 1 if len(searched) < 5 else 2
     return _distance(_strip_accents(word), searched, ceiling) <= ceiling

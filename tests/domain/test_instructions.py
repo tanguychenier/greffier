@@ -36,6 +36,10 @@ class TestPastedLinks:
     def test_a_text_without_a_link_produces_nothing(self):
         assert links_in("on se revoit jeudi pour la recette") == []
 
+    def test_an_address_ending_in_a_capital_letter_is_kept_whole(self):
+        """A board identifier ends in whatever letter it ends in."""
+        assert links_in("https://miro.com/app/board/uXjVX") == ["https://miro.com/app/board/uXjVX"]
+
 
 class TestTheKeyword:
     def test_what_follows_the_word_is_the_instruction(self):
@@ -84,6 +88,9 @@ class TestWhenALookIsWorthItsPrice:
         assert not worth_a_look(["le déploiement s'est bien passé hier", "oui"], FRENCH)
         assert not worth_a_look([], FRENCH)
         assert not worth_a_look(["   "], FRENCH)
+
+    def test_a_blank_line_before_a_decision_does_not_hide_it(self):
+        assert worth_a_look(["", "on part sur jeudi pour la recette"], FRENCH)
 
     def test_a_room_settling_something_in_its_own_words_is_worth_a_look(self):
         # Measured on SUMM-RE 032b, four people fixing a date: none of it is
@@ -134,6 +141,33 @@ class TestTheWatchRules:
         watch_rules = WatchRules(keyword="assistant", profile=FRENCH)
         watch_rules.listen([utterance(1, "Assistant, note ce point")])
         assert watch_rules.propositions[0].text == "note ce point"
+
+    def test_what_is_returned_is_the_suggestion_itself_with_its_instant(self):
+        watch_rules = WatchRules(profile=FRENCH)
+        fresh = watch_rules.listen([utterance(10, "Greffier, ouvre le ticket 1234")])
+        assert fresh == watch_rules.propositions
+        assert (fresh[0].kind, fresh[0].text, fresh[0].at_instant) == (
+            Kind.INSTRUCTION, "ouvre le ticket 1234", 10)
+
+    def test_a_decision_is_quoted_whole_from_speech_and_is_its_own_context(self):
+        watch_rules = WatchRules(profile=FRENCH)
+        fresh = watch_rules.listen([utterance(7, " on décide de reporter la mise en production ")])
+        assert fresh == watch_rules.propositions
+        assert (fresh[0].kind, fresh[0].text, fresh[0].at_instant) == (
+            Kind.DECISION, "on décide de reporter la mise en production", 7)
+        assert (fresh[0].origin, fresh[0].context) == (Origin.SPEECH, "")
+
+    def test_an_instruction_does_not_stop_the_listening(self):
+        watch_rules = WatchRules(profile=FRENCH)
+        fresh = watch_rules.listen([utterance(1, "Greffier, note le sujet"),
+                                    utterance(6, "on décide de reporter la recette")])
+        assert [p.kind for p in fresh] == [Kind.INSTRUCTION, Kind.DECISION]
+
+    def test_a_pasted_link_is_returned_with_the_instant_it_was_pasted(self):
+        watch_rules = WatchRules(profile=FRENCH)
+        fresh = watch_rules.paste("voir https://miro.com/x", 5)
+        assert fresh == watch_rules.propositions
+        assert (fresh[0].text, fresh[0].at_instant) == ("https://miro.com/x", 5)
 
     def test_sorting_by_kind(self):
         watch_rules = WatchRules(profile=FRENCH)

@@ -9,19 +9,25 @@ Nothing had said so.
 from __future__ import annotations
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from greffier.domain.devices import (
+    SILENT_FLOOR_DB,
     Action,
+    Decision,
     Device,
     Hardware,
     WatchRules,
     advised_mic,
+    candidates_to_listen_to,
     choose_by_listening,
     headset_present,
     headsets_among,
 )
 
 JABRA_MIC = Device("Jabra EVOLVE 30 II", "jabra:1", entries=1)
+POLY = Device("Poly Blackwire", "poly:1", entries=1)
 JABRA_OUTPUT = Device("Jabra EVOLVE 30 II", "jabra:2", sorties=2)
 BUILT_IN_MIC = Device("Micro MacBook Pro", "BuiltInMicrophoneDevice", entries=1)
 BUILT_IN_SPEAKERS = Device("Haut-parleurs MacBook Pro", "BuiltInSpeakerDevice", sorties=2)
@@ -53,8 +59,10 @@ class TestTheHeadsetUnpluggedMidMeeting:
         self, watch_rules: WatchRules
     ) -> None:
         decision = watch_rules.examine(WITHOUT_HEADSET, WITH_HEADSET)
-        assert "vient d'être branché" in decision.because
-        assert "le début de la réunion ne l'a pas eu" in decision.because
+        assert decision.because == (
+            "« Jabra EVOLVE 30 II » vient d'être branché : "
+            "la capture reprend dessus, le début de la réunion ne l'a pas eu."
+        )
 
     def test_the_audio_already_captured_is_marked_doubtful(self, watch_rules: WatchRules) -> None:
         # What was recorded before it was plugged in is barely usable: the
@@ -71,7 +79,10 @@ class TestAnUnpluggedHeadset:
         decision = watch_rules.examine(WITH_HEADSET, WITHOUT_HEADSET)
         assert decision.action is Action.REBUILD
         assert decision.mic == "Micro MacBook Pro"
-        assert "débranché" in decision.because
+        assert decision.because == (
+            "« Jabra EVOLVE 30 II » a été débranché : "
+            "la capture reprend sur « Micro MacBook Pro »."
+        )
 
     def test_with_no_fallback_mic_it_warns_without_cutting(
         self, watch_rules: WatchRules
@@ -82,7 +93,24 @@ class TestAnUnpluggedHeadset:
         nothing = Hardware((BLACKHOLE, BUILT_IN_SPEAKERS, AGGREGATED))
         decision = watch_rules.examine(WITH_HEADSET, nothing)
         assert decision.action is Action.ALERT
-        assert "ta voix n'est plus enregistrée" in decision.because
+        assert decision.because == (
+            "« Jabra EVOLVE 30 II » a été débranché et aucun autre micro "
+            "n'est disponible : ta voix n'est plus enregistrée."
+        )
+
+    def test_the_audio_is_marked_doubtful_with_or_without_a_fallback(
+        self, watch_rules: WatchRules
+    ) -> None:
+        # Between the headset going and the capture resuming, seconds of the
+        # person's voice are lost either way: the minutes have to be able to
+        # say so.
+        assert watch_rules.examine(WITH_HEADSET, WITHOUT_HEADSET).audio_suspect
+        nothing = Hardware((BLACKHOLE, BUILT_IN_SPEAKERS, AGGREGATED))
+        assert watch_rules.examine(WITH_HEADSET, nothing).audio_suspect
+
+    def test_the_event_is_kept_for_the_log(self, watch_rules: WatchRules) -> None:
+        watch_rules.examine(WITH_HEADSET, WITHOUT_HEADSET)
+        assert watch_rules.events == ["Jabra EVOLVE 30 II débranché en cours de réunion"]
 
     def test_blackhole_is_never_chosen_as_a_mic(self, watch_rules: WatchRules) -> None:
         # BlackHole captures the system output, never a mouth. Taking it for a
@@ -109,13 +137,19 @@ class TestPluggingAndUnplugging:
 
     def test_a_second_headset_is_taken_when_the_first_is_gone(self) -> None:
         watch_rules = WatchRules(wanted_mic="Casque absent")
-        other = Device("Poly Blackwire", "poly:1", entries=1)
-        later = Hardware((BLACKHOLE, BUILT_IN_MIC, other, AGGREGATED))
+        later = Hardware((BLACKHOLE, BUILT_IN_MIC, POLY, AGGREGATED))
         decision = watch_rules.examine(WITHOUT_HEADSET, later)
         assert decision.action is Action.REBUILD
         # An external mono mic comes before the built-in one: that is the shape
         # of a headset mic, so the one being spoken into.
         assert decision.mic == "Poly Blackwire"
+        assert decision.because == (
+            "« Poly Blackwire » vient d'être branché : la capture reprend dessus."
+        )
+        # The seconds between plugging it in and the capture moving over are
+        # lost, as when the usual headset arrives late.
+        assert decision.audio_suspect
+        assert watch_rules.events == ["Poly Blackwire branché en cours de réunion"]
 
 
 class TestChangesThatChangeNothing:
@@ -141,6 +175,28 @@ class TestChangesThatChangeNothing:
         later = Hardware((*WITH_HEADSET.devices, SCREEN))
         watch_rules.examine(WITH_HEADSET, later)
         assert watch_rules.events == []
+
+    def test_plugging_a_screen_while_on_the_fallback_mic_changes_nothing(
+        self, watch_rules: WatchRules
+    ) -> None:
+        # The usual headset is absent before and after, and the built-in mic
+        # carries the meeting both times: rebuilding would cut it for nothing.
+        later = Hardware((*WITHOUT_HEADSET.devices, SCREEN))
+        assert watch_rules.examine(WITHOUT_HEADSET, later) == Decision(Action.NOTHING)
+        assert watch_rules.events == []
+
+    def test_with_no_mic_at_all_a_screen_is_not_taken_for_one(
+        self, watch_rules: WatchRules
+    ) -> None:
+        nothing = Hardware((BLACKHOLE, BUILT_IN_SPEAKERS, AGGREGATED))
+        later = Hardware((*nothing.devices, SCREEN))
+        assert watch_rules.examine(nothing, later) == Decision(Action.NOTHING)
+
+    def test_a_second_mic_does_not_take_the_capture_from_the_headset_in_use(
+        self, watch_rules: WatchRules
+    ) -> None:
+        later = Hardware((*WITH_HEADSET.devices, POLY))
+        assert watch_rules.examine(WITH_HEADSET, later) == Decision(Action.NOTHING)
 
 
 class TestBeforeStarting:
@@ -188,6 +244,33 @@ class TestChoosingTheFallbackMic:
     def test_the_aggregate_is_never_offered_even_alone(self) -> None:
         assert advised_mic(Hardware((AGGREGATED, BLACKHOLE)), "Casque absent") == ""
 
+    @given(order=st.permutations([BLACKHOLE, REALTEK, BUILT_IN_MIC, AGGREGATED]))
+    def test_the_choice_does_not_depend_on_the_order_the_system_lists_them(
+        self, order: list[Device]
+    ) -> None:
+        # CoreAudio lists devices in the order they were plugged in, which a
+        # meeting room reshuffles every day.
+        assert advised_mic(Hardware(tuple(order)), "Casque absent") == "Micro MacBook Pro"
+
+    @pytest.mark.parametrize(
+        "name", ["Micro MacBook Pro", "Built-in Microphone", "Microphone intégré", "Micro integre"]
+    )
+    def test_the_laptop_s_own_mic_yields_to_an_external_mono_mic_whatever_its_name(
+        self, name: str
+    ) -> None:
+        # macOS in French, macOS in English, Windows with and without the
+        # accent: the same mic, fifty centimetres from the mouth.
+        laptop = Device(name, "builtin:1", entries=1)
+        hardware = Hardware((BLACKHOLE, laptop, POLY, AGGREGATED))
+        assert advised_mic(hardware, "Casque absent") == "Poly Blackwire"
+
+    @pytest.mark.parametrize("name", ["BlackHole 2ch", "Loopback Audio", "Soundflower (2ch)"])
+    def test_a_software_loopback_is_never_a_mic_whatever_its_maker(self, name: str) -> None:
+        # Three virtual devices that carry the system output back in: none
+        # has ever been near a mouth.
+        loopback = Device(name, "virtual:1", entries=2, sorties=2)
+        assert advised_mic(Hardware((loopback, BUILT_IN_SPEAKERS)), "Casque absent") == ""
+
 
 class TestChoosingByListening:
     """A mic plugged in, recognised, turned up to the maximum, and silent all the same.
@@ -206,6 +289,7 @@ class TestChoosingByListening:
         )
         assert choice is not None
         assert choice.name == "Micro MacBook Pro"
+        assert choice.level_db == -58.6
         assert not choice.all_silent
 
     def test_the_mic_set_aside_is_kept_to_explain_it(self) -> None:
@@ -238,19 +322,64 @@ class TestChoosingByListening:
         assert choice is not None
         assert choice.name == "B" and not choice.all_silent
 
-    def test_blackhole_and_the_aggregate_are_never_listened_to(self) -> None:
-        from greffier.domain.devices import candidates_to_listen_to
+    def test_a_mic_exactly_at_the_floor_is_not_yet_silent(self) -> None:
+        # The floor is what a muted headset reads, not what a quiet room
+        # reads: a mic right on it is still capturing something.
+        choice = choose_by_listening({"Micro MacBook Pro": SILENT_FLOOR_DB})
+        assert choice is not None
+        assert not choice.all_silent
 
+    @given(
+        trials=st.dictionaries(
+            st.sampled_from(["Jabra EVOLVE 30 II", "Micro MacBook Pro", "Poly", "Micro de table"]),
+            st.floats(min_value=-100.0, max_value=0.0, allow_nan=False, allow_infinity=False),
+            min_size=1,
+        ),
+        headsets=st.frozensets(st.sampled_from(["Jabra EVOLVE 30 II", "Poly"])),
+    )
+    def test_every_mic_listened_to_is_kept_or_set_aside_once_with_its_level(
+        self, trials: dict[str, float], headsets: frozenset[str]
+    ) -> None:
+        # Whatever wins, the choice has to be explainable afterwards: the kept
+        # mic with the level that was measured on it, and every other mic
+        # named once among those set aside, with its own level.
+        choice = choose_by_listening(trials, headsets)
+        assert choice is not None
+        assert choice.level_db == trials[choice.name]
+        assert dict(choice.set_aside) == {n: db for n, db in trials.items() if n != choice.name}
+        assert len(choice.set_aside) == len(trials) - 1
+
+    def test_blackhole_and_the_aggregate_are_never_listened_to(self) -> None:
         candidates_ = candidates_to_listen_to(WITH_HEADSET, "Jabra EVOLVE 30 II")
         assert "BlackHole 2ch" not in candidates_
         assert "Reunion Entree" not in candidates_
 
     def test_the_preferred_mic_is_listened_to_first(self) -> None:
-        from greffier.domain.devices import candidates_to_listen_to
-
         assert candidates_to_listen_to(WITH_HEADSET, "Micro MacBook Pro")[0] == (
             "Micro MacBook Pro"
         )
+
+    @given(order=st.permutations([BLACKHOLE, REALTEK, BUILT_IN_MIC, POLY, JABRA_MIC, AGGREGATED]))
+    def test_the_preferred_mic_is_listened_to_first_wherever_the_system_lists_it(
+        self, order: list[Device]
+    ) -> None:
+        # Where the system lists it must not matter: the sort alone decides.
+        candidates_ = candidates_to_listen_to(Hardware(tuple(order)), "Micro MacBook Pro")
+        assert candidates_[0] == "Micro MacBook Pro"
+        assert candidates_.count("Micro MacBook Pro") == 1
+
+    def test_a_preferred_mic_that_is_unplugged_is_simply_not_listened_to(self) -> None:
+        assert candidates_to_listen_to(WITHOUT_HEADSET, "Jabra EVOLVE 30 II") == [
+            "Micro MacBook Pro"
+        ]
+
+    def test_the_order_of_listening_follows_the_shape_of_a_headset_mic(self) -> None:
+        # The preferred one first, then the external mono mics, the shape of a
+        # headset, then the rest, the laptop's own mic last.
+        hardware = Hardware((BLACKHOLE, REALTEK, BUILT_IN_MIC, POLY, JABRA_MIC, AGGREGATED))
+        assert candidates_to_listen_to(hardware, "Jabra EVOLVE 30 II") == [
+            "Jabra EVOLVE 30 II", "Poly Blackwire", "Realtek USB2.0 Audio", "Micro MacBook Pro",
+        ]
 
 
 class TestAHeadsetWins:
@@ -301,6 +430,21 @@ class TestAHeadsetWins:
         """
         assert "Haut-parleurs MacBook Pro" not in headsets_among(self.HARDWARE)
 
+    def test_a_mono_mic_with_nothing_playing_back_under_its_name_is_not_a_headset(self):
+        """A desk USB mic captures on one channel too; nothing plays back under its name,
+        and it sits as far from the mouth as the laptop's.
+        """
+        desk = Device("Micro de table", "table:1", entries=1)
+        assert "Micro de table" not in headsets_among(Hardware((BUILT_IN_MIC, desk)))
+
+    def test_a_headset_with_a_mono_earpiece_is_still_a_headset(self):
+        """Call-centre headsets play back on one channel: one earpiece, one channel."""
+        hardware = Hardware((
+            Device("Plantronics C3210", "plantronics:1", entries=1),
+            Device("Plantronics C3210", "plantronics:2", sorties=1),
+        ))
+        assert headsets_among(hardware) == frozenset({"Plantronics C3210"})
+
     def test_the_headset_wins_even_when_quieter(self):
         trials = {"Micro MacBook Pro": -49.0, "Jabra EVOLVE 30 II": -68.0}
         choice = choose_by_listening(trials, headsets_among(self.HARDWARE))
@@ -327,7 +471,8 @@ class TestAHeadsetWins:
         trials = {"Micro MacBook Pro": -49.0, "Jabra EVOLVE 30 II": -68.0}
         choice = choose_by_listening(trials, headsets_among(self.HARDWARE))
         assert choice is not None
-        assert ("Micro MacBook Pro", -49.0) in choice.set_aside
+        assert choice.set_aside == (("Micro MacBook Pro", -49.0),)
+        assert choice.level_db == -68.0
 
     def test_all_silent_looks_at_what_was_really_captured(self):
         """Preferring a muted headset must not hide that nothing is capturing."""

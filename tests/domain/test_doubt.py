@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from hypothesis import given
+from hypothesis import strategies as st
+
 from greffier.domain.doubt import (
     MARK,
     UNSURE_BELOW,
@@ -17,6 +20,19 @@ from greffier.domain.models import Span, Utterance
 def said(start: float, text: str, confidence: float | None) -> Utterance:
     return Utterance(span=Span(start, start + 2), text=text, voice="v1",
                      confidence=confidence)
+
+
+def a_share() -> st.SearchStrategy[float]:
+    return st.floats(min_value=0.0, max_value=1.0, allow_nan=False, allow_infinity=False)
+
+
+@st.composite
+def some_turns(draw) -> list[Utterance]:
+    """Turns in any order, some of them never judged by the engine."""
+    confidences = draw(st.lists(st.one_of(st.none(), a_share()), max_size=12))
+    starts = draw(st.permutations(range(len(confidences))))
+    return [said(3.0 * start, f"tour {start}", confidence)
+            for start, confidence in zip(starts, confidences, strict=True)]
 
 
 class TestWhatCountsAsDoubt:
@@ -35,6 +51,16 @@ class TestWhatCountsAsDoubt:
         # Clean speech and +10 dB came back at 0.91 and above, +5 dB and worse
         # at 0.81 and below. Nothing was observed between the two.
         assert 0.81 < UNSURE_BELOW < 0.91
+
+    def test_exactly_at_the_threshold_a_turn_is_not_doubtful(self) -> None:
+        # The threshold is the floor of the sure regime, not the ceiling of
+        # the doubtful one: a figure at the floor is kept.
+        assert not is_unsure(said(0, "la recette est prête", UNSURE_BELOW))
+        assert is_unsure(said(0, "la recette est prête", UNSURE_BELOW - 0.001))
+
+    @given(a_share(), a_share())
+    def test_the_threshold_asked_is_the_one_applied(self, confidence, below) -> None:
+        assert is_unsure(said(0, "oui", confidence), below) is (confidence < below)
 
 
 class TestCountingThem:
@@ -55,6 +81,21 @@ class TestCountingThem:
             said(9, "tard", 0.5), said(1, "tôt", 0.5), said(5, "entre", 0.95),
         ])
         assert [u.text for u in turns] == ["tôt", "tard"]
+
+    @given(some_turns(), a_share())
+    def test_the_count_and_the_list_agree_on_the_threshold_asked(self, turns, below) -> None:
+        """The list holds the judged turns under the threshold and no other,
+        earliest first; the count reports that list out of the judged turns."""
+        listed = worth_listening_again(turns, below)
+        left_out = [u for u in turns if u not in listed]
+        assert all(u.confidence is not None and u.confidence < below for u in listed)
+        assert all(u.confidence is None or u.confidence >= below for u in left_out)
+        assert [u.span.start for u in listed] == sorted(u.span.start for u in listed)
+        account = count(turns, below)
+        assert account.turns == len(turns)
+        assert account.unsure == len(listed)
+        assert account.judged == len(listed) + sum(
+            1 for u in left_out if u.confidence is not None)
 
 
 class TestWhenItIsWorthSaying:

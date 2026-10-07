@@ -190,9 +190,6 @@ def candidates_to_listen_to(hardware: Hardware, preferred: str) -> list[str]:
         p.name for p in hardware.mics
         if not _is_loopback(p.name) and not _is_aggregated(p)
     ]
-    if preferred and preferred in useful_ones:
-        useful_ones.remove(preferred)
-        useful_ones.insert(0, preferred)
     return sorted(
         useful_ones,
         key=lambda name: (

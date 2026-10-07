@@ -7,9 +7,12 @@ import io
 from itertools import pairwise
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from greffier.domain.export import (
     LINE_WIDTH,
+    LINES_PER_BLOCK,
     blocks_of,
     rendered,
     sheet,
@@ -25,6 +28,15 @@ def said(start: float, end: float, text: str, voice: str = "v1") -> Utterance:
 
 
 NAMES = {"v1": "Sophie", "v2": "Julien"}
+
+# Words as a transcriber writes them, letters only so that `split()` gives
+# them back whole, and never longer than the narrowest line asked for below.
+WORDS = st.lists(
+    st.text(alphabet="abcdefghijklmnopqrstuvwxyzéèàç'", min_size=1, max_size=12),
+    min_size=1,
+    max_size=40,
+)
+WIDTHS = st.integers(min_value=12, max_value=60)
 
 
 class TestCuttingALineForAScreen:
@@ -45,6 +57,18 @@ class TestCuttingALineForAScreen:
 
     def test_nothing_said_is_no_block(self) -> None:
         assert blocks_of([said(0, 1, "   ")]) == []
+
+    @given(words=WORDS, width=WIDTHS)
+    def test_a_line_takes_every_word_that_fits_and_not_one_more(
+        self, words: list[str], width: int
+    ) -> None:
+        # Greedy on both sides: a word that still fits is never pushed to the
+        # next line, and a line never passes the width by one character.
+        lines = wrap(" ".join(words), width)
+        assert all(len(line) <= width for line in lines)
+        assert " ".join(lines) == " ".join(words)
+        for line, following in pairwise(lines):
+            assert len(line) + 1 + len(following.split()[0]) > width
 
 
 class TestSharingATurnBetweenBlocks:
@@ -71,6 +95,19 @@ class TestSharingATurnBetweenBlocks:
         chunks = blocks_of([said(9, 10, "après"), said(1, 2, "avant")])
         assert [b.text for b in chunks] == ["avant", "après"]
 
+    @given(words=WORDS, width=WIDTHS)
+    def test_the_blocks_carry_each_wrapped_line_once_two_at_a_time(
+        self, words: list[str], width: int
+    ) -> None:
+        text = " ".join(words)
+        chunks = blocks_of([said(0, 10, text)], width=width)
+        assert [line for block in chunks for line in block.lines] == wrap(text, width)
+        assert all(1 <= len(block.lines) <= LINES_PER_BLOCK for block in chunks)
+
+    def test_a_turn_with_nothing_said_does_not_end_the_subtitles(self) -> None:
+        chunks = blocks_of([said(0, 1, "avant"), said(2, 3, "   "), said(4, 5, "après")])
+        assert [b.text for b in chunks] == ["avant", "après"]
+
 
 class TestSubtitlesAPlayerReads:
     def test_the_shape_srt_expects(self) -> None:
@@ -83,10 +120,33 @@ class TestSubtitlesAPlayerReads:
         assert numbers == ["1", "2"]
 
     def test_a_voice_nobody_named_carries_no_prefix(self) -> None:
-        assert "Sophie" not in srt([said(0, 1, "D'accord.", voice="v9")], NAMES)
+        output_ = srt([said(0, 1, "D'accord.", voice="v9")], NAMES)
+        assert output_ == "1\n00:00:00,000 --> 00:00:01,000\nD'accord.\n"
 
     def test_past_an_hour_the_clock_still_holds(self) -> None:
-        assert "01:00:01,000" in srt([said(3601, 3602, "encore")], NAMES)
+        assert "01:00:01,000 --> 01:00:02,000" in srt([said(3601, 3602, "encore")], NAMES)
+
+    @given(
+        hours=st.integers(min_value=0, max_value=99),
+        minutes=st.integers(min_value=0, max_value=59),
+        seconds=st.integers(min_value=0, max_value=59),
+        thousandths=st.integers(min_value=0, max_value=999),
+    )
+    def test_the_clock_reads_hours_minutes_seconds_and_thousandths(
+        self, hours: int, minutes: int, seconds: int, thousandths: int
+    ) -> None:
+        moment = hours * 3600 + minutes * 60 + seconds + thousandths / 1000
+        timing = srt([said(moment, moment + 1, "oui")]).splitlines()[1]
+        expected = f"{hours:02d}:{minutes:02d}:{seconds:02d},{thousandths:03d} -->"
+        assert timing.startswith(expected)
+
+    def test_below_a_second_the_thousandths_are_still_written(self) -> None:
+        assert "00:00:00,500 --> 00:00:01,900" in srt([said(0.5, 1.9, "oui")])
+
+    def test_a_moment_before_the_recording_began_reads_as_zero(self) -> None:
+        # SRT has no negative time: a span placed before zero is clamped
+        # rather than refused, and the file still opens.
+        assert "00:00:00,000 --> 00:00:01,000" in srt([said(-0.5, 1, "oui")])
 
     def test_a_millisecond_that_rounds_up_does_not_make_a_thousand(self) -> None:
         assert "00:00:02,000" in srt([said(0, 1.9996, "oui")], NAMES)
@@ -101,6 +161,17 @@ class TestSubtitlesABrowserReads:
 
     def test_the_speaker_is_a_tag_and_not_more_text_to_read(self) -> None:
         assert "<v Sophie>oui" in vtt([said(0, 1, "oui")], NAMES)
+
+    def test_the_shape_a_browser_expects(self) -> None:
+        # The header, one blank line, then each cue: its timing above its text.
+        assert vtt([said(1.5, 3.25, "oui")], NAMES) == (
+            "WEBVTT\n\n00:00:01.500 --> 00:00:03.250\n<v Sophie>oui\n"
+        )
+
+    def test_a_voice_nobody_named_gets_no_tag(self) -> None:
+        assert vtt([said(0, 1, "oui", voice="v9")], NAMES) == (
+            "WEBVTT\n\n00:00:00.000 --> 00:00:01.000\noui\n"
+        )
 
 
 class TestOneLinePerTurnForASpreadsheet:
@@ -120,14 +191,45 @@ class TestOneLinePerTurnForASpreadsheet:
         ))
         assert lines[1][-1] == "oui ; non"
 
+    def test_the_turns_come_out_in_time_order(self) -> None:
+        lines = list(csv.reader(
+            io.StringIO(sheet([said(9, 10, "après"), said(1, 2, "avant")])), delimiter=";"
+        ))
+        assert [line[-1] for line in lines[1:]] == ["avant", "après"]
+
+    def test_a_turn_without_a_voice_leaves_voice_and_name_empty(self) -> None:
+        nobody = Utterance(span=Span(0, 1), text="oui")
+        lines = list(csv.reader(io.StringIO(sheet([nobody], NAMES)), delimiter=";"))
+        assert lines[1][3:5] == ["", ""]
+
+    def test_a_voice_nobody_named_leaves_the_name_column_empty(self) -> None:
+        lines = list(csv.reader(
+            io.StringIO(sheet([said(0, 1, "oui", voice="v9")], NAMES)), delimiter=";"
+        ))
+        assert lines[1][3:5] == ["v9", ""]
+
+    def test_the_lines_end_without_a_carriage_return(self) -> None:
+        # csv's default is the Windows pair; the file ends its lines the way
+        # the subtitles and the minutes do.
+        output_ = sheet([said(0, 1, "oui"), said(2, 3, "non")])
+        assert "\r" not in output_
+        assert output_.endswith("non\n")
+
 
 class TestAskingForAShape:
     @pytest.mark.parametrize("shape", ["srt", "vtt", "csv"])
     def test_each_known_shape_produces_something(self, shape: str) -> None:
         assert rendered(shape, [said(0, 1, "oui")], NAMES).strip()
 
+    @pytest.mark.parametrize(("shape", "mark"), [
+        ("srt", "Sophie : oui"), ("vtt", "<v Sophie>oui"), ("csv", ";v1;Sophie;"),
+    ])
+    def test_the_names_reach_every_shape(self, shape: str, mark: str) -> None:
+        assert mark in rendered(shape, [said(0, 1, "oui")], NAMES)
+
     def test_an_unknown_shape_says_which_ones_exist(self) -> None:
-        with pytest.raises(ValueError, match="srt"):
+        expected = r"^format inconnu : docx \(connus : srt, vtt, csv\)$"
+        with pytest.raises(ValueError, match=expected):
             rendered("docx", [said(0, 1, "oui")], NAMES)
 
     def test_a_meeting_with_nothing_said_produces_a_file_all_the_same(self) -> None:
@@ -174,6 +276,12 @@ class TestNamingTheSpeakerWithoutRepeatingOneself:
         output_ = vtt([said(0, 30, " ".join(["mot"] * 60), voice="v2")], NAMES)
         assert output_.count("<v Julien>") == output_.count("-->")
         assert "Julien :" not in output_
+
+    def test_a_voice_nobody_named_leaves_who_empty(self) -> None:
+        # Empty rather than None: `who` is a string, and whoever renders a
+        # block prints it as it is.
+        chunks = blocks_of([said(0, 1, "oui", voice="v9")], NAMES)
+        assert chunks[0].who == ""
 
 
 class TestHowSureTheModelWas:

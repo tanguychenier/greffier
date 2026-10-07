@@ -356,7 +356,10 @@ def doubtful_entry(
     own_score = _score(new_one, known[vise]) if vise in known else -1.0
     if best < RECOGNITION_THRESHOLD or best - own_score < margin:
         return ""
-    if own_score < 0:
+    # The bank decides which sentence, not the sign of the score: a cosine is
+    # in [-1, 1], and a known name whose voiceprint sits opposite is still a
+    # known name, to be weighed against, not announced as a second entry.
+    if vise not in known:
         return (
             f"Cette voix ressemble à {who} ({best:.2f}), déjà en banque. "
             f"Si c'est bien {who}, nomme-la ainsi : deux entrées pour la même "

@@ -211,7 +211,7 @@ class StoredMeeting:
     def gaps(self, minimum: float = 5.0) -> list[Span]:
         """Passages of at least `minimum` seconds without a single utterance."""
         if not self.utterances:
-            return [Span(0.0, self.duration)] if self.duration > minimum else []
+            return [Span(0.0, self.duration)] if self.duration >= minimum else []
         missing_ones: list[Span] = []
         ordered = sorted(self.utterances, key=lambda r: r.span.start)
         previous = 0.0

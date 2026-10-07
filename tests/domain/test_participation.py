@@ -2,7 +2,12 @@
 
 from typing import ClassVar
 
+from hypothesis import given
+from hypothesis import strategies as st
+
 from greffier.domain.participation import (
+    MAXIMUM_DENSITY,
+    MEMORY_OF_A_CALL,
     MINIMUM_LULL,
     Because,
     Manners,
@@ -11,6 +16,7 @@ from greffier.domain.participation import (
     is_own,
     is_the_same_call,
     own_words,
+    question_asked,
     speech_density,
     split_at_the_name,
     without_own_name,
@@ -19,6 +25,14 @@ from greffier.domain.participation import (
 
 def opening(because=Because.CONTRIBUTION, remark="…", born_at=0.0, subject=""):
     return Opening(because=because, remark=remark, born_at=born_at, subject=subject)
+
+
+# A moment of a two-hour meeting, and a turn as the detector reports one: two
+# moments, the earlier first.
+MOMENTS = st.floats(min_value=0.0, max_value=7200.0, allow_nan=False, allow_infinity=False)
+TURNS = st.lists(
+    st.tuples(MOMENTS, MOMENTS).map(lambda pair: (min(pair), max(pair))), max_size=20
+)
 
 
 class TestNeverCuttingIn:
@@ -43,6 +57,15 @@ class TestNeverCuttingIn:
                                 density=0.95)
         assert refusal == "la discussion est trop dense"
 
+    def test_a_density_right_at_the_ceiling_still_lets_it_speak(self):
+        manners = Manners()
+        at_the_ceiling = manners.refusal(opening(born_at=95.0), now=100.0, lull=3.0,
+                                         density=MAXIMUM_DENSITY)
+        just_over = manners.refusal(opening(born_at=95.0), now=100.0, lull=3.0,
+                                    density=MAXIMUM_DENSITY + 0.01)
+        assert at_the_ceiling is None
+        assert just_over == "la discussion est trop dense"
+
 
 class TestNeverComingBackTooOften:
     def test_it_rests_after_speaking(self):
@@ -63,6 +86,23 @@ class TestNeverComingBackTooOften:
         manners.has_spoken(opening(), now=0.0)
         the_call = opening(because=Because.CALLED, born_at=10.0)
         assert manners.refusal(the_call, now=10.0, lull=0.0, density=1.0) is None
+
+    @given(spoke_at=st.integers(min_value=0, max_value=36_000),
+           elapsed=st.integers(min_value=0, max_value=179))
+    def test_the_refusal_counts_the_rest_down_to_the_second(self, spoke_at, elapsed):
+        """Late in the meeting as at its start: what counts is how long ago."""
+        manners = Manners(rest=180.0)
+        manners.has_spoken(opening(), now=float(spoke_at))
+        now = float(spoke_at + elapsed)
+        assert manners.refusal(opening(born_at=now), now=now, lull=5.0) == (
+            f"il vient de parler, encore {180 - elapsed} s de repos")
+
+    def test_the_rest_ends_at_the_second_it_is_up(self):
+        manners = Manners(rest=180.0)
+        manners.has_spoken(opening(), now=100.0)
+        assert manners.refusal(opening(born_at=279.0), now=279.0, lull=5.0) == (
+            "il vient de parler, encore 1 s de repos")
+        assert manners.refusal(opening(born_at=280.0), now=280.0, lull=5.0) is None
 
 
 class TestNeverRepeatingItself:
@@ -93,6 +133,18 @@ class TestNeverRepeatingItself:
         again = opening(because=Because.CALLED, subject="appel:abc", born_at=300.0)
         assert manners.refusal(again, now=300.0, lull=9.0) is None
 
+    def test_a_subject_nobody_has_dealt_with_is_not_already_said(self):
+        manners = Manners()
+        fresh = opening(subject="qui-parle-voix-3", born_at=10.0)
+        assert manners.refusal(fresh, now=10.0, lull=5.0) is None
+
+    def test_thirty_seconds_to_the_second_the_call_is_still_the_same(self):
+        manners = Manners()
+        manners.has_spoken(opening(because=Because.CALLED, subject="appel:abc"), now=100.0)
+        again = opening(because=Because.CALLED, subject="appel:abc", born_at=130.0)
+        assert manners.refusal(again, now=100.0 + MEMORY_OF_A_CALL, lull=9.0) == "déjà dit"
+        assert manners.refusal(again, now=100.5 + MEMORY_OF_A_CALL, lull=9.0) is None
+
 
 class TestNeverServingSomethingCold:
     def test_a_stale_opening_is_dropped(self):
@@ -106,6 +158,12 @@ class TestNeverServingSomethingCold:
         manners = Manners()
         the_call = opening(because=Because.CALLED, born_at=10.0)
         assert manners.refusal(the_call, now=500.0, lull=0.0) is None
+
+    def test_an_opening_exactly_as_old_as_the_limit_is_still_served(self):
+        manners = Manners(staleness=90.0)
+        assert manners.refusal(opening(born_at=10.0), now=100.0, lull=5.0) is None
+        assert manners.refusal(opening(born_at=10.0), now=100.5, lull=5.0) == (
+            "la conversation est passée à autre chose")
 
 
 class TestChoosingWhatToSay:
@@ -146,6 +204,11 @@ class TestChoosingWhatToSay:
         )
         assert retained is not None and retained.remark == "oui ?"
 
+    def test_a_dense_discussion_leaves_nothing_to_choose(self):
+        """The density reaches `refusal` through `choose`: one rule, judged once."""
+        manners = Manners()
+        assert manners.choose([opening(born_at=10.0)], now=12.0, lull=5.0, density=0.95) is None
+
 
 class TestTheButton:
     def test_switched_off_it_says_nothing_at_all(self):
@@ -182,6 +245,28 @@ class TestHowDenseTheTalkIs:
 
     def test_a_turn_astride_counts_only_for_its_share(self):
         assert speech_density([(50.0, 70.0)], now=60.0, window=60.0) == 10.0 / 60.0
+
+    def test_at_the_very_start_there_is_nothing_to_measure(self):
+        assert speech_density([], now=0.0) == 0.0
+
+    def test_younger_than_its_window_the_meeting_is_judged_on_what_it_has(self):
+        assert speech_density([(0.0, 0.5)], now=0.5) == 1.0
+
+    def test_a_full_minute_late_in_the_meeting_is_still_worth_one(self):
+        assert speech_density([(300.0, 360.0)], now=360.0) == 1.0
+
+    def test_a_turn_that_ended_before_the_window_counts_for_nothing(self):
+        assert speech_density([(0.0, 10.0)], now=300.0) == 0.0
+
+    def test_the_window_is_a_minute_and_a_second_past_it_is_forgotten(self):
+        assert speech_density([(0.0, 1.0)], now=61.0) == 0.0
+
+    def test_two_voices_at_once_do_not_make_more_than_a_full_minute(self):
+        assert speech_density([(0.0, 60.0), (0.0, 60.0)], now=60.0) == 1.0
+
+    @given(turns=TURNS, now=MOMENTS)
+    def test_the_density_is_a_share_between_nothing_and_everything(self, turns, now):
+        assert 0.0 <= speech_density(turns, now) <= 1.0
 
 
 class TestWhatTheSettingGuarantees:
@@ -277,6 +362,12 @@ class TestItMustNotHearItself:
             self._its_own_words("Qui prend en charge la migration ?"),
         )
 
+    def test_three_words_in_five_are_enough(self):
+        """Six in ten is the share, and three in five is exactly that."""
+        its_own = self._its_own_words(
+            "La recette est prête depuis lundi, il manque la signature du prestataire.")
+        assert is_own("recette prête lundi bureau mardi", its_own)
+
 
 class TestItsOwnNameNeverLeavesItsMouth:
     """The hard guarantee, and the one that cuts the loop at the root.
@@ -333,6 +424,15 @@ class TestItsOwnNameNeverLeavesItsMouth:
             remaining = without_own_name(question, "Lucie")
             assert not called_by_name(remaining, "Lucie"), remaining
 
+    def test_a_short_name_does_not_swallow_a_word_two_edits_away(self):
+        """"huit" is two edits from "Hugo": on four letters, half the word."""
+        assert without_own_name("il reste huit jours", "Hugo") == "il reste huit jours"
+        assert without_own_name("Hugho, tu m'entends ?", "Hugo") == "tu m'entends ?"
+
+    def test_the_comma_the_name_leaves_behind_closes_up(self):
+        assert without_own_name("Dis-moi Lucie, on décale ?", "Lucie") == "Dis-moi, on décale ?"
+        assert without_own_name("Merci Lucie. On décale.", "Lucie") == "Merci. On décale."
+
 
 class TestItOnlyAnswersToItsOwnName:
     """It spoke up believing it had been called, and made the room look foolish.
@@ -379,6 +479,13 @@ class TestItOnlyAnswersToItsOwnName:
         costs nothing."""
         assert "uc" not in without_own_name("Lucy, je regarde.", "Lucie").lower()
 
+    def test_the_tolerance_is_a_quarter_of_the_name(self):
+        """Four letters allow one edit and eight allow two: a quarter, not a fifth."""
+        assert called_by_name("Hugho, tu es là ?", "Hugo")
+        assert not called_by_name("Hughos, tu es là ?", "Hugo")
+        assert called_by_name("Jonatane, tu es là ?", "Jonathan")
+        assert not called_by_name("Jonatanes, tu es là ?", "Jonathan")
+
 
 class TestTheQuestionIsWhatFollowsTheName:
     """With the slice ending at a quiet moment, « …en fin de journée. Lucie, à
@@ -405,6 +512,26 @@ class TestTheQuestionIsWhatFollowsTheName:
 
     def test_without_the_name_the_whole_sentence_is_the_question(self):
         assert split_at_the_name("on décale ?", "Lucie") == ("", "on décale ?")
+
+    def test_an_empty_name_cuts_nowhere(self):
+        """Every one-letter word is one edit from nothing: « il y a un souci »
+        was cut at its « a », and « il y » given as context."""
+        for name in ("", "   "):
+            assert split_at_the_name("il y a un souci", name) == ("", "il y a un souci")
+
+    def test_the_mark_that_opens_the_question_is_not_lost_with_the_name(self):
+        # Guillemets are not among the marks the tidying strips: dropped with
+        # the name, the opening one would leave its closing one alone.
+        assert split_at_the_name("Lucie « on décale ? »", "Lucie") == ("", "« on décale ? »")
+
+    def test_a_line_break_or_a_double_space_becomes_one_space(self):
+        before, asked = split_at_the_name("en fin de  journée. Lucie, à quel\njour ?", "Lucie")
+        assert (before, asked) == ("en fin de journée.", "à quel jour ?")
+
+    def test_a_space_before_a_comma_is_closed_up_on_both_sides(self):
+        before, asked = split_at_the_name(
+            "en fin de journée , Lucie, à quel jour , dis-moi ?", "Lucie")
+        assert (before, asked) == ("en fin de journée,", "à quel jour, dis-moi ?")
 
 
 class TestTheSameQuestionHeardTwice:
@@ -434,3 +561,61 @@ class TestTheSameQuestionHeardTwice:
 
     def test_a_question_with_no_word_to_judge_is_never_the_same(self):
         assert not is_the_same_call("et ?", self.RECENT, 15.0)
+
+    def test_thirty_seconds_to_the_second_it_is_still_the_same_question(self):
+        assert is_the_same_call("c'est quoi une pré-production ?", self.RECENT,
+                                now=10.0 + MEMORY_OF_A_CALL)
+
+    @given(asked_at=st.integers(min_value=0, max_value=36_000),
+           delay=st.integers(min_value=0, max_value=30))
+    def test_only_the_delay_counts_not_the_hour_of_the_meeting(self, asked_at, delay):
+        recent = [(float(asked_at), self.RECENT[0][1])]
+        assert is_the_same_call("c'est quoi une pré-production ?", recent,
+                                now=float(asked_at + delay))
+
+    def test_a_stale_call_before_the_fresh_one_does_not_hide_it(self):
+        recent = [(0.0, own_words("à quel jour est décalée la recette ?")), *self.RECENT]
+        assert is_the_same_call("c'est quoi une pré-production ?", recent, now=35.0)
+
+    def test_three_words_in_five_are_enough(self):
+        asked = own_words("quand livrons recette client final")
+        assert is_the_same_call("quand livrons recette bureau mardi", [(10.0, asked)], now=15.0)
+
+    def test_one_word_in_common_is_another_question(self):
+        assert not is_the_same_call("c'est quoi la recette ?", self.RECENT, now=15.0)
+
+
+class TestWhatIsAskedOnceTheNameIsOut:
+    """The fallback when nothing follows the name: « Dis-moi Lucie » asks
+    « Dis-moi ». The name goes wherever it stands and however it was spelt,
+    and what is left still reads as a sentence."""
+
+    def test_the_name_goes_wherever_it_stands(self):
+        assert question_asked("Lucie, tu as compris le sujet Lucie ?", "Lucie") == (
+            "tu as compris le sujet ?")
+
+    def test_a_name_that_ends_the_sentence_leaves_the_question_before_it(self):
+        assert question_asked("Dis-moi Lucie", "Lucie") == "Dis-moi"
+        assert question_asked("Tu peux regarder ça Lucie ?", "Lucie") == "Tu peux regarder ça ?"
+
+    def test_a_mangled_name_goes_too(self):
+        assert question_asked("Lucy, on décale ?", "Lucie") == "on décale ?"
+
+    def test_a_name_typed_with_a_stray_space_is_still_the_name(self):
+        """The settings field keeps what was typed, trailing space included."""
+        assert question_asked("Lucy, on décale ?", " Lucie ") == "on décale ?"
+
+    def test_the_comma_the_name_leaves_behind_closes_up(self):
+        assert question_asked("Dis-moi Lucie, on décale ?", "Lucie") == "Dis-moi, on décale ?"
+
+    def test_without_the_name_the_sentence_is_the_question(self):
+        assert question_asked("on décale ?", "Lucie") == "on décale ?"
+
+    def test_an_empty_name_takes_nothing_out(self):
+        """Same cause as the cut: « il y a un souci » came back « il un souci »."""
+        for name in ("", "   "):
+            assert question_asked("il y a un souci", name) == "il y a un souci"
+
+    def test_it_agrees_with_the_split_when_the_name_opens_the_sentence(self):
+        for text in ("Lucie, à quel jour est décalée la recette ?", "Lucy, on décale ?"):
+            assert question_asked(text, "Lucie") == split_at_the_name(text, "Lucie")[1]

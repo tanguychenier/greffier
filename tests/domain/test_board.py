@@ -36,6 +36,9 @@ class TestRecognisingTheSamePoint:
     def test_empty_words_are_dropped_when_meaning_remains(self):
         assert key("le déploiement") == key("déploiement")
 
+    def test_the_key_is_the_carrying_words_in_alphabetical_order(self):
+        assert key("recette externalisée") == "externalisee recette"
+
 
 class TestJoiningAContribution:
     def test_a_new_point_is_added(self):
@@ -49,6 +52,8 @@ class TestJoiningAContribution:
         join(board, [Contribution("Le PDF ne se régénère pas")])
         summary = join(board, [Contribution("le pdf ne se regenere pas")])
         assert summary.added == ()
+        assert summary.settled == ()
+        assert summary.known == ("Le PDF ne se régénère pas",)
         assert board.count == 2, "la reformulation ne crée pas une seconde branche"
 
     def test_a_lead_hangs_under_its_problem(self):
@@ -88,6 +93,21 @@ class TestJoiningAContribution:
     def test_an_empty_contribution_is_ignored(self):
         board = Board("Oasis")
         assert join(board, [Contribution("   ")]).empty
+
+    def test_an_empty_contribution_does_not_hide_the_ones_after_it(self):
+        board = Board("Oasis")
+        summary = join(board, [Contribution("   "), Contribution("Un point")])
+        assert summary.added == ("Un point",)
+
+    def test_with_no_meeting_named_a_point_carries_none(self):
+        """Not even an empty one: the list is read back as the meetings it came from."""
+        board = Board("Oasis")
+        join(board, [Contribution("Un point")])
+        join(board, [Contribution("Un point")])
+        assert board.root is not None
+        node = board.root.child("Un point")
+        assert node is not None
+        assert node.meetings == []
 
 
 class TestStandings:
@@ -142,6 +162,18 @@ class TestStandings:
         join(board, [Contribution("Un souci", kind=Kind.PROBLEM)])
         assert mark_overdue(board, "Un souci") is True
 
+    def test_a_point_said_again_without_a_decision_is_not_settled(self):
+        """Repeating a lead is not deciding it."""
+        board = Board("Oasis")
+        join(board, [Contribution("Monter la recette", kind=Kind.LEAD)])
+        summary = join(board, [Contribution("Monter la recette", kind=Kind.LEAD)])
+        assert summary.settled == ()
+        assert summary.known == ("Monter la recette",)
+        assert board.root is not None
+        node = board.root.child("Monter la recette")
+        assert node is not None
+        assert node.state is Standing.UNDER_DISCUSSION
+
     def test_a_decision_does_not_go_back_to_a_discussion(self):
         """« Acté » turning back into « en discussion » would cast doubt on everything."""
         board = Board("Oasis")
@@ -179,6 +211,14 @@ class TestNothingEverDisappears:
         earlier = board.count
         join(board, [Contribution("D")])
         assert board.count == earlier + 1, "rien n'a été remplacé"
+
+
+class TestTheRootOfABoard:
+    def test_the_subject_is_the_root_agreed_and_of_its_own_kind(self):
+        """A subject is neither a lead nor a problem: it is what the board is about."""
+        root = Board("Oasis").root
+        assert root is not None
+        assert (root.text, root.kind, root.state) == ("Oasis", Kind.SUBJECT, Standing.AGREED)
 
 
 class TestCountingTheNodes:
@@ -252,3 +292,28 @@ class TestTheSamePointSaidTwice:
         from greffier.domain.board import same_point
 
         assert not same_point("prod", "prof")
+
+    def test_a_four_letter_word_is_never_brought_closer_to_a_longer_one(self):
+        """"test" and "texte" are two apart, and two different things."""
+        from greffier.domain.board import same_point
+
+        assert not same_point("le test", "le texte")
+
+    def test_a_five_letter_word_is_compared_give_or_take_its_ending(self):
+        """"piste" and "pistes": the comparison starts at five letters, not six."""
+        from greffier.domain.board import same_point
+
+        assert same_point("une piste", "des pistes")
+        assert same_point("des pistes", "une piste")
+
+    def test_two_endings_apart_is_still_the_same_word(self):
+        """"montées" and "monter" are two apart: one point, said as a fact then as a task."""
+        from greffier.domain.board import same_point
+
+        assert same_point("les recettes montées", "la recette à monter")
+
+    def test_a_blank_label_names_no_point(self):
+        from greffier.domain.board import same_point
+
+        assert not same_point("", "la recette")
+        assert not same_point("   ", "la recette")

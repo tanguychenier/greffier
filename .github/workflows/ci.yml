@@ -1,6 +1,7 @@
 # One job rather than three: the three checks take a few seconds each, and three
 # jobs would pay for three machine startups for the same result. Whichever step
-# fails shows up in the log.
+# fails shows up in the log. The mutants have a job of their own, because they
+# take minutes and not seconds.
 #
 # Every action is pinned to a commit, with the release it stands for in the
 # comment next to it: a tag can be moved after the fact, a commit cannot.
@@ -76,6 +77,48 @@ jobs:
       # rather than fail: no runner carries 1.7 GB of models.
       - name: Integration tests skip without models
         run: uv run pytest -m integration -v
+
+  mutants:
+    # A job of its own: the whole domain takes six to eight minutes on four
+    # cores, which must not hold the three checks above back; it blocks the
+    # pull request all the same.
+    name: The domain's surviving mutants stay under the budget
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    env:
+      # The number of mutants that survived on 2026-10-04, whole domain, judged
+      # by tests/domain: the budget sits on the measure so that a patch cannot
+      # leave a new survivor unnoticed. A ratchet, like the coverage floor: it
+      # only goes down, each time a commit kills survivors and says so, and it
+      # is never a target. Of the ones left, most are named equivalent in the
+      # commit that examined their module and the claims were re-read; a few
+      # are distinguishable only by inputs outside the module's contract.
+      SURVIVORS_BUDGET: "97"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: true
+          python-version: '3.14'
+
+      - name: Dependencies
+        run: uv sync --locked --group dev --extra api
+
+      # mutmut takes no argument: pyproject.toml names the domain as the source
+      # and tests/domain as the judge. It exits 0 whatever survives; the step
+      # that follows is the one that fails.
+      - name: mutmut
+        run: uv run mutmut run
+
+      # One line per mutant that was not killed, « name: survived » or
+      # « name: timeout »; a timeout is a loop that never ends and counts as a
+      # kill, as mutmut itself counts it.
+      - name: The survivors against the budget
+        run: |
+          uv run mutmut results | tee mutmut-results.txt
+          survived=$(grep -c ': survived$' mutmut-results.txt || true)
+          echo "$survived survived, budget $SURVIVORS_BUDGET"
+          test "$survived" -le "$SURVIVORS_BUDGET"
 
   audit:
     name: Known vulnerabilities in the dependencies
