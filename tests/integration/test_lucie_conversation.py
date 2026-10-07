@@ -328,9 +328,8 @@ class TestAWholeConversation:
         _a_turn(watcher, the_assistant, tmp_path)
         assert len(voice.said_ones) <= 1, voice.said_ones
 
-    def test_a_participant_restating_their_idea_is_heard(
-        self, transcriber, tmp_path
-    ):
+    @pytest.mark.usefixtures("transcriber")
+    def test_a_participant_restating_their_idea_is_heard(self):
         """The risk of the guard by words: taking a human for her."""
         from greffier.domain.participation import own_words
 

@@ -85,7 +85,7 @@ class TestTheFirstTurn:
 class TestPluggingInMidMeeting:
     def test_a_headset_plugged_in_rebuilds_then_resumes(self) -> None:
         recorder = FakeRecordingState()
-        v, said_ones, rebuilt_ones = hardware_watch([WITHOUT, WITH], recorder=recorder)
+        v, _said_ones, rebuilt_ones = hardware_watch([WITHOUT, WITH], recorder=recorder)
         v.turn()
         v.turn()
         assert rebuilt_ones == ["Jabra EVOLVE 30 II"]
@@ -102,9 +102,9 @@ class TestPluggingInMidMeeting:
         # Reopening on a stale aggregate would lose the current piece for nothing.
         order: list[str] = []
         recorder = FakeRecordingState()
-        recorder.resume_ = lambda because: order.append("reprise")  # type: ignore[method-assign]
+        recorder.resume_ = lambda _because: order.append("reprise")  # type: ignore[method-assign]
 
-        def rebuild(mic: str) -> bool:
+        def rebuild(_mic: str) -> bool:
             order.append("reconstruction")
             return True
 
@@ -122,7 +122,7 @@ class TestPluggingInMidMeeting:
 class TestWhenTheRebuildFails:
     def test_the_capture_is_not_cut(self) -> None:
         recorder = FakeRecordingState()
-        v, said_ones, _ = hardware_watch([WITHOUT, WITH], reconstruction=False, recorder=recorder)
+        v, _said_ones, _ = hardware_watch([WITHOUT, WITH], reconstruction=False, recorder=recorder)
         v.turn()
         v.turn()
         assert recorder.reprises == []
@@ -141,7 +141,7 @@ class TestWhenTheRebuildFails:
 class TestNoMicLeftAtAll:
     def test_the_tool_warns_without_opening_a_piece(self) -> None:
         recorder = FakeRecordingState()
-        v, said_ones, rebuilt_ones = hardware_watch(
+        v, _said_ones, rebuilt_ones = hardware_watch(
             [WITH, Hardware((BLACKHOLE,))], recorder=recorder
         )
         v.turn()
@@ -183,7 +183,7 @@ class TestACaptureThatStops:
     def test_with_no_way_to_measure_the_watch_keeps_its_old_job(self):
         """An unreadable size must not make it cry wolf."""
         recorder = FakeRecordingState()
-        v, said_ones, _ = hardware_watch([WITHOUT], recorder=recorder)
+        v, _said_ones, _ = hardware_watch([WITHOUT], recorder=recorder)
         v.captured_size = lambda: None
         for _ in range(8):
             v.turn()
@@ -266,7 +266,7 @@ class TestTheDiskFillingUp:
             def read(self):
                 raise OSError("pas d'état")
 
-            def resume_(self, because):
+            def resume_(self, _because):
                 return None
 
             def report(self, warning):

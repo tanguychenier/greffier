@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import stat
+import subprocess
 from pathlib import Path
 
 from greffier.adapters import accounts_file
@@ -118,7 +120,7 @@ class TestTheServersForTheModel:
 
 
 class TestSigningInByCode:
-    def test_the_address_and_the_code_are_read_off_the_server_s_words(self, tmp_path, monkeypatch):
+    def test_the_address_and_the_code_are_read_off_the_server_s_words(self, tmp_path):
         script = tmp_path / "server"
         script.write_text(
             "#!/bin/sh\necho 'To sign in, use a web browser to open the page "
@@ -139,5 +141,34 @@ class TestSigningInByCode:
             key="microsoft", name="M", manner=MICROSOFT.manner, powers=MICROSOFT.powers,
             server=MICROSOFT.server.__class__(command="no-such-command-here", args=()),
         )
-        assert not accounts_file.sign_in(service, lambda url, code: None)
+        assert not accounts_file.sign_in(service, lambda _url, _code: None)
         assert not accounts_file.signed_in(service)
+
+    def test_a_server_past_the_timeout_is_killed_then_reaped(self, monkeypatch):
+        """kill() alone leaves a zombie until the interpreter exits: wait() follows
+        it, and the pipe is closed whichever way sign_in leaves.
+        """
+        class NeverEnding:
+            def __init__(self) -> None:
+                self.stdout = io.StringIO("still waiting\n")
+                self.returncode = None
+                self.gestures: list[str] = []
+
+            def wait(self, timeout=None):
+                if timeout is not None:
+                    raise subprocess.TimeoutExpired("server", timeout)
+                self.gestures.append("wait")
+
+            def kill(self):
+                self.gestures.append("kill")
+
+        server = NeverEnding()
+        monkeypatch.setattr(accounts_file.shutil, "which", lambda _command: "/usr/bin/server")
+        monkeypatch.setattr(accounts_file.subprocess, "Popen", lambda *_args, **_options: server)
+        service = MICROSOFT.__class__(
+            key="microsoft", name="M", manner=MICROSOFT.manner, powers=MICROSOFT.powers,
+            server=MICROSOFT.server.__class__(command="server", args=()),
+        )
+        assert not accounts_file.sign_in(service, lambda _url, _code: None, timeout=0.01)
+        assert server.gestures == ["kill", "wait"]
+        assert server.stdout.closed

@@ -17,7 +17,7 @@ from greffier.adapters import system_diagnostic as diagnostic
 def a_clean_home(monkeypatch, tmp_path):
     from pathlib import Path
 
-    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
     return tmp_path
 
 
@@ -47,7 +47,8 @@ class TestReadingTheAccount:
         count = diagnostic.claude_account()
         assert count is not None and str(count) == "session ouverte"
 
-    def test_no_file_means_no_session(self, a_clean_home):
+    @pytest.mark.usefixtures("a_clean_home")
+    def test_no_file_means_no_session(self):
         assert diagnostic.claude_account() is None
 
     def test_a_damaged_file_does_not_bring_the_window_down(self, a_clean_home):

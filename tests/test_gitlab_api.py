@@ -33,7 +33,7 @@ class FakeGitLab:
         self.calls: list = []
         self.charge: object = []
 
-    def __call__(self, the_request, timeout=None):
+    def __call__(self, the_request, timeout=None):  # noqa: ARG002  # urlopen's keyword
         self.calls.append(the_request)
         return Response(json.dumps(self.charge).encode("utf-8"))
 
@@ -110,7 +110,8 @@ class TestReadingFromGitLab:
         gitlab_api.tickets(source(), "glpat-x", searched="envoi")
         assert "search=envoi" in gitlab.first_call.full_url
 
-    def test_reading_asks_for_no_write_right(self, gitlab):
+    @pytest.mark.usefixtures("gitlab")
+    def test_reading_asks_for_no_write_right(self):
         assert gitlab_api.tickets(source(Right.READING), "glpat-x") == []
 
     def test_the_merge_requests_read_too(self, gitlab):
@@ -121,20 +122,24 @@ class TestReadingFromGitLab:
 
 
 class TestWritingToGitLab:
-    def test_a_read_only_source_does_not_even_call(self, silent_server):
+    @pytest.mark.usefixtures("silent_server")
+    def test_a_read_only_source_does_not_even_call(self):
         with pytest.raises(gitlab_api.GitLabRefused, match="lecture seule"):
             gitlab_api.create_a_ticket(source(), "glpat-x", "Faire la chose")
 
-    def test_commenting_is_a_write(self, silent_server):
+    @pytest.mark.usefixtures("silent_server")
+    def test_commenting_is_a_write(self):
         """A comment notifies people and stays attached to their work."""
         with pytest.raises(gitlab_api.GitLabRefused, match="lecture seule"):
             gitlab_api.comment(source(), "glpat-x", 42, "vu")
 
-    def test_an_empty_title_is_refused(self, silent_server):
+    @pytest.mark.usefixtures("silent_server")
+    def test_an_empty_title_is_refused(self):
         with pytest.raises(gitlab_api.GitLabRefused):
             gitlab_api.create_a_ticket(source(Right.WRITING), "glpat-x", "  ")
 
-    def test_an_empty_comment_is_refused(self, silent_server):
+    @pytest.mark.usefixtures("silent_server")
+    def test_an_empty_comment_is_refused(self):
         with pytest.raises(gitlab_api.GitLabRefused):
             gitlab_api.comment(source(Right.WRITING), "glpat-x", 42, "   ")
 

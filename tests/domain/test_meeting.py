@@ -10,7 +10,7 @@ from greffier.domain.models import Span, SpeakerTurn
 def a_meeting(**overrides) -> StoredMeeting:
     defects = dict(
         identifier="2026-09-10_14h00_reunion",
-        audio=Path("/tmp/r.wav"),
+        audio=Path("/enregistrements/r.wav"),
         processed_at=datetime.now(UTC),
         duration=3878.0,
         utterances=[],

@@ -22,12 +22,13 @@ import argparse
 import pickle
 import statistics as stat
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from greffier.domain.models import Voiceprint  # noqa: E402
-from greffier.domain.voiceprints import aggregate, similarity  # noqa: E402
+from greffier.domain.models import Voiceprint
+from greffier.domain.voiceprints import aggregate, similarity
 
 #: Below this, an excerpt no longer resembles its own voice.
 FOREIGN = 0.50
@@ -37,7 +38,7 @@ ENOUGH_EXCERPTS = 12
 
 
 def cache_of(meeting: str) -> Path:
-    return Path("/tmp/greffier-empreintes") / f"{meeting}.pickle"
+    return Path(tempfile.gettempdir()) / "greffier-empreintes" / f"{meeting}.pickle"
 
 
 def coherence(voiceprints: list[Voiceprint]) -> list[float]:
@@ -59,7 +60,8 @@ def main() -> int:
               "meeting first.", file=sys.stderr)
         return 1
     try:
-        per_voice: dict[str, list[Voiceprint]] = pickle.loads(cache.read_bytes())
+        per_voice: dict[str, list[Voiceprint]] = pickle.loads(  # noqa: S301  # replay_stitching's
+            cache.read_bytes())
     except (pickle.UnpicklingError, ModuleNotFoundError, AttributeError, EOFError):
         print("Unreadable cache: run tools/replay_stitching.py on this meeting "
               "again, it will rebuild it.", file=sys.stderr)

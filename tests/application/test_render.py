@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import ClassVar
 
 from greffier.application import render
 from greffier.application.render import regenerate_minutes, render_transcript
@@ -12,7 +13,7 @@ from greffier.domain.models import Span, SpeakerTurn, Utterance, Voiceprint
 def a_meeting(**overrides) -> StoredMeeting:
     defects = dict(
         identifier="2026-08-24_reunion",
-        audio=Path("/tmp/r.wav"),
+        audio=Path("/enregistrements/r.wav"),
         processed_at=datetime.now(UTC),
         duration=100.0,
         utterances=[Utterance(Span(0, 40), "bonjour à tous", "1"),
@@ -158,15 +159,15 @@ class TestWhatIsNotPronounced:
         import pytest
 
         monkeypatch.setattr(render, "SYSTEM", "Linux")
-        monkeypatch.setattr(render.shutil, "which", lambda name: None)
+        monkeypatch.setattr(render.shutil, "which", lambda _name: None)
         with pytest.raises(RuntimeError, match="espeak-ng"):
             render.speak_aloud("Bonjour.", tmp_path / "lecture.m4a")
 
     def test_with_espeak_the_wav_is_written_where_asked(self, tmp_path, monkeypatch):
         monkeypatch.setattr(render, "SYSTEM", "Linux")
-        monkeypatch.setattr(render.shutil, "which", lambda name: "/usr/bin/espeak-ng")
+        monkeypatch.setattr(render.shutil, "which", lambda _name: "/usr/bin/espeak-ng")
         calls = []
-        monkeypatch.setattr(render.subprocess, "run", lambda command, **k: calls.append(command))
+        monkeypatch.setattr(render.subprocess, "run", lambda command, **_k: calls.append(command))
         written = render.speak_aloud("# Titre\n\nBonjour.", tmp_path / "lecture.m4a")
         assert written == tmp_path / "lecture.wav"
         assert calls[0][-1] == "Titre\n\nBonjour."
@@ -178,10 +179,10 @@ class FakeExtractor:
     def __init__(self, vectors):
         self.vectors = vectors
 
-    def extract_spans(self, audio, spans):
+    def extract_spans(self, _audio, spans):
         return [self.vectors[span.start] for span in spans if span.start in self.vectors]
 
-    def extract_together(self, audio, spans):
+    def extract_together(self, _audio, _spans):
         """Nothing for a run of short turns: these tests give every turn its own."""
         return None
 
@@ -297,35 +298,36 @@ class TestTheVoiceprintsOfEachVoice:
 
     LONG = Voiceprint(vector=(1.0, 0.0, 0.0), source_duration=20.0)
     TOGETHER = Voiceprint(vector=(0.0, 1.0, 0.0), source_duration=6.0)
-    PER_VOICE = {"1": [Span(0, 40)], "2": [Span(60, 62), Span(70, 73)]}
+    PER_VOICE: ClassVar[dict[str, list[Span]]] = {
+        "1": [Span(0, 40)], "2": [Span(60, 62), Span(70, 73)]}
 
     def test_a_voice_made_of_short_turns_gets_the_signature_of_its_turns_read_together(self):
         together = self.TOGETHER
 
         class ReadsTogether(FakeExtractor):
-            def extract_together(self, audio, spans):
+            def extract_together(self, _audio, _spans):
                 return together
 
         found = render.voiceprints_per_voice(
-            ReadsTogether({0: self.LONG}), Path("/tmp/r.wav"), self.PER_VOICE)
+            ReadsTogether({0: self.LONG}), Path("/enregistrements/r.wav"), self.PER_VOICE)
         assert found == {"1": [self.LONG], "2": [self.TOGETHER]}
 
     def test_a_voice_too_short_even_read_together_stays_without_one(self):
         found = render.voiceprints_per_voice(
-            FakeExtractor({0: self.LONG}), Path("/tmp/r.wav"), self.PER_VOICE)
+            FakeExtractor({0: self.LONG}), Path("/enregistrements/r.wav"), self.PER_VOICE)
         assert found == {"1": [self.LONG], "2": []}
 
     def test_a_voice_that_already_has_one_is_not_read_again(self):
         class Counting(FakeExtractor):
             together = 0
 
-            def extract_together(self, audio, spans):
+            def extract_together(self, _audio, _spans):
                 self.together += 1
                 return None
 
         extractor = Counting({0: self.LONG, 60: self.LONG})
         render.voiceprints_per_voice(
-            extractor, Path("/tmp/r.wav"), {"1": [Span(0, 40)], "2": [Span(60, 95)]})
+            extractor, Path("/enregistrements/r.wav"), {"1": [Span(0, 40)], "2": [Span(60, 95)]})
         assert extractor.together == 0
 
 

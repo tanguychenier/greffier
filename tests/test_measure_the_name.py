@@ -17,7 +17,7 @@ from greffier.domain.models import Span, Utterance  # noqa: E402
 class HearsByFileName:
     """Says what the file name tells it to, seed or no seed."""
 
-    def transcribe(self, audio: Path, language: str, prompt_seed: str) -> list[Utterance]:
+    def transcribe(self, audio: Path, _language: str, prompt_seed: str) -> list[Utterance]:
         heard = audio.stem.replace("_", " ")
         if not prompt_seed:
             heard = heard.replace("Lucie", "Ici")
@@ -28,7 +28,7 @@ class TestWhatWasHeard:
     def test_each_take_is_heard_with_the_seed_and_without(self, tmp_path, monkeypatch):
         from greffier import wiring
 
-        monkeypatch.setattr(wiring, "light_transcriber", lambda config: HearsByFileName())
+        monkeypatch.setattr(wiring, "light_transcriber", lambda _config: HearsByFileName())
         takes = [tmp_path / "Lucie,_où_en_est_la_recette.wav", tmp_path / "bonjour_à_tous.wav"]
         for take in takes:
             take.touch()

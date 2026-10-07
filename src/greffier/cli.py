@@ -14,7 +14,7 @@ import sys
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import typer
 
@@ -42,6 +42,9 @@ from greffier.wiring import (
     wire_up,
     writer,
 )
+
+if TYPE_CHECKING:
+    from greffier.domain.sources import Source
 
 application = typer.Typer(
     add_completion=False, help="Enregistre, transcrit et résume vos réunions."
@@ -1597,7 +1600,7 @@ def _publish_the_board(
     )
     settled = _action_texts(the_board)
     if settled:
-        marks = board_miro.mark_actions(board_id, settled, meeting=identifier)
+        marks = board_miro.mark_actions(board_id, settled)
         if marks:
             typer.secho(f"  ✓ {len(marks)} point(s) marqué(s) « acté »",
                         fg=typer.colors.GREEN)
@@ -1651,11 +1654,10 @@ def sources_(
         )
     typer.echo(f"\n  registre  {config.paths.sources}")
 
-def _try_the_source(source: object, token: str) -> None:
+def _try_the_source(source: Source, token: str) -> None:
     """One read call, to say whether access really works."""
-    from greffier.domain.sources import Kind, Source
+    from greffier.domain.sources import Kind
 
-    assert isinstance(source, Source)
     if source.kind is Kind.GITLAB:
         from greffier.adapters.gitlab_api import tickets
 
@@ -1741,7 +1743,7 @@ def publish(
             else (typer.colors.YELLOW if proposition.blocked_by else typer.colors.BRIGHT_BLACK)
         )
         typer.secho(
-            f"  {str(proposition.destination):9} {proposition.file.name}",
+            f"  {proposition.destination!s:9} {proposition.file.name}",
             fg=colour,
         )
         typer.echo(f"            {proposition.because}")

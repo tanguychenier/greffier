@@ -42,8 +42,8 @@ def recall(file: Path, limit: int = LAST_ONES) -> list[Trace]:
     if not file.exists():
         return []
     traces: list[Trace] = []
-    for line in file.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
+    for raw in file.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
         if not line:
             continue
         try:

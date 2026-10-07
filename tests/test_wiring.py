@@ -8,6 +8,8 @@ meeting, on a machine where nothing else went wrong.
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from greffier import wiring
@@ -17,7 +19,7 @@ from greffier.adapters.configuration import Config
 @pytest.fixture
 def config(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-    for the_key in [c for c in __import__("os").environ if c.startswith("GREFFIER_")]:
+    for the_key in [c for c in os.environ if c.startswith("GREFFIER_")]:
         monkeypatch.delenv(the_key)
     config = Config()
     config.paths.data = tmp_path / "donnees"
@@ -71,14 +73,14 @@ class TestTheLiveModelKeepsUp:
         from greffier.domain.recorder import Recorder
 
         recorder = Recorder(system="Linux", memory_gb=16.0, free_disk_gb=100.0)
-        monkeypatch.setattr(Recorder, "advised_model", property(lambda self: model))
-        monkeypatch.setattr(system_diagnostic, "recorder", lambda folder: recorder)
+        monkeypatch.setattr(Recorder, "advised_model", property(lambda _self: model))
+        monkeypatch.setattr(system_diagnostic, "recorder", lambda _folder: recorder)
 
     def test_where_the_card_takes_the_large_model_the_live_one_is_turbo(
         self, config, monkeypatch
     ):
         self._advised(monkeypatch, "large-v3")
-        monkeypatch.setattr("greffier.adapters.model_files.downloaded", lambda m: True)
+        monkeypatch.setattr("greffier.adapters.model_files.downloaded", lambda _m: True)
         config.transcription.engine = "faster-whisper"
         assert wiring.light_transcriber(config).size == "large-v3-turbo"
 
@@ -86,7 +88,7 @@ class TestTheLiveModelKeepsUp:
         self, config, monkeypatch
     ):
         self._advised(monkeypatch, "large-v3")
-        monkeypatch.setattr("greffier.adapters.model_files.downloaded", lambda m: False)
+        monkeypatch.setattr("greffier.adapters.model_files.downloaded", lambda _m: False)
         config.transcription.engine = "faster-whisper"
         assert wiring.light_transcriber(config).size == "large-v3"
 
@@ -192,8 +194,9 @@ class TestTheWholeChain:
 class TestTheLiveThread:
     """What follows the meeting while it runs, and cuts its slices."""
 
+    @pytest.mark.usefixtures("without_loading_the_models")
     def test_the_follower_cuts_its_slices_at_the_changes_of_speaker(
-        self, config, without_loading_the_models
+        self, config
     ):
         from greffier.adapters.segmentation_sherpa import SherpaSliceSegmenter
 
@@ -249,7 +252,7 @@ class TestTheConnectedAccountsReachTheModel:
             assert "Trello : lire." in brain.own_guidance
             assert brain.on_tool is not None
 
-    def test_a_tool_the_model_used_is_written_down(self, config, tmp_path, monkeypatch):
+    def test_a_tool_the_model_used_is_written_down(self, config, ):
         from greffier.adapters import accounts_file
 
         keep = wiring.deed_keeper(config)
@@ -315,8 +318,8 @@ class TestTheRecording:
 
 
 class TestAMeetingPreparedBeforehand:
-    def test_the_chain_opens_on_what_was_gathered(self, config,
-                                                  without_loading_the_models):
+    @pytest.mark.usefixtures("without_loading_the_models")
+    def test_the_chain_opens_on_what_was_gathered(self, config):
         from greffier.adapters import preparations_file
 
         config.minutes.engine = "aucun"
@@ -329,8 +332,9 @@ class TestAMeetingPreparedBeforehand:
         assert "valider les anomalies" in chain.context_header
         assert chain.expected_people == ("Jacques",)
 
+    @pytest.mark.usefixtures("without_loading_the_models")
     def test_a_meeting_prepared_by_nobody_opens_on_nothing(
-            self, config, without_loading_the_models):
+            self, config):
         config.minutes.engine = "aucun"
         chain = wiring.wire_up(config)
         assert "Préparation" not in chain.context_header
@@ -455,7 +459,7 @@ class TestTheCompanySourcesReachTheAssistant:
         monkeypatch.setenv("GREFFIER_GITLAB_JETON_D_ESSAI", "secret")
         monkeypatch.setattr(
             gitlab_api, "tickets",
-            lambda source, token: [gitlab_api.Ticket(12, "Facturation en double", "opened",
+            lambda _source, _token: [gitlab_api.Ticket(12, "Facturation en double", "opened",
                                                      "https://gitlab.example.fr/i/12", "Maud")],
         )
         self._registry(config)

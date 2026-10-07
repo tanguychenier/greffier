@@ -20,6 +20,7 @@ with the guidance alone, and a whole answer in 1.5 to 2.1 s instead of 5.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import shutil
 import subprocess
@@ -75,6 +76,7 @@ class ClaudeSession:
         self.servers = servers
         self.on_tool = on_tool
         self._process: subprocess.Popen[str] | None = None
+        self._reader: threading.Thread | None = None
         #: The guidance the running process was given as its system prompt.
         self._system_prompt = ""
         self._sent = 0
@@ -206,6 +208,7 @@ class ClaudeSession:
             target=self._read_until_the_result, args=(stdout, answer, on_sentence),
             daemon=True,
         )
+        self._reader = reader
         reader.start()
         reader.join(self.timeout)
         if reader.is_alive():
@@ -250,15 +253,21 @@ class ClaudeSession:
                 return
 
     def _drop(self, process: subprocess.Popen[str]) -> None:
-        try:
+        with contextlib.suppress(OSError):
             if process.stdin is not None:
                 process.stdin.close()
-        except OSError:
-            pass
         try:
             process.wait(timeout=2)
         except subprocess.TimeoutExpired:
             process.kill()
+            process.wait()
+        # The reader ends on the pipe's EOF once the process is gone; the pipe
+        # is closed after it, never under it. Left open, the TextIOWrapper
+        # was finalised by the collector with a ResourceWarning (17 tests).
+        if self._reader is not None:
+            self._reader.join(timeout=2)
+        if process.stdout is not None:
+            process.stdout.close()
         if self._process is process:
             self._process = None
             self._sent = 0

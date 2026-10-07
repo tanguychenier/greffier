@@ -581,8 +581,8 @@ class Chain:
         if send and self.sender and self.recipient:
             self._phase(Phase.SENDING, "Envoi du compte rendu…")
             try:
-                self._send(audio, outcome)
-            except Exception as trouble:  # noqa: BLE001
+                self._send(self.sender, audio, outcome)
+            except Exception as trouble:  # noqa: BLE001 - the minutes are kept and the warning says so; « greffier envoyer » retries
                 outcome.warnings.append(
                     f"Compte rendu NON envoyé : {trouble} "
                     "Le compte rendu est gardé ; « greffier envoyer » réessaie."
@@ -662,7 +662,9 @@ class Chain:
         if outcome.started_at is not None:
             return outcome.started_at.date().isoformat()
         with contextlib.suppress(OSError):
-            return datetime.fromtimestamp(audio.stat().st_mtime).date().isoformat()
+            # The day in the person's own zone, the one the recording's name
+            # carries too; compared with nothing from another zone.
+            return datetime.fromtimestamp(audio.stat().st_mtime).date().isoformat()  # noqa: DTZ006
         return ""
 
     def _leave_a_trace(self, audio: Path, outcome: Outcome) -> None:
@@ -691,10 +693,9 @@ class Chain:
                 documents=tuple(self.documents_supplied),
             ))
 
-    def _send(self, audio: Path, outcome: Outcome) -> None:
+    def _send(self, sender: outbound.Sender, audio: Path, outcome: Outcome) -> None:
         """Sends the minutes, with no attachment."""
-        assert self.sender is not None
-        self.sender.send(
+        sender.send(
             self.recipient,
             title_of_the_minutes(
                 outcome.minutes, f"Compte rendu de réunion : {audio.stem}"

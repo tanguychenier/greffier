@@ -46,7 +46,7 @@ def write_private_text(target: Path, text: str) -> None:
                 # instead of leaking it.
                 os.fchmod(stream.fileno(), OWNER_ONLY_FILE)
             stream.write(text)
-        os.replace(temporary, target)
+        Path(temporary).replace(target)
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
         raise

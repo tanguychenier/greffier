@@ -41,11 +41,11 @@ class TestWhatIsBackedUp:
 class TestTheBackupName:
     def test_the_name_carries_the_date_to_the_minute(self):
         """Two backups of the same day have to be able to coexist."""
-        name = BackupName(datetime(2026, 9, 9, 14, 5))
+        name = BackupName(datetime(2026, 9, 9, 14, 5))  # noqa: DTZ001  # local, as written
         assert str(name) == "greffier-2026-09-09_14h05"
 
     def test_the_name_reads_back(self):
-        when = datetime(2026, 9, 9, 14, 5)
+        when = datetime(2026, 9, 9, 14, 5)  # noqa: DTZ001  # read() gives naive back
         assert BackupName.read(str(BackupName(when))) == when
 
     def test_what_is_not_a_backup_is_refused(self):
@@ -55,7 +55,8 @@ class TestTheBackupName:
 
 class TestKeepingOnlySoMany:
     def names(self, how_many: int) -> list[str]:
-        return [str(BackupName(datetime(2026, 9, day, 12, 0))) for day in range(1, how_many + 1)]
+        return [str(BackupName(datetime(2026, 9, day, 12, 0)))  # noqa: DTZ001  # local
+                for day in range(1, how_many + 1)]
 
     def test_under_the_count_nothing_is_deleted(self):
         assert to_erase(self.names(3), kept=7) == []

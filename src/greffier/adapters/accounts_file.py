@@ -30,7 +30,7 @@ SERVERS = "outils-du-modele.json"
 
 #: How a secret is named in the tokens file, « compte-<service>-<field> »;
 #: no dot in it, a dot being a table in that file's syntax.
-SECRET_PREFIX = "compte-"
+SECRET_PREFIX = "compte-"  # noqa: S105  # a key prefix, no secret in it
 
 #: What the sign-in by code prints, on the line that carries the address and the code.
 DEVICE_CODE = re.compile(r"(https?://\S+).*?\b([A-Z0-9]{6,12})\b")
@@ -182,6 +182,10 @@ def sign_in(service: Service, show: Callable[[str, str], None], timeout: float =
         process.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         process.kill()
+        process.wait()
         return False
+    finally:
+        if process.stdout is not None:
+            process.stdout.close()
     return process.returncode == 0
 

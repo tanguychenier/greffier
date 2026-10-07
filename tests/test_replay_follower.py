@@ -55,7 +55,7 @@ class RecordingFollower:
         self.handed: list[tuple[float, list[tuple[float, float, str]]]] = []
         self.thread = "the thread"
 
-    def take_in(self, slice_, utterances, offset):
+    def take_in(self, _slice, utterances, offset):
         self.handed.append(
             (offset, [(u.span.start, u.span.end, u.text) for u in utterances])
         )
@@ -75,17 +75,17 @@ def a_log(tmp_path):
 
 
 @pytest.fixture
-def without_audio(monkeypatch, tmp_path):
+def without_audio(monkeypatch):
     """No ffmpeg, no wav: the slice is a name and the length is given."""
     from types import SimpleNamespace
 
     import soundfile
 
-    monkeypatch.setattr(soundfile, "info", lambda path: SimpleNamespace(duration=25.0))
+    monkeypatch.setattr(soundfile, "info", lambda _path: SimpleNamespace(duration=25.0))
     from greffier.application import watch
 
     monkeypatch.setattr(watch, "extract_slice",
-                        lambda audio, start, end, destination: destination)
+                        lambda _audio, _start, _end, destination: destination)
 
 
 @pytest.mark.usefixtures("without_audio")

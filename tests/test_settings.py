@@ -121,7 +121,7 @@ class TestWritingTheSettingsFile:
             raise OSError("disque plein")
 
         monkeypatch.setattr(settings, "render", make_broken)
-        with pytest.raises(OSError):
+        with pytest.raises(OSError, match="disque plein"):
             settings.save_settings(Config(appearance={"theme": "sombre"}), folder=folder)
         assert (folder / "config.toml").read_text(encoding="utf-8") == earlier
         assert not [f for f in folder.iterdir() if f.name.startswith(".config-")]

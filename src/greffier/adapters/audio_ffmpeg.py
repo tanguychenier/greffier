@@ -19,6 +19,14 @@ _LEVEL = re.compile(r"RMS level dB: (-?[\d.]+|-inf)")
 #: What may stand in for the microphone.
 REPLAYABLE = frozenset({".wav", ".flac", ".mp3", ".m4a", ".ogg", ".opus", ".mp4", ".mkv", ".webm"})
 
+#: The encoders this process started, by pid. The command and the window build
+#: a recorder for the start and another for the stop, so the handle lives
+#: here rather than on an instance: whoever stops an encoder started in this
+#: process waits for it, and none is left a zombie or finalised while running
+#: (a Popen collected with its process alive is a ResourceWarning). A stop
+#: from another process has only the pid, and polls it.
+_STARTED: dict[int, subprocess.Popen[bytes]] = {}
+
 
 class FfmpegRecorder:
     def __init__(self, device: str, maximum_length: int = 14_400) -> None:
@@ -73,13 +81,14 @@ class FfmpegRecorder:
 
     def start_recording(self, destination: Path) -> int:
         destination.parent.mkdir(parents=True, exist_ok=True)
-        process_id = subprocess.Popen(
+        process = subprocess.Popen(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin",
              *self._input(), "-t", str(self.maximum_length),
              "-ar", "16000", "-c:a", "pcm_s16le", str(destination)],
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
-        return process_id.pid
+        _STARTED[process.pid] = process
+        return process.pid
 
     def stop_recording(self, process_id: int) -> None:
         """Stops with SIGINT, never with SIGKILL.
@@ -90,9 +99,17 @@ class FfmpegRecorder:
         import os
         import time
 
+        started = _STARTED.pop(process_id, None)
         try:
             os.kill(process_id, signal.SIGINT)
         except ProcessLookupError:
+            return
+        if started is not None:
+            try:
+                started.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                started.kill()
+                started.wait()
             return
         for _ in range(60):
             time.sleep(0.25)
@@ -215,13 +232,10 @@ class FfmpegRecorder:
              "-f", "null", "-"],
             capture_output=True, text=True, check=False,
         ).stderr
-        measures = []
-        for value in _LEVEL.findall(output):
-            measures.append(
-                DIGITAL_SILENCE if value == "-inf"
-                else max(float(value), DIGITAL_SILENCE)
-            )
-        return measures
+        return [
+            DIGITAL_SILENCE if value == "-inf" else max(float(value), DIGITAL_SILENCE)
+            for value in _LEVEL.findall(output)
+        ]
 
 def why_unreadable(audio: Path) -> str:
     """Why this file cannot be a recording, in French, or "" if it can.

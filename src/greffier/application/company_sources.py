@@ -28,7 +28,7 @@ HEADER = "--- Sources d'entreprise inscrites ---"
 #: What to say when the token is missing: where it goes, in the words of the
 #: registry file, so that the assistant asks for the right gesture.
 NO_TOKEN = (
-    "aucun jeton disponible, l'accès n'est pas possible. Pour le donner : "
+    "aucun jeton disponible, l'accès n'est pas possible. Pour le donner : "  # noqa: S105 - a sentence to the person, no secret in it
     "« jeton » dans le fichier des sources nomme une variable d'environnement "
     "ou une entrée du trousseau (« greffier sources » vérifie)."
 )

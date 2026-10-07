@@ -55,7 +55,7 @@ def transcriber():
     return tool
 
 
-@pytest.mark.parametrize("voice,sentence,expected", SENTENCES)
+@pytest.mark.parametrize(("voice", "sentence", "expected"), SENTENCES)
 def test_its_name_is_heard_in_real_sound(
     voice, sentence, expected, transcriber, tmp_path
 ):

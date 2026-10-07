@@ -1,6 +1,9 @@
 """La configuration : valeurs par défaut, .env, environnement, TOML."""
 
+import re
+from functools import reduce
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -362,3 +365,128 @@ theme = "sombre"
         file.write_text('[assistant]\nnom = "Alice"\nreglage_disparu = 3\n',
                            encoding="utf-8")
         assert Config.load(file).assistant.name == "Alice"
+
+
+def _setting(config: Config, path: str) -> object:
+    """`minutes.engine` read on the config."""
+    return reduce(getattr, path.split("."), config)
+
+
+class TestTheFrenchSpellingOfAVariable:
+    """`.env.exemple` says GREFFIER_COMPTE_RENDU__MOTEUR; under the prefix,
+    pydantic-settings looked the setting up under GREFFIER_MINUTES__ENGINE
+    alone, and the French variable was silently ignored (measured:
+    minutes.engine stayed « claude »)."""
+
+    @pytest.mark.parametrize(("variable", "value", "setting", "expected"), [
+        ("GREFFIER_COMPTE_RENDU__MOTEUR", "ollama", "minutes.engine", "ollama"),
+        ("GREFFIER_TRANSCRIPTION__LANGUE", "en", "transcription.language", "en"),
+        ("GREFFIER_CHEMINS__DONNEES", "/ailleurs", "paths.data", Path("/ailleurs")),
+        ("GREFFIER_COURRIEL__CERTIFICAT", "/pem/autorite.pem",
+         "email.certificate", "/pem/autorite.pem"),
+    ])
+    def test_a_french_variable_reaches_its_field(
+            self, monkeypatch, variable, value, setting, expected):
+        monkeypatch.setenv(variable, value)
+        assert _setting(Config(), setting) == expected
+
+    def test_the_english_spelling_still_works(self, monkeypatch):
+        monkeypatch.setenv("GREFFIER_MINUTES__ENGINE", "ollama")
+        monkeypatch.setenv("GREFFIER_EMAIL__CERTIFICATE", "/pem/autorite.pem")
+        config = Config()
+        assert config.minutes.engine == "ollama"
+        assert config.email.certificate == "/pem/autorite.pem"
+
+    def test_an_env_file_in_french_is_read(self, tmp_path):
+        (tmp_path / ".env").write_text(
+            "GREFFIER_COMPTE_RENDU__MOTEUR=ollama\nGREFFIER_COURRIEL__SERVEUR=smtp.exemple.fr\n",
+            encoding="utf-8",
+        )
+        config = Config()
+        assert config.minutes.engine == "ollama"
+        assert config.email.server == "smtp.exemple.fr"
+
+    def test_the_environment_wins_over_the_env_file_in_french_too(self, tmp_path, monkeypatch):
+        (tmp_path / ".env").write_text("GREFFIER_COMPTE_RENDU__MOTEUR=ollama\n", encoding="utf-8")
+        monkeypatch.setenv("GREFFIER_COMPTE_RENDU__MOTEUR", "aucun")
+        assert Config().minutes.engine == "aucun"
+
+    def test_given_both_spellings_the_field_name_wins(self, monkeypatch):
+        """The English name is the field's own, the French one its translation:
+        a translation never overrides the original."""
+        monkeypatch.setenv("GREFFIER_MINUTES__ENGINE", "claude")
+        monkeypatch.setenv("GREFFIER_COMPTE_RENDU__MOTEUR", "ollama")
+        assert Config().minutes.engine == "claude"
+
+    @pytest.mark.parametrize("order", [
+        ("GREFFIER_MINUTES__MOTEUR", "GREFFIER_COMPTE_RENDU__MOTEUR"),
+        ("GREFFIER_COMPTE_RENDU__MOTEUR", "GREFFIER_MINUTES__MOTEUR"),
+    ])
+    def test_between_two_translations_the_nearer_to_the_field_names_wins(
+            self, monkeypatch, order):
+        """Two French spellings of one setting: the section decides before the
+        key, so MINUTES__MOTEUR beats COMPTE_RENDU__MOTEUR, and the order the
+        environment holds them in has no say (measured before: it had)."""
+        values = {"GREFFIER_MINUTES__MOTEUR": "claude", "GREFFIER_COMPTE_RENDU__MOTEUR": "ollama"}
+        for name in order:
+            monkeypatch.delenv(name, raising=False)
+        for name in order:
+            monkeypatch.setenv(name, values[name])
+        assert Config().minutes.engine == "claude"
+
+    def test_between_sources_the_rank_still_decides(self, tmp_path, monkeypatch):
+        """The environment beats the .env file whatever the spelling on either side."""
+        (tmp_path / ".env").write_text("GREFFIER_MINUTES__ENGINE=claude\n", encoding="utf-8")
+        monkeypatch.setenv("GREFFIER_COMPTE_RENDU__MOTEUR", "ollama")
+        assert Config().minutes.engine == "ollama"
+
+    def test_a_variable_naming_no_section_is_left_alone(self, monkeypatch):
+        monkeypatch.setenv("GREFFIER_NULLE_PART__X", "1")
+        assert Config().minutes.engine == "claude"
+
+
+EXAMPLE = Path(__file__).resolve().parents[1] / ".env.exemple"
+
+
+class TestTheExampleEnvFile:
+    """Every variable .env.exemple documents is one the code honours."""
+
+    #: What each documented variable sets: a value that is not the default, the
+    #: setting it lands on, and what is read back.
+    DOCUMENTED: ClassVar[dict[str, tuple[str, str, object]]] = {
+        "GREFFIER_COMPTE_RENDU__MOTEUR": ("ollama", "minutes.engine", "ollama"),
+        "GREFFIER_COMPTE_RENDU__MODELE": ("qwen3:8b", "minutes.model", "qwen3:8b"),
+        "GREFFIER_COMPTE_RENDU__DESTINATAIRE": (
+            "moi@exemple.fr", "minutes.recipient", "moi@exemple.fr"),
+        "GREFFIER_TRANSCRIPTION__LANGUE": ("en", "transcription.language", "en"),
+        "GREFFIER_TRANSCRIPTION__VOCABULAIRE": (
+            '["Jira","GitLab"]', "transcription.vocabulary", ["Jira", "GitLab"]),
+        "GREFFIER_LOCUTEURS__PAS_DES_PRENOMS": (
+            '["Copernic"]', "speakers.not_first_names", ["Copernic"]),
+        "GREFFIER_LOCUTEURS__PERSONNES": ("6", "speakers.people", 6),
+        "GREFFIER_AUDIO__ENTREE": ("Salle", "audio.input", "Salle"),
+        "GREFFIER_AUDIO__SORTIE": ("Casque", "audio.output", "Casque"),
+        "GREFFIER_COURRIEL__SERVEUR": ("smtp.exemple.fr", "email.server", "smtp.exemple.fr"),
+        "GREFFIER_COURRIEL__PORT": ("2525", "email.port", 2525),
+        "GREFFIER_COURRIEL__UTILISATEUR": ("moi@exemple.fr", "email.user", "moi@exemple.fr"),
+        "GREFFIER_COURRIEL__CERTIFICAT": (
+            "/pem/autorite.pem", "email.certificate", "/pem/autorite.pem"),
+        "GREFFIER_CHEMINS__MODELES": ("/modeles", "paths.models", Path("/modeles")),
+        "GREFFIER_CHEMINS__DONNEES": ("/donnees", "paths.data", Path("/donnees")),
+    }
+
+    def test_every_documented_variable_has_its_proof_here(self):
+        documented = set(re.findall(r"(GREFFIER_[A-Z_]+)=", EXAMPLE.read_text(encoding="utf-8")))
+        assert documented == set(self.DOCUMENTED) | {"GREFFIER_SMTP_MOT_DE_PASSE"}
+
+    @pytest.mark.parametrize("variable", sorted(DOCUMENTED))
+    def test_a_documented_variable_is_honoured(self, monkeypatch, variable):
+        value, setting, expected = self.DOCUMENTED[variable]
+        monkeypatch.setenv(variable, value)
+        assert _setting(Config(), setting) == expected
+
+    def test_the_password_is_read_by_the_sender(self, monkeypatch):
+        from greffier.adapters.email import SmtpSender
+
+        monkeypatch.setenv("GREFFIER_SMTP_MOT_DE_PASSE", "secret")
+        assert SmtpSender(server="smtp.exemple.fr").password == "secret"

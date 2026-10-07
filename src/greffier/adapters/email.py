@@ -193,6 +193,6 @@ class FileSender:
     def __init__(self, folder: Path) -> None:
         self.folder = folder
 
-    def send(self, recipient: str, subject: str, corps: str, pieces: list[Path]) -> None:
+    def send(self, _recipient: str, subject: str, corps: str, _pieces: list[Path]) -> None:
         self.folder.mkdir(parents=True, exist_ok=True)
         (self.folder / f"{subject}.md").write_text(corps, encoding="utf-8")

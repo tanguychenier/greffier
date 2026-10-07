@@ -34,8 +34,8 @@ def read(file: Path) -> list[tuple[float, float]]:
     if not file.exists():
         return []
     the_spans: list[tuple[float, float]] = []
-    for line in file.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
+    for raw in file.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
         if not line:
             continue
         try:

@@ -38,7 +38,7 @@ def ffmpeg(monkeypatch):
     process_id = FauxProcessus()
     monkeypatch.setattr(
         "subprocess.Popen",
-        lambda command, **k: lances.append(command) or process_id,
+        lambda command, **_k: lances.append(command) or process_id,
     )
     return lances, process_id
 
@@ -72,14 +72,15 @@ class TestFromThePressToTheRelease:
         assert dictation.stop() == tmp_path / "phrase.wav"
         assert process_id.signals == [signal.SIGINT] and not process_id.kills
 
-    def test_a_key_merely_tapped_produces_nothing(self, ffmpeg, tmp_path):
+    @pytest.mark.usefixtures("ffmpeg")
+    def test_a_key_merely_tapped_produces_nothing(self, tmp_path):
         """A few dozen bytes are a header and no sound."""
         dictation = Dictation()
         dictation.start(tmp_path / "phrase.wav")
         (tmp_path / "phrase.wav").write_bytes(b"RIFF" + b"0" * 20)
         assert dictation.stop() is None
 
-    def test_releasing_without_pressing_is_not_an_error(self, tmp_path):
+    def test_releasing_without_pressing_is_not_an_error(self):
         assert Dictation().stop() is None
 
     def test_a_ceiling_keeps_a_held_key_from_filling_a_disk(self, ffmpeg, tmp_path):

@@ -16,7 +16,7 @@ import tarfile
 import urllib.error
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
@@ -25,7 +25,7 @@ from greffier.adapters import model_files
 
 def answer_with(monkeypatch: pytest.MonkeyPatch, octets: bytes) -> None:
     class Answer(BytesIO):
-        headers = {"Content-Length": str(len(octets))}
+        headers: ClassVar[dict[str, str]] = {"Content-Length": str(len(octets))}
 
         def __enter__(self) -> Any:
             return self
@@ -232,11 +232,11 @@ class TestWhereFasterWhisperKeepsItsModels:
             if name in theirs:
                 assert repository == theirs[name], name
 
-    def test_a_model_in_the_cache_is_seen(self, monkeypatch, tmp_path):
+    def test_a_model_in_the_cache_is_seen(self, monkeypatch):
         hub = pytest.importorskip("huggingface_hub")
         asked = []
 
-        def in_cache(repository, filename):
+        def in_cache(repository, _filename):
             asked.append(repository)
             return "/cache/model.bin"
 

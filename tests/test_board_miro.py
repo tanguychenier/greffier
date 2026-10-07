@@ -1,5 +1,8 @@
 """Writing a board to Miro: what is refused before any call at all."""
 
+import urllib.error
+from io import BytesIO
+
 import pytest
 
 from greffier.adapters import board_miro
@@ -53,7 +56,7 @@ class TestWhereTheTokenComesFrom:
 
 
 class TestPublishingWithoutNetwork:
-    def mark(self, monkeypatch, present_line=(), poses=None):
+    def mark(self, monkeypatch, present_line=(), _poses=None):
         """Replaces the API with a stand-in that writes down what it is asked."""
         calls = []
 
@@ -151,8 +154,7 @@ class TestTheLinksBetweenNodes:
                 return {"data": []}
             return {"id": "3458764683144805305"}
 
-        import pytest as _pytest
-        monkeypatch = _pytest.MonkeyPatch()
+        monkeypatch = pytest.MonkeyPatch()
         monkeypatch.setattr(board_miro, "_call", wrong)
         monkeypatch.setenv("GREFFIER_MIRO_JETON", "essai")
         try:
@@ -180,7 +182,7 @@ class TestTheLinksBetweenNodes:
         board = Board("Oasis")
         join(board, [Contribution("A")])
 
-        def wrong(path, http_method="GET", corps=None):
+        def wrong(path, _http_method="GET", _corps=None):
             if "/items" in path:
                 return {"data": []}
             if "connectors" in path:
@@ -210,3 +212,32 @@ class TestLaRacine:
         assert Kind.SUBJECT in __import__(
             "greffier.domain.board", fromlist=["SANS_ETAT"]
         ).WITHOUT_STANDING
+
+
+class TestARefusalFromMiro:
+    """The HTTPError's body is quoted, and the response it is closed.
+
+    urllib's HTTPError is itself the response, a wrapper on the socket's file:
+    chained into the refusal still open, the collector finalises it with
+    « ResourceWarning: Implicitly cleaning up <HTTPError 401> ».
+    """
+
+    def test_the_body_is_quoted_and_the_response_closed(self, monkeypatch):
+        closed: list[int] = []
+
+        class Answered(urllib.error.HTTPError):
+            def close(self) -> None:
+                closed.append(self.code)
+                super().close()
+
+        def refuse(*_args, **_options):
+            raise Answered(
+                "https://api.miro.com/v2/boards/x", 401, "non", {}, BytesIO(b"jeton refuse")
+            )
+
+        monkeypatch.setattr(board_miro.urllib.request, "urlopen", refuse)
+        monkeypatch.setenv("GREFFIER_MIRO_JETON", "essai")
+        with pytest.raises(MiroRefused, match="401 : jeton refuse") as caught:
+            board_miro._call("/boards/x")
+        assert closed == [401]
+        assert isinstance(caught.value.__cause__, urllib.error.HTTPError)

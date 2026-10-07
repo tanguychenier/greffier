@@ -51,8 +51,7 @@ class Trace:
             lines.append(f"  Présents : {', '.join(self.people)}")
         for heading, points in (("Décidé", self.decisions),
                                  ("Resté ouvert", self.open_points)):
-            for point in points:
-                lines.append(f"  {heading} : {point}")
+            lines.extend(f"  {heading} : {point}" for point in points)
         if self.documents:
             lines.append(f"  Documents fournis : {', '.join(self.documents)}")
         return "\n".join(lines)

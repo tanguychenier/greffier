@@ -8,6 +8,8 @@ behind while it thinks.
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import pytest
 
 from greffier.adapters.configuration import Config
@@ -94,7 +96,8 @@ def called_by_its_name():
         pytest.skip(out_of_reach)
 
 
-def test_called_during_the_meeting_it_answers(called_by_its_name, meeting, tmp_path):
+@pytest.mark.usefixtures("called_by_its_name")
+def test_called_during_the_meeting_it_answers(meeting, tmp_path):
     """The scenario of the demonstration, end to end."""
     transcriber = light_transcriber(Config())
     if transcriber is None:
@@ -144,7 +147,7 @@ def test_the_transcription_does_not_wait_for_the_answer(meeting, tmp_path):
     gone = threading.Event()
 
     class SlowBrain(FakeBrain):
-        def write_up(self, text):
+        def write_up(self, _text):
             gone.set()
             time.sleep(5.0)
             return "…"
@@ -227,7 +230,8 @@ def test_no_assistant_changes_nothing(meeting, tmp_path):
     watcher.transcription_turn(watcher.locate(), tmp_path)
 
 
-def test_the_reason_for_speaking_is_the_call(called_by_its_name, meeting, tmp_path):
+@pytest.mark.usefixtures("called_by_its_name")
+def test_the_reason_for_speaking_is_the_call(meeting):
     """It is not a spontaneous contribution: she was named."""
     transcriber = light_transcriber(Config())
     if transcriber is None:
@@ -249,7 +253,7 @@ class TestTheLoopOnARealThread:
     """
 
     #: The four loops actually observed, in the order of the thread.
-    OBSERVE = [
+    OBSERVE: ClassVar[list[tuple[str, float, int]]] = [
         ("Est-ce que tu entends Lucie ?", 30.0, 11),
         ("- C'est ça qu'on va faire.", 125.0, 12),
         ("Je vais vous créer la vache.", 166.0, 11),
@@ -346,8 +350,9 @@ initiative = false
         )
         assert of_its_own
 
+    @pytest.mark.usefixtures("called_by_its_name")
     def test_called_it_answers_despite_the_old_setting(
-            self, called_by_its_name, meeting, tmp_path):
+            self, meeting, tmp_path):
         """The whole scenario, with the file that had silenced it."""
         transcriber = light_transcriber(Config())
         if transcriber is None:

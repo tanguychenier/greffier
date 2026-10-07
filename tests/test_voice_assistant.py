@@ -277,7 +277,7 @@ class TestTheVoiceOpenedOnce:
         monkeypatch.setattr(voice_neural, "_OPENED", {})
         monkeypatch.setattr(
             voice_neural.NeuralVoice, "_open",
-            lambda self, where: done_ones.append(where) or object(),
+            lambda _self, where: done_ones.append(where) or object(),
         )
         (tmp_path / "tokens.txt").touch()
         (tmp_path / "fr_FR-upmc-medium.onnx").touch()
@@ -334,7 +334,7 @@ class TestSpeakingThroughTheSystemAndBeingQuiet:
         voice = voice_system.SystemVoice(voice=None)
         monkeypatch.setattr(
             voice, "_command",
-            lambda text: [sys.executable, "-c", f"import time; time.sleep({seconds})"],
+            lambda _text: [sys.executable, "-c", f"import time; time.sleep({seconds})"],
         )
         return voice
 
@@ -393,7 +393,8 @@ class TestARemarkSaidAsItComes:
         played: list[str] = []
         monkeypatch.setattr(type(voice), "available", property(lambda _self: True))
         monkeypatch.setattr(voice, "_load", lambda: SimpleNamespace(
-            generate=lambda text, sid, speed: SimpleNamespace(
+            # sherpa's generate(text, sid=, speed=) is called by keyword
+            generate=lambda _text, sid, speed: SimpleNamespace(  # noqa: ARG005
                 samples=np.zeros(160, dtype="float32"), sample_rate=16000)))
         monkeypatch.setattr(voice, "_play", lambda file: played.append(file.name) or True)
         monkeypatch.setattr(voice_neural, "WAIT_FOR_WORDS_S", 0.01)

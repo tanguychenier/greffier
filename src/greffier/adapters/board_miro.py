@@ -71,7 +71,7 @@ def token() -> str:
 
 def _call(path: str, http_method: str = "GET",
              corps: dict[str, Any] | None = None) -> dict[str, Any]:
-    the_request = urllib.request.Request(
+    the_request = urllib.request.Request(  # noqa: S310  # BASE is https
         f"{BASE}{path}",
         method=http_method,
         data=json.dumps(corps).encode("utf-8") if corps is not None else None,
@@ -82,11 +82,12 @@ def _call(path: str, http_method: str = "GET",
         },
     )
     try:
-        with urllib.request.urlopen(the_request, timeout=20) as response:
+        with urllib.request.urlopen(the_request, timeout=20) as response:  # noqa: S310  # BASE is https
             brut = response.read().decode("utf-8")
             return json.loads(brut) if brut.strip() else {}
     except urllib.error.HTTPError as trouble:
         detail = trouble.read().decode("utf-8", "replace")[:200]
+        trouble.close()
         raise MiroRefused(f"Miro a répondu {trouble.code} : {detail}") from trouble
     except (urllib.error.URLError, TimeoutError) as trouble:
         raise MiroRefused(f"Miro est injoignable : {trouble}") from trouble
@@ -201,9 +202,7 @@ def _dots_placed(board_id: str) -> set[tuple[int, int]]:
         if not cursor:
             return positions
 
-def mark_actions(
-    board_id: str, texts: list[str], meeting: str = ""
-) -> tuple[str, ...]:
+def mark_actions(board_id: str, texts: list[str]) -> tuple[str, ...]:
     """Places a "settled" dot next to the points that are settled."""
     from greffier.domain.board import same_point
 

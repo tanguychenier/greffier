@@ -1,5 +1,7 @@
 """The assistant's manners, covered without starting a meeting."""
 
+from typing import ClassVar
+
 from greffier.domain.participation import (
     MINIMUM_LULL,
     Because,
@@ -410,7 +412,7 @@ class TestTheSameQuestionHeardTwice:
     slice hears « c'est quoi une pré-production ? » a few seconds later, or
     « préproduction » in one word: one question, one answer."""
 
-    RECENT = [(10.0, own_words("c'est quoi une pré-production en une phrase ?"))]
+    RECENT: ClassVar = [(10.0, own_words("c'est quoi une pré-production en une phrase ?"))]
 
     def test_the_same_question_short_of_a_word_is_the_same(self):
         assert is_the_same_call("c'est quoi une pré-production ?", self.RECENT, now=15.0)

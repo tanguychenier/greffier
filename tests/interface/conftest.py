@@ -47,7 +47,7 @@ def test_screen(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def window(test_screen):
+def window(test_screen):  # noqa: ARG001  # the ground it stands on, wired by name
     """The real window, painted once, closed at the end."""
     import tkinter as tk
 

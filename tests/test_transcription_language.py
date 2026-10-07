@@ -59,7 +59,7 @@ class TestFasterWhisper:
 
         transcriber = adapter.FasterWhisperTranscriber.__new__(
             adapter.FasterWhisperTranscriber)
-        monkeypatch.setattr(transcriber, "_load", lambda: FakeModel(), raising=False)
+        monkeypatch.setattr(transcriber, "_load", FakeModel, raising=False)
         transcriber.transcribe(Path("essai.wav"), language, "")
         return view["language"]
 

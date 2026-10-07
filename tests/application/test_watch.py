@@ -21,7 +21,7 @@ class SliceTranscriber:
         self.slices = list(slices)
         self.calls = 0
 
-    def transcribe(self, audio, language, prompt_seed):
+    def transcribe(self, _audio, _language, _prompt_seed):
         self.calls += 1
         return self.slices.pop(0) if self.slices else []
 
@@ -85,7 +85,7 @@ class TestTranscribingAsItGoes:
         """An utterance dated inside its slice would point at the wrong moment."""
         monkeypatch.setattr(watch, "CONTEXT_S", 50.0)
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
         # The transcribed window starts CONTEXT_S before the slice: an
         # utterance said 3 s into the slice is dated that much later in it.
         transcriber = SliceTranscriber(
@@ -103,7 +103,7 @@ class TestTranscribingAsItGoes:
         sentence said in the fortieth minute would show up in the second.
         """
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
         transcriber = SliceTranscriber(
             [[utterance(2, "Greffier, ouvre le ticket")]]
         )
@@ -119,7 +119,7 @@ class TestTranscribingAsItGoes:
     def test_too_short_a_slice_is_not_transcribed(self, tmp_path, monkeypatch):
         # The model invents more than it hears on two seconds of audio.
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
         transcriber = SliceTranscriber([[utterance(0, "à peine un mot")]])
         instance = watcher(tmp_path, transcriber=transcriber)
         assert instance.transcription_turn(where_in(tmp_path, written=2.0), tmp_path) == []
@@ -133,7 +133,7 @@ class TestTranscribingAsItGoes:
         the previous one glued in front.
         """
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
         transcriber = SliceTranscriber([
             # Slice 1 (0-10 s of meeting): a sentence ends at 8 s.
             [Utterance(Span(0, 8), "c'est notre dernier.")],
@@ -154,7 +154,7 @@ class TestTranscribingAsItGoes:
         requested_ones = []
         monkeypatch.setattr(
             watch, "extract_slice",
-            lambda audio, start, end, dest: requested_ones.append((start, end)) or None,
+            lambda _audio, start, end, _dest: requested_ones.append((start, end)) or None,
         )
         instance = watcher(tmp_path, transcriber=SliceTranscriber([]))
         instance.transcription_turn(where_in(tmp_path, written=600.0), tmp_path)
@@ -162,7 +162,7 @@ class TestTranscribingAsItGoes:
         assert end - start == watch.SLICE_MAXIMUM
 
     def test_an_unreadable_slice_does_not_stop_the_watch(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(watch, "extract_slice", lambda *args: None)
+        monkeypatch.setattr(watch, "extract_slice", lambda *_args: None)
         instance = watcher(tmp_path, transcriber=SliceTranscriber([]))
         assert instance.transcription_turn(where_in(tmp_path, written=30.0), tmp_path) == []
 
@@ -183,7 +183,7 @@ class TestTheEndOfTheMeeting:
     ):
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
         transcriber = SliceTranscriber([[utterance(1, "Greffier, ouvre le ticket")]])
         instance = watcher(tmp_path, transcriber=transcriber, slice_period=30.0)
         frozen = where_in(tmp_path, written=6.0)
@@ -195,7 +195,7 @@ class TestTheEndOfTheMeeting:
     def test_the_last_pass_catches_what_was_left(self, tmp_path, monkeypatch):
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
         transcriber = SliceTranscriber([[utterance(1, "Greffier, ouvre le ticket")]])
         instance = watcher(
             tmp_path, transcriber=transcriber, slice_period=30.0,
@@ -223,7 +223,7 @@ class TestTheWholeLoop:
         """
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
         transcriber = SliceTranscriber([[], [], []])
         written = {"s": 0.0}
         instance = watcher(
@@ -258,7 +258,7 @@ class TestTheWholeLoop:
         """
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
         transcriber = SliceTranscriber([[], []])
         clock = {"t": 0.0}
         instance = watcher(
@@ -294,7 +294,7 @@ class TestTheSliceWaitsForAQuietMoment:
 
     def _run(self, tmp_path, monkeypatch, speaking, rounds=60):
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
-        monkeypatch.setattr(watch, "extract_slice", lambda audio, start, end, dest: dest)
+        monkeypatch.setattr(watch, "extract_slice", lambda _audio, _start, _end, dest: dest)
         transcriber = SliceTranscriber([[] for _ in range(20)])
         written = {"s": 0.0}
         cuts: list[float] = []
@@ -334,23 +334,23 @@ class TestTheSliceWaitsForAQuietMoment:
         assert watch.SLICE_POLL in pauses
 
     def test_a_room_that_never_goes_quiet_is_cut_at_the_slack(self, tmp_path, monkeypatch):
-        cuts, _ = self._run(tmp_path, monkeypatch, speaking=lambda at: True, rounds=30)
+        cuts, _ = self._run(tmp_path, monkeypatch, speaking=lambda _at: True, rounds=30)
         assert cuts[0] == 10.0 + watch.SLICE_SLACK_S
 
     def test_a_quiet_room_is_cut_on_the_clock(self, tmp_path, monkeypatch):
-        cuts, pauses = self._run(tmp_path, monkeypatch, speaking=lambda at: False, rounds=6)
+        cuts, pauses = self._run(tmp_path, monkeypatch, speaking=lambda _at: False, rounds=6)
         assert cuts[0] == 10.0
         assert set(pauses) == {watch.CLIPBOARD_PERIOD}
 
     def test_with_no_level_to_read_the_clock_rules(self, tmp_path, monkeypatch):
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
-        monkeypatch.setattr(watch, "extract_slice", lambda audio, start, end, dest: dest)
+        monkeypatch.setattr(watch, "extract_slice", lambda _audio, _start, _end, dest: dest)
         instance = watcher(tmp_path, transcriber=SliceTranscriber([[]]), slice_period=10.0)
         assert instance._is_time(where_in(tmp_path, written=10.0))
         assert not instance.holding_the_slice
 
-    def test_a_level_that_fails_does_not_hold_the_slice(self, tmp_path, monkeypatch):
-        def broken(where_):
+    def test_a_level_that_fails_does_not_hold_the_slice(self, tmp_path):
+        def broken(_where):
             raise OSError("no file")
 
         instance = watcher(tmp_path, transcriber=SliceTranscriber([[]]), slice_period=10.0,
@@ -429,7 +429,7 @@ class TestThePromptSeedRereadMidMeeting:
     def watcher_with(self, prompt_seed: str, reread_it=None):
         return Watcher(
             watch_rules=WatchRules(keyword="greffier"),
-            log=pathlib.Path("/tmp/greffier-essai.jsonl"),
+            log=pathlib.Path("/enregistrements/greffier-essai.jsonl"),
             transcriber=None,
             locate=lambda: None,
             prompt_seed=prompt_seed,
@@ -477,7 +477,7 @@ class TestTheWindowOfContext:
     def test_the_model_gets_more_audio_than_the_slice(self, tmp_path, monkeypatch):
         requested_ones = []
 
-        def extract(audio, start, end, dest):
+        def extract(_audio, start, end, dest):
             requested_ones.append((start, end))
             return dest
 
@@ -492,7 +492,7 @@ class TestTheWindowOfContext:
     def test_what_is_in_the_context_is_not_shown_again(self, tmp_path, monkeypatch):
         """Sinon chaque phrase s'afficherait six fois."""
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
         transcriber = SliceTranscriber([[
             utterance(2, "phrase déjà affichée, dans le contexte"),
             utterance(watch.CONTEXT_S + 1, "phrase neuve, dans la tranche"),
@@ -508,7 +508,7 @@ class TestTheWindowOfContext:
         requested_ones = []
         monkeypatch.setattr(
             watch, "extract_slice",
-            lambda audio, start, end, dest: requested_ones.append(start) or dest,
+            lambda _audio, start, _end, dest: requested_ones.append(start) or dest,
         )
         transcriber = SliceTranscriber([[]])
         instance = watcher(tmp_path, transcriber=transcriber)
@@ -555,7 +555,7 @@ class TestTheTwoButtonsDuringAMeeting:
 
         return Watcher(
             watch_rules=WatchRules(keyword="greffier"),
-            log=Path("/tmp/inutilise.jsonl"),
+            log=Path("/enregistrements/inutilise.jsonl"),
             assistant_of=assistant_of,
             reread_participation=lambda: buttons,
             give_voice_back=(lambda: new_voice) if new_voice else None,
@@ -627,7 +627,7 @@ class TestTheTwoButtonsDuringAMeeting:
         # The look costs a call to the model every ten seconds otherwise.
         looks = []
         her = self._assistant_of()
-        her.look_for_a_contribution_aside = lambda now: looks.append(now)
+        her.look_for_a_contribution_aside = looks.append
         watcher = self._watcher(her, (True, True))
         watcher.watch_rules.profile = __import__(
             "greffier.domain.profiles.french", fromlist=["FRENCH"]).FRENCH
@@ -687,7 +687,7 @@ class TestOnceTheMeetingEnds:
     def _watcher(self, tmp_path, monkeypatch, written, her):
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
         return watcher(
             tmp_path,
             transcriber=SliceTranscriber([[utterance(0.0, "Lucie, tu en penses quoi ?")]]),
@@ -705,7 +705,7 @@ class TestOnceTheMeetingEnds:
         """Called by name in the last seconds: transcribed, not answered."""
         her = self._assistant()
         calls = []
-        her.answer_aside = lambda opening, now: calls.append(opening)
+        her.answer_aside = lambda opening, _now: calls.append(opening)
         instance = self._watcher(tmp_path, monkeypatch, 20.0, her)
         instance.last_pass(tmp_path)
         assert calls == []
@@ -714,7 +714,7 @@ class TestOnceTheMeetingEnds:
         """The counter-proof: the same slice mid-meeting does reach her."""
         her = self._assistant()
         calls = []
-        her.answer_aside = lambda opening, now: calls.append(opening)
+        her.answer_aside = lambda opening, _now: calls.append(opening)
         instance = self._watcher(tmp_path, monkeypatch, 20.0, her)
         instance.transcription_turn(where_in(tmp_path, written=20.0), tmp_path)
         assert len(calls) == 1
@@ -758,7 +758,7 @@ class TestSheAnswersWithoutWaitingForTheSlice:
             self.text = text
             self.calls = 0
 
-        def transcribe(self, audio, language, prompt_seed):
+        def transcribe(self, _audio, _language, _prompt_seed):
             self.calls += 1
             return [Utterance(span=Span(0.0, 3.0), text=self.text)]
 
@@ -767,7 +767,7 @@ class TestSheAnswersWithoutWaitingForTheSlice:
         from greffier.domain.participation import Manners
 
         class Brain:
-            def write_up(self, text):
+            def write_up(self, _text):
                 return "Je regarde."
 
         return AssistantSettings(name="Lucie", brain=Brain(),
@@ -776,14 +776,14 @@ class TestSheAnswersWithoutWaitingForTheSlice:
     def _watcher(self, tmp_path, monkeypatch, her, listening):
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
         return watcher(tmp_path, transcriber=listening, assistant_of=her,
                        locate=lambda: where_in(tmp_path, written=8.0))
 
     def test_a_call_is_answered_before_the_slice(self, tmp_path, monkeypatch):
         her, listening = self._her(), self.Listening()
         said_ones = []
-        her.answer_aside = lambda opening, now: said_ones.append(opening)
+        her.answer_aside = lambda opening, _now: said_ones.append(opening)
         instance = self._watcher(tmp_path, monkeypatch, her, listening)
         instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
         assert len(said_ones) == 1
@@ -796,7 +796,7 @@ class TestSheAnswersWithoutWaitingForTheSlice:
         her = self._her()
         listening = self.Listening("on se cale jeudi pour la recette")
         said_ones = []
-        her.answer_aside = lambda opening, now: said_ones.append(opening)
+        her.answer_aside = lambda opening, _now: said_ones.append(opening)
         instance = self._watcher(tmp_path, monkeypatch, her, listening)
         instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
         assert said_ones == []
@@ -809,7 +809,7 @@ class TestSheAnswersWithoutWaitingForTheSlice:
         if her._job is not None:
             her._job.join(timeout=5)
         said_ones = []
-        her.answer_aside = lambda opening, now: said_ones.append(opening)
+        her.answer_aside = lambda opening, _now: said_ones.append(opening)
         instance.assistant_turn(
             [utterance(0.0, "Lucie, tu en penses quoi ?")], 8.0
         )
@@ -871,7 +871,7 @@ class TestSheAnswersWithoutWaitingForTheSlice:
         """The whole point: it happens on the clipboard rhythm, not the slice."""
         her, listening = self._her(), self.Listening()
         said_ones = []
-        her.answer_aside = lambda opening, now: said_ones.append(opening)
+        her.answer_aside = lambda opening, _now: said_ones.append(opening)
         instance = self._watcher(tmp_path, monkeypatch, her, listening)
         instance.slice_period = 30.0
         turns = {"n": 0}
@@ -899,7 +899,7 @@ class TestTheListeningPassHasItsOwnThread:
             self.slice_seconds = slice_seconds
             self.slice_ended_at = None
 
-        def transcribe(self, audio, language, prompt_seed):
+        def transcribe(self, audio, _language, _prompt_seed):
             import time
 
             if audio.name != "ecoute.wav":
@@ -913,7 +913,7 @@ class TestTheListeningPassHasItsOwnThread:
         from greffier.domain.participation import Manners
 
         class Brain:
-            def write_up(self, text):
+            def write_up(self, _text):
                 return "Je regarde."
 
         return AssistantSettings(name="Lucie", brain=Brain(),
@@ -926,10 +926,10 @@ class TestTheListeningPassHasItsOwnThread:
 
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
         her, slow = self._her(), self.SlowSlice(slice_seconds=0.6)
         spotted = []
-        her.answer_aside = lambda opening, now: spotted.append(time.monotonic())
+        her.answer_aside = lambda _opening, _now: spotted.append(time.monotonic())
         instance = watcher(tmp_path, transcriber=slow, assistant_of=her,
                            locate=lambda: where_in(tmp_path, written=8.0),
                            slice_period=1.0)
@@ -952,7 +952,7 @@ class TestTheListeningPassHasItsOwnThread:
 
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
         before = threading.active_count()
         instance = watcher(tmp_path, transcriber=self.SlowSlice(0.0),
                            assistant_of=self._her(),
@@ -968,13 +968,13 @@ class TestTheListeningPassHasItsOwnThread:
     ):
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
 
         class Breaks:
             def __init__(self):
                 self.calls = 0
 
-            def transcribe(self, audio, language, prompt_seed):
+            def transcribe(self, audio, _language, _prompt_seed):
                 if audio.name != "ecoute.wav":
                     return []
                 self.calls += 1
@@ -1017,7 +1017,7 @@ class TestItListensTheMomentSomebodyStops:
             self.end = end
             self.calls = 0
 
-        def transcribe(self, audio, language, prompt_seed):
+        def transcribe(self, audio, _language, _prompt_seed):
             if audio.name != "ecoute.wav":
                 return []
             self.calls += 1
@@ -1028,7 +1028,7 @@ class TestItListensTheMomentSomebodyStops:
         from greffier.domain.participation import Manners
 
         class Brain:
-            def write_up(self, text):
+            def write_up(self, _text):
                 return "Je regarde."
 
         return AssistantSettings(name="Lucie", brain=Brain(),
@@ -1037,11 +1037,11 @@ class TestItListensTheMomentSomebodyStops:
     def _watcher(self, tmp_path, monkeypatch, listening, speaking, clock):
         monkeypatch.setattr(watch, "read_the_clipboard", lambda: "")
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
         monkeypatch.setattr(watch, "LISTENING_POLL", 0.02)
         monkeypatch.setattr(watch, "LISTENING_PERIOD", 60.0)
         her = self._her()
-        her.answer_aside = lambda opening, now: clock.setdefault("spotted", []).append(now)
+        her.answer_aside = lambda _opening, now: clock.setdefault("spotted", []).append(now)
 
         def locate():
             clock["now"] = clock.get("now", 8.0) + 0.1
@@ -1082,7 +1082,7 @@ class TestItListensTheMomentSomebodyStops:
         clock = {}
         listening = self.Listening()
         instance = self._watcher(tmp_path, monkeypatch, listening,
-                                 speaking=lambda where_: False, clock=clock)
+                                 speaking=lambda _where: False, clock=clock)
         monkeypatch.setattr(watch, "LISTENING_PERIOD", 0.1)
         self._run(instance, tmp_path, rounds=8)
         assert listening.calls == 0, "nobody spoke: nothing to listen to"
@@ -1100,7 +1100,7 @@ class TestItListensTheMomentSomebodyStops:
         clock = {}
         listening = self.Listening()
         instance = self._watcher(tmp_path, monkeypatch, listening,
-                                 speaking=lambda where_: None, clock=clock)
+                                 speaking=lambda _where: None, clock=clock)
         self._run(instance, tmp_path, rounds=8)
         assert listening.calls == 0, "nothing prompted, and the clock a minute away"
 
@@ -1115,7 +1115,7 @@ class TestHalfAQuestionIsNotAnswered:
         from greffier.domain.participation import Manners
 
         class Brain:
-            def write_up(self, text):
+            def write_up(self, _text):
                 return "Je regarde."
 
         return AssistantSettings(name="Lucie", brain=Brain(),
@@ -1123,15 +1123,15 @@ class TestHalfAQuestionIsNotAnswered:
 
     def _spotted(self, tmp_path, monkeypatch, end):
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
 
         class Listening:
-            def transcribe(self, audio, language, prompt_seed):
+            def transcribe(self, _audio, _language, _prompt_seed):
                 return [Utterance(span=Span(0.0, end), text="Lucie, à quel jour est-ce ?")]
 
         her = self._her()
         spotted = []
-        her.answer_aside = lambda opening, now: spotted.append(opening.remark)
+        her.answer_aside = lambda opening, _now: spotted.append(opening.remark)
         instance = watcher(tmp_path, transcriber=Listening(), assistant_of=her)
         instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path)
         return spotted
@@ -1157,7 +1157,7 @@ class TestAPromptedPassTrustsTheRoom:
         from greffier.domain.participation import Manners
 
         class Brain:
-            def write_up(self, text):
+            def write_up(self, _text):
                 return "Je regarde."
 
         return AssistantSettings(name="Lucie", brain=Brain(),
@@ -1165,16 +1165,16 @@ class TestAPromptedPassTrustsTheRoom:
 
     def _spotted(self, tmp_path, monkeypatch, prompted):
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
 
         class Listening:
-            def transcribe(self, audio, language, prompt_seed):
+            def transcribe(self, _audio, _language, _prompt_seed):
                 # Stamped past the end of the window, as the model does.
                 return [Utterance(span=Span(0.0, 8.2), text="Lucie, on décale à jeudi ?")]
 
         her = self._her()
         spotted = []
-        her.answer_aside = lambda opening, now: spotted.append(opening.remark)
+        her.answer_aside = lambda opening, _now: spotted.append(opening.remark)
         instance = watcher(tmp_path, transcriber=Listening(), assistant_of=her)
         instance.listening_turn(where_in(tmp_path, written=8.0), tmp_path, prompted=prompted)
         return spotted
@@ -1199,7 +1199,7 @@ class TestABreathInTheMiddleOfAQuestion:
         from greffier.domain.participation import Manners
 
         class Brain:
-            def write_up(self, text):
+            def write_up(self, _text):
                 return "Deux."
 
         return AssistantSettings(name="Lucie", brain=Brain(),
@@ -1207,11 +1207,11 @@ class TestABreathInTheMiddleOfAQuestion:
 
     def _spotted(self, tmp_path, monkeypatch, resumed):
         monkeypatch.setattr(watch, "extract_slice",
-                            lambda audio, start, end, dest: dest)
+                            lambda _audio, _start, _end, dest: dest)
         instance_holder = {}
 
         class Listening:
-            def transcribe(self, audio, language, prompt_seed):
+            def transcribe(self, _audio, _language, _prompt_seed):
                 # While the model reads the window, the room goes on.
                 if resumed:
                     instance_holder["w"]._speech_end.note(8.4, speaking=True)
@@ -1220,7 +1220,7 @@ class TestABreathInTheMiddleOfAQuestion:
 
         her = self._her()
         spotted = []
-        her.answer_aside = lambda opening, now: spotted.append(opening.remark)
+        her.answer_aside = lambda opening, _now: spotted.append(opening.remark)
         instance = watcher(tmp_path, transcriber=Listening(), assistant_of=her)
         instance_holder["w"] = instance
         instance._speech_end.note(7.4, speaking=True)
@@ -1247,18 +1247,18 @@ class TestHerNameIsInTheSeed:
         from greffier.domain.participation import Manners
 
         class Brain:
-            def write_up(self, text):
+            def write_up(self, _text):
                 return "Je regarde."
 
         return AssistantSettings(name="Lucie", brain=Brain(),
                                  manners=Manners(active=True, creux_minimal=0.0))
 
     def test_the_transcriber_is_told_she_is_in_the_room(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(watch, "extract_slice", lambda audio, start, end, dest: dest)
+        monkeypatch.setattr(watch, "extract_slice", lambda _audio, _start, _end, dest: dest)
         seeds = []
 
         class Ecoute:
-            def transcribe(self, audio, language, prompt_seed):
+            def transcribe(self, _audio, _language, prompt_seed):
                 seeds.append(prompt_seed)
                 return []
 
@@ -1270,11 +1270,11 @@ class TestHerNameIsInTheSeed:
         ]
 
     def test_the_slice_carries_it_too_and_her_name_comes_last(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(watch, "extract_slice", lambda audio, start, end, dest: dest)
+        monkeypatch.setattr(watch, "extract_slice", lambda _audio, _start, _end, dest: dest)
         seeds = []
 
         class Ecoute:
-            def transcribe(self, audio, language, prompt_seed):
+            def transcribe(self, _audio, _language, prompt_seed):
                 seeds.append(prompt_seed)
                 return []
 
@@ -1286,11 +1286,11 @@ class TestHerNameIsInTheSeed:
         assert seeds[0].startswith("Réunion de travail. Vocabulaire : CASA.")
 
     def test_without_an_assistant_the_seed_is_the_context_s_alone(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(watch, "extract_slice", lambda audio, start, end, dest: dest)
+        monkeypatch.setattr(watch, "extract_slice", lambda _audio, _start, _end, dest: dest)
         seeds = []
 
         class Ecoute:
-            def transcribe(self, audio, language, prompt_seed):
+            def transcribe(self, _audio, _language, prompt_seed):
                 seeds.append(prompt_seed)
                 return []
 

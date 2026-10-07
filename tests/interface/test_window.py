@@ -8,6 +8,7 @@ showing, and that is precisely where the misreadings happen.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import ClassVar
 
 from greffier.interface.readable import button_grid as _grille
 from greffier.interface.readable import clock as _clock
@@ -126,7 +127,7 @@ class TestTheRowOfButtons:
     #: The widths asked for in the Meetings tab, in order.
     #: « Envoyer par courriel » vaut 180 : le libellé complet, parce que
     #: « Envoyer » alone does not say what is sent.
-    MEETINGS = [100, 100, 96, 180, 116, 110, 110, 116]
+    MEETINGS: ClassVar[list[int]] = [100, 100, 96, 180, 116, 110, 110, 116]
 
     def test_everything_fits_on_one_row_when_there_is_room(self) -> None:
         by_rank, _ = _grille(self.MEETINGS, 2000)
@@ -299,7 +300,7 @@ class TestPreparingAMeetingFromTheWindow:
         from greffier.interface.window import Window
 
         window = self._window(tmp_path, Preparation(identifier="p", subject="recette"))
-        window._answer_while_preparing = lambda q: window.requests.append(q)
+        window._answer_while_preparing = window.requests.append
         Window._ask_this(window, "rappelle-moi la dernière")
         assert window.requests == ["rappelle-moi la dernière"]
 
@@ -327,9 +328,9 @@ class TestPreparingAMeetingFromTheWindow:
         from greffier.interface.window import Window
 
         window = self._window(tmp_path, language="fr")
-        window._dictation = type("Rien", (), {"stop": lambda self: None})()
-        window.speak_button = type("Bouton", (), {"set_caption": lambda self, t: None})()
-        window._say_while_preparing = lambda kind, text: window.said_ones.append(text)
+        window._dictation = type("Rien", (), {"stop": lambda _self: None})()
+        window.speak_button = type("Bouton", (), {"set_caption": lambda _self, _t: None})()
+        window._say_while_preparing = lambda _kind, text: window.said_ones.append(text)
         Window._stop_dictating(window)
         assert any("Maintenez le bouton" in said for said in window.said_ones)
 
@@ -338,9 +339,9 @@ class TestPreparingAMeetingFromTheWindow:
         from greffier.interface.window import Window
 
         window = self._window(tmp_path, language="en")
-        window._dictation = type("Rien", (), {"stop": lambda self: None})()
-        window.speak_button = type("Bouton", (), {"set_caption": lambda self, t: None})()
-        window._say_while_preparing = lambda kind, text: window.said_ones.append(text)
+        window._dictation = type("Rien", (), {"stop": lambda _self: None})()
+        window.speak_button = type("Bouton", (), {"set_caption": lambda _self, _t: None})()
+        window._say_while_preparing = lambda _kind, text: window.said_ones.append(text)
         Window._stop_dictating(window)
         assert any("Hold the button" in said for said in window.said_ones)
 
@@ -349,5 +350,5 @@ class TestPreparingAMeetingFromTheWindow:
 
         window = self._window(tmp_path)
         window._dictation = None
-        window.speak_button = type("Bouton", (), {"set_caption": lambda self, t: None})()
+        window.speak_button = type("Bouton", (), {"set_caption": lambda _self, _t: None})()
         Window._stop_dictating(window)

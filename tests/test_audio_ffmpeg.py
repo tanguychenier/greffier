@@ -17,6 +17,7 @@ import numpy as np
 import pytest
 import soundfile as sf
 
+from greffier.adapters import audio_ffmpeg
 from greffier.adapters.audio_ffmpeg import DIGITAL_SILENCE, FfmpegRecorder
 
 pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg absent")
@@ -113,6 +114,79 @@ class TestStoppingTheEncoder:
             if child.poll() is None:
                 child.kill()
 
+    #: Children standing in for ffmpeg. Each says « ready » on stdout once it
+    #: is set to receive SIGINT: signalled before that, on a loaded machine, it
+    #: would die of the default handler with -2 and prove nothing. The one
+    #: that leaves blocks the signal and awaits it with sigwait rather than
+    #: handling it: a handler installed just before time.sleep() misses a
+    #: signal landing between the two and acts on it when the sleep ends
+    #: (measured: 3 runs out of 5 spent the recorder's whole 15 s), while a
+    #: blocked signal stays pending until sigwait takes it.
+    LEAVES_ON_SIGINT = ("import signal, sys\n"
+                        "signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT})\n"
+                        "print('ready', flush=True)\n"
+                        "signal.sigwait({signal.SIGINT})\nsys.exit(0)\n")
+    IGNORES_SIGINT = ("import signal, time\n"
+                      "signal.signal(signal.SIGINT, signal.SIG_IGN)\n"
+                      "print('ready', flush=True)\ntime.sleep(60)\n")
+
+    def _started_by_the_recorder(self, monkeypatch, tmp_path, script, popen=None):
+        """A recorder whose ffmpeg is a Python child running `script`, returned
+        with the recorder and the pid once the child has said it is ready."""
+        real_popen = popen or subprocess.Popen
+        children: list[subprocess.Popen[bytes]] = []
+
+        def a_child(_command, **options):
+            options["stdout"] = subprocess.PIPE
+            children.append(real_popen([sys.executable, "-c", script], **options))
+            return children[-1]
+
+        monkeypatch.setattr(subprocess, "Popen", a_child)
+        recorder = FfmpegRecorder("default", 60)
+        pid = recorder.start_recording(tmp_path / "r.wav")
+        child = children[0]
+        assert child.stdout is not None
+        assert child.stdout.readline().strip() == b"ready", "the child never got ready"
+        return recorder, pid, child
+
+    @staticmethod
+    def _let_go(child):
+        if child.stdout is not None:
+            child.stdout.close()
+        if child.poll() is None:
+            child.kill()
+            child.wait()
+
+    def test_an_encoder_started_here_is_waited_for_here(self, monkeypatch, tmp_path):
+        """Finalised while running, a Popen warns; left unwaited, it is a zombie."""
+        recorder, pid, child = self._started_by_the_recorder(
+            monkeypatch, tmp_path, self.LEAVES_ON_SIGINT)
+        try:
+            recorder.stop_recording(pid)
+        finally:
+            self._let_go(child)
+        assert child.returncode == 0, "waited for by the recorder itself"
+        assert pid not in audio_ffmpeg._STARTED
+
+    def test_an_encoder_that_outlives_the_wait_is_killed_and_still_reaped(
+            self, monkeypatch, tmp_path):
+        """SIGINT ignored and the 15 s gone: kill, then wait all the same, or
+        the zombie stays. The timed wait is made to run out at once."""
+        class NeverOnTime(subprocess.Popen):
+            def wait(self, timeout=None):
+                if timeout is not None:
+                    raise subprocess.TimeoutExpired(self.args, timeout)
+                return super().wait()
+
+        recorder, pid, child = self._started_by_the_recorder(
+            monkeypatch, tmp_path, self.IGNORES_SIGINT, popen=NeverOnTime)
+        try:
+            recorder.stop_recording(pid)
+        finally:
+            self._let_go(child)
+        assert child.returncode == -signal.SIGKILL, "killed once the wait ran out"
+        assert pid not in audio_ffmpeg._STARTED
+
     def test_a_process_already_gone_costs_nothing(self):
         child = subprocess.Popen([sys.executable, "-c", "pass"])
         child.wait()
@@ -126,7 +200,7 @@ class TestStoppingTheEncoder:
             import time
 
             time.sleep(0.3)
-            monkeypatch.setattr(time, "sleep", lambda s: None)
+            monkeypatch.setattr(time, "sleep", lambda _s: None)
             FfmpegRecorder("default", 60).stop_recording(child.pid)
             assert child.wait(timeout=5) == -signal.SIGKILL
         finally:

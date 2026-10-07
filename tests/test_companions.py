@@ -16,7 +16,7 @@ from greffier.adapters import companions
 def launches(monkeypatch):
     lances: list[list[str]] = []
     monkeypatch.setattr(
-        companions.subprocess, "Popen", lambda command, **k: lances.append(command))
+        companions.subprocess, "Popen", lambda command, **_k: lances.append(command))
     return lances
 
 
@@ -34,7 +34,8 @@ class TestTheLiveThread:
         companions.start_the_live_thread(tmp_path, True, tmp_path / "config.toml")
         assert "--config" in launches[0]
 
-    def test_its_output_is_kept(self, launches, tmp_path):
+    @pytest.mark.usefixtures("launches")
+    def test_its_output_is_kept(self, tmp_path):
         """A helper that dies silently is a meeting with no live thread and no reason."""
         companions.start_the_live_thread(tmp_path, active=True)
         assert (tmp_path / "direct.log").exists()
@@ -56,7 +57,7 @@ class TestTheHardwareWatch:
 class TestWhenItCannotStart:
     def test_a_refusal_is_reported_rather_than_raised(self, tmp_path, monkeypatch):
         """A meeting must start even where its helpers cannot."""
-        def refuse(*a, **k):
+        def refuse(*_a, **_k):
             raise OSError("plus de processus")
 
         monkeypatch.setattr(companions.subprocess, "Popen", refuse)

@@ -64,6 +64,10 @@ class OllamaWriter:
     def __init__(self, model: str, host: str = "http://127.0.0.1:11434",
                  language: str = "", own_guidance: str = "") -> None:
         self.model = model
+        # Ollama listens in plain http on the loopback; any other scheme would
+        # make urlopen read whatever the address names.
+        if not host.startswith(("http://", "https://")):
+            raise ValueError(f"« {host} » n'est pas une adresse : il faut http(s)://")
         self.host = host.rstrip("/")
         self.language = language
         #: Given, the writer's own instructions give way: the assistant
@@ -78,12 +82,12 @@ class OllamaWriter:
             "stream": False,
             "options": {"temperature": 0.2},
         }).encode("utf-8")
-        the_request = urllib.request.Request(
+        the_request = urllib.request.Request(  # noqa: S310  # scheme checked in __init__
             f"{self.host}/api/generate", data=corps,
             headers={"Content-Type": "application/json"}, method="POST",
         )
         try:
-            with urllib.request.urlopen(the_request, timeout=900) as response:
+            with urllib.request.urlopen(the_request, timeout=900) as response:  # noqa: S310
                 text = str(json.load(response).get("response", "")).strip()
         except urllib.error.URLError as the_error:
             raise RuntimeError(

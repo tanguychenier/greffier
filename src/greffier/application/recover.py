@@ -60,7 +60,7 @@ def from_the_thread(
 
     return StoredMeeting(
         identifier=identifier,
-        audio=audio if audio is not None else Path(""),
+        audio=audio if audio is not None else Path(),
         processed_at=datetime.now(UTC),
         duration=duration,
         utterances=utterances,

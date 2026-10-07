@@ -102,7 +102,7 @@ class TestTheModelOpenedOnce:
         monkeypatch.setattr(adapter, "_OPENED", {})
 
         class FauxModule:
-            def WhisperModel(self, size, device, compute_type):  # noqa: N802
+            def WhisperModel(self, size, device, compute_type):  # noqa: ARG002  # keyword
                 done_ones.append((size, device))
                 return object()
 
@@ -126,20 +126,22 @@ class TestTheModelOpenedOnce:
         FasterWhisperTranscriber(size="large-v3", device="cuda").warm()
         assert openings == [("large-v3", "cuda")]
 
-    def test_warming_never_raises(self, monkeypatch, openings):
+    @pytest.mark.usefixtures("openings")
+    def test_warming_never_raises(self, monkeypatch):
         """Called from a thread during the closing: a failure here costs nothing,
         the chain will open the model again and say so properly."""
         from greffier.adapters import transcription_faster_whisper as adapter
 
         class QuiRefuse:
-            def WhisperModel(self, *_a, **_k):  # noqa: N802
+            def WhisperModel(self, *_a, **_k):
                 raise RuntimeError("plus de mémoire sur la carte")
 
         monkeypatch.setitem(__import__("sys").modules, "faster_whisper", QuiRefuse())
         monkeypatch.setattr(adapter, "_OPENED", {})
         FasterWhisperTranscriber(size="large-v3", device="cuda").warm()
 
-    def test_a_model_that_failed_is_not_handed_out_again(self, monkeypatch, openings):
+    @pytest.mark.usefixtures("openings")
+    def test_a_model_that_failed_is_not_handed_out_again(self, monkeypatch):
         """The one that broke carried the card: handing it out again would replay the failure."""
         from greffier.adapters import transcription_faster_whisper as adapter
 

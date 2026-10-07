@@ -58,7 +58,7 @@ class Dialogue:
     show: Callable[[str], None]
     choose: Callable[[str, list[tuple[str, str]], int], str]
 
-def language_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
+def language_step(dialogue: Dialogue, _state: Diagnostic, answers: Answers) -> None:
     """Which language meetings are held in, the system's guess first."""
     title = "\nDans quelle langue ?"
     dialogue.show(title)
@@ -117,7 +117,7 @@ def hardware_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
         "whisper.cpp" if recorder.system == "Darwin" else "faster-whisper",
     )
 
-def writer_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
+def writer_step(dialogue: Dialogue, _state: Diagnostic, answers: Answers) -> None:
     """Claude Code: installed? signed in? otherwise what is left."""
     dialogue.show("\nQui rédige le compte rendu")
 
@@ -129,7 +129,9 @@ def writer_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None
         command = diagnostic.CLAUDE_INSTALL_COMMAND.get(SYSTEM, "")
         if command and dialogue.confirm(f"L'installer maintenant ? ({command})", True):
             dialogue.show(f"$ {command}")
-            subprocess.run(command, shell=True, check=False)
+            # The shell is wanted: the constant from CLAUDE_INSTALL_COMMAND is a
+            # pipe (« curl … | sh »), shown and confirmed by the person just above.
+            subprocess.run(command, shell=True, check=False)  # noqa: S602
             answers.installations.append("Claude Code")
         else:
             answers.to_do.append(command)
@@ -179,7 +181,7 @@ def _ollama_model(dialogue: Dialogue, answers: Answers) -> str:
     answers.to_do.append("ollama pull qwen3:8b")
     return "qwen3:8b"
 
-def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
+def delivery_step(dialogue: Dialogue, _state: Diagnostic, answers: Answers) -> None:
     """By email, or into a folder?"""
     dialogue.show("\nOù arrive le compte rendu")
 
@@ -226,7 +228,7 @@ def delivery_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> No
     )
     answers.to_do.append("export GREFFIER_SMTP_MOT_DE_PASSE='…'")
 
-def vocabulary_step(dialogue: Dialogue, state: Diagnostic, answers: Answers) -> None:
+def vocabulary_step(dialogue: Dialogue, _state: Diagnostic, answers: Answers) -> None:
     """The setting that changes transcription quality the most."""
     dialogue.show("\nVocabulaire de vos réunions")
     dialogue.show(

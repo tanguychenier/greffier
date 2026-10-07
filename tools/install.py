@@ -101,7 +101,7 @@ def make_folder(path):
     """
     for ancestor in [*reversed(path.parents), path]:
         if ancestor.is_symlink() and not ancestor.exists():
-            info(f"lien mort écarté : {ancestor} → {os.readlink(ancestor)}")
+            info(f"lien mort écarté : {ancestor} → {ancestor.readlink()}")
             ancestor.unlink()
     path.mkdir(parents=True, exist_ok=True)
 
@@ -310,7 +310,7 @@ def _load_languages():
     module = importlib.util.module_from_spec(specification)
     try:
         specification.loader.exec_module(module)
-    except Exception:
+    except Exception:  # noqa: BLE001 - no registry yet on a half-installed repository: French, as before
         # The module imports the registry of profiles, which does not exist yet on
         # a half-installed repository. The fallback is French, as before.
         return None
@@ -399,8 +399,8 @@ def install_package(ctx, name, because):
     if tool == "apt-get":
         # Without a refresh, apt fails on an image or a machine whose package
         # list has never been updated.
-        run_job(command[:-2] + ["update", "-qq"], stdout=subprocess.DEVNULL)
-    return run_job(command + [package]).returncode == 0
+        run_job([*command[:-2], "update", "-qq"], stdout=subprocess.DEVNULL)
+    return run_job([*command, package]).returncode == 0
 
 
 # ----------------------------------------------------------- 1. system tools
@@ -597,7 +597,9 @@ def link_or_copy(source, target, folder=False):
 def download(url, target):
     """Downloads while showing progress, without leaving a truncated file."""
     partial = target.with_suffix(target.suffix + ".partiel")
-    with urllib.request.urlopen(url) as stream, open(partial, "wb") as output:
+    # The addresses are the https constants of this file (MODELS, SEGMENTATION,
+    # VOICE_RELEASE), never something read from the machine.
+    with urllib.request.urlopen(url) as stream, partial.open("wb") as output:  # noqa: S310
         total = int(stream.headers.get("Content-Length") or 0)
         received = 0
         while True:
@@ -666,6 +668,7 @@ def _install_segmentation(ctx):
         if sys.version_info >= (3, 12):
             package.extractall(ctx.models / "diarisation", filter="data")
         else:
+            # No filter before 3.12; the archive is the one SEGMENTATION names.
             package.extractall(ctx.models / "diarisation")  # noqa: S202
     archive.unlink()
     ok("modèle de segmentation")
@@ -711,6 +714,7 @@ def _install_voice(ctx):
             if sys.version_info >= (3, 12):
                 package.extractall(ctx.models, filter="data")
             else:
+                # No filter before 3.12; the archive is VOICE_RELEASE's own.
                 package.extractall(ctx.models)  # noqa: S202
         extracted = ctx.models / voice.archive
         if extracted.exists():
@@ -1093,7 +1097,7 @@ start "" /min {target}
 """
 
 
-def integrate_with_desktop(ctx, target, write=True):
+def integrate_with_desktop(target, write=True):
     """Puts the icon in the bar and the launch at session opening.
 
     Returns the file written, or None when the system is not recognised. The

@@ -11,6 +11,7 @@ is installed, hence the import by path rather than by module name.
 
 import importlib.util
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -45,7 +46,7 @@ def under(the_installer, monkeypatch):
 
 
 class TestWhereThingsLive:
-    def test_linux_follows_the_xdg_conventions(self, under, tmp_path, monkeypatch):
+    def test_linux_follows_the_xdg_conventions(self, under, tmp_path):
         module = under("Linux", XDG_CONFIG_HOME=str(tmp_path / "config"))
         assert module.config_folder() == tmp_path / "config" / "greffier"
 
@@ -53,7 +54,7 @@ class TestWhereThingsLive:
         """Not XDG: the hidden folders of an account are watched by the machine's
         guards, which asked for permission again on every access.
         """
-        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
         monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
         monkeypatch.delenv("XDG_DATA_HOME", raising=False)
         module = under("Darwin")
@@ -69,7 +70,7 @@ class TestWhereThingsLive:
         """
         from greffier import locations
 
-        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
         monkeypatch.delenv("XDG_DATA_HOME", raising=False)
         module = under("Darwin")
         assert module.data_folder() == locations.data_folder("Darwin")
@@ -84,13 +85,13 @@ class TestWhereThingsLive:
 class TestThePackageManager:
     def test_windows_prefers_winget_to_scoop(self, under, monkeypatch):
         module = under("Windows")
-        monkeypatch.setattr(module.shutil, "which", lambda tool: "C:\\\\winget.exe")
+        monkeypatch.setattr(module.shutil, "which", lambda _tool: "C:\\\\winget.exe")
         tool, _ = module.package_manager()
         assert tool == "winget"
 
     def test_windows_with_no_manager_does_not_crash(self, under, monkeypatch):
         module = under("Windows")
-        monkeypatch.setattr(module.shutil, "which", lambda tool: None)
+        monkeypatch.setattr(module.shutil, "which", lambda _tool: None)
         assert module.package_manager() is None
 
     def test_linux_recognises_apt(self, under, monkeypatch):
@@ -127,16 +128,16 @@ class TestFittingIntoTheDesktop:
     """What gets laid down to start Greffier when the session opens."""
 
     def test_macos_gets_a_launch_agent(self, under, monkeypatch, tmp_path):
-        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
         module = under("Darwin")
-        file = module.integrate_with_desktop(None, "/Applications/Greffier.app")
+        file = module.integrate_with_desktop("/Applications/Greffier.app")
         assert file.parent == tmp_path / "Library/LaunchAgents"
         content = file.read_text(encoding="utf-8")
         assert "com.reunions.greffier" in content and "RunAtLoad" in content
 
-    def test_linux_gets_a_desktop_entry(self, under, monkeypatch, tmp_path):
+    def test_linux_gets_a_desktop_entry(self, under, tmp_path):
         module = under("Linux", XDG_CONFIG_HOME=str(tmp_path / "config"))
-        file = module.integrate_with_desktop(None, "/usr/local/bin/greffier")
+        file = module.integrate_with_desktop("/usr/local/bin/greffier")
         assert file == tmp_path / "config/autostart/greffier.desktop"
         content = file.read_text(encoding="utf-8")
         assert content.startswith("[Desktop Entry]")
@@ -144,7 +145,7 @@ class TestFittingIntoTheDesktop:
 
     def test_windows_gets_a_startup_script(self, under, tmp_path):
         module = under("Windows", APPDATA=str(tmp_path / "Roaming"))
-        file = module.integrate_with_desktop(None, r"C:\\Greffier\\greffier.exe")
+        file = module.integrate_with_desktop(r"C:\\Greffier\\greffier.exe")
         assert file.parent.name == "Startup"
         content = file.read_text(encoding="utf-8")
         # A .cmd and not a .lnk: a Windows shortcut is a binary format that
@@ -153,7 +154,7 @@ class TestFittingIntoTheDesktop:
 
     def test_an_unknown_system_does_not_crash(self, under):
         module = under("Haiku")
-        assert module.integrate_with_desktop(None, "/quelque/part") is None
+        assert module.integrate_with_desktop("/quelque/part") is None
 
 
 class TestTheRepairSkill:
@@ -165,14 +166,14 @@ class TestTheRepairSkill:
     chosen on purpose.
     """
 
-    def test_the_skill_ships_with_the_repository(self, the_installer):
+    def test_the_skill_ships_with_the_repository(self):
         source = RACINE / "skills/greffier/SKILL.md"
         assert source.exists(), "le skill doit vivre dans le dépôt, pas seulement sur un poste"
         text = source.read_text(encoding="utf-8")
         assert text.startswith("---\nname: greffier\n"), "en-tête de skill attendu"
         assert "description:" in text.split("---")[1]
 
-    def test_the_skill_says_where_to_look(self, the_installer):
+    def test_the_skill_says_where_to_look(self):
         """A skill that names neither the logs nor the diagnostic leaves it groping."""
         text = (RACINE / "skills/greffier/SKILL.md").read_text(encoding="utf-8")
         for index in ("greffier diagnostic", "Application Support",
@@ -199,19 +200,19 @@ class TestTheRepairSkill:
 
     def test_it_is_laid_where_the_assistant_looks_for_it(self, under, monkeypatch, tmp_path):
         module = under("Darwin")
-        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
         assert module.skills_folder() == tmp_path / ".claude/skills"
 
     def test_a_copy_and_not_a_link(self, under, monkeypatch, tmp_path):
         """The repository may be moved: a link would point into the void."""
         module = under("Darwin")
-        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-        monkeypatch.setattr(module.shutil, "which", lambda tool: "/usr/local/bin/claude")
+        monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
+        monkeypatch.setattr(module.shutil, "which", lambda _tool: "/usr/local/bin/claude")
 
         class Context:
             yes = True
             check_only = False
-            to_do: list[str] = []
+            to_do: ClassVar[list[str]] = []
 
             def ask(self, _question):
                 return True
@@ -231,15 +232,15 @@ class TestTheRepairSkill:
         here, after the models and the dependencies were already in place.
         """
         module = under("Linux")
-        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-        monkeypatch.setattr(module.shutil, "which", lambda tool: "/usr/bin/claude")
+        monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
+        monkeypatch.setattr(module.shutil, "which", lambda _tool: "/usr/bin/claude")
         (tmp_path / ".claude").mkdir()
         (tmp_path / ".claude/skills").symlink_to(tmp_path / "gone/skills")
 
         class Context:
             yes = True
             check_only = False
-            to_do: list[str] = []
+            to_do: ClassVar[list[str]] = []
 
             def ask(self, _question):
                 return True
@@ -250,13 +251,13 @@ class TestTheRepairSkill:
 
     def test_with_no_coding_assistant_nothing_is_laid_down(self, under, monkeypatch, tmp_path):
         module = under("Darwin")
-        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-        monkeypatch.setattr(module.shutil, "which", lambda tool: None)
+        monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
+        monkeypatch.setattr(module.shutil, "which", lambda _tool: None)
 
         class Context:
             yes = True
             check_only = False
-            to_do: list[str] = []
+            to_do: ClassVar[list[str]] = []
 
             def ask(self, _question):
                 return True
@@ -281,7 +282,7 @@ class TestAWindowThatDoesNotLookLike1989:
             stdout = answer
             stderr = ""
 
-        monkeypatch.setattr(module.subprocess, "run", lambda *a, **k: Lu())
+        monkeypatch.setattr(module.subprocess, "run", lambda *_a, **_k: Lu())
 
     def test_xft_is_smoothing(self, under, monkeypatch):
         module = under("Linux", DISPLAY=":0")
@@ -319,7 +320,7 @@ class TestAWindowThatDoesNotLookLike1989:
         monkeypatch.setattr(module, "antialiases", lambda _: False)
         assert module.a_smoothing_interpreter() is None
 
-    def test_elsewhere_the_shipped_tk_already_smooths(self, under, monkeypatch):
+    def test_elsewhere_the_shipped_tk_already_smooths(self, under):
         """macOS and Windows: nothing to look for, and nothing to warn about."""
         for system in ("Darwin", "Windows"):
             module = under(system, DISPLAY=":0")
@@ -347,7 +348,7 @@ class TestTheCommandInThePath:
     def _a_context(check_only=False):
         class Context:
             yes = True
-            to_do: list[str] = []
+            to_do: ClassVar[list[str]] = []
 
             def __init__(self):
                 self.check_only = check_only
@@ -359,7 +360,7 @@ class TestTheCommandInThePath:
 
     def test_the_command_is_linked_where_the_shell_looks(self, under, monkeypatch, tmp_path):
         module = under("Linux")
-        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
         python, launcher = self._an_environment(tmp_path)
 
         module.desktop_step(self._a_context(), python)
@@ -370,7 +371,7 @@ class TestTheCommandInThePath:
 
     def test_the_menu_entry_opens_the_window(self, under, monkeypatch, tmp_path):
         module = under("Linux")
-        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
         monkeypatch.delenv("XDG_DATA_HOME", raising=False)
         python, _ = self._an_environment(tmp_path)
 
@@ -383,7 +384,7 @@ class TestTheCommandInThePath:
     def test_windows_is_told_where_the_command_is(self, under, monkeypatch, tmp_path, capsys):
         """No ~/.local/bin there, and the session PATH breaks more easily than it mends."""
         module = under("Windows")
-        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
         python, _ = self._an_environment(tmp_path)
 
         module.desktop_step(self._a_context(), python)
@@ -393,7 +394,7 @@ class TestTheCommandInThePath:
 
     def test_checking_lays_nothing_down(self, under, monkeypatch, tmp_path):
         module = under("Linux")
-        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
         python, _ = self._an_environment(tmp_path)
 
         module.desktop_step(self._a_context(check_only=True), python)
@@ -404,7 +405,7 @@ class TestTheCommandInThePath:
     def test_a_link_left_by_another_clone_is_replaced(self, under, monkeypatch, tmp_path):
         """A repository moved, and the old link points into the void."""
         module = under("Linux")
-        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
         python, launcher = self._an_environment(tmp_path)
         stale = tmp_path / ".local/bin/greffier"
         stale.parent.mkdir(parents=True)
@@ -614,7 +615,7 @@ class TestAnEnvironmentInheritedFromBefore:
         (tmp_path / ".venv" / "bin").mkdir(parents=True)
 
         context = type("Ctx", (), {"check_only": False, "to_do": [],
-                                    "ask": lambda self, _q: False})()
+                                    "ask": lambda _self, _q: False})()
         the_installer.environment_step(context, "whisper.cpp")
 
         assert not (tmp_path / ".venv").exists() or launched, "rien n'a été refait"
@@ -628,7 +629,7 @@ class TestAnEnvironmentInheritedFromBefore:
         interpreter.write_text("")
 
         context = type("Ctx", (), {"check_only": False, "to_do": [],
-                                    "ask": lambda self, _q: False})()
+                                    "ask": lambda _self, _q: False})()
         the_installer.environment_step(context, "whisper.cpp")
 
         assert not any(c[:2] == ["uv", "venv"] for c in launched), launched
@@ -640,7 +641,7 @@ class TestAnEnvironmentInheritedFromBefore:
         """Three lines further down, the Python traceback would have named no package."""
         self._prepare(the_installer, tmp_path, monkeypatch, with_uv=False)
         context = type("Ctx", (), {"check_only": False, "to_do": [],
-                                    "ask": lambda self, _q: False})()
+                                    "ask": lambda _self, _q: False})()
         with pytest.raises(SystemExit):
             the_installer.environment_step(context, "whisper.cpp")
 
@@ -800,7 +801,7 @@ class TestTheTranscriptionModelsArePreparedByTheInstaller:
     def _prepared(self, module, monkeypatch, tmp_path):
         prepared = []
 
-        def run(command, **kwargs):
+        def run(command, **_kwargs):
             prepared.append(command[-1])
 
             class Done:
@@ -834,6 +835,6 @@ class TestTheTranscriptionModelsArePreparedByTheInstaller:
     def test_with_whisper_cpp_nothing_is_prepared(self, under, monkeypatch, tmp_path):
         module = under("Darwin")
         called = []
-        monkeypatch.setattr(module.subprocess, "run", lambda *a, **k: called.append(a))
+        monkeypatch.setattr(module.subprocess, "run", lambda *a, **_k: called.append(a))
         module.whisper_model_step(self.Context(), "whisper.cpp", tmp_path / "python")
         assert called == []

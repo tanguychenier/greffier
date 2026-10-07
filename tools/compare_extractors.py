@@ -29,6 +29,7 @@ import json
 import pickle
 import statistics as stat
 import sys
+import tempfile
 import time
 import urllib.request
 from collections import defaultdict
@@ -36,8 +37,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from greffier.domain.voiceprints import aggregate, similarity, stitch  # noqa: E402
-from greffier.locations import data_folder  # noqa: E402
+from greffier.domain.voiceprints import aggregate, similarity, stitch
+from greffier.locations import data_folder
 
 CATALOGUE = ("https://github.com/k2-fsa/sherpa-onnx/releases/download/"
              "speaker-recongition-models/")
@@ -58,7 +59,7 @@ CANDIDATES = {
 #: The length of the excerpts measured. It is that of a live slice block,
 #: hence the one where the choice of model is decided.
 WINDOW = 2.5
-CACHE = Path("/tmp/greffier-extracteurs")
+CACHE = Path(tempfile.gettempdir()) / "greffier-extracteurs"
 
 
 def download(name: str, target: Path) -> Path:
@@ -67,7 +68,8 @@ def download(name: str, target: Path) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     print(f"  downloading {name}…", file=sys.stderr)
     partial = target.with_suffix(".partial")
-    with urllib.request.urlopen(CATALOGUE + name) as stream, partial.open("wb") as output:
+    with (urllib.request.urlopen(CATALOGUE + name) as stream,  # noqa: S310  # https constant
+          partial.open("wb") as output):
         while chunk := stream.read(1 << 20):
             output.write(chunk)
     partial.replace(target)
@@ -78,7 +80,7 @@ def voiceprints(model: Path, meeting: dict, key: str) -> list:
     """One voiceprint per window, in the order of time. Cached."""
     file = CACHE / f"{key}.pickle"
     if file.exists():
-        return pickle.loads(file.read_bytes())
+        return pickle.loads(file.read_bytes())  # noqa: S301  # written below by this tool
 
     import numpy as np
     import soundfile as sf
@@ -108,14 +110,14 @@ def voiceprints(model: Path, meeting: dict, key: str) -> list:
 
 def truth(meeting: dict) -> list:
     """Who spoke when, according to the final stitching of the meeting."""
-    cache = Path("/tmp/greffier-empreintes") / f"{meeting['identifiant']}.pickle"
+    cache = Path(tempfile.gettempdir()) / "greffier-empreintes" / f"{meeting['identifiant']}.pickle"
     if not cache.exists():
         raise SystemExit(
             "The ground truth is missing: run tools/replay_stitching.py on this "
             "meeting first."
         )
     try:
-        per_voice = pickle.loads(cache.read_bytes())
+        per_voice = pickle.loads(cache.read_bytes())  # noqa: S301  # replay_stitching wrote it
     except (pickle.UnpicklingError, ModuleNotFoundError, AttributeError, EOFError):
         print("Unreadable cache: run tools/replay_stitching.py on this meeting "
               "again, it will rebuild it.", file=sys.stderr)

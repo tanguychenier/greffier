@@ -1847,7 +1847,8 @@ class Window:
             return
 
         self.config = fresh_part
-        words = [f"Enregistré · {datetime.now().strftime('%H:%M:%S')}"]
+        # The wall-clock shown to the person, in their own zone.
+        words = [f"Enregistré · {datetime.now().strftime('%H:%M:%S')}"]  # noqa: DTZ005
         if fresh_part.minutes.engine == "claude":
             words.append(f"rédacteur {fresh_part.minutes.effective_model}")
         word = " · ".join(words)

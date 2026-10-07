@@ -440,7 +440,7 @@ async def _stream_to(recording: UploadFile, target: Path, limit_mb: int) -> None
     try:
         with temporary.open("xb") as stream:
             await _copy_bounded(recording, stream, limit_mb)
-        os.replace(temporary, target)
+        temporary.replace(target)
     except BaseException:
         temporary.unlink(missing_ok=True)
         target.unlink(missing_ok=True)

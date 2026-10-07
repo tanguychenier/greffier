@@ -132,7 +132,7 @@ class _AsItComes:
     kept, so that the capture loop does not hear the assistant call itself.
     """
 
-    def __init__(self, assistant: AssistantSettings, opening: Opening, now: float) -> None:
+    def __init__(self, assistant: AssistantSettings, now: float) -> None:
         self._assistant = assistant
         self._now = now
         self._mouth: outbound.Mouth | None = None
@@ -392,7 +392,7 @@ class AssistantSettings:
         """
         if self.stopped:
             return Remark(remark="", because=opening.because, a=now)
-        spoken = _AsItComes(self, opening, now)
+        spoken = _AsItComes(self, now)
         remark = without_own_name(self._phrase_it(opening, spoken), self.name)
         if not remark or self.stopped:
             spoken.finish()

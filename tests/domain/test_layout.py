@@ -1,5 +1,7 @@
 """Laying out a tree so that nothing overlaps."""
 
+from itertools import pairwise
+
 from greffier.domain.board import Board, Contribution, join
 from greffier.domain.layout import (
     BETWEEN_COLUMNS,
@@ -40,7 +42,7 @@ class TestLayingOutTheBoard:
         places = lay_out(a_board())
         for the_column in {place.x for place in places}:
             heights = sorted(p.y for p in places if p.x == the_column)
-            gaps = [b - a for a, b in zip(heights, heights[1:], strict=False)]
+            gaps = [b - a for a, b in pairwise(heights)]
             assert all(gap >= BETWEEN_LINES for gap in gaps), the_column
 
     def test_columns_are_further_apart_than_they_are_wide(self):

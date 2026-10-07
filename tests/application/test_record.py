@@ -31,7 +31,7 @@ class FakeRecorder:
         destination.write_bytes(b"RIFF----WAVEfmt " * len(chunks))
         return destination
 
-    def levels(self, audio):
+    def levels(self, _audio):
         return [-30.0]
 
 
@@ -60,11 +60,11 @@ def recorder(tmp_path, monkeypatch, audio_recorder):
 
 class TestTheMeetingIdentifier:
     def test_the_date_first_so_that_it_sorts(self):
-        when = datetime(2026, 8, 24, 14, 30)
+        when = datetime(2026, 8, 24, 14, 30)  # noqa: DTZ001  # naive like _identifier's input
         assert _identifier("Point Copernic", when) == "2026-08-24_14h30_point-copernic"
 
     def test_accents_and_symbols_disappear(self):
-        when = datetime(2026, 8, 24, 9, 5)
+        when = datetime(2026, 8, 24, 9, 5)  # noqa: DTZ001  # naive like _identifier's input
         assert _identifier("Réunion #4 (été)", when) == "2026-08-24_09h05_reunion-4-ete"
 
     def test_an_empty_name_stays_usable(self):
@@ -75,12 +75,12 @@ class TestTheMeetingIdentifier:
         in the same minute carried the same identifier and one overwrote the other.
         The intention held, the assertion betrayed it.
         """
-        minuit = datetime(2026, 1, 1, 0, 0)
+        minuit = datetime(2026, 1, 1, 0, 0)  # noqa: DTZ001  # naive like _identifier's input
         assert _identifier("???", minuit).startswith("2026-01-01_00h00_")
         assert _identifier("???", minuit) != _identifier("!!!", minuit)
 
     def test_two_non_latin_subjects_do_not_overwrite_each_other(self):
-        minuit = datetime(2026, 1, 1, 0, 0)
+        minuit = datetime(2026, 1, 1, 0, 0)  # noqa: DTZ001  # naive like _identifier's input
         assert _identifier("点検会議", minuit) != _identifier("Совещание", minuit)
 
 
@@ -136,7 +136,7 @@ class TestTheRecordingCycle:
         with pytest.raises(RuntimeError, match="Aucun enregistrement"):
             recorder.stop_recording()
 
-    def test_an_empty_recording_is_flagged(self, recorder, monkeypatch):
+    def test_an_empty_recording_is_flagged(self, recorder):
         recorder.start_recording("muet")
         state = recorder.read()
         # The captured audio lives in the chunks: that is where to look.
@@ -216,7 +216,7 @@ class TestWhatMustNotBreak:
     def test_a_dead_process_does_not_pass_for_a_live_one(self, recorder, monkeypatch):
         """Restart during a meeting: the state lies, the processes do not."""
         recorder.start_recording("interrompue")
-        monkeypatch.setattr("greffier.application.record._alive", lambda pid: False)
+        monkeypatch.setattr("greffier.application.record._alive", lambda _pid: False)
         state = recorder.read()
         assert state.phase is Phase.FAILURE
         assert "conservé" in state.message
@@ -288,7 +288,7 @@ class TestPausing:
         assert len(state.chunks) == 2
         assert state.chunks[1].name.endswith("-02.wav")
 
-    def test_the_paused_time_does_not_count_in_the_length(self, recorder, monkeypatch):
+    def test_the_paused_time_does_not_count_in_the_length(self, recorder):
         from datetime import UTC, datetime, timedelta
 
         recorder.start_recording("point")
@@ -339,19 +339,19 @@ class TestOneLogPerMeeting:
         from greffier.domain.models import Phase
 
         class SilentRecorder:
-            def start_recording(self, destination):
+            def start_recording(self, _destination):
                 return 1
 
             def stop_recording(self, process_id):
                 pass
 
-            def prepare_transcript(self, audio, destination):
+            def prepare_transcript(self, audio, _destination):
                 return audio
 
-            def wire_up(self, chunks, destination):
+            def wire_up(self, _chunks, destination):
                 return destination
 
-            def levels(self, audio):
+            def levels(self, _audio):
                 return []
 
         recorder = Recording(

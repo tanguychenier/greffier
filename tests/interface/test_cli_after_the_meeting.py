@@ -7,6 +7,7 @@ what is covered is the command, its refusals and its messages, not the model.
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -21,7 +22,7 @@ runner = CliRunner()
 @pytest.fixture
 def machine(tmp_path, monkeypatch):
     """A machine of its own: settings, data folder, nothing inherited."""
-    for the_key in [c for c in __import__("os").environ if c.startswith("GREFFIER_")]:
+    for the_key in [c for c in os.environ if c.startswith("GREFFIER_")]:
         monkeypatch.delenv(the_key)
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     data = tmp_path / "donnees"
@@ -150,7 +151,7 @@ class TestWritingTheMinutesAgain:
         settings, data = machine
         name = a_meeting(data)
         writer = FakeWriter("# Compte rendu : recette\n\n## Décisions\n\n- Jeudi.\n")
-        monkeypatch.setattr(cli, "writer", lambda config: writer)
+        monkeypatch.setattr(cli, "writer", lambda _config: writer)
         answered = _run(settings, "rediger", name)
         assert answered.exit_code == 0, _out(answered)
         assert (data / "comptes-rendus" / f"{name}.md").read_text(encoding="utf-8").startswith(
@@ -183,7 +184,7 @@ class TestTheTicketsOffered:
         writer = FakeWriter(json.dumps([
             {"titre": "Relancer le partenaire", "assigne": "Maud", "echeance": "lundi"},
         ]))
-        monkeypatch.setattr(cli, "writer", lambda config: writer)
+        monkeypatch.setattr(cli, "writer", lambda _config: writer)
         answered = _run(settings, "tickets", name)
         assert answered.exit_code == 0, _out(answered)
         assert "Relancer le partenaire" in answered.stdout
@@ -195,7 +196,7 @@ class TestTheTicketsOffered:
         settings, data = machine
         name = a_meeting(data)
         minutes_for(data, name)
-        monkeypatch.setattr(cli, "writer", lambda config: FakeWriter("[]"))
+        monkeypatch.setattr(cli, "writer", lambda _config: FakeWriter("[]"))
         answered = _run(settings, "tickets", name)
         assert "Aucune action décidée" in answered.stdout
 
@@ -226,7 +227,8 @@ class TestSendingTheMinutes:
             def send(self, *arguments):
                 sent.append(arguments)
 
-        monkeypatch.setattr("greffier.wiring._sender", lambda config, require_recipient: Sender())
+        monkeypatch.setattr(  # the command passes require_recipient= by keyword
+            "greffier.wiring._sender", lambda _config, require_recipient: Sender())  # noqa: ARG005
         answered = _run(settings, "envoyer", name, "--a", "maud@example.fr", input="n\n")
         assert answered.exit_code == 0
         assert "Rien n'a été envoyé" in answered.stdout
@@ -239,10 +241,11 @@ class TestSendingTheMinutes:
         sent = []
 
         class Sender:
-            def send(self, target, subject, body, pieces):
+            def send(self, target, subject, _body, pieces):
                 sent.append((target, subject, pieces))
 
-        monkeypatch.setattr("greffier.wiring._sender", lambda config, require_recipient: Sender())
+        monkeypatch.setattr(  # the command passes require_recipient= by keyword
+            "greffier.wiring._sender", lambda _config, require_recipient: Sender())  # noqa: ARG005
         answered = _run(settings, "envoyer", name, "--a", "maud@example.fr", "--oui")
         assert answered.exit_code == 0, _out(answered)
         assert sent and sent[0][0] == "maud@example.fr"
@@ -255,10 +258,11 @@ class TestSendingTheMinutes:
         minutes_for(data, name)
 
         class Sender:
-            def send(self, *arguments):
+            def send(self, *_arguments):
                 raise RuntimeError("serveur injoignable")
 
-        monkeypatch.setattr("greffier.wiring._sender", lambda config, require_recipient: Sender())
+        monkeypatch.setattr(  # the command passes require_recipient= by keyword
+            "greffier.wiring._sender", lambda _config, require_recipient: Sender())  # noqa: ARG005
         answered = _run(settings, "envoyer", name, "--a", "maud@example.fr", "--oui")
         assert answered.exit_code == 1
         assert "serveur injoignable" in _out(answered)
@@ -274,7 +278,7 @@ class TestRecoveringAMeetingFromItsThread:
         return log
 
     def test_with_no_thread_at_all_it_says_where_it_looked(self, machine):
-        settings, data = machine
+        settings, _data = machine
         answered = _run(settings, "recuperer")
         assert answered.exit_code == 1
         assert "Aucun fil de direct" in _out(answered)
@@ -320,7 +324,7 @@ class TestTidyingTheRecordings:
         assert answered.exit_code == 0, _out(answered)
         assert "Rien à ranger" in answered.stdout
 
-    def test_an_old_recording_is_named_before_anything_is_touched(self, machine, tmp_path):
+    def test_an_old_recording_is_named_before_anything_is_touched(self, machine):
         settings, data = machine
         settings.write_text(
             settings.read_text(encoding="utf-8")
@@ -335,7 +339,7 @@ class TestTidyingTheRecordings:
         assert (data / "enregistrements" / f"{name}.wav").exists(), "nothing touched"
 
     def test_an_invalid_rule_is_refused_by_name(self, machine):
-        settings, data = machine
+        settings, _data = machine
         settings.write_text(
             settings.read_text(encoding="utf-8")
             + "[retention]\ncompresser_apres_jours = 30\neffacer_apres_jours = 7\n",
@@ -383,11 +387,12 @@ class TestProcessingARecording:
             sender = None
             log = None
 
-            def run_chain(self, audio, send=True, hardware_events=None, started_at=None,
-                          ended_at=None):
+            # The command passes every option by keyword: the names are the contract.
+            def run_chain(self, audio, send=True, hardware_events=None,  # noqa: ARG002
+                          started_at=None, ended_at=None):  # noqa: ARG002
                 return outcome_of(audio)
 
-        monkeypatch.setattr(cli, "wire_up", lambda config: Chain())
+        monkeypatch.setattr(cli, "wire_up", lambda _config: Chain())
 
     def test_a_file_that_is_not_sound_is_refused_before_the_models(self, machine, tmp_path):
         settings, _ = machine
@@ -433,7 +438,7 @@ class TestProcessingARecording:
         settings, _ = machine
         audio = a_wav(tmp_path / "vide.wav")
 
-        def outcome_of(path):
+        def outcome_of(_path):
             raise ChainStopped(Phase.FAILURE, "Transcription quasi vide (3 mots).")
 
         self._chain(monkeypatch, outcome_of)
@@ -447,10 +452,10 @@ class TestProcessingARecording:
         from greffier.application.record import RecorderState
         from greffier.domain.models import Phase
 
-        settings, data = machine
+        settings, _data = machine
         audio = a_wav(tmp_path / "autre.wav")
         state = RecorderState(phase=Phase.RECORDING, name="reunion", pid=1)
-        monkeypatch.setattr("greffier.application.record.Recording.read", lambda self: state)
+        monkeypatch.setattr("greffier.application.record.Recording.read", lambda _self: state)
         answered = _run(settings, "traiter", str(audio))
         assert answered.exit_code == 1
         assert "quand-meme" in _out(answered) or "en cours" in _out(answered)
@@ -526,7 +531,7 @@ class TestCreatingTheTicketsOffered:
             {"titre": "Relancer le partenaire", "assigne": "Maud", "extrait": "on relance lundi"},
             {"titre": "Décaler la recette", "description": "à jeudi"},
         ]))
-        monkeypatch.setattr(cli, "writer", lambda config: writer)
+        monkeypatch.setattr(cli, "writer", lambda _config: writer)
         return name
 
     def test_a_source_nobody_registered_is_refused_by_name(self, machine, monkeypatch):
@@ -562,7 +567,7 @@ class TestCreatingTheTicketsOffered:
         monkeypatch.setenv("GREFFIER_JETON_D_ESSAI", "secret")
         created = []
 
-        def create(source, token, title, description=""):
+        def create(_source, _token, title, description=""):
             created.append((title, description))
             return gitlab_api.Ticket(len(created), title, "opened",
                                      f"https://gitlab.example.fr/i/{len(created)}")
@@ -583,7 +588,7 @@ class TestCreatingTheTicketsOffered:
         self._registry(settings)
         monkeypatch.setenv("GREFFIER_JETON_D_ESSAI", "secret")
 
-        def refuses(source, token, title, description=""):
+        def refuses(_source, _token, _title, _description=""):
             raise gitlab_api.GitLabRefused("jeton refusé sur « recherche » (403)")
 
         monkeypatch.setattr(gitlab_api, "create_a_ticket", refuses)
@@ -600,7 +605,7 @@ class TestCreatingTheTicketsOffered:
         self._registry(settings)
         monkeypatch.setenv("GREFFIER_JETON_D_ESSAI", "secret")
         monkeypatch.setattr(gitlab_api, "create_a_ticket",
-                            lambda *a, **k: pytest.fail("created without being asked"))
+                            lambda *_a, **_k: pytest.fail("created without being asked"))
         answered = _run(settings, "tickets", name)
         assert answered.exit_code == 0
 
@@ -667,7 +672,7 @@ class TestReadingTheMinutesAloud:
         name = a_meeting(data)
         minutes_for(data, name)
         monkeypatch.setattr("greffier.application.render.speak_aloud",
-                            lambda text, destination: destination.with_suffix(".wav"))
+                            lambda _text, destination: destination.with_suffix(".wav"))
         answered = _run(settings, "lire", name)
         assert answered.exit_code == 0, _out(answered)
         assert f"lectures/{name}.wav" in answered.stdout
@@ -677,7 +682,7 @@ class TestReadingTheMinutesAloud:
         name = a_meeting(data)
         minutes_for(data, name)
 
-        def none(text, destination):
+        def none(_text, _destination):
             raise RuntimeError("Aucune synthèse vocale disponible.")
 
         monkeypatch.setattr("greffier.application.render.speak_aloud", none)
@@ -692,7 +697,7 @@ class TestArchivingTheRecordings:
         name = a_meeting(data, with_audio=True)
         audio = data / "enregistrements" / f"{name}.wav"
 
-        def compress(path, keep_original=False):
+        def compress(path, _keep_original=False):
             product = path.with_suffix(".opus")
             product.write_bytes(b"o" * 100)
             path.unlink()
@@ -712,7 +717,7 @@ class TestArchivingTheRecordings:
 
 
 class TestBackingUpAndRestoring:
-    def test_a_backup_is_written_listed_and_restored(self, machine, tmp_path):
+    def test_a_backup_is_written_listed_and_restored(self, machine):
         settings, data = machine
         name = a_meeting(data)
         minutes_for(data, name)

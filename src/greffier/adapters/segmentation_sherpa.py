@@ -92,13 +92,15 @@ class SherpaSliceSegmenter:
             start = max(0, end - window)
             piece = signal[start:end]
             if len(piece) >= SHORTEST_WINDOW_S * frequency:
-                for segment in engine.process(piece).sort_by_start_time():
-                    found.append(SpeakerTurn(
+                found.extend(
+                    SpeakerTurn(
                         span=Span(start / frequency + segment.start,
                                   start / frequency + segment.end),
                         voice=f"{number}:{segment.speaker}",
                         source=Source.UNKNOWN,
-                    ))
+                    )
+                    for segment in engine.process(piece).sort_by_start_time()
+                )
             end = start
             number += 1
         return sorted(found, key=lambda turn: turn.span.start)

@@ -125,16 +125,16 @@ def fetch_summre(into: Path) -> list[Path]:
             data, rate = sf.read(io.BytesIO(audio["bytes"]), dtype="float32", always_2d=True)
             mono = data.mean(axis=1)
             tracks.append(_resample(mono, rate, SAMPLE_RATE))
-            for segment in row["segments"]:
-                turns.append(
-                    {
-                        "speaker": row["speaker_id"],
-                        "start": segment["start"],
-                        "end": segment["end"],
-                        "text": segment["transcript"],
-                        "words": segment["words"],
-                    }
-                )
+            turns.extend(
+                {
+                    "speaker": row["speaker_id"],
+                    "start": segment["start"],
+                    "end": segment["end"],
+                    "text": segment["transcript"],
+                    "words": segment["words"],
+                }
+                for segment in row["segments"]
+            )
         length = max(len(track) for track in tracks)
         mix = np.zeros(length, dtype=np.float32)
         for track in tracks:
@@ -288,9 +288,10 @@ def _clean(speaker: str) -> str:
 
 
 def _download(url: str, target: Path) -> None:
-    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    # url is one of the ASSEMBLEE_* constants above, never read from anywhere.
+    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})  # noqa: S310
     partial = target.with_suffix(target.suffix + ".part")
-    with urllib.request.urlopen(request) as answer, partial.open("wb") as out:
+    with urllib.request.urlopen(request) as answer, partial.open("wb") as out:  # noqa: S310
         shutil.copyfileobj(answer, out, length=1 << 20)
     partial.rename(target)
 

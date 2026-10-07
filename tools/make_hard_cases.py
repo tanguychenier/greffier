@@ -28,7 +28,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from make_meeting import IN_ROOM_VOICE, VOICE, make  # noqa: E402
+from make_meeting import IN_ROOM_VOICE, VOICE, make
 
 # Clearly distinct voices, so that the test measures the chain and not the
 # ability of the speech synthesis to make two different timbres: the same

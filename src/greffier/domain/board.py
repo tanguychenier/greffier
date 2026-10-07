@@ -116,15 +116,14 @@ class Board:
     """A subject's board, as it stands at one instant."""
 
     subject: str
-    root: Node | None = None
+    root: Node = field(init=False)
 
     def __post_init__(self) -> None:
-        if self.root is None:
-            self.root = Node(self.subject, kind=Kind.SUBJECT, state=Standing.AGREED)
+        self.root = Node(self.subject, kind=Kind.SUBJECT, state=Standing.AGREED)
 
     @property
     def count(self) -> int:
-        return self.root.count() if self.root else 0
+        return self.root.count()
 
 @dataclass(frozen=True, slots=True)
 class Contribution:
@@ -149,7 +148,6 @@ class Summary:
 
 def join(board: Board, contributions: list[Contribution], meeting: str = "") -> Summary:
     """Pours the contributions into the board. **Never erases anything.**"""
-    assert board.root is not None
     added: list[str] = []
     settled: list[str] = []
     known: list[str] = []
@@ -193,7 +191,6 @@ def _find(node: Node, text: str) -> Node | None:
 
 def mark_overdue(board: Board, text: str) -> bool:
     """Marks a point as overdue. The node stays on the board."""
-    assert board.root is not None
     found = _find(board.root, text)
     if found is None or found is board.root:
         return False

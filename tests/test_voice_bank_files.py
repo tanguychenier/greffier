@@ -91,7 +91,7 @@ class TestTheVoiceBank:
 def a_meeting(**overrides):
     defects = dict(
         identifier="2026-08-24_reunion",
-        audio=__import__("pathlib").Path("/tmp/r.wav"),
+        audio=__import__("pathlib").Path("/enregistrements/r.wav"),
         processed_at=datetime.now(UTC),
         duration=100.0,
         utterances=[Utterance(Span(0, 40), "bonjour à tous", "1"),
