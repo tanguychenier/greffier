@@ -124,30 +124,6 @@ class Placement:
     y: int
     of_the_tool: bool = False
 
-def objects_present(board_id: str) -> dict[str, str]:
-    """The points already on the board: label and identifier."""
-    _keep(board_id)
-    found: dict[str, str] = {}
-    cursor = ""
-    while True:
-        parameters = {"limit": "50"}
-        if cursor:
-            parameters["cursor"] = cursor
-        response = _call(
-            f"/boards/{urllib.parse.quote(board_id, safe='')}/items"
-            f"?{urllib.parse.urlencode(parameters)}"
-        )
-        for subject_line in response.get("data", []):
-            content = (subject_line.get("data") or {}).get("content", "")
-            if not content:
-                continue
-            first_one = _without_markup(content.split("</p>")[0])
-            if first_one:
-                found.setdefault(first_one, str(subject_line.get("id", "")))
-        cursor = str(response.get("cursor", ""))
-        if not cursor:
-            return found
-
 _PROVENANCE = re.compile(r"\d{4}-\d{2}-\d{2}_\d{2}h\d{2}")
 
 def placements_present(board_id: str) -> dict[str, Placement]:

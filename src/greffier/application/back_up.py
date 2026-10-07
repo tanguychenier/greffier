@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
 import tarfile
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -121,10 +120,3 @@ def list_(destination: Path) -> list[tuple[str, int, datetime]]:
             continue
         found.append((path.name, path.stat().st_size, when))
     return sorted(found, key=lambda line: line[2], reverse=True)
-
-def space_available(destination: Path) -> int:
-    """Free bytes where writing happens. Zero when unknown."""
-    try:
-        return shutil.disk_usage(destination).free
-    except OSError:
-        return 0

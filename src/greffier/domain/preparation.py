@@ -87,12 +87,6 @@ class Preparation:
             return self
         return replace(self, to_raise=(*self.to_raise, clean))
 
-    def with_document(self, name: str) -> Preparation:
-        clean = name.strip()
-        if not clean or clean in self.documents:
-            return self
-        return replace(self, documents=(*self.documents, clean))
-
     def taken(self, identifier: str) -> Preparation:
         """Consumed by a meeting, and no longer offered to the next one."""
         return replace(self, taken_by=identifier)
