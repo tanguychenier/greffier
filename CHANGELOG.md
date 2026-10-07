@@ -118,6 +118,38 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **domain**: doubtful_entry announced a known name as new on a negative cosine (`3f8bdf3`)
+- **domain**: a term that cleaned down to nothing taught « que » (`24b205e`)
+- **domain**: voice_of guarded a division no input can make unsafe (`21b197b`)
+- **domain**: voices_of guarded a total no voice can bring to zero (`b33fc60`)
+- **domain**: an indented bullet kept its dash in the recalled point (`964c5b0`)
+- **domain**: a loop is cut to twice wherever it starts in the sentence (`f4153ed`)
+- **domain**: a bare number is refused as a voice number, as the message says (`464d370`)
+- **domain**: an empty assistant name no longer cuts or strips a sentence (`bfbae58`)
+- **domain**: a sentence dated at one instant was never on the mic (`ed078a7`)
+- **domain**: a silent recording as long as the minimum is one hole (`d4b52e5`)
+- **domain**: from_live guarded a division no input can make unsafe (`2bcdc92`)
+- **config**: the French-spelled environment variables were silently ignored (`f7bddd2`)
+- **tests**: the git fixture committed into the repository running it (`b9e471f`)
+- **audio_ffmpeg**: the encoder's Popen was dropped running and never reaped (`8cc832a`)
+- **adapters**: an HTTPError's response was left open when chained into a refusal (`9ee9a9f`)
+- **accounts_file**: sign_in left the server's stdout open and a killed server unreaped (`4fc1a95`)
+- **brain_claude**: the assistant's stdout pipe was left to the collector (`8555722`)
+- **writer_ollama**: a host without http(s):// was handed to urlopen as it came (`a4c05dd`)
+- **updates**: download() opened whatever address the release named (`64f3828`)
+- **hooks**: a missing .venv now refuses the commit instead of waving it through (`9533d1c`)
+- **tooling**: mutmut could not start, its test selection named a folder gone for weeks (`234d361`)
+- **api**: the documentation routes need the token too (`8bae698`)
+- **sources**: a token with a control character no longer breaks the tokens file (`e845859`)
+- **notifications**: the Windows toast shows the title and the message (`d151456`)
+- **locale**: the machine's language is read without the API Python 3.15 removes (`77447a3`)
+- **cli**: « diagnostic --config » looks at the given configuration (`ece1ef9`)
+- **updates**: a zip member that escapes the folder is refused (`b4a7222`)
+- **api**: one chain at a time, and a bounded list of jobs (`166bac9`)
+- **api**: a recording's name is validated and never overwritten (`143ade3`)
+- **api**: uploads are streamed to disk and bounded (`aa254e5`)
+- **adapters**: token files are private from the first byte (`affcfc9`)
+- **email**: the mail sender verifies the server's certificate (`103e2ae`)
 - **window**: the Meetings tab's buttons and columns speak the window's language (`c28fcb7`)
 - **tools**: the names as they were shown are read by the turn's number (`29878a0`)
 - **assistant**: the same question, word for word, is answered again minutes later (`aa18e9f`)
@@ -237,6 +269,9 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Documentation
 
+- **contributing**: the mutation figures of 2026-10-04 (`a87a93a`)
+- **contributing**: the developer commands are uv's, and the coverage table says what was measured (`80a7941`)
+- **email**: document the certificate setting (`1c3795a`)
 - **readme**: the Comptes tab, photographed (`341f96a`)
 - the connected accounts, in the README, the plan and the scenarios (`2c59a94`)
 - **readme**: the tour, photographed on the Meetings tab (`f3e44b7`)
@@ -314,6 +349,13 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Refactored
 
+- **domain**: let the sort alone put the preferred mic first (`8738137`)
+- **wiring**: the assistant's voice and brain are typed with their ports (`e0590b5`)
+- **tools**: the shared caches sit in the system's temp directory, not in /tmp (`3d112d5`)
+- three parameters nothing read, four asserts standing in for a type (`915775a`)
+- **application**: the ports are named where Any stood (`f9c3dfe`)
+- **render**: one rule for namesakes, in the domain (`48e8b23`)
+- remove what nothing calls (`cdb6ce6`)
 - the last French comments and test docstrings, in English (`0a6a0d9`)
 - the last French identifiers, in English (`9ef2a0f`)
 - the last French identifiers, in English (`12579d4`)
