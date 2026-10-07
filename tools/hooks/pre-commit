@@ -11,7 +11,15 @@ set -euo pipefail
 
 DEPOT="$(git rev-parse --show-toplevel)"
 PYTHON="$DEPOT/.venv/bin/python"
-[ -x "$PYTHON" ] || { echo "⚠ no environment, checks skipped"; exit 0; }
+# Without an environment nothing was checked, and a commit nothing checked is
+# exactly what this hook exists to refuse. Until 2026-10 it printed a warning
+# and let the commit through: a guard that opens precisely when it is blind.
+if [ ! -x "$PYTHON" ]; then
+  echo "✗ no environment, so nothing was checked: commit refused."
+  echo "  Create it once, then commit again:"
+  echo "    uv sync --group dev --extra api"
+  exit 1
+fi
 
 echec=0
 controler() {
