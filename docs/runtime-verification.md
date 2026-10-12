@@ -61,3 +61,7 @@ Microphone capture, system audio, device selection, long recordings, native
 permissions, Gatekeeper and GPU drivers still need checks on the intended
 hardware. In particular, macOS CoreAudio permissions and Metal, and Windows
 capture devices and loopback audio, require a native hardware trial.
+
+The Windows recording adapter currently uses FFmpeg DirectShow. A named audio
+input must be available to FFmpeg. The presence of WASAPI in Windows does not
+establish that this adapter can capture system audio automatically.

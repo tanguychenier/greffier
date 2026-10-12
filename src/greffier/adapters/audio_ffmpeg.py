@@ -44,7 +44,9 @@ class FfmpegRecorder:
             return ["-f", "avfoundation", "-i", f":{self._avfoundation_index()}"]
         if SYSTEM == "Linux":
             return ["-f", "pulse", "-i", self.device]
-        return ["-f", "dshow", "-i", f"audio={self.device}"]
+        from greffier.adapters.audio_dshow import input_name
+
+        return ["-f", "dshow", "-i", f"audio={input_name(self.device)}"]
 
     def replays_a_file(self) -> bool:
         """Whether the input names a recording rather than a device."""

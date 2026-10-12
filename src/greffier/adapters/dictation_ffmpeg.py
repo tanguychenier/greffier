@@ -31,7 +31,9 @@ def _input(device: str) -> list[str]:
     if SYSTEM == "Darwin":
         return ["-f", "avfoundation", "-i", f":{device or 'default'}"]
     if SYSTEM == "Windows":
-        return ["-f", "dshow", "-i", f"audio={device or 'default'}"]
+        from greffier.adapters.audio_dshow import input_name
+
+        return ["-f", "dshow", "-i", f"audio={input_name(device)}"]
     return ["-f", "pulse", "-i", device or "default"]
 
 
