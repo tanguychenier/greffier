@@ -80,6 +80,11 @@ make the same reference available on every platform. A passed synthetic trial
 is not a measure of accuracy on all meetings. This dispatch does not build,
 replace or publish any release assets.
 
+If the native transcription stalls, add `--field whisper_diagnostic=true`
+to that dispatch. This records bounded direct whisper.cpp trials on CPU with
+and without VAD, and with automatic GPU selection. A diagnostic run collects
+evidence only and does not validate the complete meeting pipeline.
+
 ## Hardware checks
 
 A runner or Wine cannot validate the complete audio setup of another computer.

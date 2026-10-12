@@ -29,6 +29,10 @@ on:
         description: Verify the published macOS package on a synthetic meeting
         type: boolean
         default: false
+      whisper_diagnostic:
+        description: Diagnose native whisper.cpp before the meeting check
+        type: boolean
+        default: false
       release_tag:
         description: Published package to verify
         type: string
@@ -247,15 +251,22 @@ jobs:
       - name: Transcribe and attribute the reference dialogue
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
-        run: >-
-          "$RUNNER_TEMP/package/Greffier.app/Contents/MacOS/Greffier"
-          tools/check_packaged_meeting.py --output "$RUNNER_TEMP/meeting-proof"
-          --version "${RELEASE_TAG#v}"
+          WHISPER_DIAGNOSTIC: ${{ inputs.whisper_diagnostic }}
+        run: |
+          meeting_command=("$RUNNER_TEMP/package/Greffier.app/Contents/MacOS/Greffier"
+            tools/check_packaged_meeting.py --output "$RUNNER_TEMP/meeting-proof"
+            --version "${RELEASE_TAG#v}")
+          if [ "$WHISPER_DIAGNOSTIC" = true ]; then
+            meeting_command+=(--diagnose-whisper)
+          fi
+          "${meeting_command[@]}"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: meeting-macos
           path: |
             ${{ runner.temp }}/meeting-proof/meeting-proof.json
-            ${{ runner.temp }}/meeting-proof/pipeline.log
+            ${{ runner.temp }}/meeting-proof/*.log
+            ${{ runner.temp }}/meeting-proof/whisper-diagnostic.json
+            ${{ runner.temp }}/meeting-proof/*.srt
             ${{ runner.temp }}/meeting-proof/data/transcriptions/*.txt

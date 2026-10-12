@@ -15,6 +15,7 @@ import platform
 import re
 import subprocess
 import sys
+import time
 import unicodedata
 from pathlib import Path
 
@@ -43,6 +44,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--version", required=True)
+    parser.add_argument("--diagnose-whisper", action="store_true")
     arguments = parser.parse_args()
     root = arguments.output.resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -70,6 +72,53 @@ def main() -> None:
     make_meeting.synthesis_engine = lambda: "vits"
     audio = make_meeting.make(root / "synthetic-meeting.wav")
     reference = json.loads(audio.with_suffix(".timeline.json").read_text(encoding="utf-8"))
+    if arguments.diagnose_whisper:
+        from greffier.adapters.transcription_whisper_cpp import lire_srt
+        results = []
+        for name, cpu, vad, timeout in (
+            ("cpu-vad", True, True, 120),
+            ("cpu-no-vad", True, False, 120),
+            ("auto-vad", False, True, 45),
+        ):
+            destination = root / name
+            command = [
+                "whisper-cli", "-m", str(models / "ggml-large-v3-turbo.bin"),
+                "-f", str(audio), "-l", "auto", "-t", "8",
+                "-osrt", "-of", str(destination),
+            ]
+            if cpu:
+                command.append("--no-gpu")
+            if vad:
+                command += ["--vad", "--vad-model", str(models / "ggml-silero-v5.1.2.bin")]
+            print(f"Diagnosing {name}.", flush=True)
+            started = time.monotonic()
+            timed_out = False
+            with destination.with_suffix(".log").open("w", encoding="utf-8") as log:
+                try:
+                    completed = subprocess.run(
+                        command, stdout=log, stderr=subprocess.STDOUT,
+                        timeout=timeout, check=False,
+                    )
+                    returncode = completed.returncode
+                except subprocess.TimeoutExpired:
+                    timed_out = True
+                    returncode = None
+            subtitles = destination.with_suffix(".srt")
+            transcript = (
+                " ".join(row.text for row in lire_srt(subtitles))
+                if subtitles.exists() else ""
+            )
+            result = {
+                "case": name, "timed_out": timed_out, "returncode": returncode,
+                "seconds": round(time.monotonic() - started, 2),
+                "words": len(words(transcript)), "transcript": transcript,
+            }
+            results.append(result)
+            (root / "whisper-diagnostic.json").write_text(
+                json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8",
+            )
+            print(json.dumps(result, ensure_ascii=False), flush=True)
+        return
     config = root / "meeting.toml"
     config.write_text(
         "[paths]\n" + f"data = {json.dumps(str(root / 'data'))}\n"
