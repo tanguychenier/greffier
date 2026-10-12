@@ -84,3 +84,35 @@ def test_a_windowed_helpers_output_is_kept_and_restored(monkeypatch, tmp_path):
     assert launcher.main() == 0
     assert sys.stdout is None and sys.stderr is None
     assert "helper started" in trace.read_text()
+
+
+def test_the_real_transcription_decoder_reads_audio_without_a_model():
+    pytest.importorskip("faster_whisper")
+    launcher.check_audio()
+
+
+def test_an_audio_dependency_failure_returns_an_error_without_a_dialog(monkeypatch, tmp_path):
+    trace = tmp_path / "audio-check.log"
+
+    def broken_decoder():
+        raise TypeError("open() got an unexpected keyword argument 'metadata_errors'")
+
+    def unexpected_dialog(_message):
+        pytest.fail("A headless audio check must not open a dialog")
+
+    monkeypatch.setattr(launcher, "check_audio", broken_decoder)
+    monkeypatch.setattr(launcher, "log", lambda: trace)
+    monkeypatch.setattr(launcher, "_say_on_screen", unexpected_dialog)
+    monkeypatch.setattr(sys, "argv", ["Greffier.exe", "--check-audio"])
+    assert launcher.main() == 1
+    assert "metadata_errors" in trace.read_text()
+
+
+def test_the_audio_check_exits_without_starting_the_window(monkeypatch):
+    called = []
+    monkeypatch.setattr(launcher, "check_audio", lambda: called.append(True))
+    monkeypatch.setattr(sys, "argv", ["Greffier.exe", "--check-audio"])
+    FakeWindow.spun = False
+    assert launcher.main() == 0
+    assert called == [True]
+    assert FakeWindow.spun is False

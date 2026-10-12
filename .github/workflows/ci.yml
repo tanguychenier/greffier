@@ -48,7 +48,10 @@ jobs:
           python-version: ${{ matrix.python }}
 
       - name: Dependencies
-        run: uv sync --locked --group dev --extra api
+        run: uv sync --locked --group dev --extra api --extra transcription
+
+      - name: Decode audio without downloading a model
+        run: uv run python tools/launcher.py --check-audio
 
       # Sans écran virtuel, Tk ne démarre pas et toute l'interface reste hors
       # des tests : la moitié de l'outil que les gens touchent.
