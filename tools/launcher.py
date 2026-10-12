@@ -9,7 +9,7 @@ precautions an executable requires and the command line does not:
   screen, a continuous integration runner for instance, cannot open a
   window. Its version can be checked without loading Tk or a model.
 - **decode audio on `--check-audio`.** Exercise the shipped decoder without
-  a model, microphone or window before publishing the executable.
+  downloaded transcription weights, a microphone or a window before publishing.
 - **write what breaks to a file.** A Windows graphical application has no
   console: an uncaught exception vanishes, and the user sees a window that
   does not open, with nothing to send to understand why.
@@ -97,7 +97,7 @@ def main() -> int:
 
 
 def check_audio() -> None:
-    """Decode one synthetic second with the exact API used for transcription."""
+    """Exercise decoding and the bundled speech detector on synthetic audio."""
     import math
     import struct
     import tempfile
@@ -105,6 +105,7 @@ def check_audio() -> None:
 
     import numpy as np
     from faster_whisper.audio import decode_audio
+    from faster_whisper.vad import get_speech_timestamps
 
     rate = 16000
     samples = [int(16000 * math.sin(2 * math.pi * 440 * i / rate)) for i in range(rate)]
@@ -119,6 +120,8 @@ def check_audio() -> None:
     if (decoded.shape != (rate,) or decoded.dtype != np.float32
             or not np.isfinite(decoded).all() or float(np.max(np.abs(decoded))) < 0.1):
         raise RuntimeError("The packaged audio decoder did not return the synthetic tone")
+    # Transcription always enables VAD, whose ONNX asset must travel in the bundle.
+    get_speech_timestamps(decoded, sampling_rate=rate)
 
 
 def _likely_cause(trace: str) -> str:

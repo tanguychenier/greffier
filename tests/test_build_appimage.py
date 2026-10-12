@@ -59,3 +59,20 @@ class TestTheAppDir:
         assert (appdir / ".DirIcon").exists()
         assert (appdir / "usr" / "bin" / "Greffier" / "Greffier").exists()
         assert "usr/bin/Greffier/Greffier" in (appdir / "AppRun").read_text(encoding="utf-8")
+
+
+def test_the_appimage_build_includes_the_speech_detector_model(tmp_path, monkeypatch):
+    called = []
+    monkeypatch.setattr(build_appimage, "DIST", tmp_path)
+
+    def built(command, **_kwargs):
+        called.append(command)
+        executable = tmp_path / "Greffier" / "Greffier"
+        executable.parent.mkdir()
+        executable.touch()
+
+    monkeypatch.setattr(build_appimage.subprocess, "run", built)
+    build_appimage.bundle(Path("python"))
+    command = called[0]
+    assert any(command[i:i + 2] == ["--collect-data", "faster_whisper"]
+               for i in range(len(command) - 1))

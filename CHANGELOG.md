@@ -118,6 +118,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **packaging**: include the speech detector in frozen applications (`e4b9078`)
 - **audio**: keep the shipped decoder compatible with faster-whisper (`c71abef`)
 - **release**: recover when another platform creates the release (`ea8c8c1`)
 - **audio**: resolve real Windows inputs before recording (`92e3609`)

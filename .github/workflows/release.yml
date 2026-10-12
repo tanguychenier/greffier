@@ -102,6 +102,7 @@ jobs:
           pyinstaller --noconfirm --name Greffier --windowed `
             --collect-all sherpa_onnx --collect-all soundfile `
             --collect-submodules greffier --collect-data greffier `
+            --collect-data faster_whisper `
             tools/launcher.py
       - name: It starts
         # A `--windowed` executable detaches from the terminal and returns at

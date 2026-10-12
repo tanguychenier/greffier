@@ -14,6 +14,12 @@ The proof captures no pixels and inspects only the window it creates. It closes
 that window when the checks finish. Widget geometry cannot establish visual
 quality or validate every interaction.
 
+The frozen Windows and Linux launchers also run `--check-audio` before their
+archives are attached. This decodes a synthetic WAV with faster-whisper and
+runs its bundled Silero speech detector. It needs no downloaded transcription
+weights, microphone or window. Incompatible decoder APIs and missing ONNX
+assets fail the check. Full transcription still needs a separate model trial.
+
 For a separate test installation, run the same protocol locally.
 
 ```sh
