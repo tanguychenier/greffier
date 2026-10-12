@@ -17,7 +17,7 @@ import sherpa_onnx
 import soundfile as sf
 
 from greffier.adapters import cuda
-from greffier.domain.arithmetic import AUTO, CARD, chosen_device, compute_threads
+from greffier.domain.arithmetic import AUTO, CARD, PROCESSOR, chosen_device, compute_threads
 from greffier.domain.models import Span, Voiceprint
 from greffier.domain.voiceprints import at_a_common_level, normalise
 
@@ -37,6 +37,7 @@ class TitaNetExtractor:
             raise FileNotFoundError(f"modèle d'empreintes introuvable : {model}")
         self.model = model
         self.device = chosen_device(device, cuda.a_card_is_usable())
+        self.fell_back_because: str | None = None
 
     @property
     def _extractor(self) -> Any:
@@ -52,11 +53,21 @@ class TitaNetExtractor:
             if ready is None:
                 if self.device == CARD:
                     cuda.show_to_the_loader()
-                ready = sherpa_onnx.SpeakerEmbeddingExtractor(
-                    sherpa_onnx.SpeakerEmbeddingExtractorConfig(
-                        model=str(self.model), num_threads=compute_threads(),
-                        provider=self.device)
+                config = sherpa_onnx.SpeakerEmbeddingExtractorConfig(
+                    model=str(self.model), num_threads=compute_threads(), provider=self.device,
                 )
+                try:
+                    ready = sherpa_onnx.SpeakerEmbeddingExtractor(config)
+                except RuntimeError as trouble:
+                    if self.device != CARD:
+                        raise
+                    self.fell_back_because = str(trouble)
+                    self.device = PROCESSOR
+                    clef = (str(self.model), self.device)
+                    ready = _OPENED.get(clef)
+                    if ready is None:
+                        config.provider = PROCESSOR
+                        ready = sherpa_onnx.SpeakerEmbeddingExtractor(config)
                 _OPENED[clef] = ready
         return ready
 

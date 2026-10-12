@@ -533,6 +533,14 @@ class Chain:
         self._say_what_the_channels_meant(outcome)
         self._warn_about_coverage(outcome)
         self._warn_about_attendees(outcome)
+        if any(
+            getattr(tool, "fell_back_because", None)
+            for tool in (self.diariser, self.extractor)
+        ):
+            outcome.warnings.append(
+                "La carte graphique a refusé l'identification des voix. "
+                "Le processeur a pris le relais, ce qui ralentit le traitement."
+            )
 
         self._keep(audio, outcome)
 

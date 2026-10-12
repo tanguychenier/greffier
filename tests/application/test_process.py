@@ -1293,3 +1293,13 @@ class TestTheCardGivenUpOnIsSaid:
     def test_a_transcriber_on_the_card_says_nothing(self):
         outcome = chain(transcriber=FakeTranscriber(CHATTER)).run_chain(AUDIO)
         assert not any("processeur" in w for w in outcome.warnings)
+
+
+def test_the_processor_fallback_for_voices_is_reported_without_stopping():
+    diariser = FakeDiariser(TURNS)
+    diariser.fell_back_because = "CUDA allocation failed"
+    writer = FakeWriter()
+    outcome = chain(diariser=diariser, writer=writer).run_chain(AUDIO, send=False)
+    assert any("processeur a pris le relais" in warning for warning in outcome.warnings)
+    assert writer.received is not None and outcome.words >= MINIMUM_WORDS
+
