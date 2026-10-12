@@ -17,6 +17,7 @@ import subprocess
 import sys
 import time
 import unicodedata
+import wave
 from pathlib import Path
 
 
@@ -158,6 +159,18 @@ def main() -> None:
         + '[assistant]\nactive = false\n[live]\nactive = false\n',
         encoding="utf-8",
     )
+    silence = root / "digital-silence.wav"
+    with wave.open(str(silence), "wb") as recording:
+        recording.setparams((1, 2, 16000, 0, "NONE", "not compressed"))
+        recording.writeframes(bytes(16000 * 2 * 2))
+    with (root / "silence.log").open("w", encoding="utf-8") as log:
+        rejected = subprocess.run(
+            [str(executable), "-m", "greffier", "traiter", str(silence),
+             "--config", str(config), "--sans-envoi", "--sans-compte-rendu"],
+            stdout=log, stderr=subprocess.STDOUT, check=False, timeout=60,
+        )
+    if rejected.returncode == 0 or (root / "data/transcriptions/digital-silence.txt").exists():
+        raise RuntimeError("Digital silence must be rejected before transcription.")
     with (root / "pipeline.log").open("w", encoding="utf-8") as log:
         outcome = subprocess.run(
             [str(executable), "-m", "greffier", "traiter", str(audio),
@@ -196,6 +209,7 @@ def main() -> None:
         "speaker_sequence_correct": speakers_correct, "facts_preserved": facts,
         "speaker_groups": groups, "pixels_captured": False,
         "physical_capture_verified": False, "writer_called": False,
+        "digital_silence_rejected": True,
         "ok": errors / len(expected) <= 0.05 and speakers_correct and all(facts.values()),
     }
     (root / "meeting-proof.json").write_text(

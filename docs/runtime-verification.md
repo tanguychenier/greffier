@@ -18,7 +18,10 @@ The frozen Windows and Linux launchers also run `--check-audio` before their
 archives are attached. This decodes a synthetic WAV with faster-whisper and
 runs its bundled Silero speech detector. It needs no downloaded transcription
 weights, microphone or window. Incompatible decoder APIs and missing ONNX
-assets fail the check. Full transcription still needs a separate model trial.
+assets fail the check. The macOS bundle also processes the synthetic reference with the actual
+whisper.cpp and speaker models before its ZIP is accepted. Word edits, the
+speaker sequence and reference facts must pass. Local model trials still
+measure scenarios beyond this reference.
 
 For a separate test installation, run the same protocol locally.
 
@@ -99,3 +102,12 @@ capture devices and loopback audio, require a native hardware trial.
 The Windows recording adapter currently uses FFmpeg DirectShow. A named audio
 input must be available to FFmpeg. The presence of WASAPI in Windows does not
 establish that this adapter can capture system audio automatically.
+
+The meeting composition does not automatically activate whisper.cpp's external
+GGML speech detector. Native tests of version 1.9.2 stalled at its OpenMP
+barriers, and that version initializes its detector with four internal workers
+independently of the CLI thread option. Whisper's own no-speech filtering stays
+active, as in live and dictation mode. Entirely silent recordings are rejected
+by the pipeline before the transcriber starts. Native CPU threads follow the
+available CPU count, and child-only worker defaults avoid nested pool contention
+while preserving explicit environment settings.

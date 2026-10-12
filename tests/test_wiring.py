@@ -37,11 +37,11 @@ def config(tmp_path, monkeypatch):
 
 
 class TestWhoTranscribes:
-    def test_whisper_cpp_is_given_its_two_models(self, config):
+    def test_whisper_cpp_uses_its_model_without_the_stalled_external_vad(self, config):
         config.transcription.engine = "whisper.cpp"
         transcriber_ = wiring._transcriber(config)
         assert transcriber_.model.name == "ggml-large-v3-turbo.bin"
-        assert transcriber_.vad.name == "ggml-silero-v5.1.2.bin"
+        assert transcriber_.vad is None
 
     def test_elsewhere_faster_whisper_carries_the_model_name(self, config):
         config.transcription.engine = "faster-whisper"

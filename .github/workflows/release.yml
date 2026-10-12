@@ -50,6 +50,8 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+      - name: Native audio tools
+        run: brew install ffmpeg whisper-cpp
       - name: Relocatable interpreter
         # `only-managed` is the heart of the matter, not a precaution.
         # `construire.sh` copies the .venv interpreter into the bundle, which
@@ -78,6 +80,19 @@ jobs:
         with:
           name: runtime-macos
           path: runtime-macos.json
+      - name: Process a reference meeting in the native bundle
+        run: |
+          meeting_version="$("$RUNNER_TEMP/Greffier.app/Contents/MacOS/Greffier" -c 'import importlib.metadata; print(importlib.metadata.version("greffier"))')"
+          "$RUNNER_TEMP/Greffier.app/Contents/MacOS/Greffier" tools/check_packaged_meeting.py \
+            --output "$RUNNER_TEMP/meeting-proof" --version "$meeting_version"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: meeting-macos-release
+          path: |
+            ${{ runner.temp }}/meeting-proof/meeting-proof.json
+            ${{ runner.temp }}/meeting-proof/pipeline.log
+            ${{ runner.temp }}/meeting-proof/data/transcriptions/*.txt
       - name: Zip it
         run: |
           cd "$RUNNER_TEMP"

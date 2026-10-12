@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import tempfile
@@ -45,13 +46,13 @@ def lire_srt(path: Path) -> list[Utterance]:
     return utterances
 
 class WhisperCppTranscriber:
-    def __init__(self, model: Path, vad: Path | None = None, threads: int = 8,
+    def __init__(self, model: Path, vad: Path | None = None, threads: int | None = None,
                  device: str = AUTO) -> None:
         if not model.exists():
             raise FileNotFoundError(f"modèle de transcription introuvable : {model}")
         self.model = model
         self.vad = vad if vad and vad.exists() else None
-        self.threads = threads
+        self.threads = threads if threads is not None else max(1, min(4, os.cpu_count() or 1))
         self.device = device
 
     def warm(self) -> None:
@@ -70,7 +71,14 @@ class WhisperCppTranscriber:
                 command += ["--vad", "--vad-model", str(self.vad)]
             if prompt_seed:
                 command += ["--prompt", prompt_seed]
-            outcome = subprocess.run(command, capture_output=True, text=True, check=False)
+            # Keep CPU worker pools from competing with Accelerate's own pool.
+            # These defaults apply to this child only and preserve explicit settings.
+            environment = dict(os.environ)
+            environment.setdefault("OMP_WAIT_POLICY", "PASSIVE")
+            environment.setdefault("VECLIB_MAXIMUM_THREADS", "1")
+            outcome = subprocess.run(
+                command, capture_output=True, text=True, check=False, env=environment,
+            )
             srt = base.with_suffix(".srt")
             if outcome.returncode != 0 or not srt.exists():
                 latest = (outcome.stderr or outcome.stdout).strip().splitlines()
