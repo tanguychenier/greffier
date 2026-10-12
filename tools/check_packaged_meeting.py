@@ -40,6 +40,73 @@ def edit_distance(expected: list[str], actual: list[str]) -> int:
     return previous[-1]
 
 
+def diagnose_whisper(models: Path, audio: Path, root: Path) -> None:
+    from greffier.adapters.transcription_whisper_cpp import lire_srt
+    results = []
+    threads = max(1, min(4, os.cpu_count() or 1))
+    for name, vad, passive in (
+        ("cpu-vad-capacity", True, False),
+        ("cpu-vad-passive", True, True),
+        ("cpu-no-vad-passive", False, True),
+    ):
+        destination = root / name
+        command = [
+            "whisper-cli", "-m", str(models / "ggml-large-v3-turbo.bin"),
+            "-f", str(audio), "-l", "auto", "-t", str(threads),
+            "-osrt", "-of", str(destination),
+        ]
+        command.append("--no-gpu")
+        environment = dict(os.environ)
+        if passive:
+            environment.update({"OMP_WAIT_POLICY": "PASSIVE", "VECLIB_MAXIMUM_THREADS": "1"})
+        if vad:
+            command += ["--vad", "--vad-model", str(models / "ggml-silero-v5.1.2.bin")]
+        print(f"Diagnosing {name}.", flush=True)
+        started = time.monotonic()
+        timed_out = False
+        with destination.with_suffix(".log").open("w", encoding="utf-8") as log:
+            try:
+                with subprocess.Popen(
+                    command, stdin=subprocess.DEVNULL, stdout=log,
+                    stderr=subprocess.STDOUT, env=environment,
+                ) as process:
+                    try:
+                        returncode = process.wait(timeout=120)
+                    except subprocess.TimeoutExpired:
+                        # Sample only our own diagnostic process, before
+                        # stopping it. This is not a window or screen capture.
+                        try:
+                            subprocess.run(
+                                ["sample", str(process.pid), "1", "-file",
+                                 str(destination.with_suffix(".stack.txt"))],
+                                stdout=log, stderr=subprocess.STDOUT,
+                                timeout=10, check=False,
+                            )
+                        finally:
+                            process.kill()
+                            process.wait(timeout=10)
+                        raise
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                returncode = None
+        subtitles = destination.with_suffix(".srt")
+        transcript = (
+            " ".join(row.text for row in lire_srt(subtitles))
+            if subtitles.exists() else ""
+        )
+        result = {
+            "case": name, "threads": threads, "passive_wait": passive,
+            "diagnostic_only": True, "timed_out": timed_out, "returncode": returncode,
+            "seconds": round(time.monotonic() - started, 2),
+            "words": len(words(transcript)), "transcript": transcript,
+        }
+        results.append(result)
+        (root / "whisper-diagnostic.json").write_text(
+            json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8",
+        )
+        print(json.dumps(result, ensure_ascii=False), flush=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
@@ -66,62 +133,22 @@ def main() -> None:
             ok, explanation = fetch(model, models)
             if not ok or not model.present(models):
                 raise RuntimeError(f"Model preparation failed for {model.name}: {explanation}")
-    # The two VITS timbres make the same reference available on every OS.
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    import make_meeting
-    make_meeting.synthesis_engine = lambda: "vits"
-    audio = make_meeting.make(root / "synthetic-meeting.wav")
+    # Exit the synthesis process before measuring transcription. Its cached
+    # ONNX voice and worker pools must not compete for the runner's CPUs.
+    audio = root / "synthetic-meeting.wav"
+    synthesis = (
+        "import sys; from pathlib import Path; "
+        "sys.path.insert(0, sys.argv[1]); import make_meeting; "
+        "make_meeting.synthesis_engine = lambda: 'vits'; "
+        "make_meeting.make(Path(sys.argv[2]))"
+    )
+    subprocess.run(
+        [str(executable), "-c", synthesis, str(Path(__file__).resolve().parent), str(audio)],
+        check=True, timeout=120,
+    )
     reference = json.loads(audio.with_suffix(".timeline.json").read_text(encoding="utf-8"))
     if arguments.diagnose_whisper:
-        from greffier.adapters.transcription_whisper_cpp import lire_srt
-        results = []
-        threads = max(1, min(4, os.cpu_count() or 1))
-        for name, vad, passive in (
-            ("cpu-vad-capacity", True, False),
-            ("cpu-vad-passive", True, True),
-            ("cpu-no-vad-passive", False, True),
-        ):
-            destination = root / name
-            command = [
-                "whisper-cli", "-m", str(models / "ggml-large-v3-turbo.bin"),
-                "-f", str(audio), "-l", "auto", "-t", str(threads),
-                "-osrt", "-of", str(destination),
-            ]
-            command.append("--no-gpu")
-            environment = dict(os.environ)
-            if passive:
-                environment.update({"OMP_WAIT_POLICY": "PASSIVE", "VECLIB_MAXIMUM_THREADS": "1"})
-            if vad:
-                command += ["--vad", "--vad-model", str(models / "ggml-silero-v5.1.2.bin")]
-            print(f"Diagnosing {name}.", flush=True)
-            started = time.monotonic()
-            timed_out = False
-            with destination.with_suffix(".log").open("w", encoding="utf-8") as log:
-                try:
-                    completed = subprocess.run(
-                        command, stdout=log, stderr=subprocess.STDOUT,
-                        timeout=120, check=False, env=environment,
-                    )
-                    returncode = completed.returncode
-                except subprocess.TimeoutExpired:
-                    timed_out = True
-                    returncode = None
-            subtitles = destination.with_suffix(".srt")
-            transcript = (
-                " ".join(row.text for row in lire_srt(subtitles))
-                if subtitles.exists() else ""
-            )
-            result = {
-                "case": name, "threads": threads, "passive_wait": passive,
-                "diagnostic_only": True, "timed_out": timed_out, "returncode": returncode,
-                "seconds": round(time.monotonic() - started, 2),
-                "words": len(words(transcript)), "transcript": transcript,
-            }
-            results.append(result)
-            (root / "whisper-diagnostic.json").write_text(
-                json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8",
-            )
-            print(json.dumps(result, ensure_ascii=False), flush=True)
+        diagnose_whisper(models, audio, root)
         return
     config = root / "meeting.toml"
     config.write_text(

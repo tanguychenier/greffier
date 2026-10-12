@@ -269,4 +269,5 @@ jobs:
             ${{ runner.temp }}/meeting-proof/*.log
             ${{ runner.temp }}/meeting-proof/whisper-diagnostic.json
             ${{ runner.temp }}/meeting-proof/*.srt
+            ${{ runner.temp }}/meeting-proof/*.stack.txt
             ${{ runner.temp }}/meeting-proof/data/transcriptions/*.txt

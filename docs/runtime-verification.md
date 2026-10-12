@@ -82,10 +82,11 @@ replace or publish any release assets.
 
 If the native transcription stalls, add `--field whisper_diagnostic=true`
 to that dispatch. This records bounded direct whisper.cpp trials on CPU with
-and without VAD, and with automatic GPU selection. A diagnostic run collects
-evidence only and does not validate the complete meeting pipeline. The current
-probe compares threads bounded by the available CPUs, passive OpenMP waiting
-and single-threaded Accelerate, with and without the speech detector.
+and without VAD. It compares threads bounded by the available CPUs, passive
+OpenMP waiting and single-threaded Accelerate. A stalled diagnostic process
+is sampled before it is stopped. The synthesis process exits before the trial
+so its voice model and worker pools cannot compete for CPU time. A diagnostic
+run collects evidence only and does not validate the complete meeting pipeline.
 
 ## Hardware checks
 
