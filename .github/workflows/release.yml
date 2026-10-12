@@ -113,6 +113,13 @@ jobs:
           if ($p.ExitCode -ne 0) {
             throw "Greffier.exe --version returned $($p.ExitCode)"
           }
+      - name: Decode audio in the native executable
+        run: |
+          $p = Start-Process -FilePath dist\Greffier\Greffier.exe `
+            -ArgumentList '--check-audio' -Wait -PassThru
+          if ($p.ExitCode -ne 0) {
+            throw "Greffier.exe --check-audio returned $($p.ExitCode)"
+          }
       - name: Open every tab in the native executable
         run: >-
           python tools/check_runtime.py --output runtime-windows.json --
@@ -171,6 +178,8 @@ jobs:
         # appimagetool; `--check` runs the result, the only check a runner
         # without a screen allows. Opened on a virtual screen on 2026-09-16.
         run: python3 tools/build_appimage.py --check
+      - name: Decode audio in the AppImage
+        run: APPIMAGE_EXTRACT_AND_RUN=1 dist/Greffier-x86_64.AppImage --check-audio
       - name: Open every tab in the AppImage
         run: >-
           APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a python3 tools/check_runtime.py

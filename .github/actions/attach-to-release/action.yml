@@ -21,10 +21,15 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.token }}
       run: |
-        gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" \
-            >/dev/null 2>&1 \
-          || gh release create "${GITHUB_REF_NAME}" \
-               --repo "${GITHUB_REPOSITORY}" \
-               --title "Greffier ${GITHUB_REF_NAME}" --generate-notes
+        # Another platform may create the release between the view and create.
+        # A failed create is recoverable only when the release now exists.
+        if ! gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" \
+            >/dev/null 2>&1; then
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "Greffier ${GITHUB_REF_NAME}" --generate-notes \
+            || gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" \
+                 >/dev/null 2>&1
+        fi
         gh release upload "${GITHUB_REF_NAME}" "${{ inputs.file }}" \
           --repo "${GITHUB_REPOSITORY}" --clobber

@@ -2,13 +2,14 @@
 """Entry point of the packaged executables: the Windows one, the Linux AppImage.
 
 PyInstaller needs a script to bundle, and `python -m greffier fenetre` is
-not one. This file does nothing but what that command would do, with three
+not one. This file does nothing but what that command would do, with four
 precautions an executable requires and the command line does not:
 
 - **hand back on `--version`.** A graphical executable launched with no
   screen, a continuous integration runner for instance, cannot open a
-  window. Answering its version is the only check possible there, and it is
-  the one the release workflow runs.
+  window. Its version can be checked without loading Tk or a model.
+- **decode audio on `--check-audio`.** Exercise the shipped decoder without
+  a model, microphone or window before publishing the executable.
 - **write what breaks to a file.** A Windows graphical application has no
   console: an uncaught exception vanishes, and the user sees a window that
   does not open, with nothing to send to understand why.
@@ -64,6 +65,14 @@ def main() -> int:
     if "--version" in sys.argv:
         print(f"Greffier {version()}")
         return 0
+    if "--check-audio" in sys.argv:
+        try:
+            check_audio()
+        except Exception:  # noqa: BLE001 - a failed check must never open a dialog
+            with contextlib.suppress(OSError):
+                log().write_text(traceback.format_exc(), encoding="utf-8")
+            return 1
+        return 0
     try:
         # Imported here and not at the top: on `--version`, loading the
         # interface would cost Tk and the models for a string.
@@ -85,6 +94,31 @@ def main() -> int:
         )
         return 1
     return 0
+
+
+def check_audio() -> None:
+    """Decode one synthetic second with the exact API used for transcription."""
+    import math
+    import struct
+    import tempfile
+    import wave
+
+    import numpy as np
+    from faster_whisper.audio import decode_audio
+
+    rate = 16000
+    samples = [int(16000 * math.sin(2 * math.pi * 440 * i / rate)) for i in range(rate)]
+    with tempfile.TemporaryDirectory(prefix="greffier-audio-check-") as folder:
+        audio = Path(folder) / "tone.wav"
+        with wave.open(str(audio), "wb") as output:
+            output.setnchannels(1)
+            output.setsampwidth(2)
+            output.setframerate(rate)
+            output.writeframes(struct.pack(f"<{rate}h", *samples))
+        decoded = decode_audio(str(audio), sampling_rate=rate)
+    if (decoded.shape != (rate,) or decoded.dtype != np.float32
+            or not np.isfinite(decoded).all() or float(np.max(np.abs(decoded))) < 0.1):
+        raise RuntimeError("The packaged audio decoder did not return the synthetic tone")
 
 
 def _likely_cause(trace: str) -> str:
