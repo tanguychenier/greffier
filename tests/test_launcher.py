@@ -7,6 +7,8 @@ and that the executable had no sentences to show. Neither survives here.
 
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -86,9 +88,16 @@ def test_a_windowed_helpers_output_is_kept_and_restored(monkeypatch, tmp_path):
     assert "helper started" in trace.read_text()
 
 
-def test_the_real_transcription_decoder_reads_audio_without_a_model():
+def test_the_real_decoder_and_bundled_vad_read_audio_without_transcription_weights(tmp_path):
     pytest.importorskip("faster_whisper")
-    launcher.check_audio()
+    # Native ONNX runtimes must not change the other tests' CUDA selection state.
+    result = subprocess.run(
+        [sys.executable, launcher.__file__, "--check-audio"],
+        env=dict(os.environ, LOCALAPPDATA=str(tmp_path)), capture_output=True,
+        text=True, timeout=30, check=False,
+    )
+    trace = tmp_path / "Greffier" / "demarrage.log"
+    assert result.returncode == 0, result.stderr + (trace.read_text() if trace.exists() else "")
 
 
 def test_an_audio_dependency_failure_returns_an_error_without_a_dialog(monkeypatch, tmp_path):
@@ -116,3 +125,24 @@ def test_the_audio_check_exits_without_starting_the_window(monkeypatch):
     assert launcher.main() == 0
     assert called == [True]
     assert FakeWindow.spun is False
+
+
+@pytest.mark.parametrize("workflow", ["release.yml", "windows-proof.yml"])
+def test_the_windows_build_includes_the_speech_detector_model(workflow):
+    text = (RACINE / ".github" / "workflows" / workflow).read_text(encoding="utf-8")
+    assert "--collect-data faster_whisper" in text
+
+
+def test_a_missing_bundled_speech_detector_fails_the_audio_check(monkeypatch, tmp_path):
+    pytest.importorskip("faster_whisper")
+    from faster_whisper import vad
+
+    def missing_model(*_args, **_kwargs):
+        raise FileNotFoundError("faster_whisper/assets/silero_vad_v6.onnx")
+
+    trace = tmp_path / "missing-vad.log"
+    monkeypatch.setattr(vad, "get_speech_timestamps", missing_model)
+    monkeypatch.setattr(launcher, "log", lambda: trace)
+    monkeypatch.setattr(sys, "argv", ["Greffier.exe", "--check-audio"])
+    assert launcher.main() == 1
+    assert "silero_vad_v6.onnx" in trace.read_text()

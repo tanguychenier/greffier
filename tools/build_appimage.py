@@ -91,6 +91,7 @@ def bundle(python: Path) -> Path:
         [str(python), "-m", "PyInstaller", "--noconfirm", "--name", NAME, "--windowed",
          "--collect-all", "sherpa_onnx", "--collect-all", "soundfile",
          "--collect-submodules", "greffier", "--collect-data", "greffier",
+         "--collect-data", "faster_whisper",
          "--distpath", str(DIST), "--workpath", str(DIST / "build"),
          "--specpath", str(DIST / "build"),
          str(ROOT / "tools" / "launcher.py")],
