@@ -3654,6 +3654,11 @@ class Window:
         ))
 
     def spin(self) -> None:
+        proof_folder = os.environ.get("GREFFIER_RUNTIME_PROOF_DIR")
+        if proof_folder:
+            from greffier.interface.runtime_proof import schedule
+
+            schedule(self, Path(proof_folder))
         # Taken back at startup: a preparation gathered yesterday evening must
         # still be there this morning, and closing a window is not giving up.
         self.root.after(300, self._load_the_preparation)

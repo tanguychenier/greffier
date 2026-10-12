@@ -56,6 +56,14 @@ jobs:
         env:
           GREFFIER_SIGNATURE: '-'
         run: bash macos/construire.sh "$RUNNER_TEMP/Greffier.app"
+      - name: Open every tab in the native bundle
+        run: >-
+          .venv/bin/python tools/check_runtime.py --output runtime-macos.json --
+          "$RUNNER_TEMP/Greffier.app/Contents/MacOS/Greffier"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: runtime-macos
+          path: runtime-macos.json
       - name: Zip it
         run: |
           cd "$RUNNER_TEMP"
@@ -105,6 +113,14 @@ jobs:
           if ($p.ExitCode -ne 0) {
             throw "Greffier.exe --version returned $($p.ExitCode)"
           }
+      - name: Open every tab in the native executable
+        run: >-
+          python tools/check_runtime.py --output runtime-windows.json --
+          dist/Greffier/Greffier.exe
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: runtime-windows
+          path: runtime-windows.json
       - name: Zip it
         run: Compress-Archive -Path dist\Greffier -DestinationPath Greffier-windows.zip
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -147,7 +163,7 @@ jobs:
           python-version: '3.13'
       - name: Dependencies
         run: |
-          sudo apt-get update -q && sudo apt-get install -y -q libfuse2 python3-tk
+          sudo apt-get update -q && sudo apt-get install -y -q libfuse2 python3-tk xvfb
           python -m pip install -q -e ".[transcription]"
           python -m pip install -q pyinstaller
       - name: Build, then run it on --version
@@ -155,6 +171,14 @@ jobs:
         # appimagetool; `--check` runs the result, the only check a runner
         # without a screen allows. Opened on a virtual screen on 2026-09-16.
         run: python3 tools/build_appimage.py --check
+      - name: Open every tab in the AppImage
+        run: >-
+          APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a python3 tools/check_runtime.py
+          --output runtime-linux.json -- dist/Greffier-x86_64.AppImage
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: runtime-linux
+          path: runtime-linux.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Greffier-appimage
