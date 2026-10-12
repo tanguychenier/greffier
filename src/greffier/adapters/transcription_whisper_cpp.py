@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from greffier.domain.arithmetic import AUTO
 from greffier.domain.models import Span, Utterance
 from greffier.domain.transcription import without_loop
 
@@ -44,12 +45,14 @@ def lire_srt(path: Path) -> list[Utterance]:
     return utterances
 
 class WhisperCppTranscriber:
-    def __init__(self, model: Path, vad: Path | None = None, threads: int = 8) -> None:
+    def __init__(self, model: Path, vad: Path | None = None, threads: int = 8,
+                 device: str = AUTO) -> None:
         if not model.exists():
             raise FileNotFoundError(f"modèle de transcription introuvable : {model}")
         self.model = model
         self.vad = vad if vad and vad.exists() else None
         self.threads = threads
+        self.device = device
 
     def warm(self) -> None:
         """Nothing to open: whisper.cpp loads its model in its own process."""
@@ -61,6 +64,8 @@ class WhisperCppTranscriber:
                 "whisper-cli", "-m", str(self.model), "-f", str(audio),
                 "-l", language or "auto", "-t", str(self.threads), "-osrt", "-of", str(base),
             ]
+            if self.device == "cpu":
+                command.append("--no-gpu")
             if self.vad:
                 command += ["--vad", "--vad-model", str(self.vad)]
             if prompt_seed:

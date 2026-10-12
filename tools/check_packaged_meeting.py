@@ -75,19 +75,22 @@ def main() -> None:
     if arguments.diagnose_whisper:
         from greffier.adapters.transcription_whisper_cpp import lire_srt
         results = []
-        for name, cpu, vad, timeout in (
-            ("cpu-vad", True, True, 120),
-            ("cpu-no-vad", True, False, 120),
-            ("auto-vad", False, True, 45),
+        threads = max(1, min(4, os.cpu_count() or 1))
+        for name, vad, passive in (
+            ("cpu-vad-capacity", True, False),
+            ("cpu-vad-passive", True, True),
+            ("cpu-no-vad-passive", False, True),
         ):
             destination = root / name
             command = [
                 "whisper-cli", "-m", str(models / "ggml-large-v3-turbo.bin"),
-                "-f", str(audio), "-l", "auto", "-t", "8",
+                "-f", str(audio), "-l", "auto", "-t", str(threads),
                 "-osrt", "-of", str(destination),
             ]
-            if cpu:
-                command.append("--no-gpu")
+            command.append("--no-gpu")
+            environment = dict(os.environ)
+            if passive:
+                environment.update({"OMP_WAIT_POLICY": "PASSIVE", "VECLIB_MAXIMUM_THREADS": "1"})
             if vad:
                 command += ["--vad", "--vad-model", str(models / "ggml-silero-v5.1.2.bin")]
             print(f"Diagnosing {name}.", flush=True)
@@ -97,7 +100,7 @@ def main() -> None:
                 try:
                     completed = subprocess.run(
                         command, stdout=log, stderr=subprocess.STDOUT,
-                        timeout=timeout, check=False,
+                        timeout=120, check=False, env=environment,
                     )
                     returncode = completed.returncode
                 except subprocess.TimeoutExpired:
@@ -109,7 +112,8 @@ def main() -> None:
                 if subtitles.exists() else ""
             )
             result = {
-                "case": name, "timed_out": timed_out, "returncode": returncode,
+                "case": name, "threads": threads, "passive_wait": passive,
+                "diagnostic_only": True, "timed_out": timed_out, "returncode": returncode,
                 "seconds": round(time.monotonic() - started, 2),
                 "words": len(words(transcript)), "transcript": transcript,
             }

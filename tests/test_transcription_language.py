@@ -22,7 +22,7 @@ def model(tmp_path):
 
 
 class TestWhisperCpp:
-    def _command(self, monkeypatch, model, language):
+    def _command(self, monkeypatch, model, language, device="auto"):
         view: dict[str, list[str]] = {}
 
         def fake_run(command, **_options):
@@ -33,7 +33,7 @@ class TestWhisperCpp:
 
         monkeypatch.setattr(
             "greffier.adapters.transcription_whisper_cpp.subprocess.run", fake_run)
-        WhisperCppTranscriber(model).transcribe(model, language, "")
+        WhisperCppTranscriber(model, device=device).transcribe(model, language, "")
         return view["commande"]
 
     def test_a_language_given_is_passed_on(self, monkeypatch, model):
@@ -44,6 +44,30 @@ class TestWhisperCpp:
         """« -l » expects a value: without it, the next option would be swallowed."""
         command = self._command(monkeypatch, model, "")
         assert command[command.index("-l") + 1] == "auto"
+
+    def test_a_cpu_choice_disables_the_graphics_backend(self, monkeypatch, model):
+        command = self._command(monkeypatch, model, "fr", device="cpu")
+        assert "--no-gpu" in command
+
+    def test_an_automatic_choice_keeps_the_native_graphics_backend(self, monkeypatch, model):
+        command = self._command(monkeypatch, model, "fr")
+        assert "--no-gpu" not in command
+
+
+@pytest.mark.parametrize("factory", ["_transcriber", "light_transcriber", "dictation_transcriber"])
+def test_the_cpu_choice_reaches_every_whisper_cpp_path(monkeypatch, tmp_path, factory):
+    from greffier import wiring
+    from greffier.adapters.configuration import Config
+
+    (tmp_path / "ggml-large-v3-turbo.bin").write_bytes(b"model fixture")
+    config = Config()
+    config.paths.models = tmp_path
+    config.transcription.engine = "whisper.cpp"
+    config.hardware.device = "cpu"
+    monkeypatch.setattr(wiring, "_the_card_first", lambda _config: None)
+    monkeypatch.setattr(wiring, "_live_model", lambda _config: "large-v3-turbo")
+    transcriber = getattr(wiring, factory)(config)
+    assert transcriber.device == "cpu"
 
 
 class TestFasterWhisper:
