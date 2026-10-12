@@ -7,6 +7,7 @@ import subprocess
 import urllib.error
 import urllib.request
 
+from greffier.adapters.ollama_fidelity import violations
 from greffier.domain.languages import name_of
 
 GUIDANCE = """Tu rédiges le compte rendu d'une réunion de travail, à partir d'une
@@ -16,13 +17,20 @@ personnes non reconnues portent une étiquette « Personne N ».
 Attendu, en français, au format Markdown :
 
 1. Un titre et une ligne de contexte (durée, nombre de personnes).
-2. Un tableau des intervenants : rôle déduit du contenu et indices qui le
-   laissent penser. N'invente jamais un prénom. N'attribue aucun pronom genré à
-   une personne dont le genre n'est pas explicite : emploie des formulations neutres.
+2. Un tableau des intervenants avec les rôles et leurs indices. Un rôle déduit
+   doit porter « à confirmer ». Un rôle n'est établi que si les propos le désignent
+   explicitement. Sans indication de rôle, écris « rôle non précisé ». Annoncer un
+   point ou donner son état ne prouve pas que la personne en est responsable.
+   N'invente jamais un prénom. N'attribue aucun pronom genré à une personne dont
+   le genre n'est pas explicite, emploie des formulations neutres.
 3. Un résumé PAR THÈME. Dis qui a porté quelle position quand c'est identifiable,
    cite entre guillemets les formules marquantes, et distingue ce qui est décidé
    de ce qui reste ouvert.
-4. Une section « Décisions et suites » sous forme de tableau : quoi, qui, quand.
+4. Une section « Décisions et suites » sous forme de tableau, quoi, qui, quand.
+   Un engagement formulé avec « nous » ou « on » reste collectif. S'il ne nomme
+   personne, écris « responsable non précisé ». La personne qui annonce une action
+   n'en devient pas responsable. Seul un engagement explicite avec « je », ou une
+   personne explicitement désignée dans les propos, permet de nommer un responsable.
 5. Une section « Fiabilité de la transcription » : corrections évidentes que tu as
    appliquées, termes restés douteux, passages où le modèle a manifestement bouclé.
 
@@ -60,6 +68,10 @@ def available_models() -> list[str]:
         return []
     return [line.split()[0] for line in output.splitlines()[1:] if line.strip()]
 
+class UnfaithfulMinutesError(RuntimeError):
+    """The local response failed its source-evidence checks."""
+
+
 class OllamaWriter:
     def __init__(self, model: str, host: str = "http://127.0.0.1:11434",
                  language: str = "", own_guidance: str = "") -> None:
@@ -76,9 +88,29 @@ class OllamaWriter:
 
     def write_up(self, transcription: str) -> str:
         header = self.own_guidance or guidance(self.language)
+        prompt = header + transcription
+        for _ in range(2):
+            text = self._generate(prompt)
+            checked = not self.own_guidance and self.language in ("", "fr", "en")
+            failures = violations(transcription, text) if checked else []
+            if not failures:
+                return text
+            prompt = (
+                header + transcription + "\n\nLe compte rendu précédent a été refusé.\n"
+                + "\n".join(failures)
+                + "\nRecommence entièrement en corrigeant ces erreurs. Les seules voix sont\n"
+                "celles qui portent un passage horodaté dans la transcription.\n"
+                + "\nRéponse refusée\n" + text
+            )
+        raise UnfaithfulMinutesError(
+            "Compte rendu non validé. Le modèle local a répété une attribution "
+            "sans preuve. " + " ".join(failures)
+        )
+
+    def _generate(self, prompt: str) -> str:
         corps = json.dumps({
             "model": self.model,
-            "prompt": header + transcription,
+            "prompt": prompt,
             "stream": False,
             "options": {"temperature": 0.2},
         }).encode("utf-8")

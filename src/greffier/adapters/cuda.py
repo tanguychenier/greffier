@@ -138,7 +138,6 @@ def keep_the_place(model: Path) -> None:
     global _place_kept  # noqa: PLW0603  # a once-per-process latch, nothing else owns it
     if _place_kept or not a_card_is_usable() or not model.exists():
         return
-    _place_kept = True
     show_to_the_loader()
     import sherpa_onnx
 
@@ -147,5 +146,6 @@ def keep_the_place(model: Path) -> None:
             sherpa_onnx.SpeakerEmbeddingExtractorConfig(
                 model=str(model), num_threads=1, provider=CARD)
         )
+        _place_kept = True
 
 _place_kept = False

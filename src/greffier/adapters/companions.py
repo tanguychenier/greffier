@@ -13,9 +13,11 @@ them.
 
 from __future__ import annotations
 
+import os
 import platform
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 SYSTEM = platform.system()
@@ -25,11 +27,15 @@ def _launch(command: list[str], log: Path) -> bool:
     """Starts it, keeping its output. False when it could not be started."""
     try:
         log.parent.mkdir(parents=True, exist_ok=True)
+        environment = dict(os.environ, GREFFIER_COMPANION_LOG=str(log))
         with log.open("a", encoding="utf-8") as trace:
-            subprocess.Popen(
+            process = subprocess.Popen(
                 command, stdin=subprocess.DEVNULL, stdout=trace, stderr=trace,
-                start_new_session=True,
+                start_new_session=True, env=environment,
             )
+        # Keep the Popen alive until the detached helper exits, and reap it.
+        # Dropping it immediately raised ResourceWarning during a real replay.
+        threading.Thread(target=process.wait, daemon=True).start()
     except OSError:
         return False
     return True

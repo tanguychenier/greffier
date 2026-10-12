@@ -14,7 +14,7 @@ import soundfile as sf
 
 from greffier.adapters import cuda
 from greffier.adapters.channels_file import FRAME_S, levels_per_frame, split_channels
-from greffier.domain.arithmetic import AUTO, CARD, chosen_device, compute_threads
+from greffier.domain.arithmetic import AUTO, CARD, PROCESSOR, chosen_device, compute_threads
 from greffier.domain.channels import LOCAL_VOICE, local_turns, remove
 from greffier.domain.models import Source, Span, SpeakerTurn
 
@@ -34,6 +34,7 @@ class SherpaDiariser:
         self.voiceprints = voiceprints
         self.threshold = threshold
         self.device = device
+        self.fell_back_because: str | None = None
 
     def _device(self) -> str:
         """The card when there is one, the processor otherwise.
@@ -68,7 +69,16 @@ class SherpaDiariser:
         )
         if not config.validate():
             raise RuntimeError("configuration de diarisation invalide")
-        engine = sherpa_onnx.OfflineSpeakerDiarization(config)
+        try:
+            engine = sherpa_onnx.OfflineSpeakerDiarization(config)
+        except RuntimeError as trouble:
+            if device != CARD:
+                raise
+            self.fell_back_because = str(trouble)
+            self.device = PROCESSOR
+            config.segmentation.provider = PROCESSOR
+            config.embedding.provider = PROCESSOR
+            engine = sherpa_onnx.OfflineSpeakerDiarization(config)
 
         data, frequency = sf.read(audio, dtype="float32", always_2d=True)
         if frequency != engine.sample_rate:

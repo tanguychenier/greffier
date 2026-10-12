@@ -275,6 +275,9 @@ class TestKeepingThePlace:
         model = tmp_path / "empreintes.onnx"
         model.touch()
         adapter.keep_the_place(model)
+        assert adapter._place_kept is False
+        monkeypatch.setitem(sys.modules, "onnxruntime", SimpleNamespace())
+        assert adapter.a_card_is_usable() is False
 
 
 def _which_refuses(_config):

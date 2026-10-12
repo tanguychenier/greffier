@@ -118,6 +118,11 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **audio**: resolve real Windows inputs before recording (`92e3609`)
+- **minutes**: reject unsupported local writer table assignments (`430bc32`)
+- **voices**: recover from failed CUDA initialization on the processor (`4b34c5f`)
+- **runtime**: dispatch and reap packaged companion processes (`349d1f9`)
+- **install**: request only declared package extras (`becf2d7`)
 - **domain**: doubtful_entry announced a known name as new on a negative cosine (`3f8bdf3`)
 - **domain**: a term that cleaned down to nothing taught « que » (`24b205e`)
 - **domain**: voice_of guarded a division no input can make unsafe (`21b197b`)

@@ -1293,3 +1293,26 @@ class TestTheCardGivenUpOnIsSaid:
     def test_a_transcriber_on_the_card_says_nothing(self):
         outcome = chain(transcriber=FakeTranscriber(CHATTER)).run_chain(AUDIO)
         assert not any("processeur" in w for w in outcome.warnings)
+
+
+def test_the_processor_fallback_for_voices_is_reported_without_stopping():
+    diariser = FakeDiariser(TURNS)
+    diariser.fell_back_because = "CUDA allocation failed"
+    writer = FakeWriter()
+    outcome = chain(diariser=diariser, writer=writer).run_chain(AUDIO, send=False)
+    assert any("processeur a pris le relais" in warning for warning in outcome.warnings)
+    assert writer.received is not None and outcome.words >= MINIMUM_WORDS
+
+
+def test_a_writer_refusal_keeps_the_audio_and_sends_nothing():
+    from greffier.adapters.writer_ollama import UnfaithfulMinutesError
+
+    class RefusingWriter:
+        def write_up(self, _transcript):
+            raise UnfaithfulMinutesError("Compte rendu non validé")
+
+    sender = FakeSender()
+    processing = chain(writer=RefusingWriter(), sender=sender, recipient="test@example.invalid")
+    with pytest.raises(ChainStopped, match="Compte rendu non validé"):
+        processing.run_chain(AUDIO, send=True)
+    assert sender.sendings == []

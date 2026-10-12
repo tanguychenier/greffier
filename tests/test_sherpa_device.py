@@ -16,7 +16,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
+import soundfile as sf
 
 from greffier.adapters import cuda
 from greffier.adapters import diarisation_sherpa as cutting
@@ -194,3 +196,71 @@ class TestTheVoice:
         bench = LaVoix(monkeypatch, tmp_path)
         speaking_one = voice.NeuralVoice(bench.folder)
         assert speaking_one._load() is speaking_one._load()
+
+
+@pytest.mark.usefixtures("loader")
+@pytest.mark.parametrize("device", ["cuda", "cpu"])
+def test_diarisation_recovers_only_from_a_gpu_initialisation_failure(
+    models, monkeypatch, tmp_path, device,
+):
+    monkeypatch.setattr(cuda, "a_card_is_usable", lambda: True)
+    attempts = []
+    engine = SimpleNamespace(
+        sample_rate=16000,
+        process=lambda _: SimpleNamespace(sort_by_start_time=lambda: [
+            SimpleNamespace(start=0, end=2, speaker=0),
+        ]),
+    )
+
+    def open_model(config):
+        provider = config.segmentation.provider
+        attempts.append((provider, config.embedding.provider))
+        if len(attempts) == 1:
+            raise RuntimeError("allocation failed")
+        return engine
+
+    monkeypatch.setattr(cutting.sherpa_onnx, "OfflineSpeakerDiarization", open_model)
+    tool = cutting.SherpaDiariser(
+        models / "segmentation.onnx", models / "empreintes.onnx", device=device,
+    )
+    audio = tmp_path / "silence.wav"
+    sf.write(audio, np.zeros(32000, dtype="float32"), 16000)
+    if device == "cpu":
+        with pytest.raises(RuntimeError, match="allocation failed"):
+            tool.segment(audio, None)
+        assert attempts == [("cpu", "cpu")]
+    else:
+        assert tool.segment(audio, None)[0].span.end == 2
+        assert attempts == [("cuda", "cuda"), ("cpu", "cpu")]
+        assert tool.device == "cpu" and tool.fell_back_because == "allocation failed"
+
+
+@pytest.mark.usefixtures("loader")
+@pytest.mark.parametrize("device", ["cuda", "cpu"])
+def test_voiceprints_recover_only_from_a_gpu_initialisation_failure(
+    models, monkeypatch, device,
+):
+    monkeypatch.setattr(cuda, "a_card_is_usable", lambda: True)
+    monkeypatch.setattr(voiceprints, "_OPENED", {})
+    attempts = []
+    engine = object()
+
+    def open_model(config):
+        attempts.append(config.provider)
+        if len(attempts) == 1:
+            raise RuntimeError("allocation failed")
+        return engine
+
+    monkeypatch.setattr(voiceprints.sherpa_onnx, "SpeakerEmbeddingExtractor", open_model)
+    tool = voiceprints.TitaNetExtractor(models / "empreintes.onnx", device=device)
+    if device == "cpu":
+        with pytest.raises(RuntimeError, match="allocation failed"):
+            _ = tool._extractor
+        assert attempts == ["cpu"]
+    else:
+        assert tool._extractor is engine
+        assert tool._extractor is engine
+        second = voiceprints.TitaNetExtractor(models / "empreintes.onnx", device="cpu")
+        assert second._extractor is engine
+        assert attempts == ["cuda", "cpu"]
+        assert tool.device == "cpu" and tool.fell_back_because == "allocation failed"

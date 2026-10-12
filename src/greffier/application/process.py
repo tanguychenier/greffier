@@ -533,6 +533,14 @@ class Chain:
         self._say_what_the_channels_meant(outcome)
         self._warn_about_coverage(outcome)
         self._warn_about_attendees(outcome)
+        if any(
+            getattr(tool, "fell_back_because", None)
+            for tool in (self.diariser, self.extractor)
+        ):
+            outcome.warnings.append(
+                "La carte graphique a refusé l'identification des voix. "
+                "Le processeur a pris le relais, ce qui ralentit le traitement."
+            )
 
         self._keep(audio, outcome)
 
@@ -567,9 +575,10 @@ class Chain:
             + disclosure_header(self.disclosure)
             + self.context_header
         )
-        outcome.minutes = self.writer.write_up(
-            render_transcript(outcome, header)
-        )
+        try:
+            outcome.minutes = self.writer.write_up(render_transcript(outcome, header))
+        except RuntimeError as trouble:
+            raise ChainStopped(Phase.FAILURE, str(trouble)) from trouble
         written_title = title_of_the_minutes(outcome.minutes, "")
         if written_title:
             outcome.subject = (

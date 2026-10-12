@@ -7,6 +7,12 @@ primary adapters leaning on each other.
 
 from __future__ import annotations
 
+import gc
+import sys
+import time
+import weakref
+from types import SimpleNamespace
+
 import pytest
 
 from greffier.adapters import companions
@@ -16,7 +22,9 @@ from greffier.adapters import companions
 def launches(monkeypatch):
     lances: list[list[str]] = []
     monkeypatch.setattr(
-        companions.subprocess, "Popen", lambda command, **_k: lances.append(command))
+        companions.subprocess, "Popen",
+        lambda command, **_k: (lances.append(command), SimpleNamespace(wait=lambda: 0))[1],
+    )
     return lances
 
 
@@ -62,3 +70,33 @@ class TestWhenItCannotStart:
 
         monkeypatch.setattr(companions.subprocess, "Popen", refuse)
         assert not companions.start_the_live_thread(tmp_path, active=True)
+
+
+def test_a_live_helper_is_kept_until_its_exit_and_reaped(tmp_path, monkeypatch):
+    real_popen = companions.subprocess.Popen
+    references = []
+
+    def start(command, **options):
+        process = real_popen(command, **options)
+        references.append(weakref.ref(process))
+        return process
+
+    monkeypatch.setattr(companions.subprocess, "Popen", start)
+    gate = tmp_path / "finish"
+    script = (
+        "import sys,time; from pathlib import Path; gate=Path(sys.argv[1])\n"
+        "while not gate.exists(): time.sleep(0.01)\n"
+    )
+    try:
+        assert companions._launch([sys.executable, "-c", script, str(gate)], tmp_path / "log")
+        gc.collect()
+        assert references[0]() is not None
+    finally:
+        gate.touch()
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        process = references[0]()
+        if process is None or process.returncode is not None:
+            break
+        time.sleep(0.01)
+    assert process is None or process.returncode == 0

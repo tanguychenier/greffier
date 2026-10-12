@@ -56,3 +56,31 @@ class TestWhatTheExecutableCarries:
     def test_the_sentences_and_the_sounds_travel_with_the_executable(self, workflow):
         text = (RACINE / ".github" / "workflows" / workflow).read_text(encoding="utf-8")
         assert "--collect-data greffier" in text
+
+
+def test_a_packaged_helpers_command_reaches_the_cli(monkeypatch):
+    from greffier import cli
+
+    received = []
+    monkeypatch.setattr(cli, "application", lambda: received.append(list(sys.argv)))
+    monkeypatch.setattr(
+        sys, "argv", ["Greffier.exe", "-m", "greffier", "assister", "--config", "test.toml"],
+    )
+    FakeWindow.spun = False
+    assert launcher.main() == 0
+    assert received == [["Greffier.exe", "assister", "--config", "test.toml"]]
+    assert FakeWindow.spun is False
+
+
+def test_a_windowed_helpers_output_is_kept_and_restored(monkeypatch, tmp_path):
+    from greffier import cli
+
+    trace = tmp_path / "helper.log"
+    monkeypatch.setenv("GREFFIER_COMPANION_LOG", str(trace))
+    monkeypatch.setattr(sys, "argv", ["Greffier.exe", "-m", "greffier", "assister"])
+    monkeypatch.setattr(sys, "stdout", None)
+    monkeypatch.setattr(sys, "stderr", None)
+    monkeypatch.setattr(cli, "application", lambda: print("helper started"))
+    assert launcher.main() == 0
+    assert sys.stdout is None and sys.stderr is None
+    assert "helper started" in trace.read_text()

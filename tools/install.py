@@ -906,7 +906,7 @@ def environment_step(ctx, engine):
     venv = ROOT / ".venv"
     python = venv / ("Scripts/python.exe" if SYSTEM == "Windows" else "bin/python")
 
-    extras = "dev" + (",transcription" if engine == "faster-whisper" else "")
+    extras = "transcription" if engine == "faster-whisper" else ""
     if engine == "faster-whisper" and nvidia_card():
         # The card alone is not enough: CTranslate2 wants cuBLAS and cuDNN,
         # which no distribution ships with the driver. Without them the
@@ -917,6 +917,8 @@ def environment_step(ctx, engine):
             extras += ",cuda"
         else:
             ctx.to_do.append("uv pip install -e '.[cuda]'")
+
+    package = f".[{extras}]" if extras else "."
 
     if ctx.check_only:
         ok("environnement présent") if python.exists() else warn("environnement absent")
@@ -954,7 +956,7 @@ def environment_step(ctx, engine):
                     info("« apt install python3.13-tk » (dépôt deadsnakes) le corrige, "
                          "puis relance cette installation.")
                 run_job(["uv", "venv", "--python", "3.13"], cwd=ROOT)
-        run_job(["uv", "pip", "install", "-q", "-e", f".[{extras}]"], cwd=ROOT)
+        run_job(["uv", "pip", "install", "-q", "-e", package], cwd=ROOT)
     else:
         warn("uv absent : repli sur venv + pip, plus lent")
         if not python.exists():
@@ -966,8 +968,8 @@ def environment_step(ctx, engine):
             error("l'environnement Python n'a pas pu être créé. Sous Debian et "
                    "Ubuntu, « apt install python3-venv » le fournit.")
             raise SystemExit(1)
-        run_job([str(python), "-m", "pip", "install", "-q", "-e", f".[{extras}]"], cwd=ROOT)
-    ok(f"dépendances installées ({extras})")
+        run_job([str(python), "-m", "pip", "install", "-q", "-e", package], cwd=ROOT)
+    ok("dépendances installées" + (f" ({extras})" if extras else ""))
     card_step(ctx, python)
     return python
 

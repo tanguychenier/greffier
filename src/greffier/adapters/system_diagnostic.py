@@ -158,8 +158,9 @@ def system_capture() -> Reading:
         )
     return Reading(
         name="Capture du son des autres participants",
-        present=True,
-        detail="boucle WASAPI intégrée à Windows",
+        present=False,
+        detail="capture système à vérifier avec l’entrée audio choisie",
+        remedy="configure une entrée de boucle audio accessible à FFmpeg DirectShow",
     )
 
 def mic_present() -> Reading:
@@ -173,9 +174,11 @@ def mic_present() -> Reading:
     elif SYSTEM == "Linux":
         present = Path("/proc/asound/cards").exists() or sound_server_present()
         detail = "carte son détectée" if present else "aucune carte son"
-    else:
-        present = True
-        detail = "supposé présent"
+    elif SYSTEM == "Windows":
+        from greffier.adapters.audio_dshow import devices
+
+        present = bool(devices())
+        detail = "entrée audio DirectShow détectée" if present else "aucune entrée audio détectée"
     return Reading(name="Micro", present=present, detail=detail,
                    remedy="branche un micro ou un casque", is_blocking=True)
 
