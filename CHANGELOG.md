@@ -118,6 +118,7 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **runtime**: honor UTF-8 logs for packaged helpers (`9a36b78`)
 - **packaging**: include the speech detector in frozen applications (`e4b9078`)
 - **audio**: keep the shipped decoder compatible with faster-whisper (`c71abef`)
 - **release**: recover when another platform creates the release (`ea8c8c1`)
