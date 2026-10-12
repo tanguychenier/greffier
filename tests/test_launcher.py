@@ -7,6 +7,7 @@ and that the executable had no sentences to show. Neither survives here.
 
 from __future__ import annotations
 
+import io
 import os
 import subprocess
 import sys
@@ -146,3 +147,18 @@ def test_a_missing_bundled_speech_detector_fails_the_audio_check(monkeypatch, tm
     monkeypatch.setattr(sys, "argv", ["Greffier.exe", "--check-audio"])
     assert launcher.main() == 1
     assert "silero_vad_v6.onnx" in trace.read_text()
+
+
+def test_a_packaged_helpers_log_overrides_inherited_ansi_streams(monkeypatch, tmp_path):
+    from greffier import cli
+
+    trace = tmp_path / "helper.log"
+    with io.TextIOWrapper(io.BytesIO(), encoding="cp1252") as inherited:
+        monkeypatch.setenv("GREFFIER_COMPANION_LOG", str(trace))
+        monkeypatch.setattr(sys, "argv", ["Greffier.exe", "-m", "greffier", "traiter"])
+        monkeypatch.setattr(sys, "stdout", inherited)
+        monkeypatch.setattr(sys, "stderr", inherited)
+        monkeypatch.setattr(cli, "application", lambda: print("⚠ test warning"))
+        assert launcher.main() == 0
+        assert sys.stdout is inherited and sys.stderr is inherited
+    assert trace.read_text(encoding="utf-8") == "⚠ test warning\n"

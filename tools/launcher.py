@@ -50,16 +50,19 @@ def main() -> int:
     if sys.argv[1:3] == ["-m", "greffier"]:
         # In a frozen application sys.executable is this launcher, not Python.
         # Its detached helpers must reach the CLI rather than open another GUI.
-        from greffier.cli import application
-
         sys.argv = [sys.argv[0], *sys.argv[3:]]
         with contextlib.ExitStack() as files:
+            destination = os.environ.get("GREFFIER_COMPANION_LOG")
             for name in ("stdout", "stderr"):
-                if getattr(sys, name) is None:
-                    target = Path(os.environ.get("GREFFIER_COMPANION_LOG", os.devnull))
+                previous = getattr(sys, name)
+                if destination or previous is None:
+                    target = Path(destination or os.devnull)
                     stream = files.enter_context(target.open("a", encoding="utf-8"))
                     setattr(sys, name, stream)
-                    files.callback(setattr, sys, name, None)
+                    files.callback(setattr, sys, name, previous)
+            # Import after the streams are ready so console helpers see UTF-8 logs.
+            from greffier.cli import application
+
             application()
         return 0
     if "--version" in sys.argv:
