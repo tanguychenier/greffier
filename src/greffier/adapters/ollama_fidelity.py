@@ -111,13 +111,20 @@ def violations(source: str, minutes: str) -> list[str]:
                     issues.append("Un rôle déduit est présenté comme établi sans preuve.")
         if owner is not None:
             assigned = _fold(cells[owner])
-            if assigned in people:
+            named_owner = any(
+                re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", assigned)
+                for name in people
+            )
+            if named_owner:
                 row = _fold(" ".join(cells))
                 if any(_matches_collective(row, sentence) for sentence in collectives):
                     issues.append("Une action collective est attribuée à une seule personne.")
-            elif assigned and assigned not in bodies and assigned not in ("-", "?"):
-                if not any(mark in assigned for mark in (*_UNCERTAIN, *_GENERIC_OWNERS)):
-                    issues.append("Un responsable est ajouté sans mention dans la source.")
+            if (
+                assigned and assigned not in people and assigned not in bodies
+                and assigned not in ("-", "?") and assigned not in _GENERIC_OWNERS
+                and not any(mark in assigned for mark in _UNCERTAIN)
+            ):
+                issues.append("Un responsable est ajouté sans mention dans la source.")
     if not participants_seen:
         issues.append("Le tableau des intervenants manque dans le compte rendu.")
     return list(dict.fromkeys(issues))

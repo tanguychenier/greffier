@@ -31,6 +31,9 @@ Attendu, en français, au format Markdown :
    personne, écris « responsable non précisé ». La personne qui annonce une action
    n'en devient pas responsable. Seul un engagement explicite avec « je », ou une
    personne explicitement désignée dans les propos, permet de nommer un responsable.
+   Dans la colonne « qui », n'ajoute pas le nom de la personne qui annonce une action
+   collective, même entre parenthèses après « collectif ». Cite cette personne
+   dans le résumé seulement.
 5. Une section « Fiabilité de la transcription » : corrections évidentes que tu as
    appliquées, termes restés douteux, passages où le modèle a manifestement bouclé.
 
