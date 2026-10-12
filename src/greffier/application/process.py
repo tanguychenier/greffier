@@ -575,9 +575,10 @@ class Chain:
             + disclosure_header(self.disclosure)
             + self.context_header
         )
-        outcome.minutes = self.writer.write_up(
-            render_transcript(outcome, header)
-        )
+        try:
+            outcome.minutes = self.writer.write_up(render_transcript(outcome, header))
+        except RuntimeError as trouble:
+            raise ChainStopped(Phase.FAILURE, str(trouble)) from trouble
         written_title = title_of_the_minutes(outcome.minutes, "")
         if written_title:
             outcome.subject = (

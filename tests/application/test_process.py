@@ -1303,3 +1303,16 @@ def test_the_processor_fallback_for_voices_is_reported_without_stopping():
     assert any("processeur a pris le relais" in warning for warning in outcome.warnings)
     assert writer.received is not None and outcome.words >= MINIMUM_WORDS
 
+
+def test_a_writer_refusal_keeps_the_audio_and_sends_nothing():
+    from greffier.adapters.writer_ollama import UnfaithfulMinutesError
+
+    class RefusingWriter:
+        def write_up(self, _transcript):
+            raise UnfaithfulMinutesError("Compte rendu non validé")
+
+    sender = FakeSender()
+    processing = chain(writer=RefusingWriter(), sender=sender, recipient="test@example.invalid")
+    with pytest.raises(ChainStopped, match="Compte rendu non validé"):
+        processing.run_chain(AUDIO, send=True)
+    assert sender.sendings == []
