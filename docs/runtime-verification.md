@@ -82,8 +82,8 @@ replace or publish any release assets.
 
 If the native transcription stalls, add `--field whisper_diagnostic=true`
 to that dispatch. This records bounded direct whisper.cpp trials on CPU with
-and without VAD. It compares threads bounded by the available CPUs, passive
-OpenMP waiting and single-threaded Accelerate. A stalled diagnostic process
+and without VAD. After captured VAD stacks stalled at OpenMP barriers, the
+current probe tests a single worker with the speech detector retained. A stalled diagnostic process
 is sampled before it is stopped. The synthesis process exits before the trial
 so its voice model and worker pools cannot compete for CPU time. A diagnostic
 run collects evidence only and does not validate the complete meeting pipeline.

@@ -43,12 +43,10 @@ def edit_distance(expected: list[str], actual: list[str]) -> int:
 def diagnose_whisper(models: Path, audio: Path, root: Path) -> None:
     from greffier.adapters.transcription_whisper_cpp import lire_srt
     results = []
-    threads = max(1, min(4, os.cpu_count() or 1))
-    for name, vad, passive in (
-        ("cpu-vad-capacity", True, False),
-        ("cpu-vad-passive", True, True),
-        ("cpu-no-vad-passive", False, True),
-    ):
+    # The captured stalled stacks wait at OpenMP barriers inside VAD.
+    # One worker tests that condition without removing the speech detector.
+    threads = 1
+    for name, vad, passive in (("cpu-vad-single-worker", True, False),):
         destination = root / name
         command = [
             "whisper-cli", "-m", str(models / "ggml-large-v3-turbo.bin"),
@@ -71,7 +69,7 @@ def diagnose_whisper(models: Path, audio: Path, root: Path) -> None:
                     stderr=subprocess.STDOUT, env=environment,
                 ) as process:
                     try:
-                        returncode = process.wait(timeout=120)
+                        returncode = process.wait(timeout=360)
                     except subprocess.TimeoutExpired:
                         # Sample only our own diagnostic process, before
                         # stopping it. This is not a window or screen capture.
