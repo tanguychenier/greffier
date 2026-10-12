@@ -118,6 +118,8 @@ Generated from the commit messages, which follow the Angular convention:
 
 ## Fixed
 
+- **audio**: keep the shipped decoder compatible with faster-whisper (`c71abef`)
+- **release**: recover when another platform creates the release (`ea8c8c1`)
 - **audio**: resolve real Windows inputs before recording (`92e3609`)
 - **minutes**: reject unsupported local writer table assignments (`430bc32`)
 - **voices**: recover from failed CUDA initialization on the processor (`4b34c5f`)
