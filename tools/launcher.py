@@ -22,6 +22,7 @@ somebody's own machine. Wrapped into an AppImage by `tools/build_appimage.py`.
 from __future__ import annotations
 
 import contextlib
+import os
 import sys
 import traceback
 from pathlib import Path
@@ -45,6 +46,21 @@ def version() -> str:
 
 
 def main() -> int:
+    if sys.argv[1:3] == ["-m", "greffier"]:
+        # In a frozen application sys.executable is this launcher, not Python.
+        # Its detached helpers must reach the CLI rather than open another GUI.
+        from greffier.cli import application
+
+        sys.argv = [sys.argv[0], *sys.argv[3:]]
+        with contextlib.ExitStack() as files:
+            for name in ("stdout", "stderr"):
+                if getattr(sys, name) is None:
+                    target = Path(os.environ.get("GREFFIER_COMPANION_LOG", os.devnull))
+                    stream = files.enter_context(target.open("a", encoding="utf-8"))
+                    setattr(sys, name, stream)
+                    files.callback(setattr, sys, name, None)
+            application()
+        return 0
     if "--version" in sys.argv:
         print(f"Greffier {version()}")
         return 0
