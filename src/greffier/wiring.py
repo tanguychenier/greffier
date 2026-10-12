@@ -66,7 +66,10 @@ def _transcriber(config: Config) -> outbound.Transcriber:
 
         return WhisperCppTranscriber(
             model=models / "ggml-large-v3-turbo.bin",
-            vad=models / "ggml-silero-v5.1.2.bin",
+            # whisper.cpp 1.9.2 initializes VAD with four CPU workers,
+            # ignoring its CLI thread choice. Native OpenMP barriers can stall
+            # there. Keep Whisper's own no-speech filtering, as in live mode.
+            vad=None, device=config.hardware.device,
         )
     from greffier.adapters.transcription_faster_whisper import FasterWhisperTranscriber
 
@@ -106,7 +109,7 @@ def light_transcriber(config: Config) -> outbound.Transcriber | None:
             return None
         from greffier.adapters.transcription_whisper_cpp import WhisperCppTranscriber
 
-        return WhisperCppTranscriber(model=model, vad=None)
+        return WhisperCppTranscriber(model=model, vad=None, device=config.hardware.device)
     from greffier.adapters.transcription_faster_whisper import FasterWhisperTranscriber
 
     return FasterWhisperTranscriber(size=size, device=config.hardware.device)

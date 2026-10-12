@@ -24,7 +24,7 @@ def check(command: list[str], destination: Path) -> None:
             "APPDATA": str(root / "roaming"),
         })
         subprocess.run(command, env=environment, check=True, timeout=120)
-        result = json.loads((root / "proof" / "runtime-proof.json").read_text())
+        result = json.loads((root / "proof" / "runtime-proof.json").read_text(encoding="utf-8"))
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         if not result["ok"] or len(result["visits"]) != 14 or result["pixels_captured"]:
