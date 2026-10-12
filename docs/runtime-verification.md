@@ -60,6 +60,26 @@ nothing after a writer failure. These checks do not prove every paragraph is
 factually correct. Conversation mode, custom instructions and other output
 languages retain their existing behavior.
 
+## Published macOS meeting check
+
+The release workflow has an optional `meeting_proof` dispatch that verifies
+an already published macOS ZIP against its GitHub SHA256, then runs its own
+interpreter through a synthetic meeting with the actual whisper.cpp and
+speaker models. It downloads the models into the runner's temporary folder,
+disables writing and sending, and retains a report and the synthetic transcript.
+
+```sh
+gh workflow run release.yml --field meeting_proof=true --field release_tag=v0.3.30
+```
+
+The check compares the output with the words used to generate the audio,
+normalizing punctuation, case and the spelling of preproduction. It requires
+at most five percent word edits, the five expected speaker turns in order,
+and the stated number of anomalies and scheduling facts. The two VITS timbres
+make the same reference available on every platform. A passed synthetic trial
+is not a measure of accuracy on all meetings. This dispatch does not build,
+replace or publish any release assets.
+
 ## Hardware checks
 
 A runner or Wine cannot validate the complete audio setup of another computer.

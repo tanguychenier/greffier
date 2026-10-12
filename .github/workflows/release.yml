@@ -24,12 +24,22 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      meeting_proof:
+        description: Verify the published macOS package on a synthetic meeting
+        type: boolean
+        default: false
+      release_tag:
+        description: Published package to verify
+        type: string
+        default: v0.3.30
 
 permissions:
   contents: write
 
 jobs:
   macos:
+    if: ${{ !inputs.meeting_proof }}
     name: macOS bundle
     runs-on: macos-latest
     timeout-minutes: 45
@@ -80,6 +90,7 @@ jobs:
           token: ${{ github.token }}
 
   windows:
+    if: ${{ !inputs.meeting_proof }}
     name: Windows executable
     runs-on: windows-latest
     timeout-minutes: 45
@@ -142,6 +153,7 @@ jobs:
           token: ${{ github.token }}
 
   linux:
+    if: ${{ !inputs.meeting_proof }}
     name: Linux archive
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -161,6 +173,7 @@ jobs:
           token: ${{ github.token }}
 
   appimage:
+    if: ${{ !inputs.meeting_proof }}
     name: Linux AppImage
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -198,3 +211,51 @@ jobs:
         with:
           file: dist/Greffier-x86_64.AppImage
           token: ${{ github.token }}
+
+  macos_meeting:
+    name: Published macOS meeting pipeline
+    if: ${{ inputs.meeting_proof }}
+    runs-on: macos-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Audio tools
+        run: brew install ffmpeg whisper-cpp
+      - name: Download and verify the published package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          gh release download "$RELEASE_TAG" --pattern Greffier-macos.zip --dir "$RUNNER_TEMP/package"
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" > "$RUNNER_TEMP/package/release.json"
+          python3 - <<'PYTHON'
+          import hashlib, json, os
+          from pathlib import Path
+          folder = Path(os.environ["RUNNER_TEMP"]) / "package"
+          release = json.loads((folder / "release.json").read_text(encoding="utf-8"))
+          assert not release["draft"] and not release["prerelease"]
+          asset = next(a for a in release["assets"] if a["name"] == "Greffier-macos.zip")
+          archive = folder / asset["name"]
+          assert archive.stat().st_size == asset["size"]
+          with archive.open("rb") as stream:
+              assert "sha256:" + hashlib.file_digest(stream, "sha256").hexdigest() == asset["digest"]
+          print("Published package SHA256 verified.")
+          PYTHON
+          ditto -x -k "$RUNNER_TEMP/package/Greffier-macos.zip" "$RUNNER_TEMP/package"
+      - name: Transcribe and attribute the reference dialogue
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: >-
+          "$RUNNER_TEMP/package/Greffier.app/Contents/MacOS/Greffier"
+          tools/check_packaged_meeting.py --output "$RUNNER_TEMP/meeting-proof"
+          --version "${RELEASE_TAG#v}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: meeting-macos
+          path: |
+            ${{ runner.temp }}/meeting-proof/meeting-proof.json
+            ${{ runner.temp }}/meeting-proof/pipeline.log
+            ${{ runner.temp }}/meeting-proof/data/transcriptions/*.txt
