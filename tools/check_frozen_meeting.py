@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.metadata
 import json
 import os
@@ -129,6 +130,7 @@ def main() -> None:
     report = measure(root, audio)
     report.update({
         "system": platform.system(), "version": version, "engine": "faster-whisper",
+        "reference_audio_sha256": hashlib.sha256(audio.read_bytes()).hexdigest(),
         "pixels_captured": False, "physical_capture_verified": False,
         "writer_called": False, "digital_silence_rejected": True,
     })

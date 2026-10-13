@@ -114,3 +114,5 @@ while preserving explicit environment settings.
 
 
 The Windows executable and Linux AppImage also process the reference meeting before release packaging. The frozen executable must match its native runtime report, reject digital silence, recover both speakers in the five expected turns and preserve five checked facts with at most five percent word edits. Fixture synthesis exits before processing. These checks use CPU models and do not record a microphone or invoke a writer. The reports are retained as meeting-windows-release and meeting-linux-release.
+
+Reference synthesis varies between generations. Proof artifacts retain the exact recording, its digest and timeline for replay, including when a package fails a critical fact. A lower-noise synthesis experiment worsened word accuracy and speaker identification and was not adopted. Successful checks on a reference recording do not guarantee correct transcription of other recordings.

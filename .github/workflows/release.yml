@@ -91,6 +91,8 @@ jobs:
           name: meeting-macos-release
           path: |
             ${{ runner.temp }}/meeting-proof/meeting-proof.json
+            ${{ runner.temp }}/meeting-proof/synthetic-meeting.wav
+            ${{ runner.temp }}/meeting-proof/synthetic-meeting.timeline.json
             ${{ runner.temp }}/meeting-proof/pipeline.log
             ${{ runner.temp }}/meeting-proof/data/transcriptions/*.txt
       - name: Zip it
@@ -170,6 +172,8 @@ jobs:
           name: meeting-windows-release
           path: |
             ${{ runner.temp }}/meeting-proof/meeting-proof.json
+            ${{ runner.temp }}/meeting-proof/synthetic-meeting.wav
+            ${{ runner.temp }}/meeting-proof/synthetic-meeting.timeline.json
             ${{ runner.temp }}/meeting-proof/*.log
             ${{ runner.temp }}/meeting-proof/data/transcriptions/*.txt
       - name: Zip it
@@ -246,6 +250,8 @@ jobs:
           name: meeting-linux-release
           path: |
             ${{ runner.temp }}/meeting-proof/meeting-proof.json
+            ${{ runner.temp }}/meeting-proof/synthetic-meeting.wav
+            ${{ runner.temp }}/meeting-proof/synthetic-meeting.timeline.json
             ${{ runner.temp }}/meeting-proof/*.log
             ${{ runner.temp }}/meeting-proof/data/transcriptions/*.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -308,6 +314,8 @@ jobs:
           name: meeting-macos
           path: |
             ${{ runner.temp }}/meeting-proof/meeting-proof.json
+            ${{ runner.temp }}/meeting-proof/synthetic-meeting.wav
+            ${{ runner.temp }}/meeting-proof/synthetic-meeting.timeline.json
             ${{ runner.temp }}/meeting-proof/*.log
             ${{ runner.temp }}/meeting-proof/whisper-diagnostic.json
             ${{ runner.temp }}/meeting-proof/*.srt

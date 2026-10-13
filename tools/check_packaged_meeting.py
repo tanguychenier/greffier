@@ -8,6 +8,7 @@ No microphone, account, writer or mail transport is used.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.metadata
 import json
 import os
@@ -202,6 +203,7 @@ def main() -> None:
         "mercredi en fin de journée",
     )}
     report = {
+        "reference_audio_sha256": hashlib.sha256(audio.read_bytes()).hexdigest(),
         "system": platform.system(), "version": version,
         "engine": "whisper.cpp", "reference_words": len(expected),
         "word_edit_operations": errors, "word_error_rate": errors / len(expected),
