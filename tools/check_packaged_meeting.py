@@ -198,7 +198,7 @@ def main() -> None:
     )
     text = " ".join(row["texte"] for row in master["repliques"]).casefold()
     facts = {fact: fact in text for fact in (
-        "exactement deux", "pas encore validées", "jeudi prochain",
+        "module de facturation", "exactement deux", "pas encore validées", "jeudi prochain",
         "mercredi en fin de journée",
     )}
     report = {

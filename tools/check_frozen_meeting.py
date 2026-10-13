@@ -74,7 +74,7 @@ def measure(root: Path, audio: Path) -> dict[str, object]:
         for group, row in zip(groups, reference, strict=True)
     )
     facts = {fact: fact in text.casefold() for fact in (
-        "exactement deux", "pas encore validées", "jeudi prochain",
+        "module de facturation", "exactement deux", "pas encore validées", "jeudi prochain",
         "mercredi en fin de journée",
     )}
     return {
