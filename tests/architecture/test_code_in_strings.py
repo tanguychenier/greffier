@@ -14,7 +14,7 @@ import importlib
 import pathlib
 import re
 
-RACINE = pathlib.Path(__file__).resolve().parents[1]
+RACINE = pathlib.Path(__file__).resolve().parents[2]
 
 #: The standard modules whose surface is worth checking. A rename that hits one
 #: of them raises only when the line runs, which for a tool may be months later.

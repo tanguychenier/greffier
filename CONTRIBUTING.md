@@ -74,7 +74,9 @@ commands on it with `--locked`. Moving a version is `uv lock --upgrade-package
 
 Four kinds, all in `tests/`:
 
-- **Unit**, by default. `uv run pytest`. Fast, no model, no network.
+- **Unit**, by default. `uv run pytest`. No transcription weights or external
+  services. Some adapter and launcher checks use local servers, ffmpeg or the
+  small speech detector bundled with faster-whisper.
 - **Architecture**, the layer rules above.
 - **Integration**, `pytest -m integration`: the real chain on a synthesised
   meeting: transcription, voice separation, first names, minutes. It needs the
@@ -82,6 +84,20 @@ Four kinds, all in `tests/`:
   and skip rather than lie.
 - **Slow**, `pytest -m lent`: calls the real writer, so the network and an
   account's quota. Run by hand before a demonstration.
+
+Unit tests follow the code they exercise. `tests/domain/` holds the pure rules,
+`tests/application/` the use cases, `tests/adapters/` the external services and
+file formats, and `tests/interface/` the window, HTTP door and command line.
+`tests/composition/` checks `wiring.py` and the locations shared with the
+installer. The repository and layer contracts belong in `tests/architecture/`;
+the installer, launcher, packaging and measurement scripts belong in
+`tests/tools/`. Shared test data stays in `tests/fixtures/`.
+
+Run one layer with `pytest tests/adapters` or `pytest tests/tools`. These paths
+use the same default marker selection as the whole suite. The Hypothesis
+profile remains scoped to `tests/domain/conftest.py`, and the window fixtures
+remain in `tests/interface/conftest.py`; moving a file into another layer does
+not grant it a desktop or a real model.
 
 The window has its own proof, `tools/window_proof.py`, which builds the real
 window, paints every tab and photographs it, because a test that says a tab

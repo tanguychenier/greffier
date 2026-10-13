@@ -205,7 +205,8 @@ class TestTheTokensTheWindowStores:
 
     def test_the_file_belongs_to_the_user_alone(self, tmp_path):
         """Checked once `store_token` returns, under the desktop's usual umask of 022.
-        The instant of the write itself is proven on the helper, in tests/test_private_files.py."""
+        The instant of the write itself is proven on the helper, in
+        tests/adapters/test_private_files.py."""
         if os.name != "posix":
             pytest.skip("file modes are a posix thing")
         file = tmp_path / "jetons.toml"

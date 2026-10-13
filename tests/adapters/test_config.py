@@ -445,7 +445,7 @@ class TestTheFrenchSpellingOfAVariable:
         assert Config().minutes.engine == "claude"
 
 
-EXAMPLE = Path(__file__).resolve().parents[1] / ".env.exemple"
+EXAMPLE = Path(__file__).resolve().parents[2] / ".env.exemple"
 
 
 class TestTheExampleEnvFile:

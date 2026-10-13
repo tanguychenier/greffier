@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-RACINE = Path(__file__).resolve().parents[1]
+RACINE = Path(__file__).resolve().parents[2]
 SCRIPT = RACINE / "macos" / "identite-de-signature.sh"
 
 pytestmark = pytest.mark.skipif(
