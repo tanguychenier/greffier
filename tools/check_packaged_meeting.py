@@ -21,6 +21,8 @@ import unicodedata
 import wave
 from pathlib import Path
 
+from reference_meeting import copy_reference
+
 
 def words(text: str) -> list[str]:
     text = unicodedata.normalize("NFC", text).casefold()
@@ -133,19 +135,8 @@ def main() -> None:
             ok, explanation = fetch(model, models)
             if not ok or not model.present(models):
                 raise RuntimeError(f"Model preparation failed for {model.name}: {explanation}")
-    # Exit the synthesis process before measuring transcription. Its cached
-    # ONNX voice and worker pools must not compete for the runner's CPUs.
-    audio = root / "synthetic-meeting.wav"
-    synthesis = (
-        "import sys; from pathlib import Path; "
-        "sys.path.insert(0, sys.argv[1]); import make_meeting; "
-        "make_meeting.synthesis_engine = lambda: 'vits'; "
-        "make_meeting.make(Path(sys.argv[2]))"
-    )
-    subprocess.run(
-        [str(executable), "-c", synthesis, str(Path(__file__).resolve().parent), str(audio)],
-        check=True, timeout=120,
-    )
+    # Every system processes the same archived input, without synthesis pools.
+    audio = copy_reference(root)
     reference = json.loads(audio.with_suffix(".timeline.json").read_text(encoding="utf-8"))
     if arguments.diagnose_whisper:
         diagnose_whisper(models, audio, root)

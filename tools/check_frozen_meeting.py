@@ -10,11 +10,11 @@ import json
 import os
 import platform
 import subprocess
-import sys
 import wave
 from pathlib import Path
 
 from check_packaged_meeting import edit_distance, words
+from reference_meeting import copy_reference
 
 
 def prepare(root: Path) -> tuple[Path, Path]:
@@ -31,17 +31,7 @@ def prepare(root: Path) -> tuple[Path, Path]:
             if not ok or not model.present(models):
                 raise RuntimeError(f"Model preparation failed: {explanation}")
     transcription = download_model("large-v3", cache_dir=str(models / "transcription"))
-    audio = root / "synthetic-meeting.wav"
-    synthesis = (
-        "import sys; from pathlib import Path; "
-        "sys.path.insert(0, sys.argv[1]); import make_meeting; "
-        "make_meeting.synthesis_engine = lambda: 'vits'; "
-        "make_meeting.make(Path(sys.argv[2]))"
-    )
-    subprocess.run(
-        [sys.executable, "-c", synthesis, str(Path(__file__).resolve().parent), str(audio)],
-        check=True, timeout=180,
-    )
+    audio = copy_reference(root)
     config = root / "meeting.toml"
     config.write_text(
         "[paths]\n" + f"data = {json.dumps(str(root / 'data'))}\n"
