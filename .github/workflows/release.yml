@@ -36,7 +36,7 @@ on:
       release_tag:
         description: Published package to verify
         type: string
-        default: v0.3.30
+        default: v0.3.32
 
 permissions:
   contents: write
