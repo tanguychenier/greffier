@@ -1,0 +1,32 @@
+[
+ {
+  "speaker": "A",
+  "text": "Bonjour à tous, moi c'est Jacques, je vous propose de commencer par le point sur la recette, qui nous occupe depuis le début de la semaine.",
+  "start": 0.0,
+  "end": 6.58
+ },
+ {
+  "speaker": "B",
+  "text": "Merci Jacques. De mon côté, le déploiement en préproduction est terminé depuis vendredi dernier, et tout s'est déroulé sans incident notable.",
+  "start": 6.98,
+  "end": 14.1
+ },
+ {
+  "speaker": "A",
+  "text": "Sophie, tu peux nous dire où en sont les anomalies bloquantes sur le module de facturation, celles que nous avions relevées la semaine dernière ?",
+  "start": 14.5,
+  "end": 20.72
+ },
+ {
+  "speaker": "B",
+  "text": "Il en reste exactement deux. Elles sont corrigées depuis hier soir, mais elles ne sont pas encore validées par l'équipe fonctionnelle.",
+  "start": 21.12,
+  "end": 27.56
+ },
+ {
+  "speaker": "A",
+  "text": "Merci Sophie. On décale donc la recette à jeudi prochain, et nous préviendrons l'ensemble des utilisateurs concernés mercredi en fin de journée.",
+  "start": 27.96,
+  "end": 35.41
+ }
+]

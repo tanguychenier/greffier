@@ -140,3 +140,26 @@ def test_another_language_keeps_the_existing_writers_contract(monkeypatch):
     writer = OllamaWriter("local", language="es")
     monkeypatch.setattr(writer, "_generate", lambda _: "Un resumen en otra lengua.")
     assert writer.write_up(SOURCE) == "Un resumen en otra lengua."
+
+
+@pytest.mark.parametrize("owner", [
+    "Collectif (Jacques)", "Collectif Jacques", "Équipe de Sophie",
+    "Responsable non précisé (Jacques)", "Jacques et Sophie", "**Collectif (Sophie)**",
+])
+def test_a_collective_label_cannot_hide_named_owners(owner):
+    report = GOOD.replace("Responsable non précisé", owner)
+    assert "action collective" in " ".join(violations(SOURCE, report))
+
+
+@pytest.mark.parametrize("owner", ["Collectif (Maud)", "Équipe imaginaire", "Team Maud"])
+def test_a_generic_prefix_cannot_hide_an_unmentioned_owner(owner):
+    report = GOOD.replace("Responsable non précisé", owner)
+    assert "responsable" in " ".join(violations(SOURCE, report))
+
+
+def test_wrapped_collective_owners_are_refused_after_the_correction_attempt(monkeypatch):
+    writer = OllamaWriter("local")
+    report = GOOD.replace("Responsable non précisé", "Collectif (Jacques)")
+    monkeypatch.setattr(writer, "_generate", lambda _: report)
+    with pytest.raises(UnfaithfulMinutesError, match="action collective"):
+        writer.write_up(SOURCE)

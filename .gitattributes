@@ -1,0 +1,2 @@
+tools/fixtures/reference-meeting/*.json text eol=lf
+tools/fixtures/reference-meeting/*.wav -text
