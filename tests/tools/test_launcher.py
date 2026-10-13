@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-RACINE = Path(__file__).resolve().parent.parent
+RACINE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RACINE / "tools"))
 
 import launcher  # noqa: E402

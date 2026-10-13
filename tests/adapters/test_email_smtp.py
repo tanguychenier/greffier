@@ -31,7 +31,7 @@ from greffier.adapters.email import SmtpSender
 SUBJECT = "Compte rendu : réunion du 3 septembre"
 CORPS = "## Décisions\n\n- La recette est décalée à jeudi.\n- Marcel prévient les usagers.\n"
 
-TLS_FIXTURES = Path(__file__).parent / "fixtures" / "tls"
+TLS_FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "tls"
 CERTIFICATE = TLS_FIXTURES / "certificat.pem"
 KEY = TLS_FIXTURES / "cle.pem"
 

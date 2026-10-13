@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-RACINE = Path(__file__).resolve().parent.parent
+RACINE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RACINE / "tools"))
 
 import measure_live  # noqa: E402

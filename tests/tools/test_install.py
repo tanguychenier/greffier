@@ -15,7 +15,7 @@ from typing import ClassVar
 
 import pytest
 
-RACINE = Path(__file__).resolve().parent.parent
+RACINE = Path(__file__).resolve().parents[2]
 
 
 def load_the_installer():

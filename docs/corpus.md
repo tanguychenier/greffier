@@ -62,7 +62,7 @@ the repository.
 `python3 tools/measure_corpus.py`, the installed chain as it is: `large-v3`
 on the card, no vocabulary prompt, no attendee count declared. Three
 figures per recording, defined in the tool and held by
-`tests/test_measure_corpus.py`:
+`tests/tools/test_measure_corpus.py`:
 
 - **the word error rate**, both texts read the same way (lower case, no
   punctuation, no "euh"), edit distance on the words;

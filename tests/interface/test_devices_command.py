@@ -89,7 +89,7 @@ class TestTheSwiftScriptCarriesNoHardware:
         """The name of one desk's headset is not a default for everyone else's."""
         from pathlib import Path
 
-        source = Path(__file__).resolve().parent.parent / "macos/creer-peripheriques.swift"
+        source = Path(__file__).resolve().parents[2] / "macos/creer-peripheriques.swift"
         text = source.read_text(encoding="utf-8")
         assert 'option("--mic", "")' in text
         assert "Jabra" not in text

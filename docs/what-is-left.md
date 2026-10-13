@@ -381,7 +381,7 @@ too many.
 
 For that to be possible, `ExpediteurSmtp` exposes two seams:
 `message()` composes the mail without opening anything, so what a recipient
-receives can be checked **without a network** (`tests/test_courriel_smtp.py`:
+receives can be checked **without a network** (`tests/adapters/test_email_smtp.py`:
 accented subject kept whole, both versions of the body, attachment, UTF-8
 text), and `session()` opens the connection. `envoyer()` is now no more than
 the assembly of the two.

@@ -102,7 +102,7 @@ class TestTheServersForTheModel:
     def test_the_file_is_the_owner_s_alone_whatever_the_umask_says(self, tmp_path: Path) -> None:
         """Checked once `write_servers` returns, under the desktop's usual umask of 022,
         with nothing else left in the folder. The instant of the write itself is
-        proven on the helper, in tests/test_private_files.py."""
+        proven on the helper, in tests/adapters/test_private_files.py."""
         previous = os.umask(0o022)
         try:
             file = accounts_file.write_servers(tmp_path, {"a": {"command": "x", "args": []}})
