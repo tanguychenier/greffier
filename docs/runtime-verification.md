@@ -111,3 +111,6 @@ active, as in live and dictation mode. Entirely silent recordings are rejected
 by the pipeline before the transcriber starts. Native CPU threads follow the
 available CPU count, and child-only worker defaults avoid nested pool contention
 while preserving explicit environment settings.
+
+
+The Windows executable and Linux AppImage also process the reference meeting before release packaging. The frozen executable must match its native runtime report, reject digital silence, recover both speakers in the five expected turns and preserve four checked facts with at most five percent word edits. Fixture synthesis exits before processing. These checks use CPU models and do not record a microphone or invoke a writer. The reports are retained as meeting-windows-release and meeting-linux-release.

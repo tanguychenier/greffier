@@ -159,6 +159,19 @@ jobs:
         with:
           name: runtime-windows
           path: runtime-windows.json
+      - name: Process a reference meeting in the native executable
+        run: |
+          choco install ffmpeg --yes --no-progress
+          python tools/check_frozen_meeting.py --application dist/Greffier/Greffier.exe `
+            --runtime-report runtime-windows.json --output "$env:RUNNER_TEMP/meeting-proof"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: meeting-windows-release
+          path: |
+            ${{ runner.temp }}/meeting-proof/meeting-proof.json
+            ${{ runner.temp }}/meeting-proof/*.log
+            ${{ runner.temp }}/meeting-proof/data/transcriptions/*.txt
       - name: Zip it
         run: Compress-Archive -Path dist\Greffier -DestinationPath Greffier-windows.zip
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -221,6 +234,20 @@ jobs:
         with:
           name: runtime-linux
           path: runtime-linux.json
+      - name: Process a reference meeting in the AppImage
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
+          APPIMAGE_EXTRACT_AND_RUN=1 python3 tools/check_frozen_meeting.py \
+            --application dist/Greffier-x86_64.AppImage --runtime-report runtime-linux.json \
+            --output "$RUNNER_TEMP/meeting-proof"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: meeting-linux-release
+          path: |
+            ${{ runner.temp }}/meeting-proof/meeting-proof.json
+            ${{ runner.temp }}/meeting-proof/*.log
+            ${{ runner.temp }}/meeting-proof/data/transcriptions/*.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Greffier-appimage
