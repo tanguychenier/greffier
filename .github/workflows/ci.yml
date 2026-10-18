@@ -87,10 +87,23 @@ jobs:
     # CUDA driver and ffmpeg's codec for .ogg all differ there. One processor
     # is enough, those differences belong to the system; an Intel runner
     # would also compile ffmpeg's dependencies from source on every run.
+    #
+    # Without GREFFIER_ECRAN_D_ESSAI the tests that build the window skip, as
+    # they are made to. On macOS, Tk 9's Aqua segfaults in update() once a
+    # process has created and destroyed a few roots, which the window's tests
+    # do by the dozen and the application never does: measured on an Intel
+    # Mac, three runs out of three. The window on macOS is proven where it
+    # runs for real, by the release job opening every tab of the bundle on
+    # both processors.
     name: The tests on macOS
     if: github.event_name != 'schedule'
     runs-on: macos-latest
     timeout-minutes: 30
+    env:
+      # The runner carries a framework Python that uv picks first: it is not
+      # the interpreter the bundle ships, and its Tk is not uv's. Measured:
+      # without this the job ran on /Library/Frameworks/Python.framework.
+      UV_PYTHON_PREFERENCE: only-managed
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
@@ -105,8 +118,6 @@ jobs:
         # A hang is the failure this job was made for: timeout-minutes ends
         # it, and faulthandler prints the stack of the test it hung on.
         run: uv run pytest tests/ -v -o faulthandler_timeout=300
-        env:
-          GREFFIER_ECRAN_D_ESSAI: "1"
 
   mutants:
     # A job of its own: the whole domain takes six to eight minutes on four
