@@ -47,13 +47,22 @@ def test_screen(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def window(test_screen):  # noqa: ARG001  # the ground it stands on, wired by name
+def window(test_screen, monkeypatch):  # noqa: ARG001  # the ground it stands on, wired by name
     """The real window, painted once, closed at the end."""
     import tkinter as tk
 
     from greffier.adapters.configuration import Config
     from greffier.interface.window import Window
 
+    # The offer of the missing models waits until the window is on screen.
+    # Under xvfb, with no window manager, that is the first update below; on
+    # macOS the window is mapped later, so the offer came in the middle of a
+    # test, after the test had made every question answer yes: a real 1.5 GB
+    # download started, and the status line it wrote failed the test. The
+    # offer is settled here, before any test answers anything; the waiting
+    # has a test of its own, which builds its window without this fixture.
+    monkeypatch.setattr(Window, "_offer_the_models_once_seen",
+                        lambda built, _tries=0: built._offer_the_models())
     try:
         opened_one = Window(Config())
     except tk.TclError as why:
