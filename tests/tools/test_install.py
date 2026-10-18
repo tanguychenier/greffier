@@ -838,3 +838,73 @@ class TestTheTranscriptionModelsArePreparedByTheInstaller:
         monkeypatch.setattr(module.subprocess, "run", lambda *a, **_k: called.append(a))
         module.whisper_model_step(self.Context(), "whisper.cpp", tmp_path / "python")
         assert called == []
+
+
+class TestBlackHoleOnMacOS:
+    """The driver that captures the others' sound, installed through sudo."""
+
+    class Context:
+        check_only = False
+
+        def __init__(self, consent=True):
+            self.consent = consent
+            self.to_do: list[str] = []
+
+        def ask(self, _question):
+            return self.consent
+
+    def _installed(self, module, monkeypatch, brew_exit):
+        """The audio step on a Mac without BlackHole, brew ending with `brew_exit`."""
+        launched = []
+
+        class Done:
+            def __init__(self, returncode=0, stdout=""):
+                self.returncode = returncode
+                self.stdout = stdout
+
+        def run(command, **_options):
+            launched.append(command)
+            if command[0] == "system_profiler":
+                return Done(stdout="Audio:\n    Devices:\n        MacBook Pro Microphone:\n")
+            return Done(returncode=brew_exit)
+
+        monkeypatch.setattr(module.subprocess, "run", run)
+        ctx = self.Context()
+        module.audio_step(ctx)
+        return ctx, launched
+
+    def test_a_failed_install_is_said_and_left_to_do(self, under, monkeypatch, capsys):
+        """Measured: with `--oui` and no terminal, sudo cannot ask for the
+        password, the cask fails, and the installation went on in silence."""
+        module = under("Darwin")
+        ctx, _ = self._installed(module, monkeypatch, brew_exit=1)
+        assert ctx.to_do == module.BLACKHOLE
+        assert "BlackHole n'a pas pu être installé" in capsys.readouterr().out
+
+    def test_an_install_that_worked_leaves_nothing_to_do(self, under, monkeypatch, capsys):
+        module = under("Darwin")
+        ctx, launched = self._installed(module, monkeypatch, brew_exit=0)
+        assert ["brew", "install", "--cask", "blackhole-2ch"] in launched
+        assert ctx.to_do == []
+        assert "sudo killall coreaudiod" in capsys.readouterr().out
+
+    def test_a_refusal_installs_nothing_and_says_how(self, under, monkeypatch):
+        module = under("Darwin")
+        monkeypatch.setattr(module.subprocess, "run", lambda *_a, **_k: type(
+            "Done", (), {"returncode": 0, "stdout": ""})())
+        ctx = self.Context(consent=False)
+        module.audio_step(ctx)
+        assert ctx.to_do == module.BLACKHOLE
+
+    def test_a_driver_already_there_asks_nothing(self, under, monkeypatch):
+        module = under("Darwin")
+        monkeypatch.setattr(module.subprocess, "run", lambda *_a, **_k: type(
+            "Done", (), {"returncode": 0, "stdout": "BlackHole 2ch:\n"})())
+
+        class Asked(self.Context):
+            def ask(self, question):
+                raise AssertionError(f"asked: {question}")
+
+        ctx = Asked()
+        module.audio_step(ctx)
+        assert ctx.to_do == []
