@@ -276,6 +276,8 @@ class TestTheArtefactForThisSystem:
         "assets": [
             {"name": "Greffier-macos.zip",
              "browser_download_url": "https://exemple/Greffier-macos.zip"},
+            {"name": "Greffier-macos-intel.zip",
+             "browser_download_url": "https://exemple/Greffier-macos-intel.zip"},
             {"name": "Greffier-windows.zip",
              "browser_download_url": "https://exemple/Greffier-windows.zip"},
             {"name": "Greffier-linux.tar.gz",
@@ -283,21 +285,41 @@ class TestTheArtefactForThisSystem:
         ],
     }
 
-    @pytest.mark.parametrize(("system", "expected"), [
-        ("Darwin", "Greffier-macos.zip"),
-        ("Windows", "Greffier-windows.zip"),
-        ("Linux", "Greffier-linux.tar.gz"),
+    @pytest.mark.parametrize(("system", "processor", "expected"), [
+        ("Darwin", "arm64", "Greffier-macos.zip"),
+        ("Darwin", "x86_64", "Greffier-macos-intel.zip"),
+        ("Windows", "AMD64", "Greffier-windows.zip"),
+        ("Linux", "x86_64", "Greffier-linux.tar.gz"),
     ])
     @pytest.mark.usefixtures("installed_0_2_0")
     def test_every_system_takes_its_own(
-        self, monkeypatch, system, expected
+        self, monkeypatch, system, processor, expected
     ):
         monkeypatch.setattr(updates.platform, "system", lambda: system)
+        monkeypatch.setattr(updates.platform, "machine", lambda: processor)
         answer(monkeypatch, self.PUBLICATION)
         verdict = updates.check()
         assert verdict.artefact_name == expected
         assert verdict.artefact.endswith(expected)
         assert verdict.downloadable
+
+    @pytest.mark.usefixtures("installed_0_2_0")
+    def test_an_intel_mac_never_takes_the_apple_silicon_bundle(
+        self, monkeypatch
+    ):
+        """Up to 0.3.32 only the arm64 bundle was published: an Intel Mac that
+        installed it would be left with an application that no longer starts."""
+        monkeypatch.setattr(updates.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(updates.platform, "machine", lambda: "x86_64")
+        apple_silicon_only = {
+            **self.PUBLICATION,
+            "assets": [{"name": "Greffier-macos.zip",
+                        "browser_download_url": "https://exemple/Greffier-macos.zip"}],
+        }
+        answer(monkeypatch, apple_silicon_only)
+        verdict = updates.check()
+        assert not verdict.downloadable
+        assert verdict.update, "la version reste annoncée, seule l'archive manque"
 
     @pytest.mark.usefixtures("installed_0_2_0")
     def test_an_unknown_system_offers_nothing(

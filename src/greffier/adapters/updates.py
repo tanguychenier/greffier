@@ -33,6 +33,14 @@ ARTEFACTS = {
     "Linux": "Greffier-linux.tar.gz",
 }
 
+# Where one system ships one build per processor. The macOS bundle carries its
+# interpreter and wheels as compiled: the Apple Silicon one, installed on an
+# Intel Mac, answers « bad CPU type in executable » and never starts again.
+# Apple Silicon keeps the plain name, which the bundles already installed ask for.
+ARTEFACTS_BY_PROCESSOR = {
+    ("Darwin", "x86_64"): "Greffier-macos-intel.zip",
+}
+
 @dataclass(frozen=True, slots=True)
 class Verdict:
     """What the check learned. With `trouble` filled in, nothing is certain."""
@@ -382,7 +390,7 @@ def _artifact_for_this_system(publication: dict[str, Any]) -> tuple[str, str]:
     The right one and no other: all three hang off the same release, and a Windows
     archive installed on a Mac would produce nothing that launches.
     """
-    expected = ARTEFACTS.get(platform.system(), "")
+    expected = _artifact_name_for_this_machine()
     if not expected:
         return ("", "")
     for piece in publication.get("assets") or []:
@@ -391,3 +399,7 @@ def _artifact_for_this_system(publication: dict[str, Any]) -> tuple[str, str]:
         if str(piece.get("name", "")) == expected:
             return (expected, str(piece.get("browser_download_url", "")))
     return ("", "")
+
+def _artifact_name_for_this_machine() -> str:
+    system = platform.system()
+    return ARTEFACTS_BY_PROCESSOR.get((system, platform.machine()), ARTEFACTS.get(system, ""))
