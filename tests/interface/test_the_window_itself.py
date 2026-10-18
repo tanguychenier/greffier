@@ -771,11 +771,14 @@ class TestTheFirstLaunchTakesYouByTheHand:
         window._take_by_the_hand()
         shown = self._shown(window)
         assert window.says("premier_lancement.titre") in shown
-        for key in ("modeles_a_faire", "compte_a_faire", "micro_a_faire"):
-            assert window.says(f"premier_lancement.{key}") in shown
-        assert shown.index("modeles" if "modeles" in shown else "models") < shown.index(
-            window.says("premier_lancement.compte_a_faire")
-        )
+        steps = [window.says(f"premier_lancement.{key}")
+                 for key in ("modeles_a_faire", "compte_a_faire", "micro_a_faire")]
+        assert all(step in shown for step in steps)
+        # The sentences themselves, not a word out of one: « modeles » is in
+        # neither language, the French says « modèles », and the test passed
+        # only where the window spoke English.
+        positions = [shown.index(step) for step in steps]
+        assert positions == sorted(positions)
 
     def test_what_is_done_is_ticked(self, window, monkeypatch):
         self._machine(monkeypatch, window, models=True, mic=True)
