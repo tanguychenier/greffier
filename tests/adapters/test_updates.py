@@ -276,6 +276,8 @@ class TestTheArtefactForThisSystem:
         "assets": [
             {"name": "Greffier-macos.zip",
              "browser_download_url": "https://exemple/Greffier-macos.zip"},
+            {"name": "Greffier-macos-intel.zip",
+             "browser_download_url": "https://exemple/Greffier-macos-intel.zip"},
             {"name": "Greffier-windows.zip",
              "browser_download_url": "https://exemple/Greffier-windows.zip"},
             {"name": "Greffier-linux.tar.gz",
@@ -283,21 +285,41 @@ class TestTheArtefactForThisSystem:
         ],
     }
 
-    @pytest.mark.parametrize(("system", "expected"), [
-        ("Darwin", "Greffier-macos.zip"),
-        ("Windows", "Greffier-windows.zip"),
-        ("Linux", "Greffier-linux.tar.gz"),
+    @pytest.mark.parametrize(("system", "processor", "expected"), [
+        ("Darwin", "arm64", "Greffier-macos.zip"),
+        ("Darwin", "x86_64", "Greffier-macos-intel.zip"),
+        ("Windows", "AMD64", "Greffier-windows.zip"),
+        ("Linux", "x86_64", "Greffier-linux.tar.gz"),
     ])
     @pytest.mark.usefixtures("installed_0_2_0")
     def test_every_system_takes_its_own(
-        self, monkeypatch, system, expected
+        self, monkeypatch, system, processor, expected
     ):
         monkeypatch.setattr(updates.platform, "system", lambda: system)
+        monkeypatch.setattr(updates.platform, "machine", lambda: processor)
         answer(monkeypatch, self.PUBLICATION)
         verdict = updates.check()
         assert verdict.artefact_name == expected
         assert verdict.artefact.endswith(expected)
         assert verdict.downloadable
+
+    @pytest.mark.usefixtures("installed_0_2_0")
+    def test_an_intel_mac_never_takes_the_apple_silicon_bundle(
+        self, monkeypatch
+    ):
+        """Up to 0.3.32 only the arm64 bundle was published: an Intel Mac that
+        installed it would be left with an application that no longer starts."""
+        monkeypatch.setattr(updates.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(updates.platform, "machine", lambda: "x86_64")
+        apple_silicon_only = {
+            **self.PUBLICATION,
+            "assets": [{"name": "Greffier-macos.zip",
+                        "browser_download_url": "https://exemple/Greffier-macos.zip"}],
+        }
+        answer(monkeypatch, apple_silicon_only)
+        verdict = updates.check()
+        assert not verdict.downloadable
+        assert verdict.update, "la version reste annoncée, seule l'archive manque"
 
     @pytest.mark.usefixtures("installed_0_2_0")
     def test_an_unknown_system_offers_nothing(
@@ -307,7 +329,26 @@ class TestTheArtefactForThisSystem:
         answer(monkeypatch, self.PUBLICATION)
         verdict = updates.check()
         assert not verdict.downloadable
+        assert (verdict.artefact_name, verdict.artefact) == ("", "")
         assert verdict.update, "la version reste annoncée, seule l'archive manque"
+
+    @pytest.mark.usefixtures("installed_0_2_0")
+    def test_an_archive_with_no_address_is_not_downloadable(self, monkeypatch):
+        """Read as the text « None », a missing address passed for a download."""
+        monkeypatch.setattr(updates.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(updates.platform, "machine", lambda: "arm64")
+        answer(monkeypatch, {"tag_name": "v0.3.0", "assets": [{"name": "Greffier-macos.zip"}]})
+        verdict = updates.check()
+        assert verdict.artefact == ""
+        assert not verdict.downloadable
+
+    @pytest.mark.usefixtures("installed_0_2_0")
+    def test_a_malformed_entry_does_not_hide_the_archives_after_it(self, monkeypatch):
+        monkeypatch.setattr(updates.platform, "system", lambda: "Linux")
+        monkeypatch.setattr(updates.platform, "machine", lambda: "x86_64")
+        assets = ["Greffier-linux.tar.gz", *self.PUBLICATION["assets"]]  # type: ignore[misc]
+        answer(monkeypatch, {**self.PUBLICATION, "assets": assets})
+        assert updates.check().artefact_name == "Greffier-linux.tar.gz"
 
     @pytest.mark.usefixtures("installed_0_2_0")
     def test_a_release_with_no_archive_says_so(
@@ -318,6 +359,7 @@ class TestTheArtefactForThisSystem:
         answer(monkeypatch, {"tag_name": "v0.3.0", "assets": []})
         verdict = updates.check()
         assert verdict.update and not verdict.downloadable
+        assert verdict.artefact_name == ""
 
     def test_an_up_to_date_version_downloads_nothing(self, monkeypatch):
         monkeypatch.setattr(updates, "installed_version", lambda: "0.3.0")
