@@ -143,13 +143,22 @@ def workers_alive():
     return sum(t.name == "greffier-api-worker" for t in threading.enumerate())
 
 
+#: The codec a container stands for, where ffmpeg's default depends on how it
+#: was built. Homebrew's carries no libvorbis, and its .ogg was Ogg FLAC, which
+#: libsndfile cannot read: on a Mac the test of the formats read as they are
+#: failed on an .ogg that nobody sends. The built-in Vorbis encoder exists in
+#: every build, and only encodes two channels.
+CODECS = {".ogg": ["-c:a", "vorbis", "-strict", "experimental", "-ac", "2"]}
+
+
 def a_second_of_sound(target):
     """One second of a 440 Hz tone in whatever format the name says, or a skip."""
     if shutil.which("ffmpeg") is None:
         pytest.skip("ffmpeg absent")
     done = subprocess.run(
         ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-         "-f", "lavfi", "-i", "sine=frequency=440:duration=1", str(target)],
+         "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
+         *CODECS.get(target.suffix, []), str(target)],
         capture_output=True, text=True, check=False,
     )
     if done.returncode != 0:
