@@ -103,7 +103,7 @@ jobs:
         run: >-
           .venv/bin/python tools/check_runtime.py --output runtime-macos.json --
           "$RUNNER_TEMP/Greffier.app/Contents/MacOS/Greffier"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: runtime-macos-${{ matrix.arch }}
           path: runtime-macos.json
@@ -112,7 +112,7 @@ jobs:
           meeting_version="$("$RUNNER_TEMP/Greffier.app/Contents/MacOS/Greffier" -c 'import importlib.metadata; print(importlib.metadata.version("greffier"))')"
           "$RUNNER_TEMP/Greffier.app/Contents/MacOS/Greffier" tools/check_packaged_meeting.py \
             --output "$RUNNER_TEMP/meeting-proof" --version "$meeting_version"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: meeting-macos-release-${{ matrix.arch }}
@@ -129,7 +129,7 @@ jobs:
           cd "$RUNNER_TEMP"
           ditto -c -k --sequesterRsrc --keepParent Greffier.app \
             "$GITHUB_WORKSPACE/$ARCHIVE"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Greffier-macos-${{ matrix.arch }}
           path: ${{ matrix.archive }}
@@ -186,7 +186,7 @@ jobs:
         run: >-
           python tools/check_runtime.py --output runtime-windows.json --
           dist/Greffier/Greffier.exe
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: runtime-windows
           path: runtime-windows.json
@@ -195,7 +195,7 @@ jobs:
           choco install ffmpeg --yes --no-progress
           python tools/check_frozen_meeting.py --application dist/Greffier/Greffier.exe `
             --runtime-report runtime-windows.json --output "$env:RUNNER_TEMP/meeting-proof"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: meeting-windows-release
@@ -207,7 +207,7 @@ jobs:
             ${{ runner.temp }}/meeting-proof/data/transcriptions/*.txt
       - name: Zip it
         run: Compress-Archive -Path dist\Greffier -DestinationPath Greffier-windows.zip
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Greffier-windows
           path: Greffier-windows.zip
@@ -227,7 +227,7 @@ jobs:
       - name: Archive the sources and their installer
         run: |
           git archive --format=tar.gz --prefix=greffier/ -o Greffier-linux.tar.gz HEAD
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Greffier-linux
           path: Greffier-linux.tar.gz
@@ -263,7 +263,7 @@ jobs:
         run: >-
           APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a python3 tools/check_runtime.py
           --output runtime-linux.json -- dist/Greffier-x86_64.AppImage
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: runtime-linux
           path: runtime-linux.json
@@ -273,7 +273,7 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN=1 python3 tools/check_frozen_meeting.py \
             --application dist/Greffier-x86_64.AppImage --runtime-report runtime-linux.json \
             --output "$RUNNER_TEMP/meeting-proof"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: meeting-linux-release
@@ -283,7 +283,7 @@ jobs:
             ${{ runner.temp }}/meeting-proof/synthetic-meeting.timeline.json
             ${{ runner.temp }}/meeting-proof/*.log
             ${{ runner.temp }}/meeting-proof/data/transcriptions/*.txt
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Greffier-appimage
           path: dist/Greffier-x86_64.AppImage
@@ -348,7 +348,7 @@ jobs:
             meeting_command+=(--diagnose-whisper)
           fi
           "${meeting_command[@]}"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: meeting-macos-${{ matrix.arch }}
