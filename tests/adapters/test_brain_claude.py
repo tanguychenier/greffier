@@ -162,6 +162,26 @@ class TestTheSessionSurvivesItsProcess:
         assert _pid(first) != _pid(second)
         assert "turn 1" in second, "the fresh process answered the second question"
 
+    def test_a_process_found_dead_is_let_go_before_the_next_one_starts(
+        self, fake_claude, monkeypatch
+    ):
+        """Found dead between two questions, the process was replaced without
+        being let go: its two pipes stayed open until the collector came, and
+        on the macOS runner, where it is found dead rather than caught dying,
+        the test above failed on the two ResourceWarnings."""
+        monkeypatch.setenv("FAKE_CLAUDE_DIE_AFTER", "1")
+        session = ClaudeSession(command=str(fake_claude))
+        try:
+            session.write_up("un")
+            dead = session._process
+            assert dead is not None
+            dead.wait(timeout=10)
+            session.write_up("deux")
+            assert dead.stdin is not None and dead.stdin.closed
+            assert dead.stdout is not None and dead.stdout.closed
+        finally:
+            session.close()
+
     def test_a_turn_too_long_is_abandoned_and_the_next_one_starts_afresh(
         self, fake_claude, monkeypatch
     ):
