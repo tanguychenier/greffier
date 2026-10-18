@@ -277,9 +277,16 @@ class TestTheBadgeOnTheConversationTab:
     @staticmethod
     def _ask(window, numbers: list[int]) -> None:
         from greffier.adapters import questions_file
+        from greffier.application.record import RecorderState
         from greffier.domain.questions import Question, Reason
 
-        window._thread_meeting = "2026-09-16_10h00_reunion"
+        # The recorder says which meeting is on, not only the window: every
+        # 250 ms the refresh compares the two and starts the thread over when
+        # they differ, which set the badge back to 0 whenever a tick fell in
+        # the update below. Measured on an Intel Mac: one run in ten.
+        meeting = "2026-09-16_10h00_reunion"
+        window.recorder.read = lambda: RecorderState(identifier=meeting)
+        window._paint(window.recorder.read())
         file = questions_file.questions_file(
             window.config.paths.questions, window._thread_meeting
         )
