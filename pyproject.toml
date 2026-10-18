@@ -1,6 +1,6 @@
 [project]
 name = "greffier"
-version = "0.3.32"
+version = "0.3.33"
 description = "Enregistre une réunion, identifie qui parle, en rédige le compte rendu, sans rien envoyer ailleurs."
 readme = "README.md"
 requires-python = ">=3.13"
