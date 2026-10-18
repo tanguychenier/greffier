@@ -142,6 +142,11 @@ class TestStoppingTheEncoder:
             return children[-1]
 
         monkeypatch.setattr(subprocess, "Popen", a_child)
+        # Which input is not the point here. On macOS it is resolved by asking
+        # ffmpeg for its devices, a subprocess.run that would receive the child
+        # instead, wait on it for ever, and hang the suite: measured, the whole
+        # run stuck on this test on an Intel Mac.
+        monkeypatch.setattr(FfmpegRecorder, "_input", lambda _self: ["-i", "stand-in"])
         recorder = FfmpegRecorder("default", 60)
         pid = recorder.start_recording(tmp_path / "r.wav")
         child = children[0]
