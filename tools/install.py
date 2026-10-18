@@ -411,7 +411,11 @@ def system_tools_step(ctx):
     if shutil.which("ffmpeg"):
         ok("ffmpeg")
     elif not install_package(ctx, "ffmpeg", "enregistrement et conversion audio"):
-        raise Abort("ffmpeg est indispensable : sans lui, rien ne peut être enregistré.")
+        # A check is a report: stopping at the first missing tool left
+        # everything after it unsaid, on a machine that lacked them all.
+        if not ctx.check_only:
+            raise Abort("ffmpeg est indispensable : sans lui, rien ne peut être enregistré.")
+        warn("ffmpeg absent : rien ne pourrait être enregistré")
 
     # whisper.cpp speeds the transcription up on the graphics chip, but
     # only exists as a package on macOS. Its absence does not block anything:
@@ -430,6 +434,9 @@ def system_tools_step(ctx):
 
 # ---------------------------------------------------------- 2. capture audio
 
+BLACKHOLE = ["brew install --cask blackhole-2ch", "sudo killall coreaudiod"]
+
+
 def audio_step(ctx):
     """Checks what there is to capture the other attendees' sound with.
 
@@ -447,12 +454,16 @@ def audio_step(ctx):
             ok("BlackHole (pilote audio virtuel)")
         else:
             warn("BlackHole absent : sans lui, seule ta voix serait enregistrée")
-            if ctx.ask("Installer BlackHole ? (mot de passe admin demandé)"):
-                run_job(["brew", "install", "--cask", "blackhole-2ch"])
+            # The cask runs Apple's installer through sudo. Without a terminal
+            # to type the password in (`--oui` from a script) it fails, and the
+            # installation used to carry on as if the driver were there.
+            if not ctx.ask("Installer BlackHole ? (mot de passe admin demandé)"):
+                ctx.to_do.extend(BLACKHOLE)
+            elif run_job(["brew", "install", "--cask", "blackhole-2ch"]).returncode == 0:
                 info("Puis : sudo killall coreaudiod   (recharge le son, coupure de 1-2 s)")
             else:
-                ctx.to_do.append("brew install --cask blackhole-2ch")
-                ctx.to_do.append("sudo killall coreaudiod")
+                warn("BlackHole n'a pas pu être installé : relance-le depuis un terminal")
+                ctx.to_do.extend(BLACKHOLE)
         return
 
     if SYSTEM == "Linux":
