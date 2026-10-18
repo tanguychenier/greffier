@@ -161,3 +161,22 @@ def test_a_real_system_binary_reads_as_lipo_reads_it():
     answer = subprocess.run([lipo, "-archs", "/usr/bin/true"], capture_output=True,
                             text=True, check=True).stdout.split()
     assert carried == {"arm64" if a == "arm64e" else a for a in answer}
+
+
+class TestTheReleaseWorkflow:
+    TEXT = (RACINE / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+
+    def test_both_processors_are_built(self):
+        assert "runner: macos-latest\n            arch: arm64" in self.TEXT
+        assert "runner: macos-15-intel\n            arch: x86_64" in self.TEXT
+
+    def test_apple_silicon_keeps_the_name_installed_bundles_ask_for(self):
+        from greffier.adapters import updates
+
+        assert f"arch: arm64\n            archive: {updates.ARTEFACTS['Darwin']}" in self.TEXT
+        intel = updates.ARTEFACTS_BY_PROCESSOR[("Darwin", "x86_64")]
+        assert f"arch: x86_64\n            archive: {intel}" in self.TEXT
+
+    def test_the_bundle_is_checked_against_its_runner_processor(self):
+        assert ('tools/check_bundle_architecture.py "$RUNNER_TEMP/Greffier.app"'
+                ' --arch "$ARCH"') in self.TEXT

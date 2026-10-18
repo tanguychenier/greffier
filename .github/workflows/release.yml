@@ -12,6 +12,12 @@
 #   machine's certificate: Gatekeeper will refuse it on first launch, and it
 #   takes a right click then "Open". Solving that needs a Developer ID and
 #   notarisation, so a paid account and a decision nobody has taken.
+#   Built twice, once per processor: the interpreter and every compiled wheel
+#   are copied in as they are, so a bundle runs only on the processor it was
+#   built on. Up to 0.3.32 only the Apple Silicon one existed, and an Intel Mac
+#   answered « bad CPU type in executable ». The Apple Silicon archive keeps
+#   its historical name: the bundles already installed look for it by name to
+#   update themselves.
 # - **Windows**: a folder with an .exe, by PyInstaller. Never run on a real
 #   Windows machine as these lines are written: what this workflow proves is
 #   that it builds and that it starts on the runner.
@@ -44,9 +50,23 @@ permissions:
 jobs:
   macos:
     if: ${{ !inputs.meeting_proof }}
-    name: macOS bundle
-    runs-on: macos-latest
-    timeout-minutes: 45
+    name: macOS bundle (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    # Homebrew no longer bottles every Intel formula: on an Intel Mac x265 was
+    # compiled from source, more than thirty minutes on its own.
+    timeout-minutes: ${{ matrix.minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+            archive: Greffier-macos.zip
+            minutes: 45
+          - runner: macos-15-intel
+            arch: x86_64
+            archive: Greffier-macos-intel.zip
+            minutes: 90
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
@@ -72,13 +92,20 @@ jobs:
         env:
           GREFFIER_SIGNATURE: '-'
         run: bash macos/construire.sh "$RUNNER_TEMP/Greffier.app"
+      - name: Every binary in the bundle runs on ${{ matrix.arch }}
+        # Running the bundle on its own runner proves nothing about the other
+        # processor: that is how an arm64-only package was published as « the
+        # macOS bundle ».
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: .venv/bin/python tools/check_bundle_architecture.py "$RUNNER_TEMP/Greffier.app" --arch "$ARCH"
       - name: Open every tab in the native bundle
         run: >-
           .venv/bin/python tools/check_runtime.py --output runtime-macos.json --
           "$RUNNER_TEMP/Greffier.app/Contents/MacOS/Greffier"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: runtime-macos
+          name: runtime-macos-${{ matrix.arch }}
           path: runtime-macos.json
       - name: Process a reference meeting in the native bundle
         run: |
@@ -88,7 +115,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
-          name: meeting-macos-release
+          name: meeting-macos-release-${{ matrix.arch }}
           path: |
             ${{ runner.temp }}/meeting-proof/meeting-proof.json
             ${{ runner.temp }}/meeting-proof/synthetic-meeting.wav
@@ -96,18 +123,20 @@ jobs:
             ${{ runner.temp }}/meeting-proof/pipeline.log
             ${{ runner.temp }}/meeting-proof/data/transcriptions/*.txt
       - name: Zip it
+        env:
+          ARCHIVE: ${{ matrix.archive }}
         run: |
           cd "$RUNNER_TEMP"
           ditto -c -k --sequesterRsrc --keepParent Greffier.app \
-            "$GITHUB_WORKSPACE/Greffier-macos.zip"
+            "$GITHUB_WORKSPACE/$ARCHIVE"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: Greffier-macos
-          path: Greffier-macos.zip
+          name: Greffier-macos-${{ matrix.arch }}
+          path: ${{ matrix.archive }}
       - if: startsWith(github.ref, 'refs/tags/v')
         uses: ./.github/actions/attach-to-release
         with:
-          file: Greffier-macos.zip
+          file: ${{ matrix.archive }}
           token: ${{ github.token }}
 
   windows:
@@ -265,10 +294,20 @@ jobs:
           token: ${{ github.token }}
 
   macos_meeting:
-    name: Published macOS meeting pipeline
+    name: Published macOS meeting pipeline (${{ matrix.arch }})
     if: ${{ inputs.meeting_proof }}
-    runs-on: macos-latest
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+            archive: Greffier-macos.zip
+          - runner: macos-15-intel
+            arch: x86_64
+            archive: Greffier-macos-intel.zip
     permissions:
       contents: read
     steps:
@@ -279,8 +318,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release_tag }}
+          ARCHIVE: ${{ matrix.archive }}
         run: |
-          gh release download "$RELEASE_TAG" --pattern Greffier-macos.zip --dir "$RUNNER_TEMP/package"
+          gh release download "$RELEASE_TAG" --pattern "$ARCHIVE" --dir "$RUNNER_TEMP/package"
           gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" > "$RUNNER_TEMP/package/release.json"
           python3 - <<'PYTHON'
           import hashlib, json, os
@@ -288,14 +328,14 @@ jobs:
           folder = Path(os.environ["RUNNER_TEMP"]) / "package"
           release = json.loads((folder / "release.json").read_text(encoding="utf-8"))
           assert not release["draft"] and not release["prerelease"]
-          asset = next(a for a in release["assets"] if a["name"] == "Greffier-macos.zip")
+          asset = next(a for a in release["assets"] if a["name"] == os.environ["ARCHIVE"])
           archive = folder / asset["name"]
           assert archive.stat().st_size == asset["size"]
           with archive.open("rb") as stream:
               assert "sha256:" + hashlib.file_digest(stream, "sha256").hexdigest() == asset["digest"]
           print("Published package SHA256 verified.")
           PYTHON
-          ditto -x -k "$RUNNER_TEMP/package/Greffier-macos.zip" "$RUNNER_TEMP/package"
+          ditto -x -k "$RUNNER_TEMP/package/$ARCHIVE" "$RUNNER_TEMP/package"
       - name: Transcribe and attribute the reference dialogue
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
@@ -311,7 +351,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
-          name: meeting-macos
+          name: meeting-macos-${{ matrix.arch }}
           path: |
             ${{ runner.temp }}/meeting-proof/meeting-proof.json
             ${{ runner.temp }}/meeting-proof/synthetic-meeting.wav
