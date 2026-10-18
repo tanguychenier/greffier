@@ -277,9 +277,16 @@ class TestTheBadgeOnTheConversationTab:
     @staticmethod
     def _ask(window, numbers: list[int]) -> None:
         from greffier.adapters import questions_file
+        from greffier.application.record import RecorderState
         from greffier.domain.questions import Question, Reason
 
-        window._thread_meeting = "2026-09-16_10h00_reunion"
+        # The recorder says which meeting is on, not only the window: every
+        # 250 ms the refresh compares the two and starts the thread over when
+        # they differ, which set the badge back to 0 whenever a tick fell in
+        # the update below. Measured on an Intel Mac: one run in ten.
+        meeting = "2026-09-16_10h00_reunion"
+        window.recorder.read = lambda: RecorderState(identifier=meeting)
+        window._paint(window.recorder.read())
         file = questions_file.questions_file(
             window.config.paths.questions, window._thread_meeting
         )
@@ -771,11 +778,14 @@ class TestTheFirstLaunchTakesYouByTheHand:
         window._take_by_the_hand()
         shown = self._shown(window)
         assert window.says("premier_lancement.titre") in shown
-        for key in ("modeles_a_faire", "compte_a_faire", "micro_a_faire"):
-            assert window.says(f"premier_lancement.{key}") in shown
-        assert shown.index("modeles" if "modeles" in shown else "models") < shown.index(
-            window.says("premier_lancement.compte_a_faire")
-        )
+        steps = [window.says(f"premier_lancement.{key}")
+                 for key in ("modeles_a_faire", "compte_a_faire", "micro_a_faire")]
+        assert all(step in shown for step in steps)
+        # The sentences themselves, not a word out of one: « modeles » is in
+        # neither language, the French says « modèles », and the test passed
+        # only where the window spoke English.
+        positions = [shown.index(step) for step in steps]
+        assert positions == sorted(positions)
 
     def test_what_is_done_is_ticked(self, window, monkeypatch):
         self._machine(monkeypatch, window, models=True, mic=True)

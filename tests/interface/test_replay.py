@@ -37,7 +37,10 @@ class TestTheInputOfTheRecorder:
         audio = _a_second_of_silence(tmp_path / "reunion.wav")
         assert FfmpegRecorder(str(audio))._input() == ["-re", "-i", str(audio)]
 
-    def test_a_device_name_stays_a_device(self):
+    def test_a_device_name_stays_a_device(self, monkeypatch):
+        """On macOS the name is looked up among avfoundation's devices, which
+        this machine's hardware decides: the lookup is answered here."""
+        monkeypatch.setattr(FfmpegRecorder, "_avfoundation_index", lambda _self: "0")
         recorder = FfmpegRecorder("default")
         assert recorder.replays_a_file() is False
         assert "-re" not in recorder._input()

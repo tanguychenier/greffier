@@ -1044,7 +1044,11 @@ class TestItListensTheMomentSomebodyStops:
         her.answer_aside = lambda _opening, now: clock.setdefault("spotted", []).append(now)
 
         def locate():
-            clock["now"] = clock.get("now", 8.0) + 0.1
+            # Tenths counted and divided once: adding 0.1 fifteen times to 8.0
+            # gives 9.499999999999995, which failed `9.5 <=` on the macOS
+            # runner, where the threads happened to land on that very step.
+            clock["tenths"] = clock.get("tenths", 80) + 1
+            clock["now"] = clock["tenths"] / 10
             return where_in(tmp_path, written=clock["now"])
 
         return watcher(tmp_path, transcriber=listening, assistant_of=her,
@@ -1063,17 +1067,35 @@ class TestItListensTheMomentSomebodyStops:
     def test_a_pass_runs_when_the_talking_stops_not_on_the_clock(
         self, tmp_path, monkeypatch
     ):
+        from greffier.domain.channels import QUIET_S
+
         clock = {}
+        heard_talking: list[float] = []
+
+        def speaking(where_):
+            talking = where_.written < 9.0
+            if talking:
+                heard_talking.append(where_.written)
+            return talking
+
         listening = self.Listening()
         # Talking until 9.0 s of meeting, quiet afterwards.
         instance = self._watcher(tmp_path, monkeypatch, listening,
-                                 speaking=lambda where_: where_.written < 9.0, clock=clock)
+                                 speaking=speaking, clock=clock)
         self._run(instance, tmp_path, rounds=8)
         assert clock.get("spotted"), "the call was heard"
         # The clock is a minute away: the only pass is the prompted one, half
-        # a second of quiet after the talking stopped.
+        # a second of quiet after the last snapshot that heard talking, as
+        # SpeechEnd counts it. That snapshot is 8.9 s or earlier, depending on
+        # which positions the loop happened to look at: the bound read a fixed
+        # 9.5 and failed whenever the threads landed on its edge, at 9.4 or,
+        # through float sums, at 9.499999999999995. Compared in tenths, which
+        # is what the clock counts.
+        spotted = clock["spotted"][-1]
         assert listening.calls == 1
-        assert 9.5 <= clock["spotted"][-1] <= 10.2, clock["spotted"]
+        assert round((spotted - heard_talking[-1]) * 10) >= round(QUIET_S * 10), (
+            heard_talking[-1], spotted)
+        assert spotted <= 10.2, clock["spotted"]
 
     def test_the_clock_does_not_listen_to_a_room_quiet_since_the_last_pass(
         self, tmp_path, monkeypatch

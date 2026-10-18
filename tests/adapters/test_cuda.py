@@ -102,11 +102,25 @@ class TestLoading:
 
 class TestACardAnswers:
     @pytest.fixture(autouse=True)
-    def without_memory(self):
-        """The answer is cached: each case has to start from scratch."""
+    def without_memory(self, monkeypatch):
+        """The answer is cached: each case has to start from scratch.
+
+        The cases describe libcuda.so.1, so they run as on Linux: on macOS,
+        which has no driver to ask, every one of them read False and two
+        failed on an Intel Mac.
+        """
+        monkeypatch.setattr(adapter, "SYSTEM", "Linux")
         adapter.a_card_answers.cache_clear()
         yield
         adapter.a_card_answers.cache_clear()
+
+    def test_macos_never_asks_for_a_driver(self, monkeypatch):
+        """Apple stopped carrying NVIDIA cards with Mojave: nothing is looked for."""
+        monkeypatch.setattr(adapter, "SYSTEM", "Darwin")
+        asked = []
+        monkeypatch.setattr(adapter.ctypes, "CDLL", lambda *a, **_k: asked.append(a))
+        assert adapter.a_card_answers() is False
+        assert asked == []
 
     def test_no_driver_means_no_card(self, monkeypatch):
         """By far the most common case: a machine without NVIDIA."""

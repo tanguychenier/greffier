@@ -155,8 +155,12 @@ class ClaudeSession:
                 self._drop(self._process)
 
     def _running(self) -> subprocess.Popen[str]:
-        if self._process is not None and self._process.poll() is None:
-            return self._process
+        if self._process is not None:
+            if self._process.poll() is None:
+                return self._process
+            # Found dead between two questions, not caught dying in one: let
+            # go like any other, or its pipes and reader outlive it.
+            self._drop(self._process)
         if shutil.which(self.command) is None:
             raise RuntimeError(
                 f"« {self.command} » est introuvable dans le PATH. "

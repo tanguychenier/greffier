@@ -18,6 +18,8 @@ from greffier.adapters.configuration import Config
 from greffier.domain.participation import called_by_name, question_asked
 from greffier.wiring import light_transcriber
 
+pytestmark = pytest.mark.integration
+
 NAME = "Lucie"
 
 #: What is said, and what is expected. The last one does not call it: without
