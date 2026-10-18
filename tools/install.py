@@ -411,7 +411,11 @@ def system_tools_step(ctx):
     if shutil.which("ffmpeg"):
         ok("ffmpeg")
     elif not install_package(ctx, "ffmpeg", "enregistrement et conversion audio"):
-        raise Abort("ffmpeg est indispensable : sans lui, rien ne peut être enregistré.")
+        # A check is a report: stopping at the first missing tool left
+        # everything after it unsaid, on a machine that lacked them all.
+        if not ctx.check_only:
+            raise Abort("ffmpeg est indispensable : sans lui, rien ne peut être enregistré.")
+        warn("ffmpeg absent : rien ne pourrait être enregistré")
 
     # whisper.cpp speeds the transcription up on the graphics chip, but
     # only exists as a package on macOS. Its absence does not block anything:

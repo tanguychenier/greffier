@@ -908,3 +908,34 @@ class TestBlackHoleOnMacOS:
         ctx = Asked()
         module.audio_step(ctx)
         assert ctx.to_do == []
+
+
+class TestCheckingAMachineWithoutFfmpeg:
+    """`--verifier` reports; installing without ffmpeg stops."""
+
+    class Context:
+        yes = False
+
+        def __init__(self, check_only):
+            self.check_only = check_only
+            self.to_do: list[str] = []
+
+        def ask(self, _question):
+            return False
+
+    def test_a_check_goes_on_and_says_what_is_missing(self, under, monkeypatch, capsys):
+        """Measured on a fresh Mac: the check printed one line and stopped."""
+        module = under("Darwin")
+        monkeypatch.setattr(module.shutil, "which",
+                            lambda tool: "/usr/local/bin/brew" if tool == "brew" else None)
+        ctx = self.Context(check_only=True)
+        assert module.system_tools_step(ctx) == "faster-whisper"
+        assert "brew install ffmpeg" in ctx.to_do
+        assert "ffmpeg absent" in capsys.readouterr().out
+
+    def test_an_installation_without_ffmpeg_still_stops(self, under, monkeypatch):
+        module = under("Darwin")
+        monkeypatch.setattr(module.shutil, "which",
+                            lambda tool: "/usr/local/bin/brew" if tool == "brew" else None)
+        with pytest.raises(module.Abort):
+            module.system_tools_step(self.Context(check_only=False))
