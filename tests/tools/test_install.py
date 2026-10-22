@@ -1065,9 +1065,16 @@ class TestOnThePythonAMacShipsWith:
         interpreter = _an_interpreter_older_than_310()
         if interpreter is None:
             pytest.skip("no Python older than 3.10 on this machine")
+        # A clone of its own, with no environment. In one that has a .venv the
+        # check's last step runs the whole suite, this test included, which
+        # runs the check again: measured on the macOS runner, it never ended.
+        clone = tmp_path / "clone"
+        shutil.copytree(RACINE / "src", clone / "src")
+        (clone / "tools").mkdir()
+        shutil.copy(RACINE / "tools/install.py", clone / "tools")
         try:
             done = subprocess.run(
-                [interpreter, "-I", "-u", str(RACINE / "tools/install.py"), "--verifier"],
+                [interpreter, "-I", "-u", str(clone / "tools/install.py"), "--verifier"],
                 capture_output=True, text=True, check=False, stdin=subprocess.DEVNULL,
                 env={**os.environ, "HOME": str(tmp_path)}, timeout=120,
             )
@@ -1075,4 +1082,4 @@ class TestOnThePythonAMacShipsWith:
             # Unbuffered, so what it printed names the step it stopped on.
             pytest.fail(f"--verifier stalled after:\n{stalled.stdout}")
         assert "Traceback" not in done.stderr, done.stderr
-        assert "8. Vérification" in done.stdout, done.stdout
+        assert "environnement absent : vérification impossible" in done.stdout, done.stdout
