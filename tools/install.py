@@ -16,6 +16,10 @@ machine unannounced. What it prints is for the person installing, in French;
 the code around it is in English.
 """
 
+# The annotations stay unevaluated: `bool | None` is Python 3.10, and this
+# script still has to run on 3.9.
+from __future__ import annotations
+
 import argparse
 import contextlib
 import importlib.util

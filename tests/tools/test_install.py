@@ -10,6 +10,9 @@ is installed, hence the import by path rather than by module name.
 """
 
 import importlib.util
+import os
+import shutil
+import subprocess
 from pathlib import Path
 from typing import ClassVar
 
@@ -939,3 +942,39 @@ class TestCheckingAMachineWithoutFfmpeg:
                             lambda tool: "/usr/local/bin/brew" if tool == "brew" else None)
         with pytest.raises(module.Abort):
             module.system_tools_step(self.Context(check_only=False))
+
+
+def _an_interpreter_older_than_310():
+    """The Python a Mac ships without Homebrew (3.9), when this machine has it."""
+    for candidate in ("/usr/bin/python3", "python3.9"):
+        found = shutil.which(candidate)
+        if found is None:
+            continue
+        said = subprocess.run(
+            [found, "-c", "import sys; print(sys.version_info < (3, 10))"],
+            capture_output=True, text=True, check=False,
+        ).stdout.strip()
+        if said == "True":
+            return found
+    return None
+
+
+class TestOnThePythonAMacShipsWith:
+    """The documented command is `python3 tools/install.py`.
+
+    Measured: on a Mac without Homebrew, python3 is Apple's 3.9, and since a
+    `bool | None` annotation the installer stopped at import, before printing
+    a single line. The macOS runners carry that same 3.9 as /usr/bin/python3.
+    """
+
+    def test_the_check_runs_to_its_end(self, tmp_path):
+        interpreter = _an_interpreter_older_than_310()
+        if interpreter is None:
+            pytest.skip("no Python older than 3.10 on this machine")
+        done = subprocess.run(
+            [interpreter, "-I", str(RACINE / "tools/install.py"), "--verifier"],
+            capture_output=True, text=True, check=False, stdin=subprocess.DEVNULL,
+            env={**os.environ, "HOME": str(tmp_path)}, timeout=120,
+        )
+        assert "Traceback" not in done.stderr, done.stderr
+        assert "8. Vérification" in done.stdout, done.stdout
