@@ -1065,10 +1065,14 @@ class TestOnThePythonAMacShipsWith:
         interpreter = _an_interpreter_older_than_310()
         if interpreter is None:
             pytest.skip("no Python older than 3.10 on this machine")
-        done = subprocess.run(
-            [interpreter, "-I", str(RACINE / "tools/install.py"), "--verifier"],
-            capture_output=True, text=True, check=False, stdin=subprocess.DEVNULL,
-            env={**os.environ, "HOME": str(tmp_path)}, timeout=120,
-        )
+        try:
+            done = subprocess.run(
+                [interpreter, "-I", "-u", str(RACINE / "tools/install.py"), "--verifier"],
+                capture_output=True, text=True, check=False, stdin=subprocess.DEVNULL,
+                env={**os.environ, "HOME": str(tmp_path)}, timeout=120,
+            )
+        except subprocess.TimeoutExpired as stalled:
+            # Unbuffered, so what it printed names the step it stopped on.
+            pytest.fail(f"--verifier stalled after:\n{stalled.stdout}")
         assert "Traceback" not in done.stderr, done.stderr
         assert "8. Vérification" in done.stdout, done.stdout
