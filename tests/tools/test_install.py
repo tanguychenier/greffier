@@ -944,6 +944,100 @@ class TestCheckingAMachineWithoutFfmpeg:
             module.system_tools_step(self.Context(check_only=False))
 
 
+class TestUvOnAMac:
+    """uv fills the application bundle, and Homebrew built it from source.
+
+    Measured on an Intel Mac mini: Homebrew carries no bottle of uv for Intel
+    Macs, so it compiled Rust and then uv, and the installation was still on
+    that step after more than an hour.
+    """
+
+    class Context:
+        check_only = False
+
+        def __init__(self, consent=True):
+            self.consent = consent
+            self.to_do: list[str] = []
+
+        def ask(self, _question):
+            return self.consent
+
+    def _install(self, module, monkeypatch, tmp_path, lays_it=True, path="/usr/bin:/bin"):
+        """install_uv in a home of its own; the installer lays uv if `lays_it`."""
+        monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
+        monkeypatch.setenv("PATH", path)
+        launched = []
+
+        def run(command, **options):
+            launched.append((command, options))
+            if lays_it:
+                folder = Path(options["env"]["XDG_BIN_HOME"])
+                folder.mkdir(parents=True, exist_ok=True)
+                (folder / "uv").write_text("")
+                (folder / "uv").chmod(0o755)
+
+        monkeypatch.setattr(module, "run_job", run)
+        ctx = self.Context()
+        return ctx, launched, module.install_uv(ctx, "pour le paquet")
+
+    def test_it_comes_from_astral_and_not_from_homebrew(self, under, monkeypatch, tmp_path):
+        module = under("Darwin")
+        _, launched, found = self._install(module, monkeypatch, tmp_path)
+        assert found
+        assert [command for command, _ in launched] == [
+            ["sh", "-c", "curl -LsSf https://astral.sh/uv/install.sh | sh"]]
+
+    def test_it_lands_in_the_personal_commands_folder(self, under, monkeypatch, tmp_path):
+        module = under("Darwin")
+        _, launched, _ = self._install(module, monkeypatch, tmp_path)
+        assert launched[0][1]["env"]["XDG_BIN_HOME"] == str(tmp_path / ".local/bin")
+
+    def test_the_rest_of_the_installation_finds_it(self, under, monkeypatch, tmp_path):
+        """construire.sh runs in this process's environment, not a new shell's."""
+        module = under("Darwin")
+        self._install(module, monkeypatch, tmp_path)
+        assert module.os.environ["PATH"] == f"{tmp_path / '.local/bin'}:/usr/bin:/bin"
+
+    def test_a_folder_already_in_the_path_is_not_added_again(
+        self, under, monkeypatch, tmp_path
+    ):
+        module = under("Darwin")
+        already = f"/usr/bin:{tmp_path / '.local/bin'}:/bin"
+        self._install(module, monkeypatch, tmp_path, path=already)
+        assert module.os.environ["PATH"] == already
+
+    def test_a_failed_download_is_said_and_left_to_do(
+        self, under, monkeypatch, tmp_path, capsys
+    ):
+        """The pipe ends with the shell's exit code, not curl's."""
+        module = under("Darwin")
+        ctx, _, found = self._install(module, monkeypatch, tmp_path, lays_it=False)
+        assert not found
+        assert ctx.to_do == [module.INSTALL_UV]
+        assert "uv n'a pas pu être installé" in capsys.readouterr().out
+
+    def test_a_refusal_installs_nothing_and_says_how(self, under, monkeypatch):
+        module = under("Darwin")
+        launched = []
+        monkeypatch.setattr(module, "run_job", lambda command, **_: launched.append(command))
+        ctx = self.Context(consent=False)
+        assert not module.install_uv(ctx, "pour le paquet")
+        assert launched == []
+        assert ctx.to_do == [module.INSTALL_UV]
+
+    def test_the_environment_step_takes_this_way(self, under, monkeypatch, tmp_path):
+        module = under("Darwin")
+        monkeypatch.setattr(module, "ROOT", tmp_path)
+        monkeypatch.setattr(module.shutil, "which", lambda _name: None)
+        asked = []
+        monkeypatch.setattr(module, "install_uv", lambda _ctx, because: asked.append(because))
+        monkeypatch.setattr(module, "install_package", lambda *_: pytest.fail("Homebrew"))
+        monkeypatch.setattr(module, "run_job", lambda *_a, **_k: None)
+        with pytest.raises(SystemExit):
+            module.environment_step(self.Context(consent=False), "whisper.cpp")
+        assert len(asked) == 1
+
+
 def _an_interpreter_older_than_310():
     """The Python a Mac ships without Homebrew (3.9), when this machine has it."""
     for candidate in ("/usr/bin/python3", "python3.9"):
