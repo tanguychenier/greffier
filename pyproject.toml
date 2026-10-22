@@ -147,6 +147,9 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py313"
+# The installer runs before the package, on whatever Python the machine has:
+# 3.9 on a Mac without Homebrew. A 3.10 construct there stopped it at import.
+per-file-target-version = { "tools/install.py" = "py39" }
 
 [tool.ruff.lint]
 # Not adopted, on purpose: D (docstrings are read, not counted), CPY, COM812,
@@ -155,7 +158,7 @@ target-version = "py313"
 # must not load whisper), PLR0913 (injected dependencies make long
 # signatures in this architecture).
 select = [
-    "E", "F", "I", "UP", "B", "SIM",
+    "E", "F", "FA", "I", "UP", "B", "SIM",
     "ARG", "BLE", "DTZ", "PERF", "PLW", "RUF", "PTH", "PT", "S", "C901", "PLR0915",
 ]
 ignore = [

@@ -16,6 +16,10 @@ machine unannounced. What it prints is for the person installing, in French;
 the code around it is in English.
 """
 
+# The annotations stay unevaluated: `bool | None` is Python 3.10, and this
+# script still has to run on 3.9.
+from __future__ import annotations
+
 import argparse
 import contextlib
 import importlib.util
@@ -376,10 +380,37 @@ PACKAGES = {
     "ollama": {
         "brew": "ollama", "winget": "Ollama.Ollama", "scoop": "ollama",
     },
-    "uv": {
-        "brew": "uv", "winget": "astral-sh.uv", "scoop": "uv",
-    },
 }
+
+# Astral's own installer, rather than Homebrew: it lays a built binary for
+# either processor in seconds, after checking its SHA-256. Homebrew carries no
+# bottle of uv for Intel Macs and built it from source, Rust included: more
+# than an hour measured on a Mac mini, for a step the installer waits on.
+UV_INSTALLER = "https://astral.sh/uv/install.sh"
+INSTALL_UV = f"curl -LsSf {UV_INSTALLER} | sh"
+
+
+def install_uv(ctx, because):
+    """Installs uv in the personal commands folder; whether it is now found."""
+    if not ctx.ask(f"Installer uv ? ({because})"):
+        ctx.to_do.append(INSTALL_UV)
+        return False
+    folder = commands_folder()
+    # Pinned rather than guessed: the installer would otherwise pick its first
+    # folder from variables this run cannot see the shell setting.
+    run_job(["sh", "-c", INSTALL_UV], env={**os.environ, "XDG_BIN_HOME": str(folder)})
+    # This run's own PATH, and macos/construire.sh's after it: the profile the
+    # installer edits only reaches the terminals opened afterwards.
+    paths = os.environ.get("PATH", "").split(os.pathsep)
+    if str(folder) not in paths:
+        os.environ["PATH"] = os.pathsep.join([str(folder), *paths])
+    if shutil.which("uv"):
+        return True
+    # The pipe hides a failed download from the exit code: the binary itself
+    # is the only proof.
+    warn("uv n'a pas pu être installé")
+    ctx.to_do.append(INSTALL_UV)
+    return False
 
 
 def install_package(ctx, name, because):
@@ -939,7 +970,7 @@ def environment_step(ctx, engine):
         # The application carries a relocatable interpreter: only uv installs
         # one (python-build-standalone), and only uv knows how to fill it.
         # Without it the command line works but not the .app bundle.
-        install_package(ctx, "uv", "interpréteur relogeable, embarqué dans l'application")
+        install_uv(ctx, "interpréteur relogeable, embarqué dans l'application")
 
     # The check is on the **interpreter**, never on the folder. A
     # « .venv » that came from another machine, a project folder copied, a

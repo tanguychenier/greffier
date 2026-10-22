@@ -89,7 +89,7 @@ if [ ! -f "$BASE_PREFIX/lib/libpython$VERSION.dylib" ] || [ ! -x "$BASE_PREFIX/b
   echo "   Il faut un Python installé par uv : rm -rf .venv && uv venv --python 3.13, puis relance l'installeur." >&2
   exit 1
 fi
-command -v uv >/dev/null 2>&1 || { echo "❌ uv est nécessaire pour remplir le paquet : brew install uv" >&2; exit 1; }
+command -v uv >/dev/null 2>&1 || { echo "❌ uv est nécessaire pour remplir le paquet : curl -LsSf https://astral.sh/uv/install.sh | sh" >&2; exit 1; }
 
 # Ni le dossier utilisateur de Python (~/.local/lib/python…, caché), ni de .pyc
 # écrit pendant la construction ailleurs que là où on le demande.
