@@ -42,7 +42,7 @@ on:
       release_tag:
         description: Published package to verify
         type: string
-        default: v0.3.33
+        default: v0.3.34
 
 permissions:
   contents: write
