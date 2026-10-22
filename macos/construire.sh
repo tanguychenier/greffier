@@ -150,6 +150,11 @@ rm -rf "$SITE"/pip "$SITE"/pip-*.dist-info
 echo "→ Greffier et ses dépendances"
 # Installation ordinaire, pas éditable : le code est copié dans le paquet.
 uv pip install --quiet --python "$EXECUTABLE" "$DEPOT"
+# Les lanceurs que uv pose dans Contents/bin (greffier, f2py, tqdm…) portent
+# en première ligne l'interpréteur de l'atelier, effacé à la sortie : ils ne
+# s'exécutaient nulle part, constaté dans le paquet Intel de la 0.3.33.
+# L'application se relance par « python -m greffier » et n'en appelle aucun.
+rm -rf "$CONTENU/bin"
 
 # Le lanceur du double-clic, avec le PATH mesuré, parmi les paquets : `site`
 # l'importe de lui-même au démarrage de l'interpréteur.

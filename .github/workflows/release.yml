@@ -42,7 +42,7 @@ on:
       release_tag:
         description: Published package to verify
         type: string
-        default: v0.3.33
+        default: v0.3.34
 
 permissions:
   contents: write
@@ -99,6 +99,11 @@ jobs:
         env:
           ARCH: ${{ matrix.arch }}
         run: .venv/bin/python tools/check_bundle_architecture.py "$RUNNER_TEMP/Greffier.app" --arch "$ARCH"
+      - name: Every script in the bundle runs through an interpreter every Mac has
+        # The bundle is built in a temporary workshop: up to 0.3.33 every
+        # launcher in Contents/bin named it on its first line and answered
+        # « bad interpreter » on every Mac.
+        run: .venv/bin/python tools/check_bundle_scripts.py "$RUNNER_TEMP/Greffier.app"
       - name: Open every tab in the native bundle
         run: >-
           .venv/bin/python tools/check_runtime.py --output runtime-macos.json --
